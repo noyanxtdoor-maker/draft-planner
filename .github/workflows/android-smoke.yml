@@ -24,7 +24,7 @@ jobs:
             command: flutter test integration_test/privacy_smoke_test.dart
           - api-level: 24
             flow: process-persistence
-            command: flutter test integration_test/process_seed_test.dart && adb shell am force-stop com.nexttransfer.rmplanner && flutter test integration_test/process_resume_test.dart
+            command: flutter test --no-uninstall integration_test/process_seed_test.dart && adb shell am force-stop com.nexttransfer.rmplanner && flutter test integration_test/process_resume_test.dart
           - api-level: 36
             flow: startup
             command: flutter test integration_test/startup_smoke_test.dart
@@ -33,7 +33,7 @@ jobs:
             command: flutter test integration_test/privacy_smoke_test.dart
           - api-level: 36
             flow: process-persistence
-            command: flutter test integration_test/process_seed_test.dart && adb shell am force-stop com.nexttransfer.rmplanner && flutter test integration_test/process_resume_test.dart
+            command: flutter test --no-uninstall integration_test/process_seed_test.dart && adb shell am force-stop com.nexttransfer.rmplanner && flutter test integration_test/process_resume_test.dart
 
     steps:
       - uses: actions/checkout@v4

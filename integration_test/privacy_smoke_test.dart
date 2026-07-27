@@ -42,9 +42,11 @@ void main() {
 
     final privacyContainer = privacy.createContainer();
     addTearDown(privacyContainer.dispose);
-    final relocked = privacyContainer
-        .read(privacyControllerProvider.notifier)
-        .lockForBackground();
+    final privacyController = privacyContainer.read(
+      privacyControllerProvider.notifier,
+    );
+    await privacyController.initialize();
+    final relocked = privacyController.lockForBackground();
     expect(relocked, isTrue);
     expect(await privacy.gate.isUnlockRequired(), isTrue);
 
