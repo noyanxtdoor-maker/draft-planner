@@ -15,6 +15,7 @@ void main() {
     final database = AppDatabase.defaults();
     final repository = buildTestRepository(database: database);
     final privacy = TestPrivacyDependencies(database: database);
+    await repository.completeOnboarding();
 
     await tester.pumpWidget(
       privacy.buildApp(
@@ -27,13 +28,6 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-
-    if (find.text('Continue offline').evaluate().isNotEmpty) {
-      await tester.tap(find.text('Continue offline'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Create local profile'));
-      await tester.pumpAndSettle();
-    }
 
     expect(find.text('Home'), findsOneWidget);
     // Intentionally do not close the database. The workflow force-stops this
