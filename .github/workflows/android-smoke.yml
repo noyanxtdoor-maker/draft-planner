@@ -16,6 +16,7 @@ jobs:
       fail-fast: false
       matrix:
         api-level: [24, 36]
+        flow: [startup, privacy, process-persistence]
 
     steps:
       - uses: actions/checkout@v4
@@ -41,7 +42,7 @@ jobs:
       - name: Resolve locked dependencies
         run: flutter pub get
 
-      - name: Run VS-01 and VS-02 smoke flows
+      - name: Run ${{ matrix.flow }} smoke flow
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: ${{ matrix.api-level }}
@@ -49,8 +50,16 @@ jobs:
           profile: pixel_2
           disable-animations: true
           script: |
-            flutter test integration_test/startup_smoke_test.dart
-            flutter test integration_test/privacy_smoke_test.dart
-            flutter test integration_test/process_seed_test.dart
-            adb shell am force-stop com.nexttransfer.rmplanner
-            flutter test integration_test/process_resume_test.dart
+            case "${{ matrix.flow }}" in
+              startup)
+                flutter test integration_test/startup_smoke_test.dart
+                ;;
+              privacy)
+                flutter test integration_test/privacy_smoke_test.dart
+                ;;
+              process-persistence)
+                flutter test integration_test/process_seed_test.dart
+                adb shell am force-stop com.nexttransfer.rmplanner
+                flutter test integration_test/process_resume_test.dart
+                ;;
+            esac
