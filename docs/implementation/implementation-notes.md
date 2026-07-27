@@ -93,9 +93,16 @@
   protected-route, and unlock journey with a fake authenticator so CI never
   blocks on an unattended system prompt. The exact `paused` lifecycle observer
   remains covered by the widget journey.
-- A real Android biometric/device-credential prompt and vendor-specific recent
-  apps behavior require a manual device run. Until captured, those platform
-  aspects remain conditional evidence rather than a claimed pass.
+- Real-device platform verification completed on an Infinix X6731 running
+  Android 14 (API 34). Android System UI presented the biometric prompt with
+  device-credential fallback; successful authentication enabled Privacy Lock,
+  a genuine Home/background/resume transition rendered the protected route,
+  and a second successful unlock returned to Home.
+- The Infinix XOS Recent Apps view displayed a solid dark placeholder for the
+  Next Transfer task card with no private app content visible. This verifies
+  the supported-device result without changing the truthful limitation that
+  preview protection cannot be guaranteed across every Android vendor and OS
+  version.
 
 ### VS-02 final local verification evidence
 
@@ -128,8 +135,11 @@
   isolation, an uninitialized test controller, and Flutter's default
   post-integration-test uninstall; each was corrected without changing
   production behavior or acceptance criteria.
-- Real-device OS authentication and vendor-specific recent-app behavior remain
-  manual evidence conditions.
+- Real-device AC-W-003 and AC-W-006 verification passed on an Infinix X6731
+  running Android 14 (API 34): the real Android authentication prompt,
+  credential fallback, enable persistence, immediate background relock,
+  authenticated unlock, and obscured XOS Recent Apps preview were all
+  observed.
 
 The managed temporary Flutter toolchain was missing two files tracked by the
 pinned Flutter revision. The missing `content_aware_hash.ps1` and Gradle

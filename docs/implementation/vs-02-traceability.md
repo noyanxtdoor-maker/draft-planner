@@ -13,10 +13,10 @@ local operation with every optional permission denied.
 | --- | --- | --- |
 | FR-W-001 / AC-W-001 — core workflows work with all optional permissions denied | Production manifest declares only normal `USE_BIOMETRIC`; permission screen never requests | authority verifier; privacy controller/widget tests; Android smoke |
 | FR-W-002 / AC-W-002 — request only just in time for selected feature | `PermissionGateway` exposes status/settings only in VS-02; no request command or optional permission declaration | authority verifier; permission provider test |
-| FR-W-003 / AC-W-003 — OS biometric/device credential where available | `LocalAuthDeviceAuthenticator`, `biometricOnly: false`; enable requires availability and successful auth | controller tests; host verification; real-device check pending |
+| FR-W-003 / AC-W-003 — OS biometric/device credential where available | `LocalAuthDeviceAuthenticator`, `biometricOnly: false`; enable requires availability and successful auth | controller tests; host verification; Infinix X6731 Android 14 real-device pass |
 | FR-W-004 / AC-W-004 — never store biometric data | Drift schema stores only lock boolean, preview mode, and permission audit | schema/database test; generated schema review |
 | FR-W-005 / AC-W-005 — failure does not delete/reset/corrupt | failed/canceled/unavailable outcomes remain locked and do not mutate data | controller and widget tests |
-| FR-W-006 / AC-W-006 — obscure app switcher where supported | Android activity applies `FLAG_SECURE`; UI states coverage limitation | authority verifier; build; vendor behavior manual |
+| FR-W-006 / AC-W-006 — obscure app switcher where supported | Android activity applies `FLAG_SECURE`; UI states coverage limitation | authority verifier; build; Infinix XOS Recent Apps preview observed obscured |
 | FR-W-007 / AC-W-007 — notification previews follow privacy settings | persisted default-hidden `NotificationPreviewMode`; future-notification boundary stated | repository and widget tests |
 | FR-W-008 / AC-W-008 — explain local, optional sync, and local-only | Privacy Center “Where data lives” cards | widget and 200% text-scale tests |
 | FR-W-009 / AC-W-009 — explain contacts, attachments, permissions, diagnostics, export, backup, deletion | Privacy/Permissions/Diagnostics views and deletion-impact dialog | widget journey |
@@ -98,7 +98,7 @@ removed when the authorized shell/More slice owns that destination.
 | Q4 UI/accessibility | Pass — widget journey and 200% text scale pass |
 | Q5 Android platform | Pass — API 24/API 36 startup, privacy, relaunch, and force-stop persistence matrix passed |
 | Q6 Remote security | Not applicable; no remote code introduced |
-| Q7 Slice evidence | Conditional — 31 automated tests pass; AC-W-003/006 platform evidence remains pending |
+| Q7 Slice evidence | Pass — 31 automated tests and AC-W-003/006 real-device verification pass |
 
 ## Final local verification
 
@@ -116,5 +116,9 @@ removed when the authorized shell/More slice owns that destination.
 - Secret scan and `git diff --check`: pass.
 - API 24/API 36 CI matrix: pass; all six jobs completed in
   [run 30244834767](https://github.com/noyanxtdoor-maker/draft-planner/actions/runs/30244834767).
-- Real-device biometric/device-credential prompt and vendor-specific recents
-  behavior: manual evidence pending.
+- Real-device platform verification: pass on Infinix X6731, Android 14
+  (API 34). Android System UI displayed biometric authentication with numeric
+  device-credential fallback; successful authentication enabled Privacy Lock;
+  background/resume rendered the protected route; authenticated unlock
+  returned to Home; and the XOS Recent Apps card showed a solid dark
+  placeholder with no private app content.
