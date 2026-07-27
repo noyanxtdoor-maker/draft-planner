@@ -89,8 +89,10 @@
   lifecycle relock, protected routing, permission-state history, schema
   migration/rollback, secure-token failure, diagnostics review, deletion
   explanations, and 200% text scaling.
-- The API 24/API 36 workflow now runs a VS-02 lifecycle smoke test with a fake
-  authenticator so CI never blocks on an unattended system prompt.
+- The API 24/API 36 workflow runs the Android privacy enable, relock-gate,
+  protected-route, and unlock journey with a fake authenticator so CI never
+  blocks on an unattended system prompt. The exact `paused` lifecycle observer
+  remains covered by the widget journey.
 - A real Android biometric/device-credential prompt and vendor-specific recent
   apps behavior require a manual device run. Until captured, those platform
   aspects remain conditional evidence rather than a claimed pass.
@@ -115,9 +117,19 @@
   Android's generated non-exported dynamic-receiver permission. It contains no
   contacts, notification, calendar, storage, or location permission.
 - Secret-pattern scanning and Git whitespace validation passed.
-- The Android API 24/API 36 privacy smoke matrix is configured but has not yet
-  run for this branch. Real-device OS authentication and vendor-specific
-  recent-app behavior also remain manual evidence conditions.
+- The final Android matrix
+  [run 30244834767](https://github.com/noyanxtdoor-maker/draft-planner/actions/runs/30244834767)
+  passed all six jobs: startup, privacy relock/unlock, and force-stop
+  persistence on API 24 and API 36.
+- The matrix uses GitHub-hosted Linux KVM, one fresh emulator per flow, and
+  `flutter test --no-uninstall` for the process seed so the subsequent
+  force-stop/resume test verifies retained app data rather than a reinstall.
+  Earlier diagnostic runs exposed missing KVM acceleration, cross-flow
+  isolation, an uninitialized test controller, and Flutter's default
+  post-integration-test uninstall; each was corrected without changing
+  production behavior or acceptance criteria.
+- Real-device OS authentication and vendor-specific recent-app behavior remain
+  manual evidence conditions.
 
 The managed temporary Flutter toolchain was missing two files tracked by the
 pinned Flutter revision. The missing `content_aware_hash.ps1` and Gradle

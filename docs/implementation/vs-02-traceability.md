@@ -96,7 +96,7 @@ removed when the authorized shell/More slice owns that destination.
 | Q2 Domain/database/migration | Pass — full suite includes v1→v2 upgrade and rollback |
 | Q3 Offline/privacy/idempotency | Pass — privacy, secure-store, permission-denial, and diagnostic tests pass |
 | Q4 UI/accessibility | Pass — widget journey and 200% text scale pass |
-| Q5 Android platform | Conditional — API 24/API 36 workflow configured; new CI run and real OS-auth/vendor check pending |
+| Q5 Android platform | Pass — API 24/API 36 startup, privacy, relaunch, and force-stop persistence matrix passed |
 | Q6 Remote security | Not applicable; no remote code introduced |
 | Q7 Slice evidence | Conditional — 31 automated tests pass; AC-W-003/006 platform evidence remains pending |
 
@@ -114,6 +114,7 @@ removed when the authorized shell/More slice owns that destination.
 - Merged-manifest review: pass; no contacts, notification, calendar, storage,
   or location permission.
 - Secret scan and `git diff --check`: pass.
-- API 24/API 36 CI matrix: configured, not yet executed for this branch.
+- API 24/API 36 CI matrix: pass; all six jobs completed in
+  [run 30244834767](https://github.com/noyanxtdoor-maker/draft-planner/actions/runs/30244834767).
 - Real-device biometric/device-credential prompt and vendor-specific recents
   behavior: manual evidence pending.

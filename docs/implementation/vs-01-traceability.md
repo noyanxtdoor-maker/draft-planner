@@ -79,13 +79,11 @@ The following passed locally on 2026-07-26:
 - Drift code generation with an unchanged generated-source SHA-256
 - `flutter test` (15 tests)
 
-The debug APK build reached Android Java compilation but is not recorded as
-passing locally: the managed Windows sandbox denied `javac` access to readable
-Android SDK jars. The PR workflow repeats the build on Ubuntu. The scheduled
-API 24/API 36 emulator matrix is configured but has not run because this
-workspace is not a local Git repository and no CI run can be triggered here.
-The explicit integration-test command also reported no supported Android device
-connected; it was not counted as passing platform evidence.
+At the original VS-01 checkpoint, the debug APK build and emulator matrix were
+still conditional because the managed Windows sandbox denied `javac` access to
+the Android SDK and no Android device was connected. The later VS-02
+verification repaired the temporary toolchain outside the repository, built
+the debug APK locally, and ran the repository on GitHub-hosted emulators.
 
 The Android matrix runs the fresh/offline/relaunch/deep-link smoke journey, then
 persists a profile with the production database opener, executes
@@ -103,5 +101,6 @@ resume test against the same app data.
 - Optional account: onboarding and Home expose local-only use without requiring
   sign-in.
 
-The implementation evidence is locally complete. Platform approval remains
-conditional on a successful debug APK build and the API 24/API 36 smoke matrix.
+The original VS-01 platform condition is now closed. Debug APK assembly passed,
+and startup plus force-stop persistence passed on API 24 and API 36 in
+[run 30244834767](https://github.com/noyanxtdoor-maker/draft-planner/actions/runs/30244834767).
