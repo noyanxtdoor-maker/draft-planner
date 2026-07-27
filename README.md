@@ -81,3 +81,250 @@ VS-01 mappings and verification evidence are maintained in
 
 Do not begin VS-02 without explicit product-owner authorization after the VS-01
 quality-gate report.
+
+## APPROVED VISUAL AND PIXEL-REFERENCE CONTRACT
+
+The repository contains approved visual reference images and matching
+HTML reference files inside the `UI Preferences/` directory for:
+
+- Home
+- Planner
+- Pathways
+- Contacts
+- More
+
+### SOURCE PRECEDENCE
+
+1. Approved Phase 3 workbook and vertical-slice specifications
+   control behavior, data, privacy, navigation, business rules,
+   feature scope, and acceptance criteria.
+
+2. Approved PNG reference images
+   are the primary visual authority.
+
+3. Matching HTML files
+   are secondary implementation references used to inspect:
+   - spacing
+   - margins
+   - padding
+   - component dimensions
+   - typography scale
+   - border radius
+   - divider thickness
+   - icon placement
+   - alignment
+   - timeline positioning
+   - bottom-navigation proportions
+   - color values
+   - responsive relationships
+
+When the PNG and HTML differ visually, the PNG image wins.
+
+When either the PNG or HTML conflicts with the approved behavioral
+specifications, the approved behavioral specifications win.
+
+### IMPLEMENTATION REQUIREMENT
+
+Before implementing each permanent destination:
+
+1. Open the corresponding approved PNG image.
+2. Open and inspect the corresponding HTML file.
+3. Extract reusable measurements and design tokens.
+4. Reimplement the screen natively in Flutter.
+5. Compare the Flutter result against the PNG at the matching reference
+   viewport.
+6. Correct material differences in spacing, hierarchy, alignment,
+   typography, borders, icon sizing, and component proportions.
+7. Preserve responsive Android behavior and accessibility.
+
+The HTML is not production code.
+
+Do not:
+
+- embed the HTML inside the Flutter app;
+- use a WebView to render the application screens;
+- copy Tailwind CSS or CDN dependencies into the production app;
+- depend on external image URLs used by the HTML;
+- reproduce simulated iOS system status bars or home indicators;
+- hard-code the sample names, phone numbers, dates, progress values,
+  event titles, temple names, or photographs;
+- treat sample content as approved product data;
+- allow the HTML to override domain or privacy requirements.
+
+### ANDROID-FIRST REQUIREMENT
+
+The reference files may visually simulate iOS-style status bars,
+navigation areas, or home indicators.
+
+Next Transfer remains Android-first.
+
+Use:
+
+- real Android safe areas;
+- Android system status and navigation behavior;
+- Flutter-native accessibility;
+- responsive layouts for different Android screen sizes.
+
+Preserve the approved visual composition without copying fake operating-
+system chrome from the reference files.
+
+### KNOWN SPECIFICATION EXCEPTION
+
+The Pathways reference contains an example “Overall Progress 65%” card.
+
+Do not implement a universal Pathways or Covenant Path percentage.
+
+The visual container and hierarchy may be reused, but its actual content
+must follow the approved requirements, using factual milestone counts,
+statuses, scheduled items, or other permitted summaries.
+
+### VISUAL FIDELITY EXPECTATION
+
+The Flutter implementation should closely match the approved images in:
+
+- dark charcoal and black surfaces;
+- pink accent system;
+- compact PMG-inspired density;
+- top-bar structure;
+- permanent bottom navigation;
+- section spacing;
+- card and list geometry;
+- icon scale;
+- text hierarchy;
+- timeline grid and event positioning;
+- divider and border treatment;
+- floating-action-button position;
+- active and inactive navigation states.
+
+Do not replace the approved direction with:
+
+- generic Material starter screens;
+- default Flutter demo styling;
+- glassmorphism;
+- bento-style redesigns beyond what is explicitly shown;
+- oversized hero sections;
+- excessive gradients;
+- bright unrelated color palettes;
+- decorative gamification.
+
+### VISUAL DEVIATIONS
+
+A deviation is allowed only when required by:
+
+- an approved product requirement;
+- accessibility;
+- Android system behavior;
+- responsive layout;
+- technical impossibility;
+- privacy or security;
+- prevention of data loss.
+
+Material deviations must be documented with:
+
+- affected screen;
+- reference file;
+- reason;
+- resulting implementation.
+
+Recommended folder naming:
+
+```text
+UI Preferences/
+├── home/
+│   ├── home-approved-reference.png
+│   └── home-pixel-reference.html
+├── planner/
+│   ├── planner-approved-reference.png
+│   └── planner-pixel-reference.html
+├── pathways/
+│   ├── pathways-approved-reference.png
+│   └── pathways-pixel-reference.html
+├── contacts/
+│   ├── contacts-approved-reference.png
+│   └── contacts-pixel-reference.html
+└── more/
+    ├── more-approved-reference.png
+    └── more-pixel-reference.html
+```
+
+Use this exact repository-relative mapping:
+
+```text
+UI Preferences/
+├── home-approved-reference.png
+├── planner-approved-reference.png
+├── pathways-approved-reference.png
+├── contacts-approved-reference.png
+├── more-approved-reference.png
+│
+└── stitch_next_transfer/
+    ├── home_recreated/
+    │   └── code.html
+    ├── planner_recreated/
+    │   └── code.html
+    ├── pathways_recreated/
+    │   └── code.html
+    ├── contacts_recreated/
+    │   └── code.html
+    └── more_recreated/
+        └── code.html
+```
+
+## APPROVED UI REFERENCE LOCATIONS
+
+All approved permanent-destination visual references are located at:
+
+- `UI Preferences/home-approved-reference.png`
+- `UI Preferences/planner-approved-reference.png`
+- `UI Preferences/pathways-approved-reference.png`
+- `UI Preferences/contacts-approved-reference.png`
+- `UI Preferences/more-approved-reference.png`
+
+The corresponding HTML measurement references are located at:
+
+- `UI Preferences/stitch_next_transfer/home_recreated/code.html`
+- `UI Preferences/stitch_next_transfer/planner_recreated/code.html`
+- `UI Preferences/stitch_next_transfer/pathways_recreated/code.html`
+- `UI Preferences/stitch_next_transfer/contacts_recreated/code.html`
+- `UI Preferences/stitch_next_transfer/more_recreated/code.html`
+
+### REFERENCE PRECEDENCE
+
+1. Approved Phase 3 workbook and vertical-slice specifications:
+   authoritative for behavior, data, scope, privacy, and business rules.
+
+2. The five approved PNG images:
+   authoritative for the desired visual appearance.
+
+3. The matching HTML files:
+   implementation aids for pixel-level measurements, including spacing,
+   padding, dimensions, typography, alignment, icon sizing, borders,
+   timeline placement, and bottom-navigation proportions.
+
+When the PNG and HTML differ visually, follow the PNG.
+
+When either visual reference conflicts with an approved requirement,
+follow the approved requirement and document the visual deviation.
+
+### MANDATORY SCREEN WORKFLOW
+
+Before implementing Home, Planner, Pathways, Contacts, or More:
+
+1. Open the approved PNG for that destination.
+2. Inspect the matching `code.html`.
+3. Extract shared Flutter design tokens and component measurements.
+4. Implement the screen natively in Flutter.
+5. Compare the Flutter render against the PNG at a matching viewport.
+6. Correct material differences before marking visual work complete.
+
+Do not render these HTML files through a WebView.
+Do not use the HTML as production code.
+Do not hard-code the sample people, phone numbers, dates, activities,
+progress values, photographs, or other demonstration content.
+
+### KNOWN PATHWAYS EXCEPTION
+
+Do not implement the sample universal “Overall Progress 65%” value.
+The Pathways screen must follow the approved factual milestone/status
+rules and must not calculate spiritual worthiness or a universal
+Covenant Path percentage.
