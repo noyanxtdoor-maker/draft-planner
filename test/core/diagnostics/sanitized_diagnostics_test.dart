@@ -28,4 +28,37 @@ void main() {
       isNot(contains('secret-token')),
     );
   });
+
+  test('AC-W-022: optional diagnostic details require preview selection', () {
+    final diagnostics = SanitizedDiagnostics()
+      ..record(
+        'database_open_ready',
+        context: const <String, Object?>{
+          'database_state': 'ready',
+          'token': 'never-export',
+        },
+      );
+
+    final minimal = diagnostics.prepareExportPreview(
+      includeOptionalContext: false,
+    );
+    final reviewed = diagnostics.prepareExportPreview(
+      includeOptionalContext: true,
+    );
+
+    expect(minimal.events.single.safeContext, isEmpty);
+    expect(reviewed.events.single.safeContext, <String, Object?>{
+      'database_state': 'ready',
+    });
+    expect(
+      reviewed.events.single.safeContext.values,
+      isNot(contains('never-export')),
+    );
+  });
+
+  test('AC-W-012: diagnostic event codes cannot carry private payloads', () {
+    final diagnostics = SanitizedDiagnostics()..record('token=private-value');
+
+    expect(diagnostics.events.single.code, 'invalid_diagnostic_code');
+  });
 }

@@ -15,10 +15,35 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        api-level: [24, 36]
+        include:
+          - api-level: 24
+            flow: startup
+            command: flutter test integration_test/startup_smoke_test.dart
+          - api-level: 24
+            flow: privacy
+            command: flutter test integration_test/privacy_smoke_test.dart
+          - api-level: 24
+            flow: process-persistence
+            command: flutter test --no-uninstall integration_test/process_seed_test.dart && adb shell am force-stop com.nexttransfer.rmplanner && flutter test integration_test/process_resume_test.dart
+          - api-level: 36
+            flow: startup
+            command: flutter test integration_test/startup_smoke_test.dart
+          - api-level: 36
+            flow: privacy
+            command: flutter test integration_test/privacy_smoke_test.dart
+          - api-level: 36
+            flow: process-persistence
+            command: flutter test --no-uninstall integration_test/process_seed_test.dart && adb shell am force-stop com.nexttransfer.rmplanner && flutter test integration_test/process_resume_test.dart
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
 
       - uses: actions/setup-java@v4
         with:
@@ -34,15 +59,11 @@ jobs:
       - name: Resolve locked dependencies
         run: flutter pub get
 
-      - name: Run VS-01 smoke flow
+      - name: Run ${{ matrix.flow }} smoke flow
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: ${{ matrix.api-level }}
           arch: x86_64
           profile: pixel_2
           disable-animations: true
-          script: |
-            flutter test integration_test/startup_smoke_test.dart
-            flutter test integration_test/process_seed_test.dart
-            adb shell am force-stop com.nexttransfer.rmplanner
-            flutter test integration_test/process_resume_test.dart
+          script: ${{ matrix.command }}

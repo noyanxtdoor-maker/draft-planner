@@ -42,3 +42,108 @@
 - Debug/profile manifests retain Flutter's normal `INTERNET` permission for
   development tooling; the production main manifest declares no permission and
   onboarding requests none.
+
+## 2026-07-27 — VS-02 Privacy Lock, Permissions, and Privacy Center
+
+- Product-owner authorization expanded the active boundary through VS-02 only.
+- Added schema version 2 with a singleton privacy-preference row and
+  permission-audit rows. Unlock state remains memory-only. No biometric data,
+  app PIN, authentication token, private payload, or precise location is stored
+  in Drift.
+- Implemented OS authentication through `local_auth` with biometrics and device
+  credential fallback. Enabling and disabling Privacy Lock require successful
+  OS authentication. Failure leaves both user data and lock configuration
+  intact.
+- A genuine Android background transition (`paused`) immediately marks the
+  session locked. The protected route is rendered when frames resume. Merely
+  becoming inactive does not infer a background transition.
+- Android uses `FlutterFragmentActivity`, the host-declared normal
+  `USE_BIOMETRIC` permission, AppCompat launch/normal themes, and `FLAG_SECURE`.
+  The local-auth adapter also merges normal `USE_FINGERPRINT` for older-device
+  compatibility; neither permission is a runtime prompt.
+  `FLAG_SECURE` is applied to the activity for the strongest supported
+  recent-app-preview and screenshot obscuring; the UI does not claim universal
+  vendor/OS coverage.
+- Added a Privacy Center, permission status/purpose view, diagnostic preview,
+  notification-preview preference, data-boundary explanations, and a
+  non-destructive deletion-impact review.
+- The permission screen observes status and opens Android app settings but does
+  not request a permission. No contacts, notification, calendar, storage, or
+  location permission is declared in VS-02. Core local planning therefore works
+  with every optional permission denied.
+- Added a secure token-store adapter using `flutter_secure_storage`; it is not
+  used to introduce account behavior. Storage errors propagate and never fall
+  back to Drift.
+- Raw BetterCalendar imports, Extra Private reflections, authentication tokens,
+  and other private payloads are represented by fail-closed policy rules that
+  exclude them from diagnostics, analytics, outbox, and backup.
+- The existing minimal Home has a temporary shield action so VS-02 is reachable
+  before the permanent More destination exists. The approved final route remains
+  More > Privacy and Data; moving the entry into More belongs to the authorized
+  slice that creates the permanent shell. No permanent More screen or VS-03
+  feature was built.
+
+### VS-02 verification boundary
+
+- Automated tests cover lock enable/disable, failure preservation, immediate
+  lifecycle relock, protected routing, permission-state history, schema
+  migration/rollback, secure-token failure, diagnostics review, deletion
+  explanations, and 200% text scaling.
+- The API 24/API 36 workflow runs the Android privacy enable, relock-gate,
+  protected-route, and unlock journey with a fake authenticator so CI never
+  blocks on an unattended system prompt. The exact `paused` lifecycle observer
+  remains covered by the widget journey.
+- Real-device platform verification completed on an Infinix X6731 running
+  Android 14 (API 34). Android System UI presented the biometric prompt with
+  device-credential fallback; successful authentication enabled Privacy Lock,
+  a genuine Home/background/resume transition rendered the protected route,
+  and a second successful unlock returned to Home.
+- The Infinix XOS Recent Apps view displayed a solid dark placeholder for the
+  Next Transfer task card with no private app content visible. This verifies
+  the supported-device result without changing the truthful limitation that
+  preview protection cannot be guaranteed across every Android vendor and OS
+  version.
+
+### VS-02 final local verification evidence
+
+- Authority and locked-scope verification passed.
+- Strict formatting passed for all 61 Dart files with no formatter changes.
+- Static analysis passed with no issues.
+- Clean Drift code generation reproduced
+  `app_database.g.dart` byte-for-byte. Its SHA-256 remained
+  `A303C00C6DD86678B42F8D725C254BE1D5F0EA348DD2109F8669C7DE65D39052`.
+- All 31 Flutter tests passed.
+- The production dependency audit completed successfully. The VS-02 package
+  pins are `local_auth 3.0.2`, `permission_handler 12.0.3`, and
+  `flutter_secure_storage 10.3.1`.
+- Debug Android assembly passed. The resulting `app-debug.apk` is
+  192,109,508 bytes with SHA-256
+  `F2DFD35DDDDDC0E0554353C0AECD1BB1EA0B1CF394F62F0579D3C97C5FC32A7A`.
+- The merged debug manifest was inspected. Its permission set is the debug-only
+  `INTERNET` permission, normal biometric compatibility permissions, and
+  Android's generated non-exported dynamic-receiver permission. It contains no
+  contacts, notification, calendar, storage, or location permission.
+- Secret-pattern scanning and Git whitespace validation passed.
+- The final Android matrix
+  [run 30244834767](https://github.com/noyanxtdoor-maker/draft-planner/actions/runs/30244834767)
+  passed all six jobs: startup, privacy relock/unlock, and force-stop
+  persistence on API 24 and API 36.
+- The matrix uses GitHub-hosted Linux KVM, one fresh emulator per flow, and
+  `flutter test --no-uninstall` for the process seed so the subsequent
+  force-stop/resume test verifies retained app data rather than a reinstall.
+  Earlier diagnostic runs exposed missing KVM acceleration, cross-flow
+  isolation, an uninitialized test controller, and Flutter's default
+  post-integration-test uninstall; each was corrected without changing
+  production behavior or acceptance criteria.
+- Real-device AC-W-003 and AC-W-006 verification passed on an Infinix X6731
+  running Android 14 (API 34): the real Android authentication prompt,
+  credential fallback, enable persistence, immediate background relock,
+  authenticated unlock, and obscured XOS Recent Apps preview were all
+  observed.
+
+The managed temporary Flutter toolchain was missing two files tracked by the
+pinned Flutter revision. The missing `content_aware_hash.ps1` and Gradle
+`CMakeLists.txt` were restored verbatim outside the repository. A
+process-scoped Git safe-directory setting and Gradle's
+`--no-problems-report` option were used for the local build. These environment
+repairs did not modify project source or global Git configuration.

@@ -6,8 +6,9 @@ permanent application ID and namespace are `com.nexttransfer.rmplanner`.
 
 ## Current implementation status
 
-Repository bootstrap, Q0, and VS-01 (Guest Startup and Local Profile) are
-implemented. VS-02 and later slices are intentionally not started.
+Repository bootstrap, Q0, VS-01 (Guest Startup and Local Profile), and VS-02
+(Privacy Lock, Permissions, and Privacy Center) are implemented. VS-03 and
+later slices are intentionally not started.
 
 VS-01 provides:
 
@@ -19,8 +20,18 @@ VS-01 provides:
   non-destructive database recovery;
 - a minimal truthful Home state showing local, account, and sync status.
 
-Remote account/sync code, OS authentication, and later planning features are
-outside the authorized slice.
+VS-02 adds:
+
+- OS biometric/device-credential Privacy Lock with immediate background relock;
+- Android recent-app/screenshot obscuring where `FLAG_SECURE` is honored;
+- just-in-time permission foundations with no optional runtime permission
+  declared or requested;
+- Privacy and Data, Permissions, diagnostic-preview, and deletion-impact views;
+- fail-closed local-only/Extra Private policy rules;
+- a secure future account-token boundary outside Drift and backups.
+
+Remote account/sync code and later planning features remain outside the
+authorized slice.
 
 ## Locked toolchain
 
@@ -53,7 +64,7 @@ flutter run \
 
 Equivalent non-secret examples exist for development, staging, and production.
 
-No secret is required for VS-01. Never commit signing keys, private environment
+No secret is required through VS-02. Never commit signing keys, private environment
 files, service-role keys, or user database files.
 
 ## Repository layout
@@ -62,9 +73,9 @@ files, service-role keys, or user database files.
 android/           Android host project
 lib/app/           App shell, theme, and routing
 lib/core/          Database, diagnostics, platform, privacy, time, and IDs
-lib/features/      Vertical feature modules; currently startup only
+lib/features/      Vertical feature modules; startup and privacy
 test/              Unit, repository, migration, and widget tests
-integration_test/  Android VS-01 smoke journey
+integration_test/  Android VS-01 and VS-02 smoke journeys
 tool/              Toolchain metadata and authority verification
 docs/              Approved sources, preserved baselines, and implementation evidence
 .github/           PR quality and scheduled Android smoke workflows
@@ -76,10 +87,12 @@ The approved Phase 3 workbook and vertical-slice specification are preserved
 byte-for-byte under `docs/baseline/phase-3/`. Their hashes and the approval
 overlay are recorded in
 [`docs/implementation/phase-3-authority.md`](docs/implementation/phase-3-authority.md).
-VS-01 mappings and verification evidence are maintained in
-[`docs/implementation/vs-01-traceability.md`](docs/implementation/vs-01-traceability.md).
+Slice mappings and verification evidence are maintained in
+[`docs/implementation/vs-01-traceability.md`](docs/implementation/vs-01-traceability.md)
+and
+[`docs/implementation/vs-02-traceability.md`](docs/implementation/vs-02-traceability.md).
 
-Do not begin VS-02 without explicit product-owner authorization after the VS-01
+Do not begin VS-03 without explicit product-owner authorization after the VS-02
 quality-gate report.
 
 ## APPROVED VISUAL AND PIXEL-REFERENCE CONTRACT

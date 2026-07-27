@@ -41,17 +41,17 @@ void main() {
         final userVersion = await reopenedVersionOne
             .customSelect('PRAGMA user_version')
             .getSingle();
-        final migrationProbe = await reopenedVersionOne
+        final privacyTable = await reopenedVersionOne
             .customSelect(
               "SELECT COUNT(*) AS count FROM sqlite_master "
-              "WHERE type = 'table' AND name = 'migration_probe'",
+              "WHERE type = 'table' AND name = 'privacy_preferences'",
             )
             .getSingle();
 
         expect(profiles, hasLength(1));
         expect(profiles.single.id, original.id);
         expect(userVersion.read<int>('user_version'), 1);
-        expect(migrationProbe.read<int>('count'), 0);
+        expect(privacyTable.read<int>('count'), 0);
         await reopenedVersionOne.close();
       } finally {
         sqliteDatabase.close();

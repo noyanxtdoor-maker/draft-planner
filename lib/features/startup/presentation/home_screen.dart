@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:rmplanner/app/next_transfer_app.dart';
+import 'package:rmplanner/app/router/route_names.dart';
 import 'package:rmplanner/features/startup/application/startup_providers.dart';
 import 'package:rmplanner/features/startup/domain/startup_snapshot.dart';
 import 'package:rmplanner/features/startup/domain/startup_state.dart';
@@ -20,6 +22,11 @@ final class HomeScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Home'),
         actions: <Widget>[
+          IconButton(
+            tooltip: 'Privacy and Data',
+            onPressed: () => context.push(RoutePaths.privacyCenter),
+            icon: const Icon(Icons.shield_outlined),
+          ),
           if (environment.showDebugBanner)
             Padding(
               padding: const EdgeInsets.only(right: 16),

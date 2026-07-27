@@ -52,11 +52,37 @@ class LifeIndicatorDefinitions extends Table {
   Set<Column<Object>> get primaryKey => <Column<Object>>{id};
 }
 
+@DataClassName('PrivacyPreferenceRow')
+class PrivacyPreferences extends Table {
+  TextColumn get key => text().withDefault(const Constant('primary'))();
+  BoolColumn get lockEnabled => boolean().withDefault(const Constant(false))();
+  TextColumn get notificationPreviewMode =>
+      text().withDefault(const Constant('hidden'))();
+  DateTimeColumn get updatedAtUtc => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => <Column<Object>>{key};
+}
+
+@DataClassName('PermissionAuditRow')
+class PermissionAudits extends Table {
+  TextColumn get permissionKey => text()();
+  BoolColumn get requestedByApp =>
+      boolean().withDefault(const Constant(false))();
+  BoolColumn get everGranted => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get updatedAtUtc => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => <Column<Object>>{permissionKey};
+}
+
 @DriftDatabase(
   tables: <Type>[
     LocalProfiles,
     OnboardingCheckpoints,
     LifeIndicatorDefinitions,
+    PrivacyPreferences,
+    PermissionAudits,
   ],
 )
 final class AppDatabase extends _$AppDatabase {
@@ -76,20 +102,25 @@ final class AppDatabase extends _$AppDatabase {
   final bool _injectMigrationFailure;
 
   @override
-  int get schemaVersion => _schemaVersionOverride ?? 1;
+  int get schemaVersion => _schemaVersionOverride ?? 2;
 
   @override
   MigrationStrategy get migration {
     return MigrationStrategy(
       onCreate: (migrator) async {
-        await migrator.createAll();
+        await migrator.createTable(localProfiles);
+        await migrator.createTable(onboardingCheckpoints);
+        await migrator.createTable(lifeIndicatorDefinitions);
+        if (schemaVersion >= 2) {
+          await migrator.createTable(privacyPreferences);
+          await migrator.createTable(permissionAudits);
+        }
       },
       onUpgrade: (migrator, from, to) async {
         await transaction(() async {
           if (from < 2 && to >= 2) {
-            await customStatement(
-              'CREATE TABLE migration_probe (id INTEGER PRIMARY KEY)',
-            );
+            await migrator.createTable(privacyPreferences);
+            await migrator.createTable(permissionAudits);
             if (_injectMigrationFailure) {
               throw StateError('Injected migration failure');
             }

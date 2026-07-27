@@ -1,7 +1,9 @@
 # Phase 3 Authority
 
 **Recorded:** 2026-07-26  
-**Approval overlay:** G-02 Product Approval is complete. G-03 is implementation-ready for repository bootstrap, Q0, and VS-01 only.
+**Approval overlay:** G-02 Product Approval is complete. G-03 is
+implementation-ready through VS-02 following explicit product-owner
+authorization on 2026-07-27.
 
 ## Immutable approved sources
 
@@ -27,8 +29,9 @@ Authorized scope:
 1. Repository bootstrap and engineering guardrails.
 2. Q0 authority and traceability setup.
 3. VS-01 — Guest Startup and Local Profile.
+4. VS-02 — Privacy Lock, Permissions, and Privacy Center.
 
-VS-02 and later slices remain unauthorized.
+VS-03 and later slices remain unauthorized.
 
 ## Exception protocol
 

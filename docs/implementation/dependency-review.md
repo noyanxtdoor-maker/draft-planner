@@ -14,6 +14,29 @@
 
 No remote client, analytics SDK, authentication package, file picker, notification package, background worker, contacts package, maps package, or device-calendar package is included in VS-01.
 
+## VS-02 additions
+
+| Package | Resolved intent | VS-02 purpose | Native permissions | Data handled | Containment / rollback |
+| --- | --- | --- | --- | --- | --- |
+| `local_auth` | 3.0.2 | OS biometric or device-credential Privacy Lock | `USE_BIOMETRIC`; Android adapter also merges normal `USE_FINGERPRINT` for compatibility | Boolean authentication result; the app receives no biometric template | `DeviceAuthenticator` port; lock cannot be enabled unless OS authentication succeeds |
+| `permission_handler` | 12.0.3 | Read optional-permission status and open Android app settings | None declared by VS-02 | OS permission states only | `PermissionGateway` port; VS-02 never calls a permission request API |
+| `flutter_secure_storage` | 10.3.1 | Future account-token boundary outside Drift and backups | None | One encoded access/refresh-token bundle | `AuthTokenStore` port; `resetOnError: false`; failures propagate with no Drift fallback |
+
+The three versions were verified against their primary pub.dev package
+documentation on 2026-07-27 and resolved under Flutter 3.44.7 / Dart 3.12.2.
+`local_auth 3.0.2` supports Android API 24 and requires
+`FlutterFragmentActivity`, `USE_BIOMETRIC`, and an AppCompat theme. The host
+configuration implements those requirements. `flutter_secure_storage 10.3.1`
+requires Android API 23 or newer and recommends disabling Android backup; this
+repository already has `android:allowBackup="false"`.
+
+No remote client, analytics SDK, file picker, notification SDK, background
+worker, contacts SDK, maps SDK, or device-calendar SDK is introduced by VS-02.
+The production source manifest declares no optional runtime permission. The
+debug APK contains Flutter's normal debug `INTERNET` permission and the two
+normal biometric compatibility permissions; none produces an optional runtime
+permission prompt.
+
 ## Recorded deviation
 
 `drift_dev 2.34.2` is retracted. Its patched successor and all `drift_dev 2.34.1+` releases require analyzer 13, which requires `meta ^1.18.3`; Flutter 3.44.7 pins `meta 1.18.0`. The selected `drift_dev 2.34.0` supports `drift >=2.30.0 <2.35.0` and analyzer below 13, so it is the newest compatible generator in the same 2.34 family. `build_runner 2.15.1` is the matching newest release that allows analyzer below 13. Runtime `drift` remains exactly `2.34.2`.

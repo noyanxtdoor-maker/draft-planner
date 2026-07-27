@@ -2,6 +2,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rmplanner/app/router/route_names.dart';
 import 'package:rmplanner/app/router/startup_route_guard.dart';
+import 'package:rmplanner/features/privacy/presentation/diagnostic_preview_screen.dart';
+import 'package:rmplanner/features/privacy/presentation/permissions_screen.dart';
+import 'package:rmplanner/features/privacy/presentation/privacy_center_screen.dart';
 import 'package:rmplanner/features/startup/application/startup_providers.dart';
 import 'package:rmplanner/features/startup/presentation/home_screen.dart';
 import 'package:rmplanner/features/startup/presentation/link_recovery_screen.dart';
@@ -45,6 +48,21 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: RouteNames.home,
         path: RoutePaths.home,
         builder: (context, state) => const HomeScreen(),
+      ),
+      GoRoute(
+        name: RouteNames.privacyCenter,
+        path: RoutePaths.privacyCenter,
+        builder: (context, state) => const PrivacyCenterScreen(),
+      ),
+      GoRoute(
+        name: RouteNames.permissions,
+        path: RoutePaths.permissions,
+        builder: (context, state) => const PermissionsScreen(),
+      ),
+      GoRoute(
+        name: RouteNames.diagnosticPreview,
+        path: RoutePaths.diagnosticPreview,
+        builder: (context, state) => const DiagnosticPreviewScreen(),
       ),
     ],
     errorBuilder: (context, state) =>
