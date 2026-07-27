@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+
+<html class="h-full" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Planner Screen</title>
+<!-- Tailwind CSS CDN with forms and container-queries plugins -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'ios-dark-bg': '#000000',
+            'ios-card-bg': '#1c1c1e',
+            'ios-accent-pink': '#e91e63',
+            'ios-text-secondary': '#8e8e93',
+            'ios-border': '#2c2c2e',
+            'event-green': 'rgba(46, 125, 50, 0.2)',
+            'event-green-border': '#4caf50',
+            'event-brown': 'rgba(121, 85, 72, 0.2)',
+            'event-brown-border': '#795548',
+            'event-purple': 'rgba(103, 58, 183, 0.2)',
+            'event-purple-border': '#673ab7',
+          }
+        }
+      }
+    }
+  </script>
+<style data-purpose="custom-layout">
+    /* Remove scrollbar for cleaner look */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+
+    /* Fixed height for time slots to match UI */
+    .time-slot {
+      height: 60px;
+      border-bottom: 1px solid #1c1c1e;
+    }
+
+    /* Event positioning logic simulation */
+    .event-block {
+      position: absolute;
+      left: 64px;
+      right: 16px;
+      border-left: 4px solid;
+      border-radius: 4px;
+      padding: 8px;
+    }
+  </style>
+</head>
+<body class="bg-ios-dark-bg text-white h-full font-sans overflow-hidden flex flex-col">
+<!-- BEGIN: StatusBar -->
+<div class="flex justify-between items-center px-8 pt-4 pb-2 text-sm font-semibold" data-purpose="status-bar">
+<div id="status-time">9:41</div>
+<div class="flex items-center space-x-1.5">
+<!-- Signal Icon -->
+<svg class="w-4 h-4" fill="currentColor" viewbox="0 0 24 24"><path d="M12 21L1 10h22L12 21z"></path></svg>
+<!-- Wifi Icon -->
+<svg class="w-4 h-4" fill="currentColor" viewbox="0 0 24 24"><path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0z"></path></svg>
+<!-- Battery Icon -->
+<div class="w-6 h-3 border border-white/50 rounded-sm relative">
+<div class="absolute inset-px bg-white w-4"></div>
+</div>
+</div>
+</div>
+<!-- END: StatusBar -->
+<!-- BEGIN: MainHeader -->
+<header class="px-4 py-2 flex items-center justify-between" data-purpose="app-header">
+<div class="flex items-center space-x-4">
+<button class="p-1">
+<svg class="w-6 h-6" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</button>
+<div class="flex items-center space-x-1">
+<h1 class="text-xl font-bold">Planner</h1>
+<svg class="w-4 h-4 mt-1" fill="currentColor" viewbox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"></path></svg>
+</div>
+</div>
+<div class="flex items-center space-x-4">
+<button class="p-1">
+<svg class="w-6 h-6" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</button>
+<button class="p-1 relative">
+<svg class="w-6 h-6" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+<span class="absolute top-1 right-1 w-2.5 h-2.5 bg-ios-accent-pink rounded-full border-2 border-black"></span>
+</button>
+</div>
+</header>
+<!-- END: MainHeader -->
+<!-- BEGIN: CalendarStrip -->
+<section class="px-2 py-3 flex justify-between items-center border-b border-ios-border" data-purpose="calendar-strip">
+<div class="p-2">
+<svg class="w-6 h-6 text-ios-accent-pink" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</div>
+<div class="flex-1 flex justify-around text-center text-xs">
+<div class="flex flex-col text-ios-text-secondary"><span>Sun</span><span class="text-lg text-white">25</span></div>
+<!-- Selected Day -->
+<div class="flex flex-col text-ios-accent-pink border border-ios-accent-pink rounded-md px-2 py-0.5">
+<span>Mon</span>
+<span class="text-lg font-bold">26</span>
+</div>
+<div class="flex flex-col text-ios-text-secondary"><span>Tue</span><span class="text-lg text-white">27</span></div>
+<div class="flex flex-col text-ios-text-secondary"><span>Wed</span><span class="text-lg text-white">28</span></div>
+<div class="flex flex-col text-ios-text-secondary"><span>Thu</span><span class="text-lg text-white">29</span></div>
+<div class="flex flex-col text-ios-text-secondary"><span>Fri</span><span class="text-lg text-white">30</span></div>
+<div class="flex flex-col text-ios-text-secondary"><span>Sat</span><span class="text-lg text-white">31</span></div>
+</div>
+</section>
+<!-- END: CalendarStrip -->
+<!-- BEGIN: TimelineContent -->
+<main class="flex-1 overflow-y-auto no-scrollbar relative" data-purpose="timeline-scroller">
+<!-- Time Column Background Lines -->
+<div class="absolute inset-0 z-0">
+<div class="time-slot flex items-start px-2 py-2 text-[10px] text-ios-text-secondary">6 AM</div>
+<div class="time-slot flex items-start px-2 py-2 text-[10px] text-ios-text-secondary">7 AM</div>
+<div class="time-slot flex items-start px-2 py-2 text-[10px] text-ios-text-secondary">8 AM</div>
+<div class="time-slot flex items-start px-2 py-2 text-[10px] text-ios-text-secondary">9 AM</div>
+<div class="time-slot flex items-start px-2 py-2 text-[10px] text-ios-text-secondary">10 AM</div>
+<div class="time-slot flex items-start px-2 py-2 text-[10px] text-ios-text-secondary">11 AM</div>
+<div class="time-slot flex items-start px-2 py-2 text-[10px] text-ios-text-secondary">12 PM</div>
+<div class="time-slot flex items-start px-2 py-2 text-[10px] text-ios-text-secondary">1 PM</div>
+<div class="time-slot flex items-start px-2 py-2 text-[10px] text-ios-text-secondary">2 PM</div>
+<div class="time-slot flex items-start px-2 py-2 text-[10px] text-ios-text-secondary">3 PM</div>
+<div class="time-slot flex items-start px-2 py-2 text-[10px] text-ios-text-secondary">4 PM</div>
+<div class="time-slot flex items-start px-2 py-2 text-[10px] text-ios-text-secondary">5 PM</div>
+<div class="time-slot flex items-start px-2 py-2 text-[10px] text-ios-text-secondary">6 PM</div>
+<div class="time-slot flex items-start px-2 py-2 text-[10px] text-ios-text-secondary">7 PM</div>
+<div class="time-slot flex items-start px-2 py-2 text-[10px] text-ios-text-secondary">8 PM</div>
+<div class="time-slot flex items-start px-2 py-2 text-[10px] text-ios-text-secondary">9 PM</div>
+<div class="time-slot flex items-start px-2 py-2 text-[10px] text-ios-text-secondary">10 PM</div>
+</div>
+<!-- Event Overlays -->
+<div class="relative z-10 w-full h-[1020px]">
+<!-- Event: Ampo (6:00 - 6:30) -->
+<div class="event-block bg-event-green border-event-green-border top-[0px] h-[30px] flex items-center justify-between">
+<div>
+<div class="text-xs font-semibold">Ampo</div>
+<div class="text-[10px] text-ios-text-secondary">6:00 — 6:30 AM</div>
+</div>
+<svg class="w-4 h-4 text-ios-text-secondary" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</div>
+<!-- Event: Zone Prayer (6:30 - 7:00) -->
+<div class="event-block bg-event-green border-event-green-border top-[30px] h-[30px] flex items-center justify-between">
+<div class="flex items-center space-x-2">
+<svg class="w-3 h-3 text-white" fill="currentColor" viewbox="0 0 20 20"><path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z"></path></svg>
+<div>
+<div class="text-xs font-semibold">Zone Prayer</div>
+<div class="text-[10px] text-ios-text-secondary">6:30 — 7:00 AM</div>
+</div>
+</div>
+<svg class="w-4 h-4 text-ios-text-secondary" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</div>
+<!-- Event: Cook/Breakfast (7:00 - 8:00) -->
+<div class="event-block bg-event-brown border-event-brown-border top-[60px] h-[60px] flex items-center justify-between">
+<div>
+<div class="text-xs font-semibold">Cook/Breakfast</div>
+<div class="text-[10px] text-ios-text-secondary">7:00 — 8:00 AM</div>
+</div>
+<svg class="w-4 h-4 text-ios-text-secondary" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</div>
+<!-- Event: Prosylyting Time (8:00 - 9:00) -->
+<div class="event-block bg-event-purple border-event-purple-border top-[120px] h-[60px] flex items-center justify-between">
+<div>
+<div class="text-xs font-semibold">Prosylyting Time</div>
+<div class="text-[10px] text-ios-text-secondary">8:00 — 9:00 AM</div>
+</div>
+<svg class="w-4 h-4 text-ios-text-secondary" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</div>
+<!-- Gap between 9AM and 11:30 AM -->
+<!-- Event: Daily Planning (11:30 - 12:00) -->
+<div class="event-block bg-event-purple border-event-purple-border top-[330px] h-[30px] flex items-center justify-between">
+<div>
+<div class="text-xs font-semibold">Daily Planning</div>
+<div class="text-[10px] text-ios-text-secondary">11:30 AM — 12:00 PM</div>
+</div>
+<svg class="w-4 h-4 text-ios-text-secondary" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</div>
+<!-- Event: Lunchtime (12:00 - 1:00) -->
+<div class="event-block bg-event-brown border-event-brown-border top-[360px] h-[60px] flex items-center justify-between">
+<div>
+<div class="text-xs font-semibold">Lunchtime</div>
+<div class="text-[10px] text-ios-text-secondary">12:00 — 1:00 PM</div>
+</div>
+<svg class="w-4 h-4 text-ios-text-secondary" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</div>
+<!-- Event: Personal Study (1:00 - 2:00) -->
+<div class="event-block bg-event-purple border-event-purple-border top-[420px] h-[60px] flex items-center justify-between">
+<div>
+<div class="text-xs font-semibold">Personal Study</div>
+<div class="text-[10px] text-ios-text-secondary">1:00 — 2:00 PM</div>
+</div>
+<svg class="w-4 h-4 text-ios-text-secondary" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</div>
+<!-- Event: Companionship Study (2:00 - 2:30) -->
+<div class="event-block bg-event-purple border-event-purple-border top-[480px] h-[50px] flex items-center justify-between">
+<div>
+<div class="text-xs font-semibold flex items-center space-x-1">
+<span>Companionship Study</span>
+<span class="flex items-center space-x-1 ml-1 opacity-70">
+<svg class="w-3 h-3" fill="currentColor" viewbox="0 0 20 20"><path d="M9 4.804A7.993 7.993 0 003 4c-1.105 0-2 .895-2 2s.895 2 2 2c.463 0 .889-.158 1.23-.423C4.19 8.659 5.258 10 7 10h1.447l.316.316a1 1 0 001.414 0L10.478 10H13c1.742 0 2.81-1.341 2.77-2.423.341.265.767.423 1.23.423 1.105 0 2-.895 2-2s-.895-2-2-2c-.523 0-1.025.074-1.5.21V3.5a1.5 1.5 0 00-1.5-1.5h-4A1.5 1.5 0 008.5 3.5V4.804z"></path></svg>
+<svg class="w-3 h-3" fill="currentColor" viewbox="0 0 20 20"><path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"></path><path clip-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" fill-rule="evenodd"></path></svg>
+</span>
+</div>
+<div class="text-[10px] text-ios-text-secondary">2:00 — 2:30 PM</div>
+</div>
+<svg class="w-4 h-4 text-ios-text-secondary" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</div>
+</div>
+<!-- BEGIN: FAB -->
+<button class="fixed bottom-24 right-6 w-16 h-16 bg-ios-accent-pink rounded-2xl shadow-xl flex items-center justify-center text-white z-50" data-purpose="floating-action-button">
+<svg class="w-8 h-8" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M12 6v6m0 0v6m0-6h6m-6 0H6" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</button>
+<!-- END: FAB -->
+</main>
+<!-- END: TimelineContent -->
+<!-- BEGIN: BottomNavigation -->
+<footer class="bg-ios-card-bg border-t border-ios-border pb-6 pt-2 px-2 flex justify-between items-center" data-purpose="bottom-nav">
+<div class="flex-1 flex flex-col items-center text-ios-text-secondary">
+<svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+<span class="text-[10px]">Home</span>
+</div>
+<div class="flex-1 flex flex-col items-center text-ios-accent-pink">
+<svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+<span class="text-[10px]">Planner</span>
+</div>
+<div class="flex-1 flex flex-col items-center text-ios-text-secondary">
+<svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+<span class="text-[10px]">Pathways</span>
+</div>
+<div class="flex-1 flex flex-col items-center text-ios-text-secondary">
+<svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+<span class="text-[10px]">Contacts</span>
+</div>
+<div class="flex-1 flex flex-col items-center text-ios-text-secondary">
+<svg class="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+<span class="text-[10px]">More</span>
+</div>
+</footer>
+<!-- END: BottomNavigation -->
+<!-- Home Indicator (iOS style) -->
+<div class="w-full flex justify-center bg-ios-card-bg pb-1">
+<div class="w-32 h-1.5 bg-white/30 rounded-full"></div>
+</div>
+</body></html>

@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>More Screen Recreation</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"/>
+<style data-purpose="layout-styles">
+    body {
+      background-color: #121212;
+      color: #E0E0E0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      margin: 0;
+      padding-bottom: 80px; /* Space for bottom nav */
+    }
+    .status-bar {
+      height: 44px;
+      padding: 0 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .menu-item {
+      border-bottom: 1px solid #2C2C2E;
+    }
+    .menu-item:last-child {
+      border-bottom: none;
+    }
+    /* Specific pink/red tint for icons as seen in reference */
+    .icon-tint {
+      color: #FF7E8B;
+    }
+    /* Active state for bottom nav */
+    .nav-active {
+      color: #FF7E8B;
+    }
+    .nav-active::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 40px;
+      height: 3px;
+      background-color: #FF7E8B;
+      border-radius: 0 0 2px 2px;
+    }
+  </style>
+</head>
+<body>
+<!-- BEGIN: Header -->
+<header class="sticky top-0 z-10 bg-[#121212]">
+<!-- Status Bar (Mockup for Mobile Look) -->
+<div class="status-bar">
+<span>10:42</span>
+<div class="flex gap-2">
+<i class="fa-solid fa-signal text-xs"></i>
+<i class="fa-solid fa-wifi text-xs"></i>
+<i class="fa-solid fa-battery-three-quarters text-xs"></i>
+<span class="text-xs">85%</span>
+</div>
+</div>
+<!-- Top Navigation Bar -->
+<div class="flex items-center justify-between px-4 py-3">
+<div class="flex items-center gap-4">
+<button aria-label="Menu">
+<i class="fa-solid fa-bars text-xl"></i>
+</button>
+<h1 class="text-xl font-medium">More</h1>
+</div>
+<div class="flex items-center gap-5">
+<button aria-label="Search">
+<i class="fa-solid fa-magnifying-glass text-lg"></i>
+</button>
+<div class="relative">
+<i class="fa-solid fa-bell text-lg"></i>
+<span class="absolute -top-1 -right-1 w-2 h-2 bg-[#FF7E8B] rounded-full"></span>
+</div>
+</div>
+</div>
+</header>
+<!-- END: Header -->
+<!-- BEGIN: MainContent -->
+<main class="mt-4">
+<!-- Section: PLANNING AND RECORDS -->
+<section class="mb-6" data-purpose="planning-section">
+<h2 class="px-4 py-2 text-xs font-bold text-gray-500 uppercase tracking-wider">Planning and Records</h2>
+<div class="bg-[#1C1C1E] border-y border-[#2C2C2E]">
+<!-- Row: Maps and Places -->
+<div class="menu-item flex items-center justify-between px-4 py-3 active:bg-[#2C2C2E]">
+<div class="flex items-center gap-4">
+<i class="fa-solid fa-map-location-dot icon-tint w-6 text-center"></i>
+<span class="text-[16px]">Maps and Places</span>
+</div>
+<i class="fa-solid fa-chevron-right text-gray-600 text-sm"></i>
+</div>
+<!-- Row: Documents -->
+<div class="menu-item flex items-center justify-between px-4 py-3 active:bg-[#2C2C2E]">
+<div class="flex items-center gap-4">
+<i class="fa-solid fa-file-lines icon-tint w-6 text-center"></i>
+<span class="text-[16px]">Documents</span>
+</div>
+<i class="fa-solid fa-chevron-right text-gray-600 text-sm"></i>
+</div>
+<!-- Row: Job Applications -->
+<div class="menu-item flex items-center justify-between px-4 py-3 active:bg-[#2C2C2E]">
+<div class="flex items-center gap-4">
+<i class="fa-solid fa-briefcase icon-tint w-6 text-center"></i>
+<span class="text-[16px]">Job Applications</span>
+</div>
+<i class="fa-solid fa-chevron-right text-gray-600 text-sm"></i>
+</div>
+<!-- Row: Education Applications -->
+<div class="menu-item flex items-center justify-between px-4 py-3 active:bg-[#2C2C2E]">
+<div class="flex items-center gap-4">
+<i class="fa-solid fa-graduation-cap icon-tint w-6 text-center"></i>
+<span class="text-[16px]">Education Applications</span>
+</div>
+<i class="fa-solid fa-chevron-right text-gray-600 text-sm"></i>
+</div>
+<!-- Row: Activity History -->
+<div class="menu-item flex items-center justify-between px-4 py-3 active:bg-[#2C2C2E]">
+<div class="flex items-center gap-4">
+<i class="fa-solid fa-clock-rotate-left icon-tint w-6 text-center"></i>
+<span class="text-[16px]">Activity History</span>
+</div>
+<i class="fa-solid fa-chevron-right text-gray-600 text-sm"></i>
+</div>
+<!-- Row: Journal -->
+<div class="menu-item flex items-center justify-between px-4 py-3 active:bg-[#2C2C2E]">
+<div class="flex items-center gap-4">
+<i class="fa-solid fa-book icon-tint w-6 text-center"></i>
+<span class="text-[16px]">Journal</span>
+</div>
+<i class="fa-solid fa-chevron-right text-gray-600 text-sm"></i>
+</div>
+</div>
+</section>
+<!-- Section: PROGRAMS AND RESOURCES -->
+<section class="mb-6" data-purpose="programs-section">
+<h2 class="px-4 py-2 text-xs font-bold text-gray-500 uppercase tracking-wider">Programs and Resources</h2>
+<div class="bg-[#1C1C1E] border-y border-[#2C2C2E]">
+<div class="menu-item flex items-center justify-between px-4 py-3 active:bg-[#2C2C2E]">
+<div class="flex items-center gap-4">
+<i class="fa-solid fa-globe icon-tint w-6 text-center"></i>
+<span class="text-[16px]">BYU-Pathway Worldwide</span>
+</div>
+<i class="fa-solid fa-chevron-right text-gray-600 text-sm"></i>
+</div>
+<div class="menu-item flex items-center justify-between px-4 py-3 active:bg-[#2C2C2E]">
+<div class="flex items-center gap-4">
+<i class="fa-solid fa-clipboard-check icon-tint w-6 text-center"></i>
+<span class="text-[16px]">My Plan</span>
+</div>
+<i class="fa-solid fa-chevron-right text-gray-600 text-sm"></i>
+</div>
+<div class="menu-item flex items-center justify-between px-4 py-3 active:bg-[#2C2C2E]">
+<div class="flex items-center gap-4">
+<i class="fa-solid fa-users icon-tint w-6 text-center"></i>
+<span class="text-[16px]">My Plan Conference</span>
+</div>
+<i class="fa-solid fa-chevron-right text-gray-600 text-sm"></i>
+</div>
+<div class="menu-item flex items-center justify-between px-4 py-3 active:bg-[#2C2C2E]">
+<div class="flex items-center gap-4">
+<i class="fa-solid fa-hands-holding-heart icon-tint w-6 text-center"></i>
+<span class="text-[16px]">Self-Reliance Resources</span>
+</div>
+<i class="fa-solid fa-chevron-right text-gray-600 text-sm"></i>
+</div>
+<div class="menu-item flex items-center justify-between px-4 py-3 active:bg-[#2C2C2E]">
+<div class="flex items-center gap-4">
+<i class="fa-solid fa-passport icon-tint w-6 text-center"></i>
+<span class="text-[16px]">Country Requirements</span>
+</div>
+<i class="fa-solid fa-chevron-right text-gray-600 text-sm"></i>
+</div>
+<div class="menu-item flex items-center justify-between px-4 py-3 active:bg-[#2C2C2E]">
+<div class="flex items-center gap-4">
+<i class="fa-solid fa-link icon-tint w-6 text-center"></i>
+<span class="text-[16px]">Official Links</span>
+</div>
+<i class="fa-solid fa-chevron-right text-gray-600 text-sm"></i>
+</div>
+</div>
+</section>
+<!-- Section: ACCOUNT AND APP -->
+<section class="mb-6" data-purpose="account-section">
+<h2 class="px-4 py-2 text-xs font-bold text-gray-500 uppercase tracking-wider">Account and App</h2>
+<div class="bg-[#1C1C1E] border-y border-[#2C2C2E]">
+<div class="menu-item flex items-center justify-between px-4 py-3 active:bg-[#2C2C2E]">
+<div class="flex items-center gap-4">
+<i class="fa-solid fa-user icon-tint w-6 text-center"></i>
+<span class="text-[16px]">Profile</span>
+</div>
+<i class="fa-solid fa-chevron-right text-gray-600 text-sm"></i>
+</div>
+<div class="menu-item flex items-center justify-between px-4 py-3 active:bg-[#2C2C2E]">
+<div class="flex items-center gap-4">
+<i class="fa-solid fa-earth-americas icon-tint w-6 text-center"></i>
+<span class="text-[16px]">Country and Language</span>
+</div>
+<i class="fa-solid fa-chevron-right text-gray-600 text-sm"></i>
+</div>
+<div class="menu-item flex items-center justify-between px-4 py-3 active:bg-[#2C2C2E]">
+<div class="flex items-center gap-4">
+<i class="fa-solid fa-bell icon-tint w-6 text-center"></i>
+<span class="text-[16px]">Notifications</span>
+</div>
+<i class="fa-solid fa-chevron-right text-gray-600 text-sm"></i>
+</div>
+<div class="menu-item flex items-center justify-between px-4 py-3 active:bg-[#2C2C2E]">
+<div class="flex items-center gap-4">
+<i class="fa-solid fa-lock icon-tint w-6 text-center"></i>
+<span class="text-[16px]">Privacy</span>
+</div>
+<i class="fa-solid fa-chevron-right text-gray-600 text-sm"></i>
+</div>
+<div class="menu-item flex items-center justify-between px-4 py-3 active:bg-[#2C2C2E]">
+<div class="flex items-center gap-4">
+<i class="fa-solid fa-palette icon-tint w-6 text-center"></i>
+<span class="text-[16px]">Appearance</span>
+</div>
+<i class="fa-solid fa-chevron-right text-gray-600 text-sm"></i>
+</div>
+<div class="menu-item flex items-center justify-between px-4 py-3 active:bg-[#2C2C2E]">
+<div class="flex items-center gap-4">
+<i class="fa-solid fa-universal-access icon-tint w-6 text-center"></i>
+<span class="text-[16px]">Accessibility</span>
+</div>
+<i class="fa-solid fa-chevron-right text-gray-600 text-sm"></i>
+</div>
+<div class="menu-item flex items-center justify-between px-4 py-3 active:bg-[#2C2C2E]">
+<div class="flex items-center gap-4">
+<i class="fa-solid fa-cloud-arrow-up icon-tint w-6 text-center"></i>
+<span class="text-[16px]">Sync and Backup</span>
+</div>
+<i class="fa-solid fa-chevron-right text-gray-600 text-sm"></i>
+</div>
+<div class="menu-item flex items-center justify-between px-4 py-3 active:bg-[#2C2C2E]">
+<div class="flex items-center gap-4">
+<i class="fa-solid fa-download icon-tint w-6 text-center"></i>
+<span class="text-[16px]">Export Data</span>
+</div>
+<i class="fa-solid fa-chevron-right text-gray-600 text-sm"></i>
+</div>
+<div class="menu-item flex items-center justify-between px-4 py-3 active:bg-[#2C2C2E]">
+<div class="flex items-center gap-4">
+<i class="fa-solid fa-circle-question icon-tint w-6 text-center"></i>
+<span class="text-[16px]">Help and Support</span>
+</div>
+<i class="fa-solid fa-chevron-right text-gray-600 text-sm"></i>
+</div>
+<div class="menu-item flex items-center justify-between px-4 py-3 active:bg-[#2C2C2E]">
+<div class="flex items-center gap-4">
+<i class="fa-solid fa-circle-info icon-tint w-6 text-center"></i>
+<span class="text-[16px]">About</span>
+</div>
+<i class="fa-solid fa-chevron-right text-gray-600 text-sm"></i>
+</div>
+</div>
+</section>
+</main>
+<!-- END: MainContent -->
+<!-- BEGIN: BottomNav -->
+<nav class="fixed bottom-0 left-0 right-0 bg-[#121212] border-t border-[#2C2C2E] flex justify-around py-2 px-1 text-[10px]">
+<div class="flex flex-col items-center gap-1 text-gray-400">
+<i class="fa-solid fa-house text-xl"></i>
+<span>Home</span>
+</div>
+<div class="flex flex-col items-center gap-1 text-gray-400">
+<i class="fa-solid fa-calendar-days text-xl"></i>
+<span>Planner</span>
+</div>
+<div class="flex flex-col items-center gap-1 text-gray-400">
+<i class="fa-solid fa-signs-post text-xl"></i>
+<span>Pathways</span>
+</div>
+<div class="flex flex-col items-center gap-1 text-gray-400">
+<i class="fa-solid fa-address-card text-xl"></i>
+<span>Contacts</span>
+</div>
+<div class="relative flex flex-col items-center gap-1 nav-active pt-1">
+<i class="fa-solid fa-ellipsis text-xl"></i>
+<span>More</span>
+</div>
+</nav>
+<!-- END: BottomNav -->
+<!-- BEGIN: Home Indicator -->
+<div class="fixed bottom-1 left-1/2 -translate-x-1/2 w-32 h-1 bg-white rounded-full opacity-40"></div>
+<!-- END: Home Indicator -->
+</body></html>
