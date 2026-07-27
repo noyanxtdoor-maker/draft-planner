@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rmplanner/app/next_transfer_app.dart';
 import 'package:rmplanner/core/diagnostics/sanitized_diagnostics.dart';
 import 'package:rmplanner/core/platform/app_environment.dart';
-import 'package:rmplanner/features/startup/application/startup_providers.dart';
 
 import '../../../support/test_dependencies.dart';
 
@@ -16,20 +13,16 @@ void main() {
       final database = openMemoryDatabase();
       addTearDown(database.close);
       final repository = buildTestRepository(database: database);
+      final privacy = TestPrivacyDependencies(database: database);
 
       await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            appEnvironmentProvider.overrideWithValue(
-              const AppEnvironment(
-                name: AppEnvironmentName.production,
-                label: 'PRODUCTION',
-              ),
-            ),
-            diagnosticsProvider.overrideWithValue(SanitizedDiagnostics()),
-            startupRepositoryProvider.overrideWithValue(repository),
-          ],
-          child: const NextTransferApp(),
+        privacy.buildApp(
+          environment: const AppEnvironment(
+            name: AppEnvironmentName.production,
+            label: 'PRODUCTION',
+          ),
+          diagnostics: SanitizedDiagnostics(),
+          startupRepository: repository,
         ),
       );
       for (var frame = 0; frame < 6; frame += 1) {
@@ -100,22 +93,16 @@ void main() {
     addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
     final database = openMemoryDatabase();
     addTearDown(database.close);
+    final privacy = TestPrivacyDependencies(database: database);
 
     await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          appEnvironmentProvider.overrideWithValue(
-            const AppEnvironment(
-              name: AppEnvironmentName.production,
-              label: 'PRODUCTION',
-            ),
-          ),
-          diagnosticsProvider.overrideWithValue(SanitizedDiagnostics()),
-          startupRepositoryProvider.overrideWithValue(
-            buildTestRepository(database: database),
-          ),
-        ],
-        child: const NextTransferApp(),
+      privacy.buildApp(
+        environment: const AppEnvironment(
+          name: AppEnvironmentName.production,
+          label: 'PRODUCTION',
+        ),
+        diagnostics: SanitizedDiagnostics(),
+        startupRepository: buildTestRepository(database: database),
       ),
     );
     await tester.pumpAndSettle();
@@ -132,21 +119,17 @@ void main() {
   testWidgets('AC-A-009,010,018: startup failure exposes safe recovery', (
     tester,
   ) async {
+    final database = openMemoryDatabase();
+    addTearDown(database.close);
+    final privacy = TestPrivacyDependencies(database: database);
     await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          appEnvironmentProvider.overrideWithValue(
-            const AppEnvironment(
-              name: AppEnvironmentName.production,
-              label: 'PRODUCTION',
-            ),
-          ),
-          diagnosticsProvider.overrideWithValue(SanitizedDiagnostics()),
-          startupRepositoryProvider.overrideWithValue(
-            const FailingStartupRepository(),
-          ),
-        ],
-        child: const NextTransferApp(),
+      privacy.buildApp(
+        environment: const AppEnvironment(
+          name: AppEnvironmentName.production,
+          label: 'PRODUCTION',
+        ),
+        diagnostics: SanitizedDiagnostics(),
+        startupRepository: const FailingStartupRepository(),
       ),
     );
     for (var frame = 0; frame < 6; frame += 1) {

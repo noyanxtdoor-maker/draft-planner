@@ -1,7 +1,7 @@
 ## Slice and scope
 
-- Slice: VS-01
-- Scope boundary: repository bootstrap, Q0, and VS-01 only
+- Slice:
+- Scope boundary:
 
 ## Traceability
 

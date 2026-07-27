@@ -57,7 +57,7 @@ void main() {
     await unlockedRepository.completeOnboarding();
     final protectedRepository = buildTestRepository(
       database: database,
-      privacyGate: const FixedPrivacyGate(unlockRequired: true),
+      privacyGate: FixedPrivacyGate(unlockRequired: true),
     );
     final container = ProviderContainer(
       overrides: [

@@ -48,8 +48,19 @@ Future<void> main() async {
       'android/app/src/main/kotlin/'
       'com/nexttransfer/rmplanner/MainActivity.kt',
     ),
-    (text) => text.contains('package $_applicationId'),
-    'MainActivity does not use the permanent Android package',
+    (text) =>
+        text.contains('package $_applicationId') &&
+        text.contains('FlutterFragmentActivity') &&
+        text.contains('WindowManager.LayoutParams.FLAG_SECURE'),
+    'MainActivity identity, local-auth host, or Android privacy protection '
+    'differs from the VS-02 lock',
+    failures,
+  );
+  _expectFileText(
+    File('android/app/src/main/res/values/styles.xml'),
+    (text) => text.contains('Theme.AppCompat.DayNight.NoActionBar'),
+    'Android launch theme does not satisfy the local_auth AppCompat host '
+    'requirement',
     failures,
   );
   _expectFileText(
@@ -57,8 +68,10 @@ Future<void> main() async {
     (text) =>
         text.contains('android:label="Next Transfer"') &&
         text.contains('android:allowBackup="false"') &&
-        !text.contains('<uses-permission'),
-    'Production manifest identity, backup policy, or permission scope changed',
+        _declaredPermissions(text).length == 1 &&
+        _declaredPermissions(text).single == 'android.permission.USE_BIOMETRIC',
+    'Production manifest identity, backup policy, or VS-02 permission scope '
+    'changed',
     failures,
   );
   _expectFileText(
@@ -66,15 +79,30 @@ Future<void> main() async {
     (text) {
       const forbidden = <String>[
         'supabase_flutter:',
-        'local_auth:',
         'file_picker:',
         'workmanager:',
         'device_calendar:',
+        'firebase_analytics:',
+        'posthog_flutter:',
+        'sentry_flutter:',
         '@insforge',
       ];
-      return forbidden.every((package) => !text.contains(package));
+      return text.contains('local_auth: 3.0.2') &&
+          text.contains('permission_handler: 12.0.3') &&
+          text.contains('flutter_secure_storage: 10.3.1') &&
+          forbidden.every((package) => !text.contains(package));
     },
-    'A VS-02+ or remote package entered the VS-01 dependency set',
+    'The VS-02 dependency lock changed or a VS-03+ package entered the graph',
+    failures,
+  );
+  _expectFileText(
+    File('lib/core/database/app_database.dart'),
+    (text) =>
+        !text.contains('accessToken') &&
+        !text.contains('refreshToken') &&
+        !text.contains('biometricData') &&
+        !text.contains('appPin'),
+    'A biometric, PIN, or authentication-token field entered the Drift schema',
     failures,
   );
   _expectFileText(
@@ -106,8 +134,15 @@ Future<void> main() async {
 
   stdout.writeln(
     'Authority verification passed: approved hashes, Flutter pin, '
-    'Android identity, permission scope, and VS-01 dependency boundary.',
+    'Android identity, VS-02 permission scope, and slice dependency boundary.',
   );
+}
+
+List<String> _declaredPermissions(String manifest) {
+  final matches = RegExp(
+    r'<uses-permission\s+android:name="([^"]+)"\s*/>',
+  ).allMatches(manifest);
+  return <String>[for (final match in matches) match.group(1)!];
 }
 
 Future<void> _verifyHash(

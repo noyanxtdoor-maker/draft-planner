@@ -1351,6 +1351,694 @@ class LifeIndicatorDefinitionsCompanion
   }
 }
 
+class $PrivacyPreferencesTable extends PrivacyPreferences
+    with TableInfo<$PrivacyPreferencesTable, PrivacyPreferenceRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PrivacyPreferencesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _keyMeta = const VerificationMeta('key');
+  @override
+  late final GeneratedColumn<String> key = GeneratedColumn<String>(
+    'key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('primary'),
+  );
+  static const VerificationMeta _lockEnabledMeta = const VerificationMeta(
+    'lockEnabled',
+  );
+  @override
+  late final GeneratedColumn<bool> lockEnabled = GeneratedColumn<bool>(
+    'lock_enabled',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("lock_enabled" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _notificationPreviewModeMeta =
+      const VerificationMeta('notificationPreviewMode');
+  @override
+  late final GeneratedColumn<String> notificationPreviewMode =
+      GeneratedColumn<String>(
+        'notification_preview_mode',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant('hidden'),
+      );
+  static const VerificationMeta _updatedAtUtcMeta = const VerificationMeta(
+    'updatedAtUtc',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAtUtc = GeneratedColumn<DateTime>(
+    'updated_at_utc',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    key,
+    lockEnabled,
+    notificationPreviewMode,
+    updatedAtUtc,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'privacy_preferences';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PrivacyPreferenceRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('key')) {
+      context.handle(
+        _keyMeta,
+        key.isAcceptableOrUnknown(data['key']!, _keyMeta),
+      );
+    }
+    if (data.containsKey('lock_enabled')) {
+      context.handle(
+        _lockEnabledMeta,
+        lockEnabled.isAcceptableOrUnknown(
+          data['lock_enabled']!,
+          _lockEnabledMeta,
+        ),
+      );
+    }
+    if (data.containsKey('notification_preview_mode')) {
+      context.handle(
+        _notificationPreviewModeMeta,
+        notificationPreviewMode.isAcceptableOrUnknown(
+          data['notification_preview_mode']!,
+          _notificationPreviewModeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('updated_at_utc')) {
+      context.handle(
+        _updatedAtUtcMeta,
+        updatedAtUtc.isAcceptableOrUnknown(
+          data['updated_at_utc']!,
+          _updatedAtUtcMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtUtcMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {key};
+  @override
+  PrivacyPreferenceRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PrivacyPreferenceRow(
+      key: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}key'],
+      )!,
+      lockEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}lock_enabled'],
+      )!,
+      notificationPreviewMode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}notification_preview_mode'],
+      )!,
+      updatedAtUtc: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at_utc'],
+      )!,
+    );
+  }
+
+  @override
+  $PrivacyPreferencesTable createAlias(String alias) {
+    return $PrivacyPreferencesTable(attachedDatabase, alias);
+  }
+}
+
+class PrivacyPreferenceRow extends DataClass
+    implements Insertable<PrivacyPreferenceRow> {
+  final String key;
+  final bool lockEnabled;
+  final String notificationPreviewMode;
+  final DateTime updatedAtUtc;
+  const PrivacyPreferenceRow({
+    required this.key,
+    required this.lockEnabled,
+    required this.notificationPreviewMode,
+    required this.updatedAtUtc,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['key'] = Variable<String>(key);
+    map['lock_enabled'] = Variable<bool>(lockEnabled);
+    map['notification_preview_mode'] = Variable<String>(
+      notificationPreviewMode,
+    );
+    map['updated_at_utc'] = Variable<DateTime>(updatedAtUtc);
+    return map;
+  }
+
+  PrivacyPreferencesCompanion toCompanion(bool nullToAbsent) {
+    return PrivacyPreferencesCompanion(
+      key: Value(key),
+      lockEnabled: Value(lockEnabled),
+      notificationPreviewMode: Value(notificationPreviewMode),
+      updatedAtUtc: Value(updatedAtUtc),
+    );
+  }
+
+  factory PrivacyPreferenceRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PrivacyPreferenceRow(
+      key: serializer.fromJson<String>(json['key']),
+      lockEnabled: serializer.fromJson<bool>(json['lockEnabled']),
+      notificationPreviewMode: serializer.fromJson<String>(
+        json['notificationPreviewMode'],
+      ),
+      updatedAtUtc: serializer.fromJson<DateTime>(json['updatedAtUtc']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'key': serializer.toJson<String>(key),
+      'lockEnabled': serializer.toJson<bool>(lockEnabled),
+      'notificationPreviewMode': serializer.toJson<String>(
+        notificationPreviewMode,
+      ),
+      'updatedAtUtc': serializer.toJson<DateTime>(updatedAtUtc),
+    };
+  }
+
+  PrivacyPreferenceRow copyWith({
+    String? key,
+    bool? lockEnabled,
+    String? notificationPreviewMode,
+    DateTime? updatedAtUtc,
+  }) => PrivacyPreferenceRow(
+    key: key ?? this.key,
+    lockEnabled: lockEnabled ?? this.lockEnabled,
+    notificationPreviewMode:
+        notificationPreviewMode ?? this.notificationPreviewMode,
+    updatedAtUtc: updatedAtUtc ?? this.updatedAtUtc,
+  );
+  PrivacyPreferenceRow copyWithCompanion(PrivacyPreferencesCompanion data) {
+    return PrivacyPreferenceRow(
+      key: data.key.present ? data.key.value : this.key,
+      lockEnabled: data.lockEnabled.present
+          ? data.lockEnabled.value
+          : this.lockEnabled,
+      notificationPreviewMode: data.notificationPreviewMode.present
+          ? data.notificationPreviewMode.value
+          : this.notificationPreviewMode,
+      updatedAtUtc: data.updatedAtUtc.present
+          ? data.updatedAtUtc.value
+          : this.updatedAtUtc,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PrivacyPreferenceRow(')
+          ..write('key: $key, ')
+          ..write('lockEnabled: $lockEnabled, ')
+          ..write('notificationPreviewMode: $notificationPreviewMode, ')
+          ..write('updatedAtUtc: $updatedAtUtc')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(key, lockEnabled, notificationPreviewMode, updatedAtUtc);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PrivacyPreferenceRow &&
+          other.key == this.key &&
+          other.lockEnabled == this.lockEnabled &&
+          other.notificationPreviewMode == this.notificationPreviewMode &&
+          other.updatedAtUtc == this.updatedAtUtc);
+}
+
+class PrivacyPreferencesCompanion
+    extends UpdateCompanion<PrivacyPreferenceRow> {
+  final Value<String> key;
+  final Value<bool> lockEnabled;
+  final Value<String> notificationPreviewMode;
+  final Value<DateTime> updatedAtUtc;
+  final Value<int> rowid;
+  const PrivacyPreferencesCompanion({
+    this.key = const Value.absent(),
+    this.lockEnabled = const Value.absent(),
+    this.notificationPreviewMode = const Value.absent(),
+    this.updatedAtUtc = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  PrivacyPreferencesCompanion.insert({
+    this.key = const Value.absent(),
+    this.lockEnabled = const Value.absent(),
+    this.notificationPreviewMode = const Value.absent(),
+    required DateTime updatedAtUtc,
+    this.rowid = const Value.absent(),
+  }) : updatedAtUtc = Value(updatedAtUtc);
+  static Insertable<PrivacyPreferenceRow> custom({
+    Expression<String>? key,
+    Expression<bool>? lockEnabled,
+    Expression<String>? notificationPreviewMode,
+    Expression<DateTime>? updatedAtUtc,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (key != null) 'key': key,
+      if (lockEnabled != null) 'lock_enabled': lockEnabled,
+      if (notificationPreviewMode != null)
+        'notification_preview_mode': notificationPreviewMode,
+      if (updatedAtUtc != null) 'updated_at_utc': updatedAtUtc,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  PrivacyPreferencesCompanion copyWith({
+    Value<String>? key,
+    Value<bool>? lockEnabled,
+    Value<String>? notificationPreviewMode,
+    Value<DateTime>? updatedAtUtc,
+    Value<int>? rowid,
+  }) {
+    return PrivacyPreferencesCompanion(
+      key: key ?? this.key,
+      lockEnabled: lockEnabled ?? this.lockEnabled,
+      notificationPreviewMode:
+          notificationPreviewMode ?? this.notificationPreviewMode,
+      updatedAtUtc: updatedAtUtc ?? this.updatedAtUtc,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (key.present) {
+      map['key'] = Variable<String>(key.value);
+    }
+    if (lockEnabled.present) {
+      map['lock_enabled'] = Variable<bool>(lockEnabled.value);
+    }
+    if (notificationPreviewMode.present) {
+      map['notification_preview_mode'] = Variable<String>(
+        notificationPreviewMode.value,
+      );
+    }
+    if (updatedAtUtc.present) {
+      map['updated_at_utc'] = Variable<DateTime>(updatedAtUtc.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PrivacyPreferencesCompanion(')
+          ..write('key: $key, ')
+          ..write('lockEnabled: $lockEnabled, ')
+          ..write('notificationPreviewMode: $notificationPreviewMode, ')
+          ..write('updatedAtUtc: $updatedAtUtc, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $PermissionAuditsTable extends PermissionAudits
+    with TableInfo<$PermissionAuditsTable, PermissionAuditRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PermissionAuditsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _permissionKeyMeta = const VerificationMeta(
+    'permissionKey',
+  );
+  @override
+  late final GeneratedColumn<String> permissionKey = GeneratedColumn<String>(
+    'permission_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _requestedByAppMeta = const VerificationMeta(
+    'requestedByApp',
+  );
+  @override
+  late final GeneratedColumn<bool> requestedByApp = GeneratedColumn<bool>(
+    'requested_by_app',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("requested_by_app" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _everGrantedMeta = const VerificationMeta(
+    'everGranted',
+  );
+  @override
+  late final GeneratedColumn<bool> everGranted = GeneratedColumn<bool>(
+    'ever_granted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("ever_granted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _updatedAtUtcMeta = const VerificationMeta(
+    'updatedAtUtc',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAtUtc = GeneratedColumn<DateTime>(
+    'updated_at_utc',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    permissionKey,
+    requestedByApp,
+    everGranted,
+    updatedAtUtc,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'permission_audits';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PermissionAuditRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('permission_key')) {
+      context.handle(
+        _permissionKeyMeta,
+        permissionKey.isAcceptableOrUnknown(
+          data['permission_key']!,
+          _permissionKeyMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_permissionKeyMeta);
+    }
+    if (data.containsKey('requested_by_app')) {
+      context.handle(
+        _requestedByAppMeta,
+        requestedByApp.isAcceptableOrUnknown(
+          data['requested_by_app']!,
+          _requestedByAppMeta,
+        ),
+      );
+    }
+    if (data.containsKey('ever_granted')) {
+      context.handle(
+        _everGrantedMeta,
+        everGranted.isAcceptableOrUnknown(
+          data['ever_granted']!,
+          _everGrantedMeta,
+        ),
+      );
+    }
+    if (data.containsKey('updated_at_utc')) {
+      context.handle(
+        _updatedAtUtcMeta,
+        updatedAtUtc.isAcceptableOrUnknown(
+          data['updated_at_utc']!,
+          _updatedAtUtcMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtUtcMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {permissionKey};
+  @override
+  PermissionAuditRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PermissionAuditRow(
+      permissionKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}permission_key'],
+      )!,
+      requestedByApp: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}requested_by_app'],
+      )!,
+      everGranted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}ever_granted'],
+      )!,
+      updatedAtUtc: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at_utc'],
+      )!,
+    );
+  }
+
+  @override
+  $PermissionAuditsTable createAlias(String alias) {
+    return $PermissionAuditsTable(attachedDatabase, alias);
+  }
+}
+
+class PermissionAuditRow extends DataClass
+    implements Insertable<PermissionAuditRow> {
+  final String permissionKey;
+  final bool requestedByApp;
+  final bool everGranted;
+  final DateTime updatedAtUtc;
+  const PermissionAuditRow({
+    required this.permissionKey,
+    required this.requestedByApp,
+    required this.everGranted,
+    required this.updatedAtUtc,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['permission_key'] = Variable<String>(permissionKey);
+    map['requested_by_app'] = Variable<bool>(requestedByApp);
+    map['ever_granted'] = Variable<bool>(everGranted);
+    map['updated_at_utc'] = Variable<DateTime>(updatedAtUtc);
+    return map;
+  }
+
+  PermissionAuditsCompanion toCompanion(bool nullToAbsent) {
+    return PermissionAuditsCompanion(
+      permissionKey: Value(permissionKey),
+      requestedByApp: Value(requestedByApp),
+      everGranted: Value(everGranted),
+      updatedAtUtc: Value(updatedAtUtc),
+    );
+  }
+
+  factory PermissionAuditRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PermissionAuditRow(
+      permissionKey: serializer.fromJson<String>(json['permissionKey']),
+      requestedByApp: serializer.fromJson<bool>(json['requestedByApp']),
+      everGranted: serializer.fromJson<bool>(json['everGranted']),
+      updatedAtUtc: serializer.fromJson<DateTime>(json['updatedAtUtc']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'permissionKey': serializer.toJson<String>(permissionKey),
+      'requestedByApp': serializer.toJson<bool>(requestedByApp),
+      'everGranted': serializer.toJson<bool>(everGranted),
+      'updatedAtUtc': serializer.toJson<DateTime>(updatedAtUtc),
+    };
+  }
+
+  PermissionAuditRow copyWith({
+    String? permissionKey,
+    bool? requestedByApp,
+    bool? everGranted,
+    DateTime? updatedAtUtc,
+  }) => PermissionAuditRow(
+    permissionKey: permissionKey ?? this.permissionKey,
+    requestedByApp: requestedByApp ?? this.requestedByApp,
+    everGranted: everGranted ?? this.everGranted,
+    updatedAtUtc: updatedAtUtc ?? this.updatedAtUtc,
+  );
+  PermissionAuditRow copyWithCompanion(PermissionAuditsCompanion data) {
+    return PermissionAuditRow(
+      permissionKey: data.permissionKey.present
+          ? data.permissionKey.value
+          : this.permissionKey,
+      requestedByApp: data.requestedByApp.present
+          ? data.requestedByApp.value
+          : this.requestedByApp,
+      everGranted: data.everGranted.present
+          ? data.everGranted.value
+          : this.everGranted,
+      updatedAtUtc: data.updatedAtUtc.present
+          ? data.updatedAtUtc.value
+          : this.updatedAtUtc,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PermissionAuditRow(')
+          ..write('permissionKey: $permissionKey, ')
+          ..write('requestedByApp: $requestedByApp, ')
+          ..write('everGranted: $everGranted, ')
+          ..write('updatedAtUtc: $updatedAtUtc')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(permissionKey, requestedByApp, everGranted, updatedAtUtc);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PermissionAuditRow &&
+          other.permissionKey == this.permissionKey &&
+          other.requestedByApp == this.requestedByApp &&
+          other.everGranted == this.everGranted &&
+          other.updatedAtUtc == this.updatedAtUtc);
+}
+
+class PermissionAuditsCompanion extends UpdateCompanion<PermissionAuditRow> {
+  final Value<String> permissionKey;
+  final Value<bool> requestedByApp;
+  final Value<bool> everGranted;
+  final Value<DateTime> updatedAtUtc;
+  final Value<int> rowid;
+  const PermissionAuditsCompanion({
+    this.permissionKey = const Value.absent(),
+    this.requestedByApp = const Value.absent(),
+    this.everGranted = const Value.absent(),
+    this.updatedAtUtc = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  PermissionAuditsCompanion.insert({
+    required String permissionKey,
+    this.requestedByApp = const Value.absent(),
+    this.everGranted = const Value.absent(),
+    required DateTime updatedAtUtc,
+    this.rowid = const Value.absent(),
+  }) : permissionKey = Value(permissionKey),
+       updatedAtUtc = Value(updatedAtUtc);
+  static Insertable<PermissionAuditRow> custom({
+    Expression<String>? permissionKey,
+    Expression<bool>? requestedByApp,
+    Expression<bool>? everGranted,
+    Expression<DateTime>? updatedAtUtc,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (permissionKey != null) 'permission_key': permissionKey,
+      if (requestedByApp != null) 'requested_by_app': requestedByApp,
+      if (everGranted != null) 'ever_granted': everGranted,
+      if (updatedAtUtc != null) 'updated_at_utc': updatedAtUtc,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  PermissionAuditsCompanion copyWith({
+    Value<String>? permissionKey,
+    Value<bool>? requestedByApp,
+    Value<bool>? everGranted,
+    Value<DateTime>? updatedAtUtc,
+    Value<int>? rowid,
+  }) {
+    return PermissionAuditsCompanion(
+      permissionKey: permissionKey ?? this.permissionKey,
+      requestedByApp: requestedByApp ?? this.requestedByApp,
+      everGranted: everGranted ?? this.everGranted,
+      updatedAtUtc: updatedAtUtc ?? this.updatedAtUtc,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (permissionKey.present) {
+      map['permission_key'] = Variable<String>(permissionKey.value);
+    }
+    if (requestedByApp.present) {
+      map['requested_by_app'] = Variable<bool>(requestedByApp.value);
+    }
+    if (everGranted.present) {
+      map['ever_granted'] = Variable<bool>(everGranted.value);
+    }
+    if (updatedAtUtc.present) {
+      map['updated_at_utc'] = Variable<DateTime>(updatedAtUtc.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PermissionAuditsCompanion(')
+          ..write('permissionKey: $permissionKey, ')
+          ..write('requestedByApp: $requestedByApp, ')
+          ..write('everGranted: $everGranted, ')
+          ..write('updatedAtUtc: $updatedAtUtc, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -1359,6 +2047,11 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       $OnboardingCheckpointsTable(this);
   late final $LifeIndicatorDefinitionsTable lifeIndicatorDefinitions =
       $LifeIndicatorDefinitionsTable(this);
+  late final $PrivacyPreferencesTable privacyPreferences =
+      $PrivacyPreferencesTable(this);
+  late final $PermissionAuditsTable permissionAudits = $PermissionAuditsTable(
+    this,
+  );
   late final Index lifeIndicatorProfileKeyUnique = Index(
     'life_indicator_profile_key_unique',
     'CREATE UNIQUE INDEX life_indicator_profile_key_unique ON life_indicator_definitions (profile_id, indicator_key)',
@@ -1371,6 +2064,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     localProfiles,
     onboardingCheckpoints,
     lifeIndicatorDefinitions,
+    privacyPreferences,
+    permissionAudits,
     lifeIndicatorProfileKeyUnique,
   ];
 }
@@ -2351,6 +3046,405 @@ typedef $$LifeIndicatorDefinitionsTableProcessedTableManager =
       LifeIndicatorDefinitionRow,
       PrefetchHooks Function({bool profileId})
     >;
+typedef $$PrivacyPreferencesTableCreateCompanionBuilder =
+    PrivacyPreferencesCompanion Function({
+      Value<String> key,
+      Value<bool> lockEnabled,
+      Value<String> notificationPreviewMode,
+      required DateTime updatedAtUtc,
+      Value<int> rowid,
+    });
+typedef $$PrivacyPreferencesTableUpdateCompanionBuilder =
+    PrivacyPreferencesCompanion Function({
+      Value<String> key,
+      Value<bool> lockEnabled,
+      Value<String> notificationPreviewMode,
+      Value<DateTime> updatedAtUtc,
+      Value<int> rowid,
+    });
+
+class $$PrivacyPreferencesTableFilterComposer
+    extends Composer<_$AppDatabase, $PrivacyPreferencesTable> {
+  $$PrivacyPreferencesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get key => $composableBuilder(
+    column: $table.key,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get lockEnabled => $composableBuilder(
+    column: $table.lockEnabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get notificationPreviewMode => $composableBuilder(
+    column: $table.notificationPreviewMode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAtUtc => $composableBuilder(
+    column: $table.updatedAtUtc,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$PrivacyPreferencesTableOrderingComposer
+    extends Composer<_$AppDatabase, $PrivacyPreferencesTable> {
+  $$PrivacyPreferencesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get key => $composableBuilder(
+    column: $table.key,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get lockEnabled => $composableBuilder(
+    column: $table.lockEnabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get notificationPreviewMode => $composableBuilder(
+    column: $table.notificationPreviewMode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAtUtc => $composableBuilder(
+    column: $table.updatedAtUtc,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$PrivacyPreferencesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PrivacyPreferencesTable> {
+  $$PrivacyPreferencesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get key =>
+      $composableBuilder(column: $table.key, builder: (column) => column);
+
+  GeneratedColumn<bool> get lockEnabled => $composableBuilder(
+    column: $table.lockEnabled,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get notificationPreviewMode => $composableBuilder(
+    column: $table.notificationPreviewMode,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get updatedAtUtc => $composableBuilder(
+    column: $table.updatedAtUtc,
+    builder: (column) => column,
+  );
+}
+
+class $$PrivacyPreferencesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $PrivacyPreferencesTable,
+          PrivacyPreferenceRow,
+          $$PrivacyPreferencesTableFilterComposer,
+          $$PrivacyPreferencesTableOrderingComposer,
+          $$PrivacyPreferencesTableAnnotationComposer,
+          $$PrivacyPreferencesTableCreateCompanionBuilder,
+          $$PrivacyPreferencesTableUpdateCompanionBuilder,
+          (
+            PrivacyPreferenceRow,
+            BaseReferences<
+              _$AppDatabase,
+              $PrivacyPreferencesTable,
+              PrivacyPreferenceRow
+            >,
+          ),
+          PrivacyPreferenceRow,
+          PrefetchHooks Function()
+        > {
+  $$PrivacyPreferencesTableTableManager(
+    _$AppDatabase db,
+    $PrivacyPreferencesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PrivacyPreferencesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PrivacyPreferencesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PrivacyPreferencesTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> key = const Value.absent(),
+                Value<bool> lockEnabled = const Value.absent(),
+                Value<String> notificationPreviewMode = const Value.absent(),
+                Value<DateTime> updatedAtUtc = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PrivacyPreferencesCompanion(
+                key: key,
+                lockEnabled: lockEnabled,
+                notificationPreviewMode: notificationPreviewMode,
+                updatedAtUtc: updatedAtUtc,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                Value<String> key = const Value.absent(),
+                Value<bool> lockEnabled = const Value.absent(),
+                Value<String> notificationPreviewMode = const Value.absent(),
+                required DateTime updatedAtUtc,
+                Value<int> rowid = const Value.absent(),
+              }) => PrivacyPreferencesCompanion.insert(
+                key: key,
+                lockEnabled: lockEnabled,
+                notificationPreviewMode: notificationPreviewMode,
+                updatedAtUtc: updatedAtUtc,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$PrivacyPreferencesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $PrivacyPreferencesTable,
+      PrivacyPreferenceRow,
+      $$PrivacyPreferencesTableFilterComposer,
+      $$PrivacyPreferencesTableOrderingComposer,
+      $$PrivacyPreferencesTableAnnotationComposer,
+      $$PrivacyPreferencesTableCreateCompanionBuilder,
+      $$PrivacyPreferencesTableUpdateCompanionBuilder,
+      (
+        PrivacyPreferenceRow,
+        BaseReferences<
+          _$AppDatabase,
+          $PrivacyPreferencesTable,
+          PrivacyPreferenceRow
+        >,
+      ),
+      PrivacyPreferenceRow,
+      PrefetchHooks Function()
+    >;
+typedef $$PermissionAuditsTableCreateCompanionBuilder =
+    PermissionAuditsCompanion Function({
+      required String permissionKey,
+      Value<bool> requestedByApp,
+      Value<bool> everGranted,
+      required DateTime updatedAtUtc,
+      Value<int> rowid,
+    });
+typedef $$PermissionAuditsTableUpdateCompanionBuilder =
+    PermissionAuditsCompanion Function({
+      Value<String> permissionKey,
+      Value<bool> requestedByApp,
+      Value<bool> everGranted,
+      Value<DateTime> updatedAtUtc,
+      Value<int> rowid,
+    });
+
+class $$PermissionAuditsTableFilterComposer
+    extends Composer<_$AppDatabase, $PermissionAuditsTable> {
+  $$PermissionAuditsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get permissionKey => $composableBuilder(
+    column: $table.permissionKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get requestedByApp => $composableBuilder(
+    column: $table.requestedByApp,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get everGranted => $composableBuilder(
+    column: $table.everGranted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAtUtc => $composableBuilder(
+    column: $table.updatedAtUtc,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$PermissionAuditsTableOrderingComposer
+    extends Composer<_$AppDatabase, $PermissionAuditsTable> {
+  $$PermissionAuditsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get permissionKey => $composableBuilder(
+    column: $table.permissionKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get requestedByApp => $composableBuilder(
+    column: $table.requestedByApp,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get everGranted => $composableBuilder(
+    column: $table.everGranted,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAtUtc => $composableBuilder(
+    column: $table.updatedAtUtc,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$PermissionAuditsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PermissionAuditsTable> {
+  $$PermissionAuditsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get permissionKey => $composableBuilder(
+    column: $table.permissionKey,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get requestedByApp => $composableBuilder(
+    column: $table.requestedByApp,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get everGranted => $composableBuilder(
+    column: $table.everGranted,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get updatedAtUtc => $composableBuilder(
+    column: $table.updatedAtUtc,
+    builder: (column) => column,
+  );
+}
+
+class $$PermissionAuditsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $PermissionAuditsTable,
+          PermissionAuditRow,
+          $$PermissionAuditsTableFilterComposer,
+          $$PermissionAuditsTableOrderingComposer,
+          $$PermissionAuditsTableAnnotationComposer,
+          $$PermissionAuditsTableCreateCompanionBuilder,
+          $$PermissionAuditsTableUpdateCompanionBuilder,
+          (
+            PermissionAuditRow,
+            BaseReferences<
+              _$AppDatabase,
+              $PermissionAuditsTable,
+              PermissionAuditRow
+            >,
+          ),
+          PermissionAuditRow,
+          PrefetchHooks Function()
+        > {
+  $$PermissionAuditsTableTableManager(
+    _$AppDatabase db,
+    $PermissionAuditsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PermissionAuditsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PermissionAuditsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PermissionAuditsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> permissionKey = const Value.absent(),
+                Value<bool> requestedByApp = const Value.absent(),
+                Value<bool> everGranted = const Value.absent(),
+                Value<DateTime> updatedAtUtc = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PermissionAuditsCompanion(
+                permissionKey: permissionKey,
+                requestedByApp: requestedByApp,
+                everGranted: everGranted,
+                updatedAtUtc: updatedAtUtc,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String permissionKey,
+                Value<bool> requestedByApp = const Value.absent(),
+                Value<bool> everGranted = const Value.absent(),
+                required DateTime updatedAtUtc,
+                Value<int> rowid = const Value.absent(),
+              }) => PermissionAuditsCompanion.insert(
+                permissionKey: permissionKey,
+                requestedByApp: requestedByApp,
+                everGranted: everGranted,
+                updatedAtUtc: updatedAtUtc,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$PermissionAuditsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $PermissionAuditsTable,
+      PermissionAuditRow,
+      $$PermissionAuditsTableFilterComposer,
+      $$PermissionAuditsTableOrderingComposer,
+      $$PermissionAuditsTableAnnotationComposer,
+      $$PermissionAuditsTableCreateCompanionBuilder,
+      $$PermissionAuditsTableUpdateCompanionBuilder,
+      (
+        PermissionAuditRow,
+        BaseReferences<
+          _$AppDatabase,
+          $PermissionAuditsTable,
+          PermissionAuditRow
+        >,
+      ),
+      PermissionAuditRow,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -2364,4 +3458,8 @@ class $AppDatabaseManager {
         _db,
         _db.lifeIndicatorDefinitions,
       );
+  $$PrivacyPreferencesTableTableManager get privacyPreferences =>
+      $$PrivacyPreferencesTableTableManager(_db, _db.privacyPreferences);
+  $$PermissionAuditsTableTableManager get permissionAudits =>
+      $$PermissionAuditsTableTableManager(_db, _db.permissionAudits);
 }

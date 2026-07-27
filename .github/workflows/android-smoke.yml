@@ -34,7 +34,7 @@ jobs:
       - name: Resolve locked dependencies
         run: flutter pub get
 
-      - name: Run VS-01 smoke flow
+      - name: Run VS-01 and VS-02 smoke flows
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: ${{ matrix.api-level }}
@@ -43,6 +43,7 @@ jobs:
           disable-animations: true
           script: |
             flutter test integration_test/startup_smoke_test.dart
+            flutter test integration_test/privacy_smoke_test.dart
             flutter test integration_test/process_seed_test.dart
             adb shell am force-stop com.nexttransfer.rmplanner
             flutter test integration_test/process_resume_test.dart

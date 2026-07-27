@@ -1,12 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:integration_test/integration_test.dart';
-import 'package:rmplanner/app/next_transfer_app.dart';
 import 'package:rmplanner/core/diagnostics/sanitized_diagnostics.dart';
 import 'package:rmplanner/core/platform/app_environment.dart';
-import 'package:rmplanner/features/startup/application/startup_providers.dart';
 
 import '../test/support/test_dependencies.dart';
 
@@ -19,20 +16,16 @@ void main() {
     final database = openMemoryDatabase();
     addTearDown(database.close);
     final repository = buildTestRepository(database: database);
+    final privacy = TestPrivacyDependencies(database: database);
 
     await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          appEnvironmentProvider.overrideWithValue(
-            const AppEnvironment(
-              name: AppEnvironmentName.production,
-              label: 'PRODUCTION',
-            ),
-          ),
-          diagnosticsProvider.overrideWithValue(SanitizedDiagnostics()),
-          startupRepositoryProvider.overrideWithValue(repository),
-        ],
-        child: const NextTransferApp(),
+      privacy.buildApp(
+        environment: const AppEnvironment(
+          name: AppEnvironmentName.production,
+          label: 'PRODUCTION',
+        ),
+        diagnostics: SanitizedDiagnostics(),
+        startupRepository: repository,
       ),
     );
     await tester.pumpAndSettle();
@@ -54,19 +47,15 @@ void main() {
 
     await tester.pumpWidget(const SizedBox.shrink());
     final relaunchedRepository = buildTestRepository(database: database);
+    final relaunchedPrivacy = TestPrivacyDependencies(database: database);
     await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          appEnvironmentProvider.overrideWithValue(
-            const AppEnvironment(
-              name: AppEnvironmentName.production,
-              label: 'PRODUCTION',
-            ),
-          ),
-          diagnosticsProvider.overrideWithValue(SanitizedDiagnostics()),
-          startupRepositoryProvider.overrideWithValue(relaunchedRepository),
-        ],
-        child: const NextTransferApp(),
+      relaunchedPrivacy.buildApp(
+        environment: const AppEnvironment(
+          name: AppEnvironmentName.production,
+          label: 'PRODUCTION',
+        ),
+        diagnostics: SanitizedDiagnostics(),
+        startupRepository: relaunchedRepository,
       ),
     );
     await tester.pumpAndSettle();
