@@ -471,7 +471,14 @@ repairs did not modify project source or global Git configuration.
 - Authority, dependency-boundary, secret-pattern, Git whitespace, and locked
   package/manifest checks passed. `pubspec.yaml`, `pubspec.lock`, and the
   production manifest are unchanged.
-- Protected quality and API 24/API 36 matrix evidence will be recorded after
-  those gates complete.
+- Protected quality
+  [run 30341742249](https://github.com/noyanxtdoor-maker/draft-planner/actions/runs/30341742249)
+  passed on commit `a692118`, including authority verification, formatting,
+  static analysis, byte-clean code generation, all 80 Flutter tests, debug APK
+  assembly, dependency reporting, and secret scanning.
+- Android matrix
+  [run 30341756815](https://github.com/noyanxtdoor-maker/draft-planner/actions/runs/30341756815)
+  passed all 14 startup, privacy, Planner, process-persistence, Calendar Event,
+  Task-Event link, and outcome-report lanes on API 24 and API 36.
 - The five pre-existing untracked `UI Preferences/**/screen.png` files remain
   untouched and excluded.

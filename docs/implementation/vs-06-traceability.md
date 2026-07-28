@@ -97,14 +97,14 @@ does not embed HTML or reference sample content.
 
 | Gate | VS-06 status |
 | --- | --- |
-| Q0 Authority and traceability | Pass locally — approved hashes, permanent Android identity, permission boundary, schema v6, and all FR/BR/AC mappings |
-| Q1 Static and build | Pass locally — strict format, analyzer, byte-clean codegen, and direct Gradle debug assembly |
+| Q0 Authority and traceability | Pass locally and in protected quality run 30341742249 — approved hashes, permanent Android identity, permission boundary, schema v6, and all FR/BR/AC mappings |
+| Q1 Static and build | Pass locally and in protected quality run 30341742249 — strict format, analyzer, byte-clean codegen, all 80 tests, and debug APK assembly |
 | Q2 Domain/database/migration | Pass locally — repository tests, v5-to-v6 migration, failed-migration rollback, and injected transactional failure |
 | Q3 Offline/privacy/idempotency | Pass locally — local Drafts, idempotent retry, private-note containment, and no new package/permission |
 | Q4 UI/accessibility | Pass locally — matching-viewport native report/correction journey and retained 200% Planner coverage |
-| Q5 Android platform | Pending API 24/API 36 clean-emulator matrix |
+| Q5 Android platform | Pass — Android matrix run 30341756815 completed all 14 API 24/API 36 lanes, including outcome reporting on both APIs |
 | Q6 Remote security | Not applicable; no remote client or provider identity introduced |
-| Q7 Slice evidence | Pending protected quality and Android matrix completion |
+| Q7 Slice evidence | Pass — protected quality run 30341742249 and Android matrix run 30341756815 completed successfully |
 
 VS-07 Home indicator/target presentation, remote sync, provider Calendar
 integration, notifications, maps, and all later-slice work are not implemented.
