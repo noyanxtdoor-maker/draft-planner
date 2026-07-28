@@ -319,3 +319,17 @@ repairs did not modify project source or global Git configuration.
   verification.
 - Secret-pattern and Git whitespace scans passed. The five pre-existing
   untracked `UI Preferences/**/screen.png` files remain untouched and excluded.
+- Protected quality
+  [run 30333331344](https://github.com/noyanxtdoor-maker/draft-planner/actions/runs/30333331344)
+  passed on commit `14a0206`, including authority verification, formatting,
+  static analysis, byte-clean code generation, all 61 Flutter tests, debug APK
+  assembly, dependency reporting, and secret scanning.
+- Android matrix
+  [run 30333334965](https://github.com/noyanxtdoor-maker/draft-planner/actions/runs/30333334965)
+  passed all ten startup, privacy, Planner, process-persistence, and Calendar
+  Event create/detail lanes on API 24 and API 36.
+- Two earlier Android attempts exposed test-only scrolling assumptions in the
+  Calendar Event smoke journey. The API 24 viewport did not initially build the
+  off-screen Save button; the first correction then selected multiple
+  `Scrollable` descendants. The final test drags the visible form `ListView`
+  directly. No production source, behavior, or acceptance criterion changed.

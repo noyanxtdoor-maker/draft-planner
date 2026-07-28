@@ -105,14 +105,14 @@ supporting routes, not new permanent destinations.
 
 | Gate | VS-04 status |
 | --- | --- |
-| Q0 Authority and traceability | Pass locally when `tool/verify_authority.dart` validates source hashes, Android identity, schema v4, dependency boundary, and permission lock |
-| Q1 Static and build | Pass locally — strict format, analyzer, byte-identical codegen, and direct production-defined debug APK assembly |
-| Q2 Domain/database/migration | Pass locally for recurrence, repository, v3-to-v4 upgrade, and rollback fixtures |
-| Q3 Offline/privacy/idempotency | Pass locally for transaction rollback, stable UUIDs, retry idempotency, no-permission location, and report immutability |
-| Q4 UI/accessibility | Pass locally — native create/detail journey at the approved 431 by 912 logical viewport and existing 200% Planner text-scale test |
-| Q5 Android platform | Pending API 24/API 36 Calendar Event smoke matrix |
+| Q0 Authority and traceability | Pass — local verifier and protected quality run 30333331344 validate approved hashes, Android identity, schema v4, dependency boundary, and permission lock |
+| Q1 Static and build | Pass — strict format, analyzer, byte-identical codegen, debug APK assembly, and protected quality run 30333331344 |
+| Q2 Domain/database/migration | Pass — recurrence, repository, v3-to-v4 upgrade, rollback fixtures, and all 61 tests in protected quality run 30333331344 |
+| Q3 Offline/privacy/idempotency | Pass — transaction rollback, stable UUIDs, retry idempotency, no-permission location, report immutability, and process-persistence Android lanes |
+| Q4 UI/accessibility | Pass — native create/detail journey at the approved 431 by 912 logical viewport, 200% Planner text-scale test, and API 24/API 36 journeys |
+| Q5 Android platform | Pass — Android matrix run 30333334965 passed startup, privacy, Planner, process persistence, and Calendar Event create/detail on API 24 and API 36 |
 | Q6 Remote security | Not applicable; no remote client or provider identifier introduced |
-| Q7 Slice evidence | Pending final protected quality and Android workflow evidence |
+| Q7 Slice evidence | Pass — mapped local evidence, protected quality run 30333331344, and all ten Android matrix lanes in run 30333334965 are green |
 
 VS-05 Task-Event linking writes, VS-06 report/Activity Ledger writes, remote
 sync, provider Calendar integration, notifications, maps, and later slice work
