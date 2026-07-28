@@ -3,6 +3,9 @@ import 'package:go_router/go_router.dart';
 import 'package:rmplanner/app/router/route_names.dart';
 import 'package:rmplanner/app/router/startup_route_guard.dart';
 import 'package:rmplanner/app/shell/main_shell.dart';
+import 'package:rmplanner/features/indicators/presentation/indicator_detail_screen.dart';
+import 'package:rmplanner/features/indicators/presentation/weekly_target_prompt_screen.dart';
+import 'package:rmplanner/features/planner/application/planner_providers.dart';
 import 'package:rmplanner/features/planner/domain/calendar_event.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 import 'package:rmplanner/features/planner/presentation/activity_history_screen.dart';
@@ -67,6 +70,33 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             name: RouteNames.planner,
             path: RoutePaths.planner,
             builder: (context, state) => const PlannerScreen(),
+          ),
+          GoRoute(
+            name: RouteNames.indicatorDetail,
+            path: '${RoutePaths.progress}/metric/:indicatorKey',
+            builder: (context, state) {
+              final period = _periodStart(
+                state.uri.queryParameters['week'],
+                ref.read(plannerDateSourceProvider).today(),
+              );
+              return IndicatorDetailScreen(
+                indicatorKey: state.pathParameters['indicatorKey']!,
+                periodStart: period,
+              );
+            },
+          ),
+          GoRoute(
+            name: RouteNames.weeklyPlanningTargets,
+            path: RoutePaths.weeklyPlanning,
+            builder: (context, state) {
+              return WeeklyTargetPromptScreen(
+                periodStart: _periodStart(
+                  state.uri.queryParameters['week'],
+                  ref.read(plannerDateSourceProvider).today(),
+                ),
+                indicatorKey: state.uri.queryParameters['indicator'],
+              );
+            },
           ),
         ],
       ),
@@ -253,3 +283,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   ref.onDispose(router.dispose);
   return router;
 });
+
+PlannerDate _periodStart(String? raw, PlannerDate today) {
+  if (raw != null) {
+    try {
+      return PlannerDate.parse(raw);
+    } on FormatException {
+      // Fall through to the truthful current-week context.
+    }
+  }
+  return today.addDays(-(today.asLocalDate.weekday - DateTime.monday));
+}

@@ -9,8 +9,9 @@ permanent application ID and namespace are `com.nexttransfer.rmplanner`.
 Repository bootstrap, Q0, VS-01 (Guest Startup and Local Profile), VS-02
 (Privacy Lock, Permissions, and Privacy Center), VS-03 (Planner Day and Tasks),
 VS-04 (Calendar Events), and VS-05 (Task-Event Linking) are implemented.
-VS-06 (Outcome Reporting and Activity Ledger) is implemented. VS-07 and later
-slices are intentionally not started.
+VS-06 (Outcome Reporting and Activity Ledger) and VS-07 (Home and Life
+Indicators) are implemented. VS-08 and later slices are intentionally not
+started.
 
 VS-01 provides:
 
@@ -89,9 +90,23 @@ VS-06 adds:
 - schema version 6 with profile-scoped reports, Draft contributions, and
   append-only ledger entries.
 
-Remote account/sync code, targets and VS-07 Home indicator presentation,
-provider Calendar integration, notifications, maps, and later planning features
-remain outside the authorized slice.
+VS-07 adds:
+
+- a native Android-first Home destination using the approved dark charcoal,
+  pink-accent, compact card composition;
+- the fixed six-indicator order with a current Monday-Sunday period;
+- separately labeled, non-blended Actual, Target, and Scheduled Potential;
+- ledger-derived read-only Actual with contribution history;
+- explicitly qualified future Task/Event potential with no title inference and
+  canonical-source de-duplication;
+- optional Not set, zero, and positive weekly targets with append-only revision
+  history and no silently applied suggestion;
+- isolated Current, Stale, Rebuilding, and Partial Failure presentation;
+- schema version 7 with profile-scoped weekly target revisions.
+
+Remote account/sync code, the VS-08 Weekly Planning lifecycle, provider Calendar
+integration, notifications, maps, and later planning features remain outside
+the authorized slice.
 
 ## Locked toolchain
 
@@ -124,7 +139,7 @@ flutter run \
 
 Equivalent non-secret examples exist for development, staging, and production.
 
-No secret is required through VS-06. Never commit signing keys, private
+No secret is required through VS-07. Never commit signing keys, private
 environment files, service-role keys, or user database files.
 
 ## Repository layout
@@ -135,7 +150,7 @@ lib/app/           App shell, theme, and routing
 lib/core/          Database, diagnostics, platform, privacy, time, and IDs
 lib/features/      Vertical feature modules; startup, privacy, and planner
 test/              Unit, repository, migration, and widget tests
-integration_test/  Android VS-01 through VS-06 smoke journeys
+integration_test/  Android VS-01 through VS-07 smoke journeys
 tool/              Toolchain metadata and authority verification
 docs/              Approved sources, preserved baselines, and implementation evidence
 .github/           PR quality and scheduled Android smoke workflows
@@ -159,7 +174,10 @@ and
 VS-06 evidence is recorded in
 [`docs/implementation/vs-06-traceability.md`](docs/implementation/vs-06-traceability.md).
 
-Do not begin VS-07 without explicit product-owner authorization after the VS-06
+VS-07 evidence is recorded in
+[`docs/implementation/vs-07-traceability.md`](docs/implementation/vs-07-traceability.md).
+
+Do not begin VS-08 without explicit product-owner authorization after the VS-07
 quality-gate report.
 
 ## APPROVED VISUAL AND PIXEL-REFERENCE CONTRACT

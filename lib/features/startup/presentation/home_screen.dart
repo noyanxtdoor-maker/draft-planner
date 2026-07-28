@@ -1,211 +1,401 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:rmplanner/app/next_transfer_app.dart';
 import 'package:rmplanner/app/router/route_names.dart';
-import 'package:rmplanner/features/startup/application/startup_providers.dart';
-import 'package:rmplanner/features/startup/domain/startup_snapshot.dart';
-import 'package:rmplanner/features/startup/domain/startup_state.dart';
+import 'package:rmplanner/features/indicators/application/indicator_providers.dart';
+import 'package:rmplanner/features/indicators/domain/life_indicator.dart';
 
 final class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(startupControllerProvider);
-    if (state is! StartupReady) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
-    final environment = ref.watch(appEnvironmentProvider);
-
+    final state = ref.watch(homeIndicatorControllerProvider);
+    final snapshot = state.snapshot;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Home'),
         actions: <Widget>[
           IconButton(
+            tooltip: 'Open today in Planner',
+            onPressed: () => context.go(RoutePaths.planner),
+            icon: const Icon(Icons.today_outlined),
+          ),
+          IconButton(
             tooltip: 'Privacy and Data',
             onPressed: () => context.push(RoutePaths.privacyCenter),
             icon: const Icon(Icons.shield_outlined),
           ),
-          if (environment.showDebugBanner)
-            Padding(
-              padding: const EdgeInsets.only(right: 16),
-              child: Center(
-                child: Text(
-                  environment.label,
-                  style: Theme.of(context).textTheme.labelSmall,
-                ),
-              ),
-            ),
         ],
       ),
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(20),
-          children: <Widget>[
-            Text(
-              'Welcome, ${state.profile.effectiveName}',
-              style: Theme.of(
-                context,
-              ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 8),
-            const Text('Your private local planner is ready.'),
-            const SizedBox(height: 24),
-            _StatusCard(
-              icon: Icons.offline_bolt_outlined,
-              title: 'Local data',
-              value: 'Ready offline',
-              detail: 'The local database is the immediate source.',
-            ),
-            const SizedBox(height: 12),
-            _StatusCard(
-              icon: Icons.account_circle_outlined,
-              title: 'Account',
-              value: _accountLabel(state.accountSessionState),
-              detail: 'Account setup is optional and remains available later.',
-            ),
-            const SizedBox(height: 12),
-            _StatusCard(
-              icon: Icons.sync_disabled,
-              title: 'Synchronization',
-              value: _syncLabel(state.syncState),
-              detail: 'Remote services do not block local navigation.',
-            ),
-            const SizedBox(height: 20),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+        child: snapshot == null
+            ? _InitialState(state: state)
+            : RefreshIndicator(
+                onRefresh: () => ref
+                    .read(homeIndicatorControllerProvider.notifier)
+                    .refresh(),
+                child: ListView(
+                  key: const Key('home-indicator-list'),
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
                   children: <Widget>[
-                    Text(
-                      'Weekly targets are not set',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
+                    _PeriodHeader(snapshot: snapshot, status: state.status),
+                    const SizedBox(height: 16),
+                    _AttentionRow(snapshot: snapshot),
+                    const SizedBox(height: 20),
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final twoColumns = constraints.maxWidth >= 360;
+                        return Wrap(
+                          spacing: 12,
+                          runSpacing: 12,
+                          children: <Widget>[
+                            for (
+                              var index = 0;
+                              index < snapshot.indicators.length;
+                              index += 1
+                            )
+                              SizedBox(
+                                width:
+                                    twoColumns &&
+                                        index != 0 &&
+                                        index != snapshot.indicators.length - 1
+                                    ? (constraints.maxWidth - 12) / 2
+                                    : constraints.maxWidth,
+                                child: _IndicatorCard(
+                                  indicator: snapshot.indicators[index],
+                                  period: snapshot.period,
+                                ),
+                              ),
+                          ],
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 24),
+                    Center(
+                      child: OutlinedButton.icon(
+                        key: const Key('weekly-targets-button'),
+                        onPressed: () => context.push(
+                          RoutePaths.weeklyPlanningTargets(
+                            snapshot.period.start,
+                          ),
+                        ),
+                        icon: const Icon(Icons.calendar_view_week_outlined),
+                        label: const Text('Weekly Planning'),
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'The six approved Life Indicator definitions are ready '
-                      'without any Actual contributions. Target setup remains '
-                      'optional and will live in Weekly Planning.',
+                    const SizedBox(height: 18),
+                    Text(
+                      'Targets begin as Not set. Suggested values are optional '
+                      'and never applied without your choice.',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ],
                 ),
               ),
-            ),
-            const SizedBox(height: 20),
-            OutlinedButton.icon(
-              onPressed: () => _editDisplayName(context, ref, state),
-              icon: const Icon(Icons.edit_outlined),
-              label: const Text('Edit display name'),
-            ),
-          ],
-        ),
       ),
     );
   }
+}
 
-  static String _accountLabel(AccountSessionState state) {
-    return switch (state) {
-      AccountSessionState.localOnly => 'Not connected — optional',
-      AccountSessionState.signedIn => 'Connected — local use remains available',
-      AccountSessionState.expired =>
-        'Session expired — local use remains available',
-    };
-  }
+final class _InitialState extends StatelessWidget {
+  const _InitialState({required this.state});
 
-  static String _syncLabel(LocalSyncState state) {
-    return switch (state) {
-      LocalSyncState.notConfigured => 'Not enabled in VS-01',
-      LocalSyncState.idle => 'Idle',
-    };
-  }
+  final HomeIndicatorState state;
 
-  Future<void> _editDisplayName(
-    BuildContext context,
-    WidgetRef ref,
-    StartupReady state,
-  ) async {
-    final controller = TextEditingController(text: state.profile.displayName);
-    final result = await showDialog<String?>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('Edit display name'),
-          content: TextField(
-            controller: controller,
-            autofocus: true,
-            decoration: const InputDecoration(
-              labelText: 'Display name (optional)',
-            ),
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(dialogContext).pop(controller.text),
-              child: const Text('Save'),
-            ),
-          ],
-        );
-      },
-    );
-    controller.dispose();
-    if (result != null && context.mounted) {
-      await ref
-          .read(startupControllerProvider.notifier)
-          .updateDisplayName(result);
+  @override
+  Widget build(BuildContext context) {
+    if (state.status == HomeIndicatorLoadStatus.failure) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(state.message ?? 'Home data is unavailable.'),
+        ),
+      );
     }
+    return const Center(child: CircularProgressIndicator());
   }
 }
 
-final class _StatusCard extends StatelessWidget {
-  const _StatusCard({
+final class _PeriodHeader extends StatelessWidget {
+  const _PeriodHeader({required this.snapshot, required this.status});
+
+  final HomeIndicatorSnapshot snapshot;
+  final HomeIndicatorLoadStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final header = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Text(
+          'Weekly Life Indicators',
+          style: Theme.of(
+            context,
+          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          '${snapshot.period.start.iso8601} — ${snapshot.period.end.iso8601}',
+          key: const Key('home-active-period'),
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
+    final statusWidget = switch (status) {
+      HomeIndicatorLoadStatus.ready => const Chip(
+        key: Key('home-offline-ready-state'),
+        avatar: Icon(Icons.offline_bolt_outlined, size: 16),
+        label: Text('Ready offline'),
+      ),
+      HomeIndicatorLoadStatus.rebuilding => const Chip(
+        key: Key('home-rebuilding-state'),
+        avatar: SizedBox.square(
+          dimension: 14,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+        label: Text('Updating'),
+      ),
+      HomeIndicatorLoadStatus.loading ||
+      HomeIndicatorLoadStatus.failure => const SizedBox.shrink(),
+    };
+    if (MediaQuery.textScalerOf(context).scale(1) >= 1.5) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[header, const SizedBox(height: 8), statusWidget],
+      );
+    }
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: <Widget>[
+        Expanded(child: header),
+        statusWidget,
+      ],
+    );
+  }
+}
+
+final class _AttentionRow extends StatelessWidget {
+  const _AttentionRow({required this.snapshot});
+
+  final HomeIndicatorSnapshot snapshot;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: <Widget>[
+        Expanded(
+          child: _AttentionCard(
+            key: const Key('home-overdue-count'),
+            icon: Icons.warning_amber_rounded,
+            label: 'Overdue Tasks',
+            count: snapshot.overdueTaskCount,
+            onTap: () => context.go(RoutePaths.planner),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _AttentionCard(
+            key: const Key('home-awaiting-report-count'),
+            icon: Icons.fact_check_outlined,
+            label: 'Awaiting Report',
+            count: snapshot.awaitingReportCount,
+            onTap: () => context.go(RoutePaths.planner),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+final class _AttentionCard extends StatelessWidget {
+  const _AttentionCard({
     required this.icon,
-    required this.title,
-    required this.value,
-    required this.detail,
+    required this.label,
+    required this.count,
+    required this.onTap,
+    super.key,
   });
 
   final IconData icon;
-  final String title;
-  final String value;
-  final String detail;
+  final String label;
+  final int count;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Icon(icon, color: Theme.of(context).colorScheme.primary),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(title, style: Theme.of(context).textTheme.labelLarge),
-                  const SizedBox(height: 4),
-                  Text(
-                    value,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: <Widget>[
+              Icon(icon, color: Theme.of(context).colorScheme.primary),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      '$count',
+                      style: Theme.of(context).textTheme.titleLarge,
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(detail),
-                ],
+                    Text(label, style: Theme.of(context).textTheme.labelSmall),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 }
+
+final class _IndicatorCard extends StatelessWidget {
+  const _IndicatorCard({required this.indicator, required this.period});
+
+  final LifeIndicatorSummary indicator;
+  final IndicatorPeriod period;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Card(
+      key: Key('home-indicator-${indicator.key}'),
+      child: InkWell(
+        onTap: () => context.push(
+          RoutePaths.indicatorDetail(indicator.key, period.start),
+        ),
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Row(
+                children: <Widget>[
+                  Icon(
+                    _iconFor(indicator.key),
+                    color: colors.primary,
+                    size: 30,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      indicator.label,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  const Icon(Icons.chevron_right),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: _Value(
+                      label: 'Actual',
+                      value: indicator.actual.display,
+                      emphasized: true,
+                    ),
+                  ),
+                  Expanded(
+                    child: _Value(
+                      label: 'Target',
+                      value: indicator.target.display,
+                    ),
+                  ),
+                  Expanded(
+                    child: _Value(
+                      label: 'Scheduled',
+                      value: indicator.scheduledPotential.display,
+                      muted: true,
+                    ),
+                  ),
+                ],
+              ),
+              if (indicator.projectionState !=
+                  IndicatorProjectionState.current) ...<Widget>[
+                const SizedBox(height: 12),
+                Text(
+                  switch (indicator.projectionState) {
+                    IndicatorProjectionState.stale =>
+                      'Projection needs verification',
+                    IndicatorProjectionState.rebuilding =>
+                      'Projection is rebuilding',
+                    IndicatorProjectionState.failed =>
+                      indicator.failureMessage ?? 'Projection unavailable',
+                    IndicatorProjectionState.current => '',
+                  },
+                  key: Key('indicator-state-${indicator.key}'),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelSmall?.copyWith(color: colors.error),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+final class _Value extends StatelessWidget {
+  const _Value({
+    required this.label,
+    required this.value,
+    this.emphasized = false,
+    this.muted = false,
+  });
+
+  final String label;
+  final String value;
+  final bool emphasized;
+  final bool muted;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Text(label, style: Theme.of(context).textTheme.labelSmall),
+        const SizedBox(height: 3),
+        Text(
+          value,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            color: emphasized
+                ? colors.primary
+                : muted
+                ? colors.onSurfaceVariant
+                : colors.onSurface,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+IconData _iconFor(String key) => switch (key) {
+  'job_applications' => Icons.work_outline,
+  'scripture_study' => Icons.menu_book_outlined,
+  'exercise' => Icons.fitness_center,
+  'meaningful_connections' => Icons.people_outline,
+  'budget_review' => Icons.pie_chart_outline,
+  'temple_visit' => Icons.church_outlined,
+  _ => Icons.insights_outlined,
+};
