@@ -128,40 +128,53 @@ final class _PeriodHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final header = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Text(
+          'Weekly Life Indicators',
+          style: Theme.of(
+            context,
+          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          '${snapshot.period.start.iso8601} — ${snapshot.period.end.iso8601}',
+          key: const Key('home-active-period'),
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
+    final statusWidget = switch (status) {
+      HomeIndicatorLoadStatus.ready => const Chip(
+        key: Key('home-offline-ready-state'),
+        avatar: Icon(Icons.offline_bolt_outlined, size: 16),
+        label: Text('Ready offline'),
+      ),
+      HomeIndicatorLoadStatus.rebuilding => const Chip(
+        key: Key('home-rebuilding-state'),
+        avatar: SizedBox.square(
+          dimension: 14,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+        label: Text('Updating'),
+      ),
+      HomeIndicatorLoadStatus.loading ||
+      HomeIndicatorLoadStatus.failure => const SizedBox.shrink(),
+    };
+    if (MediaQuery.textScalerOf(context).scale(1) >= 1.5) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[header, const SizedBox(height: 8), statusWidget],
+      );
+    }
     return Row(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: <Widget>[
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Text(
-                'Weekly Life Indicators',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                '${snapshot.period.start.iso8601} — '
-                '${snapshot.period.end.iso8601}',
-                key: const Key('home-active-period'),
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ),
-        ),
-        if (status == HomeIndicatorLoadStatus.rebuilding)
-          const Chip(
-            key: Key('home-rebuilding-state'),
-            avatar: SizedBox.square(
-              dimension: 14,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
-            label: Text('Updating'),
-          ),
+        Expanded(child: header),
+        statusWidget,
       ],
     );
   }

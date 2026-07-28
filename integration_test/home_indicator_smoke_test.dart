@@ -39,7 +39,10 @@ void main() {
     await tester.scrollUntilVisible(
       find.byKey(const Key('weekly-targets-button')),
       250,
-      scrollable: find.byKey(const Key('home-indicator-list')),
+      scrollable: find.descendant(
+        of: find.byKey(const Key('home-indicator-list')),
+        matching: find.byType(Scrollable),
+      ),
     );
     await tester.tap(find.byKey(const Key('weekly-targets-button')));
     await tester.pumpAndSettle();
