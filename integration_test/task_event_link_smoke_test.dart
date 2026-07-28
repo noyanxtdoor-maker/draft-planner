@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:rmplanner/core/diagnostics/sanitized_diagnostics.dart';
 import 'package:rmplanner/core/platform/app_environment.dart';
@@ -74,19 +77,27 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Planner'));
     await tester.pumpAndSettle();
-    final taskTile = find.byKey(const Key('planner-task-$taskId'));
-    final plannerScroll = find.descendant(
-      of: find.byKey(const Key('planner-day-scroll')),
-      matching: find.byType(Scrollable),
+    unawaited(
+      GoRouter.of(
+        tester.element(find.byKey(const Key('planner-day-scroll'))),
+      ).push('/tasks/$taskId'),
     );
-    await tester.scrollUntilVisible(taskTile, 250, scrollable: plannerScroll);
-    await tester.drag(plannerScroll, const Offset(0, -150));
     await tester.pumpAndSettle();
-    await tester.tap(taskTile);
+    final manageLinks = find.byKey(const Key('manage-task-event-links'));
+    await tester.dragUntilVisible(
+      manageLinks,
+      find.byType(ListView),
+      const Offset(0, -200),
+    );
+    await tester.tap(manageLinks);
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('manage-task-event-links')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('link-event-$eventId')));
+    final eventCandidate = find.byKey(const Key('link-event-$eventId'));
+    await tester.dragUntilVisible(
+      eventCandidate,
+      find.byType(ListView),
+      const Offset(0, -200),
+    );
+    await tester.tap(eventCandidate);
     await tester.pumpAndSettle();
 
     expect(find.text('Visit appointment'), findsWidgets);
