@@ -6,17 +6,6 @@ import 'package:rmplanner/features/planner/domain/planner_date.dart';
 import 'package:rmplanner/features/planner/domain/planner_day.dart';
 import 'package:rmplanner/features/planner/domain/planner_task.dart';
 
-abstract interface class TaskHistoricalEffectReader {
-  Future<bool> hasReportOrLedgerEffect(String taskId);
-}
-
-final class NoTaskHistoricalEffects implements TaskHistoricalEffectReader {
-  const NoTaskHistoricalEffects();
-
-  @override
-  Future<bool> hasReportOrLedgerEffect(String taskId) async => false;
-}
-
 abstract interface class TaskWriteGuard {
   Future<void> beforeCommit();
 }

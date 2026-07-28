@@ -267,6 +267,112 @@ class TaskEventLinkHistory extends Table {
   Set<Column<Object>> get primaryKey => <Column<Object>>{id};
 }
 
+@TableIndex(
+  name: 'outcome_report_effective_slot_unique',
+  columns: <Symbol>{#effectiveSlotKey},
+  unique: true,
+)
+@TableIndex(
+  name: 'outcome_report_draft_slot_unique',
+  columns: <Symbol>{#draftSlotKey},
+  unique: true,
+)
+@TableIndex(
+  name: 'outcome_report_operation_unique',
+  columns: <Symbol>{#operationId},
+  unique: true,
+)
+@TableIndex(
+  name: 'outcome_report_profile_activity_date',
+  columns: <Symbol>{#profileId, #activityDate},
+)
+@DataClassName('OutcomeReportRow')
+class OutcomeReports extends Table {
+  TextColumn get id => text()();
+  TextColumn get profileId =>
+      text().references(LocalProfiles, #id, onDelete: KeyAction.restrict)();
+  TextColumn get sourceType => text()();
+  TextColumn get sourceId => text()();
+  TextColumn get sourceLabel => text()();
+  TextColumn get sourceSlotKey => text()();
+  TextColumn get eventId => text().nullable()();
+  TextColumn get occurrenceId => text().nullable()();
+  TextColumn get originalDate => text().nullable()();
+  TextColumn get draftSlotKey => text().nullable()();
+  TextColumn get effectiveSlotKey => text().nullable()();
+  TextColumn get status => text()();
+  TextColumn get outcome => text().nullable()();
+  TextColumn get activityDate => text()();
+  IntColumn get factualValueScaled => integer().nullable()();
+  IntColumn get factualValueScale => integer().withDefault(const Constant(0))();
+  TextColumn get factualValueUnit => text().nullable()();
+  TextColumn get privateNotes => text().nullable()();
+  TextColumn get correctsReportId => text().nullable()();
+  TextColumn get correctionReason => text().nullable()();
+  TextColumn get operationId => text().nullable()();
+  DateTimeColumn get createdAtUtc => dateTime()();
+  DateTimeColumn get updatedAtUtc => dateTime()();
+  DateTimeColumn get submittedAtUtc => dateTime().nullable()();
+
+  @override
+  Set<Column<Object>> get primaryKey => <Column<Object>>{id};
+}
+
+@DataClassName('OutcomeReportContributionDraftRow')
+class OutcomeReportContributionDrafts extends Table {
+  TextColumn get reportId =>
+      text().references(OutcomeReports, #id, onDelete: KeyAction.cascade)();
+  TextColumn get ruleKey => text()();
+  TextColumn get indicatorKey => text()();
+  IntColumn get valueScaled => integer()();
+  IntColumn get valueScale => integer()();
+  TextColumn get unit => text()();
+
+  @override
+  Set<Column<Object>> get primaryKey => <Column<Object>>{reportId, ruleKey};
+}
+
+@TableIndex(
+  name: 'ledger_entry_idempotency_unique',
+  columns: <Symbol>{#idempotencyKey},
+  unique: true,
+)
+@TableIndex(
+  name: 'ledger_entry_reversal_unique',
+  columns: <Symbol>{#reversalOfEntryId},
+  unique: true,
+)
+@TableIndex(
+  name: 'ledger_entry_indicator_period',
+  columns: <Symbol>{#profileId, #indicatorKey, #activityDate},
+)
+@TableIndex(
+  name: 'ledger_entry_report_rule',
+  columns: <Symbol>{#sourceReportId, #ruleKey},
+)
+@DataClassName('ActivityLedgerEntryRow')
+class ActivityLedgerEntries extends Table {
+  TextColumn get id => text()();
+  TextColumn get profileId =>
+      text().references(LocalProfiles, #id, onDelete: KeyAction.restrict)();
+  TextColumn get sourceReportId =>
+      text().references(OutcomeReports, #id, onDelete: KeyAction.restrict)();
+  TextColumn get entryType => text()();
+  TextColumn get indicatorKey => text()();
+  IntColumn get valueScaled => integer()();
+  IntColumn get valueScale => integer()();
+  TextColumn get unit => text()();
+  TextColumn get activityDate => text()();
+  TextColumn get ruleKey => text()();
+  TextColumn get idempotencyKey => text()();
+  TextColumn get reversalOfEntryId => text().nullable()();
+  TextColumn get replacesEntryId => text().nullable()();
+  DateTimeColumn get recordedAtUtc => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => <Column<Object>>{id};
+}
+
 @DriftDatabase(
   tables: <Type>[
     LocalProfiles,
@@ -281,6 +387,9 @@ class TaskEventLinkHistory extends Table {
     CalendarEventOperations,
     TaskEventLinks,
     TaskEventLinkHistory,
+    OutcomeReports,
+    OutcomeReportContributionDrafts,
+    ActivityLedgerEntries,
   ],
 )
 final class AppDatabase extends _$AppDatabase {
@@ -290,6 +399,7 @@ final class AppDatabase extends _$AppDatabase {
       _injectTaskMigrationFailure = false,
       _injectCalendarEventMigrationFailure = false,
       _injectTaskEventLinkMigrationFailure = false,
+      _injectOutcomeReportingMigrationFailure = false,
       super(driftDatabase(name: 'next_transfer'));
 
   AppDatabase.forTesting(
@@ -299,22 +409,26 @@ final class AppDatabase extends _$AppDatabase {
     bool injectTaskMigrationFailure = false,
     bool injectCalendarEventMigrationFailure = false,
     bool injectTaskEventLinkMigrationFailure = false,
+    bool injectOutcomeReportingMigrationFailure = false,
   }) : _schemaVersionOverride = schemaVersionOverride,
        _injectMigrationFailure = injectMigrationFailure,
        _injectTaskMigrationFailure = injectTaskMigrationFailure,
        _injectCalendarEventMigrationFailure =
            injectCalendarEventMigrationFailure,
        _injectTaskEventLinkMigrationFailure =
-           injectTaskEventLinkMigrationFailure;
+           injectTaskEventLinkMigrationFailure,
+       _injectOutcomeReportingMigrationFailure =
+           injectOutcomeReportingMigrationFailure;
 
   final int? _schemaVersionOverride;
   final bool _injectMigrationFailure;
   final bool _injectTaskMigrationFailure;
   final bool _injectCalendarEventMigrationFailure;
   final bool _injectTaskEventLinkMigrationFailure;
+  final bool _injectOutcomeReportingMigrationFailure;
 
   @override
-  int get schemaVersion => _schemaVersionOverride ?? 5;
+  int get schemaVersion => _schemaVersionOverride ?? 6;
 
   @override
   MigrationStrategy get migration {
@@ -339,6 +453,11 @@ final class AppDatabase extends _$AppDatabase {
         if (schemaVersion >= 5) {
           await migrator.createTable(taskEventLinks);
           await migrator.createTable(taskEventLinkHistory);
+        }
+        if (schemaVersion >= 6) {
+          await migrator.createTable(outcomeReports);
+          await migrator.createTable(outcomeReportContributionDrafts);
+          await migrator.createTable(activityLedgerEntries);
         }
       },
       onUpgrade: (migrator, from, to) async {
@@ -370,6 +489,14 @@ final class AppDatabase extends _$AppDatabase {
             await migrator.createTable(taskEventLinkHistory);
             if (_injectTaskEventLinkMigrationFailure) {
               throw StateError('Injected Task-Event link migration failure');
+            }
+          }
+          if (from < 6 && to >= 6) {
+            await migrator.createTable(outcomeReports);
+            await migrator.createTable(outcomeReportContributionDrafts);
+            await migrator.createTable(activityLedgerEntries);
+            if (_injectOutcomeReportingMigrationFailure) {
+              throw StateError('Injected outcome reporting migration failure');
             }
           }
         });

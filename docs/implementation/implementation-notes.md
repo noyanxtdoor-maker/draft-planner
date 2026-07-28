@@ -409,3 +409,69 @@ repairs did not modify project source or global Git configuration.
   unchanged. A later matrix attempt passed 11 lanes but its legacy API 24
   Calendar Event runner stalled; it was cancelled after the clean retry passed
   all 12 lanes.
+
+## 2026-07-28 — VS-06 Outcome Reporting and Activity Ledger
+
+- Product-owner authorization expanded the active boundary through VS-06 only.
+  VS-07 and all later slices remain unauthorized.
+- Added profile-scoped Outcome Reports, autosaved contribution Draft rows, and
+  append-only Activity Ledger entries in Drift schema version 6. Migration from
+  schema v5 is transactional and has an injected rollback fixture.
+- Task, Calendar Event occurrence, and structured manual Activity Report routes
+  use explicit factual outcomes. Required-Task completion and report/ledger
+  writes commit in one transaction.
+- Report and ledger operation identities are deterministic and retry-safe. One
+  effective report exists per source slot; corrections supersede it without
+  deleting it and append negative reversals plus optional replacements.
+- Indicator contributions require explicit user selection. Titles and private
+  notes never classify contributions. Actual has no writable table or column;
+  it is summed from ledger entries using integer-scaled values and approved
+  units.
+- Private report notes remain local, optional, and non-contributory. They do
+  not enter diagnostics, logs, notification previews, or classification rules.
+- Activity History lists effective reports first and retains superseded reports
+  and reversal detail. Manual entry is a structured Activity Report; no raw
+  ledger editor exists.
+- The approved Planner PNG and matching HTML were inspected before the
+  permanent Planner destination changed. A compact history action and Activity
+  Report create option are the documented supporting-route deviation required
+  by VS-06. The Android-first safe-area, responsive, dark/rose composition is
+  retained.
+- VS-06 adds no package, Android permission, remote client, analytics SDK,
+  Calendar provider access, background worker, notification code, map code, or
+  VS-07 Home indicator/target presentation.
+
+### VS-06 verification evidence
+
+- The new repository tests pass for Draft/submission retry, required-Task
+  atomic completion, correction/reversal/replacement history, invalid-value
+  rollback, manual Activity Reports, ledger rebuild/audit, and injected
+  transactional failure.
+- The matching-viewport widget journey passes the complete required-Task
+  report and correction flow and proves corrected Actual returns to zero while
+  two immutable ledger rows remain.
+- Strict formatting passed across all 103 Dart files and static analysis passed
+  with no issues. All 80 Flutter unit, domain, repository, migration, and
+  widget tests passed.
+- Drift generation reproduced `app_database.g.dart` byte-for-byte with SHA-256
+  `2EFF796FB4A7451B6E4840FADE7243D4EE67C873DA34D9007AF82C602A17AA47`.
+- Direct Gradle debug assembly with production Dart defines passed all 203
+  tasks. The APK is 193,063,366 bytes with SHA-256
+  `6342DAB0C52841B1ECDFFF808F1AD11B295D321B68F2372FF649DA7C953AC9B7`.
+  APK inspection confirmed `com.nexttransfer.rmplanner`, version `0.1.0+1`,
+  minimum SDK 24, compile/target SDK 36, and no Calendar, contacts, location,
+  storage, or notification permission.
+- Flutter's wrapper produced the APK but returned failure while replacing
+  Gradle's optional problems report. Direct `app:assembleDebug` with
+  `--no-problems-report` passed; no production source changed to mask the local
+  filesystem/tooling behavior.
+- The VS-06 Android integration command was attempted, but no Android device
+  was connected. The equivalent widget journey passed locally and the smoke
+  flow is assigned to clean API 24 and API 36 CI emulators.
+- Authority, dependency-boundary, secret-pattern, Git whitespace, and locked
+  package/manifest checks passed. `pubspec.yaml`, `pubspec.lock`, and the
+  production manifest are unchanged.
+- Protected quality and API 24/API 36 matrix evidence will be recorded after
+  those gates complete.
+- The five pre-existing untracked `UI Preferences/**/screen.png` files remain
+  untouched and excluded.

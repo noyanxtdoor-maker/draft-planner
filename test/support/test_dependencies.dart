@@ -11,11 +11,13 @@ import 'package:rmplanner/core/security/privacy_gate.dart';
 import 'package:rmplanner/core/time/app_clock.dart';
 import 'package:rmplanner/features/planner/application/calendar_event_providers.dart';
 import 'package:rmplanner/features/planner/application/calendar_event_repository.dart';
+import 'package:rmplanner/features/planner/application/outcome_reporting_providers.dart';
 import 'package:rmplanner/features/planner/application/planner_providers.dart';
 import 'package:rmplanner/features/planner/application/planner_repository.dart';
 import 'package:rmplanner/features/planner/application/task_event_link_providers.dart';
 import 'package:rmplanner/features/planner/data/calendar_event_time_zones.dart';
 import 'package:rmplanner/features/planner/data/drift_calendar_event_repository.dart';
+import 'package:rmplanner/features/planner/data/drift_outcome_reporting_repository.dart';
 import 'package:rmplanner/features/planner/data/drift_planner_repository.dart';
 import 'package:rmplanner/features/planner/data/drift_task_event_link_repository.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
@@ -242,6 +244,10 @@ final class TestPrivacyDependencies {
       database: repository.database,
       clock: FixedClock(DateTime.utc(2026, 7, 27, 12)),
     );
+    final outcomeReportingRepository = DriftOutcomeReportingRepository(
+      database: repository.database,
+      clock: FixedClock(DateTime.utc(2026, 7, 27, 12)),
+    );
     final resolvedCalendarEventRepository =
         calendarEventRepository ??
         DriftCalendarEventRepository(
@@ -252,6 +258,7 @@ final class TestPrivacyDependencies {
           ),
           taskContextSource: linkRepository,
           linkContextTransfer: linkRepository,
+          reportSource: outcomeReportingRepository,
         );
     final resolvedPlannerRepository =
         plannerRepository ??
@@ -260,6 +267,7 @@ final class TestPrivacyDependencies {
           clock: FixedClock(DateTime.utc(2026, 7, 27, 12)),
           calendarSource: resolvedCalendarEventRepository,
           taskContextSource: linkRepository,
+          historicalEffectReader: outcomeReportingRepository,
         );
     final linkCoordinator = DriftTaskEventLinkCoordinator(
       database: repository.database,
@@ -280,6 +288,9 @@ final class TestPrivacyDependencies {
         ),
         calendarEventRepositoryProvider.overrideWithValue(
           resolvedCalendarEventRepository,
+        ),
+        outcomeReportingRepositoryProvider.overrideWithValue(
+          outcomeReportingRepository,
         ),
         plannerRepositoryProvider.overrideWithValue(resolvedPlannerRepository),
         taskEventLinkRepositoryProvider.overrideWithValue(linkRepository),

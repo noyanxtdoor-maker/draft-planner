@@ -207,7 +207,10 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('complete-task-button')));
       await tester.pumpAndSettle();
-      expect(find.textContaining('remains Incomplete'), findsOneWidget);
+      expect(find.byKey(const Key('outcome-report-form')), findsOneWidget);
+      expect(find.text('Report-required fixture'), findsOneWidget);
+      await tester.pageBack();
+      await tester.pumpAndSettle();
       expect(find.text('Incomplete'), findsOneWidget);
 
       await tester.pageBack();
