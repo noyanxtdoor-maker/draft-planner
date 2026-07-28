@@ -122,10 +122,27 @@ final class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                 if (task.status == PlannerTaskStatus.incomplete) ...<Widget>[
                   FilledButton.tonalIcon(
                     key: const Key('complete-task-button'),
-                    onPressed: () => _changeStatus(PlannerTaskStatus.completed),
-                    icon: const Icon(Icons.check),
-                    label: const Text('Mark Completed'),
+                    onPressed: task.requiresReport
+                        ? () => _openReport(task)
+                        : () => _changeStatus(PlannerTaskStatus.completed),
+                    icon: Icon(
+                      task.requiresReport
+                          ? Icons.assignment_turned_in_outlined
+                          : Icons.check,
+                    ),
+                    label: Text(
+                      task.requiresReport
+                          ? 'Complete with Report'
+                          : 'Mark Completed',
+                    ),
                   ),
+                  if (!task.requiresReport)
+                    OutlinedButton.icon(
+                      key: const Key('open-task-report-button'),
+                      onPressed: () => _openReport(task),
+                      icon: const Icon(Icons.assignment_outlined),
+                      label: const Text('Open Activity Report'),
+                    ),
                   OutlinedButton.icon(
                     key: const Key('skip-task-button'),
                     onPressed: () => _changeStatus(PlannerTaskStatus.skipped),
@@ -146,6 +163,13 @@ final class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                     icon: const Icon(Icons.undo),
                     label: const Text('Reopen Task'),
                   ),
+                const SizedBox(height: 8),
+                TextButton.icon(
+                  key: const Key('task-activity-history-button'),
+                  onPressed: () => context.push(RoutePaths.activityHistory),
+                  icon: const Icon(Icons.history),
+                  label: const Text('View Activity History'),
+                ),
                 const SizedBox(height: 20),
                 const Text(
                   'Changing a Task status never completes a linked Calendar '
@@ -182,6 +206,13 @@ final class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
       '${RoutePaths.tasks}/${widget.taskId}/create-event'
       '?date=${date.iso8601}',
     );
+    if (changed == true && mounted) {
+      setState(_reload);
+    }
+  }
+
+  Future<void> _openReport(PlannerTask task) async {
+    final changed = await context.push<bool>(RoutePaths.taskReport(task.id));
     if (changed == true && mounted) {
       setState(_reload);
     }

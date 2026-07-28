@@ -7320,6 +7320,2705 @@ class TaskEventLinkHistoryCompanion
   }
 }
 
+class $OutcomeReportsTable extends OutcomeReports
+    with TableInfo<$OutcomeReportsTable, OutcomeReportRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $OutcomeReportsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _profileIdMeta = const VerificationMeta(
+    'profileId',
+  );
+  @override
+  late final GeneratedColumn<String> profileId = GeneratedColumn<String>(
+    'profile_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES local_profiles (id) ON DELETE RESTRICT',
+    ),
+  );
+  static const VerificationMeta _sourceTypeMeta = const VerificationMeta(
+    'sourceType',
+  );
+  @override
+  late final GeneratedColumn<String> sourceType = GeneratedColumn<String>(
+    'source_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sourceIdMeta = const VerificationMeta(
+    'sourceId',
+  );
+  @override
+  late final GeneratedColumn<String> sourceId = GeneratedColumn<String>(
+    'source_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sourceLabelMeta = const VerificationMeta(
+    'sourceLabel',
+  );
+  @override
+  late final GeneratedColumn<String> sourceLabel = GeneratedColumn<String>(
+    'source_label',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sourceSlotKeyMeta = const VerificationMeta(
+    'sourceSlotKey',
+  );
+  @override
+  late final GeneratedColumn<String> sourceSlotKey = GeneratedColumn<String>(
+    'source_slot_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _eventIdMeta = const VerificationMeta(
+    'eventId',
+  );
+  @override
+  late final GeneratedColumn<String> eventId = GeneratedColumn<String>(
+    'event_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _occurrenceIdMeta = const VerificationMeta(
+    'occurrenceId',
+  );
+  @override
+  late final GeneratedColumn<String> occurrenceId = GeneratedColumn<String>(
+    'occurrence_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _originalDateMeta = const VerificationMeta(
+    'originalDate',
+  );
+  @override
+  late final GeneratedColumn<String> originalDate = GeneratedColumn<String>(
+    'original_date',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _draftSlotKeyMeta = const VerificationMeta(
+    'draftSlotKey',
+  );
+  @override
+  late final GeneratedColumn<String> draftSlotKey = GeneratedColumn<String>(
+    'draft_slot_key',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _effectiveSlotKeyMeta = const VerificationMeta(
+    'effectiveSlotKey',
+  );
+  @override
+  late final GeneratedColumn<String> effectiveSlotKey = GeneratedColumn<String>(
+    'effective_slot_key',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _outcomeMeta = const VerificationMeta(
+    'outcome',
+  );
+  @override
+  late final GeneratedColumn<String> outcome = GeneratedColumn<String>(
+    'outcome',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _activityDateMeta = const VerificationMeta(
+    'activityDate',
+  );
+  @override
+  late final GeneratedColumn<String> activityDate = GeneratedColumn<String>(
+    'activity_date',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _factualValueScaledMeta =
+      const VerificationMeta('factualValueScaled');
+  @override
+  late final GeneratedColumn<int> factualValueScaled = GeneratedColumn<int>(
+    'factual_value_scaled',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _factualValueScaleMeta = const VerificationMeta(
+    'factualValueScale',
+  );
+  @override
+  late final GeneratedColumn<int> factualValueScale = GeneratedColumn<int>(
+    'factual_value_scale',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _factualValueUnitMeta = const VerificationMeta(
+    'factualValueUnit',
+  );
+  @override
+  late final GeneratedColumn<String> factualValueUnit = GeneratedColumn<String>(
+    'factual_value_unit',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _privateNotesMeta = const VerificationMeta(
+    'privateNotes',
+  );
+  @override
+  late final GeneratedColumn<String> privateNotes = GeneratedColumn<String>(
+    'private_notes',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _correctsReportIdMeta = const VerificationMeta(
+    'correctsReportId',
+  );
+  @override
+  late final GeneratedColumn<String> correctsReportId = GeneratedColumn<String>(
+    'corrects_report_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _correctionReasonMeta = const VerificationMeta(
+    'correctionReason',
+  );
+  @override
+  late final GeneratedColumn<String> correctionReason = GeneratedColumn<String>(
+    'correction_reason',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _operationIdMeta = const VerificationMeta(
+    'operationId',
+  );
+  @override
+  late final GeneratedColumn<String> operationId = GeneratedColumn<String>(
+    'operation_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtUtcMeta = const VerificationMeta(
+    'createdAtUtc',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAtUtc = GeneratedColumn<DateTime>(
+    'created_at_utc',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtUtcMeta = const VerificationMeta(
+    'updatedAtUtc',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAtUtc = GeneratedColumn<DateTime>(
+    'updated_at_utc',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _submittedAtUtcMeta = const VerificationMeta(
+    'submittedAtUtc',
+  );
+  @override
+  late final GeneratedColumn<DateTime> submittedAtUtc =
+      GeneratedColumn<DateTime>(
+        'submitted_at_utc',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    profileId,
+    sourceType,
+    sourceId,
+    sourceLabel,
+    sourceSlotKey,
+    eventId,
+    occurrenceId,
+    originalDate,
+    draftSlotKey,
+    effectiveSlotKey,
+    status,
+    outcome,
+    activityDate,
+    factualValueScaled,
+    factualValueScale,
+    factualValueUnit,
+    privateNotes,
+    correctsReportId,
+    correctionReason,
+    operationId,
+    createdAtUtc,
+    updatedAtUtc,
+    submittedAtUtc,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'outcome_reports';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<OutcomeReportRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('profile_id')) {
+      context.handle(
+        _profileIdMeta,
+        profileId.isAcceptableOrUnknown(data['profile_id']!, _profileIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_profileIdMeta);
+    }
+    if (data.containsKey('source_type')) {
+      context.handle(
+        _sourceTypeMeta,
+        sourceType.isAcceptableOrUnknown(data['source_type']!, _sourceTypeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_sourceTypeMeta);
+    }
+    if (data.containsKey('source_id')) {
+      context.handle(
+        _sourceIdMeta,
+        sourceId.isAcceptableOrUnknown(data['source_id']!, _sourceIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_sourceIdMeta);
+    }
+    if (data.containsKey('source_label')) {
+      context.handle(
+        _sourceLabelMeta,
+        sourceLabel.isAcceptableOrUnknown(
+          data['source_label']!,
+          _sourceLabelMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_sourceLabelMeta);
+    }
+    if (data.containsKey('source_slot_key')) {
+      context.handle(
+        _sourceSlotKeyMeta,
+        sourceSlotKey.isAcceptableOrUnknown(
+          data['source_slot_key']!,
+          _sourceSlotKeyMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_sourceSlotKeyMeta);
+    }
+    if (data.containsKey('event_id')) {
+      context.handle(
+        _eventIdMeta,
+        eventId.isAcceptableOrUnknown(data['event_id']!, _eventIdMeta),
+      );
+    }
+    if (data.containsKey('occurrence_id')) {
+      context.handle(
+        _occurrenceIdMeta,
+        occurrenceId.isAcceptableOrUnknown(
+          data['occurrence_id']!,
+          _occurrenceIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('original_date')) {
+      context.handle(
+        _originalDateMeta,
+        originalDate.isAcceptableOrUnknown(
+          data['original_date']!,
+          _originalDateMeta,
+        ),
+      );
+    }
+    if (data.containsKey('draft_slot_key')) {
+      context.handle(
+        _draftSlotKeyMeta,
+        draftSlotKey.isAcceptableOrUnknown(
+          data['draft_slot_key']!,
+          _draftSlotKeyMeta,
+        ),
+      );
+    }
+    if (data.containsKey('effective_slot_key')) {
+      context.handle(
+        _effectiveSlotKeyMeta,
+        effectiveSlotKey.isAcceptableOrUnknown(
+          data['effective_slot_key']!,
+          _effectiveSlotKeyMeta,
+        ),
+      );
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_statusMeta);
+    }
+    if (data.containsKey('outcome')) {
+      context.handle(
+        _outcomeMeta,
+        outcome.isAcceptableOrUnknown(data['outcome']!, _outcomeMeta),
+      );
+    }
+    if (data.containsKey('activity_date')) {
+      context.handle(
+        _activityDateMeta,
+        activityDate.isAcceptableOrUnknown(
+          data['activity_date']!,
+          _activityDateMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_activityDateMeta);
+    }
+    if (data.containsKey('factual_value_scaled')) {
+      context.handle(
+        _factualValueScaledMeta,
+        factualValueScaled.isAcceptableOrUnknown(
+          data['factual_value_scaled']!,
+          _factualValueScaledMeta,
+        ),
+      );
+    }
+    if (data.containsKey('factual_value_scale')) {
+      context.handle(
+        _factualValueScaleMeta,
+        factualValueScale.isAcceptableOrUnknown(
+          data['factual_value_scale']!,
+          _factualValueScaleMeta,
+        ),
+      );
+    }
+    if (data.containsKey('factual_value_unit')) {
+      context.handle(
+        _factualValueUnitMeta,
+        factualValueUnit.isAcceptableOrUnknown(
+          data['factual_value_unit']!,
+          _factualValueUnitMeta,
+        ),
+      );
+    }
+    if (data.containsKey('private_notes')) {
+      context.handle(
+        _privateNotesMeta,
+        privateNotes.isAcceptableOrUnknown(
+          data['private_notes']!,
+          _privateNotesMeta,
+        ),
+      );
+    }
+    if (data.containsKey('corrects_report_id')) {
+      context.handle(
+        _correctsReportIdMeta,
+        correctsReportId.isAcceptableOrUnknown(
+          data['corrects_report_id']!,
+          _correctsReportIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('correction_reason')) {
+      context.handle(
+        _correctionReasonMeta,
+        correctionReason.isAcceptableOrUnknown(
+          data['correction_reason']!,
+          _correctionReasonMeta,
+        ),
+      );
+    }
+    if (data.containsKey('operation_id')) {
+      context.handle(
+        _operationIdMeta,
+        operationId.isAcceptableOrUnknown(
+          data['operation_id']!,
+          _operationIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_at_utc')) {
+      context.handle(
+        _createdAtUtcMeta,
+        createdAtUtc.isAcceptableOrUnknown(
+          data['created_at_utc']!,
+          _createdAtUtcMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtUtcMeta);
+    }
+    if (data.containsKey('updated_at_utc')) {
+      context.handle(
+        _updatedAtUtcMeta,
+        updatedAtUtc.isAcceptableOrUnknown(
+          data['updated_at_utc']!,
+          _updatedAtUtcMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtUtcMeta);
+    }
+    if (data.containsKey('submitted_at_utc')) {
+      context.handle(
+        _submittedAtUtcMeta,
+        submittedAtUtc.isAcceptableOrUnknown(
+          data['submitted_at_utc']!,
+          _submittedAtUtcMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  OutcomeReportRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return OutcomeReportRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      profileId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}profile_id'],
+      )!,
+      sourceType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source_type'],
+      )!,
+      sourceId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source_id'],
+      )!,
+      sourceLabel: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source_label'],
+      )!,
+      sourceSlotKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source_slot_key'],
+      )!,
+      eventId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}event_id'],
+      ),
+      occurrenceId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}occurrence_id'],
+      ),
+      originalDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}original_date'],
+      ),
+      draftSlotKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}draft_slot_key'],
+      ),
+      effectiveSlotKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}effective_slot_key'],
+      ),
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      outcome: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}outcome'],
+      ),
+      activityDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}activity_date'],
+      )!,
+      factualValueScaled: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}factual_value_scaled'],
+      ),
+      factualValueScale: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}factual_value_scale'],
+      )!,
+      factualValueUnit: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}factual_value_unit'],
+      ),
+      privateNotes: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}private_notes'],
+      ),
+      correctsReportId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}corrects_report_id'],
+      ),
+      correctionReason: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}correction_reason'],
+      ),
+      operationId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}operation_id'],
+      ),
+      createdAtUtc: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at_utc'],
+      )!,
+      updatedAtUtc: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at_utc'],
+      )!,
+      submittedAtUtc: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}submitted_at_utc'],
+      ),
+    );
+  }
+
+  @override
+  $OutcomeReportsTable createAlias(String alias) {
+    return $OutcomeReportsTable(attachedDatabase, alias);
+  }
+}
+
+class OutcomeReportRow extends DataClass
+    implements Insertable<OutcomeReportRow> {
+  final String id;
+  final String profileId;
+  final String sourceType;
+  final String sourceId;
+  final String sourceLabel;
+  final String sourceSlotKey;
+  final String? eventId;
+  final String? occurrenceId;
+  final String? originalDate;
+  final String? draftSlotKey;
+  final String? effectiveSlotKey;
+  final String status;
+  final String? outcome;
+  final String activityDate;
+  final int? factualValueScaled;
+  final int factualValueScale;
+  final String? factualValueUnit;
+  final String? privateNotes;
+  final String? correctsReportId;
+  final String? correctionReason;
+  final String? operationId;
+  final DateTime createdAtUtc;
+  final DateTime updatedAtUtc;
+  final DateTime? submittedAtUtc;
+  const OutcomeReportRow({
+    required this.id,
+    required this.profileId,
+    required this.sourceType,
+    required this.sourceId,
+    required this.sourceLabel,
+    required this.sourceSlotKey,
+    this.eventId,
+    this.occurrenceId,
+    this.originalDate,
+    this.draftSlotKey,
+    this.effectiveSlotKey,
+    required this.status,
+    this.outcome,
+    required this.activityDate,
+    this.factualValueScaled,
+    required this.factualValueScale,
+    this.factualValueUnit,
+    this.privateNotes,
+    this.correctsReportId,
+    this.correctionReason,
+    this.operationId,
+    required this.createdAtUtc,
+    required this.updatedAtUtc,
+    this.submittedAtUtc,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['profile_id'] = Variable<String>(profileId);
+    map['source_type'] = Variable<String>(sourceType);
+    map['source_id'] = Variable<String>(sourceId);
+    map['source_label'] = Variable<String>(sourceLabel);
+    map['source_slot_key'] = Variable<String>(sourceSlotKey);
+    if (!nullToAbsent || eventId != null) {
+      map['event_id'] = Variable<String>(eventId);
+    }
+    if (!nullToAbsent || occurrenceId != null) {
+      map['occurrence_id'] = Variable<String>(occurrenceId);
+    }
+    if (!nullToAbsent || originalDate != null) {
+      map['original_date'] = Variable<String>(originalDate);
+    }
+    if (!nullToAbsent || draftSlotKey != null) {
+      map['draft_slot_key'] = Variable<String>(draftSlotKey);
+    }
+    if (!nullToAbsent || effectiveSlotKey != null) {
+      map['effective_slot_key'] = Variable<String>(effectiveSlotKey);
+    }
+    map['status'] = Variable<String>(status);
+    if (!nullToAbsent || outcome != null) {
+      map['outcome'] = Variable<String>(outcome);
+    }
+    map['activity_date'] = Variable<String>(activityDate);
+    if (!nullToAbsent || factualValueScaled != null) {
+      map['factual_value_scaled'] = Variable<int>(factualValueScaled);
+    }
+    map['factual_value_scale'] = Variable<int>(factualValueScale);
+    if (!nullToAbsent || factualValueUnit != null) {
+      map['factual_value_unit'] = Variable<String>(factualValueUnit);
+    }
+    if (!nullToAbsent || privateNotes != null) {
+      map['private_notes'] = Variable<String>(privateNotes);
+    }
+    if (!nullToAbsent || correctsReportId != null) {
+      map['corrects_report_id'] = Variable<String>(correctsReportId);
+    }
+    if (!nullToAbsent || correctionReason != null) {
+      map['correction_reason'] = Variable<String>(correctionReason);
+    }
+    if (!nullToAbsent || operationId != null) {
+      map['operation_id'] = Variable<String>(operationId);
+    }
+    map['created_at_utc'] = Variable<DateTime>(createdAtUtc);
+    map['updated_at_utc'] = Variable<DateTime>(updatedAtUtc);
+    if (!nullToAbsent || submittedAtUtc != null) {
+      map['submitted_at_utc'] = Variable<DateTime>(submittedAtUtc);
+    }
+    return map;
+  }
+
+  OutcomeReportsCompanion toCompanion(bool nullToAbsent) {
+    return OutcomeReportsCompanion(
+      id: Value(id),
+      profileId: Value(profileId),
+      sourceType: Value(sourceType),
+      sourceId: Value(sourceId),
+      sourceLabel: Value(sourceLabel),
+      sourceSlotKey: Value(sourceSlotKey),
+      eventId: eventId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(eventId),
+      occurrenceId: occurrenceId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(occurrenceId),
+      originalDate: originalDate == null && nullToAbsent
+          ? const Value.absent()
+          : Value(originalDate),
+      draftSlotKey: draftSlotKey == null && nullToAbsent
+          ? const Value.absent()
+          : Value(draftSlotKey),
+      effectiveSlotKey: effectiveSlotKey == null && nullToAbsent
+          ? const Value.absent()
+          : Value(effectiveSlotKey),
+      status: Value(status),
+      outcome: outcome == null && nullToAbsent
+          ? const Value.absent()
+          : Value(outcome),
+      activityDate: Value(activityDate),
+      factualValueScaled: factualValueScaled == null && nullToAbsent
+          ? const Value.absent()
+          : Value(factualValueScaled),
+      factualValueScale: Value(factualValueScale),
+      factualValueUnit: factualValueUnit == null && nullToAbsent
+          ? const Value.absent()
+          : Value(factualValueUnit),
+      privateNotes: privateNotes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(privateNotes),
+      correctsReportId: correctsReportId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(correctsReportId),
+      correctionReason: correctionReason == null && nullToAbsent
+          ? const Value.absent()
+          : Value(correctionReason),
+      operationId: operationId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(operationId),
+      createdAtUtc: Value(createdAtUtc),
+      updatedAtUtc: Value(updatedAtUtc),
+      submittedAtUtc: submittedAtUtc == null && nullToAbsent
+          ? const Value.absent()
+          : Value(submittedAtUtc),
+    );
+  }
+
+  factory OutcomeReportRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return OutcomeReportRow(
+      id: serializer.fromJson<String>(json['id']),
+      profileId: serializer.fromJson<String>(json['profileId']),
+      sourceType: serializer.fromJson<String>(json['sourceType']),
+      sourceId: serializer.fromJson<String>(json['sourceId']),
+      sourceLabel: serializer.fromJson<String>(json['sourceLabel']),
+      sourceSlotKey: serializer.fromJson<String>(json['sourceSlotKey']),
+      eventId: serializer.fromJson<String?>(json['eventId']),
+      occurrenceId: serializer.fromJson<String?>(json['occurrenceId']),
+      originalDate: serializer.fromJson<String?>(json['originalDate']),
+      draftSlotKey: serializer.fromJson<String?>(json['draftSlotKey']),
+      effectiveSlotKey: serializer.fromJson<String?>(json['effectiveSlotKey']),
+      status: serializer.fromJson<String>(json['status']),
+      outcome: serializer.fromJson<String?>(json['outcome']),
+      activityDate: serializer.fromJson<String>(json['activityDate']),
+      factualValueScaled: serializer.fromJson<int?>(json['factualValueScaled']),
+      factualValueScale: serializer.fromJson<int>(json['factualValueScale']),
+      factualValueUnit: serializer.fromJson<String?>(json['factualValueUnit']),
+      privateNotes: serializer.fromJson<String?>(json['privateNotes']),
+      correctsReportId: serializer.fromJson<String?>(json['correctsReportId']),
+      correctionReason: serializer.fromJson<String?>(json['correctionReason']),
+      operationId: serializer.fromJson<String?>(json['operationId']),
+      createdAtUtc: serializer.fromJson<DateTime>(json['createdAtUtc']),
+      updatedAtUtc: serializer.fromJson<DateTime>(json['updatedAtUtc']),
+      submittedAtUtc: serializer.fromJson<DateTime?>(json['submittedAtUtc']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'profileId': serializer.toJson<String>(profileId),
+      'sourceType': serializer.toJson<String>(sourceType),
+      'sourceId': serializer.toJson<String>(sourceId),
+      'sourceLabel': serializer.toJson<String>(sourceLabel),
+      'sourceSlotKey': serializer.toJson<String>(sourceSlotKey),
+      'eventId': serializer.toJson<String?>(eventId),
+      'occurrenceId': serializer.toJson<String?>(occurrenceId),
+      'originalDate': serializer.toJson<String?>(originalDate),
+      'draftSlotKey': serializer.toJson<String?>(draftSlotKey),
+      'effectiveSlotKey': serializer.toJson<String?>(effectiveSlotKey),
+      'status': serializer.toJson<String>(status),
+      'outcome': serializer.toJson<String?>(outcome),
+      'activityDate': serializer.toJson<String>(activityDate),
+      'factualValueScaled': serializer.toJson<int?>(factualValueScaled),
+      'factualValueScale': serializer.toJson<int>(factualValueScale),
+      'factualValueUnit': serializer.toJson<String?>(factualValueUnit),
+      'privateNotes': serializer.toJson<String?>(privateNotes),
+      'correctsReportId': serializer.toJson<String?>(correctsReportId),
+      'correctionReason': serializer.toJson<String?>(correctionReason),
+      'operationId': serializer.toJson<String?>(operationId),
+      'createdAtUtc': serializer.toJson<DateTime>(createdAtUtc),
+      'updatedAtUtc': serializer.toJson<DateTime>(updatedAtUtc),
+      'submittedAtUtc': serializer.toJson<DateTime?>(submittedAtUtc),
+    };
+  }
+
+  OutcomeReportRow copyWith({
+    String? id,
+    String? profileId,
+    String? sourceType,
+    String? sourceId,
+    String? sourceLabel,
+    String? sourceSlotKey,
+    Value<String?> eventId = const Value.absent(),
+    Value<String?> occurrenceId = const Value.absent(),
+    Value<String?> originalDate = const Value.absent(),
+    Value<String?> draftSlotKey = const Value.absent(),
+    Value<String?> effectiveSlotKey = const Value.absent(),
+    String? status,
+    Value<String?> outcome = const Value.absent(),
+    String? activityDate,
+    Value<int?> factualValueScaled = const Value.absent(),
+    int? factualValueScale,
+    Value<String?> factualValueUnit = const Value.absent(),
+    Value<String?> privateNotes = const Value.absent(),
+    Value<String?> correctsReportId = const Value.absent(),
+    Value<String?> correctionReason = const Value.absent(),
+    Value<String?> operationId = const Value.absent(),
+    DateTime? createdAtUtc,
+    DateTime? updatedAtUtc,
+    Value<DateTime?> submittedAtUtc = const Value.absent(),
+  }) => OutcomeReportRow(
+    id: id ?? this.id,
+    profileId: profileId ?? this.profileId,
+    sourceType: sourceType ?? this.sourceType,
+    sourceId: sourceId ?? this.sourceId,
+    sourceLabel: sourceLabel ?? this.sourceLabel,
+    sourceSlotKey: sourceSlotKey ?? this.sourceSlotKey,
+    eventId: eventId.present ? eventId.value : this.eventId,
+    occurrenceId: occurrenceId.present ? occurrenceId.value : this.occurrenceId,
+    originalDate: originalDate.present ? originalDate.value : this.originalDate,
+    draftSlotKey: draftSlotKey.present ? draftSlotKey.value : this.draftSlotKey,
+    effectiveSlotKey: effectiveSlotKey.present
+        ? effectiveSlotKey.value
+        : this.effectiveSlotKey,
+    status: status ?? this.status,
+    outcome: outcome.present ? outcome.value : this.outcome,
+    activityDate: activityDate ?? this.activityDate,
+    factualValueScaled: factualValueScaled.present
+        ? factualValueScaled.value
+        : this.factualValueScaled,
+    factualValueScale: factualValueScale ?? this.factualValueScale,
+    factualValueUnit: factualValueUnit.present
+        ? factualValueUnit.value
+        : this.factualValueUnit,
+    privateNotes: privateNotes.present ? privateNotes.value : this.privateNotes,
+    correctsReportId: correctsReportId.present
+        ? correctsReportId.value
+        : this.correctsReportId,
+    correctionReason: correctionReason.present
+        ? correctionReason.value
+        : this.correctionReason,
+    operationId: operationId.present ? operationId.value : this.operationId,
+    createdAtUtc: createdAtUtc ?? this.createdAtUtc,
+    updatedAtUtc: updatedAtUtc ?? this.updatedAtUtc,
+    submittedAtUtc: submittedAtUtc.present
+        ? submittedAtUtc.value
+        : this.submittedAtUtc,
+  );
+  OutcomeReportRow copyWithCompanion(OutcomeReportsCompanion data) {
+    return OutcomeReportRow(
+      id: data.id.present ? data.id.value : this.id,
+      profileId: data.profileId.present ? data.profileId.value : this.profileId,
+      sourceType: data.sourceType.present
+          ? data.sourceType.value
+          : this.sourceType,
+      sourceId: data.sourceId.present ? data.sourceId.value : this.sourceId,
+      sourceLabel: data.sourceLabel.present
+          ? data.sourceLabel.value
+          : this.sourceLabel,
+      sourceSlotKey: data.sourceSlotKey.present
+          ? data.sourceSlotKey.value
+          : this.sourceSlotKey,
+      eventId: data.eventId.present ? data.eventId.value : this.eventId,
+      occurrenceId: data.occurrenceId.present
+          ? data.occurrenceId.value
+          : this.occurrenceId,
+      originalDate: data.originalDate.present
+          ? data.originalDate.value
+          : this.originalDate,
+      draftSlotKey: data.draftSlotKey.present
+          ? data.draftSlotKey.value
+          : this.draftSlotKey,
+      effectiveSlotKey: data.effectiveSlotKey.present
+          ? data.effectiveSlotKey.value
+          : this.effectiveSlotKey,
+      status: data.status.present ? data.status.value : this.status,
+      outcome: data.outcome.present ? data.outcome.value : this.outcome,
+      activityDate: data.activityDate.present
+          ? data.activityDate.value
+          : this.activityDate,
+      factualValueScaled: data.factualValueScaled.present
+          ? data.factualValueScaled.value
+          : this.factualValueScaled,
+      factualValueScale: data.factualValueScale.present
+          ? data.factualValueScale.value
+          : this.factualValueScale,
+      factualValueUnit: data.factualValueUnit.present
+          ? data.factualValueUnit.value
+          : this.factualValueUnit,
+      privateNotes: data.privateNotes.present
+          ? data.privateNotes.value
+          : this.privateNotes,
+      correctsReportId: data.correctsReportId.present
+          ? data.correctsReportId.value
+          : this.correctsReportId,
+      correctionReason: data.correctionReason.present
+          ? data.correctionReason.value
+          : this.correctionReason,
+      operationId: data.operationId.present
+          ? data.operationId.value
+          : this.operationId,
+      createdAtUtc: data.createdAtUtc.present
+          ? data.createdAtUtc.value
+          : this.createdAtUtc,
+      updatedAtUtc: data.updatedAtUtc.present
+          ? data.updatedAtUtc.value
+          : this.updatedAtUtc,
+      submittedAtUtc: data.submittedAtUtc.present
+          ? data.submittedAtUtc.value
+          : this.submittedAtUtc,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('OutcomeReportRow(')
+          ..write('id: $id, ')
+          ..write('profileId: $profileId, ')
+          ..write('sourceType: $sourceType, ')
+          ..write('sourceId: $sourceId, ')
+          ..write('sourceLabel: $sourceLabel, ')
+          ..write('sourceSlotKey: $sourceSlotKey, ')
+          ..write('eventId: $eventId, ')
+          ..write('occurrenceId: $occurrenceId, ')
+          ..write('originalDate: $originalDate, ')
+          ..write('draftSlotKey: $draftSlotKey, ')
+          ..write('effectiveSlotKey: $effectiveSlotKey, ')
+          ..write('status: $status, ')
+          ..write('outcome: $outcome, ')
+          ..write('activityDate: $activityDate, ')
+          ..write('factualValueScaled: $factualValueScaled, ')
+          ..write('factualValueScale: $factualValueScale, ')
+          ..write('factualValueUnit: $factualValueUnit, ')
+          ..write('privateNotes: $privateNotes, ')
+          ..write('correctsReportId: $correctsReportId, ')
+          ..write('correctionReason: $correctionReason, ')
+          ..write('operationId: $operationId, ')
+          ..write('createdAtUtc: $createdAtUtc, ')
+          ..write('updatedAtUtc: $updatedAtUtc, ')
+          ..write('submittedAtUtc: $submittedAtUtc')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hashAll([
+    id,
+    profileId,
+    sourceType,
+    sourceId,
+    sourceLabel,
+    sourceSlotKey,
+    eventId,
+    occurrenceId,
+    originalDate,
+    draftSlotKey,
+    effectiveSlotKey,
+    status,
+    outcome,
+    activityDate,
+    factualValueScaled,
+    factualValueScale,
+    factualValueUnit,
+    privateNotes,
+    correctsReportId,
+    correctionReason,
+    operationId,
+    createdAtUtc,
+    updatedAtUtc,
+    submittedAtUtc,
+  ]);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is OutcomeReportRow &&
+          other.id == this.id &&
+          other.profileId == this.profileId &&
+          other.sourceType == this.sourceType &&
+          other.sourceId == this.sourceId &&
+          other.sourceLabel == this.sourceLabel &&
+          other.sourceSlotKey == this.sourceSlotKey &&
+          other.eventId == this.eventId &&
+          other.occurrenceId == this.occurrenceId &&
+          other.originalDate == this.originalDate &&
+          other.draftSlotKey == this.draftSlotKey &&
+          other.effectiveSlotKey == this.effectiveSlotKey &&
+          other.status == this.status &&
+          other.outcome == this.outcome &&
+          other.activityDate == this.activityDate &&
+          other.factualValueScaled == this.factualValueScaled &&
+          other.factualValueScale == this.factualValueScale &&
+          other.factualValueUnit == this.factualValueUnit &&
+          other.privateNotes == this.privateNotes &&
+          other.correctsReportId == this.correctsReportId &&
+          other.correctionReason == this.correctionReason &&
+          other.operationId == this.operationId &&
+          other.createdAtUtc == this.createdAtUtc &&
+          other.updatedAtUtc == this.updatedAtUtc &&
+          other.submittedAtUtc == this.submittedAtUtc);
+}
+
+class OutcomeReportsCompanion extends UpdateCompanion<OutcomeReportRow> {
+  final Value<String> id;
+  final Value<String> profileId;
+  final Value<String> sourceType;
+  final Value<String> sourceId;
+  final Value<String> sourceLabel;
+  final Value<String> sourceSlotKey;
+  final Value<String?> eventId;
+  final Value<String?> occurrenceId;
+  final Value<String?> originalDate;
+  final Value<String?> draftSlotKey;
+  final Value<String?> effectiveSlotKey;
+  final Value<String> status;
+  final Value<String?> outcome;
+  final Value<String> activityDate;
+  final Value<int?> factualValueScaled;
+  final Value<int> factualValueScale;
+  final Value<String?> factualValueUnit;
+  final Value<String?> privateNotes;
+  final Value<String?> correctsReportId;
+  final Value<String?> correctionReason;
+  final Value<String?> operationId;
+  final Value<DateTime> createdAtUtc;
+  final Value<DateTime> updatedAtUtc;
+  final Value<DateTime?> submittedAtUtc;
+  final Value<int> rowid;
+  const OutcomeReportsCompanion({
+    this.id = const Value.absent(),
+    this.profileId = const Value.absent(),
+    this.sourceType = const Value.absent(),
+    this.sourceId = const Value.absent(),
+    this.sourceLabel = const Value.absent(),
+    this.sourceSlotKey = const Value.absent(),
+    this.eventId = const Value.absent(),
+    this.occurrenceId = const Value.absent(),
+    this.originalDate = const Value.absent(),
+    this.draftSlotKey = const Value.absent(),
+    this.effectiveSlotKey = const Value.absent(),
+    this.status = const Value.absent(),
+    this.outcome = const Value.absent(),
+    this.activityDate = const Value.absent(),
+    this.factualValueScaled = const Value.absent(),
+    this.factualValueScale = const Value.absent(),
+    this.factualValueUnit = const Value.absent(),
+    this.privateNotes = const Value.absent(),
+    this.correctsReportId = const Value.absent(),
+    this.correctionReason = const Value.absent(),
+    this.operationId = const Value.absent(),
+    this.createdAtUtc = const Value.absent(),
+    this.updatedAtUtc = const Value.absent(),
+    this.submittedAtUtc = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  OutcomeReportsCompanion.insert({
+    required String id,
+    required String profileId,
+    required String sourceType,
+    required String sourceId,
+    required String sourceLabel,
+    required String sourceSlotKey,
+    this.eventId = const Value.absent(),
+    this.occurrenceId = const Value.absent(),
+    this.originalDate = const Value.absent(),
+    this.draftSlotKey = const Value.absent(),
+    this.effectiveSlotKey = const Value.absent(),
+    required String status,
+    this.outcome = const Value.absent(),
+    required String activityDate,
+    this.factualValueScaled = const Value.absent(),
+    this.factualValueScale = const Value.absent(),
+    this.factualValueUnit = const Value.absent(),
+    this.privateNotes = const Value.absent(),
+    this.correctsReportId = const Value.absent(),
+    this.correctionReason = const Value.absent(),
+    this.operationId = const Value.absent(),
+    required DateTime createdAtUtc,
+    required DateTime updatedAtUtc,
+    this.submittedAtUtc = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       profileId = Value(profileId),
+       sourceType = Value(sourceType),
+       sourceId = Value(sourceId),
+       sourceLabel = Value(sourceLabel),
+       sourceSlotKey = Value(sourceSlotKey),
+       status = Value(status),
+       activityDate = Value(activityDate),
+       createdAtUtc = Value(createdAtUtc),
+       updatedAtUtc = Value(updatedAtUtc);
+  static Insertable<OutcomeReportRow> custom({
+    Expression<String>? id,
+    Expression<String>? profileId,
+    Expression<String>? sourceType,
+    Expression<String>? sourceId,
+    Expression<String>? sourceLabel,
+    Expression<String>? sourceSlotKey,
+    Expression<String>? eventId,
+    Expression<String>? occurrenceId,
+    Expression<String>? originalDate,
+    Expression<String>? draftSlotKey,
+    Expression<String>? effectiveSlotKey,
+    Expression<String>? status,
+    Expression<String>? outcome,
+    Expression<String>? activityDate,
+    Expression<int>? factualValueScaled,
+    Expression<int>? factualValueScale,
+    Expression<String>? factualValueUnit,
+    Expression<String>? privateNotes,
+    Expression<String>? correctsReportId,
+    Expression<String>? correctionReason,
+    Expression<String>? operationId,
+    Expression<DateTime>? createdAtUtc,
+    Expression<DateTime>? updatedAtUtc,
+    Expression<DateTime>? submittedAtUtc,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (profileId != null) 'profile_id': profileId,
+      if (sourceType != null) 'source_type': sourceType,
+      if (sourceId != null) 'source_id': sourceId,
+      if (sourceLabel != null) 'source_label': sourceLabel,
+      if (sourceSlotKey != null) 'source_slot_key': sourceSlotKey,
+      if (eventId != null) 'event_id': eventId,
+      if (occurrenceId != null) 'occurrence_id': occurrenceId,
+      if (originalDate != null) 'original_date': originalDate,
+      if (draftSlotKey != null) 'draft_slot_key': draftSlotKey,
+      if (effectiveSlotKey != null) 'effective_slot_key': effectiveSlotKey,
+      if (status != null) 'status': status,
+      if (outcome != null) 'outcome': outcome,
+      if (activityDate != null) 'activity_date': activityDate,
+      if (factualValueScaled != null)
+        'factual_value_scaled': factualValueScaled,
+      if (factualValueScale != null) 'factual_value_scale': factualValueScale,
+      if (factualValueUnit != null) 'factual_value_unit': factualValueUnit,
+      if (privateNotes != null) 'private_notes': privateNotes,
+      if (correctsReportId != null) 'corrects_report_id': correctsReportId,
+      if (correctionReason != null) 'correction_reason': correctionReason,
+      if (operationId != null) 'operation_id': operationId,
+      if (createdAtUtc != null) 'created_at_utc': createdAtUtc,
+      if (updatedAtUtc != null) 'updated_at_utc': updatedAtUtc,
+      if (submittedAtUtc != null) 'submitted_at_utc': submittedAtUtc,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  OutcomeReportsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? profileId,
+    Value<String>? sourceType,
+    Value<String>? sourceId,
+    Value<String>? sourceLabel,
+    Value<String>? sourceSlotKey,
+    Value<String?>? eventId,
+    Value<String?>? occurrenceId,
+    Value<String?>? originalDate,
+    Value<String?>? draftSlotKey,
+    Value<String?>? effectiveSlotKey,
+    Value<String>? status,
+    Value<String?>? outcome,
+    Value<String>? activityDate,
+    Value<int?>? factualValueScaled,
+    Value<int>? factualValueScale,
+    Value<String?>? factualValueUnit,
+    Value<String?>? privateNotes,
+    Value<String?>? correctsReportId,
+    Value<String?>? correctionReason,
+    Value<String?>? operationId,
+    Value<DateTime>? createdAtUtc,
+    Value<DateTime>? updatedAtUtc,
+    Value<DateTime?>? submittedAtUtc,
+    Value<int>? rowid,
+  }) {
+    return OutcomeReportsCompanion(
+      id: id ?? this.id,
+      profileId: profileId ?? this.profileId,
+      sourceType: sourceType ?? this.sourceType,
+      sourceId: sourceId ?? this.sourceId,
+      sourceLabel: sourceLabel ?? this.sourceLabel,
+      sourceSlotKey: sourceSlotKey ?? this.sourceSlotKey,
+      eventId: eventId ?? this.eventId,
+      occurrenceId: occurrenceId ?? this.occurrenceId,
+      originalDate: originalDate ?? this.originalDate,
+      draftSlotKey: draftSlotKey ?? this.draftSlotKey,
+      effectiveSlotKey: effectiveSlotKey ?? this.effectiveSlotKey,
+      status: status ?? this.status,
+      outcome: outcome ?? this.outcome,
+      activityDate: activityDate ?? this.activityDate,
+      factualValueScaled: factualValueScaled ?? this.factualValueScaled,
+      factualValueScale: factualValueScale ?? this.factualValueScale,
+      factualValueUnit: factualValueUnit ?? this.factualValueUnit,
+      privateNotes: privateNotes ?? this.privateNotes,
+      correctsReportId: correctsReportId ?? this.correctsReportId,
+      correctionReason: correctionReason ?? this.correctionReason,
+      operationId: operationId ?? this.operationId,
+      createdAtUtc: createdAtUtc ?? this.createdAtUtc,
+      updatedAtUtc: updatedAtUtc ?? this.updatedAtUtc,
+      submittedAtUtc: submittedAtUtc ?? this.submittedAtUtc,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (profileId.present) {
+      map['profile_id'] = Variable<String>(profileId.value);
+    }
+    if (sourceType.present) {
+      map['source_type'] = Variable<String>(sourceType.value);
+    }
+    if (sourceId.present) {
+      map['source_id'] = Variable<String>(sourceId.value);
+    }
+    if (sourceLabel.present) {
+      map['source_label'] = Variable<String>(sourceLabel.value);
+    }
+    if (sourceSlotKey.present) {
+      map['source_slot_key'] = Variable<String>(sourceSlotKey.value);
+    }
+    if (eventId.present) {
+      map['event_id'] = Variable<String>(eventId.value);
+    }
+    if (occurrenceId.present) {
+      map['occurrence_id'] = Variable<String>(occurrenceId.value);
+    }
+    if (originalDate.present) {
+      map['original_date'] = Variable<String>(originalDate.value);
+    }
+    if (draftSlotKey.present) {
+      map['draft_slot_key'] = Variable<String>(draftSlotKey.value);
+    }
+    if (effectiveSlotKey.present) {
+      map['effective_slot_key'] = Variable<String>(effectiveSlotKey.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (outcome.present) {
+      map['outcome'] = Variable<String>(outcome.value);
+    }
+    if (activityDate.present) {
+      map['activity_date'] = Variable<String>(activityDate.value);
+    }
+    if (factualValueScaled.present) {
+      map['factual_value_scaled'] = Variable<int>(factualValueScaled.value);
+    }
+    if (factualValueScale.present) {
+      map['factual_value_scale'] = Variable<int>(factualValueScale.value);
+    }
+    if (factualValueUnit.present) {
+      map['factual_value_unit'] = Variable<String>(factualValueUnit.value);
+    }
+    if (privateNotes.present) {
+      map['private_notes'] = Variable<String>(privateNotes.value);
+    }
+    if (correctsReportId.present) {
+      map['corrects_report_id'] = Variable<String>(correctsReportId.value);
+    }
+    if (correctionReason.present) {
+      map['correction_reason'] = Variable<String>(correctionReason.value);
+    }
+    if (operationId.present) {
+      map['operation_id'] = Variable<String>(operationId.value);
+    }
+    if (createdAtUtc.present) {
+      map['created_at_utc'] = Variable<DateTime>(createdAtUtc.value);
+    }
+    if (updatedAtUtc.present) {
+      map['updated_at_utc'] = Variable<DateTime>(updatedAtUtc.value);
+    }
+    if (submittedAtUtc.present) {
+      map['submitted_at_utc'] = Variable<DateTime>(submittedAtUtc.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('OutcomeReportsCompanion(')
+          ..write('id: $id, ')
+          ..write('profileId: $profileId, ')
+          ..write('sourceType: $sourceType, ')
+          ..write('sourceId: $sourceId, ')
+          ..write('sourceLabel: $sourceLabel, ')
+          ..write('sourceSlotKey: $sourceSlotKey, ')
+          ..write('eventId: $eventId, ')
+          ..write('occurrenceId: $occurrenceId, ')
+          ..write('originalDate: $originalDate, ')
+          ..write('draftSlotKey: $draftSlotKey, ')
+          ..write('effectiveSlotKey: $effectiveSlotKey, ')
+          ..write('status: $status, ')
+          ..write('outcome: $outcome, ')
+          ..write('activityDate: $activityDate, ')
+          ..write('factualValueScaled: $factualValueScaled, ')
+          ..write('factualValueScale: $factualValueScale, ')
+          ..write('factualValueUnit: $factualValueUnit, ')
+          ..write('privateNotes: $privateNotes, ')
+          ..write('correctsReportId: $correctsReportId, ')
+          ..write('correctionReason: $correctionReason, ')
+          ..write('operationId: $operationId, ')
+          ..write('createdAtUtc: $createdAtUtc, ')
+          ..write('updatedAtUtc: $updatedAtUtc, ')
+          ..write('submittedAtUtc: $submittedAtUtc, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $OutcomeReportContributionDraftsTable
+    extends OutcomeReportContributionDrafts
+    with
+        TableInfo<
+          $OutcomeReportContributionDraftsTable,
+          OutcomeReportContributionDraftRow
+        > {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $OutcomeReportContributionDraftsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _reportIdMeta = const VerificationMeta(
+    'reportId',
+  );
+  @override
+  late final GeneratedColumn<String> reportId = GeneratedColumn<String>(
+    'report_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES outcome_reports (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _ruleKeyMeta = const VerificationMeta(
+    'ruleKey',
+  );
+  @override
+  late final GeneratedColumn<String> ruleKey = GeneratedColumn<String>(
+    'rule_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _indicatorKeyMeta = const VerificationMeta(
+    'indicatorKey',
+  );
+  @override
+  late final GeneratedColumn<String> indicatorKey = GeneratedColumn<String>(
+    'indicator_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _valueScaledMeta = const VerificationMeta(
+    'valueScaled',
+  );
+  @override
+  late final GeneratedColumn<int> valueScaled = GeneratedColumn<int>(
+    'value_scaled',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _valueScaleMeta = const VerificationMeta(
+    'valueScale',
+  );
+  @override
+  late final GeneratedColumn<int> valueScale = GeneratedColumn<int>(
+    'value_scale',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _unitMeta = const VerificationMeta('unit');
+  @override
+  late final GeneratedColumn<String> unit = GeneratedColumn<String>(
+    'unit',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    reportId,
+    ruleKey,
+    indicatorKey,
+    valueScaled,
+    valueScale,
+    unit,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'outcome_report_contribution_drafts';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<OutcomeReportContributionDraftRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('report_id')) {
+      context.handle(
+        _reportIdMeta,
+        reportId.isAcceptableOrUnknown(data['report_id']!, _reportIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_reportIdMeta);
+    }
+    if (data.containsKey('rule_key')) {
+      context.handle(
+        _ruleKeyMeta,
+        ruleKey.isAcceptableOrUnknown(data['rule_key']!, _ruleKeyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_ruleKeyMeta);
+    }
+    if (data.containsKey('indicator_key')) {
+      context.handle(
+        _indicatorKeyMeta,
+        indicatorKey.isAcceptableOrUnknown(
+          data['indicator_key']!,
+          _indicatorKeyMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_indicatorKeyMeta);
+    }
+    if (data.containsKey('value_scaled')) {
+      context.handle(
+        _valueScaledMeta,
+        valueScaled.isAcceptableOrUnknown(
+          data['value_scaled']!,
+          _valueScaledMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_valueScaledMeta);
+    }
+    if (data.containsKey('value_scale')) {
+      context.handle(
+        _valueScaleMeta,
+        valueScale.isAcceptableOrUnknown(data['value_scale']!, _valueScaleMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_valueScaleMeta);
+    }
+    if (data.containsKey('unit')) {
+      context.handle(
+        _unitMeta,
+        unit.isAcceptableOrUnknown(data['unit']!, _unitMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_unitMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {reportId, ruleKey};
+  @override
+  OutcomeReportContributionDraftRow map(
+    Map<String, dynamic> data, {
+    String? tablePrefix,
+  }) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return OutcomeReportContributionDraftRow(
+      reportId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}report_id'],
+      )!,
+      ruleKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}rule_key'],
+      )!,
+      indicatorKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}indicator_key'],
+      )!,
+      valueScaled: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}value_scaled'],
+      )!,
+      valueScale: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}value_scale'],
+      )!,
+      unit: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}unit'],
+      )!,
+    );
+  }
+
+  @override
+  $OutcomeReportContributionDraftsTable createAlias(String alias) {
+    return $OutcomeReportContributionDraftsTable(attachedDatabase, alias);
+  }
+}
+
+class OutcomeReportContributionDraftRow extends DataClass
+    implements Insertable<OutcomeReportContributionDraftRow> {
+  final String reportId;
+  final String ruleKey;
+  final String indicatorKey;
+  final int valueScaled;
+  final int valueScale;
+  final String unit;
+  const OutcomeReportContributionDraftRow({
+    required this.reportId,
+    required this.ruleKey,
+    required this.indicatorKey,
+    required this.valueScaled,
+    required this.valueScale,
+    required this.unit,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['report_id'] = Variable<String>(reportId);
+    map['rule_key'] = Variable<String>(ruleKey);
+    map['indicator_key'] = Variable<String>(indicatorKey);
+    map['value_scaled'] = Variable<int>(valueScaled);
+    map['value_scale'] = Variable<int>(valueScale);
+    map['unit'] = Variable<String>(unit);
+    return map;
+  }
+
+  OutcomeReportContributionDraftsCompanion toCompanion(bool nullToAbsent) {
+    return OutcomeReportContributionDraftsCompanion(
+      reportId: Value(reportId),
+      ruleKey: Value(ruleKey),
+      indicatorKey: Value(indicatorKey),
+      valueScaled: Value(valueScaled),
+      valueScale: Value(valueScale),
+      unit: Value(unit),
+    );
+  }
+
+  factory OutcomeReportContributionDraftRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return OutcomeReportContributionDraftRow(
+      reportId: serializer.fromJson<String>(json['reportId']),
+      ruleKey: serializer.fromJson<String>(json['ruleKey']),
+      indicatorKey: serializer.fromJson<String>(json['indicatorKey']),
+      valueScaled: serializer.fromJson<int>(json['valueScaled']),
+      valueScale: serializer.fromJson<int>(json['valueScale']),
+      unit: serializer.fromJson<String>(json['unit']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'reportId': serializer.toJson<String>(reportId),
+      'ruleKey': serializer.toJson<String>(ruleKey),
+      'indicatorKey': serializer.toJson<String>(indicatorKey),
+      'valueScaled': serializer.toJson<int>(valueScaled),
+      'valueScale': serializer.toJson<int>(valueScale),
+      'unit': serializer.toJson<String>(unit),
+    };
+  }
+
+  OutcomeReportContributionDraftRow copyWith({
+    String? reportId,
+    String? ruleKey,
+    String? indicatorKey,
+    int? valueScaled,
+    int? valueScale,
+    String? unit,
+  }) => OutcomeReportContributionDraftRow(
+    reportId: reportId ?? this.reportId,
+    ruleKey: ruleKey ?? this.ruleKey,
+    indicatorKey: indicatorKey ?? this.indicatorKey,
+    valueScaled: valueScaled ?? this.valueScaled,
+    valueScale: valueScale ?? this.valueScale,
+    unit: unit ?? this.unit,
+  );
+  OutcomeReportContributionDraftRow copyWithCompanion(
+    OutcomeReportContributionDraftsCompanion data,
+  ) {
+    return OutcomeReportContributionDraftRow(
+      reportId: data.reportId.present ? data.reportId.value : this.reportId,
+      ruleKey: data.ruleKey.present ? data.ruleKey.value : this.ruleKey,
+      indicatorKey: data.indicatorKey.present
+          ? data.indicatorKey.value
+          : this.indicatorKey,
+      valueScaled: data.valueScaled.present
+          ? data.valueScaled.value
+          : this.valueScaled,
+      valueScale: data.valueScale.present
+          ? data.valueScale.value
+          : this.valueScale,
+      unit: data.unit.present ? data.unit.value : this.unit,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('OutcomeReportContributionDraftRow(')
+          ..write('reportId: $reportId, ')
+          ..write('ruleKey: $ruleKey, ')
+          ..write('indicatorKey: $indicatorKey, ')
+          ..write('valueScaled: $valueScaled, ')
+          ..write('valueScale: $valueScale, ')
+          ..write('unit: $unit')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    reportId,
+    ruleKey,
+    indicatorKey,
+    valueScaled,
+    valueScale,
+    unit,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is OutcomeReportContributionDraftRow &&
+          other.reportId == this.reportId &&
+          other.ruleKey == this.ruleKey &&
+          other.indicatorKey == this.indicatorKey &&
+          other.valueScaled == this.valueScaled &&
+          other.valueScale == this.valueScale &&
+          other.unit == this.unit);
+}
+
+class OutcomeReportContributionDraftsCompanion
+    extends UpdateCompanion<OutcomeReportContributionDraftRow> {
+  final Value<String> reportId;
+  final Value<String> ruleKey;
+  final Value<String> indicatorKey;
+  final Value<int> valueScaled;
+  final Value<int> valueScale;
+  final Value<String> unit;
+  final Value<int> rowid;
+  const OutcomeReportContributionDraftsCompanion({
+    this.reportId = const Value.absent(),
+    this.ruleKey = const Value.absent(),
+    this.indicatorKey = const Value.absent(),
+    this.valueScaled = const Value.absent(),
+    this.valueScale = const Value.absent(),
+    this.unit = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  OutcomeReportContributionDraftsCompanion.insert({
+    required String reportId,
+    required String ruleKey,
+    required String indicatorKey,
+    required int valueScaled,
+    required int valueScale,
+    required String unit,
+    this.rowid = const Value.absent(),
+  }) : reportId = Value(reportId),
+       ruleKey = Value(ruleKey),
+       indicatorKey = Value(indicatorKey),
+       valueScaled = Value(valueScaled),
+       valueScale = Value(valueScale),
+       unit = Value(unit);
+  static Insertable<OutcomeReportContributionDraftRow> custom({
+    Expression<String>? reportId,
+    Expression<String>? ruleKey,
+    Expression<String>? indicatorKey,
+    Expression<int>? valueScaled,
+    Expression<int>? valueScale,
+    Expression<String>? unit,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (reportId != null) 'report_id': reportId,
+      if (ruleKey != null) 'rule_key': ruleKey,
+      if (indicatorKey != null) 'indicator_key': indicatorKey,
+      if (valueScaled != null) 'value_scaled': valueScaled,
+      if (valueScale != null) 'value_scale': valueScale,
+      if (unit != null) 'unit': unit,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  OutcomeReportContributionDraftsCompanion copyWith({
+    Value<String>? reportId,
+    Value<String>? ruleKey,
+    Value<String>? indicatorKey,
+    Value<int>? valueScaled,
+    Value<int>? valueScale,
+    Value<String>? unit,
+    Value<int>? rowid,
+  }) {
+    return OutcomeReportContributionDraftsCompanion(
+      reportId: reportId ?? this.reportId,
+      ruleKey: ruleKey ?? this.ruleKey,
+      indicatorKey: indicatorKey ?? this.indicatorKey,
+      valueScaled: valueScaled ?? this.valueScaled,
+      valueScale: valueScale ?? this.valueScale,
+      unit: unit ?? this.unit,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (reportId.present) {
+      map['report_id'] = Variable<String>(reportId.value);
+    }
+    if (ruleKey.present) {
+      map['rule_key'] = Variable<String>(ruleKey.value);
+    }
+    if (indicatorKey.present) {
+      map['indicator_key'] = Variable<String>(indicatorKey.value);
+    }
+    if (valueScaled.present) {
+      map['value_scaled'] = Variable<int>(valueScaled.value);
+    }
+    if (valueScale.present) {
+      map['value_scale'] = Variable<int>(valueScale.value);
+    }
+    if (unit.present) {
+      map['unit'] = Variable<String>(unit.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('OutcomeReportContributionDraftsCompanion(')
+          ..write('reportId: $reportId, ')
+          ..write('ruleKey: $ruleKey, ')
+          ..write('indicatorKey: $indicatorKey, ')
+          ..write('valueScaled: $valueScaled, ')
+          ..write('valueScale: $valueScale, ')
+          ..write('unit: $unit, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $ActivityLedgerEntriesTable extends ActivityLedgerEntries
+    with TableInfo<$ActivityLedgerEntriesTable, ActivityLedgerEntryRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ActivityLedgerEntriesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _profileIdMeta = const VerificationMeta(
+    'profileId',
+  );
+  @override
+  late final GeneratedColumn<String> profileId = GeneratedColumn<String>(
+    'profile_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES local_profiles (id) ON DELETE RESTRICT',
+    ),
+  );
+  static const VerificationMeta _sourceReportIdMeta = const VerificationMeta(
+    'sourceReportId',
+  );
+  @override
+  late final GeneratedColumn<String> sourceReportId = GeneratedColumn<String>(
+    'source_report_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES outcome_reports (id) ON DELETE RESTRICT',
+    ),
+  );
+  static const VerificationMeta _entryTypeMeta = const VerificationMeta(
+    'entryType',
+  );
+  @override
+  late final GeneratedColumn<String> entryType = GeneratedColumn<String>(
+    'entry_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _indicatorKeyMeta = const VerificationMeta(
+    'indicatorKey',
+  );
+  @override
+  late final GeneratedColumn<String> indicatorKey = GeneratedColumn<String>(
+    'indicator_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _valueScaledMeta = const VerificationMeta(
+    'valueScaled',
+  );
+  @override
+  late final GeneratedColumn<int> valueScaled = GeneratedColumn<int>(
+    'value_scaled',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _valueScaleMeta = const VerificationMeta(
+    'valueScale',
+  );
+  @override
+  late final GeneratedColumn<int> valueScale = GeneratedColumn<int>(
+    'value_scale',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _unitMeta = const VerificationMeta('unit');
+  @override
+  late final GeneratedColumn<String> unit = GeneratedColumn<String>(
+    'unit',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _activityDateMeta = const VerificationMeta(
+    'activityDate',
+  );
+  @override
+  late final GeneratedColumn<String> activityDate = GeneratedColumn<String>(
+    'activity_date',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _ruleKeyMeta = const VerificationMeta(
+    'ruleKey',
+  );
+  @override
+  late final GeneratedColumn<String> ruleKey = GeneratedColumn<String>(
+    'rule_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _idempotencyKeyMeta = const VerificationMeta(
+    'idempotencyKey',
+  );
+  @override
+  late final GeneratedColumn<String> idempotencyKey = GeneratedColumn<String>(
+    'idempotency_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _reversalOfEntryIdMeta = const VerificationMeta(
+    'reversalOfEntryId',
+  );
+  @override
+  late final GeneratedColumn<String> reversalOfEntryId =
+      GeneratedColumn<String>(
+        'reversal_of_entry_id',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _replacesEntryIdMeta = const VerificationMeta(
+    'replacesEntryId',
+  );
+  @override
+  late final GeneratedColumn<String> replacesEntryId = GeneratedColumn<String>(
+    'replaces_entry_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _recordedAtUtcMeta = const VerificationMeta(
+    'recordedAtUtc',
+  );
+  @override
+  late final GeneratedColumn<DateTime> recordedAtUtc =
+      GeneratedColumn<DateTime>(
+        'recorded_at_utc',
+        aliasedName,
+        false,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: true,
+      );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    profileId,
+    sourceReportId,
+    entryType,
+    indicatorKey,
+    valueScaled,
+    valueScale,
+    unit,
+    activityDate,
+    ruleKey,
+    idempotencyKey,
+    reversalOfEntryId,
+    replacesEntryId,
+    recordedAtUtc,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'activity_ledger_entries';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ActivityLedgerEntryRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('profile_id')) {
+      context.handle(
+        _profileIdMeta,
+        profileId.isAcceptableOrUnknown(data['profile_id']!, _profileIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_profileIdMeta);
+    }
+    if (data.containsKey('source_report_id')) {
+      context.handle(
+        _sourceReportIdMeta,
+        sourceReportId.isAcceptableOrUnknown(
+          data['source_report_id']!,
+          _sourceReportIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_sourceReportIdMeta);
+    }
+    if (data.containsKey('entry_type')) {
+      context.handle(
+        _entryTypeMeta,
+        entryType.isAcceptableOrUnknown(data['entry_type']!, _entryTypeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_entryTypeMeta);
+    }
+    if (data.containsKey('indicator_key')) {
+      context.handle(
+        _indicatorKeyMeta,
+        indicatorKey.isAcceptableOrUnknown(
+          data['indicator_key']!,
+          _indicatorKeyMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_indicatorKeyMeta);
+    }
+    if (data.containsKey('value_scaled')) {
+      context.handle(
+        _valueScaledMeta,
+        valueScaled.isAcceptableOrUnknown(
+          data['value_scaled']!,
+          _valueScaledMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_valueScaledMeta);
+    }
+    if (data.containsKey('value_scale')) {
+      context.handle(
+        _valueScaleMeta,
+        valueScale.isAcceptableOrUnknown(data['value_scale']!, _valueScaleMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_valueScaleMeta);
+    }
+    if (data.containsKey('unit')) {
+      context.handle(
+        _unitMeta,
+        unit.isAcceptableOrUnknown(data['unit']!, _unitMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_unitMeta);
+    }
+    if (data.containsKey('activity_date')) {
+      context.handle(
+        _activityDateMeta,
+        activityDate.isAcceptableOrUnknown(
+          data['activity_date']!,
+          _activityDateMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_activityDateMeta);
+    }
+    if (data.containsKey('rule_key')) {
+      context.handle(
+        _ruleKeyMeta,
+        ruleKey.isAcceptableOrUnknown(data['rule_key']!, _ruleKeyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_ruleKeyMeta);
+    }
+    if (data.containsKey('idempotency_key')) {
+      context.handle(
+        _idempotencyKeyMeta,
+        idempotencyKey.isAcceptableOrUnknown(
+          data['idempotency_key']!,
+          _idempotencyKeyMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_idempotencyKeyMeta);
+    }
+    if (data.containsKey('reversal_of_entry_id')) {
+      context.handle(
+        _reversalOfEntryIdMeta,
+        reversalOfEntryId.isAcceptableOrUnknown(
+          data['reversal_of_entry_id']!,
+          _reversalOfEntryIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('replaces_entry_id')) {
+      context.handle(
+        _replacesEntryIdMeta,
+        replacesEntryId.isAcceptableOrUnknown(
+          data['replaces_entry_id']!,
+          _replacesEntryIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('recorded_at_utc')) {
+      context.handle(
+        _recordedAtUtcMeta,
+        recordedAtUtc.isAcceptableOrUnknown(
+          data['recorded_at_utc']!,
+          _recordedAtUtcMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_recordedAtUtcMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  ActivityLedgerEntryRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ActivityLedgerEntryRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      profileId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}profile_id'],
+      )!,
+      sourceReportId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source_report_id'],
+      )!,
+      entryType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}entry_type'],
+      )!,
+      indicatorKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}indicator_key'],
+      )!,
+      valueScaled: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}value_scaled'],
+      )!,
+      valueScale: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}value_scale'],
+      )!,
+      unit: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}unit'],
+      )!,
+      activityDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}activity_date'],
+      )!,
+      ruleKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}rule_key'],
+      )!,
+      idempotencyKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}idempotency_key'],
+      )!,
+      reversalOfEntryId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}reversal_of_entry_id'],
+      ),
+      replacesEntryId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}replaces_entry_id'],
+      ),
+      recordedAtUtc: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}recorded_at_utc'],
+      )!,
+    );
+  }
+
+  @override
+  $ActivityLedgerEntriesTable createAlias(String alias) {
+    return $ActivityLedgerEntriesTable(attachedDatabase, alias);
+  }
+}
+
+class ActivityLedgerEntryRow extends DataClass
+    implements Insertable<ActivityLedgerEntryRow> {
+  final String id;
+  final String profileId;
+  final String sourceReportId;
+  final String entryType;
+  final String indicatorKey;
+  final int valueScaled;
+  final int valueScale;
+  final String unit;
+  final String activityDate;
+  final String ruleKey;
+  final String idempotencyKey;
+  final String? reversalOfEntryId;
+  final String? replacesEntryId;
+  final DateTime recordedAtUtc;
+  const ActivityLedgerEntryRow({
+    required this.id,
+    required this.profileId,
+    required this.sourceReportId,
+    required this.entryType,
+    required this.indicatorKey,
+    required this.valueScaled,
+    required this.valueScale,
+    required this.unit,
+    required this.activityDate,
+    required this.ruleKey,
+    required this.idempotencyKey,
+    this.reversalOfEntryId,
+    this.replacesEntryId,
+    required this.recordedAtUtc,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['profile_id'] = Variable<String>(profileId);
+    map['source_report_id'] = Variable<String>(sourceReportId);
+    map['entry_type'] = Variable<String>(entryType);
+    map['indicator_key'] = Variable<String>(indicatorKey);
+    map['value_scaled'] = Variable<int>(valueScaled);
+    map['value_scale'] = Variable<int>(valueScale);
+    map['unit'] = Variable<String>(unit);
+    map['activity_date'] = Variable<String>(activityDate);
+    map['rule_key'] = Variable<String>(ruleKey);
+    map['idempotency_key'] = Variable<String>(idempotencyKey);
+    if (!nullToAbsent || reversalOfEntryId != null) {
+      map['reversal_of_entry_id'] = Variable<String>(reversalOfEntryId);
+    }
+    if (!nullToAbsent || replacesEntryId != null) {
+      map['replaces_entry_id'] = Variable<String>(replacesEntryId);
+    }
+    map['recorded_at_utc'] = Variable<DateTime>(recordedAtUtc);
+    return map;
+  }
+
+  ActivityLedgerEntriesCompanion toCompanion(bool nullToAbsent) {
+    return ActivityLedgerEntriesCompanion(
+      id: Value(id),
+      profileId: Value(profileId),
+      sourceReportId: Value(sourceReportId),
+      entryType: Value(entryType),
+      indicatorKey: Value(indicatorKey),
+      valueScaled: Value(valueScaled),
+      valueScale: Value(valueScale),
+      unit: Value(unit),
+      activityDate: Value(activityDate),
+      ruleKey: Value(ruleKey),
+      idempotencyKey: Value(idempotencyKey),
+      reversalOfEntryId: reversalOfEntryId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(reversalOfEntryId),
+      replacesEntryId: replacesEntryId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(replacesEntryId),
+      recordedAtUtc: Value(recordedAtUtc),
+    );
+  }
+
+  factory ActivityLedgerEntryRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ActivityLedgerEntryRow(
+      id: serializer.fromJson<String>(json['id']),
+      profileId: serializer.fromJson<String>(json['profileId']),
+      sourceReportId: serializer.fromJson<String>(json['sourceReportId']),
+      entryType: serializer.fromJson<String>(json['entryType']),
+      indicatorKey: serializer.fromJson<String>(json['indicatorKey']),
+      valueScaled: serializer.fromJson<int>(json['valueScaled']),
+      valueScale: serializer.fromJson<int>(json['valueScale']),
+      unit: serializer.fromJson<String>(json['unit']),
+      activityDate: serializer.fromJson<String>(json['activityDate']),
+      ruleKey: serializer.fromJson<String>(json['ruleKey']),
+      idempotencyKey: serializer.fromJson<String>(json['idempotencyKey']),
+      reversalOfEntryId: serializer.fromJson<String?>(
+        json['reversalOfEntryId'],
+      ),
+      replacesEntryId: serializer.fromJson<String?>(json['replacesEntryId']),
+      recordedAtUtc: serializer.fromJson<DateTime>(json['recordedAtUtc']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'profileId': serializer.toJson<String>(profileId),
+      'sourceReportId': serializer.toJson<String>(sourceReportId),
+      'entryType': serializer.toJson<String>(entryType),
+      'indicatorKey': serializer.toJson<String>(indicatorKey),
+      'valueScaled': serializer.toJson<int>(valueScaled),
+      'valueScale': serializer.toJson<int>(valueScale),
+      'unit': serializer.toJson<String>(unit),
+      'activityDate': serializer.toJson<String>(activityDate),
+      'ruleKey': serializer.toJson<String>(ruleKey),
+      'idempotencyKey': serializer.toJson<String>(idempotencyKey),
+      'reversalOfEntryId': serializer.toJson<String?>(reversalOfEntryId),
+      'replacesEntryId': serializer.toJson<String?>(replacesEntryId),
+      'recordedAtUtc': serializer.toJson<DateTime>(recordedAtUtc),
+    };
+  }
+
+  ActivityLedgerEntryRow copyWith({
+    String? id,
+    String? profileId,
+    String? sourceReportId,
+    String? entryType,
+    String? indicatorKey,
+    int? valueScaled,
+    int? valueScale,
+    String? unit,
+    String? activityDate,
+    String? ruleKey,
+    String? idempotencyKey,
+    Value<String?> reversalOfEntryId = const Value.absent(),
+    Value<String?> replacesEntryId = const Value.absent(),
+    DateTime? recordedAtUtc,
+  }) => ActivityLedgerEntryRow(
+    id: id ?? this.id,
+    profileId: profileId ?? this.profileId,
+    sourceReportId: sourceReportId ?? this.sourceReportId,
+    entryType: entryType ?? this.entryType,
+    indicatorKey: indicatorKey ?? this.indicatorKey,
+    valueScaled: valueScaled ?? this.valueScaled,
+    valueScale: valueScale ?? this.valueScale,
+    unit: unit ?? this.unit,
+    activityDate: activityDate ?? this.activityDate,
+    ruleKey: ruleKey ?? this.ruleKey,
+    idempotencyKey: idempotencyKey ?? this.idempotencyKey,
+    reversalOfEntryId: reversalOfEntryId.present
+        ? reversalOfEntryId.value
+        : this.reversalOfEntryId,
+    replacesEntryId: replacesEntryId.present
+        ? replacesEntryId.value
+        : this.replacesEntryId,
+    recordedAtUtc: recordedAtUtc ?? this.recordedAtUtc,
+  );
+  ActivityLedgerEntryRow copyWithCompanion(
+    ActivityLedgerEntriesCompanion data,
+  ) {
+    return ActivityLedgerEntryRow(
+      id: data.id.present ? data.id.value : this.id,
+      profileId: data.profileId.present ? data.profileId.value : this.profileId,
+      sourceReportId: data.sourceReportId.present
+          ? data.sourceReportId.value
+          : this.sourceReportId,
+      entryType: data.entryType.present ? data.entryType.value : this.entryType,
+      indicatorKey: data.indicatorKey.present
+          ? data.indicatorKey.value
+          : this.indicatorKey,
+      valueScaled: data.valueScaled.present
+          ? data.valueScaled.value
+          : this.valueScaled,
+      valueScale: data.valueScale.present
+          ? data.valueScale.value
+          : this.valueScale,
+      unit: data.unit.present ? data.unit.value : this.unit,
+      activityDate: data.activityDate.present
+          ? data.activityDate.value
+          : this.activityDate,
+      ruleKey: data.ruleKey.present ? data.ruleKey.value : this.ruleKey,
+      idempotencyKey: data.idempotencyKey.present
+          ? data.idempotencyKey.value
+          : this.idempotencyKey,
+      reversalOfEntryId: data.reversalOfEntryId.present
+          ? data.reversalOfEntryId.value
+          : this.reversalOfEntryId,
+      replacesEntryId: data.replacesEntryId.present
+          ? data.replacesEntryId.value
+          : this.replacesEntryId,
+      recordedAtUtc: data.recordedAtUtc.present
+          ? data.recordedAtUtc.value
+          : this.recordedAtUtc,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ActivityLedgerEntryRow(')
+          ..write('id: $id, ')
+          ..write('profileId: $profileId, ')
+          ..write('sourceReportId: $sourceReportId, ')
+          ..write('entryType: $entryType, ')
+          ..write('indicatorKey: $indicatorKey, ')
+          ..write('valueScaled: $valueScaled, ')
+          ..write('valueScale: $valueScale, ')
+          ..write('unit: $unit, ')
+          ..write('activityDate: $activityDate, ')
+          ..write('ruleKey: $ruleKey, ')
+          ..write('idempotencyKey: $idempotencyKey, ')
+          ..write('reversalOfEntryId: $reversalOfEntryId, ')
+          ..write('replacesEntryId: $replacesEntryId, ')
+          ..write('recordedAtUtc: $recordedAtUtc')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    profileId,
+    sourceReportId,
+    entryType,
+    indicatorKey,
+    valueScaled,
+    valueScale,
+    unit,
+    activityDate,
+    ruleKey,
+    idempotencyKey,
+    reversalOfEntryId,
+    replacesEntryId,
+    recordedAtUtc,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ActivityLedgerEntryRow &&
+          other.id == this.id &&
+          other.profileId == this.profileId &&
+          other.sourceReportId == this.sourceReportId &&
+          other.entryType == this.entryType &&
+          other.indicatorKey == this.indicatorKey &&
+          other.valueScaled == this.valueScaled &&
+          other.valueScale == this.valueScale &&
+          other.unit == this.unit &&
+          other.activityDate == this.activityDate &&
+          other.ruleKey == this.ruleKey &&
+          other.idempotencyKey == this.idempotencyKey &&
+          other.reversalOfEntryId == this.reversalOfEntryId &&
+          other.replacesEntryId == this.replacesEntryId &&
+          other.recordedAtUtc == this.recordedAtUtc);
+}
+
+class ActivityLedgerEntriesCompanion
+    extends UpdateCompanion<ActivityLedgerEntryRow> {
+  final Value<String> id;
+  final Value<String> profileId;
+  final Value<String> sourceReportId;
+  final Value<String> entryType;
+  final Value<String> indicatorKey;
+  final Value<int> valueScaled;
+  final Value<int> valueScale;
+  final Value<String> unit;
+  final Value<String> activityDate;
+  final Value<String> ruleKey;
+  final Value<String> idempotencyKey;
+  final Value<String?> reversalOfEntryId;
+  final Value<String?> replacesEntryId;
+  final Value<DateTime> recordedAtUtc;
+  final Value<int> rowid;
+  const ActivityLedgerEntriesCompanion({
+    this.id = const Value.absent(),
+    this.profileId = const Value.absent(),
+    this.sourceReportId = const Value.absent(),
+    this.entryType = const Value.absent(),
+    this.indicatorKey = const Value.absent(),
+    this.valueScaled = const Value.absent(),
+    this.valueScale = const Value.absent(),
+    this.unit = const Value.absent(),
+    this.activityDate = const Value.absent(),
+    this.ruleKey = const Value.absent(),
+    this.idempotencyKey = const Value.absent(),
+    this.reversalOfEntryId = const Value.absent(),
+    this.replacesEntryId = const Value.absent(),
+    this.recordedAtUtc = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ActivityLedgerEntriesCompanion.insert({
+    required String id,
+    required String profileId,
+    required String sourceReportId,
+    required String entryType,
+    required String indicatorKey,
+    required int valueScaled,
+    required int valueScale,
+    required String unit,
+    required String activityDate,
+    required String ruleKey,
+    required String idempotencyKey,
+    this.reversalOfEntryId = const Value.absent(),
+    this.replacesEntryId = const Value.absent(),
+    required DateTime recordedAtUtc,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       profileId = Value(profileId),
+       sourceReportId = Value(sourceReportId),
+       entryType = Value(entryType),
+       indicatorKey = Value(indicatorKey),
+       valueScaled = Value(valueScaled),
+       valueScale = Value(valueScale),
+       unit = Value(unit),
+       activityDate = Value(activityDate),
+       ruleKey = Value(ruleKey),
+       idempotencyKey = Value(idempotencyKey),
+       recordedAtUtc = Value(recordedAtUtc);
+  static Insertable<ActivityLedgerEntryRow> custom({
+    Expression<String>? id,
+    Expression<String>? profileId,
+    Expression<String>? sourceReportId,
+    Expression<String>? entryType,
+    Expression<String>? indicatorKey,
+    Expression<int>? valueScaled,
+    Expression<int>? valueScale,
+    Expression<String>? unit,
+    Expression<String>? activityDate,
+    Expression<String>? ruleKey,
+    Expression<String>? idempotencyKey,
+    Expression<String>? reversalOfEntryId,
+    Expression<String>? replacesEntryId,
+    Expression<DateTime>? recordedAtUtc,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (profileId != null) 'profile_id': profileId,
+      if (sourceReportId != null) 'source_report_id': sourceReportId,
+      if (entryType != null) 'entry_type': entryType,
+      if (indicatorKey != null) 'indicator_key': indicatorKey,
+      if (valueScaled != null) 'value_scaled': valueScaled,
+      if (valueScale != null) 'value_scale': valueScale,
+      if (unit != null) 'unit': unit,
+      if (activityDate != null) 'activity_date': activityDate,
+      if (ruleKey != null) 'rule_key': ruleKey,
+      if (idempotencyKey != null) 'idempotency_key': idempotencyKey,
+      if (reversalOfEntryId != null) 'reversal_of_entry_id': reversalOfEntryId,
+      if (replacesEntryId != null) 'replaces_entry_id': replacesEntryId,
+      if (recordedAtUtc != null) 'recorded_at_utc': recordedAtUtc,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ActivityLedgerEntriesCompanion copyWith({
+    Value<String>? id,
+    Value<String>? profileId,
+    Value<String>? sourceReportId,
+    Value<String>? entryType,
+    Value<String>? indicatorKey,
+    Value<int>? valueScaled,
+    Value<int>? valueScale,
+    Value<String>? unit,
+    Value<String>? activityDate,
+    Value<String>? ruleKey,
+    Value<String>? idempotencyKey,
+    Value<String?>? reversalOfEntryId,
+    Value<String?>? replacesEntryId,
+    Value<DateTime>? recordedAtUtc,
+    Value<int>? rowid,
+  }) {
+    return ActivityLedgerEntriesCompanion(
+      id: id ?? this.id,
+      profileId: profileId ?? this.profileId,
+      sourceReportId: sourceReportId ?? this.sourceReportId,
+      entryType: entryType ?? this.entryType,
+      indicatorKey: indicatorKey ?? this.indicatorKey,
+      valueScaled: valueScaled ?? this.valueScaled,
+      valueScale: valueScale ?? this.valueScale,
+      unit: unit ?? this.unit,
+      activityDate: activityDate ?? this.activityDate,
+      ruleKey: ruleKey ?? this.ruleKey,
+      idempotencyKey: idempotencyKey ?? this.idempotencyKey,
+      reversalOfEntryId: reversalOfEntryId ?? this.reversalOfEntryId,
+      replacesEntryId: replacesEntryId ?? this.replacesEntryId,
+      recordedAtUtc: recordedAtUtc ?? this.recordedAtUtc,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (profileId.present) {
+      map['profile_id'] = Variable<String>(profileId.value);
+    }
+    if (sourceReportId.present) {
+      map['source_report_id'] = Variable<String>(sourceReportId.value);
+    }
+    if (entryType.present) {
+      map['entry_type'] = Variable<String>(entryType.value);
+    }
+    if (indicatorKey.present) {
+      map['indicator_key'] = Variable<String>(indicatorKey.value);
+    }
+    if (valueScaled.present) {
+      map['value_scaled'] = Variable<int>(valueScaled.value);
+    }
+    if (valueScale.present) {
+      map['value_scale'] = Variable<int>(valueScale.value);
+    }
+    if (unit.present) {
+      map['unit'] = Variable<String>(unit.value);
+    }
+    if (activityDate.present) {
+      map['activity_date'] = Variable<String>(activityDate.value);
+    }
+    if (ruleKey.present) {
+      map['rule_key'] = Variable<String>(ruleKey.value);
+    }
+    if (idempotencyKey.present) {
+      map['idempotency_key'] = Variable<String>(idempotencyKey.value);
+    }
+    if (reversalOfEntryId.present) {
+      map['reversal_of_entry_id'] = Variable<String>(reversalOfEntryId.value);
+    }
+    if (replacesEntryId.present) {
+      map['replaces_entry_id'] = Variable<String>(replacesEntryId.value);
+    }
+    if (recordedAtUtc.present) {
+      map['recorded_at_utc'] = Variable<DateTime>(recordedAtUtc.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ActivityLedgerEntriesCompanion(')
+          ..write('id: $id, ')
+          ..write('profileId: $profileId, ')
+          ..write('sourceReportId: $sourceReportId, ')
+          ..write('entryType: $entryType, ')
+          ..write('indicatorKey: $indicatorKey, ')
+          ..write('valueScaled: $valueScaled, ')
+          ..write('valueScale: $valueScale, ')
+          ..write('unit: $unit, ')
+          ..write('activityDate: $activityDate, ')
+          ..write('ruleKey: $ruleKey, ')
+          ..write('idempotencyKey: $idempotencyKey, ')
+          ..write('reversalOfEntryId: $reversalOfEntryId, ')
+          ..write('replacesEntryId: $replacesEntryId, ')
+          ..write('recordedAtUtc: $recordedAtUtc, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -7344,6 +10043,11 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $TaskEventLinksTable taskEventLinks = $TaskEventLinksTable(this);
   late final $TaskEventLinkHistoryTable taskEventLinkHistory =
       $TaskEventLinkHistoryTable(this);
+  late final $OutcomeReportsTable outcomeReports = $OutcomeReportsTable(this);
+  late final $OutcomeReportContributionDraftsTable
+  outcomeReportContributionDrafts = $OutcomeReportContributionDraftsTable(this);
+  late final $ActivityLedgerEntriesTable activityLedgerEntries =
+      $ActivityLedgerEntriesTable(this);
   late final Index lifeIndicatorProfileKeyUnique = Index(
     'life_indicator_profile_key_unique',
     'CREATE UNIQUE INDEX life_indicator_profile_key_unique ON life_indicator_definitions (profile_id, indicator_key)',
@@ -7388,6 +10092,38 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     'task_event_link_history_link_time',
     'CREATE INDEX task_event_link_history_link_time ON task_event_link_history (link_id, created_at_utc)',
   );
+  late final Index outcomeReportEffectiveSlotUnique = Index(
+    'outcome_report_effective_slot_unique',
+    'CREATE UNIQUE INDEX outcome_report_effective_slot_unique ON outcome_reports (effective_slot_key)',
+  );
+  late final Index outcomeReportDraftSlotUnique = Index(
+    'outcome_report_draft_slot_unique',
+    'CREATE UNIQUE INDEX outcome_report_draft_slot_unique ON outcome_reports (draft_slot_key)',
+  );
+  late final Index outcomeReportOperationUnique = Index(
+    'outcome_report_operation_unique',
+    'CREATE UNIQUE INDEX outcome_report_operation_unique ON outcome_reports (operation_id)',
+  );
+  late final Index outcomeReportProfileActivityDate = Index(
+    'outcome_report_profile_activity_date',
+    'CREATE INDEX outcome_report_profile_activity_date ON outcome_reports (profile_id, activity_date)',
+  );
+  late final Index ledgerEntryIdempotencyUnique = Index(
+    'ledger_entry_idempotency_unique',
+    'CREATE UNIQUE INDEX ledger_entry_idempotency_unique ON activity_ledger_entries (idempotency_key)',
+  );
+  late final Index ledgerEntryReversalUnique = Index(
+    'ledger_entry_reversal_unique',
+    'CREATE UNIQUE INDEX ledger_entry_reversal_unique ON activity_ledger_entries (reversal_of_entry_id)',
+  );
+  late final Index ledgerEntryIndicatorPeriod = Index(
+    'ledger_entry_indicator_period',
+    'CREATE INDEX ledger_entry_indicator_period ON activity_ledger_entries (profile_id, indicator_key, activity_date)',
+  );
+  late final Index ledgerEntryReportRule = Index(
+    'ledger_entry_report_rule',
+    'CREATE INDEX ledger_entry_report_rule ON activity_ledger_entries (source_report_id, rule_key)',
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -7405,6 +10141,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     calendarEventOperations,
     taskEventLinks,
     taskEventLinkHistory,
+    outcomeReports,
+    outcomeReportContributionDrafts,
+    activityLedgerEntries,
     lifeIndicatorProfileKeyUnique,
     plannerTaskProfileDueDate,
     taskStatusChangeOperationUnique,
@@ -7416,7 +10155,30 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     taskEventLinkEventStatus,
     taskEventLinkHistoryOperationUnique,
     taskEventLinkHistoryLinkTime,
+    outcomeReportEffectiveSlotUnique,
+    outcomeReportDraftSlotUnique,
+    outcomeReportOperationUnique,
+    outcomeReportProfileActivityDate,
+    ledgerEntryIdempotencyUnique,
+    ledgerEntryReversalUnique,
+    ledgerEntryIndicatorPeriod,
+    ledgerEntryReportRule,
   ];
+  @override
+  StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'outcome_reports',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [
+        TableUpdate(
+          'outcome_report_contribution_drafts',
+          kind: UpdateKind.delete,
+        ),
+      ],
+    ),
+  ]);
 }
 
 typedef $$LocalProfilesTableCreateCompanionBuilder =
@@ -7618,6 +10380,49 @@ final class $$LocalProfilesTableReferences
 
     final cache = $_typedResult.readTableOrNull(
       _taskEventLinkHistoryRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$OutcomeReportsTable, List<OutcomeReportRow>>
+  _outcomeReportsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.outcomeReports,
+    aliasName: 'local_profiles__id__outcome_reports__profile_id',
+  );
+
+  $$OutcomeReportsTableProcessedTableManager get outcomeReportsRefs {
+    final manager = $$OutcomeReportsTableTableManager(
+      $_db,
+      $_db.outcomeReports,
+    ).filter((f) => f.profileId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_outcomeReportsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<
+    $ActivityLedgerEntriesTable,
+    List<ActivityLedgerEntryRow>
+  >
+  _activityLedgerEntriesRefsTable(_$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.activityLedgerEntries,
+        aliasName: 'local_profiles__id__activity_ledger_entries__profile_id',
+      );
+
+  $$ActivityLedgerEntriesTableProcessedTableManager
+  get activityLedgerEntriesRefs {
+    final manager = $$ActivityLedgerEntriesTableTableManager(
+      $_db,
+      $_db.activityLedgerEntries,
+    ).filter((f) => f.profileId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _activityLedgerEntriesRefsTable($_db),
     );
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: cache),
@@ -7865,6 +10670,57 @@ class $$LocalProfilesTableFilterComposer
                 $removeJoinBuilderFromRootComposer,
           ),
     );
+    return f(composer);
+  }
+
+  Expression<bool> outcomeReportsRefs(
+    Expression<bool> Function($$OutcomeReportsTableFilterComposer f) f,
+  ) {
+    final $$OutcomeReportsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.outcomeReports,
+      getReferencedColumn: (t) => t.profileId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$OutcomeReportsTableFilterComposer(
+            $db: $db,
+            $table: $db.outcomeReports,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> activityLedgerEntriesRefs(
+    Expression<bool> Function($$ActivityLedgerEntriesTableFilterComposer f) f,
+  ) {
+    final $$ActivityLedgerEntriesTableFilterComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.activityLedgerEntries,
+          getReferencedColumn: (t) => t.profileId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$ActivityLedgerEntriesTableFilterComposer(
+                $db: $db,
+                $table: $db.activityLedgerEntries,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
     return f(composer);
   }
 }
@@ -8149,6 +11005,57 @@ class $$LocalProfilesTableAnnotationComposer
         );
     return f(composer);
   }
+
+  Expression<T> outcomeReportsRefs<T extends Object>(
+    Expression<T> Function($$OutcomeReportsTableAnnotationComposer a) f,
+  ) {
+    final $$OutcomeReportsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.outcomeReports,
+      getReferencedColumn: (t) => t.profileId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$OutcomeReportsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.outcomeReports,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<T> activityLedgerEntriesRefs<T extends Object>(
+    Expression<T> Function($$ActivityLedgerEntriesTableAnnotationComposer a) f,
+  ) {
+    final $$ActivityLedgerEntriesTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.activityLedgerEntries,
+          getReferencedColumn: (t) => t.profileId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$ActivityLedgerEntriesTableAnnotationComposer(
+                $db: $db,
+                $table: $db.activityLedgerEntries,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
 }
 
 class $$LocalProfilesTableTableManager
@@ -8173,6 +11080,8 @@ class $$LocalProfilesTableTableManager
             bool calendarEventOperationsRefs,
             bool taskEventLinksRefs,
             bool taskEventLinkHistoryRefs,
+            bool outcomeReportsRefs,
+            bool activityLedgerEntriesRefs,
           })
         > {
   $$LocalProfilesTableTableManager(_$AppDatabase db, $LocalProfilesTable table)
@@ -8240,6 +11149,8 @@ class $$LocalProfilesTableTableManager
                 calendarEventOperationsRefs = false,
                 taskEventLinksRefs = false,
                 taskEventLinkHistoryRefs = false,
+                outcomeReportsRefs = false,
+                activityLedgerEntriesRefs = false,
               }) {
                 return PrefetchHooks(
                   db: db,
@@ -8253,6 +11164,8 @@ class $$LocalProfilesTableTableManager
                     if (calendarEventOperationsRefs) db.calendarEventOperations,
                     if (taskEventLinksRefs) db.taskEventLinks,
                     if (taskEventLinkHistoryRefs) db.taskEventLinkHistory,
+                    if (outcomeReportsRefs) db.outcomeReports,
+                    if (activityLedgerEntriesRefs) db.activityLedgerEntries,
                   ],
                   addJoins: null,
                   getPrefetchedDataCallback: (items) async {
@@ -8425,6 +11338,48 @@ class $$LocalProfilesTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (outcomeReportsRefs)
+                        await $_getPrefetchedData<
+                          LocalProfileRow,
+                          $LocalProfilesTable,
+                          OutcomeReportRow
+                        >(
+                          currentTable: table,
+                          referencedTable: $$LocalProfilesTableReferences
+                              ._outcomeReportsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$LocalProfilesTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).outcomeReportsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.profileId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (activityLedgerEntriesRefs)
+                        await $_getPrefetchedData<
+                          LocalProfileRow,
+                          $LocalProfilesTable,
+                          ActivityLedgerEntryRow
+                        >(
+                          currentTable: table,
+                          referencedTable: $$LocalProfilesTableReferences
+                              ._activityLedgerEntriesRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$LocalProfilesTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).activityLedgerEntriesRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.profileId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -8454,6 +11409,8 @@ typedef $$LocalProfilesTableProcessedTableManager =
         bool calendarEventOperationsRefs,
         bool taskEventLinksRefs,
         bool taskEventLinkHistoryRefs,
+        bool outcomeReportsRefs,
+        bool activityLedgerEntriesRefs,
       })
     >;
 typedef $$OnboardingCheckpointsTableCreateCompanionBuilder =
@@ -13227,6 +16184,1946 @@ typedef $$TaskEventLinkHistoryTableProcessedTableManager =
       TaskEventLinkHistoryRow,
       PrefetchHooks Function({bool profileId})
     >;
+typedef $$OutcomeReportsTableCreateCompanionBuilder =
+    OutcomeReportsCompanion Function({
+      required String id,
+      required String profileId,
+      required String sourceType,
+      required String sourceId,
+      required String sourceLabel,
+      required String sourceSlotKey,
+      Value<String?> eventId,
+      Value<String?> occurrenceId,
+      Value<String?> originalDate,
+      Value<String?> draftSlotKey,
+      Value<String?> effectiveSlotKey,
+      required String status,
+      Value<String?> outcome,
+      required String activityDate,
+      Value<int?> factualValueScaled,
+      Value<int> factualValueScale,
+      Value<String?> factualValueUnit,
+      Value<String?> privateNotes,
+      Value<String?> correctsReportId,
+      Value<String?> correctionReason,
+      Value<String?> operationId,
+      required DateTime createdAtUtc,
+      required DateTime updatedAtUtc,
+      Value<DateTime?> submittedAtUtc,
+      Value<int> rowid,
+    });
+typedef $$OutcomeReportsTableUpdateCompanionBuilder =
+    OutcomeReportsCompanion Function({
+      Value<String> id,
+      Value<String> profileId,
+      Value<String> sourceType,
+      Value<String> sourceId,
+      Value<String> sourceLabel,
+      Value<String> sourceSlotKey,
+      Value<String?> eventId,
+      Value<String?> occurrenceId,
+      Value<String?> originalDate,
+      Value<String?> draftSlotKey,
+      Value<String?> effectiveSlotKey,
+      Value<String> status,
+      Value<String?> outcome,
+      Value<String> activityDate,
+      Value<int?> factualValueScaled,
+      Value<int> factualValueScale,
+      Value<String?> factualValueUnit,
+      Value<String?> privateNotes,
+      Value<String?> correctsReportId,
+      Value<String?> correctionReason,
+      Value<String?> operationId,
+      Value<DateTime> createdAtUtc,
+      Value<DateTime> updatedAtUtc,
+      Value<DateTime?> submittedAtUtc,
+      Value<int> rowid,
+    });
+
+final class $$OutcomeReportsTableReferences
+    extends
+        BaseReferences<_$AppDatabase, $OutcomeReportsTable, OutcomeReportRow> {
+  $$OutcomeReportsTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $LocalProfilesTable _profileIdTable(_$AppDatabase db) => db
+      .localProfiles
+      .createAlias('outcome_reports__profile_id__local_profiles__id');
+
+  $$LocalProfilesTableProcessedTableManager get profileId {
+    final $_column = $_itemColumn<String>('profile_id')!;
+
+    final manager = $$LocalProfilesTableTableManager(
+      $_db,
+      $_db.localProfiles,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_profileIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static MultiTypedResultKey<
+    $OutcomeReportContributionDraftsTable,
+    List<OutcomeReportContributionDraftRow>
+  >
+  _outcomeReportContributionDraftsRefsTable(
+    _$AppDatabase db,
+  ) => MultiTypedResultKey.fromTable(
+    db.outcomeReportContributionDrafts,
+    aliasName:
+        'outcome_reports__id__outcome_report_contribution_drafts__report_id',
+  );
+
+  $$OutcomeReportContributionDraftsTableProcessedTableManager
+  get outcomeReportContributionDraftsRefs {
+    final manager = $$OutcomeReportContributionDraftsTableTableManager(
+      $_db,
+      $_db.outcomeReportContributionDrafts,
+    ).filter((f) => f.reportId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _outcomeReportContributionDraftsRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<
+    $ActivityLedgerEntriesTable,
+    List<ActivityLedgerEntryRow>
+  >
+  _activityLedgerEntriesRefsTable(_$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.activityLedgerEntries,
+        aliasName:
+            'outcome_reports__id__activity_ledger_entries__source_report_id',
+      );
+
+  $$ActivityLedgerEntriesTableProcessedTableManager
+  get activityLedgerEntriesRefs {
+    final manager = $$ActivityLedgerEntriesTableTableManager(
+      $_db,
+      $_db.activityLedgerEntries,
+    ).filter((f) => f.sourceReportId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _activityLedgerEntriesRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
+
+class $$OutcomeReportsTableFilterComposer
+    extends Composer<_$AppDatabase, $OutcomeReportsTable> {
+  $$OutcomeReportsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sourceType => $composableBuilder(
+    column: $table.sourceType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sourceId => $composableBuilder(
+    column: $table.sourceId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sourceLabel => $composableBuilder(
+    column: $table.sourceLabel,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sourceSlotKey => $composableBuilder(
+    column: $table.sourceSlotKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get eventId => $composableBuilder(
+    column: $table.eventId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get occurrenceId => $composableBuilder(
+    column: $table.occurrenceId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get originalDate => $composableBuilder(
+    column: $table.originalDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get draftSlotKey => $composableBuilder(
+    column: $table.draftSlotKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get effectiveSlotKey => $composableBuilder(
+    column: $table.effectiveSlotKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get outcome => $composableBuilder(
+    column: $table.outcome,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get activityDate => $composableBuilder(
+    column: $table.activityDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get factualValueScaled => $composableBuilder(
+    column: $table.factualValueScaled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get factualValueScale => $composableBuilder(
+    column: $table.factualValueScale,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get factualValueUnit => $composableBuilder(
+    column: $table.factualValueUnit,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get privateNotes => $composableBuilder(
+    column: $table.privateNotes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get correctsReportId => $composableBuilder(
+    column: $table.correctsReportId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get correctionReason => $composableBuilder(
+    column: $table.correctionReason,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get operationId => $composableBuilder(
+    column: $table.operationId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAtUtc => $composableBuilder(
+    column: $table.createdAtUtc,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAtUtc => $composableBuilder(
+    column: $table.updatedAtUtc,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get submittedAtUtc => $composableBuilder(
+    column: $table.submittedAtUtc,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$LocalProfilesTableFilterComposer get profileId {
+    final $$LocalProfilesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.profileId,
+      referencedTable: $db.localProfiles,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LocalProfilesTableFilterComposer(
+            $db: $db,
+            $table: $db.localProfiles,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  Expression<bool> outcomeReportContributionDraftsRefs(
+    Expression<bool> Function(
+      $$OutcomeReportContributionDraftsTableFilterComposer f,
+    )
+    f,
+  ) {
+    final $$OutcomeReportContributionDraftsTableFilterComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.outcomeReportContributionDrafts,
+          getReferencedColumn: (t) => t.reportId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$OutcomeReportContributionDraftsTableFilterComposer(
+                $db: $db,
+                $table: $db.outcomeReportContributionDrafts,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
+
+  Expression<bool> activityLedgerEntriesRefs(
+    Expression<bool> Function($$ActivityLedgerEntriesTableFilterComposer f) f,
+  ) {
+    final $$ActivityLedgerEntriesTableFilterComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.activityLedgerEntries,
+          getReferencedColumn: (t) => t.sourceReportId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$ActivityLedgerEntriesTableFilterComposer(
+                $db: $db,
+                $table: $db.activityLedgerEntries,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
+}
+
+class $$OutcomeReportsTableOrderingComposer
+    extends Composer<_$AppDatabase, $OutcomeReportsTable> {
+  $$OutcomeReportsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sourceType => $composableBuilder(
+    column: $table.sourceType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sourceId => $composableBuilder(
+    column: $table.sourceId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sourceLabel => $composableBuilder(
+    column: $table.sourceLabel,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sourceSlotKey => $composableBuilder(
+    column: $table.sourceSlotKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get eventId => $composableBuilder(
+    column: $table.eventId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get occurrenceId => $composableBuilder(
+    column: $table.occurrenceId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get originalDate => $composableBuilder(
+    column: $table.originalDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get draftSlotKey => $composableBuilder(
+    column: $table.draftSlotKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get effectiveSlotKey => $composableBuilder(
+    column: $table.effectiveSlotKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get outcome => $composableBuilder(
+    column: $table.outcome,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get activityDate => $composableBuilder(
+    column: $table.activityDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get factualValueScaled => $composableBuilder(
+    column: $table.factualValueScaled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get factualValueScale => $composableBuilder(
+    column: $table.factualValueScale,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get factualValueUnit => $composableBuilder(
+    column: $table.factualValueUnit,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get privateNotes => $composableBuilder(
+    column: $table.privateNotes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get correctsReportId => $composableBuilder(
+    column: $table.correctsReportId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get correctionReason => $composableBuilder(
+    column: $table.correctionReason,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get operationId => $composableBuilder(
+    column: $table.operationId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAtUtc => $composableBuilder(
+    column: $table.createdAtUtc,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAtUtc => $composableBuilder(
+    column: $table.updatedAtUtc,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get submittedAtUtc => $composableBuilder(
+    column: $table.submittedAtUtc,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$LocalProfilesTableOrderingComposer get profileId {
+    final $$LocalProfilesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.profileId,
+      referencedTable: $db.localProfiles,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LocalProfilesTableOrderingComposer(
+            $db: $db,
+            $table: $db.localProfiles,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$OutcomeReportsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $OutcomeReportsTable> {
+  $$OutcomeReportsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get sourceType => $composableBuilder(
+    column: $table.sourceType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get sourceId =>
+      $composableBuilder(column: $table.sourceId, builder: (column) => column);
+
+  GeneratedColumn<String> get sourceLabel => $composableBuilder(
+    column: $table.sourceLabel,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get sourceSlotKey => $composableBuilder(
+    column: $table.sourceSlotKey,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get eventId =>
+      $composableBuilder(column: $table.eventId, builder: (column) => column);
+
+  GeneratedColumn<String> get occurrenceId => $composableBuilder(
+    column: $table.occurrenceId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get originalDate => $composableBuilder(
+    column: $table.originalDate,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get draftSlotKey => $composableBuilder(
+    column: $table.draftSlotKey,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get effectiveSlotKey => $composableBuilder(
+    column: $table.effectiveSlotKey,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<String> get outcome =>
+      $composableBuilder(column: $table.outcome, builder: (column) => column);
+
+  GeneratedColumn<String> get activityDate => $composableBuilder(
+    column: $table.activityDate,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get factualValueScaled => $composableBuilder(
+    column: $table.factualValueScaled,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get factualValueScale => $composableBuilder(
+    column: $table.factualValueScale,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get factualValueUnit => $composableBuilder(
+    column: $table.factualValueUnit,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get privateNotes => $composableBuilder(
+    column: $table.privateNotes,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get correctsReportId => $composableBuilder(
+    column: $table.correctsReportId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get correctionReason => $composableBuilder(
+    column: $table.correctionReason,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get operationId => $composableBuilder(
+    column: $table.operationId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAtUtc => $composableBuilder(
+    column: $table.createdAtUtc,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get updatedAtUtc => $composableBuilder(
+    column: $table.updatedAtUtc,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get submittedAtUtc => $composableBuilder(
+    column: $table.submittedAtUtc,
+    builder: (column) => column,
+  );
+
+  $$LocalProfilesTableAnnotationComposer get profileId {
+    final $$LocalProfilesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.profileId,
+      referencedTable: $db.localProfiles,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LocalProfilesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.localProfiles,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  Expression<T> outcomeReportContributionDraftsRefs<T extends Object>(
+    Expression<T> Function(
+      $$OutcomeReportContributionDraftsTableAnnotationComposer a,
+    )
+    f,
+  ) {
+    final $$OutcomeReportContributionDraftsTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.outcomeReportContributionDrafts,
+          getReferencedColumn: (t) => t.reportId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$OutcomeReportContributionDraftsTableAnnotationComposer(
+                $db: $db,
+                $table: $db.outcomeReportContributionDrafts,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
+
+  Expression<T> activityLedgerEntriesRefs<T extends Object>(
+    Expression<T> Function($$ActivityLedgerEntriesTableAnnotationComposer a) f,
+  ) {
+    final $$ActivityLedgerEntriesTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.activityLedgerEntries,
+          getReferencedColumn: (t) => t.sourceReportId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$ActivityLedgerEntriesTableAnnotationComposer(
+                $db: $db,
+                $table: $db.activityLedgerEntries,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
+}
+
+class $$OutcomeReportsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $OutcomeReportsTable,
+          OutcomeReportRow,
+          $$OutcomeReportsTableFilterComposer,
+          $$OutcomeReportsTableOrderingComposer,
+          $$OutcomeReportsTableAnnotationComposer,
+          $$OutcomeReportsTableCreateCompanionBuilder,
+          $$OutcomeReportsTableUpdateCompanionBuilder,
+          (OutcomeReportRow, $$OutcomeReportsTableReferences),
+          OutcomeReportRow,
+          PrefetchHooks Function({
+            bool profileId,
+            bool outcomeReportContributionDraftsRefs,
+            bool activityLedgerEntriesRefs,
+          })
+        > {
+  $$OutcomeReportsTableTableManager(
+    _$AppDatabase db,
+    $OutcomeReportsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$OutcomeReportsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$OutcomeReportsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$OutcomeReportsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> profileId = const Value.absent(),
+                Value<String> sourceType = const Value.absent(),
+                Value<String> sourceId = const Value.absent(),
+                Value<String> sourceLabel = const Value.absent(),
+                Value<String> sourceSlotKey = const Value.absent(),
+                Value<String?> eventId = const Value.absent(),
+                Value<String?> occurrenceId = const Value.absent(),
+                Value<String?> originalDate = const Value.absent(),
+                Value<String?> draftSlotKey = const Value.absent(),
+                Value<String?> effectiveSlotKey = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<String?> outcome = const Value.absent(),
+                Value<String> activityDate = const Value.absent(),
+                Value<int?> factualValueScaled = const Value.absent(),
+                Value<int> factualValueScale = const Value.absent(),
+                Value<String?> factualValueUnit = const Value.absent(),
+                Value<String?> privateNotes = const Value.absent(),
+                Value<String?> correctsReportId = const Value.absent(),
+                Value<String?> correctionReason = const Value.absent(),
+                Value<String?> operationId = const Value.absent(),
+                Value<DateTime> createdAtUtc = const Value.absent(),
+                Value<DateTime> updatedAtUtc = const Value.absent(),
+                Value<DateTime?> submittedAtUtc = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => OutcomeReportsCompanion(
+                id: id,
+                profileId: profileId,
+                sourceType: sourceType,
+                sourceId: sourceId,
+                sourceLabel: sourceLabel,
+                sourceSlotKey: sourceSlotKey,
+                eventId: eventId,
+                occurrenceId: occurrenceId,
+                originalDate: originalDate,
+                draftSlotKey: draftSlotKey,
+                effectiveSlotKey: effectiveSlotKey,
+                status: status,
+                outcome: outcome,
+                activityDate: activityDate,
+                factualValueScaled: factualValueScaled,
+                factualValueScale: factualValueScale,
+                factualValueUnit: factualValueUnit,
+                privateNotes: privateNotes,
+                correctsReportId: correctsReportId,
+                correctionReason: correctionReason,
+                operationId: operationId,
+                createdAtUtc: createdAtUtc,
+                updatedAtUtc: updatedAtUtc,
+                submittedAtUtc: submittedAtUtc,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String profileId,
+                required String sourceType,
+                required String sourceId,
+                required String sourceLabel,
+                required String sourceSlotKey,
+                Value<String?> eventId = const Value.absent(),
+                Value<String?> occurrenceId = const Value.absent(),
+                Value<String?> originalDate = const Value.absent(),
+                Value<String?> draftSlotKey = const Value.absent(),
+                Value<String?> effectiveSlotKey = const Value.absent(),
+                required String status,
+                Value<String?> outcome = const Value.absent(),
+                required String activityDate,
+                Value<int?> factualValueScaled = const Value.absent(),
+                Value<int> factualValueScale = const Value.absent(),
+                Value<String?> factualValueUnit = const Value.absent(),
+                Value<String?> privateNotes = const Value.absent(),
+                Value<String?> correctsReportId = const Value.absent(),
+                Value<String?> correctionReason = const Value.absent(),
+                Value<String?> operationId = const Value.absent(),
+                required DateTime createdAtUtc,
+                required DateTime updatedAtUtc,
+                Value<DateTime?> submittedAtUtc = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => OutcomeReportsCompanion.insert(
+                id: id,
+                profileId: profileId,
+                sourceType: sourceType,
+                sourceId: sourceId,
+                sourceLabel: sourceLabel,
+                sourceSlotKey: sourceSlotKey,
+                eventId: eventId,
+                occurrenceId: occurrenceId,
+                originalDate: originalDate,
+                draftSlotKey: draftSlotKey,
+                effectiveSlotKey: effectiveSlotKey,
+                status: status,
+                outcome: outcome,
+                activityDate: activityDate,
+                factualValueScaled: factualValueScaled,
+                factualValueScale: factualValueScale,
+                factualValueUnit: factualValueUnit,
+                privateNotes: privateNotes,
+                correctsReportId: correctsReportId,
+                correctionReason: correctionReason,
+                operationId: operationId,
+                createdAtUtc: createdAtUtc,
+                updatedAtUtc: updatedAtUtc,
+                submittedAtUtc: submittedAtUtc,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$OutcomeReportsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback:
+              ({
+                profileId = false,
+                outcomeReportContributionDraftsRefs = false,
+                activityLedgerEntriesRefs = false,
+              }) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [
+                    if (outcomeReportContributionDraftsRefs)
+                      db.outcomeReportContributionDrafts,
+                    if (activityLedgerEntriesRefs) db.activityLedgerEntries,
+                  ],
+                  addJoins:
+                      <
+                        T extends TableManagerState<
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic
+                        >
+                      >(state) {
+                        if (profileId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.profileId,
+                                    referencedTable:
+                                        $$OutcomeReportsTableReferences
+                                            ._profileIdTable(db),
+                                    referencedColumn:
+                                        $$OutcomeReportsTableReferences
+                                            ._profileIdTable(db)
+                                            .id,
+                                  )
+                                  as T;
+                        }
+
+                        return state;
+                      },
+                  getPrefetchedDataCallback: (items) async {
+                    return [
+                      if (outcomeReportContributionDraftsRefs)
+                        await $_getPrefetchedData<
+                          OutcomeReportRow,
+                          $OutcomeReportsTable,
+                          OutcomeReportContributionDraftRow
+                        >(
+                          currentTable: table,
+                          referencedTable: $$OutcomeReportsTableReferences
+                              ._outcomeReportContributionDraftsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$OutcomeReportsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).outcomeReportContributionDraftsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.reportId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (activityLedgerEntriesRefs)
+                        await $_getPrefetchedData<
+                          OutcomeReportRow,
+                          $OutcomeReportsTable,
+                          ActivityLedgerEntryRow
+                        >(
+                          currentTable: table,
+                          referencedTable: $$OutcomeReportsTableReferences
+                              ._activityLedgerEntriesRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$OutcomeReportsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).activityLedgerEntriesRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.sourceReportId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                    ];
+                  },
+                );
+              },
+        ),
+      );
+}
+
+typedef $$OutcomeReportsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $OutcomeReportsTable,
+      OutcomeReportRow,
+      $$OutcomeReportsTableFilterComposer,
+      $$OutcomeReportsTableOrderingComposer,
+      $$OutcomeReportsTableAnnotationComposer,
+      $$OutcomeReportsTableCreateCompanionBuilder,
+      $$OutcomeReportsTableUpdateCompanionBuilder,
+      (OutcomeReportRow, $$OutcomeReportsTableReferences),
+      OutcomeReportRow,
+      PrefetchHooks Function({
+        bool profileId,
+        bool outcomeReportContributionDraftsRefs,
+        bool activityLedgerEntriesRefs,
+      })
+    >;
+typedef $$OutcomeReportContributionDraftsTableCreateCompanionBuilder =
+    OutcomeReportContributionDraftsCompanion Function({
+      required String reportId,
+      required String ruleKey,
+      required String indicatorKey,
+      required int valueScaled,
+      required int valueScale,
+      required String unit,
+      Value<int> rowid,
+    });
+typedef $$OutcomeReportContributionDraftsTableUpdateCompanionBuilder =
+    OutcomeReportContributionDraftsCompanion Function({
+      Value<String> reportId,
+      Value<String> ruleKey,
+      Value<String> indicatorKey,
+      Value<int> valueScaled,
+      Value<int> valueScale,
+      Value<String> unit,
+      Value<int> rowid,
+    });
+
+final class $$OutcomeReportContributionDraftsTableReferences
+    extends
+        BaseReferences<
+          _$AppDatabase,
+          $OutcomeReportContributionDraftsTable,
+          OutcomeReportContributionDraftRow
+        > {
+  $$OutcomeReportContributionDraftsTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $OutcomeReportsTable _reportIdTable(_$AppDatabase db) =>
+      db.outcomeReports.createAlias(
+        'outcome_report_contribution_drafts__report_id__outcome_reports__id',
+      );
+
+  $$OutcomeReportsTableProcessedTableManager get reportId {
+    final $_column = $_itemColumn<String>('report_id')!;
+
+    final manager = $$OutcomeReportsTableTableManager(
+      $_db,
+      $_db.outcomeReports,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_reportIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$OutcomeReportContributionDraftsTableFilterComposer
+    extends Composer<_$AppDatabase, $OutcomeReportContributionDraftsTable> {
+  $$OutcomeReportContributionDraftsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get ruleKey => $composableBuilder(
+    column: $table.ruleKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get indicatorKey => $composableBuilder(
+    column: $table.indicatorKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get valueScaled => $composableBuilder(
+    column: $table.valueScaled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get valueScale => $composableBuilder(
+    column: $table.valueScale,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get unit => $composableBuilder(
+    column: $table.unit,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$OutcomeReportsTableFilterComposer get reportId {
+    final $$OutcomeReportsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.reportId,
+      referencedTable: $db.outcomeReports,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$OutcomeReportsTableFilterComposer(
+            $db: $db,
+            $table: $db.outcomeReports,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$OutcomeReportContributionDraftsTableOrderingComposer
+    extends Composer<_$AppDatabase, $OutcomeReportContributionDraftsTable> {
+  $$OutcomeReportContributionDraftsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get ruleKey => $composableBuilder(
+    column: $table.ruleKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get indicatorKey => $composableBuilder(
+    column: $table.indicatorKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get valueScaled => $composableBuilder(
+    column: $table.valueScaled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get valueScale => $composableBuilder(
+    column: $table.valueScale,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get unit => $composableBuilder(
+    column: $table.unit,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$OutcomeReportsTableOrderingComposer get reportId {
+    final $$OutcomeReportsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.reportId,
+      referencedTable: $db.outcomeReports,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$OutcomeReportsTableOrderingComposer(
+            $db: $db,
+            $table: $db.outcomeReports,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$OutcomeReportContributionDraftsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $OutcomeReportContributionDraftsTable> {
+  $$OutcomeReportContributionDraftsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get ruleKey =>
+      $composableBuilder(column: $table.ruleKey, builder: (column) => column);
+
+  GeneratedColumn<String> get indicatorKey => $composableBuilder(
+    column: $table.indicatorKey,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get valueScaled => $composableBuilder(
+    column: $table.valueScaled,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get valueScale => $composableBuilder(
+    column: $table.valueScale,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get unit =>
+      $composableBuilder(column: $table.unit, builder: (column) => column);
+
+  $$OutcomeReportsTableAnnotationComposer get reportId {
+    final $$OutcomeReportsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.reportId,
+      referencedTable: $db.outcomeReports,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$OutcomeReportsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.outcomeReports,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$OutcomeReportContributionDraftsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $OutcomeReportContributionDraftsTable,
+          OutcomeReportContributionDraftRow,
+          $$OutcomeReportContributionDraftsTableFilterComposer,
+          $$OutcomeReportContributionDraftsTableOrderingComposer,
+          $$OutcomeReportContributionDraftsTableAnnotationComposer,
+          $$OutcomeReportContributionDraftsTableCreateCompanionBuilder,
+          $$OutcomeReportContributionDraftsTableUpdateCompanionBuilder,
+          (
+            OutcomeReportContributionDraftRow,
+            $$OutcomeReportContributionDraftsTableReferences,
+          ),
+          OutcomeReportContributionDraftRow,
+          PrefetchHooks Function({bool reportId})
+        > {
+  $$OutcomeReportContributionDraftsTableTableManager(
+    _$AppDatabase db,
+    $OutcomeReportContributionDraftsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$OutcomeReportContributionDraftsTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$OutcomeReportContributionDraftsTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$OutcomeReportContributionDraftsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> reportId = const Value.absent(),
+                Value<String> ruleKey = const Value.absent(),
+                Value<String> indicatorKey = const Value.absent(),
+                Value<int> valueScaled = const Value.absent(),
+                Value<int> valueScale = const Value.absent(),
+                Value<String> unit = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => OutcomeReportContributionDraftsCompanion(
+                reportId: reportId,
+                ruleKey: ruleKey,
+                indicatorKey: indicatorKey,
+                valueScaled: valueScaled,
+                valueScale: valueScale,
+                unit: unit,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String reportId,
+                required String ruleKey,
+                required String indicatorKey,
+                required int valueScaled,
+                required int valueScale,
+                required String unit,
+                Value<int> rowid = const Value.absent(),
+              }) => OutcomeReportContributionDraftsCompanion.insert(
+                reportId: reportId,
+                ruleKey: ruleKey,
+                indicatorKey: indicatorKey,
+                valueScaled: valueScaled,
+                valueScale: valueScale,
+                unit: unit,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$OutcomeReportContributionDraftsTableReferences(
+                    db,
+                    table,
+                    e,
+                  ),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({reportId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (reportId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.reportId,
+                                referencedTable:
+                                    $$OutcomeReportContributionDraftsTableReferences
+                                        ._reportIdTable(db),
+                                referencedColumn:
+                                    $$OutcomeReportContributionDraftsTableReferences
+                                        ._reportIdTable(db)
+                                        .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$OutcomeReportContributionDraftsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $OutcomeReportContributionDraftsTable,
+      OutcomeReportContributionDraftRow,
+      $$OutcomeReportContributionDraftsTableFilterComposer,
+      $$OutcomeReportContributionDraftsTableOrderingComposer,
+      $$OutcomeReportContributionDraftsTableAnnotationComposer,
+      $$OutcomeReportContributionDraftsTableCreateCompanionBuilder,
+      $$OutcomeReportContributionDraftsTableUpdateCompanionBuilder,
+      (
+        OutcomeReportContributionDraftRow,
+        $$OutcomeReportContributionDraftsTableReferences,
+      ),
+      OutcomeReportContributionDraftRow,
+      PrefetchHooks Function({bool reportId})
+    >;
+typedef $$ActivityLedgerEntriesTableCreateCompanionBuilder =
+    ActivityLedgerEntriesCompanion Function({
+      required String id,
+      required String profileId,
+      required String sourceReportId,
+      required String entryType,
+      required String indicatorKey,
+      required int valueScaled,
+      required int valueScale,
+      required String unit,
+      required String activityDate,
+      required String ruleKey,
+      required String idempotencyKey,
+      Value<String?> reversalOfEntryId,
+      Value<String?> replacesEntryId,
+      required DateTime recordedAtUtc,
+      Value<int> rowid,
+    });
+typedef $$ActivityLedgerEntriesTableUpdateCompanionBuilder =
+    ActivityLedgerEntriesCompanion Function({
+      Value<String> id,
+      Value<String> profileId,
+      Value<String> sourceReportId,
+      Value<String> entryType,
+      Value<String> indicatorKey,
+      Value<int> valueScaled,
+      Value<int> valueScale,
+      Value<String> unit,
+      Value<String> activityDate,
+      Value<String> ruleKey,
+      Value<String> idempotencyKey,
+      Value<String?> reversalOfEntryId,
+      Value<String?> replacesEntryId,
+      Value<DateTime> recordedAtUtc,
+      Value<int> rowid,
+    });
+
+final class $$ActivityLedgerEntriesTableReferences
+    extends
+        BaseReferences<
+          _$AppDatabase,
+          $ActivityLedgerEntriesTable,
+          ActivityLedgerEntryRow
+        > {
+  $$ActivityLedgerEntriesTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $LocalProfilesTable _profileIdTable(_$AppDatabase db) => db
+      .localProfiles
+      .createAlias('activity_ledger_entries__profile_id__local_profiles__id');
+
+  $$LocalProfilesTableProcessedTableManager get profileId {
+    final $_column = $_itemColumn<String>('profile_id')!;
+
+    final manager = $$LocalProfilesTableTableManager(
+      $_db,
+      $_db.localProfiles,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_profileIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $OutcomeReportsTable _sourceReportIdTable(_$AppDatabase db) =>
+      db.outcomeReports.createAlias(
+        'activity_ledger_entries__source_report_id__outcome_reports__id',
+      );
+
+  $$OutcomeReportsTableProcessedTableManager get sourceReportId {
+    final $_column = $_itemColumn<String>('source_report_id')!;
+
+    final manager = $$OutcomeReportsTableTableManager(
+      $_db,
+      $_db.outcomeReports,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_sourceReportIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$ActivityLedgerEntriesTableFilterComposer
+    extends Composer<_$AppDatabase, $ActivityLedgerEntriesTable> {
+  $$ActivityLedgerEntriesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get entryType => $composableBuilder(
+    column: $table.entryType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get indicatorKey => $composableBuilder(
+    column: $table.indicatorKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get valueScaled => $composableBuilder(
+    column: $table.valueScaled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get valueScale => $composableBuilder(
+    column: $table.valueScale,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get unit => $composableBuilder(
+    column: $table.unit,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get activityDate => $composableBuilder(
+    column: $table.activityDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get ruleKey => $composableBuilder(
+    column: $table.ruleKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get idempotencyKey => $composableBuilder(
+    column: $table.idempotencyKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get reversalOfEntryId => $composableBuilder(
+    column: $table.reversalOfEntryId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get replacesEntryId => $composableBuilder(
+    column: $table.replacesEntryId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get recordedAtUtc => $composableBuilder(
+    column: $table.recordedAtUtc,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$LocalProfilesTableFilterComposer get profileId {
+    final $$LocalProfilesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.profileId,
+      referencedTable: $db.localProfiles,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LocalProfilesTableFilterComposer(
+            $db: $db,
+            $table: $db.localProfiles,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$OutcomeReportsTableFilterComposer get sourceReportId {
+    final $$OutcomeReportsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.sourceReportId,
+      referencedTable: $db.outcomeReports,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$OutcomeReportsTableFilterComposer(
+            $db: $db,
+            $table: $db.outcomeReports,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$ActivityLedgerEntriesTableOrderingComposer
+    extends Composer<_$AppDatabase, $ActivityLedgerEntriesTable> {
+  $$ActivityLedgerEntriesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get entryType => $composableBuilder(
+    column: $table.entryType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get indicatorKey => $composableBuilder(
+    column: $table.indicatorKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get valueScaled => $composableBuilder(
+    column: $table.valueScaled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get valueScale => $composableBuilder(
+    column: $table.valueScale,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get unit => $composableBuilder(
+    column: $table.unit,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get activityDate => $composableBuilder(
+    column: $table.activityDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get ruleKey => $composableBuilder(
+    column: $table.ruleKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get idempotencyKey => $composableBuilder(
+    column: $table.idempotencyKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get reversalOfEntryId => $composableBuilder(
+    column: $table.reversalOfEntryId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get replacesEntryId => $composableBuilder(
+    column: $table.replacesEntryId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get recordedAtUtc => $composableBuilder(
+    column: $table.recordedAtUtc,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$LocalProfilesTableOrderingComposer get profileId {
+    final $$LocalProfilesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.profileId,
+      referencedTable: $db.localProfiles,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LocalProfilesTableOrderingComposer(
+            $db: $db,
+            $table: $db.localProfiles,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$OutcomeReportsTableOrderingComposer get sourceReportId {
+    final $$OutcomeReportsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.sourceReportId,
+      referencedTable: $db.outcomeReports,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$OutcomeReportsTableOrderingComposer(
+            $db: $db,
+            $table: $db.outcomeReports,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$ActivityLedgerEntriesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ActivityLedgerEntriesTable> {
+  $$ActivityLedgerEntriesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get entryType =>
+      $composableBuilder(column: $table.entryType, builder: (column) => column);
+
+  GeneratedColumn<String> get indicatorKey => $composableBuilder(
+    column: $table.indicatorKey,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get valueScaled => $composableBuilder(
+    column: $table.valueScaled,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get valueScale => $composableBuilder(
+    column: $table.valueScale,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get unit =>
+      $composableBuilder(column: $table.unit, builder: (column) => column);
+
+  GeneratedColumn<String> get activityDate => $composableBuilder(
+    column: $table.activityDate,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get ruleKey =>
+      $composableBuilder(column: $table.ruleKey, builder: (column) => column);
+
+  GeneratedColumn<String> get idempotencyKey => $composableBuilder(
+    column: $table.idempotencyKey,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get reversalOfEntryId => $composableBuilder(
+    column: $table.reversalOfEntryId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get replacesEntryId => $composableBuilder(
+    column: $table.replacesEntryId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get recordedAtUtc => $composableBuilder(
+    column: $table.recordedAtUtc,
+    builder: (column) => column,
+  );
+
+  $$LocalProfilesTableAnnotationComposer get profileId {
+    final $$LocalProfilesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.profileId,
+      referencedTable: $db.localProfiles,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LocalProfilesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.localProfiles,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$OutcomeReportsTableAnnotationComposer get sourceReportId {
+    final $$OutcomeReportsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.sourceReportId,
+      referencedTable: $db.outcomeReports,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$OutcomeReportsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.outcomeReports,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$ActivityLedgerEntriesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ActivityLedgerEntriesTable,
+          ActivityLedgerEntryRow,
+          $$ActivityLedgerEntriesTableFilterComposer,
+          $$ActivityLedgerEntriesTableOrderingComposer,
+          $$ActivityLedgerEntriesTableAnnotationComposer,
+          $$ActivityLedgerEntriesTableCreateCompanionBuilder,
+          $$ActivityLedgerEntriesTableUpdateCompanionBuilder,
+          (ActivityLedgerEntryRow, $$ActivityLedgerEntriesTableReferences),
+          ActivityLedgerEntryRow,
+          PrefetchHooks Function({bool profileId, bool sourceReportId})
+        > {
+  $$ActivityLedgerEntriesTableTableManager(
+    _$AppDatabase db,
+    $ActivityLedgerEntriesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ActivityLedgerEntriesTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$ActivityLedgerEntriesTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$ActivityLedgerEntriesTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> profileId = const Value.absent(),
+                Value<String> sourceReportId = const Value.absent(),
+                Value<String> entryType = const Value.absent(),
+                Value<String> indicatorKey = const Value.absent(),
+                Value<int> valueScaled = const Value.absent(),
+                Value<int> valueScale = const Value.absent(),
+                Value<String> unit = const Value.absent(),
+                Value<String> activityDate = const Value.absent(),
+                Value<String> ruleKey = const Value.absent(),
+                Value<String> idempotencyKey = const Value.absent(),
+                Value<String?> reversalOfEntryId = const Value.absent(),
+                Value<String?> replacesEntryId = const Value.absent(),
+                Value<DateTime> recordedAtUtc = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ActivityLedgerEntriesCompanion(
+                id: id,
+                profileId: profileId,
+                sourceReportId: sourceReportId,
+                entryType: entryType,
+                indicatorKey: indicatorKey,
+                valueScaled: valueScaled,
+                valueScale: valueScale,
+                unit: unit,
+                activityDate: activityDate,
+                ruleKey: ruleKey,
+                idempotencyKey: idempotencyKey,
+                reversalOfEntryId: reversalOfEntryId,
+                replacesEntryId: replacesEntryId,
+                recordedAtUtc: recordedAtUtc,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String profileId,
+                required String sourceReportId,
+                required String entryType,
+                required String indicatorKey,
+                required int valueScaled,
+                required int valueScale,
+                required String unit,
+                required String activityDate,
+                required String ruleKey,
+                required String idempotencyKey,
+                Value<String?> reversalOfEntryId = const Value.absent(),
+                Value<String?> replacesEntryId = const Value.absent(),
+                required DateTime recordedAtUtc,
+                Value<int> rowid = const Value.absent(),
+              }) => ActivityLedgerEntriesCompanion.insert(
+                id: id,
+                profileId: profileId,
+                sourceReportId: sourceReportId,
+                entryType: entryType,
+                indicatorKey: indicatorKey,
+                valueScaled: valueScaled,
+                valueScale: valueScale,
+                unit: unit,
+                activityDate: activityDate,
+                ruleKey: ruleKey,
+                idempotencyKey: idempotencyKey,
+                reversalOfEntryId: reversalOfEntryId,
+                replacesEntryId: replacesEntryId,
+                recordedAtUtc: recordedAtUtc,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$ActivityLedgerEntriesTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({profileId = false, sourceReportId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (profileId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.profileId,
+                                referencedTable:
+                                    $$ActivityLedgerEntriesTableReferences
+                                        ._profileIdTable(db),
+                                referencedColumn:
+                                    $$ActivityLedgerEntriesTableReferences
+                                        ._profileIdTable(db)
+                                        .id,
+                              )
+                              as T;
+                    }
+                    if (sourceReportId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.sourceReportId,
+                                referencedTable:
+                                    $$ActivityLedgerEntriesTableReferences
+                                        ._sourceReportIdTable(db),
+                                referencedColumn:
+                                    $$ActivityLedgerEntriesTableReferences
+                                        ._sourceReportIdTable(db)
+                                        .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$ActivityLedgerEntriesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ActivityLedgerEntriesTable,
+      ActivityLedgerEntryRow,
+      $$ActivityLedgerEntriesTableFilterComposer,
+      $$ActivityLedgerEntriesTableOrderingComposer,
+      $$ActivityLedgerEntriesTableAnnotationComposer,
+      $$ActivityLedgerEntriesTableCreateCompanionBuilder,
+      $$ActivityLedgerEntriesTableUpdateCompanionBuilder,
+      (ActivityLedgerEntryRow, $$ActivityLedgerEntriesTableReferences),
+      ActivityLedgerEntryRow,
+      PrefetchHooks Function({bool profileId, bool sourceReportId})
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -13264,4 +18161,14 @@ class $AppDatabaseManager {
       $$TaskEventLinksTableTableManager(_db, _db.taskEventLinks);
   $$TaskEventLinkHistoryTableTableManager get taskEventLinkHistory =>
       $$TaskEventLinkHistoryTableTableManager(_db, _db.taskEventLinkHistory);
+  $$OutcomeReportsTableTableManager get outcomeReports =>
+      $$OutcomeReportsTableTableManager(_db, _db.outcomeReports);
+  $$OutcomeReportContributionDraftsTableTableManager
+  get outcomeReportContributionDrafts =>
+      $$OutcomeReportContributionDraftsTableTableManager(
+        _db,
+        _db.outcomeReportContributionDrafts,
+      );
+  $$ActivityLedgerEntriesTableTableManager get activityLedgerEntries =>
+      $$ActivityLedgerEntriesTableTableManager(_db, _db.activityLedgerEntries);
 }

@@ -32,6 +32,9 @@ jobs:
             flow: task-event-link
             command: flutter test integration_test/task_event_link_smoke_test.dart
           - api-level: 24
+            flow: outcome-report
+            command: flutter test integration_test/outcome_reporting_smoke_test.dart
+          - api-level: 24
             flow: process-persistence
             command: flutter test --no-uninstall integration_test/process_seed_test.dart && adb shell am force-stop com.nexttransfer.rmplanner && flutter test integration_test/process_resume_test.dart
           - api-level: 36
@@ -49,6 +52,9 @@ jobs:
           - api-level: 36
             flow: task-event-link
             command: flutter test integration_test/task_event_link_smoke_test.dart
+          - api-level: 36
+            flow: outcome-report
+            command: flutter test integration_test/outcome_reporting_smoke_test.dart
           - api-level: 36
             flow: process-persistence
             command: flutter test --no-uninstall integration_test/process_seed_test.dart && adb shell am force-stop com.nexttransfer.rmplanner && flutter test integration_test/process_resume_test.dart

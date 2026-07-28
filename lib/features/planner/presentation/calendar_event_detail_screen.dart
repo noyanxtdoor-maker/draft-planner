@@ -179,32 +179,24 @@ final class _CalendarEventDetailScreenState
                   label: const Text('Cancel'),
                 ),
               ],
-              if (occurrence.requiresReport) ...<Widget>[
+              if (occurrence.requiresReport &&
+                  occurrence.status ==
+                      CalendarEventStatus.scheduled) ...<Widget>[
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
                   key: const Key('open-event-report-button'),
-                  onPressed: () => showDialog<void>(
-                    context: context,
-                    builder: (dialogContext) => AlertDialog(
-                      title: const Text('Outcome reporting'),
-                      content: const Text(
-                        'Next Transfer recognizes Completed / Happened, '
-                        'Partially Completed, and Did Not Happen outcomes. '
-                        'Saving reports and Activity Ledger entries belongs '
-                        'to VS-06 and is not available in VS-04.',
-                      ),
-                      actions: <Widget>[
-                        TextButton(
-                          onPressed: () => Navigator.of(dialogContext).pop(),
-                          child: const Text('Close'),
-                        ),
-                      ],
-                    ),
-                  ),
+                  onPressed: () => _openReport(occurrence),
                   icon: const Icon(Icons.assignment_outlined),
                   label: const Text('Open Report'),
                 ),
               ],
+              const SizedBox(height: 8),
+              TextButton.icon(
+                key: const Key('event-activity-history-button'),
+                onPressed: () => context.push(RoutePaths.activityHistory),
+                icon: const Icon(Icons.history),
+                label: const Text('View Activity History'),
+              ),
             ],
           );
         },
@@ -242,6 +234,18 @@ final class _CalendarEventDetailScreenState
       '${RoutePaths.calendarEventDetail(occurrence.eventId, occurrence.originalDate)}/link-task',
     );
     if (mounted) {
+      setState(_reload);
+    }
+  }
+
+  Future<void> _openReport(CalendarEventOccurrence occurrence) async {
+    final changed = await context.push<bool>(
+      RoutePaths.calendarEventReport(
+        occurrence.eventId,
+        occurrence.originalDate,
+      ),
+    );
+    if (changed == true && mounted) {
       setState(_reload);
     }
   }

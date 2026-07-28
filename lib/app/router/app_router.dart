@@ -5,8 +5,10 @@ import 'package:rmplanner/app/router/startup_route_guard.dart';
 import 'package:rmplanner/app/shell/main_shell.dart';
 import 'package:rmplanner/features/planner/domain/calendar_event.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
+import 'package:rmplanner/features/planner/presentation/activity_history_screen.dart';
 import 'package:rmplanner/features/planner/presentation/calendar_event_detail_screen.dart';
 import 'package:rmplanner/features/planner/presentation/calendar_event_form_screen.dart';
+import 'package:rmplanner/features/planner/presentation/outcome_report_screen.dart';
 import 'package:rmplanner/features/planner/presentation/planner_screen.dart';
 import 'package:rmplanner/features/planner/presentation/task_detail_screen.dart';
 import 'package:rmplanner/features/planner/presentation/task_event_link_screen.dart';
@@ -114,6 +116,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               );
             },
           ),
+          GoRoute(
+            name: RouteNames.taskReport,
+            path: 'report',
+            builder: (context, state) => OutcomeReportScreen.task(
+              taskId: state.pathParameters['taskId']!,
+            ),
+          ),
         ],
       ),
       GoRoute(
@@ -188,7 +197,39 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               );
             },
           ),
+          GoRoute(
+            name: RouteNames.calendarEventReport,
+            path: 'report',
+            builder: (context, state) => OutcomeReportScreen.event(
+              eventId: state.pathParameters['eventId']!,
+              originalDate: PlannerDate.parse(
+                state.pathParameters['originalDate']!,
+              ),
+            ),
+          ),
         ],
+      ),
+      GoRoute(
+        name: RouteNames.outcomeReportCreate,
+        path: RoutePaths.outcomeReportCreate,
+        builder: (context, state) {
+          final rawDate = state.uri.queryParameters['date'];
+          return OutcomeReportScreen.manual(
+            initialDate: rawDate == null ? null : PlannerDate.parse(rawDate),
+          );
+        },
+      ),
+      GoRoute(
+        name: RouteNames.outcomeReportCorrection,
+        path: '${RoutePaths.reports}/:reportId/correct',
+        builder: (context, state) => OutcomeReportScreen.correction(
+          correctionReportId: state.pathParameters['reportId']!,
+        ),
+      ),
+      GoRoute(
+        name: RouteNames.activityHistory,
+        path: RoutePaths.activityHistory,
+        builder: (context, state) => const ActivityHistoryScreen(),
       ),
       GoRoute(
         name: RouteNames.privacyCenter,

@@ -94,7 +94,7 @@ Future<void> main() async {
           text.contains('flutter_timezone: 5.1.0') &&
           forbidden.every((package) => !text.contains(package));
     },
-    'The VS-05 dependency lock changed or a later-slice package entered the '
+    'The VS-06 dependency lock changed or a later-slice package entered the '
     'graph',
     failures,
   );
@@ -105,15 +105,18 @@ Future<void> main() async {
         !text.contains('refreshToken') &&
         !text.contains('biometricData') &&
         !text.contains('appPin') &&
-        text.contains('int get schemaVersion => _schemaVersionOverride ?? 5') &&
+        text.contains('int get schemaVersion => _schemaVersionOverride ?? 6') &&
         text.contains('PlannerTasks') &&
         text.contains('TaskStatusChanges') &&
         text.contains('CalendarEvents') &&
         text.contains('CalendarEventExceptions') &&
         text.contains('CalendarEventOperations') &&
         text.contains('TaskEventLinks') &&
-        text.contains('TaskEventLinkHistory'),
-    'The VS-05 Drift schema boundary or sensitive-field exclusion changed',
+        text.contains('TaskEventLinkHistory') &&
+        text.contains('OutcomeReports') &&
+        text.contains('OutcomeReportContributionDrafts') &&
+        text.contains('ActivityLedgerEntries'),
+    'The VS-06 Drift schema boundary or sensitive-field exclusion changed',
     failures,
   );
   _expectFileText(
@@ -145,7 +148,7 @@ Future<void> main() async {
 
   stdout.writeln(
     'Authority verification passed: approved hashes, Flutter pin, '
-    'Android identity, VS-05 permission scope, and slice dependency boundary.',
+    'Android identity, VS-06 permission scope, and slice dependency boundary.',
   );
 }
 

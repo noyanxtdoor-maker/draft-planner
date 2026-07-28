@@ -13,11 +13,16 @@ abstract final class RouteNames {
   static const String taskEdit = 'task-edit';
   static const String taskLinkEvent = 'task-link-event';
   static const String taskCreateEvent = 'task-create-event';
+  static const String taskReport = 'task-report';
   static const String calendarEventCreate = 'calendar-event-create';
   static const String calendarEventDetail = 'calendar-event-detail';
   static const String calendarEventEdit = 'calendar-event-edit';
   static const String calendarEventReschedule = 'calendar-event-reschedule';
   static const String calendarEventLinkTask = 'calendar-event-link-task';
+  static const String calendarEventReport = 'calendar-event-report';
+  static const String outcomeReportCreate = 'outcome-report-create';
+  static const String outcomeReportCorrection = 'outcome-report-correction';
+  static const String activityHistory = 'activity-history';
   static const String privacyCenter = 'privacy-center';
   static const String permissions = 'permissions';
   static const String diagnosticPreview = 'diagnostic-preview';
@@ -34,6 +39,9 @@ abstract final class RoutePaths {
   static const String taskCreate = '/tasks/new';
   static const String calendarEvents = '/events';
   static const String calendarEventCreate = '/events/new';
+  static const String reports = '/reports';
+  static const String outcomeReportCreate = '/reports/new';
+  static const String activityHistory = '/activity-history';
   static const String privacyCenter = '/privacy';
   static const String permissions = '/privacy/permissions';
   static const String diagnosticPreview = '/privacy/diagnostics';
@@ -58,5 +66,17 @@ abstract final class RoutePaths {
   ) {
     return '${calendarEventDetail(eventId, originalDate)}/reschedule'
         '?scope=${scope.name}';
+  }
+
+  static String taskReport(String taskId) {
+    return '$tasks/$taskId/report';
+  }
+
+  static String calendarEventReport(String eventId, PlannerDate originalDate) {
+    return '${calendarEventDetail(eventId, originalDate)}/report';
+  }
+
+  static String outcomeReportCorrection(String reportId) {
+    return '$reports/$reportId/correct';
   }
 }

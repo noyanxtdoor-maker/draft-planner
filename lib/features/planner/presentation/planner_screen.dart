@@ -35,6 +35,12 @@ final class PlannerScreen extends ConsumerWidget {
         ),
         actions: <Widget>[
           IconButton(
+            key: const Key('planner-activity-history-button'),
+            tooltip: 'Activity History',
+            onPressed: () => context.push(RoutePaths.activityHistory),
+            icon: const Icon(Icons.history),
+          ),
+          IconButton(
             tooltip: 'Privacy and Data',
             onPressed: () => context.push(RoutePaths.privacyCenter),
             icon: const Icon(Icons.shield_outlined),
@@ -56,7 +62,7 @@ final class PlannerScreen extends ConsumerWidget {
       ),
       floatingActionButton: FloatingActionButton(
         key: const Key('planner-create-button'),
-        tooltip: 'Create Task or Calendar Event',
+        tooltip: 'Create Task, Calendar Event, or Activity Report',
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
         onPressed: () => _showCreateActions(context, state.selectedDate),
         child: const Icon(Icons.add, size: 30),
@@ -192,50 +198,70 @@ final class PlannerScreen extends ConsumerWidget {
       showDragHandle: true,
       builder: (sheetContext) {
         return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: <Widget>[
-                Text(
-                  'Create',
-                  style: Theme.of(
-                    sheetContext,
-                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: 12),
-                ListTile(
-                  key: const Key('create-task-action'),
-                  leading: const Icon(Icons.task_alt_outlined),
-                  title: const Text('Task'),
-                  subtitle: const Text('Create immediately on this device'),
-                  onTap: () {
-                    Navigator.of(sheetContext).pop();
-                    unawaited(
-                      context.push(
-                        '${RoutePaths.taskCreate}'
-                        '?date=${selectedDate.iso8601}',
-                      ),
-                    );
-                  },
-                ),
-                ListTile(
-                  key: const Key('create-calendar-event-action'),
-                  leading: const Icon(Icons.event_outlined),
-                  title: const Text('Calendar Event'),
-                  subtitle: const Text('Separate from Tasks and saved offline'),
-                  onTap: () {
-                    Navigator.of(sheetContext).pop();
-                    unawaited(
-                      context.push(
-                        '${RoutePaths.calendarEventCreate}'
-                        '?date=${selectedDate.iso8601}',
-                      ),
-                    );
-                  },
-                ),
-              ],
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  Text(
+                    'Create',
+                    style: Theme.of(sheetContext).textTheme.titleLarge
+                        ?.copyWith(fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 12),
+                  ListTile(
+                    key: const Key('create-task-action'),
+                    leading: const Icon(Icons.task_alt_outlined),
+                    title: const Text('Task'),
+                    subtitle: const Text('Create immediately on this device'),
+                    onTap: () {
+                      Navigator.of(sheetContext).pop();
+                      unawaited(
+                        context.push(
+                          '${RoutePaths.taskCreate}'
+                          '?date=${selectedDate.iso8601}',
+                        ),
+                      );
+                    },
+                  ),
+                  ListTile(
+                    key: const Key('create-calendar-event-action'),
+                    leading: const Icon(Icons.event_outlined),
+                    title: const Text('Calendar Event'),
+                    subtitle: const Text(
+                      'Separate from Tasks and saved offline',
+                    ),
+                    onTap: () {
+                      Navigator.of(sheetContext).pop();
+                      unawaited(
+                        context.push(
+                          '${RoutePaths.calendarEventCreate}'
+                          '?date=${selectedDate.iso8601}',
+                        ),
+                      );
+                    },
+                  ),
+                  ListTile(
+                    key: const Key('create-activity-report-action'),
+                    leading: const Icon(Icons.assignment_outlined),
+                    title: const Text('Activity Report'),
+                    subtitle: const Text(
+                      'Structured manual reporting; never raw ledger editing',
+                    ),
+                    onTap: () {
+                      Navigator.of(sheetContext).pop();
+                      unawaited(
+                        context.push(
+                          '${RoutePaths.outcomeReportCreate}'
+                          '?date=${selectedDate.iso8601}',
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
             ),
           ),
         );

@@ -338,4 +338,104 @@ void main() {
       }
     },
   );
+
+  test('AC-G-016 / AC-H-020 / Q2: v5 upgrades to schema v6 without prior-data '
+      'loss', () async {
+    final sqliteDatabase = sqlite3.openInMemory();
+    try {
+      final versionFive = AppDatabase.forTesting(
+        NativeDatabase.opened(sqliteDatabase, closeUnderlyingOnClose: false),
+        schemaVersionOverride: 5,
+      );
+      final original = await buildTestRepository(
+        database: versionFive,
+      ).completeOnboarding();
+      await versionFive.close();
+
+      final versionSix = AppDatabase.forTesting(
+        NativeDatabase.opened(sqliteDatabase, closeUnderlyingOnClose: false),
+        schemaVersionOverride: 6,
+      );
+      expect(
+        (await versionSix.select(versionSix.localProfiles).get()).single.id,
+        original.id,
+      );
+      expect(await versionSix.select(versionSix.outcomeReports).get(), isEmpty);
+      expect(
+        await versionSix.select(versionSix.activityLedgerEntries).get(),
+        isEmpty,
+      );
+      expect(
+        (await versionSix.customSelect('PRAGMA user_version').getSingle())
+            .read<int>('user_version'),
+        6,
+      );
+      await versionSix.close();
+    } finally {
+      sqliteDatabase.close();
+    }
+  });
+
+  test('AC-G-016 / AC-H-020 / Q2: failed v6 migration preserves the valid v5 '
+      'database', () async {
+    final sqliteDatabase = sqlite3.openInMemory();
+    try {
+      final versionFive = AppDatabase.forTesting(
+        NativeDatabase.opened(sqliteDatabase, closeUnderlyingOnClose: false),
+        schemaVersionOverride: 5,
+      );
+      final original = await buildTestRepository(
+        database: versionFive,
+      ).completeOnboarding();
+      await versionFive.close();
+
+      final failingVersionSix = AppDatabase.forTesting(
+        NativeDatabase.opened(sqliteDatabase, closeUnderlyingOnClose: false),
+        schemaVersionOverride: 6,
+        injectOutcomeReportingMigrationFailure: true,
+      );
+      await expectLater(
+        failingVersionSix.select(failingVersionSix.localProfiles).get(),
+        throwsA(isA<StateError>()),
+      );
+      await failingVersionSix.close();
+
+      final reopenedVersionFive = AppDatabase.forTesting(
+        NativeDatabase.opened(sqliteDatabase, closeUnderlyingOnClose: false),
+        schemaVersionOverride: 5,
+      );
+      expect(
+        (await reopenedVersionFive
+                .select(reopenedVersionFive.localProfiles)
+                .get())
+            .single
+            .id,
+        original.id,
+      );
+      expect(
+        (await reopenedVersionFive
+                .customSelect('PRAGMA user_version')
+                .getSingle())
+            .read<int>('user_version'),
+        5,
+      );
+      final reportTable = await reopenedVersionFive
+          .customSelect(
+            "SELECT COUNT(*) AS count FROM sqlite_master "
+            "WHERE type='table' AND name='outcome_reports'",
+          )
+          .getSingle();
+      final ledgerTable = await reopenedVersionFive
+          .customSelect(
+            "SELECT COUNT(*) AS count FROM sqlite_master "
+            "WHERE type='table' AND name='activity_ledger_entries'",
+          )
+          .getSingle();
+      expect(reportTable.read<int>('count'), 0);
+      expect(ledgerTable.read<int>('count'), 0);
+      await reopenedVersionFive.close();
+    } finally {
+      sqliteDatabase.close();
+    }
+  });
 }
