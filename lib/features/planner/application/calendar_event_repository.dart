@@ -19,7 +19,10 @@ final class EmptyCalendarEventReportSource
 }
 
 abstract interface class CalendarEventTaskContextSource {
-  Future<List<String>> readLinkedTaskIds(String occurrenceId);
+  Future<List<String>> readLinkedTaskIds({
+    required String eventId,
+    required String occurrenceId,
+  });
 }
 
 final class EmptyCalendarEventTaskContextSource
@@ -27,9 +30,42 @@ final class EmptyCalendarEventTaskContextSource
   const EmptyCalendarEventTaskContextSource();
 
   @override
-  Future<List<String>> readLinkedTaskIds(String occurrenceId) async {
+  Future<List<String>> readLinkedTaskIds({
+    required String eventId,
+    required String occurrenceId,
+  }) async {
     return const <String>[];
   }
+}
+
+abstract interface class CalendarEventLinkContextTransfer {
+  Future<void> transferOnReschedule({
+    required String profileId,
+    required String sourceEventId,
+    required String sourceOccurrenceId,
+    required PlannerDate sourceOriginalDate,
+    required CalendarEventEditScope scope,
+    required String replacementEventId,
+    required PlannerDate replacementOriginalDate,
+    required String operationId,
+  });
+}
+
+final class EmptyCalendarEventLinkContextTransfer
+    implements CalendarEventLinkContextTransfer {
+  const EmptyCalendarEventLinkContextTransfer();
+
+  @override
+  Future<void> transferOnReschedule({
+    required String profileId,
+    required String sourceEventId,
+    required String sourceOccurrenceId,
+    required PlannerDate sourceOriginalDate,
+    required CalendarEventEditScope scope,
+    required String replacementEventId,
+    required PlannerDate replacementOriginalDate,
+    required String operationId,
+  }) async {}
 }
 
 abstract interface class CalendarEventRepository

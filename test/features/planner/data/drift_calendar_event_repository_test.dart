@@ -314,7 +314,10 @@ final class _TaskLinks implements CalendarEventTaskContextSource {
   final List<String> ids;
 
   @override
-  Future<List<String>> readLinkedTaskIds(String occurrenceId) async => ids;
+  Future<List<String>> readLinkedTaskIds({
+    required String eventId,
+    required String occurrenceId,
+  }) async => ids;
 }
 
 final class _FailingWriteGuard implements CalendarEventWriteGuard {

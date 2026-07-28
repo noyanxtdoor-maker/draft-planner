@@ -10,9 +10,11 @@ import 'package:rmplanner/core/security/privacy_gate.dart';
 import 'package:rmplanner/core/time/app_clock.dart';
 import 'package:rmplanner/features/planner/application/calendar_event_providers.dart';
 import 'package:rmplanner/features/planner/application/planner_providers.dart';
+import 'package:rmplanner/features/planner/application/task_event_link_providers.dart';
 import 'package:rmplanner/features/planner/data/calendar_event_time_zones.dart';
 import 'package:rmplanner/features/planner/data/drift_calendar_event_repository.dart';
 import 'package:rmplanner/features/planner/data/drift_planner_repository.dart';
+import 'package:rmplanner/features/planner/data/drift_task_event_link_repository.dart';
 import 'package:rmplanner/features/privacy/application/privacy_providers.dart';
 import 'package:rmplanner/features/privacy/data/drift_privacy_repository.dart';
 import 'package:rmplanner/features/privacy/data/local_auth_device_authenticator.dart';
@@ -36,15 +38,27 @@ Future<void> main() async {
   final privacyGate = SessionPrivacyGate(settingsReader: privacyRepository);
   final authTokenStore = SecureAuthTokenStore(FlutterSecureStorageDriver());
   final calendarEventTimeZones = await IanaCalendarEventTimeZones.forDevice();
+  final taskEventLinkRepository = DriftTaskEventLinkRepository(
+    database: database,
+    clock: clock,
+  );
   final calendarEventRepository = DriftCalendarEventRepository(
     database: database,
     clock: clock,
     timeZones: calendarEventTimeZones,
+    taskContextSource: taskEventLinkRepository,
+    linkContextTransfer: taskEventLinkRepository,
   );
   final plannerRepository = DriftPlannerRepository(
     database: database,
     clock: clock,
     calendarSource: calendarEventRepository,
+    taskContextSource: taskEventLinkRepository,
+  );
+  final taskEventLinkCoordinator = DriftTaskEventLinkCoordinator(
+    database: database,
+    calendarEvents: calendarEventRepository,
+    links: taskEventLinkRepository,
   );
   final startupRepository = DriftStartupRepository(
     database: database,
@@ -73,6 +87,12 @@ Future<void> main() async {
           calendarEventRepository,
         ),
         plannerRepositoryProvider.overrideWithValue(plannerRepository),
+        taskEventLinkRepositoryProvider.overrideWithValue(
+          taskEventLinkRepository,
+        ),
+        taskEventLinkCoordinatorProvider.overrideWithValue(
+          taskEventLinkCoordinator,
+        ),
       ],
       child: const NextTransferApp(),
     ),
