@@ -7,8 +7,9 @@ permanent application ID and namespace are `com.nexttransfer.rmplanner`.
 ## Current implementation status
 
 Repository bootstrap, Q0, VS-01 (Guest Startup and Local Profile), VS-02
-(Privacy Lock, Permissions, and Privacy Center), and VS-03 (Planner Day and
-Tasks) are implemented. VS-04 and later slices are intentionally not started.
+(Privacy Lock, Permissions, and Privacy Center), VS-03 (Planner Day and Tasks),
+and VS-04 (Calendar Events) are implemented. VS-05 and later slices are
+intentionally not started.
 
 VS-01 provides:
 
@@ -44,8 +45,24 @@ VS-03 adds:
 - atomic save-failure recovery, required-report completion protection, and no
   direct Actual mutation.
 
-Calendar Event persistence/editing/recurrence, remote account/sync code, and
-later planning features remain outside the authorized slice.
+VS-04 adds:
+
+- offline one-time, all-day, timed, daily, weekly, monthly, and yearly Calendar
+  Events;
+- deterministic date/count recurrence ends, month-end clamping, and Feb 29 to
+  Feb 28 non-leap behavior;
+- stable reportable occurrence identities, retained original IANA time zones,
+  and converted display-local times without shifting all-day dates;
+- explicit occurrence, this-and-future, and entire-series edit scopes;
+- non-destructive cancellation and rescheduling with replacement links;
+- factual report outcome read boundaries, Awaiting Report attention, immutable
+  reported history, and no elapsed-time outcome inference;
+- schema version 4 with profile-scoped Event series, append-only exceptions,
+  and retry-idempotent operation records.
+
+Task-Event linking writes, report and Activity Ledger writes, remote
+account/sync code, and later planning features remain outside the authorized
+slice.
 
 ## Locked toolchain
 
@@ -78,7 +95,7 @@ flutter run \
 
 Equivalent non-secret examples exist for development, staging, and production.
 
-No secret is required through VS-03. Never commit signing keys, private
+No secret is required through VS-04. Never commit signing keys, private
 environment files, service-role keys, or user database files.
 
 ## Repository layout
@@ -89,7 +106,7 @@ lib/app/           App shell, theme, and routing
 lib/core/          Database, diagnostics, platform, privacy, time, and IDs
 lib/features/      Vertical feature modules; startup, privacy, and planner
 test/              Unit, repository, migration, and widget tests
-integration_test/  Android VS-01 through VS-03 smoke journeys
+integration_test/  Android VS-01 through VS-04 smoke journeys
 tool/              Toolchain metadata and authority verification
 docs/              Approved sources, preserved baselines, and implementation evidence
 .github/           PR quality and scheduled Android smoke workflows
@@ -106,9 +123,11 @@ Slice mappings and verification evidence are maintained in
 and
 [`docs/implementation/vs-02-traceability.md`](docs/implementation/vs-02-traceability.md),
 and
-[`docs/implementation/vs-03-traceability.md`](docs/implementation/vs-03-traceability.md).
+[`docs/implementation/vs-03-traceability.md`](docs/implementation/vs-03-traceability.md),
+and
+[`docs/implementation/vs-04-traceability.md`](docs/implementation/vs-04-traceability.md).
 
-Do not begin VS-04 without explicit product-owner authorization after the VS-03
+Do not begin VS-05 without explicit product-owner authorization after the VS-04
 quality-gate report.
 
 ## APPROVED VISUAL AND PIXEL-REFERENCE CONTRACT

@@ -150,4 +150,96 @@ void main() {
       }
     },
   );
+
+  test(
+    'AC-E-019,024 / Q2: v3 upgrades to schema v4 without profile or Task loss',
+    () async {
+      final sqliteDatabase = sqlite3.openInMemory();
+
+      try {
+        final versionThree = AppDatabase.forTesting(
+          NativeDatabase.opened(sqliteDatabase, closeUnderlyingOnClose: false),
+          schemaVersionOverride: 3,
+        );
+        final original = await buildTestRepository(
+          database: versionThree,
+        ).completeOnboarding();
+        await versionThree.close();
+
+        final versionFour = AppDatabase.forTesting(
+          NativeDatabase.opened(sqliteDatabase, closeUnderlyingOnClose: false),
+          schemaVersionOverride: 4,
+        );
+        final profiles = await versionFour
+            .select(versionFour.localProfiles)
+            .get();
+        final eventRows = await versionFour
+            .select(versionFour.calendarEvents)
+            .get();
+        final userVersion = await versionFour
+            .customSelect('PRAGMA user_version')
+            .getSingle();
+
+        expect(profiles.single.id, original.id);
+        expect(eventRows, isEmpty);
+        expect(userVersion.read<int>('user_version'), 4);
+        await versionFour.close();
+      } finally {
+        sqliteDatabase.close();
+      }
+    },
+  );
+
+  test(
+    'AC-E-024 / Q2: failed v4 migration preserves the valid v3 database',
+    () async {
+      final sqliteDatabase = sqlite3.openInMemory();
+
+      try {
+        final versionThree = AppDatabase.forTesting(
+          NativeDatabase.opened(sqliteDatabase, closeUnderlyingOnClose: false),
+          schemaVersionOverride: 3,
+        );
+        final original = await buildTestRepository(
+          database: versionThree,
+        ).completeOnboarding();
+        await versionThree.close();
+
+        final failingVersionFour = AppDatabase.forTesting(
+          NativeDatabase.opened(sqliteDatabase, closeUnderlyingOnClose: false),
+          schemaVersionOverride: 4,
+          injectCalendarEventMigrationFailure: true,
+        );
+        await expectLater(
+          failingVersionFour.select(failingVersionFour.localProfiles).get(),
+          throwsA(isA<StateError>()),
+        );
+        await failingVersionFour.close();
+
+        final reopenedVersionThree = AppDatabase.forTesting(
+          NativeDatabase.opened(sqliteDatabase, closeUnderlyingOnClose: false),
+          schemaVersionOverride: 3,
+        );
+        final profiles = await reopenedVersionThree
+            .select(reopenedVersionThree.localProfiles)
+            .get();
+        final userVersion = await reopenedVersionThree
+            .customSelect('PRAGMA user_version')
+            .getSingle();
+        final eventTable = await reopenedVersionThree
+            .customSelect(
+              "SELECT COUNT(*) AS count FROM sqlite_master "
+              "WHERE type='table' AND name='calendar_events'",
+            )
+            .getSingle();
+
+        expect(profiles.single.id, original.id);
+        expect(userVersion.read<int>('user_version'), 3);
+        expect(eventTable.read<int>('count'), 0);
+        await reopenedVersionThree.close();
+      } finally {
+        sqliteDatabase.close();
+      }
+    },
+  );
 }

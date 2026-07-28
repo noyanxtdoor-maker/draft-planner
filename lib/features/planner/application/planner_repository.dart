@@ -3,14 +3,20 @@ import 'package:rmplanner/features/planner/domain/planner_day.dart';
 import 'package:rmplanner/features/planner/domain/planner_task.dart';
 
 abstract interface class PlannerCalendarSource {
-  Future<List<PlannerCalendarItem>> readDay(PlannerDate date);
+  Future<List<PlannerCalendarItem>> readDay({
+    required String profileId,
+    required PlannerDate date,
+  });
 }
 
 final class EmptyPlannerCalendarSource implements PlannerCalendarSource {
   const EmptyPlannerCalendarSource();
 
   @override
-  Future<List<PlannerCalendarItem>> readDay(PlannerDate date) async {
+  Future<List<PlannerCalendarItem>> readDay({
+    required String profileId,
+    required PlannerDate date,
+  }) async {
     return const <PlannerCalendarItem>[];
   }
 }

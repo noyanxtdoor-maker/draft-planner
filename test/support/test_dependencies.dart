@@ -9,8 +9,12 @@ import 'package:rmplanner/core/platform/app_environment.dart';
 import 'package:rmplanner/core/security/auth_token_store.dart';
 import 'package:rmplanner/core/security/privacy_gate.dart';
 import 'package:rmplanner/core/time/app_clock.dart';
+import 'package:rmplanner/features/planner/application/calendar_event_providers.dart';
+import 'package:rmplanner/features/planner/application/calendar_event_repository.dart';
 import 'package:rmplanner/features/planner/application/planner_providers.dart';
 import 'package:rmplanner/features/planner/application/planner_repository.dart';
+import 'package:rmplanner/features/planner/data/calendar_event_time_zones.dart';
+import 'package:rmplanner/features/planner/data/drift_calendar_event_repository.dart';
 import 'package:rmplanner/features/planner/data/drift_planner_repository.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 import 'package:rmplanner/features/planner/domain/planner_day.dart';
@@ -65,7 +69,10 @@ final class MemoryPlannerCalendarSource implements PlannerCalendarSource {
   List<PlannerCalendarItem> items;
 
   @override
-  Future<List<PlannerCalendarItem>> readDay(PlannerDate date) async {
+  Future<List<PlannerCalendarItem>> readDay({
+    required String profileId,
+    required PlannerDate date,
+  }) async {
     return items.where((item) => item.date == date).toList(growable: false);
   }
 }
@@ -223,16 +230,27 @@ final class TestPrivacyDependencies {
     required SanitizedDiagnostics diagnostics,
     required StartupRepository startupRepository,
     PlannerRepository? plannerRepository,
+    CalendarEventRepository? calendarEventRepository,
     PlannerDateSource plannerDateSource = const FixedPlannerDateSource(
       PlannerDate(year: 2026, month: 7, day: 27),
     ),
     IdentifierSource? plannerIdentifierSource,
   }) {
+    final resolvedCalendarEventRepository =
+        calendarEventRepository ??
+        DriftCalendarEventRepository(
+          database: repository.database,
+          clock: FixedClock(DateTime.utc(2026, 7, 27, 12)),
+          timeZones: IanaCalendarEventTimeZones(
+            displayTimeZoneId: 'Asia/Manila',
+          ),
+        );
     final resolvedPlannerRepository =
         plannerRepository ??
         DriftPlannerRepository(
           database: repository.database,
           clock: FixedClock(DateTime.utc(2026, 7, 27, 12)),
+          calendarSource: resolvedCalendarEventRepository,
         );
     return ProviderScope(
       overrides: [
@@ -245,6 +263,9 @@ final class TestPrivacyDependencies {
         permissionGatewayProvider.overrideWithValue(permissionGateway),
         authTokenStoreProvider.overrideWithValue(
           SecureAuthTokenStore(secureStorage),
+        ),
+        calendarEventRepositoryProvider.overrideWithValue(
+          resolvedCalendarEventRepository,
         ),
         plannerRepositoryProvider.overrideWithValue(resolvedPlannerRepository),
         plannerDateSourceProvider.overrideWithValue(plannerDateSource),

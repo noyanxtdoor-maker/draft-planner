@@ -224,13 +224,14 @@ final class PlannerScreen extends ConsumerWidget {
                   key: const Key('create-calendar-event-action'),
                   leading: const Icon(Icons.event_outlined),
                   title: const Text('Calendar Event'),
-                  subtitle: const Text(
-                    'Separate from Tasks; creation is not available yet',
-                  ),
+                  subtitle: const Text('Separate from Tasks and saved offline'),
                   onTap: () {
                     Navigator.of(sheetContext).pop();
                     unawaited(
-                      context.push(RoutePaths.calendarEventUnavailable),
+                      context.push(
+                        '${RoutePaths.calendarEventCreate}'
+                        '?date=${selectedDate.iso8601}',
+                      ),
                     );
                   },
                 ),
@@ -577,9 +578,7 @@ final class _TimelineEventBlock extends StatelessWidget {
         ),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
-          onTap: () => context.push(
-            '${RoutePaths.calendarEventUnavailable}?eventId=${event.id}',
-          ),
+          onTap: () => _openCalendarEvent(context, event),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             child: Row(
@@ -722,9 +721,7 @@ final class _EventTile extends StatelessWidget {
                 ),
                 icon: const Icon(Icons.map_outlined),
               ),
-        onTap: () => context.push(
-          '${RoutePaths.calendarEventUnavailable}?eventId=${event.id}',
-        ),
+        onTap: () => _openCalendarEvent(context, event),
       ),
     );
   }
@@ -759,11 +756,34 @@ final class _ChangeTile extends StatelessWidget {
       subtitle: Text(change.label),
       onTap: change.isTask
           ? () => context.push('${RoutePaths.tasks}/${change.id}')
+          : change.eventId == null || change.originalDate == null
+          ? null
           : () => context.push(
-              '${RoutePaths.calendarEventUnavailable}?eventId=${change.id}',
+              RoutePaths.calendarEventDetail(
+                change.eventId!,
+                change.originalDate!,
+              ),
             ),
     );
   }
+}
+
+void _openCalendarEvent(BuildContext context, PlannerCalendarItem event) {
+  final eventId = event.eventId;
+  final originalDate = event.originalDate;
+  if (eventId == null || originalDate == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'This external calendar item has no editable local record.',
+        ),
+      ),
+    );
+    return;
+  }
+  unawaited(
+    context.push(RoutePaths.calendarEventDetail(eventId, originalDate)),
+  );
 }
 
 final class _EmptySectionMessage extends StatelessWidget {

@@ -3201,6 +3201,2747 @@ class TaskStatusChangesCompanion extends UpdateCompanion<TaskStatusChangeRow> {
   }
 }
 
+class $CalendarEventsTable extends CalendarEvents
+    with TableInfo<$CalendarEventsTable, CalendarEventRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $CalendarEventsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _profileIdMeta = const VerificationMeta(
+    'profileId',
+  );
+  @override
+  late final GeneratedColumn<String> profileId = GeneratedColumn<String>(
+    'profile_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES local_profiles (id) ON DELETE RESTRICT',
+    ),
+  );
+  static const VerificationMeta _titleMeta = const VerificationMeta('title');
+  @override
+  late final GeneratedColumn<String> title = GeneratedColumn<String>(
+    'title',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _notesMeta = const VerificationMeta('notes');
+  @override
+  late final GeneratedColumn<String> notes = GeneratedColumn<String>(
+    'notes',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _timingMeta = const VerificationMeta('timing');
+  @override
+  late final GeneratedColumn<String> timing = GeneratedColumn<String>(
+    'timing',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _startDateMeta = const VerificationMeta(
+    'startDate',
+  );
+  @override
+  late final GeneratedColumn<String> startDate = GeneratedColumn<String>(
+    'start_date',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _startMinuteMeta = const VerificationMeta(
+    'startMinute',
+  );
+  @override
+  late final GeneratedColumn<int> startMinute = GeneratedColumn<int>(
+    'start_minute',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _endMinuteMeta = const VerificationMeta(
+    'endMinute',
+  );
+  @override
+  late final GeneratedColumn<int> endMinute = GeneratedColumn<int>(
+    'end_minute',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _timeZoneIdMeta = const VerificationMeta(
+    'timeZoneId',
+  );
+  @override
+  late final GeneratedColumn<String> timeZoneId = GeneratedColumn<String>(
+    'time_zone_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _locationTextMeta = const VerificationMeta(
+    'locationText',
+  );
+  @override
+  late final GeneratedColumn<String> locationText = GeneratedColumn<String>(
+    'location_text',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _requiresReportMeta = const VerificationMeta(
+    'requiresReport',
+  );
+  @override
+  late final GeneratedColumn<bool> requiresReport = GeneratedColumn<bool>(
+    'requires_report',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("requires_report" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _contributionRuleKeyMeta =
+      const VerificationMeta('contributionRuleKey');
+  @override
+  late final GeneratedColumn<String> contributionRuleKey =
+      GeneratedColumn<String>(
+        'contribution_rule_key',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _recurrenceFrequencyMeta =
+      const VerificationMeta('recurrenceFrequency');
+  @override
+  late final GeneratedColumn<String> recurrenceFrequency =
+      GeneratedColumn<String>(
+        'recurrence_frequency',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant('none'),
+      );
+  static const VerificationMeta _recurrenceEndModeMeta = const VerificationMeta(
+    'recurrenceEndMode',
+  );
+  @override
+  late final GeneratedColumn<String> recurrenceEndMode =
+      GeneratedColumn<String>(
+        'recurrence_end_mode',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant('never'),
+      );
+  static const VerificationMeta _recurrenceEndDateMeta = const VerificationMeta(
+    'recurrenceEndDate',
+  );
+  @override
+  late final GeneratedColumn<String> recurrenceEndDate =
+      GeneratedColumn<String>(
+        'recurrence_end_date',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _recurrenceCountMeta = const VerificationMeta(
+    'recurrenceCount',
+  );
+  @override
+  late final GeneratedColumn<int> recurrenceCount = GeneratedColumn<int>(
+    'recurrence_count',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('scheduled'),
+  );
+  static const VerificationMeta _parentEventIdMeta = const VerificationMeta(
+    'parentEventId',
+  );
+  @override
+  late final GeneratedColumn<String> parentEventId = GeneratedColumn<String>(
+    'parent_event_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _replacementEventIdMeta =
+      const VerificationMeta('replacementEventId');
+  @override
+  late final GeneratedColumn<String> replacementEventId =
+      GeneratedColumn<String>(
+        'replacement_event_id',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _createdAtUtcMeta = const VerificationMeta(
+    'createdAtUtc',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAtUtc = GeneratedColumn<DateTime>(
+    'created_at_utc',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtUtcMeta = const VerificationMeta(
+    'updatedAtUtc',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAtUtc = GeneratedColumn<DateTime>(
+    'updated_at_utc',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    profileId,
+    title,
+    notes,
+    timing,
+    startDate,
+    startMinute,
+    endMinute,
+    timeZoneId,
+    locationText,
+    requiresReport,
+    contributionRuleKey,
+    recurrenceFrequency,
+    recurrenceEndMode,
+    recurrenceEndDate,
+    recurrenceCount,
+    status,
+    parentEventId,
+    replacementEventId,
+    createdAtUtc,
+    updatedAtUtc,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'calendar_events';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<CalendarEventRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('profile_id')) {
+      context.handle(
+        _profileIdMeta,
+        profileId.isAcceptableOrUnknown(data['profile_id']!, _profileIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_profileIdMeta);
+    }
+    if (data.containsKey('title')) {
+      context.handle(
+        _titleMeta,
+        title.isAcceptableOrUnknown(data['title']!, _titleMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_titleMeta);
+    }
+    if (data.containsKey('notes')) {
+      context.handle(
+        _notesMeta,
+        notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
+      );
+    }
+    if (data.containsKey('timing')) {
+      context.handle(
+        _timingMeta,
+        timing.isAcceptableOrUnknown(data['timing']!, _timingMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_timingMeta);
+    }
+    if (data.containsKey('start_date')) {
+      context.handle(
+        _startDateMeta,
+        startDate.isAcceptableOrUnknown(data['start_date']!, _startDateMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_startDateMeta);
+    }
+    if (data.containsKey('start_minute')) {
+      context.handle(
+        _startMinuteMeta,
+        startMinute.isAcceptableOrUnknown(
+          data['start_minute']!,
+          _startMinuteMeta,
+        ),
+      );
+    }
+    if (data.containsKey('end_minute')) {
+      context.handle(
+        _endMinuteMeta,
+        endMinute.isAcceptableOrUnknown(data['end_minute']!, _endMinuteMeta),
+      );
+    }
+    if (data.containsKey('time_zone_id')) {
+      context.handle(
+        _timeZoneIdMeta,
+        timeZoneId.isAcceptableOrUnknown(
+          data['time_zone_id']!,
+          _timeZoneIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('location_text')) {
+      context.handle(
+        _locationTextMeta,
+        locationText.isAcceptableOrUnknown(
+          data['location_text']!,
+          _locationTextMeta,
+        ),
+      );
+    }
+    if (data.containsKey('requires_report')) {
+      context.handle(
+        _requiresReportMeta,
+        requiresReport.isAcceptableOrUnknown(
+          data['requires_report']!,
+          _requiresReportMeta,
+        ),
+      );
+    }
+    if (data.containsKey('contribution_rule_key')) {
+      context.handle(
+        _contributionRuleKeyMeta,
+        contributionRuleKey.isAcceptableOrUnknown(
+          data['contribution_rule_key']!,
+          _contributionRuleKeyMeta,
+        ),
+      );
+    }
+    if (data.containsKey('recurrence_frequency')) {
+      context.handle(
+        _recurrenceFrequencyMeta,
+        recurrenceFrequency.isAcceptableOrUnknown(
+          data['recurrence_frequency']!,
+          _recurrenceFrequencyMeta,
+        ),
+      );
+    }
+    if (data.containsKey('recurrence_end_mode')) {
+      context.handle(
+        _recurrenceEndModeMeta,
+        recurrenceEndMode.isAcceptableOrUnknown(
+          data['recurrence_end_mode']!,
+          _recurrenceEndModeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('recurrence_end_date')) {
+      context.handle(
+        _recurrenceEndDateMeta,
+        recurrenceEndDate.isAcceptableOrUnknown(
+          data['recurrence_end_date']!,
+          _recurrenceEndDateMeta,
+        ),
+      );
+    }
+    if (data.containsKey('recurrence_count')) {
+      context.handle(
+        _recurrenceCountMeta,
+        recurrenceCount.isAcceptableOrUnknown(
+          data['recurrence_count']!,
+          _recurrenceCountMeta,
+        ),
+      );
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    }
+    if (data.containsKey('parent_event_id')) {
+      context.handle(
+        _parentEventIdMeta,
+        parentEventId.isAcceptableOrUnknown(
+          data['parent_event_id']!,
+          _parentEventIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('replacement_event_id')) {
+      context.handle(
+        _replacementEventIdMeta,
+        replacementEventId.isAcceptableOrUnknown(
+          data['replacement_event_id']!,
+          _replacementEventIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_at_utc')) {
+      context.handle(
+        _createdAtUtcMeta,
+        createdAtUtc.isAcceptableOrUnknown(
+          data['created_at_utc']!,
+          _createdAtUtcMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtUtcMeta);
+    }
+    if (data.containsKey('updated_at_utc')) {
+      context.handle(
+        _updatedAtUtcMeta,
+        updatedAtUtc.isAcceptableOrUnknown(
+          data['updated_at_utc']!,
+          _updatedAtUtcMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtUtcMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  CalendarEventRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return CalendarEventRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      profileId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}profile_id'],
+      )!,
+      title: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}title'],
+      )!,
+      notes: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}notes'],
+      ),
+      timing: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}timing'],
+      )!,
+      startDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}start_date'],
+      )!,
+      startMinute: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}start_minute'],
+      ),
+      endMinute: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}end_minute'],
+      ),
+      timeZoneId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}time_zone_id'],
+      ),
+      locationText: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}location_text'],
+      ),
+      requiresReport: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}requires_report'],
+      )!,
+      contributionRuleKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}contribution_rule_key'],
+      ),
+      recurrenceFrequency: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}recurrence_frequency'],
+      )!,
+      recurrenceEndMode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}recurrence_end_mode'],
+      )!,
+      recurrenceEndDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}recurrence_end_date'],
+      ),
+      recurrenceCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}recurrence_count'],
+      ),
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      parentEventId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}parent_event_id'],
+      ),
+      replacementEventId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}replacement_event_id'],
+      ),
+      createdAtUtc: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at_utc'],
+      )!,
+      updatedAtUtc: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at_utc'],
+      )!,
+    );
+  }
+
+  @override
+  $CalendarEventsTable createAlias(String alias) {
+    return $CalendarEventsTable(attachedDatabase, alias);
+  }
+}
+
+class CalendarEventRow extends DataClass
+    implements Insertable<CalendarEventRow> {
+  final String id;
+  final String profileId;
+  final String title;
+  final String? notes;
+  final String timing;
+  final String startDate;
+  final int? startMinute;
+  final int? endMinute;
+  final String? timeZoneId;
+  final String? locationText;
+  final bool requiresReport;
+  final String? contributionRuleKey;
+  final String recurrenceFrequency;
+  final String recurrenceEndMode;
+  final String? recurrenceEndDate;
+  final int? recurrenceCount;
+  final String status;
+  final String? parentEventId;
+  final String? replacementEventId;
+  final DateTime createdAtUtc;
+  final DateTime updatedAtUtc;
+  const CalendarEventRow({
+    required this.id,
+    required this.profileId,
+    required this.title,
+    this.notes,
+    required this.timing,
+    required this.startDate,
+    this.startMinute,
+    this.endMinute,
+    this.timeZoneId,
+    this.locationText,
+    required this.requiresReport,
+    this.contributionRuleKey,
+    required this.recurrenceFrequency,
+    required this.recurrenceEndMode,
+    this.recurrenceEndDate,
+    this.recurrenceCount,
+    required this.status,
+    this.parentEventId,
+    this.replacementEventId,
+    required this.createdAtUtc,
+    required this.updatedAtUtc,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['profile_id'] = Variable<String>(profileId);
+    map['title'] = Variable<String>(title);
+    if (!nullToAbsent || notes != null) {
+      map['notes'] = Variable<String>(notes);
+    }
+    map['timing'] = Variable<String>(timing);
+    map['start_date'] = Variable<String>(startDate);
+    if (!nullToAbsent || startMinute != null) {
+      map['start_minute'] = Variable<int>(startMinute);
+    }
+    if (!nullToAbsent || endMinute != null) {
+      map['end_minute'] = Variable<int>(endMinute);
+    }
+    if (!nullToAbsent || timeZoneId != null) {
+      map['time_zone_id'] = Variable<String>(timeZoneId);
+    }
+    if (!nullToAbsent || locationText != null) {
+      map['location_text'] = Variable<String>(locationText);
+    }
+    map['requires_report'] = Variable<bool>(requiresReport);
+    if (!nullToAbsent || contributionRuleKey != null) {
+      map['contribution_rule_key'] = Variable<String>(contributionRuleKey);
+    }
+    map['recurrence_frequency'] = Variable<String>(recurrenceFrequency);
+    map['recurrence_end_mode'] = Variable<String>(recurrenceEndMode);
+    if (!nullToAbsent || recurrenceEndDate != null) {
+      map['recurrence_end_date'] = Variable<String>(recurrenceEndDate);
+    }
+    if (!nullToAbsent || recurrenceCount != null) {
+      map['recurrence_count'] = Variable<int>(recurrenceCount);
+    }
+    map['status'] = Variable<String>(status);
+    if (!nullToAbsent || parentEventId != null) {
+      map['parent_event_id'] = Variable<String>(parentEventId);
+    }
+    if (!nullToAbsent || replacementEventId != null) {
+      map['replacement_event_id'] = Variable<String>(replacementEventId);
+    }
+    map['created_at_utc'] = Variable<DateTime>(createdAtUtc);
+    map['updated_at_utc'] = Variable<DateTime>(updatedAtUtc);
+    return map;
+  }
+
+  CalendarEventsCompanion toCompanion(bool nullToAbsent) {
+    return CalendarEventsCompanion(
+      id: Value(id),
+      profileId: Value(profileId),
+      title: Value(title),
+      notes: notes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(notes),
+      timing: Value(timing),
+      startDate: Value(startDate),
+      startMinute: startMinute == null && nullToAbsent
+          ? const Value.absent()
+          : Value(startMinute),
+      endMinute: endMinute == null && nullToAbsent
+          ? const Value.absent()
+          : Value(endMinute),
+      timeZoneId: timeZoneId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(timeZoneId),
+      locationText: locationText == null && nullToAbsent
+          ? const Value.absent()
+          : Value(locationText),
+      requiresReport: Value(requiresReport),
+      contributionRuleKey: contributionRuleKey == null && nullToAbsent
+          ? const Value.absent()
+          : Value(contributionRuleKey),
+      recurrenceFrequency: Value(recurrenceFrequency),
+      recurrenceEndMode: Value(recurrenceEndMode),
+      recurrenceEndDate: recurrenceEndDate == null && nullToAbsent
+          ? const Value.absent()
+          : Value(recurrenceEndDate),
+      recurrenceCount: recurrenceCount == null && nullToAbsent
+          ? const Value.absent()
+          : Value(recurrenceCount),
+      status: Value(status),
+      parentEventId: parentEventId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(parentEventId),
+      replacementEventId: replacementEventId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(replacementEventId),
+      createdAtUtc: Value(createdAtUtc),
+      updatedAtUtc: Value(updatedAtUtc),
+    );
+  }
+
+  factory CalendarEventRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return CalendarEventRow(
+      id: serializer.fromJson<String>(json['id']),
+      profileId: serializer.fromJson<String>(json['profileId']),
+      title: serializer.fromJson<String>(json['title']),
+      notes: serializer.fromJson<String?>(json['notes']),
+      timing: serializer.fromJson<String>(json['timing']),
+      startDate: serializer.fromJson<String>(json['startDate']),
+      startMinute: serializer.fromJson<int?>(json['startMinute']),
+      endMinute: serializer.fromJson<int?>(json['endMinute']),
+      timeZoneId: serializer.fromJson<String?>(json['timeZoneId']),
+      locationText: serializer.fromJson<String?>(json['locationText']),
+      requiresReport: serializer.fromJson<bool>(json['requiresReport']),
+      contributionRuleKey: serializer.fromJson<String?>(
+        json['contributionRuleKey'],
+      ),
+      recurrenceFrequency: serializer.fromJson<String>(
+        json['recurrenceFrequency'],
+      ),
+      recurrenceEndMode: serializer.fromJson<String>(json['recurrenceEndMode']),
+      recurrenceEndDate: serializer.fromJson<String?>(
+        json['recurrenceEndDate'],
+      ),
+      recurrenceCount: serializer.fromJson<int?>(json['recurrenceCount']),
+      status: serializer.fromJson<String>(json['status']),
+      parentEventId: serializer.fromJson<String?>(json['parentEventId']),
+      replacementEventId: serializer.fromJson<String?>(
+        json['replacementEventId'],
+      ),
+      createdAtUtc: serializer.fromJson<DateTime>(json['createdAtUtc']),
+      updatedAtUtc: serializer.fromJson<DateTime>(json['updatedAtUtc']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'profileId': serializer.toJson<String>(profileId),
+      'title': serializer.toJson<String>(title),
+      'notes': serializer.toJson<String?>(notes),
+      'timing': serializer.toJson<String>(timing),
+      'startDate': serializer.toJson<String>(startDate),
+      'startMinute': serializer.toJson<int?>(startMinute),
+      'endMinute': serializer.toJson<int?>(endMinute),
+      'timeZoneId': serializer.toJson<String?>(timeZoneId),
+      'locationText': serializer.toJson<String?>(locationText),
+      'requiresReport': serializer.toJson<bool>(requiresReport),
+      'contributionRuleKey': serializer.toJson<String?>(contributionRuleKey),
+      'recurrenceFrequency': serializer.toJson<String>(recurrenceFrequency),
+      'recurrenceEndMode': serializer.toJson<String>(recurrenceEndMode),
+      'recurrenceEndDate': serializer.toJson<String?>(recurrenceEndDate),
+      'recurrenceCount': serializer.toJson<int?>(recurrenceCount),
+      'status': serializer.toJson<String>(status),
+      'parentEventId': serializer.toJson<String?>(parentEventId),
+      'replacementEventId': serializer.toJson<String?>(replacementEventId),
+      'createdAtUtc': serializer.toJson<DateTime>(createdAtUtc),
+      'updatedAtUtc': serializer.toJson<DateTime>(updatedAtUtc),
+    };
+  }
+
+  CalendarEventRow copyWith({
+    String? id,
+    String? profileId,
+    String? title,
+    Value<String?> notes = const Value.absent(),
+    String? timing,
+    String? startDate,
+    Value<int?> startMinute = const Value.absent(),
+    Value<int?> endMinute = const Value.absent(),
+    Value<String?> timeZoneId = const Value.absent(),
+    Value<String?> locationText = const Value.absent(),
+    bool? requiresReport,
+    Value<String?> contributionRuleKey = const Value.absent(),
+    String? recurrenceFrequency,
+    String? recurrenceEndMode,
+    Value<String?> recurrenceEndDate = const Value.absent(),
+    Value<int?> recurrenceCount = const Value.absent(),
+    String? status,
+    Value<String?> parentEventId = const Value.absent(),
+    Value<String?> replacementEventId = const Value.absent(),
+    DateTime? createdAtUtc,
+    DateTime? updatedAtUtc,
+  }) => CalendarEventRow(
+    id: id ?? this.id,
+    profileId: profileId ?? this.profileId,
+    title: title ?? this.title,
+    notes: notes.present ? notes.value : this.notes,
+    timing: timing ?? this.timing,
+    startDate: startDate ?? this.startDate,
+    startMinute: startMinute.present ? startMinute.value : this.startMinute,
+    endMinute: endMinute.present ? endMinute.value : this.endMinute,
+    timeZoneId: timeZoneId.present ? timeZoneId.value : this.timeZoneId,
+    locationText: locationText.present ? locationText.value : this.locationText,
+    requiresReport: requiresReport ?? this.requiresReport,
+    contributionRuleKey: contributionRuleKey.present
+        ? contributionRuleKey.value
+        : this.contributionRuleKey,
+    recurrenceFrequency: recurrenceFrequency ?? this.recurrenceFrequency,
+    recurrenceEndMode: recurrenceEndMode ?? this.recurrenceEndMode,
+    recurrenceEndDate: recurrenceEndDate.present
+        ? recurrenceEndDate.value
+        : this.recurrenceEndDate,
+    recurrenceCount: recurrenceCount.present
+        ? recurrenceCount.value
+        : this.recurrenceCount,
+    status: status ?? this.status,
+    parentEventId: parentEventId.present
+        ? parentEventId.value
+        : this.parentEventId,
+    replacementEventId: replacementEventId.present
+        ? replacementEventId.value
+        : this.replacementEventId,
+    createdAtUtc: createdAtUtc ?? this.createdAtUtc,
+    updatedAtUtc: updatedAtUtc ?? this.updatedAtUtc,
+  );
+  CalendarEventRow copyWithCompanion(CalendarEventsCompanion data) {
+    return CalendarEventRow(
+      id: data.id.present ? data.id.value : this.id,
+      profileId: data.profileId.present ? data.profileId.value : this.profileId,
+      title: data.title.present ? data.title.value : this.title,
+      notes: data.notes.present ? data.notes.value : this.notes,
+      timing: data.timing.present ? data.timing.value : this.timing,
+      startDate: data.startDate.present ? data.startDate.value : this.startDate,
+      startMinute: data.startMinute.present
+          ? data.startMinute.value
+          : this.startMinute,
+      endMinute: data.endMinute.present ? data.endMinute.value : this.endMinute,
+      timeZoneId: data.timeZoneId.present
+          ? data.timeZoneId.value
+          : this.timeZoneId,
+      locationText: data.locationText.present
+          ? data.locationText.value
+          : this.locationText,
+      requiresReport: data.requiresReport.present
+          ? data.requiresReport.value
+          : this.requiresReport,
+      contributionRuleKey: data.contributionRuleKey.present
+          ? data.contributionRuleKey.value
+          : this.contributionRuleKey,
+      recurrenceFrequency: data.recurrenceFrequency.present
+          ? data.recurrenceFrequency.value
+          : this.recurrenceFrequency,
+      recurrenceEndMode: data.recurrenceEndMode.present
+          ? data.recurrenceEndMode.value
+          : this.recurrenceEndMode,
+      recurrenceEndDate: data.recurrenceEndDate.present
+          ? data.recurrenceEndDate.value
+          : this.recurrenceEndDate,
+      recurrenceCount: data.recurrenceCount.present
+          ? data.recurrenceCount.value
+          : this.recurrenceCount,
+      status: data.status.present ? data.status.value : this.status,
+      parentEventId: data.parentEventId.present
+          ? data.parentEventId.value
+          : this.parentEventId,
+      replacementEventId: data.replacementEventId.present
+          ? data.replacementEventId.value
+          : this.replacementEventId,
+      createdAtUtc: data.createdAtUtc.present
+          ? data.createdAtUtc.value
+          : this.createdAtUtc,
+      updatedAtUtc: data.updatedAtUtc.present
+          ? data.updatedAtUtc.value
+          : this.updatedAtUtc,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CalendarEventRow(')
+          ..write('id: $id, ')
+          ..write('profileId: $profileId, ')
+          ..write('title: $title, ')
+          ..write('notes: $notes, ')
+          ..write('timing: $timing, ')
+          ..write('startDate: $startDate, ')
+          ..write('startMinute: $startMinute, ')
+          ..write('endMinute: $endMinute, ')
+          ..write('timeZoneId: $timeZoneId, ')
+          ..write('locationText: $locationText, ')
+          ..write('requiresReport: $requiresReport, ')
+          ..write('contributionRuleKey: $contributionRuleKey, ')
+          ..write('recurrenceFrequency: $recurrenceFrequency, ')
+          ..write('recurrenceEndMode: $recurrenceEndMode, ')
+          ..write('recurrenceEndDate: $recurrenceEndDate, ')
+          ..write('recurrenceCount: $recurrenceCount, ')
+          ..write('status: $status, ')
+          ..write('parentEventId: $parentEventId, ')
+          ..write('replacementEventId: $replacementEventId, ')
+          ..write('createdAtUtc: $createdAtUtc, ')
+          ..write('updatedAtUtc: $updatedAtUtc')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hashAll([
+    id,
+    profileId,
+    title,
+    notes,
+    timing,
+    startDate,
+    startMinute,
+    endMinute,
+    timeZoneId,
+    locationText,
+    requiresReport,
+    contributionRuleKey,
+    recurrenceFrequency,
+    recurrenceEndMode,
+    recurrenceEndDate,
+    recurrenceCount,
+    status,
+    parentEventId,
+    replacementEventId,
+    createdAtUtc,
+    updatedAtUtc,
+  ]);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is CalendarEventRow &&
+          other.id == this.id &&
+          other.profileId == this.profileId &&
+          other.title == this.title &&
+          other.notes == this.notes &&
+          other.timing == this.timing &&
+          other.startDate == this.startDate &&
+          other.startMinute == this.startMinute &&
+          other.endMinute == this.endMinute &&
+          other.timeZoneId == this.timeZoneId &&
+          other.locationText == this.locationText &&
+          other.requiresReport == this.requiresReport &&
+          other.contributionRuleKey == this.contributionRuleKey &&
+          other.recurrenceFrequency == this.recurrenceFrequency &&
+          other.recurrenceEndMode == this.recurrenceEndMode &&
+          other.recurrenceEndDate == this.recurrenceEndDate &&
+          other.recurrenceCount == this.recurrenceCount &&
+          other.status == this.status &&
+          other.parentEventId == this.parentEventId &&
+          other.replacementEventId == this.replacementEventId &&
+          other.createdAtUtc == this.createdAtUtc &&
+          other.updatedAtUtc == this.updatedAtUtc);
+}
+
+class CalendarEventsCompanion extends UpdateCompanion<CalendarEventRow> {
+  final Value<String> id;
+  final Value<String> profileId;
+  final Value<String> title;
+  final Value<String?> notes;
+  final Value<String> timing;
+  final Value<String> startDate;
+  final Value<int?> startMinute;
+  final Value<int?> endMinute;
+  final Value<String?> timeZoneId;
+  final Value<String?> locationText;
+  final Value<bool> requiresReport;
+  final Value<String?> contributionRuleKey;
+  final Value<String> recurrenceFrequency;
+  final Value<String> recurrenceEndMode;
+  final Value<String?> recurrenceEndDate;
+  final Value<int?> recurrenceCount;
+  final Value<String> status;
+  final Value<String?> parentEventId;
+  final Value<String?> replacementEventId;
+  final Value<DateTime> createdAtUtc;
+  final Value<DateTime> updatedAtUtc;
+  final Value<int> rowid;
+  const CalendarEventsCompanion({
+    this.id = const Value.absent(),
+    this.profileId = const Value.absent(),
+    this.title = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.timing = const Value.absent(),
+    this.startDate = const Value.absent(),
+    this.startMinute = const Value.absent(),
+    this.endMinute = const Value.absent(),
+    this.timeZoneId = const Value.absent(),
+    this.locationText = const Value.absent(),
+    this.requiresReport = const Value.absent(),
+    this.contributionRuleKey = const Value.absent(),
+    this.recurrenceFrequency = const Value.absent(),
+    this.recurrenceEndMode = const Value.absent(),
+    this.recurrenceEndDate = const Value.absent(),
+    this.recurrenceCount = const Value.absent(),
+    this.status = const Value.absent(),
+    this.parentEventId = const Value.absent(),
+    this.replacementEventId = const Value.absent(),
+    this.createdAtUtc = const Value.absent(),
+    this.updatedAtUtc = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  CalendarEventsCompanion.insert({
+    required String id,
+    required String profileId,
+    required String title,
+    this.notes = const Value.absent(),
+    required String timing,
+    required String startDate,
+    this.startMinute = const Value.absent(),
+    this.endMinute = const Value.absent(),
+    this.timeZoneId = const Value.absent(),
+    this.locationText = const Value.absent(),
+    this.requiresReport = const Value.absent(),
+    this.contributionRuleKey = const Value.absent(),
+    this.recurrenceFrequency = const Value.absent(),
+    this.recurrenceEndMode = const Value.absent(),
+    this.recurrenceEndDate = const Value.absent(),
+    this.recurrenceCount = const Value.absent(),
+    this.status = const Value.absent(),
+    this.parentEventId = const Value.absent(),
+    this.replacementEventId = const Value.absent(),
+    required DateTime createdAtUtc,
+    required DateTime updatedAtUtc,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       profileId = Value(profileId),
+       title = Value(title),
+       timing = Value(timing),
+       startDate = Value(startDate),
+       createdAtUtc = Value(createdAtUtc),
+       updatedAtUtc = Value(updatedAtUtc);
+  static Insertable<CalendarEventRow> custom({
+    Expression<String>? id,
+    Expression<String>? profileId,
+    Expression<String>? title,
+    Expression<String>? notes,
+    Expression<String>? timing,
+    Expression<String>? startDate,
+    Expression<int>? startMinute,
+    Expression<int>? endMinute,
+    Expression<String>? timeZoneId,
+    Expression<String>? locationText,
+    Expression<bool>? requiresReport,
+    Expression<String>? contributionRuleKey,
+    Expression<String>? recurrenceFrequency,
+    Expression<String>? recurrenceEndMode,
+    Expression<String>? recurrenceEndDate,
+    Expression<int>? recurrenceCount,
+    Expression<String>? status,
+    Expression<String>? parentEventId,
+    Expression<String>? replacementEventId,
+    Expression<DateTime>? createdAtUtc,
+    Expression<DateTime>? updatedAtUtc,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (profileId != null) 'profile_id': profileId,
+      if (title != null) 'title': title,
+      if (notes != null) 'notes': notes,
+      if (timing != null) 'timing': timing,
+      if (startDate != null) 'start_date': startDate,
+      if (startMinute != null) 'start_minute': startMinute,
+      if (endMinute != null) 'end_minute': endMinute,
+      if (timeZoneId != null) 'time_zone_id': timeZoneId,
+      if (locationText != null) 'location_text': locationText,
+      if (requiresReport != null) 'requires_report': requiresReport,
+      if (contributionRuleKey != null)
+        'contribution_rule_key': contributionRuleKey,
+      if (recurrenceFrequency != null)
+        'recurrence_frequency': recurrenceFrequency,
+      if (recurrenceEndMode != null) 'recurrence_end_mode': recurrenceEndMode,
+      if (recurrenceEndDate != null) 'recurrence_end_date': recurrenceEndDate,
+      if (recurrenceCount != null) 'recurrence_count': recurrenceCount,
+      if (status != null) 'status': status,
+      if (parentEventId != null) 'parent_event_id': parentEventId,
+      if (replacementEventId != null)
+        'replacement_event_id': replacementEventId,
+      if (createdAtUtc != null) 'created_at_utc': createdAtUtc,
+      if (updatedAtUtc != null) 'updated_at_utc': updatedAtUtc,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  CalendarEventsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? profileId,
+    Value<String>? title,
+    Value<String?>? notes,
+    Value<String>? timing,
+    Value<String>? startDate,
+    Value<int?>? startMinute,
+    Value<int?>? endMinute,
+    Value<String?>? timeZoneId,
+    Value<String?>? locationText,
+    Value<bool>? requiresReport,
+    Value<String?>? contributionRuleKey,
+    Value<String>? recurrenceFrequency,
+    Value<String>? recurrenceEndMode,
+    Value<String?>? recurrenceEndDate,
+    Value<int?>? recurrenceCount,
+    Value<String>? status,
+    Value<String?>? parentEventId,
+    Value<String?>? replacementEventId,
+    Value<DateTime>? createdAtUtc,
+    Value<DateTime>? updatedAtUtc,
+    Value<int>? rowid,
+  }) {
+    return CalendarEventsCompanion(
+      id: id ?? this.id,
+      profileId: profileId ?? this.profileId,
+      title: title ?? this.title,
+      notes: notes ?? this.notes,
+      timing: timing ?? this.timing,
+      startDate: startDate ?? this.startDate,
+      startMinute: startMinute ?? this.startMinute,
+      endMinute: endMinute ?? this.endMinute,
+      timeZoneId: timeZoneId ?? this.timeZoneId,
+      locationText: locationText ?? this.locationText,
+      requiresReport: requiresReport ?? this.requiresReport,
+      contributionRuleKey: contributionRuleKey ?? this.contributionRuleKey,
+      recurrenceFrequency: recurrenceFrequency ?? this.recurrenceFrequency,
+      recurrenceEndMode: recurrenceEndMode ?? this.recurrenceEndMode,
+      recurrenceEndDate: recurrenceEndDate ?? this.recurrenceEndDate,
+      recurrenceCount: recurrenceCount ?? this.recurrenceCount,
+      status: status ?? this.status,
+      parentEventId: parentEventId ?? this.parentEventId,
+      replacementEventId: replacementEventId ?? this.replacementEventId,
+      createdAtUtc: createdAtUtc ?? this.createdAtUtc,
+      updatedAtUtc: updatedAtUtc ?? this.updatedAtUtc,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (profileId.present) {
+      map['profile_id'] = Variable<String>(profileId.value);
+    }
+    if (title.present) {
+      map['title'] = Variable<String>(title.value);
+    }
+    if (notes.present) {
+      map['notes'] = Variable<String>(notes.value);
+    }
+    if (timing.present) {
+      map['timing'] = Variable<String>(timing.value);
+    }
+    if (startDate.present) {
+      map['start_date'] = Variable<String>(startDate.value);
+    }
+    if (startMinute.present) {
+      map['start_minute'] = Variable<int>(startMinute.value);
+    }
+    if (endMinute.present) {
+      map['end_minute'] = Variable<int>(endMinute.value);
+    }
+    if (timeZoneId.present) {
+      map['time_zone_id'] = Variable<String>(timeZoneId.value);
+    }
+    if (locationText.present) {
+      map['location_text'] = Variable<String>(locationText.value);
+    }
+    if (requiresReport.present) {
+      map['requires_report'] = Variable<bool>(requiresReport.value);
+    }
+    if (contributionRuleKey.present) {
+      map['contribution_rule_key'] = Variable<String>(
+        contributionRuleKey.value,
+      );
+    }
+    if (recurrenceFrequency.present) {
+      map['recurrence_frequency'] = Variable<String>(recurrenceFrequency.value);
+    }
+    if (recurrenceEndMode.present) {
+      map['recurrence_end_mode'] = Variable<String>(recurrenceEndMode.value);
+    }
+    if (recurrenceEndDate.present) {
+      map['recurrence_end_date'] = Variable<String>(recurrenceEndDate.value);
+    }
+    if (recurrenceCount.present) {
+      map['recurrence_count'] = Variable<int>(recurrenceCount.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (parentEventId.present) {
+      map['parent_event_id'] = Variable<String>(parentEventId.value);
+    }
+    if (replacementEventId.present) {
+      map['replacement_event_id'] = Variable<String>(replacementEventId.value);
+    }
+    if (createdAtUtc.present) {
+      map['created_at_utc'] = Variable<DateTime>(createdAtUtc.value);
+    }
+    if (updatedAtUtc.present) {
+      map['updated_at_utc'] = Variable<DateTime>(updatedAtUtc.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CalendarEventsCompanion(')
+          ..write('id: $id, ')
+          ..write('profileId: $profileId, ')
+          ..write('title: $title, ')
+          ..write('notes: $notes, ')
+          ..write('timing: $timing, ')
+          ..write('startDate: $startDate, ')
+          ..write('startMinute: $startMinute, ')
+          ..write('endMinute: $endMinute, ')
+          ..write('timeZoneId: $timeZoneId, ')
+          ..write('locationText: $locationText, ')
+          ..write('requiresReport: $requiresReport, ')
+          ..write('contributionRuleKey: $contributionRuleKey, ')
+          ..write('recurrenceFrequency: $recurrenceFrequency, ')
+          ..write('recurrenceEndMode: $recurrenceEndMode, ')
+          ..write('recurrenceEndDate: $recurrenceEndDate, ')
+          ..write('recurrenceCount: $recurrenceCount, ')
+          ..write('status: $status, ')
+          ..write('parentEventId: $parentEventId, ')
+          ..write('replacementEventId: $replacementEventId, ')
+          ..write('createdAtUtc: $createdAtUtc, ')
+          ..write('updatedAtUtc: $updatedAtUtc, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $CalendarEventExceptionsTable extends CalendarEventExceptions
+    with TableInfo<$CalendarEventExceptionsTable, CalendarEventExceptionRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $CalendarEventExceptionsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _profileIdMeta = const VerificationMeta(
+    'profileId',
+  );
+  @override
+  late final GeneratedColumn<String> profileId = GeneratedColumn<String>(
+    'profile_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES local_profiles (id) ON DELETE RESTRICT',
+    ),
+  );
+  static const VerificationMeta _eventIdMeta = const VerificationMeta(
+    'eventId',
+  );
+  @override
+  late final GeneratedColumn<String> eventId = GeneratedColumn<String>(
+    'event_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES calendar_events (id) ON DELETE RESTRICT',
+    ),
+  );
+  static const VerificationMeta _occurrenceIdMeta = const VerificationMeta(
+    'occurrenceId',
+  );
+  @override
+  late final GeneratedColumn<String> occurrenceId = GeneratedColumn<String>(
+    'occurrence_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _originalDateMeta = const VerificationMeta(
+    'originalDate',
+  );
+  @override
+  late final GeneratedColumn<String> originalDate = GeneratedColumn<String>(
+    'original_date',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _effectiveDateMeta = const VerificationMeta(
+    'effectiveDate',
+  );
+  @override
+  late final GeneratedColumn<String> effectiveDate = GeneratedColumn<String>(
+    'effective_date',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _titleMeta = const VerificationMeta('title');
+  @override
+  late final GeneratedColumn<String> title = GeneratedColumn<String>(
+    'title',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _notesMeta = const VerificationMeta('notes');
+  @override
+  late final GeneratedColumn<String> notes = GeneratedColumn<String>(
+    'notes',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _timingMeta = const VerificationMeta('timing');
+  @override
+  late final GeneratedColumn<String> timing = GeneratedColumn<String>(
+    'timing',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _startMinuteMeta = const VerificationMeta(
+    'startMinute',
+  );
+  @override
+  late final GeneratedColumn<int> startMinute = GeneratedColumn<int>(
+    'start_minute',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _endMinuteMeta = const VerificationMeta(
+    'endMinute',
+  );
+  @override
+  late final GeneratedColumn<int> endMinute = GeneratedColumn<int>(
+    'end_minute',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _timeZoneIdMeta = const VerificationMeta(
+    'timeZoneId',
+  );
+  @override
+  late final GeneratedColumn<String> timeZoneId = GeneratedColumn<String>(
+    'time_zone_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _locationTextMeta = const VerificationMeta(
+    'locationText',
+  );
+  @override
+  late final GeneratedColumn<String> locationText = GeneratedColumn<String>(
+    'location_text',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _requiresReportMeta = const VerificationMeta(
+    'requiresReport',
+  );
+  @override
+  late final GeneratedColumn<bool> requiresReport = GeneratedColumn<bool>(
+    'requires_report',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("requires_report" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _contributionRuleKeyMeta =
+      const VerificationMeta('contributionRuleKey');
+  @override
+  late final GeneratedColumn<String> contributionRuleKey =
+      GeneratedColumn<String>(
+        'contribution_rule_key',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _replacementEventIdMeta =
+      const VerificationMeta('replacementEventId');
+  @override
+  late final GeneratedColumn<String> replacementEventId =
+      GeneratedColumn<String>(
+        'replacement_event_id',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _createdAtUtcMeta = const VerificationMeta(
+    'createdAtUtc',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAtUtc = GeneratedColumn<DateTime>(
+    'created_at_utc',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    profileId,
+    eventId,
+    occurrenceId,
+    originalDate,
+    effectiveDate,
+    title,
+    notes,
+    timing,
+    startMinute,
+    endMinute,
+    timeZoneId,
+    locationText,
+    requiresReport,
+    contributionRuleKey,
+    status,
+    replacementEventId,
+    createdAtUtc,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'calendar_event_exceptions';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<CalendarEventExceptionRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('profile_id')) {
+      context.handle(
+        _profileIdMeta,
+        profileId.isAcceptableOrUnknown(data['profile_id']!, _profileIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_profileIdMeta);
+    }
+    if (data.containsKey('event_id')) {
+      context.handle(
+        _eventIdMeta,
+        eventId.isAcceptableOrUnknown(data['event_id']!, _eventIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_eventIdMeta);
+    }
+    if (data.containsKey('occurrence_id')) {
+      context.handle(
+        _occurrenceIdMeta,
+        occurrenceId.isAcceptableOrUnknown(
+          data['occurrence_id']!,
+          _occurrenceIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_occurrenceIdMeta);
+    }
+    if (data.containsKey('original_date')) {
+      context.handle(
+        _originalDateMeta,
+        originalDate.isAcceptableOrUnknown(
+          data['original_date']!,
+          _originalDateMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_originalDateMeta);
+    }
+    if (data.containsKey('effective_date')) {
+      context.handle(
+        _effectiveDateMeta,
+        effectiveDate.isAcceptableOrUnknown(
+          data['effective_date']!,
+          _effectiveDateMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_effectiveDateMeta);
+    }
+    if (data.containsKey('title')) {
+      context.handle(
+        _titleMeta,
+        title.isAcceptableOrUnknown(data['title']!, _titleMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_titleMeta);
+    }
+    if (data.containsKey('notes')) {
+      context.handle(
+        _notesMeta,
+        notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
+      );
+    }
+    if (data.containsKey('timing')) {
+      context.handle(
+        _timingMeta,
+        timing.isAcceptableOrUnknown(data['timing']!, _timingMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_timingMeta);
+    }
+    if (data.containsKey('start_minute')) {
+      context.handle(
+        _startMinuteMeta,
+        startMinute.isAcceptableOrUnknown(
+          data['start_minute']!,
+          _startMinuteMeta,
+        ),
+      );
+    }
+    if (data.containsKey('end_minute')) {
+      context.handle(
+        _endMinuteMeta,
+        endMinute.isAcceptableOrUnknown(data['end_minute']!, _endMinuteMeta),
+      );
+    }
+    if (data.containsKey('time_zone_id')) {
+      context.handle(
+        _timeZoneIdMeta,
+        timeZoneId.isAcceptableOrUnknown(
+          data['time_zone_id']!,
+          _timeZoneIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('location_text')) {
+      context.handle(
+        _locationTextMeta,
+        locationText.isAcceptableOrUnknown(
+          data['location_text']!,
+          _locationTextMeta,
+        ),
+      );
+    }
+    if (data.containsKey('requires_report')) {
+      context.handle(
+        _requiresReportMeta,
+        requiresReport.isAcceptableOrUnknown(
+          data['requires_report']!,
+          _requiresReportMeta,
+        ),
+      );
+    }
+    if (data.containsKey('contribution_rule_key')) {
+      context.handle(
+        _contributionRuleKeyMeta,
+        contributionRuleKey.isAcceptableOrUnknown(
+          data['contribution_rule_key']!,
+          _contributionRuleKeyMeta,
+        ),
+      );
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_statusMeta);
+    }
+    if (data.containsKey('replacement_event_id')) {
+      context.handle(
+        _replacementEventIdMeta,
+        replacementEventId.isAcceptableOrUnknown(
+          data['replacement_event_id']!,
+          _replacementEventIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_at_utc')) {
+      context.handle(
+        _createdAtUtcMeta,
+        createdAtUtc.isAcceptableOrUnknown(
+          data['created_at_utc']!,
+          _createdAtUtcMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtUtcMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  CalendarEventExceptionRow map(
+    Map<String, dynamic> data, {
+    String? tablePrefix,
+  }) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return CalendarEventExceptionRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      profileId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}profile_id'],
+      )!,
+      eventId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}event_id'],
+      )!,
+      occurrenceId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}occurrence_id'],
+      )!,
+      originalDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}original_date'],
+      )!,
+      effectiveDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}effective_date'],
+      )!,
+      title: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}title'],
+      )!,
+      notes: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}notes'],
+      ),
+      timing: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}timing'],
+      )!,
+      startMinute: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}start_minute'],
+      ),
+      endMinute: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}end_minute'],
+      ),
+      timeZoneId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}time_zone_id'],
+      ),
+      locationText: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}location_text'],
+      ),
+      requiresReport: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}requires_report'],
+      )!,
+      contributionRuleKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}contribution_rule_key'],
+      ),
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      replacementEventId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}replacement_event_id'],
+      ),
+      createdAtUtc: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at_utc'],
+      )!,
+    );
+  }
+
+  @override
+  $CalendarEventExceptionsTable createAlias(String alias) {
+    return $CalendarEventExceptionsTable(attachedDatabase, alias);
+  }
+}
+
+class CalendarEventExceptionRow extends DataClass
+    implements Insertable<CalendarEventExceptionRow> {
+  final String id;
+  final String profileId;
+  final String eventId;
+  final String occurrenceId;
+  final String originalDate;
+  final String effectiveDate;
+  final String title;
+  final String? notes;
+  final String timing;
+  final int? startMinute;
+  final int? endMinute;
+  final String? timeZoneId;
+  final String? locationText;
+  final bool requiresReport;
+  final String? contributionRuleKey;
+  final String status;
+  final String? replacementEventId;
+  final DateTime createdAtUtc;
+  const CalendarEventExceptionRow({
+    required this.id,
+    required this.profileId,
+    required this.eventId,
+    required this.occurrenceId,
+    required this.originalDate,
+    required this.effectiveDate,
+    required this.title,
+    this.notes,
+    required this.timing,
+    this.startMinute,
+    this.endMinute,
+    this.timeZoneId,
+    this.locationText,
+    required this.requiresReport,
+    this.contributionRuleKey,
+    required this.status,
+    this.replacementEventId,
+    required this.createdAtUtc,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['profile_id'] = Variable<String>(profileId);
+    map['event_id'] = Variable<String>(eventId);
+    map['occurrence_id'] = Variable<String>(occurrenceId);
+    map['original_date'] = Variable<String>(originalDate);
+    map['effective_date'] = Variable<String>(effectiveDate);
+    map['title'] = Variable<String>(title);
+    if (!nullToAbsent || notes != null) {
+      map['notes'] = Variable<String>(notes);
+    }
+    map['timing'] = Variable<String>(timing);
+    if (!nullToAbsent || startMinute != null) {
+      map['start_minute'] = Variable<int>(startMinute);
+    }
+    if (!nullToAbsent || endMinute != null) {
+      map['end_minute'] = Variable<int>(endMinute);
+    }
+    if (!nullToAbsent || timeZoneId != null) {
+      map['time_zone_id'] = Variable<String>(timeZoneId);
+    }
+    if (!nullToAbsent || locationText != null) {
+      map['location_text'] = Variable<String>(locationText);
+    }
+    map['requires_report'] = Variable<bool>(requiresReport);
+    if (!nullToAbsent || contributionRuleKey != null) {
+      map['contribution_rule_key'] = Variable<String>(contributionRuleKey);
+    }
+    map['status'] = Variable<String>(status);
+    if (!nullToAbsent || replacementEventId != null) {
+      map['replacement_event_id'] = Variable<String>(replacementEventId);
+    }
+    map['created_at_utc'] = Variable<DateTime>(createdAtUtc);
+    return map;
+  }
+
+  CalendarEventExceptionsCompanion toCompanion(bool nullToAbsent) {
+    return CalendarEventExceptionsCompanion(
+      id: Value(id),
+      profileId: Value(profileId),
+      eventId: Value(eventId),
+      occurrenceId: Value(occurrenceId),
+      originalDate: Value(originalDate),
+      effectiveDate: Value(effectiveDate),
+      title: Value(title),
+      notes: notes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(notes),
+      timing: Value(timing),
+      startMinute: startMinute == null && nullToAbsent
+          ? const Value.absent()
+          : Value(startMinute),
+      endMinute: endMinute == null && nullToAbsent
+          ? const Value.absent()
+          : Value(endMinute),
+      timeZoneId: timeZoneId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(timeZoneId),
+      locationText: locationText == null && nullToAbsent
+          ? const Value.absent()
+          : Value(locationText),
+      requiresReport: Value(requiresReport),
+      contributionRuleKey: contributionRuleKey == null && nullToAbsent
+          ? const Value.absent()
+          : Value(contributionRuleKey),
+      status: Value(status),
+      replacementEventId: replacementEventId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(replacementEventId),
+      createdAtUtc: Value(createdAtUtc),
+    );
+  }
+
+  factory CalendarEventExceptionRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return CalendarEventExceptionRow(
+      id: serializer.fromJson<String>(json['id']),
+      profileId: serializer.fromJson<String>(json['profileId']),
+      eventId: serializer.fromJson<String>(json['eventId']),
+      occurrenceId: serializer.fromJson<String>(json['occurrenceId']),
+      originalDate: serializer.fromJson<String>(json['originalDate']),
+      effectiveDate: serializer.fromJson<String>(json['effectiveDate']),
+      title: serializer.fromJson<String>(json['title']),
+      notes: serializer.fromJson<String?>(json['notes']),
+      timing: serializer.fromJson<String>(json['timing']),
+      startMinute: serializer.fromJson<int?>(json['startMinute']),
+      endMinute: serializer.fromJson<int?>(json['endMinute']),
+      timeZoneId: serializer.fromJson<String?>(json['timeZoneId']),
+      locationText: serializer.fromJson<String?>(json['locationText']),
+      requiresReport: serializer.fromJson<bool>(json['requiresReport']),
+      contributionRuleKey: serializer.fromJson<String?>(
+        json['contributionRuleKey'],
+      ),
+      status: serializer.fromJson<String>(json['status']),
+      replacementEventId: serializer.fromJson<String?>(
+        json['replacementEventId'],
+      ),
+      createdAtUtc: serializer.fromJson<DateTime>(json['createdAtUtc']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'profileId': serializer.toJson<String>(profileId),
+      'eventId': serializer.toJson<String>(eventId),
+      'occurrenceId': serializer.toJson<String>(occurrenceId),
+      'originalDate': serializer.toJson<String>(originalDate),
+      'effectiveDate': serializer.toJson<String>(effectiveDate),
+      'title': serializer.toJson<String>(title),
+      'notes': serializer.toJson<String?>(notes),
+      'timing': serializer.toJson<String>(timing),
+      'startMinute': serializer.toJson<int?>(startMinute),
+      'endMinute': serializer.toJson<int?>(endMinute),
+      'timeZoneId': serializer.toJson<String?>(timeZoneId),
+      'locationText': serializer.toJson<String?>(locationText),
+      'requiresReport': serializer.toJson<bool>(requiresReport),
+      'contributionRuleKey': serializer.toJson<String?>(contributionRuleKey),
+      'status': serializer.toJson<String>(status),
+      'replacementEventId': serializer.toJson<String?>(replacementEventId),
+      'createdAtUtc': serializer.toJson<DateTime>(createdAtUtc),
+    };
+  }
+
+  CalendarEventExceptionRow copyWith({
+    String? id,
+    String? profileId,
+    String? eventId,
+    String? occurrenceId,
+    String? originalDate,
+    String? effectiveDate,
+    String? title,
+    Value<String?> notes = const Value.absent(),
+    String? timing,
+    Value<int?> startMinute = const Value.absent(),
+    Value<int?> endMinute = const Value.absent(),
+    Value<String?> timeZoneId = const Value.absent(),
+    Value<String?> locationText = const Value.absent(),
+    bool? requiresReport,
+    Value<String?> contributionRuleKey = const Value.absent(),
+    String? status,
+    Value<String?> replacementEventId = const Value.absent(),
+    DateTime? createdAtUtc,
+  }) => CalendarEventExceptionRow(
+    id: id ?? this.id,
+    profileId: profileId ?? this.profileId,
+    eventId: eventId ?? this.eventId,
+    occurrenceId: occurrenceId ?? this.occurrenceId,
+    originalDate: originalDate ?? this.originalDate,
+    effectiveDate: effectiveDate ?? this.effectiveDate,
+    title: title ?? this.title,
+    notes: notes.present ? notes.value : this.notes,
+    timing: timing ?? this.timing,
+    startMinute: startMinute.present ? startMinute.value : this.startMinute,
+    endMinute: endMinute.present ? endMinute.value : this.endMinute,
+    timeZoneId: timeZoneId.present ? timeZoneId.value : this.timeZoneId,
+    locationText: locationText.present ? locationText.value : this.locationText,
+    requiresReport: requiresReport ?? this.requiresReport,
+    contributionRuleKey: contributionRuleKey.present
+        ? contributionRuleKey.value
+        : this.contributionRuleKey,
+    status: status ?? this.status,
+    replacementEventId: replacementEventId.present
+        ? replacementEventId.value
+        : this.replacementEventId,
+    createdAtUtc: createdAtUtc ?? this.createdAtUtc,
+  );
+  CalendarEventExceptionRow copyWithCompanion(
+    CalendarEventExceptionsCompanion data,
+  ) {
+    return CalendarEventExceptionRow(
+      id: data.id.present ? data.id.value : this.id,
+      profileId: data.profileId.present ? data.profileId.value : this.profileId,
+      eventId: data.eventId.present ? data.eventId.value : this.eventId,
+      occurrenceId: data.occurrenceId.present
+          ? data.occurrenceId.value
+          : this.occurrenceId,
+      originalDate: data.originalDate.present
+          ? data.originalDate.value
+          : this.originalDate,
+      effectiveDate: data.effectiveDate.present
+          ? data.effectiveDate.value
+          : this.effectiveDate,
+      title: data.title.present ? data.title.value : this.title,
+      notes: data.notes.present ? data.notes.value : this.notes,
+      timing: data.timing.present ? data.timing.value : this.timing,
+      startMinute: data.startMinute.present
+          ? data.startMinute.value
+          : this.startMinute,
+      endMinute: data.endMinute.present ? data.endMinute.value : this.endMinute,
+      timeZoneId: data.timeZoneId.present
+          ? data.timeZoneId.value
+          : this.timeZoneId,
+      locationText: data.locationText.present
+          ? data.locationText.value
+          : this.locationText,
+      requiresReport: data.requiresReport.present
+          ? data.requiresReport.value
+          : this.requiresReport,
+      contributionRuleKey: data.contributionRuleKey.present
+          ? data.contributionRuleKey.value
+          : this.contributionRuleKey,
+      status: data.status.present ? data.status.value : this.status,
+      replacementEventId: data.replacementEventId.present
+          ? data.replacementEventId.value
+          : this.replacementEventId,
+      createdAtUtc: data.createdAtUtc.present
+          ? data.createdAtUtc.value
+          : this.createdAtUtc,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CalendarEventExceptionRow(')
+          ..write('id: $id, ')
+          ..write('profileId: $profileId, ')
+          ..write('eventId: $eventId, ')
+          ..write('occurrenceId: $occurrenceId, ')
+          ..write('originalDate: $originalDate, ')
+          ..write('effectiveDate: $effectiveDate, ')
+          ..write('title: $title, ')
+          ..write('notes: $notes, ')
+          ..write('timing: $timing, ')
+          ..write('startMinute: $startMinute, ')
+          ..write('endMinute: $endMinute, ')
+          ..write('timeZoneId: $timeZoneId, ')
+          ..write('locationText: $locationText, ')
+          ..write('requiresReport: $requiresReport, ')
+          ..write('contributionRuleKey: $contributionRuleKey, ')
+          ..write('status: $status, ')
+          ..write('replacementEventId: $replacementEventId, ')
+          ..write('createdAtUtc: $createdAtUtc')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    profileId,
+    eventId,
+    occurrenceId,
+    originalDate,
+    effectiveDate,
+    title,
+    notes,
+    timing,
+    startMinute,
+    endMinute,
+    timeZoneId,
+    locationText,
+    requiresReport,
+    contributionRuleKey,
+    status,
+    replacementEventId,
+    createdAtUtc,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is CalendarEventExceptionRow &&
+          other.id == this.id &&
+          other.profileId == this.profileId &&
+          other.eventId == this.eventId &&
+          other.occurrenceId == this.occurrenceId &&
+          other.originalDate == this.originalDate &&
+          other.effectiveDate == this.effectiveDate &&
+          other.title == this.title &&
+          other.notes == this.notes &&
+          other.timing == this.timing &&
+          other.startMinute == this.startMinute &&
+          other.endMinute == this.endMinute &&
+          other.timeZoneId == this.timeZoneId &&
+          other.locationText == this.locationText &&
+          other.requiresReport == this.requiresReport &&
+          other.contributionRuleKey == this.contributionRuleKey &&
+          other.status == this.status &&
+          other.replacementEventId == this.replacementEventId &&
+          other.createdAtUtc == this.createdAtUtc);
+}
+
+class CalendarEventExceptionsCompanion
+    extends UpdateCompanion<CalendarEventExceptionRow> {
+  final Value<String> id;
+  final Value<String> profileId;
+  final Value<String> eventId;
+  final Value<String> occurrenceId;
+  final Value<String> originalDate;
+  final Value<String> effectiveDate;
+  final Value<String> title;
+  final Value<String?> notes;
+  final Value<String> timing;
+  final Value<int?> startMinute;
+  final Value<int?> endMinute;
+  final Value<String?> timeZoneId;
+  final Value<String?> locationText;
+  final Value<bool> requiresReport;
+  final Value<String?> contributionRuleKey;
+  final Value<String> status;
+  final Value<String?> replacementEventId;
+  final Value<DateTime> createdAtUtc;
+  final Value<int> rowid;
+  const CalendarEventExceptionsCompanion({
+    this.id = const Value.absent(),
+    this.profileId = const Value.absent(),
+    this.eventId = const Value.absent(),
+    this.occurrenceId = const Value.absent(),
+    this.originalDate = const Value.absent(),
+    this.effectiveDate = const Value.absent(),
+    this.title = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.timing = const Value.absent(),
+    this.startMinute = const Value.absent(),
+    this.endMinute = const Value.absent(),
+    this.timeZoneId = const Value.absent(),
+    this.locationText = const Value.absent(),
+    this.requiresReport = const Value.absent(),
+    this.contributionRuleKey = const Value.absent(),
+    this.status = const Value.absent(),
+    this.replacementEventId = const Value.absent(),
+    this.createdAtUtc = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  CalendarEventExceptionsCompanion.insert({
+    required String id,
+    required String profileId,
+    required String eventId,
+    required String occurrenceId,
+    required String originalDate,
+    required String effectiveDate,
+    required String title,
+    this.notes = const Value.absent(),
+    required String timing,
+    this.startMinute = const Value.absent(),
+    this.endMinute = const Value.absent(),
+    this.timeZoneId = const Value.absent(),
+    this.locationText = const Value.absent(),
+    this.requiresReport = const Value.absent(),
+    this.contributionRuleKey = const Value.absent(),
+    required String status,
+    this.replacementEventId = const Value.absent(),
+    required DateTime createdAtUtc,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       profileId = Value(profileId),
+       eventId = Value(eventId),
+       occurrenceId = Value(occurrenceId),
+       originalDate = Value(originalDate),
+       effectiveDate = Value(effectiveDate),
+       title = Value(title),
+       timing = Value(timing),
+       status = Value(status),
+       createdAtUtc = Value(createdAtUtc);
+  static Insertable<CalendarEventExceptionRow> custom({
+    Expression<String>? id,
+    Expression<String>? profileId,
+    Expression<String>? eventId,
+    Expression<String>? occurrenceId,
+    Expression<String>? originalDate,
+    Expression<String>? effectiveDate,
+    Expression<String>? title,
+    Expression<String>? notes,
+    Expression<String>? timing,
+    Expression<int>? startMinute,
+    Expression<int>? endMinute,
+    Expression<String>? timeZoneId,
+    Expression<String>? locationText,
+    Expression<bool>? requiresReport,
+    Expression<String>? contributionRuleKey,
+    Expression<String>? status,
+    Expression<String>? replacementEventId,
+    Expression<DateTime>? createdAtUtc,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (profileId != null) 'profile_id': profileId,
+      if (eventId != null) 'event_id': eventId,
+      if (occurrenceId != null) 'occurrence_id': occurrenceId,
+      if (originalDate != null) 'original_date': originalDate,
+      if (effectiveDate != null) 'effective_date': effectiveDate,
+      if (title != null) 'title': title,
+      if (notes != null) 'notes': notes,
+      if (timing != null) 'timing': timing,
+      if (startMinute != null) 'start_minute': startMinute,
+      if (endMinute != null) 'end_minute': endMinute,
+      if (timeZoneId != null) 'time_zone_id': timeZoneId,
+      if (locationText != null) 'location_text': locationText,
+      if (requiresReport != null) 'requires_report': requiresReport,
+      if (contributionRuleKey != null)
+        'contribution_rule_key': contributionRuleKey,
+      if (status != null) 'status': status,
+      if (replacementEventId != null)
+        'replacement_event_id': replacementEventId,
+      if (createdAtUtc != null) 'created_at_utc': createdAtUtc,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  CalendarEventExceptionsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? profileId,
+    Value<String>? eventId,
+    Value<String>? occurrenceId,
+    Value<String>? originalDate,
+    Value<String>? effectiveDate,
+    Value<String>? title,
+    Value<String?>? notes,
+    Value<String>? timing,
+    Value<int?>? startMinute,
+    Value<int?>? endMinute,
+    Value<String?>? timeZoneId,
+    Value<String?>? locationText,
+    Value<bool>? requiresReport,
+    Value<String?>? contributionRuleKey,
+    Value<String>? status,
+    Value<String?>? replacementEventId,
+    Value<DateTime>? createdAtUtc,
+    Value<int>? rowid,
+  }) {
+    return CalendarEventExceptionsCompanion(
+      id: id ?? this.id,
+      profileId: profileId ?? this.profileId,
+      eventId: eventId ?? this.eventId,
+      occurrenceId: occurrenceId ?? this.occurrenceId,
+      originalDate: originalDate ?? this.originalDate,
+      effectiveDate: effectiveDate ?? this.effectiveDate,
+      title: title ?? this.title,
+      notes: notes ?? this.notes,
+      timing: timing ?? this.timing,
+      startMinute: startMinute ?? this.startMinute,
+      endMinute: endMinute ?? this.endMinute,
+      timeZoneId: timeZoneId ?? this.timeZoneId,
+      locationText: locationText ?? this.locationText,
+      requiresReport: requiresReport ?? this.requiresReport,
+      contributionRuleKey: contributionRuleKey ?? this.contributionRuleKey,
+      status: status ?? this.status,
+      replacementEventId: replacementEventId ?? this.replacementEventId,
+      createdAtUtc: createdAtUtc ?? this.createdAtUtc,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (profileId.present) {
+      map['profile_id'] = Variable<String>(profileId.value);
+    }
+    if (eventId.present) {
+      map['event_id'] = Variable<String>(eventId.value);
+    }
+    if (occurrenceId.present) {
+      map['occurrence_id'] = Variable<String>(occurrenceId.value);
+    }
+    if (originalDate.present) {
+      map['original_date'] = Variable<String>(originalDate.value);
+    }
+    if (effectiveDate.present) {
+      map['effective_date'] = Variable<String>(effectiveDate.value);
+    }
+    if (title.present) {
+      map['title'] = Variable<String>(title.value);
+    }
+    if (notes.present) {
+      map['notes'] = Variable<String>(notes.value);
+    }
+    if (timing.present) {
+      map['timing'] = Variable<String>(timing.value);
+    }
+    if (startMinute.present) {
+      map['start_minute'] = Variable<int>(startMinute.value);
+    }
+    if (endMinute.present) {
+      map['end_minute'] = Variable<int>(endMinute.value);
+    }
+    if (timeZoneId.present) {
+      map['time_zone_id'] = Variable<String>(timeZoneId.value);
+    }
+    if (locationText.present) {
+      map['location_text'] = Variable<String>(locationText.value);
+    }
+    if (requiresReport.present) {
+      map['requires_report'] = Variable<bool>(requiresReport.value);
+    }
+    if (contributionRuleKey.present) {
+      map['contribution_rule_key'] = Variable<String>(
+        contributionRuleKey.value,
+      );
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (replacementEventId.present) {
+      map['replacement_event_id'] = Variable<String>(replacementEventId.value);
+    }
+    if (createdAtUtc.present) {
+      map['created_at_utc'] = Variable<DateTime>(createdAtUtc.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CalendarEventExceptionsCompanion(')
+          ..write('id: $id, ')
+          ..write('profileId: $profileId, ')
+          ..write('eventId: $eventId, ')
+          ..write('occurrenceId: $occurrenceId, ')
+          ..write('originalDate: $originalDate, ')
+          ..write('effectiveDate: $effectiveDate, ')
+          ..write('title: $title, ')
+          ..write('notes: $notes, ')
+          ..write('timing: $timing, ')
+          ..write('startMinute: $startMinute, ')
+          ..write('endMinute: $endMinute, ')
+          ..write('timeZoneId: $timeZoneId, ')
+          ..write('locationText: $locationText, ')
+          ..write('requiresReport: $requiresReport, ')
+          ..write('contributionRuleKey: $contributionRuleKey, ')
+          ..write('status: $status, ')
+          ..write('replacementEventId: $replacementEventId, ')
+          ..write('createdAtUtc: $createdAtUtc, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $CalendarEventOperationsTable extends CalendarEventOperations
+    with TableInfo<$CalendarEventOperationsTable, CalendarEventOperationRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $CalendarEventOperationsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _operationIdMeta = const VerificationMeta(
+    'operationId',
+  );
+  @override
+  late final GeneratedColumn<String> operationId = GeneratedColumn<String>(
+    'operation_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _profileIdMeta = const VerificationMeta(
+    'profileId',
+  );
+  @override
+  late final GeneratedColumn<String> profileId = GeneratedColumn<String>(
+    'profile_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES local_profiles (id) ON DELETE RESTRICT',
+    ),
+  );
+  static const VerificationMeta _eventIdMeta = const VerificationMeta(
+    'eventId',
+  );
+  @override
+  late final GeneratedColumn<String> eventId = GeneratedColumn<String>(
+    'event_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _occurrenceIdMeta = const VerificationMeta(
+    'occurrenceId',
+  );
+  @override
+  late final GeneratedColumn<String> occurrenceId = GeneratedColumn<String>(
+    'occurrence_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _commandMeta = const VerificationMeta(
+    'command',
+  );
+  @override
+  late final GeneratedColumn<String> command = GeneratedColumn<String>(
+    'command',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtUtcMeta = const VerificationMeta(
+    'createdAtUtc',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAtUtc = GeneratedColumn<DateTime>(
+    'created_at_utc',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    operationId,
+    profileId,
+    eventId,
+    occurrenceId,
+    command,
+    createdAtUtc,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'calendar_event_operations';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<CalendarEventOperationRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('operation_id')) {
+      context.handle(
+        _operationIdMeta,
+        operationId.isAcceptableOrUnknown(
+          data['operation_id']!,
+          _operationIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_operationIdMeta);
+    }
+    if (data.containsKey('profile_id')) {
+      context.handle(
+        _profileIdMeta,
+        profileId.isAcceptableOrUnknown(data['profile_id']!, _profileIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_profileIdMeta);
+    }
+    if (data.containsKey('event_id')) {
+      context.handle(
+        _eventIdMeta,
+        eventId.isAcceptableOrUnknown(data['event_id']!, _eventIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_eventIdMeta);
+    }
+    if (data.containsKey('occurrence_id')) {
+      context.handle(
+        _occurrenceIdMeta,
+        occurrenceId.isAcceptableOrUnknown(
+          data['occurrence_id']!,
+          _occurrenceIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('command')) {
+      context.handle(
+        _commandMeta,
+        command.isAcceptableOrUnknown(data['command']!, _commandMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_commandMeta);
+    }
+    if (data.containsKey('created_at_utc')) {
+      context.handle(
+        _createdAtUtcMeta,
+        createdAtUtc.isAcceptableOrUnknown(
+          data['created_at_utc']!,
+          _createdAtUtcMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtUtcMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {operationId};
+  @override
+  CalendarEventOperationRow map(
+    Map<String, dynamic> data, {
+    String? tablePrefix,
+  }) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return CalendarEventOperationRow(
+      operationId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}operation_id'],
+      )!,
+      profileId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}profile_id'],
+      )!,
+      eventId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}event_id'],
+      )!,
+      occurrenceId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}occurrence_id'],
+      ),
+      command: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}command'],
+      )!,
+      createdAtUtc: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at_utc'],
+      )!,
+    );
+  }
+
+  @override
+  $CalendarEventOperationsTable createAlias(String alias) {
+    return $CalendarEventOperationsTable(attachedDatabase, alias);
+  }
+}
+
+class CalendarEventOperationRow extends DataClass
+    implements Insertable<CalendarEventOperationRow> {
+  final String operationId;
+  final String profileId;
+  final String eventId;
+  final String? occurrenceId;
+  final String command;
+  final DateTime createdAtUtc;
+  const CalendarEventOperationRow({
+    required this.operationId,
+    required this.profileId,
+    required this.eventId,
+    this.occurrenceId,
+    required this.command,
+    required this.createdAtUtc,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['operation_id'] = Variable<String>(operationId);
+    map['profile_id'] = Variable<String>(profileId);
+    map['event_id'] = Variable<String>(eventId);
+    if (!nullToAbsent || occurrenceId != null) {
+      map['occurrence_id'] = Variable<String>(occurrenceId);
+    }
+    map['command'] = Variable<String>(command);
+    map['created_at_utc'] = Variable<DateTime>(createdAtUtc);
+    return map;
+  }
+
+  CalendarEventOperationsCompanion toCompanion(bool nullToAbsent) {
+    return CalendarEventOperationsCompanion(
+      operationId: Value(operationId),
+      profileId: Value(profileId),
+      eventId: Value(eventId),
+      occurrenceId: occurrenceId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(occurrenceId),
+      command: Value(command),
+      createdAtUtc: Value(createdAtUtc),
+    );
+  }
+
+  factory CalendarEventOperationRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return CalendarEventOperationRow(
+      operationId: serializer.fromJson<String>(json['operationId']),
+      profileId: serializer.fromJson<String>(json['profileId']),
+      eventId: serializer.fromJson<String>(json['eventId']),
+      occurrenceId: serializer.fromJson<String?>(json['occurrenceId']),
+      command: serializer.fromJson<String>(json['command']),
+      createdAtUtc: serializer.fromJson<DateTime>(json['createdAtUtc']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'operationId': serializer.toJson<String>(operationId),
+      'profileId': serializer.toJson<String>(profileId),
+      'eventId': serializer.toJson<String>(eventId),
+      'occurrenceId': serializer.toJson<String?>(occurrenceId),
+      'command': serializer.toJson<String>(command),
+      'createdAtUtc': serializer.toJson<DateTime>(createdAtUtc),
+    };
+  }
+
+  CalendarEventOperationRow copyWith({
+    String? operationId,
+    String? profileId,
+    String? eventId,
+    Value<String?> occurrenceId = const Value.absent(),
+    String? command,
+    DateTime? createdAtUtc,
+  }) => CalendarEventOperationRow(
+    operationId: operationId ?? this.operationId,
+    profileId: profileId ?? this.profileId,
+    eventId: eventId ?? this.eventId,
+    occurrenceId: occurrenceId.present ? occurrenceId.value : this.occurrenceId,
+    command: command ?? this.command,
+    createdAtUtc: createdAtUtc ?? this.createdAtUtc,
+  );
+  CalendarEventOperationRow copyWithCompanion(
+    CalendarEventOperationsCompanion data,
+  ) {
+    return CalendarEventOperationRow(
+      operationId: data.operationId.present
+          ? data.operationId.value
+          : this.operationId,
+      profileId: data.profileId.present ? data.profileId.value : this.profileId,
+      eventId: data.eventId.present ? data.eventId.value : this.eventId,
+      occurrenceId: data.occurrenceId.present
+          ? data.occurrenceId.value
+          : this.occurrenceId,
+      command: data.command.present ? data.command.value : this.command,
+      createdAtUtc: data.createdAtUtc.present
+          ? data.createdAtUtc.value
+          : this.createdAtUtc,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CalendarEventOperationRow(')
+          ..write('operationId: $operationId, ')
+          ..write('profileId: $profileId, ')
+          ..write('eventId: $eventId, ')
+          ..write('occurrenceId: $occurrenceId, ')
+          ..write('command: $command, ')
+          ..write('createdAtUtc: $createdAtUtc')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    operationId,
+    profileId,
+    eventId,
+    occurrenceId,
+    command,
+    createdAtUtc,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is CalendarEventOperationRow &&
+          other.operationId == this.operationId &&
+          other.profileId == this.profileId &&
+          other.eventId == this.eventId &&
+          other.occurrenceId == this.occurrenceId &&
+          other.command == this.command &&
+          other.createdAtUtc == this.createdAtUtc);
+}
+
+class CalendarEventOperationsCompanion
+    extends UpdateCompanion<CalendarEventOperationRow> {
+  final Value<String> operationId;
+  final Value<String> profileId;
+  final Value<String> eventId;
+  final Value<String?> occurrenceId;
+  final Value<String> command;
+  final Value<DateTime> createdAtUtc;
+  final Value<int> rowid;
+  const CalendarEventOperationsCompanion({
+    this.operationId = const Value.absent(),
+    this.profileId = const Value.absent(),
+    this.eventId = const Value.absent(),
+    this.occurrenceId = const Value.absent(),
+    this.command = const Value.absent(),
+    this.createdAtUtc = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  CalendarEventOperationsCompanion.insert({
+    required String operationId,
+    required String profileId,
+    required String eventId,
+    this.occurrenceId = const Value.absent(),
+    required String command,
+    required DateTime createdAtUtc,
+    this.rowid = const Value.absent(),
+  }) : operationId = Value(operationId),
+       profileId = Value(profileId),
+       eventId = Value(eventId),
+       command = Value(command),
+       createdAtUtc = Value(createdAtUtc);
+  static Insertable<CalendarEventOperationRow> custom({
+    Expression<String>? operationId,
+    Expression<String>? profileId,
+    Expression<String>? eventId,
+    Expression<String>? occurrenceId,
+    Expression<String>? command,
+    Expression<DateTime>? createdAtUtc,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (operationId != null) 'operation_id': operationId,
+      if (profileId != null) 'profile_id': profileId,
+      if (eventId != null) 'event_id': eventId,
+      if (occurrenceId != null) 'occurrence_id': occurrenceId,
+      if (command != null) 'command': command,
+      if (createdAtUtc != null) 'created_at_utc': createdAtUtc,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  CalendarEventOperationsCompanion copyWith({
+    Value<String>? operationId,
+    Value<String>? profileId,
+    Value<String>? eventId,
+    Value<String?>? occurrenceId,
+    Value<String>? command,
+    Value<DateTime>? createdAtUtc,
+    Value<int>? rowid,
+  }) {
+    return CalendarEventOperationsCompanion(
+      operationId: operationId ?? this.operationId,
+      profileId: profileId ?? this.profileId,
+      eventId: eventId ?? this.eventId,
+      occurrenceId: occurrenceId ?? this.occurrenceId,
+      command: command ?? this.command,
+      createdAtUtc: createdAtUtc ?? this.createdAtUtc,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (operationId.present) {
+      map['operation_id'] = Variable<String>(operationId.value);
+    }
+    if (profileId.present) {
+      map['profile_id'] = Variable<String>(profileId.value);
+    }
+    if (eventId.present) {
+      map['event_id'] = Variable<String>(eventId.value);
+    }
+    if (occurrenceId.present) {
+      map['occurrence_id'] = Variable<String>(occurrenceId.value);
+    }
+    if (command.present) {
+      map['command'] = Variable<String>(command.value);
+    }
+    if (createdAtUtc.present) {
+      map['created_at_utc'] = Variable<DateTime>(createdAtUtc.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CalendarEventOperationsCompanion(')
+          ..write('operationId: $operationId, ')
+          ..write('profileId: $profileId, ')
+          ..write('eventId: $eventId, ')
+          ..write('occurrenceId: $occurrenceId, ')
+          ..write('command: $command, ')
+          ..write('createdAtUtc: $createdAtUtc, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -3217,6 +5958,11 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $PlannerTasksTable plannerTasks = $PlannerTasksTable(this);
   late final $TaskStatusChangesTable taskStatusChanges =
       $TaskStatusChangesTable(this);
+  late final $CalendarEventsTable calendarEvents = $CalendarEventsTable(this);
+  late final $CalendarEventExceptionsTable calendarEventExceptions =
+      $CalendarEventExceptionsTable(this);
+  late final $CalendarEventOperationsTable calendarEventOperations =
+      $CalendarEventOperationsTable(this);
   late final Index lifeIndicatorProfileKeyUnique = Index(
     'life_indicator_profile_key_unique',
     'CREATE UNIQUE INDEX life_indicator_profile_key_unique ON life_indicator_definitions (profile_id, indicator_key)',
@@ -3233,6 +5979,14 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     'task_status_change_task_time',
     'CREATE INDEX task_status_change_task_time ON task_status_changes (task_id, changed_at_utc)',
   );
+  late final Index calendarEventProfileStartDate = Index(
+    'calendar_event_profile_start_date',
+    'CREATE INDEX calendar_event_profile_start_date ON calendar_events (profile_id, start_date)',
+  );
+  late final Index calendarEventExceptionOccurrenceTime = Index(
+    'calendar_event_exception_occurrence_time',
+    'CREATE INDEX calendar_event_exception_occurrence_time ON calendar_event_exceptions (event_id, occurrence_id, created_at_utc)',
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -3245,10 +5999,15 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     permissionAudits,
     plannerTasks,
     taskStatusChanges,
+    calendarEvents,
+    calendarEventExceptions,
+    calendarEventOperations,
     lifeIndicatorProfileKeyUnique,
     plannerTaskProfileDueDate,
     taskStatusChangeOperationUnique,
     taskStatusChangeTaskTime,
+    calendarEventProfileStartDate,
+    calendarEventExceptionOccurrenceTime,
   ];
 }
 
@@ -3340,6 +6099,74 @@ final class $$LocalProfilesTableReferences
 
     final cache = $_typedResult.readTableOrNull(
       _taskStatusChangesRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$CalendarEventsTable, List<CalendarEventRow>>
+  _calendarEventsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.calendarEvents,
+    aliasName: 'local_profiles__id__calendar_events__profile_id',
+  );
+
+  $$CalendarEventsTableProcessedTableManager get calendarEventsRefs {
+    final manager = $$CalendarEventsTableTableManager(
+      $_db,
+      $_db.calendarEvents,
+    ).filter((f) => f.profileId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_calendarEventsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<
+    $CalendarEventExceptionsTable,
+    List<CalendarEventExceptionRow>
+  >
+  _calendarEventExceptionsRefsTable(_$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.calendarEventExceptions,
+        aliasName: 'local_profiles__id__calendar_event_exceptions__profile_id',
+      );
+
+  $$CalendarEventExceptionsTableProcessedTableManager
+  get calendarEventExceptionsRefs {
+    final manager = $$CalendarEventExceptionsTableTableManager(
+      $_db,
+      $_db.calendarEventExceptions,
+    ).filter((f) => f.profileId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _calendarEventExceptionsRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<
+    $CalendarEventOperationsTable,
+    List<CalendarEventOperationRow>
+  >
+  _calendarEventOperationsRefsTable(_$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.calendarEventOperations,
+        aliasName: 'local_profiles__id__calendar_event_operations__profile_id',
+      );
+
+  $$CalendarEventOperationsTableProcessedTableManager
+  get calendarEventOperationsRefs {
+    final manager = $$CalendarEventOperationsTableTableManager(
+      $_db,
+      $_db.calendarEventOperations,
+    ).filter((f) => f.profileId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _calendarEventOperationsRefsTable($_db),
     );
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: cache),
@@ -3460,6 +6287,83 @@ class $$LocalProfilesTableFilterComposer
                 $removeJoinBuilderFromRootComposer,
           ),
     );
+    return f(composer);
+  }
+
+  Expression<bool> calendarEventsRefs(
+    Expression<bool> Function($$CalendarEventsTableFilterComposer f) f,
+  ) {
+    final $$CalendarEventsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.calendarEvents,
+      getReferencedColumn: (t) => t.profileId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CalendarEventsTableFilterComposer(
+            $db: $db,
+            $table: $db.calendarEvents,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> calendarEventExceptionsRefs(
+    Expression<bool> Function($$CalendarEventExceptionsTableFilterComposer f) f,
+  ) {
+    final $$CalendarEventExceptionsTableFilterComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.calendarEventExceptions,
+          getReferencedColumn: (t) => t.profileId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$CalendarEventExceptionsTableFilterComposer(
+                $db: $db,
+                $table: $db.calendarEventExceptions,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
+
+  Expression<bool> calendarEventOperationsRefs(
+    Expression<bool> Function($$CalendarEventOperationsTableFilterComposer f) f,
+  ) {
+    final $$CalendarEventOperationsTableFilterComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.calendarEventOperations,
+          getReferencedColumn: (t) => t.profileId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$CalendarEventOperationsTableFilterComposer(
+                $db: $db,
+                $table: $db.calendarEventOperations,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
     return f(composer);
   }
 }
@@ -3614,6 +6518,85 @@ class $$LocalProfilesTableAnnotationComposer
         );
     return f(composer);
   }
+
+  Expression<T> calendarEventsRefs<T extends Object>(
+    Expression<T> Function($$CalendarEventsTableAnnotationComposer a) f,
+  ) {
+    final $$CalendarEventsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.calendarEvents,
+      getReferencedColumn: (t) => t.profileId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CalendarEventsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.calendarEvents,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<T> calendarEventExceptionsRefs<T extends Object>(
+    Expression<T> Function($$CalendarEventExceptionsTableAnnotationComposer a)
+    f,
+  ) {
+    final $$CalendarEventExceptionsTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.calendarEventExceptions,
+          getReferencedColumn: (t) => t.profileId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$CalendarEventExceptionsTableAnnotationComposer(
+                $db: $db,
+                $table: $db.calendarEventExceptions,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
+
+  Expression<T> calendarEventOperationsRefs<T extends Object>(
+    Expression<T> Function($$CalendarEventOperationsTableAnnotationComposer a)
+    f,
+  ) {
+    final $$CalendarEventOperationsTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.calendarEventOperations,
+          getReferencedColumn: (t) => t.profileId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$CalendarEventOperationsTableAnnotationComposer(
+                $db: $db,
+                $table: $db.calendarEventOperations,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
 }
 
 class $$LocalProfilesTableTableManager
@@ -3633,6 +6616,9 @@ class $$LocalProfilesTableTableManager
             bool lifeIndicatorDefinitionsRefs,
             bool plannerTasksRefs,
             bool taskStatusChangesRefs,
+            bool calendarEventsRefs,
+            bool calendarEventExceptionsRefs,
+            bool calendarEventOperationsRefs,
           })
         > {
   $$LocalProfilesTableTableManager(_$AppDatabase db, $LocalProfilesTable table)
@@ -3695,6 +6681,9 @@ class $$LocalProfilesTableTableManager
                 lifeIndicatorDefinitionsRefs = false,
                 plannerTasksRefs = false,
                 taskStatusChangesRefs = false,
+                calendarEventsRefs = false,
+                calendarEventExceptionsRefs = false,
+                calendarEventOperationsRefs = false,
               }) {
                 return PrefetchHooks(
                   db: db,
@@ -3703,6 +6692,9 @@ class $$LocalProfilesTableTableManager
                       db.lifeIndicatorDefinitions,
                     if (plannerTasksRefs) db.plannerTasks,
                     if (taskStatusChangesRefs) db.taskStatusChanges,
+                    if (calendarEventsRefs) db.calendarEvents,
+                    if (calendarEventExceptionsRefs) db.calendarEventExceptions,
+                    if (calendarEventOperationsRefs) db.calendarEventOperations,
                   ],
                   addJoins: null,
                   getPrefetchedDataCallback: (items) async {
@@ -3770,6 +6762,69 @@ class $$LocalProfilesTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (calendarEventsRefs)
+                        await $_getPrefetchedData<
+                          LocalProfileRow,
+                          $LocalProfilesTable,
+                          CalendarEventRow
+                        >(
+                          currentTable: table,
+                          referencedTable: $$LocalProfilesTableReferences
+                              ._calendarEventsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$LocalProfilesTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).calendarEventsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.profileId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (calendarEventExceptionsRefs)
+                        await $_getPrefetchedData<
+                          LocalProfileRow,
+                          $LocalProfilesTable,
+                          CalendarEventExceptionRow
+                        >(
+                          currentTable: table,
+                          referencedTable: $$LocalProfilesTableReferences
+                              ._calendarEventExceptionsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$LocalProfilesTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).calendarEventExceptionsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.profileId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (calendarEventOperationsRefs)
+                        await $_getPrefetchedData<
+                          LocalProfileRow,
+                          $LocalProfilesTable,
+                          CalendarEventOperationRow
+                        >(
+                          currentTable: table,
+                          referencedTable: $$LocalProfilesTableReferences
+                              ._calendarEventOperationsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$LocalProfilesTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).calendarEventOperationsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.profileId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -3794,6 +6849,9 @@ typedef $$LocalProfilesTableProcessedTableManager =
         bool lifeIndicatorDefinitionsRefs,
         bool plannerTasksRefs,
         bool taskStatusChangesRefs,
+        bool calendarEventsRefs,
+        bool calendarEventExceptionsRefs,
+        bool calendarEventOperationsRefs,
       })
     >;
 typedef $$OnboardingCheckpointsTableCreateCompanionBuilder =
@@ -5832,6 +8890,1830 @@ typedef $$TaskStatusChangesTableProcessedTableManager =
       TaskStatusChangeRow,
       PrefetchHooks Function({bool profileId, bool taskId})
     >;
+typedef $$CalendarEventsTableCreateCompanionBuilder =
+    CalendarEventsCompanion Function({
+      required String id,
+      required String profileId,
+      required String title,
+      Value<String?> notes,
+      required String timing,
+      required String startDate,
+      Value<int?> startMinute,
+      Value<int?> endMinute,
+      Value<String?> timeZoneId,
+      Value<String?> locationText,
+      Value<bool> requiresReport,
+      Value<String?> contributionRuleKey,
+      Value<String> recurrenceFrequency,
+      Value<String> recurrenceEndMode,
+      Value<String?> recurrenceEndDate,
+      Value<int?> recurrenceCount,
+      Value<String> status,
+      Value<String?> parentEventId,
+      Value<String?> replacementEventId,
+      required DateTime createdAtUtc,
+      required DateTime updatedAtUtc,
+      Value<int> rowid,
+    });
+typedef $$CalendarEventsTableUpdateCompanionBuilder =
+    CalendarEventsCompanion Function({
+      Value<String> id,
+      Value<String> profileId,
+      Value<String> title,
+      Value<String?> notes,
+      Value<String> timing,
+      Value<String> startDate,
+      Value<int?> startMinute,
+      Value<int?> endMinute,
+      Value<String?> timeZoneId,
+      Value<String?> locationText,
+      Value<bool> requiresReport,
+      Value<String?> contributionRuleKey,
+      Value<String> recurrenceFrequency,
+      Value<String> recurrenceEndMode,
+      Value<String?> recurrenceEndDate,
+      Value<int?> recurrenceCount,
+      Value<String> status,
+      Value<String?> parentEventId,
+      Value<String?> replacementEventId,
+      Value<DateTime> createdAtUtc,
+      Value<DateTime> updatedAtUtc,
+      Value<int> rowid,
+    });
+
+final class $$CalendarEventsTableReferences
+    extends
+        BaseReferences<_$AppDatabase, $CalendarEventsTable, CalendarEventRow> {
+  $$CalendarEventsTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $LocalProfilesTable _profileIdTable(_$AppDatabase db) => db
+      .localProfiles
+      .createAlias('calendar_events__profile_id__local_profiles__id');
+
+  $$LocalProfilesTableProcessedTableManager get profileId {
+    final $_column = $_itemColumn<String>('profile_id')!;
+
+    final manager = $$LocalProfilesTableTableManager(
+      $_db,
+      $_db.localProfiles,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_profileIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static MultiTypedResultKey<
+    $CalendarEventExceptionsTable,
+    List<CalendarEventExceptionRow>
+  >
+  _calendarEventExceptionsRefsTable(_$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.calendarEventExceptions,
+        aliasName: 'calendar_events__id__calendar_event_exceptions__event_id',
+      );
+
+  $$CalendarEventExceptionsTableProcessedTableManager
+  get calendarEventExceptionsRefs {
+    final manager = $$CalendarEventExceptionsTableTableManager(
+      $_db,
+      $_db.calendarEventExceptions,
+    ).filter((f) => f.eventId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _calendarEventExceptionsRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
+
+class $$CalendarEventsTableFilterComposer
+    extends Composer<_$AppDatabase, $CalendarEventsTable> {
+  $$CalendarEventsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get timing => $composableBuilder(
+    column: $table.timing,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get startDate => $composableBuilder(
+    column: $table.startDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get startMinute => $composableBuilder(
+    column: $table.startMinute,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get endMinute => $composableBuilder(
+    column: $table.endMinute,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get timeZoneId => $composableBuilder(
+    column: $table.timeZoneId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get locationText => $composableBuilder(
+    column: $table.locationText,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get requiresReport => $composableBuilder(
+    column: $table.requiresReport,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get contributionRuleKey => $composableBuilder(
+    column: $table.contributionRuleKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get recurrenceFrequency => $composableBuilder(
+    column: $table.recurrenceFrequency,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get recurrenceEndMode => $composableBuilder(
+    column: $table.recurrenceEndMode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get recurrenceEndDate => $composableBuilder(
+    column: $table.recurrenceEndDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get recurrenceCount => $composableBuilder(
+    column: $table.recurrenceCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get parentEventId => $composableBuilder(
+    column: $table.parentEventId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get replacementEventId => $composableBuilder(
+    column: $table.replacementEventId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAtUtc => $composableBuilder(
+    column: $table.createdAtUtc,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAtUtc => $composableBuilder(
+    column: $table.updatedAtUtc,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$LocalProfilesTableFilterComposer get profileId {
+    final $$LocalProfilesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.profileId,
+      referencedTable: $db.localProfiles,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LocalProfilesTableFilterComposer(
+            $db: $db,
+            $table: $db.localProfiles,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  Expression<bool> calendarEventExceptionsRefs(
+    Expression<bool> Function($$CalendarEventExceptionsTableFilterComposer f) f,
+  ) {
+    final $$CalendarEventExceptionsTableFilterComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.calendarEventExceptions,
+          getReferencedColumn: (t) => t.eventId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$CalendarEventExceptionsTableFilterComposer(
+                $db: $db,
+                $table: $db.calendarEventExceptions,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
+}
+
+class $$CalendarEventsTableOrderingComposer
+    extends Composer<_$AppDatabase, $CalendarEventsTable> {
+  $$CalendarEventsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get timing => $composableBuilder(
+    column: $table.timing,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get startDate => $composableBuilder(
+    column: $table.startDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get startMinute => $composableBuilder(
+    column: $table.startMinute,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get endMinute => $composableBuilder(
+    column: $table.endMinute,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get timeZoneId => $composableBuilder(
+    column: $table.timeZoneId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get locationText => $composableBuilder(
+    column: $table.locationText,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get requiresReport => $composableBuilder(
+    column: $table.requiresReport,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get contributionRuleKey => $composableBuilder(
+    column: $table.contributionRuleKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get recurrenceFrequency => $composableBuilder(
+    column: $table.recurrenceFrequency,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get recurrenceEndMode => $composableBuilder(
+    column: $table.recurrenceEndMode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get recurrenceEndDate => $composableBuilder(
+    column: $table.recurrenceEndDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get recurrenceCount => $composableBuilder(
+    column: $table.recurrenceCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get parentEventId => $composableBuilder(
+    column: $table.parentEventId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get replacementEventId => $composableBuilder(
+    column: $table.replacementEventId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAtUtc => $composableBuilder(
+    column: $table.createdAtUtc,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAtUtc => $composableBuilder(
+    column: $table.updatedAtUtc,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$LocalProfilesTableOrderingComposer get profileId {
+    final $$LocalProfilesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.profileId,
+      referencedTable: $db.localProfiles,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LocalProfilesTableOrderingComposer(
+            $db: $db,
+            $table: $db.localProfiles,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$CalendarEventsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $CalendarEventsTable> {
+  $$CalendarEventsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get title =>
+      $composableBuilder(column: $table.title, builder: (column) => column);
+
+  GeneratedColumn<String> get notes =>
+      $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  GeneratedColumn<String> get timing =>
+      $composableBuilder(column: $table.timing, builder: (column) => column);
+
+  GeneratedColumn<String> get startDate =>
+      $composableBuilder(column: $table.startDate, builder: (column) => column);
+
+  GeneratedColumn<int> get startMinute => $composableBuilder(
+    column: $table.startMinute,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get endMinute =>
+      $composableBuilder(column: $table.endMinute, builder: (column) => column);
+
+  GeneratedColumn<String> get timeZoneId => $composableBuilder(
+    column: $table.timeZoneId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get locationText => $composableBuilder(
+    column: $table.locationText,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get requiresReport => $composableBuilder(
+    column: $table.requiresReport,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get contributionRuleKey => $composableBuilder(
+    column: $table.contributionRuleKey,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get recurrenceFrequency => $composableBuilder(
+    column: $table.recurrenceFrequency,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get recurrenceEndMode => $composableBuilder(
+    column: $table.recurrenceEndMode,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get recurrenceEndDate => $composableBuilder(
+    column: $table.recurrenceEndDate,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get recurrenceCount => $composableBuilder(
+    column: $table.recurrenceCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<String> get parentEventId => $composableBuilder(
+    column: $table.parentEventId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get replacementEventId => $composableBuilder(
+    column: $table.replacementEventId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAtUtc => $composableBuilder(
+    column: $table.createdAtUtc,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get updatedAtUtc => $composableBuilder(
+    column: $table.updatedAtUtc,
+    builder: (column) => column,
+  );
+
+  $$LocalProfilesTableAnnotationComposer get profileId {
+    final $$LocalProfilesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.profileId,
+      referencedTable: $db.localProfiles,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LocalProfilesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.localProfiles,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  Expression<T> calendarEventExceptionsRefs<T extends Object>(
+    Expression<T> Function($$CalendarEventExceptionsTableAnnotationComposer a)
+    f,
+  ) {
+    final $$CalendarEventExceptionsTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.calendarEventExceptions,
+          getReferencedColumn: (t) => t.eventId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$CalendarEventExceptionsTableAnnotationComposer(
+                $db: $db,
+                $table: $db.calendarEventExceptions,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
+}
+
+class $$CalendarEventsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $CalendarEventsTable,
+          CalendarEventRow,
+          $$CalendarEventsTableFilterComposer,
+          $$CalendarEventsTableOrderingComposer,
+          $$CalendarEventsTableAnnotationComposer,
+          $$CalendarEventsTableCreateCompanionBuilder,
+          $$CalendarEventsTableUpdateCompanionBuilder,
+          (CalendarEventRow, $$CalendarEventsTableReferences),
+          CalendarEventRow,
+          PrefetchHooks Function({
+            bool profileId,
+            bool calendarEventExceptionsRefs,
+          })
+        > {
+  $$CalendarEventsTableTableManager(
+    _$AppDatabase db,
+    $CalendarEventsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$CalendarEventsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$CalendarEventsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$CalendarEventsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> profileId = const Value.absent(),
+                Value<String> title = const Value.absent(),
+                Value<String?> notes = const Value.absent(),
+                Value<String> timing = const Value.absent(),
+                Value<String> startDate = const Value.absent(),
+                Value<int?> startMinute = const Value.absent(),
+                Value<int?> endMinute = const Value.absent(),
+                Value<String?> timeZoneId = const Value.absent(),
+                Value<String?> locationText = const Value.absent(),
+                Value<bool> requiresReport = const Value.absent(),
+                Value<String?> contributionRuleKey = const Value.absent(),
+                Value<String> recurrenceFrequency = const Value.absent(),
+                Value<String> recurrenceEndMode = const Value.absent(),
+                Value<String?> recurrenceEndDate = const Value.absent(),
+                Value<int?> recurrenceCount = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<String?> parentEventId = const Value.absent(),
+                Value<String?> replacementEventId = const Value.absent(),
+                Value<DateTime> createdAtUtc = const Value.absent(),
+                Value<DateTime> updatedAtUtc = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CalendarEventsCompanion(
+                id: id,
+                profileId: profileId,
+                title: title,
+                notes: notes,
+                timing: timing,
+                startDate: startDate,
+                startMinute: startMinute,
+                endMinute: endMinute,
+                timeZoneId: timeZoneId,
+                locationText: locationText,
+                requiresReport: requiresReport,
+                contributionRuleKey: contributionRuleKey,
+                recurrenceFrequency: recurrenceFrequency,
+                recurrenceEndMode: recurrenceEndMode,
+                recurrenceEndDate: recurrenceEndDate,
+                recurrenceCount: recurrenceCount,
+                status: status,
+                parentEventId: parentEventId,
+                replacementEventId: replacementEventId,
+                createdAtUtc: createdAtUtc,
+                updatedAtUtc: updatedAtUtc,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String profileId,
+                required String title,
+                Value<String?> notes = const Value.absent(),
+                required String timing,
+                required String startDate,
+                Value<int?> startMinute = const Value.absent(),
+                Value<int?> endMinute = const Value.absent(),
+                Value<String?> timeZoneId = const Value.absent(),
+                Value<String?> locationText = const Value.absent(),
+                Value<bool> requiresReport = const Value.absent(),
+                Value<String?> contributionRuleKey = const Value.absent(),
+                Value<String> recurrenceFrequency = const Value.absent(),
+                Value<String> recurrenceEndMode = const Value.absent(),
+                Value<String?> recurrenceEndDate = const Value.absent(),
+                Value<int?> recurrenceCount = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<String?> parentEventId = const Value.absent(),
+                Value<String?> replacementEventId = const Value.absent(),
+                required DateTime createdAtUtc,
+                required DateTime updatedAtUtc,
+                Value<int> rowid = const Value.absent(),
+              }) => CalendarEventsCompanion.insert(
+                id: id,
+                profileId: profileId,
+                title: title,
+                notes: notes,
+                timing: timing,
+                startDate: startDate,
+                startMinute: startMinute,
+                endMinute: endMinute,
+                timeZoneId: timeZoneId,
+                locationText: locationText,
+                requiresReport: requiresReport,
+                contributionRuleKey: contributionRuleKey,
+                recurrenceFrequency: recurrenceFrequency,
+                recurrenceEndMode: recurrenceEndMode,
+                recurrenceEndDate: recurrenceEndDate,
+                recurrenceCount: recurrenceCount,
+                status: status,
+                parentEventId: parentEventId,
+                replacementEventId: replacementEventId,
+                createdAtUtc: createdAtUtc,
+                updatedAtUtc: updatedAtUtc,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$CalendarEventsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback:
+              ({profileId = false, calendarEventExceptionsRefs = false}) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [
+                    if (calendarEventExceptionsRefs) db.calendarEventExceptions,
+                  ],
+                  addJoins:
+                      <
+                        T extends TableManagerState<
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic
+                        >
+                      >(state) {
+                        if (profileId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.profileId,
+                                    referencedTable:
+                                        $$CalendarEventsTableReferences
+                                            ._profileIdTable(db),
+                                    referencedColumn:
+                                        $$CalendarEventsTableReferences
+                                            ._profileIdTable(db)
+                                            .id,
+                                  )
+                                  as T;
+                        }
+
+                        return state;
+                      },
+                  getPrefetchedDataCallback: (items) async {
+                    return [
+                      if (calendarEventExceptionsRefs)
+                        await $_getPrefetchedData<
+                          CalendarEventRow,
+                          $CalendarEventsTable,
+                          CalendarEventExceptionRow
+                        >(
+                          currentTable: table,
+                          referencedTable: $$CalendarEventsTableReferences
+                              ._calendarEventExceptionsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$CalendarEventsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).calendarEventExceptionsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.eventId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                    ];
+                  },
+                );
+              },
+        ),
+      );
+}
+
+typedef $$CalendarEventsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $CalendarEventsTable,
+      CalendarEventRow,
+      $$CalendarEventsTableFilterComposer,
+      $$CalendarEventsTableOrderingComposer,
+      $$CalendarEventsTableAnnotationComposer,
+      $$CalendarEventsTableCreateCompanionBuilder,
+      $$CalendarEventsTableUpdateCompanionBuilder,
+      (CalendarEventRow, $$CalendarEventsTableReferences),
+      CalendarEventRow,
+      PrefetchHooks Function({bool profileId, bool calendarEventExceptionsRefs})
+    >;
+typedef $$CalendarEventExceptionsTableCreateCompanionBuilder =
+    CalendarEventExceptionsCompanion Function({
+      required String id,
+      required String profileId,
+      required String eventId,
+      required String occurrenceId,
+      required String originalDate,
+      required String effectiveDate,
+      required String title,
+      Value<String?> notes,
+      required String timing,
+      Value<int?> startMinute,
+      Value<int?> endMinute,
+      Value<String?> timeZoneId,
+      Value<String?> locationText,
+      Value<bool> requiresReport,
+      Value<String?> contributionRuleKey,
+      required String status,
+      Value<String?> replacementEventId,
+      required DateTime createdAtUtc,
+      Value<int> rowid,
+    });
+typedef $$CalendarEventExceptionsTableUpdateCompanionBuilder =
+    CalendarEventExceptionsCompanion Function({
+      Value<String> id,
+      Value<String> profileId,
+      Value<String> eventId,
+      Value<String> occurrenceId,
+      Value<String> originalDate,
+      Value<String> effectiveDate,
+      Value<String> title,
+      Value<String?> notes,
+      Value<String> timing,
+      Value<int?> startMinute,
+      Value<int?> endMinute,
+      Value<String?> timeZoneId,
+      Value<String?> locationText,
+      Value<bool> requiresReport,
+      Value<String?> contributionRuleKey,
+      Value<String> status,
+      Value<String?> replacementEventId,
+      Value<DateTime> createdAtUtc,
+      Value<int> rowid,
+    });
+
+final class $$CalendarEventExceptionsTableReferences
+    extends
+        BaseReferences<
+          _$AppDatabase,
+          $CalendarEventExceptionsTable,
+          CalendarEventExceptionRow
+        > {
+  $$CalendarEventExceptionsTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $LocalProfilesTable _profileIdTable(_$AppDatabase db) => db
+      .localProfiles
+      .createAlias('calendar_event_exceptions__profile_id__local_profiles__id');
+
+  $$LocalProfilesTableProcessedTableManager get profileId {
+    final $_column = $_itemColumn<String>('profile_id')!;
+
+    final manager = $$LocalProfilesTableTableManager(
+      $_db,
+      $_db.localProfiles,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_profileIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $CalendarEventsTable _eventIdTable(_$AppDatabase db) => db
+      .calendarEvents
+      .createAlias('calendar_event_exceptions__event_id__calendar_events__id');
+
+  $$CalendarEventsTableProcessedTableManager get eventId {
+    final $_column = $_itemColumn<String>('event_id')!;
+
+    final manager = $$CalendarEventsTableTableManager(
+      $_db,
+      $_db.calendarEvents,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_eventIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$CalendarEventExceptionsTableFilterComposer
+    extends Composer<_$AppDatabase, $CalendarEventExceptionsTable> {
+  $$CalendarEventExceptionsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get occurrenceId => $composableBuilder(
+    column: $table.occurrenceId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get originalDate => $composableBuilder(
+    column: $table.originalDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get effectiveDate => $composableBuilder(
+    column: $table.effectiveDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get timing => $composableBuilder(
+    column: $table.timing,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get startMinute => $composableBuilder(
+    column: $table.startMinute,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get endMinute => $composableBuilder(
+    column: $table.endMinute,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get timeZoneId => $composableBuilder(
+    column: $table.timeZoneId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get locationText => $composableBuilder(
+    column: $table.locationText,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get requiresReport => $composableBuilder(
+    column: $table.requiresReport,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get contributionRuleKey => $composableBuilder(
+    column: $table.contributionRuleKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get replacementEventId => $composableBuilder(
+    column: $table.replacementEventId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAtUtc => $composableBuilder(
+    column: $table.createdAtUtc,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$LocalProfilesTableFilterComposer get profileId {
+    final $$LocalProfilesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.profileId,
+      referencedTable: $db.localProfiles,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LocalProfilesTableFilterComposer(
+            $db: $db,
+            $table: $db.localProfiles,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$CalendarEventsTableFilterComposer get eventId {
+    final $$CalendarEventsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.eventId,
+      referencedTable: $db.calendarEvents,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CalendarEventsTableFilterComposer(
+            $db: $db,
+            $table: $db.calendarEvents,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$CalendarEventExceptionsTableOrderingComposer
+    extends Composer<_$AppDatabase, $CalendarEventExceptionsTable> {
+  $$CalendarEventExceptionsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get occurrenceId => $composableBuilder(
+    column: $table.occurrenceId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get originalDate => $composableBuilder(
+    column: $table.originalDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get effectiveDate => $composableBuilder(
+    column: $table.effectiveDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get timing => $composableBuilder(
+    column: $table.timing,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get startMinute => $composableBuilder(
+    column: $table.startMinute,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get endMinute => $composableBuilder(
+    column: $table.endMinute,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get timeZoneId => $composableBuilder(
+    column: $table.timeZoneId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get locationText => $composableBuilder(
+    column: $table.locationText,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get requiresReport => $composableBuilder(
+    column: $table.requiresReport,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get contributionRuleKey => $composableBuilder(
+    column: $table.contributionRuleKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get replacementEventId => $composableBuilder(
+    column: $table.replacementEventId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAtUtc => $composableBuilder(
+    column: $table.createdAtUtc,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$LocalProfilesTableOrderingComposer get profileId {
+    final $$LocalProfilesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.profileId,
+      referencedTable: $db.localProfiles,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LocalProfilesTableOrderingComposer(
+            $db: $db,
+            $table: $db.localProfiles,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$CalendarEventsTableOrderingComposer get eventId {
+    final $$CalendarEventsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.eventId,
+      referencedTable: $db.calendarEvents,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CalendarEventsTableOrderingComposer(
+            $db: $db,
+            $table: $db.calendarEvents,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$CalendarEventExceptionsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $CalendarEventExceptionsTable> {
+  $$CalendarEventExceptionsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get occurrenceId => $composableBuilder(
+    column: $table.occurrenceId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get originalDate => $composableBuilder(
+    column: $table.originalDate,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get effectiveDate => $composableBuilder(
+    column: $table.effectiveDate,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get title =>
+      $composableBuilder(column: $table.title, builder: (column) => column);
+
+  GeneratedColumn<String> get notes =>
+      $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  GeneratedColumn<String> get timing =>
+      $composableBuilder(column: $table.timing, builder: (column) => column);
+
+  GeneratedColumn<int> get startMinute => $composableBuilder(
+    column: $table.startMinute,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get endMinute =>
+      $composableBuilder(column: $table.endMinute, builder: (column) => column);
+
+  GeneratedColumn<String> get timeZoneId => $composableBuilder(
+    column: $table.timeZoneId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get locationText => $composableBuilder(
+    column: $table.locationText,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get requiresReport => $composableBuilder(
+    column: $table.requiresReport,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get contributionRuleKey => $composableBuilder(
+    column: $table.contributionRuleKey,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<String> get replacementEventId => $composableBuilder(
+    column: $table.replacementEventId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAtUtc => $composableBuilder(
+    column: $table.createdAtUtc,
+    builder: (column) => column,
+  );
+
+  $$LocalProfilesTableAnnotationComposer get profileId {
+    final $$LocalProfilesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.profileId,
+      referencedTable: $db.localProfiles,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LocalProfilesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.localProfiles,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$CalendarEventsTableAnnotationComposer get eventId {
+    final $$CalendarEventsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.eventId,
+      referencedTable: $db.calendarEvents,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CalendarEventsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.calendarEvents,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$CalendarEventExceptionsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $CalendarEventExceptionsTable,
+          CalendarEventExceptionRow,
+          $$CalendarEventExceptionsTableFilterComposer,
+          $$CalendarEventExceptionsTableOrderingComposer,
+          $$CalendarEventExceptionsTableAnnotationComposer,
+          $$CalendarEventExceptionsTableCreateCompanionBuilder,
+          $$CalendarEventExceptionsTableUpdateCompanionBuilder,
+          (CalendarEventExceptionRow, $$CalendarEventExceptionsTableReferences),
+          CalendarEventExceptionRow,
+          PrefetchHooks Function({bool profileId, bool eventId})
+        > {
+  $$CalendarEventExceptionsTableTableManager(
+    _$AppDatabase db,
+    $CalendarEventExceptionsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$CalendarEventExceptionsTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$CalendarEventExceptionsTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$CalendarEventExceptionsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> profileId = const Value.absent(),
+                Value<String> eventId = const Value.absent(),
+                Value<String> occurrenceId = const Value.absent(),
+                Value<String> originalDate = const Value.absent(),
+                Value<String> effectiveDate = const Value.absent(),
+                Value<String> title = const Value.absent(),
+                Value<String?> notes = const Value.absent(),
+                Value<String> timing = const Value.absent(),
+                Value<int?> startMinute = const Value.absent(),
+                Value<int?> endMinute = const Value.absent(),
+                Value<String?> timeZoneId = const Value.absent(),
+                Value<String?> locationText = const Value.absent(),
+                Value<bool> requiresReport = const Value.absent(),
+                Value<String?> contributionRuleKey = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<String?> replacementEventId = const Value.absent(),
+                Value<DateTime> createdAtUtc = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CalendarEventExceptionsCompanion(
+                id: id,
+                profileId: profileId,
+                eventId: eventId,
+                occurrenceId: occurrenceId,
+                originalDate: originalDate,
+                effectiveDate: effectiveDate,
+                title: title,
+                notes: notes,
+                timing: timing,
+                startMinute: startMinute,
+                endMinute: endMinute,
+                timeZoneId: timeZoneId,
+                locationText: locationText,
+                requiresReport: requiresReport,
+                contributionRuleKey: contributionRuleKey,
+                status: status,
+                replacementEventId: replacementEventId,
+                createdAtUtc: createdAtUtc,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String profileId,
+                required String eventId,
+                required String occurrenceId,
+                required String originalDate,
+                required String effectiveDate,
+                required String title,
+                Value<String?> notes = const Value.absent(),
+                required String timing,
+                Value<int?> startMinute = const Value.absent(),
+                Value<int?> endMinute = const Value.absent(),
+                Value<String?> timeZoneId = const Value.absent(),
+                Value<String?> locationText = const Value.absent(),
+                Value<bool> requiresReport = const Value.absent(),
+                Value<String?> contributionRuleKey = const Value.absent(),
+                required String status,
+                Value<String?> replacementEventId = const Value.absent(),
+                required DateTime createdAtUtc,
+                Value<int> rowid = const Value.absent(),
+              }) => CalendarEventExceptionsCompanion.insert(
+                id: id,
+                profileId: profileId,
+                eventId: eventId,
+                occurrenceId: occurrenceId,
+                originalDate: originalDate,
+                effectiveDate: effectiveDate,
+                title: title,
+                notes: notes,
+                timing: timing,
+                startMinute: startMinute,
+                endMinute: endMinute,
+                timeZoneId: timeZoneId,
+                locationText: locationText,
+                requiresReport: requiresReport,
+                contributionRuleKey: contributionRuleKey,
+                status: status,
+                replacementEventId: replacementEventId,
+                createdAtUtc: createdAtUtc,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$CalendarEventExceptionsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({profileId = false, eventId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (profileId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.profileId,
+                                referencedTable:
+                                    $$CalendarEventExceptionsTableReferences
+                                        ._profileIdTable(db),
+                                referencedColumn:
+                                    $$CalendarEventExceptionsTableReferences
+                                        ._profileIdTable(db)
+                                        .id,
+                              )
+                              as T;
+                    }
+                    if (eventId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.eventId,
+                                referencedTable:
+                                    $$CalendarEventExceptionsTableReferences
+                                        ._eventIdTable(db),
+                                referencedColumn:
+                                    $$CalendarEventExceptionsTableReferences
+                                        ._eventIdTable(db)
+                                        .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$CalendarEventExceptionsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $CalendarEventExceptionsTable,
+      CalendarEventExceptionRow,
+      $$CalendarEventExceptionsTableFilterComposer,
+      $$CalendarEventExceptionsTableOrderingComposer,
+      $$CalendarEventExceptionsTableAnnotationComposer,
+      $$CalendarEventExceptionsTableCreateCompanionBuilder,
+      $$CalendarEventExceptionsTableUpdateCompanionBuilder,
+      (CalendarEventExceptionRow, $$CalendarEventExceptionsTableReferences),
+      CalendarEventExceptionRow,
+      PrefetchHooks Function({bool profileId, bool eventId})
+    >;
+typedef $$CalendarEventOperationsTableCreateCompanionBuilder =
+    CalendarEventOperationsCompanion Function({
+      required String operationId,
+      required String profileId,
+      required String eventId,
+      Value<String?> occurrenceId,
+      required String command,
+      required DateTime createdAtUtc,
+      Value<int> rowid,
+    });
+typedef $$CalendarEventOperationsTableUpdateCompanionBuilder =
+    CalendarEventOperationsCompanion Function({
+      Value<String> operationId,
+      Value<String> profileId,
+      Value<String> eventId,
+      Value<String?> occurrenceId,
+      Value<String> command,
+      Value<DateTime> createdAtUtc,
+      Value<int> rowid,
+    });
+
+final class $$CalendarEventOperationsTableReferences
+    extends
+        BaseReferences<
+          _$AppDatabase,
+          $CalendarEventOperationsTable,
+          CalendarEventOperationRow
+        > {
+  $$CalendarEventOperationsTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $LocalProfilesTable _profileIdTable(_$AppDatabase db) => db
+      .localProfiles
+      .createAlias('calendar_event_operations__profile_id__local_profiles__id');
+
+  $$LocalProfilesTableProcessedTableManager get profileId {
+    final $_column = $_itemColumn<String>('profile_id')!;
+
+    final manager = $$LocalProfilesTableTableManager(
+      $_db,
+      $_db.localProfiles,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_profileIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$CalendarEventOperationsTableFilterComposer
+    extends Composer<_$AppDatabase, $CalendarEventOperationsTable> {
+  $$CalendarEventOperationsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get operationId => $composableBuilder(
+    column: $table.operationId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get eventId => $composableBuilder(
+    column: $table.eventId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get occurrenceId => $composableBuilder(
+    column: $table.occurrenceId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get command => $composableBuilder(
+    column: $table.command,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAtUtc => $composableBuilder(
+    column: $table.createdAtUtc,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$LocalProfilesTableFilterComposer get profileId {
+    final $$LocalProfilesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.profileId,
+      referencedTable: $db.localProfiles,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LocalProfilesTableFilterComposer(
+            $db: $db,
+            $table: $db.localProfiles,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$CalendarEventOperationsTableOrderingComposer
+    extends Composer<_$AppDatabase, $CalendarEventOperationsTable> {
+  $$CalendarEventOperationsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get operationId => $composableBuilder(
+    column: $table.operationId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get eventId => $composableBuilder(
+    column: $table.eventId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get occurrenceId => $composableBuilder(
+    column: $table.occurrenceId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get command => $composableBuilder(
+    column: $table.command,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAtUtc => $composableBuilder(
+    column: $table.createdAtUtc,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$LocalProfilesTableOrderingComposer get profileId {
+    final $$LocalProfilesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.profileId,
+      referencedTable: $db.localProfiles,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LocalProfilesTableOrderingComposer(
+            $db: $db,
+            $table: $db.localProfiles,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$CalendarEventOperationsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $CalendarEventOperationsTable> {
+  $$CalendarEventOperationsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get operationId => $composableBuilder(
+    column: $table.operationId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get eventId =>
+      $composableBuilder(column: $table.eventId, builder: (column) => column);
+
+  GeneratedColumn<String> get occurrenceId => $composableBuilder(
+    column: $table.occurrenceId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get command =>
+      $composableBuilder(column: $table.command, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAtUtc => $composableBuilder(
+    column: $table.createdAtUtc,
+    builder: (column) => column,
+  );
+
+  $$LocalProfilesTableAnnotationComposer get profileId {
+    final $$LocalProfilesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.profileId,
+      referencedTable: $db.localProfiles,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LocalProfilesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.localProfiles,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$CalendarEventOperationsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $CalendarEventOperationsTable,
+          CalendarEventOperationRow,
+          $$CalendarEventOperationsTableFilterComposer,
+          $$CalendarEventOperationsTableOrderingComposer,
+          $$CalendarEventOperationsTableAnnotationComposer,
+          $$CalendarEventOperationsTableCreateCompanionBuilder,
+          $$CalendarEventOperationsTableUpdateCompanionBuilder,
+          (CalendarEventOperationRow, $$CalendarEventOperationsTableReferences),
+          CalendarEventOperationRow,
+          PrefetchHooks Function({bool profileId})
+        > {
+  $$CalendarEventOperationsTableTableManager(
+    _$AppDatabase db,
+    $CalendarEventOperationsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$CalendarEventOperationsTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$CalendarEventOperationsTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$CalendarEventOperationsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> operationId = const Value.absent(),
+                Value<String> profileId = const Value.absent(),
+                Value<String> eventId = const Value.absent(),
+                Value<String?> occurrenceId = const Value.absent(),
+                Value<String> command = const Value.absent(),
+                Value<DateTime> createdAtUtc = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CalendarEventOperationsCompanion(
+                operationId: operationId,
+                profileId: profileId,
+                eventId: eventId,
+                occurrenceId: occurrenceId,
+                command: command,
+                createdAtUtc: createdAtUtc,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String operationId,
+                required String profileId,
+                required String eventId,
+                Value<String?> occurrenceId = const Value.absent(),
+                required String command,
+                required DateTime createdAtUtc,
+                Value<int> rowid = const Value.absent(),
+              }) => CalendarEventOperationsCompanion.insert(
+                operationId: operationId,
+                profileId: profileId,
+                eventId: eventId,
+                occurrenceId: occurrenceId,
+                command: command,
+                createdAtUtc: createdAtUtc,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$CalendarEventOperationsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({profileId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (profileId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.profileId,
+                                referencedTable:
+                                    $$CalendarEventOperationsTableReferences
+                                        ._profileIdTable(db),
+                                referencedColumn:
+                                    $$CalendarEventOperationsTableReferences
+                                        ._profileIdTable(db)
+                                        .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$CalendarEventOperationsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $CalendarEventOperationsTable,
+      CalendarEventOperationRow,
+      $$CalendarEventOperationsTableFilterComposer,
+      $$CalendarEventOperationsTableOrderingComposer,
+      $$CalendarEventOperationsTableAnnotationComposer,
+      $$CalendarEventOperationsTableCreateCompanionBuilder,
+      $$CalendarEventOperationsTableUpdateCompanionBuilder,
+      (CalendarEventOperationRow, $$CalendarEventOperationsTableReferences),
+      CalendarEventOperationRow,
+      PrefetchHooks Function({bool profileId})
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -5853,4 +10735,16 @@ class $AppDatabaseManager {
       $$PlannerTasksTableTableManager(_db, _db.plannerTasks);
   $$TaskStatusChangesTableTableManager get taskStatusChanges =>
       $$TaskStatusChangesTableTableManager(_db, _db.taskStatusChanges);
+  $$CalendarEventsTableTableManager get calendarEvents =>
+      $$CalendarEventsTableTableManager(_db, _db.calendarEvents);
+  $$CalendarEventExceptionsTableTableManager get calendarEventExceptions =>
+      $$CalendarEventExceptionsTableTableManager(
+        _db,
+        _db.calendarEventExceptions,
+      );
+  $$CalendarEventOperationsTableTableManager get calendarEventOperations =>
+      $$CalendarEventOperationsTableTableManager(
+        _db,
+        _db.calendarEventOperations,
+      );
 }

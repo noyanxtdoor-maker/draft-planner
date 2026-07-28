@@ -2,8 +2,8 @@
 
 **Recorded:** 2026-07-26  
 **Approval overlay:** G-02 Product Approval is complete. G-03 is
-implementation-ready through VS-03 following explicit product-owner
-authorization on 2026-07-27.
+implementation-ready through VS-04 following explicit product-owner
+authorization on 2026-07-28.
 
 ## Immutable approved sources
 
@@ -31,8 +31,9 @@ Authorized scope:
 3. VS-01 — Guest Startup and Local Profile.
 4. VS-02 — Privacy Lock, Permissions, and Privacy Center.
 5. VS-03 — Planner Day and Tasks.
+6. VS-04 — Calendar Events.
 
-VS-04 and later slices remain unauthorized.
+VS-05 and later slices remain unauthorized.
 
 ## Exception protocol
 

@@ -236,6 +236,7 @@ repairs did not modify project source or global Git configuration.
   `INTERNET`, normal biometric compatibility, and Android's generated
   non-exported dynamic-receiver permissions. No contacts, notification,
   calendar, storage, or location permission was added.
+
 - Secret-pattern scanning found no credential. Its only textual match was the
   documented example scan command in `docs/legacy-resources.md`.
 - Git whitespace validation passed. The five pre-existing untracked
@@ -263,3 +264,72 @@ repairs did not modify project source or global Git configuration.
   Planner smoke test now scrolls the saved Task into view before tapping it.
   These corrections changed only integration-test selectors/scrolling and did
   not alter production behavior or acceptance criteria.
+
+## 2026-07-28 — VS-04 Calendar Events
+
+- Product-owner authorization expanded the active boundary through VS-04 only.
+  VS-05 Task-Event linking and all later slices remain unauthorized.
+- Added a profile-scoped local Event series, append-only occurrence exception,
+  and idempotent operation schema in Drift schema version 4. Migration from
+  schema v3 is transactional and has an injected rollback fixture.
+- Added native Flutter create, detail, edit, cancel, and reschedule flows.
+  Recurring mutations require an explicit occurrence, this-and-future, or
+  entire-series scope.
+- Recurrence is deterministic for daily, weekly, monthly, and yearly rules.
+  Monthly events use the final valid day and Feb 29 yearly events use Feb 28 in
+  non-leap years.
+- Timed events retain their original IANA identifier and UTC instants while
+  displaying in the current device zone. All-day events remain date-only.
+- Stable occurrence and exception UUIDs are derived before persistent effects.
+  Operation UUIDs make retries idempotent.
+- Report outcomes and linked Tasks enter through read-only ports. VS-04 never
+  writes a report, Activity Ledger row, Task link, or inferred outcome.
+- No Android Calendar, location, contacts, storage, or notification permission
+  was added. Typed location remains local text.
+- The approved Planner PNG and matching HTML remain the permanent-destination
+  visual authority. VS-04 reuses its Planner composition; Event forms/details
+  are native Android-first supporting routes and do not embed HTML.
+
+### VS-04 local verification evidence
+
+- Authority verification passed for immutable source hashes, permanent Android
+  identity, the one-permission production manifest lock, schema version 4, and
+  the VS-04 dependency boundary.
+- Strict formatting passed across 86 Dart files and static analysis passed with
+  no issues.
+- All 61 Flutter unit, domain, repository, migration, and widget tests passed.
+- Drift generation reproduced `app_database.g.dart` byte-for-byte with SHA-256
+  `AA1BC334FAEE9D31C739727806EE3F154E53C1D2EB32F8E6493A869878E87F02`.
+- Direct Gradle debug assembly with production Dart defines passed. The APK is
+  192,782,721 bytes with SHA-256
+  `92B040727710B7CD62E6C73AB61FF2DC8F52F55CE795B9DE819E160E5C159A4E`.
+- APK inspection confirmed `com.nexttransfer.rmplanner`, version `0.1.0+1`,
+  minimum SDK 24, compile/target SDK 36, and no Calendar, location, contacts,
+  storage, or notification permission.
+- Flutter's wrapper produced the APK but returned failure while replacing
+  Gradle's optional problems report. Direct `app:assembleDebug` with
+  `--no-problems-report` passed all 203 tasks; no production source was changed
+  to mask this local filesystem/tooling behavior.
+- Flutter 3.44.7 warns that `flutter_timezone 5.1.0` still applies the Kotlin
+  Gradle plugin and must migrate before a future Flutter release enforces
+  built-in Kotlin. The current locked toolchain builds successfully; changing
+  the Android Kotlin baseline in VS-04 would be an unrelated broad migration.
+- Dependency reporting confirmed the lock resolves. Newer Drift, Riverpod, and
+  UUID releases exist but were not silently introduced after compatibility
+  verification.
+- Secret-pattern and Git whitespace scans passed. The five pre-existing
+  untracked `UI Preferences/**/screen.png` files remain untouched and excluded.
+- Protected quality
+  [run 30333331344](https://github.com/noyanxtdoor-maker/draft-planner/actions/runs/30333331344)
+  passed on commit `14a0206`, including authority verification, formatting,
+  static analysis, byte-clean code generation, all 61 Flutter tests, debug APK
+  assembly, dependency reporting, and secret scanning.
+- Android matrix
+  [run 30333334965](https://github.com/noyanxtdoor-maker/draft-planner/actions/runs/30333334965)
+  passed all ten startup, privacy, Planner, process-persistence, and Calendar
+  Event create/detail lanes on API 24 and API 36.
+- Two earlier Android attempts exposed test-only scrolling assumptions in the
+  Calendar Event smoke journey. The API 24 viewport did not initially build the
+  off-screen Save button; the first correction then selected multiple
+  `Scrollable` descendants. The final test drags the visible form `ListView`
+  directly. No production source, behavior, or acceptance criterion changed.
