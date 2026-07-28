@@ -59,6 +59,14 @@ void main() {
       );
       await tester.tap(find.byKey(const Key('save-task-button')));
       await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('Android offline Task'),
+        250,
+        scrollable: find.descendant(
+          of: find.byKey(const Key('planner-day-scroll')),
+          matching: find.byType(Scrollable),
+        ),
+      );
       await tester.tap(find.text('Android offline Task'));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('complete-task-button')));
