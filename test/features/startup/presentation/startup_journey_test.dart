@@ -68,21 +68,28 @@ void main() {
       await tester.tap(find.text('Create local profile'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Home'), findsOneWidget);
+      expect(find.byKey(const Key('main-bottom-navigation')), findsOneWidget);
       expect(find.text('Welcome, Offline UI user'), findsOneWidget);
       expect(find.text('Ready offline'), findsOneWidget);
       expect(find.text('Not connected — optional'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.text('Weekly targets are not set'),
+        240,
+        scrollable: find.byType(Scrollable).first,
+      );
       expect(find.text('Weekly targets are not set'), findsOneWidget);
       expect(tester.takeException(), isNull);
 
-      final homeContext = tester.element(find.text('Home'));
+      final homeContext = tester.element(
+        find.byKey(const Key('main-bottom-navigation')),
+      );
       GoRouter.of(homeContext).go('/invalid-startup-link');
       await tester.pumpAndSettle();
       expect(find.text('Link unavailable'), findsOneWidget);
       expect(find.text('No local record was changed.'), findsOneWidget);
       await tester.tap(find.text('Return to Home'));
       await tester.pumpAndSettle();
-      expect(find.text('Home'), findsOneWidget);
+      expect(find.byKey(const Key('main-bottom-navigation')), findsOneWidget);
     },
   );
 

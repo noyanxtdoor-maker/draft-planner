@@ -67,7 +67,7 @@ void main() {
     expect(await database.select(database.localProfiles).get(), isEmpty);
   });
 
-  test('Q2: version-1 data upgrades to VS-02 schema without loss', () async {
+  test('Q2: version-1 data upgrades to current schema without loss', () async {
     final sqliteDatabase = sqlite3.openInMemory();
     try {
       final versionOne = AppDatabase.forTesting(
@@ -79,24 +79,30 @@ void main() {
       ).completeOnboarding();
       await versionOne.close();
 
-      final versionTwo = AppDatabase.forTesting(
+      final currentVersion = AppDatabase.forTesting(
         NativeDatabase.opened(sqliteDatabase, closeUnderlyingOnClose: false),
       );
       final repository = DriftPrivacyRepository(
-        database: versionTwo,
+        database: currentVersion,
         clock: FixedClock(DateTime.utc(2026, 7, 27)),
       );
 
       expect(
-        (await versionTwo.select(versionTwo.localProfiles).get()).single.id,
+        (await currentVersion.select(currentVersion.localProfiles).get())
+            .single
+            .id,
         original.id,
       );
       expect((await repository.readSettings()).lockEnabled, isFalse);
-      final version = await versionTwo
+      expect(
+        await currentVersion.select(currentVersion.plannerTasks).get(),
+        isEmpty,
+      );
+      final version = await currentVersion
           .customSelect('PRAGMA user_version')
           .getSingle();
-      expect(version.read<int>('user_version'), 2);
-      await versionTwo.close();
+      expect(version.read<int>('user_version'), 3);
+      await currentVersion.close();
     } finally {
       sqliteDatabase.close();
     }

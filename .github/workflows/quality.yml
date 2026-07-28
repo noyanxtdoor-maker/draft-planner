@@ -1,4 +1,4 @@
-name: VS-02 quality
+name: VS-03 quality
 
 on:
   push:
@@ -59,7 +59,7 @@ jobs:
           flutter pub deps --style=compact
           flutter pub outdated --no-dev-dependencies
 
-      - name: VS-01 and VS-02 unit, repository, migration, and widget tests
+      - name: VS-01 through VS-03 unit, repository, migration, and widget tests
         run: flutter test
 
       - name: Build debug APK

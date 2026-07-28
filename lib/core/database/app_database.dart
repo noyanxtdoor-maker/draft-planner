@@ -76,6 +76,55 @@ class PermissionAudits extends Table {
   Set<Column<Object>> get primaryKey => <Column<Object>>{permissionKey};
 }
 
+@TableIndex(
+  name: 'planner_task_profile_due_date',
+  columns: <Symbol>{#profileId, #dueDate},
+)
+@DataClassName('PlannerTaskRow')
+class PlannerTasks extends Table {
+  TextColumn get id => text()();
+  TextColumn get profileId =>
+      text().references(LocalProfiles, #id, onDelete: KeyAction.restrict)();
+  TextColumn get title => text()();
+  TextColumn get notes => text().nullable()();
+  TextColumn get dueDate => text().nullable()();
+  TextColumn get status => text().withDefault(const Constant('incomplete'))();
+  BoolColumn get requiresReport =>
+      boolean().withDefault(const Constant(false))();
+  TextColumn get contributionRuleKey => text().nullable()();
+  DateTimeColumn get createdAtUtc => dateTime()();
+  DateTimeColumn get updatedAtUtc => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => <Column<Object>>{id};
+}
+
+@TableIndex(
+  name: 'task_status_change_operation_unique',
+  columns: <Symbol>{#operationId},
+  unique: true,
+)
+@TableIndex(
+  name: 'task_status_change_task_time',
+  columns: <Symbol>{#taskId, #changedAtUtc},
+)
+@DataClassName('TaskStatusChangeRow')
+class TaskStatusChanges extends Table {
+  TextColumn get id => text()();
+  TextColumn get profileId =>
+      text().references(LocalProfiles, #id, onDelete: KeyAction.restrict)();
+  TextColumn get taskId =>
+      text().references(PlannerTasks, #id, onDelete: KeyAction.restrict)();
+  TextColumn get operationId => text()();
+  TextColumn get fromStatus => text()();
+  TextColumn get toStatus => text()();
+  TextColumn get reason => text().nullable()();
+  DateTimeColumn get changedAtUtc => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => <Column<Object>>{id};
+}
+
 @DriftDatabase(
   tables: <Type>[
     LocalProfiles,
@@ -83,26 +132,32 @@ class PermissionAudits extends Table {
     LifeIndicatorDefinitions,
     PrivacyPreferences,
     PermissionAudits,
+    PlannerTasks,
+    TaskStatusChanges,
   ],
 )
 final class AppDatabase extends _$AppDatabase {
   AppDatabase.defaults()
     : _schemaVersionOverride = null,
       _injectMigrationFailure = false,
+      _injectTaskMigrationFailure = false,
       super(driftDatabase(name: 'next_transfer'));
 
   AppDatabase.forTesting(
     super.executor, {
     int? schemaVersionOverride,
     bool injectMigrationFailure = false,
+    bool injectTaskMigrationFailure = false,
   }) : _schemaVersionOverride = schemaVersionOverride,
-       _injectMigrationFailure = injectMigrationFailure;
+       _injectMigrationFailure = injectMigrationFailure,
+       _injectTaskMigrationFailure = injectTaskMigrationFailure;
 
   final int? _schemaVersionOverride;
   final bool _injectMigrationFailure;
+  final bool _injectTaskMigrationFailure;
 
   @override
-  int get schemaVersion => _schemaVersionOverride ?? 2;
+  int get schemaVersion => _schemaVersionOverride ?? 3;
 
   @override
   MigrationStrategy get migration {
@@ -115,6 +170,10 @@ final class AppDatabase extends _$AppDatabase {
           await migrator.createTable(privacyPreferences);
           await migrator.createTable(permissionAudits);
         }
+        if (schemaVersion >= 3) {
+          await migrator.createTable(plannerTasks);
+          await migrator.createTable(taskStatusChanges);
+        }
       },
       onUpgrade: (migrator, from, to) async {
         await transaction(() async {
@@ -123,6 +182,13 @@ final class AppDatabase extends _$AppDatabase {
             await migrator.createTable(permissionAudits);
             if (_injectMigrationFailure) {
               throw StateError('Injected migration failure');
+            }
+          }
+          if (from < 3 && to >= 3) {
+            await migrator.createTable(plannerTasks);
+            await migrator.createTable(taskStatusChanges);
+            if (_injectTaskMigrationFailure) {
+              throw StateError('Injected task migration failure');
             }
           }
         });

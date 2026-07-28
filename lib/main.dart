@@ -8,6 +8,8 @@ import 'package:rmplanner/core/platform/app_environment.dart';
 import 'package:rmplanner/core/security/auth_token_store.dart';
 import 'package:rmplanner/core/security/privacy_gate.dart';
 import 'package:rmplanner/core/time/app_clock.dart';
+import 'package:rmplanner/features/planner/application/planner_providers.dart';
+import 'package:rmplanner/features/planner/data/drift_planner_repository.dart';
 import 'package:rmplanner/features/privacy/application/privacy_providers.dart';
 import 'package:rmplanner/features/privacy/data/drift_privacy_repository.dart';
 import 'package:rmplanner/features/privacy/data/local_auth_device_authenticator.dart';
@@ -30,6 +32,10 @@ void main() {
   );
   final privacyGate = SessionPrivacyGate(settingsReader: privacyRepository);
   final authTokenStore = SecureAuthTokenStore(FlutterSecureStorageDriver());
+  final plannerRepository = DriftPlannerRepository(
+    database: database,
+    clock: clock,
+  );
   final startupRepository = DriftStartupRepository(
     database: database,
     clock: clock,
@@ -53,6 +59,7 @@ void main() {
           const PermissionHandlerGateway(),
         ),
         authTokenStoreProvider.overrideWithValue(authTokenStore),
+        plannerRepositoryProvider.overrideWithValue(plannerRepository),
       ],
       child: const NextTransferApp(),
     ),

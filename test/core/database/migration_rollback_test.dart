@@ -58,4 +58,96 @@ void main() {
       }
     },
   );
+
+  test(
+    'AC-C-011,019 / Q2: v2 upgrades to schema v3 without profile loss',
+    () async {
+      final sqliteDatabase = sqlite3.openInMemory();
+
+      try {
+        final versionTwo = AppDatabase.forTesting(
+          NativeDatabase.opened(sqliteDatabase, closeUnderlyingOnClose: false),
+          schemaVersionOverride: 2,
+        );
+        final original = await buildTestRepository(
+          database: versionTwo,
+        ).completeOnboarding();
+        await versionTwo.close();
+
+        final versionThree = AppDatabase.forTesting(
+          NativeDatabase.opened(sqliteDatabase, closeUnderlyingOnClose: false),
+          schemaVersionOverride: 3,
+        );
+        final profiles = await versionThree
+            .select(versionThree.localProfiles)
+            .get();
+        final taskRows = await versionThree
+            .select(versionThree.plannerTasks)
+            .get();
+        final userVersion = await versionThree
+            .customSelect('PRAGMA user_version')
+            .getSingle();
+
+        expect(profiles.single.id, original.id);
+        expect(taskRows, isEmpty);
+        expect(userVersion.read<int>('user_version'), 3);
+        await versionThree.close();
+      } finally {
+        sqliteDatabase.close();
+      }
+    },
+  );
+
+  test(
+    'AC-C-019 / Q2: failed v3 migration preserves the valid v2 database',
+    () async {
+      final sqliteDatabase = sqlite3.openInMemory();
+
+      try {
+        final versionTwo = AppDatabase.forTesting(
+          NativeDatabase.opened(sqliteDatabase, closeUnderlyingOnClose: false),
+          schemaVersionOverride: 2,
+        );
+        final original = await buildTestRepository(
+          database: versionTwo,
+        ).completeOnboarding();
+        await versionTwo.close();
+
+        final failingVersionThree = AppDatabase.forTesting(
+          NativeDatabase.opened(sqliteDatabase, closeUnderlyingOnClose: false),
+          schemaVersionOverride: 3,
+          injectTaskMigrationFailure: true,
+        );
+        await expectLater(
+          failingVersionThree.select(failingVersionThree.localProfiles).get(),
+          throwsA(isA<StateError>()),
+        );
+        await failingVersionThree.close();
+
+        final reopenedVersionTwo = AppDatabase.forTesting(
+          NativeDatabase.opened(sqliteDatabase, closeUnderlyingOnClose: false),
+          schemaVersionOverride: 2,
+        );
+        final profiles = await reopenedVersionTwo
+            .select(reopenedVersionTwo.localProfiles)
+            .get();
+        final userVersion = await reopenedVersionTwo
+            .customSelect('PRAGMA user_version')
+            .getSingle();
+        final taskTable = await reopenedVersionTwo
+            .customSelect(
+              "SELECT COUNT(*) AS count FROM sqlite_master "
+              "WHERE type='table' AND name='planner_tasks'",
+            )
+            .getSingle();
+
+        expect(profiles.single.id, original.id);
+        expect(userVersion.read<int>('user_version'), 2);
+        expect(taskTable.read<int>('count'), 0);
+        await reopenedVersionTwo.close();
+      } finally {
+        sqliteDatabase.close();
+      }
+    },
+  );
 }

@@ -2,6 +2,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rmplanner/app/router/route_names.dart';
 import 'package:rmplanner/app/router/startup_route_guard.dart';
+import 'package:rmplanner/app/shell/main_shell.dart';
+import 'package:rmplanner/features/planner/domain/planner_date.dart';
+import 'package:rmplanner/features/planner/presentation/calendar_event_unavailable_screen.dart';
+import 'package:rmplanner/features/planner/presentation/planner_screen.dart';
+import 'package:rmplanner/features/planner/presentation/task_detail_screen.dart';
+import 'package:rmplanner/features/planner/presentation/task_form_screen.dart';
 import 'package:rmplanner/features/privacy/presentation/diagnostic_preview_screen.dart';
 import 'package:rmplanner/features/privacy/presentation/permissions_screen.dart';
 import 'package:rmplanner/features/privacy/presentation/privacy_center_screen.dart';
@@ -44,10 +50,55 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: RoutePaths.protectedContent,
         builder: (context, state) => const ProtectedContentScreen(),
       ),
+      ShellRoute(
+        builder: (context, state, child) => MainShell(child: child),
+        routes: <RouteBase>[
+          GoRoute(
+            name: RouteNames.home,
+            path: RoutePaths.home,
+            builder: (context, state) => const HomeScreen(),
+          ),
+          GoRoute(
+            name: RouteNames.planner,
+            path: RoutePaths.planner,
+            builder: (context, state) => const PlannerScreen(),
+          ),
+        ],
+      ),
       GoRoute(
-        name: RouteNames.home,
-        path: RoutePaths.home,
-        builder: (context, state) => const HomeScreen(),
+        name: RouteNames.taskCreate,
+        path: RoutePaths.taskCreate,
+        builder: (context, state) {
+          final rawDate = state.uri.queryParameters['date'];
+          return TaskFormScreen.create(
+            initialDueDate: rawDate == null ? null : PlannerDate.parse(rawDate),
+          );
+        },
+      ),
+      GoRoute(
+        name: RouteNames.taskDetail,
+        path: '${RoutePaths.tasks}/:taskId',
+        builder: (context, state) {
+          return TaskDetailScreen(taskId: state.pathParameters['taskId']!);
+        },
+        routes: <RouteBase>[
+          GoRoute(
+            name: RouteNames.taskEdit,
+            path: 'edit',
+            builder: (context, state) {
+              return TaskFormScreen.edit(
+                taskId: state.pathParameters['taskId']!,
+              );
+            },
+          ),
+        ],
+      ),
+      GoRoute(
+        name: RouteNames.calendarEventUnavailable,
+        path: RoutePaths.calendarEventUnavailable,
+        builder: (context, state) => CalendarEventUnavailableScreen(
+          eventId: state.uri.queryParameters['eventId'],
+        ),
       ),
       GoRoute(
         name: RouteNames.privacyCenter,

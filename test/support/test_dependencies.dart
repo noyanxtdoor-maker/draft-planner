@@ -9,6 +9,12 @@ import 'package:rmplanner/core/platform/app_environment.dart';
 import 'package:rmplanner/core/security/auth_token_store.dart';
 import 'package:rmplanner/core/security/privacy_gate.dart';
 import 'package:rmplanner/core/time/app_clock.dart';
+import 'package:rmplanner/features/planner/application/planner_providers.dart';
+import 'package:rmplanner/features/planner/application/planner_repository.dart';
+import 'package:rmplanner/features/planner/data/drift_planner_repository.dart';
+import 'package:rmplanner/features/planner/domain/planner_date.dart';
+import 'package:rmplanner/features/planner/domain/planner_day.dart';
+import 'package:rmplanner/features/planner/domain/planner_task.dart';
 import 'package:rmplanner/features/privacy/application/privacy_providers.dart';
 import 'package:rmplanner/features/privacy/application/privacy_services.dart';
 import 'package:rmplanner/features/privacy/data/drift_privacy_repository.dart';
@@ -42,6 +48,55 @@ final class SequenceIdentifierSource implements IdentifierSource {
     }
     return _values[_index++];
   }
+}
+
+final class FixedPlannerDateSource implements PlannerDateSource {
+  const FixedPlannerDateSource(this.value);
+
+  final PlannerDate value;
+
+  @override
+  PlannerDate today() => value;
+}
+
+final class MemoryPlannerCalendarSource implements PlannerCalendarSource {
+  MemoryPlannerCalendarSource([this.items = const <PlannerCalendarItem>[]]);
+
+  List<PlannerCalendarItem> items;
+
+  @override
+  Future<List<PlannerCalendarItem>> readDay(PlannerDate date) async {
+    return items.where((item) => item.date == date).toList(growable: false);
+  }
+}
+
+final class FailingTaskWriteGuard implements TaskWriteGuard {
+  const FailingTaskWriteGuard();
+
+  @override
+  Future<void> beforeCommit() async {
+    throw StateError('Injected task write failure');
+  }
+}
+
+final class MemoryPlannerTaskContextSource implements PlannerTaskContextSource {
+  const MemoryPlannerTaskContextSource(this.contexts);
+
+  final Map<String, PlannerTaskContext> contexts;
+
+  @override
+  Future<PlannerTaskContext> readContext(String taskId) async {
+    return contexts[taskId] ?? const PlannerTaskContext();
+  }
+}
+
+final class FixedHistoricalEffectReader implements TaskHistoricalEffectReader {
+  const FixedHistoricalEffectReader(this.hasEffects);
+
+  final bool hasEffects;
+
+  @override
+  Future<bool> hasReportOrLedgerEffect(String taskId) async => hasEffects;
 }
 
 final class FixedPrivacyGate implements PrivacyGate {
@@ -167,7 +222,18 @@ final class TestPrivacyDependencies {
     required AppEnvironment environment,
     required SanitizedDiagnostics diagnostics,
     required StartupRepository startupRepository,
+    PlannerRepository? plannerRepository,
+    PlannerDateSource plannerDateSource = const FixedPlannerDateSource(
+      PlannerDate(year: 2026, month: 7, day: 27),
+    ),
+    IdentifierSource? plannerIdentifierSource,
   }) {
+    final resolvedPlannerRepository =
+        plannerRepository ??
+        DriftPlannerRepository(
+          database: repository.database,
+          clock: FixedClock(DateTime.utc(2026, 7, 27, 12)),
+        );
     return ProviderScope(
       overrides: [
         appEnvironmentProvider.overrideWithValue(environment),
@@ -180,6 +246,12 @@ final class TestPrivacyDependencies {
         authTokenStoreProvider.overrideWithValue(
           SecureAuthTokenStore(secureStorage),
         ),
+        plannerRepositoryProvider.overrideWithValue(resolvedPlannerRepository),
+        plannerDateSourceProvider.overrideWithValue(plannerDateSource),
+        if (plannerIdentifierSource != null)
+          plannerIdentifierSourceProvider.overrideWithValue(
+            plannerIdentifierSource,
+          ),
       ],
       child: const NextTransferApp(),
     );
