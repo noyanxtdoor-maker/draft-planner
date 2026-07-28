@@ -51,7 +51,11 @@ void main() {
       'Android offline Calendar Event',
     );
     await tester.tap(find.byKey(const Key('event-all-day-switch')));
-    await tester.ensureVisible(find.byKey(const Key('save-event-button')));
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('save-event-button')),
+      300,
+      scrollable: find.byType(Scrollable),
+    );
     await tester.tap(find.byKey(const Key('save-event-button')));
     await tester.pumpAndSettle();
 
