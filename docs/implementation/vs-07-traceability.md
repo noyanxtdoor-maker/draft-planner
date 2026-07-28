@@ -113,14 +113,14 @@ Documented deviations:
 
 | Gate | VS-07 status |
 | --- | --- |
-| Q0 Authority and traceability | Pass locally — approved hashes, permanent Android identity, permission boundary, schema v7, slice boundary, and FR/BR/AC mapping |
-| Q1 Static and build | Pass locally — strict format, analyzer, byte-clean codegen, all 86 tests, and direct debug APK assembly |
+| Q0 Authority and traceability | Pass — approved hashes, permanent Android identity, permission boundary, schema v7, slice boundary, FR/BR/AC mapping, and protected quality run 30347437692 |
+| Q1 Static and build | Pass — strict format, analyzer, byte-clean codegen, all 86 tests, direct debug APK assembly, and protected quality run 30347437692 |
 | Q2 Domain/database/migration | Pass locally — projection repository tests plus v6-to-v7 migration and failed-migration rollback |
 | Q3 Offline/privacy/idempotency | Pass locally — local-only reads/writes, append-only idempotent target revisions, no new package/permission/remote client |
-| Q4 UI/accessibility | Pass locally — matching-reference viewport, native safe-area layout, Flutter semantics, and explicit 200% Home coverage |
-| Q5 Android platform | Local APK pass; API 24/API 36 clean-emulator matrix pending |
+| Q4 UI/accessibility | Pass — matching-reference viewport, native safe-area layout, Flutter semantics, explicit 200% Home coverage, and Home smoke on API 24/API 36 |
+| Q5 Android platform | Pass — local APK plus all 16 API 24/API 36 clean-emulator lanes in Android run 30347440596, attempt 2 |
 | Q6 Remote security | Not applicable; no remote client or provider identity introduced |
-| Q7 Slice evidence | Pending protected quality and Android matrix runs |
+| Q7 Slice evidence | Pass — protected quality run 30347437692 and Android run 30347440596 on commit `238f315` |
 
 VS-08 Weekly Plan creation/review, commitments, carryover, archive/reopen rules,
 remote sync, provider Calendar integration, notifications, maps, and all later

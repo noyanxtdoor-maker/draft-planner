@@ -532,9 +532,9 @@ repairs did not modify project source or global Git configuration.
   tests passed.
 - Drift generation reproduced `app_database.g.dart` byte-for-byte with SHA-256
   `917B305A0F031FD3E05F2652ED5CF0E880CDB3BBCC4EE1D9A16504A1B5015803`.
-- Direct Gradle debug assembly passed all 203 tasks. The APK is 193,132,994
+- Direct Gradle debug assembly passed all 203 tasks. The APK is 193,133,552
   bytes with SHA-256
-  `3389B14144CE4A6D04E419D70EB67CA0EE57D5B71C025B73D8B9DBD7F0DE00B3`.
+  `457D6275BD911CAC5003C7B8A3DE2EB52F89520E3C49C0B11A5A72FA00191BE6`.
   APK inspection confirmed `com.nexttransfer.rmplanner`, version `0.1.0+1`,
   minimum SDK 24, compile/target SDK 36, and no Calendar, contacts, location,
   storage, or notification permission.
@@ -542,10 +542,24 @@ repairs did not modify project source or global Git configuration.
   Gradle's optional problems report. Direct `app:assembleDebug` with
   `--no-problems-report` passed; no production source changed to mask the local
   filesystem/tooling behavior.
-- No Android device is currently connected. The equivalent Home widget journey
-  passed locally; the Android flow is assigned to API 24 and API 36 clean CI
+- No Android device was connected locally. The equivalent Home widget journey
+  passed locally and the Android flow passed on API 24 and API 36 clean CI
   emulators.
-- Protected-quality and API 24/API 36 evidence will be recorded after those
-  gates complete.
+- The first Android matrix exposed two real issues: Home no longer displayed
+  the VS-01/Q5 `Ready offline` status after the VS-07 visual change, and the new
+  Home smoke test targeted a `ListView` instead of its `Scrollable`. The
+  correction restores the factual status, stacks it responsively at 200% text
+  scale, and targets the real scrollable. All 86 local tests then passed.
+- Protected quality
+  [run 30347437692](https://github.com/noyanxtdoor-maker/draft-planner/actions/runs/30347437692)
+  passed on commit `238f315`, including authority verification, formatting,
+  static analysis, byte-clean code generation, all 86 Flutter tests, debug APK
+  assembly, dependency reporting, and secret scanning.
+- Android matrix
+  [run 30347440596](https://github.com/noyanxtdoor-maker/draft-planner/actions/runs/30347440596)
+  passed all 16 startup, privacy, Planner, process-persistence, Calendar Event,
+  Task-Event link, outcome-report, and Home-indicator lanes on API 24 and API
+  36. Attempt 1 produced 15 passes while its API 24 persistence runner stalled;
+  the single-job attempt 2 passed on a clean runner.
 - The five pre-existing untracked `UI Preferences/**/screen.png` files remain
   untouched and excluded.
