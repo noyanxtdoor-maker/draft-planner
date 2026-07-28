@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:rmplanner/core/database/app_database.dart';
@@ -28,7 +29,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Home'), findsOneWidget);
+    expect(find.byKey(const Key('main-bottom-navigation')), findsOneWidget);
     expect(find.text('Ready offline'), findsOneWidget);
   });
 }

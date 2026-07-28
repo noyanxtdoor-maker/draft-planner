@@ -6,9 +6,9 @@ permanent application ID and namespace are `com.nexttransfer.rmplanner`.
 
 ## Current implementation status
 
-Repository bootstrap, Q0, VS-01 (Guest Startup and Local Profile), and VS-02
-(Privacy Lock, Permissions, and Privacy Center) are implemented. VS-03 and
-later slices are intentionally not started.
+Repository bootstrap, Q0, VS-01 (Guest Startup and Local Profile), VS-02
+(Privacy Lock, Permissions, and Privacy Center), and VS-03 (Planner Day and
+Tasks) are implemented. VS-04 and later slices are intentionally not started.
 
 VS-01 provides:
 
@@ -30,8 +30,22 @@ VS-02 adds:
 - fail-closed local-only/Extra Private policy rules;
 - a secure future account-token boundary outside Drift and backups.
 
-Remote account/sync code and later planning features remain outside the
-authorized slice.
+VS-03 adds:
+
+- an Android-first Planner tab with an approved-reference week strip, hour
+  grid, time-positioned Calendar Event read models, and permanent bottom
+  navigation;
+- deterministic date-only navigation and the locked All-day, Timed, Tasks,
+  Overdue, Awaiting Report, then Changes presentation order;
+- offline Task create, edit, detail, Completed, Skipped, Cancelled, and guarded
+  reopen flows;
+- schema version 3 with profile-scoped Tasks and append-only, retry-idempotent
+  Task status history;
+- atomic save-failure recovery, required-report completion protection, and no
+  direct Actual mutation.
+
+Calendar Event persistence/editing/recurrence, remote account/sync code, and
+later planning features remain outside the authorized slice.
 
 ## Locked toolchain
 
@@ -64,8 +78,8 @@ flutter run \
 
 Equivalent non-secret examples exist for development, staging, and production.
 
-No secret is required through VS-02. Never commit signing keys, private environment
-files, service-role keys, or user database files.
+No secret is required through VS-03. Never commit signing keys, private
+environment files, service-role keys, or user database files.
 
 ## Repository layout
 
@@ -73,9 +87,9 @@ files, service-role keys, or user database files.
 android/           Android host project
 lib/app/           App shell, theme, and routing
 lib/core/          Database, diagnostics, platform, privacy, time, and IDs
-lib/features/      Vertical feature modules; startup and privacy
+lib/features/      Vertical feature modules; startup, privacy, and planner
 test/              Unit, repository, migration, and widget tests
-integration_test/  Android VS-01 and VS-02 smoke journeys
+integration_test/  Android VS-01 through VS-03 smoke journeys
 tool/              Toolchain metadata and authority verification
 docs/              Approved sources, preserved baselines, and implementation evidence
 .github/           PR quality and scheduled Android smoke workflows
@@ -90,9 +104,11 @@ overlay are recorded in
 Slice mappings and verification evidence are maintained in
 [`docs/implementation/vs-01-traceability.md`](docs/implementation/vs-01-traceability.md)
 and
-[`docs/implementation/vs-02-traceability.md`](docs/implementation/vs-02-traceability.md).
+[`docs/implementation/vs-02-traceability.md`](docs/implementation/vs-02-traceability.md),
+and
+[`docs/implementation/vs-03-traceability.md`](docs/implementation/vs-03-traceability.md).
 
-Do not begin VS-03 without explicit product-owner authorization after the VS-02
+Do not begin VS-04 without explicit product-owner authorization after the VS-03
 quality-gate report.
 
 ## APPROVED VISUAL AND PIXEL-REFERENCE CONTRACT

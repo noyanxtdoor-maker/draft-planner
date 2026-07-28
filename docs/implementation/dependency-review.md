@@ -37,6 +37,14 @@ debug APK contains Flutter's normal debug `INTERNET` permission and the two
 normal biometric compatibility permissions; none produces an optional runtime
 permission prompt.
 
+## VS-03 review
+
+VS-03 adds no package. Planner Day and Task behavior uses the locked Drift,
+Riverpod, GoRouter, UUID, and Flutter SDK dependencies already reviewed above.
+Calendar Event presentation is connected through an internal read-model port;
+no Calendar SDK, recurrence package, maps SDK, remote client, analytics SDK,
+background worker, or new Android permission enters the graph.
+
 ## Recorded deviation
 
 `drift_dev 2.34.2` is retracted. Its patched successor and all `drift_dev 2.34.1+` releases require analyzer 13, which requires `meta ^1.18.3`; Flutter 3.44.7 pins `meta 1.18.0`. The selected `drift_dev 2.34.0` supports `drift >=2.30.0 <2.35.0` and analyzer below 13, so it is the newest compatible generator in the same 2.34 family. `build_runner 2.15.1` is the matching newest release that allows analyzer below 13. Runtime `drift` remains exactly `2.34.2`.

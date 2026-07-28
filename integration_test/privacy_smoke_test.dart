@@ -66,6 +66,6 @@ void main() {
 
     await tester.tap(find.byKey(const Key('unlock-button')));
     await tester.pumpAndSettle();
-    expect(find.text('Home'), findsOneWidget);
+    expect(find.byKey(const Key('main-bottom-navigation')), findsOneWidget);
   });
 }

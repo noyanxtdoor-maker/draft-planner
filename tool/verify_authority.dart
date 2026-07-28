@@ -92,7 +92,8 @@ Future<void> main() async {
           text.contains('flutter_secure_storage: 10.3.1') &&
           forbidden.every((package) => !text.contains(package));
     },
-    'The VS-02 dependency lock changed or a VS-03+ package entered the graph',
+    'The VS-03 dependency lock changed or a later-slice package entered the '
+    'graph',
     failures,
   );
   _expectFileText(
@@ -101,8 +102,11 @@ Future<void> main() async {
         !text.contains('accessToken') &&
         !text.contains('refreshToken') &&
         !text.contains('biometricData') &&
-        !text.contains('appPin'),
-    'A biometric, PIN, or authentication-token field entered the Drift schema',
+        !text.contains('appPin') &&
+        text.contains('int get schemaVersion => _schemaVersionOverride ?? 3') &&
+        text.contains('PlannerTasks') &&
+        text.contains('TaskStatusChanges'),
+    'The VS-03 Drift schema boundary or sensitive-field exclusion changed',
     failures,
   );
   _expectFileText(
@@ -134,7 +138,7 @@ Future<void> main() async {
 
   stdout.writeln(
     'Authority verification passed: approved hashes, Flutter pin, '
-    'Android identity, VS-02 permission scope, and slice dependency boundary.',
+    'Android identity, VS-03 permission scope, and slice dependency boundary.',
   );
 }
 

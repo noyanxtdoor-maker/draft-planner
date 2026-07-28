@@ -147,3 +147,119 @@ pinned Flutter revision. The missing `content_aware_hash.ps1` and Gradle
 process-scoped Git safe-directory setting and Gradle's
 `--no-problems-report` option were used for the local build. These environment
 repairs did not modify project source or global Git configuration.
+
+## 2026-07-27 — VS-03 Planner Day and Tasks
+
+- Product-owner authorization expanded the active boundary through VS-03 only.
+  VS-04 Calendar Event persistence and recurrence remain unauthorized.
+- Added schema version 3 with profile-scoped `planner_tasks` and append-only
+  `task_status_changes`. Stable operation IDs have a unique index so a retry
+  cannot duplicate a status effect.
+- Task identity is assigned before the first write. Title, notes, optional due
+  date, explicit report requirement, and explicit contribution-rule key are
+  planning fields; status remains a separate factual lifecycle.
+- The four Task statuses are Incomplete, Completed, Skipped, and Cancelled.
+  Overdue is derived and never stored as a fifth status. No hard-delete command
+  exists.
+- A required-report Task cannot transition directly from Incomplete to
+  Completed. It remains Incomplete until the future authorized reporting slice
+  can save report and completion coherently.
+- Direct reopen is allowed only when the historical-effect reader reports no
+  report or ledger effect. Otherwise the repository returns
+  `correctionRequired` without rewriting history.
+- Task completion does not mutate a Calendar Event and does not create or edit
+  Actual. Contribution classification is explicit and never inferred from a
+  title.
+- Added the permanent five-destination shell with only Home and Planner active.
+  Pathways, Contacts, and More remain truthful unavailable destinations.
+- Planner preserves its selected date in-session and starts from today on cold
+  construction. Its ordered collections are All-day, Timed, Tasks, Overdue,
+  Awaiting Report, and Changes.
+- Calendar Event display uses a typed read-model port. The production adapter is
+  empty because VS-04 owns Event persistence, editing, recurrence, and
+  occurrence identity. Tests inject all-day, timed, recurring, awaiting-report,
+  cancelled, rescheduled, location, and linked-context records without adding
+  VS-04 storage.
+- Task save and status writes are transactional. Injected failures prove false
+  records roll back while the form retains retryable input. Schema migration
+  fixtures prove both successful v2-to-v3 preservation and failed-upgrade
+  rollback.
+
+### VS-03 visual-reference application
+
+- Inspected both `UI Preferences/planner-approved-reference.png` and
+  `UI Preferences/stitch_next_transfer/planner_recreated/code.html` before
+  finalizing the permanent Planner destination.
+- The approved image is 862 by 1824 pixels. The principal widget journey uses
+  the matching 431 by 912 logical viewport at 2x density.
+- Reused the compact week strip, dark/charcoal surfaces, pink selection,
+  60-pixel hour slots, 54-pixel time column, event-green border, rounded FAB,
+  and five-item bottom-navigation proportions.
+- An initial implementation used a simple timed-event list. Matching-viewport
+  review correctly rejected it as a material visual deviation. It was replaced
+  before release with an hour grid that positions event blocks from their
+  actual start and end times.
+- The app uses Android safe areas and does not copy the reference's simulated
+  iOS status bar or home indicator. Search and notification examples are not
+  presented as working; the implemented VS-02 Privacy and Data entry remains
+  reachable from the Planner top bar.
+
+### VS-03 scope boundary
+
+- No Calendar Event table/write repository, recurrence engine, remote client,
+  account/sync behavior, notification worker, maps SDK, contacts SDK,
+  file-picker dependency, analytics SDK, hard Task delete, or new Android
+  permission was introduced.
+- The personal-device integration test was not run locally because installing
+  an integration-test APK can replace or uninstall app data. API 24 and API 36
+  Android verification is delegated to clean CI emulators.
+
+### VS-03 final verification evidence
+
+- Authority verification passed for immutable source hashes, Flutter pin,
+  Android identity, permission scope, schema version 3, and the no-later-slice
+  dependency boundary.
+- Strict formatting passed for all 76 Dart files with no formatter changes.
+- Static analysis passed with no issues.
+- Drift code generation reproduced `app_database.g.dart` byte-for-byte. Its
+  SHA-256 remained
+  `738767932273147DD5BE168B85F3AB47BFA04BEB4D8FC5502435DCC1A8EBDEB7`.
+- All 46 Flutter unit, domain, repository, migration, and widget tests passed.
+- The dependency graph was reviewed without changing `pubspec.yaml` or
+  `pubspec.lock`; VS-03 adds no package. Newer resolvable Riverpod and UUID
+  versions remain intentionally outside this slice's locked dependency scope.
+- Debug Android assembly passed with production Dart defines. The resulting
+  `app-debug.apk` is 192,229,079 bytes with SHA-256
+  `4B7C17575EC032B534548D4AEC9F1DE1682A77AA5D346F17F75658A0423EE3C8`.
+- APK inspection confirmed package `com.nexttransfer.rmplanner`, display name
+  Next Transfer, minimum SDK 24, compile/target SDK 36, and only debug
+  `INTERNET`, normal biometric compatibility, and Android's generated
+  non-exported dynamic-receiver permissions. No contacts, notification,
+  calendar, storage, or location permission was added.
+- Secret-pattern scanning found no credential. Its only textual match was the
+  documented example scan command in `docs/legacy-resources.md`.
+- Git whitespace validation passed. The five pre-existing untracked
+  `UI Preferences/**/screen.png` files remain untouched and excluded.
+- Flutter's wrapper produced the APK but returned failure while replacing
+  Gradle's optional HTML problems report. Direct `app:assembleDebug` with
+  `--no-problems-report` and the same production Dart defines completed
+  successfully. No source or global Git configuration changed.
+- Protected quality
+  [run 30326469061](https://github.com/noyanxtdoor-maker/draft-planner/actions/runs/30326469061)
+  passed on commit `fdf671f`, including authority verification, formatting,
+  static analysis, byte-clean code generation, all 46 Flutter tests, debug APK
+  assembly, dependency reporting, and secret scanning.
+- Android matrix
+  [run 30326502074](https://github.com/noyanxtdoor-maker/draft-planner/actions/runs/30326502074)
+  passed startup, privacy, Planner, and force-stop persistence flows on both API
+  24 and API 36. On attempt 1, seven lanes passed while the API 24 persistence
+  lane compiled successfully and then stalled for 40 minutes while ADB installed
+  the APK; GitHub cancelled it at the 45-minute job limit before test code ran.
+  The same lane passed on attempt 2 without a source change.
+- Two earlier Android runs exposed test-only viewport assumptions. The permanent
+  shell legitimately renders `Home` in both its app bar and bottom navigation,
+  so legacy smoke tests now target the unique bottom-navigation key. The real
+  Android viewport also places the Task section below the day timeline, so the
+  Planner smoke test now scrolls the saved Task into view before tapping it.
+  These corrections changed only integration-test selectors/scrolling and did
+  not alter production behavior or acceptance criteria.

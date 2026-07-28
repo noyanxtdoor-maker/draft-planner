@@ -5,6 +5,8 @@ abstract final class AppTheme {
   static const Color background = Color(0xFF0D0E10);
   static const Color surface = Color(0xFF181A1E);
   static const Color outline = Color(0xFF454850);
+  static const Color warning = Color(0xFFFFC857);
+  static const Color eventAccent = Color(0xFF4CAF50);
 
   static ThemeData dark() {
     final colorScheme =
@@ -46,6 +48,12 @@ abstract final class AppTheme {
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
+      ),
+      navigationBarTheme: const NavigationBarThemeData(
+        height: 72,
+        backgroundColor: Color(0xFF101113),
+        indicatorColor: Colors.transparent,
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
       ),
     );
   }

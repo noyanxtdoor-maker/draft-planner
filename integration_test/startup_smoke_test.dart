@@ -34,16 +34,18 @@ void main() {
     await tester.tap(find.text('Create local profile'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Home'), findsOneWidget);
+    expect(find.byKey(const Key('main-bottom-navigation')), findsOneWidget);
 
-    final homeContext = tester.element(find.text('Home'));
+    final homeContext = tester.element(
+      find.byKey(const Key('main-bottom-navigation')),
+    );
     GoRouter.of(homeContext).go('/stale-startup-link');
     await tester.pumpAndSettle();
     expect(find.text('Link unavailable'), findsOneWidget);
     expect(find.text('No local record was changed.'), findsOneWidget);
     await tester.tap(find.text('Return to Home'));
     await tester.pumpAndSettle();
-    expect(find.text('Home'), findsOneWidget);
+    expect(find.byKey(const Key('main-bottom-navigation')), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox.shrink());
     final relaunchedRepository = buildTestRepository(database: database);
@@ -60,7 +62,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Home'), findsOneWidget);
+    expect(find.byKey(const Key('main-bottom-navigation')), findsOneWidget);
     expect(find.text('Ready offline'), findsOneWidget);
   });
 }
