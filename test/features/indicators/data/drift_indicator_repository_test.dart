@@ -207,6 +207,14 @@ void main() {
       today: monday,
     );
     expect(withRevisedTarget.indicators.first.target.display, '3');
+    final targetHistory = await repository.readTargetHistory(
+      profileId: profile.id,
+      indicatorKey: 'job_applications',
+      periodStart: monday,
+    );
+    expect(targetHistory, hasLength(2));
+    expect(targetHistory.first.target.display, '3');
+    expect(targetHistory.last.target.isExplicitZero, isTrue);
 
     await reporting.submit(
       profileId: profile.id,

@@ -16,50 +16,69 @@ final class WeeklyTargetPromptScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(homeIndicatorControllerProvider);
-    final snapshot = state.snapshot;
     final period = IndicatorPeriod(
       start: periodStart,
       end: periodStart.addDays(6),
     );
-    final indicators = snapshot?.indicators
-        .where(
-          (indicator) => indicatorKey == null || indicator.key == indicatorKey,
-        )
-        .toList(growable: false);
+    final snapshot = ref.watch(indicatorPeriodSnapshotProvider(period));
     return Scaffold(
       appBar: AppBar(title: const Text('Weekly Targets')),
       body: SafeArea(
-        child: indicators == null
-            ? const Center(child: CircularProgressIndicator())
-            : ListView(
-                padding: const EdgeInsets.all(20),
-                children: <Widget>[
-                  Text(
-                    '${period.start.iso8601} — ${period.end.iso8601}',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Targets are optional. Not set and explicit zero are '
-                    'different. Actual is read-only and never changed here.',
-                  ),
-                  const SizedBox(height: 18),
-                  for (final indicator in indicators)
-                    Card(
-                      child: ListTile(
-                        key: Key('target-${indicator.key}'),
-                        title: Text(indicator.label),
-                        subtitle: Text(
-                          'Target: ${indicator.target.display} · '
-                          'Scheduled: ${indicator.scheduledPotential.display}',
-                        ),
-                        trailing: const Icon(Icons.edit_outlined),
-                        onTap: () => _edit(context, ref, indicator, period),
-                      ),
-                    ),
-                ],
+        child: snapshot.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (error, stackTrace) => Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text(
+                'Weekly targets could not be opened. No data was changed.',
+                textAlign: TextAlign.center,
               ),
+            ),
+          ),
+          data: (value) => ListView(
+            padding: const EdgeInsets.all(20),
+            children: <Widget>[
+              Text(
+                '${period.start.iso8601} — ${period.end.iso8601}',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Targets are optional. Not set and explicit zero are '
+                'different. Actual is read-only and never changed here.',
+              ),
+              const SizedBox(height: 18),
+              for (final indicator in value.indicators.where(
+                (indicator) =>
+                    indicatorKey == null || indicator.key == indicatorKey,
+              ))
+                Card(
+                  child: ListTile(
+                    key: Key('target-${indicator.key}'),
+                    title: Text(indicator.label),
+                    subtitle: Text(
+                      'Target: ${indicator.target.display} · '
+                      'Scheduled: ${indicator.scheduledPotential.display}',
+                    ),
+                    trailing: Wrap(
+                      spacing: 4,
+                      children: <Widget>[
+                        IconButton(
+                          key: Key('target-history-${indicator.key}'),
+                          tooltip: 'Target revision history',
+                          onPressed: () =>
+                              _showHistory(context, ref, indicator, period),
+                          icon: const Icon(Icons.history),
+                        ),
+                        const Icon(Icons.edit_outlined),
+                      ],
+                    ),
+                    onTap: () => _edit(context, ref, indicator, period),
+                  ),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -139,9 +158,68 @@ final class WeeklyTargetPromptScreen extends ConsumerWidget {
         unit: parsed.unit,
       );
     }
-    await ref
+    try {
+      await ref
+          .read(homeIndicatorControllerProvider.notifier)
+          .setTarget(indicatorKey: indicator.key, period: period, value: value);
+      ref.invalidate(indicatorPeriodSnapshotProvider(period));
+    } on Object {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Target was not changed. Reviewed weeks are read-only.',
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _showHistory(
+    BuildContext context,
+    WidgetRef ref,
+    LifeIndicatorSummary indicator,
+    IndicatorPeriod period,
+  ) async {
+    final revisions = await ref
         .read(homeIndicatorControllerProvider.notifier)
-        .setTarget(indicatorKey: indicator.key, period: period, value: value);
+        .readTargetHistory(
+          indicatorKey: indicator.key,
+          periodStart: period.start,
+        );
+    if (!context.mounted) {
+      return;
+    }
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('${indicator.label} target history'),
+        content: revisions.isEmpty
+            ? const Text('No target revisions for this week.')
+            : SizedBox(
+                width: double.maxFinite,
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: revisions.length,
+                  separatorBuilder: (context, index) => const Divider(),
+                  itemBuilder: (context, index) {
+                    final revision = revisions[index];
+                    return ListTile(
+                      title: Text('Target ${revision.target.display}'),
+                      subtitle: Text(revision.createdAtUtc.toIso8601String()),
+                    );
+                  },
+                ),
+              ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
   }
 
   IndicatorAmount? _parseTarget(String raw, String unit) {

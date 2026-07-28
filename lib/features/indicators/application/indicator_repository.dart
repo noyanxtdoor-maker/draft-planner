@@ -21,4 +21,10 @@ abstract interface class IndicatorRepository {
     required String profileId,
     required IndicatorTargetRevisionDraft draft,
   });
+
+  Future<List<IndicatorTargetRevision>> readTargetHistory({
+    required String profileId,
+    required String indicatorKey,
+    required PlannerDate periodStart,
+  });
 }

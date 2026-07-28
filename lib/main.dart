@@ -25,6 +25,8 @@ import 'package:rmplanner/features/privacy/data/local_auth_device_authenticator.
 import 'package:rmplanner/features/privacy/data/permission_handler_gateway.dart';
 import 'package:rmplanner/features/startup/application/startup_providers.dart';
 import 'package:rmplanner/features/startup/data/drift_startup_repository.dart';
+import 'package:rmplanner/features/weekly_planning/application/weekly_planning_providers.dart';
+import 'package:rmplanner/features/weekly_planning/data/drift_weekly_planning_repository.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -70,6 +72,14 @@ Future<void> main() async {
     clock: clock,
     calendarEvents: calendarEventRepository,
   );
+  final weeklyPlanningRepository = DriftWeeklyPlanningRepository(
+    database: database,
+    clock: clock,
+    identifiers: const UuidIdentifierSource(),
+    timeZones: calendarEventTimeZones,
+    indicators: indicatorRepository,
+    calendarEvents: calendarEventRepository,
+  );
   final taskEventLinkCoordinator = DriftTaskEventLinkCoordinator(
     database: database,
     calendarEvents: calendarEventRepository,
@@ -106,6 +116,9 @@ Future<void> main() async {
         ),
         plannerRepositoryProvider.overrideWithValue(plannerRepository),
         indicatorRepositoryProvider.overrideWithValue(indicatorRepository),
+        weeklyPlanningRepositoryProvider.overrideWithValue(
+          weeklyPlanningRepository,
+        ),
         taskEventLinkRepositoryProvider.overrideWithValue(
           taskEventLinkRepository,
         ),

@@ -202,6 +202,21 @@ final class DriftIndicatorRepository implements IndicatorRepository {
       if (priorOperation != null) {
         return;
       }
+      final plan =
+          await (database.select(database.weeklyPlans)
+                ..where(
+                  (table) =>
+                      table.profileId.equals(profileId) &
+                      table.periodStartDate.equals(draft.period.start.iso8601),
+                )
+                ..limit(1))
+              .getSingleOrNull();
+      if (plan != null &&
+          (plan.state == 'reviewed' || plan.state == 'historical')) {
+        throw StateError(
+          'Reviewed and historical Weekly Plan targets are read-only',
+        );
+      }
       final definition =
           await (database.select(database.lifeIndicatorDefinitions)
                 ..where(
@@ -247,6 +262,60 @@ final class DriftIndicatorRepository implements IndicatorRepository {
             ),
           );
     });
+  }
+
+  @override
+  Future<List<IndicatorTargetRevision>> readTargetHistory({
+    required String profileId,
+    required String indicatorKey,
+    required PlannerDate periodStart,
+  }) async {
+    final rows =
+        await (database.select(database.weeklyIndicatorTargetRevisions)..where(
+              (table) =>
+                  table.profileId.equals(profileId) &
+                  table.indicatorKey.equals(indicatorKey) &
+                  table.periodStartDate.equals(periodStart.iso8601),
+            ))
+            .get();
+    final byId = <String, WeeklyIndicatorTargetRevisionRow>{
+      for (final row in rows) row.id: row,
+    };
+    final superseded = rows
+        .map((row) => row.supersedesRevisionId)
+        .whereType<String>()
+        .toSet();
+    WeeklyIndicatorTargetRevisionRow? current;
+    for (final row in rows) {
+      if (!superseded.contains(row.id)) {
+        current = row;
+        break;
+      }
+    }
+    final ordered = <WeeklyIndicatorTargetRevisionRow>[];
+    while (current != null) {
+      ordered.add(current);
+      current = current.supersedesRevisionId == null
+          ? null
+          : byId[current.supersedesRevisionId];
+    }
+    return ordered
+        .map(
+          (row) => IndicatorTargetRevision(
+            id: row.id,
+            target: row.state == 'explicit'
+                ? IndicatorTarget.explicit(
+                    IndicatorAmount(
+                      scaledValue: row.valueScaled!,
+                      scale: row.valueScale,
+                      unit: row.unit,
+                    ),
+                  )
+                : const IndicatorTarget.notSet(),
+            createdAtUtc: row.createdAtUtc.toUtc(),
+          ),
+        )
+        .toList(growable: false);
   }
 
   Future<IndicatorAmount> _readActual({

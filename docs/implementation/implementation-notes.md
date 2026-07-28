@@ -563,3 +563,71 @@ repairs did not modify project source or global Git configuration.
   the single-job attempt 2 passed on a clean runner.
 - The five pre-existing untracked `UI Preferences/**/screen.png` files remain
   untouched and excluded.
+
+## 2026-07-28 — VS-08 Weekly Planning Lifecycle
+
+- Product-owner authorization expanded the active boundary through VS-08 only.
+  VS-09 and all later slices remain unauthorized.
+- Added a local Weekly Plan lifecycle with one effective plan per Local Profile
+  and Monday-start period, exact Monday-Sunday dates, Draft / Active / Review
+  Due / Reviewed / Historical states, prior-week history, and read-only
+  reviewed/historical reopening.
+- Schema version 8 adds nullable Local Profile IANA timezone, Weekly Plans,
+  Task/Event occurrence commitments, Weekly Reviews, immutable indicator review
+  snapshots, and explicit Task carryover decisions. Migration from schema v7 is
+  transactional, preserves prior rows, and has an injected failure rollback
+  fixture.
+- Existing profiles are not silently assigned UTC during migration. First
+  Weekly Planning use resolves the already-approved device IANA zone, persists
+  it once, and snapshots it on each plan. This prevents travel or later device
+  timezone changes from moving historical week identity.
+- Weekly Planning keeps ledger-derived Actual, user-controlled Target, and
+  explicitly qualified Scheduled Potential separate. It adds exact-period
+  target loading and user-visible target revision history; no target or Actual
+  is inferred or silently applied.
+- Required-report commitments remain unresolved until their factual report
+  exists. Weekly Review requires explicit acknowledgement when any remain,
+  stores an optional local-only non-contributory reflection, and snapshots the
+  six factual indicator summaries transactionally.
+- Late valid Activity Ledger writes update the current historical Actual while
+  leaving the review snapshot immutable and producing a post-review disclosure.
+- Starting the next week requires Carry or Do not carry for every incomplete
+  committed Task. Only explicit Carry copies the same Task identity. Calendar
+  Event commitments never copy automatically.
+- Native Weekly Planning, Weekly Review, and Prior Weeks supporting routes reuse
+  the approved dark charcoal/pink theme, compact cards, Android safe areas, and
+  permanent shell navigation. They add no HTML, WebView, fake OS chrome,
+  composite score, percentage, gamification, or sample product data.
+- VS-08 adds no package, Android permission, remote client, analytics SDK,
+  Calendar provider access, notification code, map code, contacts code, or
+  VS-09 Pathways implementation.
+
+### VS-08 verification evidence
+
+- Authority verification passed for approved hashes, permanent Android identity,
+  production permission boundary, schema version 8, dependency boundary, and
+  all FR-I / BR-I / AC-I trace identifiers.
+- Strict formatting and static analysis passed. All 93 Flutter unit, domain,
+  repository, migration, and widget tests passed, including exact week identity,
+  explicit zero versus Not set, revision history, Task/Event selection,
+  unresolved-report acknowledgement, immutable review snapshots, late-change
+  disclosure, Task-only carryover, v7-to-v8 upgrade, injected migration/write
+  rollback, the 941 by 1672 viewport, and 200% text scaling.
+- Drift regeneration was byte-identical before and after build generation:
+  `E7F21A234803F7CF3061EA90DCA8B5C93256931C64B201E4084E966E07B1F0BB`.
+- Production-defined debug APK assembly passed. The APK is 191,156,508 bytes
+  with SHA-256
+  `59E0A5C471BACF88BCCE07D99057541986CF41A99BF7A068DFE53CAD40781CD5`.
+  Inspection confirms `com.nexttransfer.rmplanner`, version `0.1.0+1`, minimum
+  SDK 24, compile/target SDK 36, and no Calendar, contacts, location, storage,
+  or notification permission.
+- The final APK installed successfully over the existing app on the connected
+  Infinix X6731. The phone was at its Android lock screen, so no private app
+  hierarchy was inspected or bypassed.
+- Flutter's wireless integration launcher built and installed the test APK but
+  could not start its development server after Android advertised a stale mDNS
+  alias for the same phone. The equivalent repository/widget journey passes
+  locally; clean API 24/API 36 VS-08 integration lanes are included in CI.
+- The five pre-existing untracked `UI Preferences/**/screen.png` files and the
+  newly observed untracked `UI Preferences/Screen Recordings/` folder remain
+  untouched and excluded.

@@ -2,7 +2,7 @@
 
 **Recorded:** 2026-07-26  
 **Approval overlay:** G-02 Product Approval is complete. G-03 is
-implementation-ready through VS-04 following explicit product-owner
+implementation-ready through VS-08 following explicit product-owner
 authorization on 2026-07-28.
 
 ## Immutable approved sources
@@ -32,8 +32,12 @@ Authorized scope:
 4. VS-02 — Privacy Lock, Permissions, and Privacy Center.
 5. VS-03 — Planner Day and Tasks.
 6. VS-04 — Calendar Events.
+7. VS-05 — Task-Event Linking.
+8. VS-06 — Outcome Reporting and Activity Ledger.
+9. VS-07 — Home and Life Indicators.
+10. VS-08 — Weekly Planning Lifecycle.
 
-VS-05 and later slices remain unauthorized.
+VS-09 and later slices remain unauthorized.
 
 ## Exception protocol
 

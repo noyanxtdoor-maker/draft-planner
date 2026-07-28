@@ -94,7 +94,7 @@ Future<void> main() async {
           text.contains('flutter_timezone: 5.1.0') &&
           forbidden.every((package) => !text.contains(package));
     },
-    'The VS-07 dependency lock changed or a later-slice package entered the '
+    'The VS-08 dependency lock changed or a later-slice package entered the '
     'graph',
     failures,
   );
@@ -105,7 +105,7 @@ Future<void> main() async {
         !text.contains('refreshToken') &&
         !text.contains('biometricData') &&
         !text.contains('appPin') &&
-        text.contains('int get schemaVersion => _schemaVersionOverride ?? 7') &&
+        text.contains('int get schemaVersion => _schemaVersionOverride ?? 8') &&
         text.contains('PlannerTasks') &&
         text.contains('TaskStatusChanges') &&
         text.contains('CalendarEvents') &&
@@ -116,8 +116,41 @@ Future<void> main() async {
         text.contains('OutcomeReports') &&
         text.contains('OutcomeReportContributionDrafts') &&
         text.contains('ActivityLedgerEntries') &&
-        text.contains('WeeklyIndicatorTargetRevisions'),
-    'The VS-07 Drift schema boundary or sensitive-field exclusion changed',
+        text.contains('WeeklyIndicatorTargetRevisions') &&
+        text.contains('WeeklyPlans') &&
+        text.contains('WeeklyPlanCommitments') &&
+        text.contains('WeeklyPlanReviews') &&
+        text.contains('WeeklyPlanReviewIndicatorSnapshots') &&
+        text.contains('WeeklyPlanTaskCarryoverDecisions') &&
+        text.contains('TextColumn get timeZoneId'),
+    'The VS-08 Drift schema boundary or sensitive-field exclusion changed',
+    failures,
+  );
+  _expectFileText(
+    File('docs/implementation/vs-08-traceability.md'),
+    (text) =>
+        List<int>.generate(20, (index) => index + 1).every(
+          (number) =>
+              text.contains('FR-I-${number.toString().padLeft(3, '0')}'),
+        ) &&
+        List<int>.generate(10, (index) => index + 1).every(
+          (number) =>
+              text.contains('BR-I-${number.toString().padLeft(3, '0')}'),
+        ) &&
+        List<int>.generate(20, (index) => index + 1).every(
+          (number) =>
+              text.contains('AC-I-${number.toString().padLeft(3, '0')}'),
+        ),
+    'VS-08 FR, BR, or AC traceability is incomplete',
+    failures,
+  );
+  _expectFileText(
+    File('docs/implementation/phase-3-authority.md'),
+    (text) =>
+        text.contains('implementation-ready through VS-08') &&
+        text.contains('VS-08 — Weekly Planning Lifecycle') &&
+        text.contains('VS-09 and later slices remain unauthorized'),
+    'The active authorization overlay does not stop after VS-08',
     failures,
   );
   _expectFileText(
@@ -149,7 +182,7 @@ Future<void> main() async {
 
   stdout.writeln(
     'Authority verification passed: approved hashes, Flutter pin, '
-    'Android identity, VS-07 permission scope, and slice dependency boundary.',
+    'Android identity, VS-08 permission scope, and slice dependency boundary.',
   );
 }
 

@@ -92,6 +92,20 @@ provider SDK, contacts SDK, maps SDK, WebView, or new Android permission enters
 the graph. Actual remains a local Activity Ledger projection and target values
 remain integer-scaled local data.
 
+## VS-08 review
+
+VS-08 adds no package. Weekly Plan identity, lifecycle state, commitments,
+review snapshots, post-review disclosure, history, and explicit Task carryover
+reuse the locked Drift, Riverpod, GoRouter, UUID, timezone, and Flutter SDK
+dependencies. The existing `flutter_timezone` adapter resolves the device IANA
+zone only when an older Local Profile has no stored zone; the resolved identity
+is then persisted and copied into each Weekly Plan.
+
+No remote client, analytics SDK, notification SDK, background worker, Calendar
+provider SDK, contacts SDK, maps SDK, WebView, or new Android permission enters
+the graph. Private reflections remain local Drift data, are never ledger
+contributions, and are not emitted to diagnostics or notification previews.
+
 ## Recorded deviation
 
 `drift_dev 2.34.2` is retracted. Its patched successor and all `drift_dev 2.34.1+` releases require analyzer 13, which requires `meta ^1.18.3`; Flutter 3.44.7 pins `meta 1.18.0`. The selected `drift_dev 2.34.0` supports `drift >=2.30.0 <2.35.0` and analyzer below 13, so it is the newest compatible generator in the same 2.34 family. `build_runner 2.15.1` is the matching newest release that allows analyzer below 13. Runtime `drift` remains exactly `2.34.2`.

@@ -24,7 +24,10 @@ abstract final class RouteNames {
   static const String outcomeReportCorrection = 'outcome-report-correction';
   static const String activityHistory = 'activity-history';
   static const String indicatorDetail = 'indicator-detail';
+  static const String weeklyPlanning = 'weekly-planning';
   static const String weeklyPlanningTargets = 'weekly-planning-targets';
+  static const String weeklyPlanningReview = 'weekly-planning-review';
+  static const String weeklyPlanningHistory = 'weekly-planning-history';
   static const String privacyCenter = 'privacy-center';
   static const String permissions = 'permissions';
   static const String diagnosticPreview = 'diagnostic-preview';
@@ -46,6 +49,10 @@ abstract final class RoutePaths {
   static const String activityHistory = '/activity-history';
   static const String progress = '/progress';
   static const String weeklyPlanning = '/planner/weekly-planning';
+  static const String weeklyPlanningTargetsPath =
+      '/planner/weekly-planning/targets';
+  static const String weeklyPlanningHistory =
+      '/planner/weekly-planning/history';
   static const String privacyCenter = '/privacy';
   static const String permissions = '/privacy/permissions';
   static const String diagnosticPreview = '/privacy/diagnostics';
@@ -93,6 +100,14 @@ abstract final class RoutePaths {
     String? indicatorKey,
   }) {
     final indicator = indicatorKey == null ? '' : '&indicator=$indicatorKey';
-    return '$weeklyPlanning?week=${periodStart.iso8601}$indicator';
+    return '$weeklyPlanningTargetsPath?week=${periodStart.iso8601}$indicator';
+  }
+
+  static String weeklyPlanningFor(PlannerDate periodStart) {
+    return '$weeklyPlanning?week=${periodStart.iso8601}';
+  }
+
+  static String weeklyPlanningReview(String planId) {
+    return '$weeklyPlanning/$planId/review';
   }
 }

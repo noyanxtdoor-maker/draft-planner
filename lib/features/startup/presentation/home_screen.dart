@@ -76,9 +76,7 @@ final class HomeScreen extends ConsumerWidget {
                       child: OutlinedButton.icon(
                         key: const Key('weekly-targets-button'),
                         onPressed: () => context.push(
-                          RoutePaths.weeklyPlanningTargets(
-                            snapshot.period.start,
-                          ),
+                          RoutePaths.weeklyPlanningFor(snapshot.period.start),
                         ),
                         icon: const Icon(Icons.calendar_view_week_outlined),
                         label: const Text('Weekly Planning'),

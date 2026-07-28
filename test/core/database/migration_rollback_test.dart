@@ -539,4 +539,101 @@ void main() {
       }
     },
   );
+
+  test(
+    'AC-I-001,019 / Q2: v7 upgrades to schema v8 without prior-data loss',
+    () async {
+      final sqliteDatabase = sqlite3.openInMemory();
+      try {
+        final versionSeven = AppDatabase.forTesting(
+          NativeDatabase.opened(sqliteDatabase, closeUnderlyingOnClose: false),
+          schemaVersionOverride: 7,
+        );
+        final original = await buildTestRepository(
+          database: versionSeven,
+        ).completeOnboarding();
+        await versionSeven.close();
+
+        final versionEight = AppDatabase.forTesting(
+          NativeDatabase.opened(sqliteDatabase, closeUnderlyingOnClose: false),
+          schemaVersionOverride: 8,
+        );
+        final profile =
+            (await versionEight.select(versionEight.localProfiles).get())
+                .single;
+        expect(profile.id, original.id);
+        expect(profile.timeZoneId, isNull);
+        expect(
+          await versionEight.select(versionEight.weeklyPlans).get(),
+          isEmpty,
+        );
+        expect(
+          (await versionEight.customSelect('PRAGMA user_version').getSingle())
+              .read<int>('user_version'),
+          8,
+        );
+        await versionEight.close();
+      } finally {
+        sqliteDatabase.close();
+      }
+    },
+  );
+
+  test(
+    'AC-I-003,019 / Q2: failed v8 migration rolls back all planning tables',
+    () async {
+      final sqliteDatabase = sqlite3.openInMemory();
+      try {
+        final versionSeven = AppDatabase.forTesting(
+          NativeDatabase.opened(sqliteDatabase, closeUnderlyingOnClose: false),
+          schemaVersionOverride: 7,
+        );
+        final original = await buildTestRepository(
+          database: versionSeven,
+        ).completeOnboarding();
+        await versionSeven.close();
+
+        final failingVersionEight = AppDatabase.forTesting(
+          NativeDatabase.opened(sqliteDatabase, closeUnderlyingOnClose: false),
+          schemaVersionOverride: 8,
+          injectWeeklyPlanningMigrationFailure: true,
+        );
+        await expectLater(
+          failingVersionEight.select(failingVersionEight.localProfiles).get(),
+          throwsA(isA<StateError>()),
+        );
+        await failingVersionEight.close();
+
+        final reopenedVersionSeven = AppDatabase.forTesting(
+          NativeDatabase.opened(sqliteDatabase, closeUnderlyingOnClose: false),
+          schemaVersionOverride: 7,
+        );
+        expect(
+          (await reopenedVersionSeven
+                  .select(reopenedVersionSeven.localProfiles)
+                  .get())
+              .single
+              .id,
+          original.id,
+        );
+        expect(
+          (await reopenedVersionSeven
+                  .customSelect('PRAGMA user_version')
+                  .getSingle())
+              .read<int>('user_version'),
+          7,
+        );
+        final planTable = await reopenedVersionSeven
+            .customSelect(
+              "SELECT COUNT(*) AS count FROM sqlite_master "
+              "WHERE type='table' AND name='weekly_plans'",
+            )
+            .getSingle();
+        expect(planTable.read<int>('count'), 0);
+        await reopenedVersionSeven.close();
+      } finally {
+        sqliteDatabase.close();
+      }
+    },
+  );
 }

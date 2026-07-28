@@ -26,6 +26,9 @@ import 'package:rmplanner/features/startup/presentation/onboarding_screen.dart';
 import 'package:rmplanner/features/startup/presentation/protected_content_screen.dart';
 import 'package:rmplanner/features/startup/presentation/recovery_screen.dart';
 import 'package:rmplanner/features/startup/presentation/startup_screen.dart';
+import 'package:rmplanner/features/weekly_planning/presentation/weekly_plan_history_screen.dart';
+import 'package:rmplanner/features/weekly_planning/presentation/weekly_planning_screen.dart';
+import 'package:rmplanner/features/weekly_planning/presentation/weekly_review_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final startupState = ref.watch(startupControllerProvider);
@@ -86,8 +89,23 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             },
           ),
           GoRoute(
-            name: RouteNames.weeklyPlanningTargets,
+            name: RouteNames.weeklyPlanning,
             path: RoutePaths.weeklyPlanning,
+            builder: (context, state) {
+              final raw = state.uri.queryParameters['week'];
+              return WeeklyPlanningScreen(
+                periodStart: raw == null
+                    ? null
+                    : _periodStart(
+                        raw,
+                        ref.read(plannerDateSourceProvider).today(),
+                      ),
+              );
+            },
+          ),
+          GoRoute(
+            name: RouteNames.weeklyPlanningTargets,
+            path: RoutePaths.weeklyPlanningTargetsPath,
             builder: (context, state) {
               return WeeklyTargetPromptScreen(
                 periodStart: _periodStart(
@@ -97,6 +115,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 indicatorKey: state.uri.queryParameters['indicator'],
               );
             },
+          ),
+          GoRoute(
+            name: RouteNames.weeklyPlanningHistory,
+            path: RoutePaths.weeklyPlanningHistory,
+            builder: (context, state) => const WeeklyPlanHistoryScreen(),
+          ),
+          GoRoute(
+            name: RouteNames.weeklyPlanningReview,
+            path: '${RoutePaths.weeklyPlanning}/:planId/review',
+            builder: (context, state) =>
+                WeeklyReviewScreen(planId: state.pathParameters['planId']!),
           ),
         ],
       ),

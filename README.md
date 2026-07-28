@@ -10,8 +10,8 @@ Repository bootstrap, Q0, VS-01 (Guest Startup and Local Profile), VS-02
 (Privacy Lock, Permissions, and Privacy Center), VS-03 (Planner Day and Tasks),
 VS-04 (Calendar Events), and VS-05 (Task-Event Linking) are implemented.
 VS-06 (Outcome Reporting and Activity Ledger) and VS-07 (Home and Life
-Indicators) are implemented. VS-08 and later slices are intentionally not
-started.
+Indicators) are implemented. VS-08 (Weekly Planning Lifecycle) is implemented.
+VS-09 and later slices are intentionally not started.
 
 VS-01 provides:
 
@@ -104,9 +104,26 @@ VS-07 adds:
 - isolated Current, Stale, Rebuilding, and Partial Failure presentation;
 - schema version 7 with profile-scoped weekly target revisions.
 
-Remote account/sync code, the VS-08 Weekly Planning lifecycle, provider Calendar
-integration, notifications, maps, and later planning features remain outside
-the authorized slice.
+VS-08 adds:
+
+- one stable Local Profile / Monday-start Weekly Plan identity with the exact
+  Monday-Sunday dates and a persisted IANA profile timezone;
+- offline Draft, Active, Review Due, Reviewed, and Historical lifecycle states;
+- separately labeled, factual Actual, user-controlled Target, and qualified
+  Scheduled Potential values without any direct Actual write;
+- explicit Task and Calendar Event occurrence commitments;
+- a factual Weekly Review with unresolved-report acknowledgement, immutable
+  indicator snapshots, and an optional local-only private reflection;
+- post-review factual-change disclosure without rewriting the review snapshot;
+- explicit incomplete-Task carryover decisions while Events never carry
+  automatically;
+- prior-week history and read-only reopening;
+- schema version 8 with profile timezone, plans, commitments, review snapshots,
+  and carryover decisions.
+
+Remote account/sync code, provider Calendar integration, notifications, maps,
+VS-09 Pathways, and later planning features remain outside the authorized
+slice.
 
 ## Locked toolchain
 
@@ -139,7 +156,7 @@ flutter run \
 
 Equivalent non-secret examples exist for development, staging, and production.
 
-No secret is required through VS-07. Never commit signing keys, private
+No secret is required through VS-08. Never commit signing keys, private
 environment files, service-role keys, or user database files.
 
 ## Repository layout
@@ -148,9 +165,9 @@ environment files, service-role keys, or user database files.
 android/           Android host project
 lib/app/           App shell, theme, and routing
 lib/core/          Database, diagnostics, platform, privacy, time, and IDs
-lib/features/      Vertical feature modules; startup, privacy, and planner
+lib/features/      Vertical feature modules; startup, privacy, planner, and weekly planning
 test/              Unit, repository, migration, and widget tests
-integration_test/  Android VS-01 through VS-07 smoke journeys
+integration_test/  Android VS-01 through VS-08 smoke journeys
 tool/              Toolchain metadata and authority verification
 docs/              Approved sources, preserved baselines, and implementation evidence
 .github/           PR quality and scheduled Android smoke workflows
@@ -177,7 +194,10 @@ VS-06 evidence is recorded in
 VS-07 evidence is recorded in
 [`docs/implementation/vs-07-traceability.md`](docs/implementation/vs-07-traceability.md).
 
-Do not begin VS-08 without explicit product-owner authorization after the VS-07
+VS-08 evidence is recorded in
+[`docs/implementation/vs-08-traceability.md`](docs/implementation/vs-08-traceability.md).
+
+Do not begin VS-09 without explicit product-owner authorization after the VS-08
 quality-gate report.
 
 ## APPROVED VISUAL AND PIXEL-REFERENCE CONTRACT

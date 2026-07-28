@@ -18,6 +18,14 @@ final class IndicatorPeriod {
       date.compareTo(start) >= 0 && date.compareTo(end) <= 0;
 
   String get key => start.iso8601;
+
+  @override
+  bool operator ==(Object other) {
+    return other is IndicatorPeriod && start == other.start && end == other.end;
+  }
+
+  @override
+  int get hashCode => Object.hash(start, end);
 }
 
 final class IndicatorAmount {
@@ -160,6 +168,18 @@ final class IndicatorTargetRevisionDraft {
   final String indicatorKey;
   final IndicatorPeriod period;
   final IndicatorAmount? value;
+}
+
+final class IndicatorTargetRevision {
+  const IndicatorTargetRevision({
+    required this.id,
+    required this.target,
+    required this.createdAtUtc,
+  });
+
+  final String id;
+  final IndicatorTarget target;
+  final DateTime createdAtUtc;
 }
 
 final class ScheduledPotentialRule {

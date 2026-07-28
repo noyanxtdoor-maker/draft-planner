@@ -12,6 +12,7 @@ class LocalProfiles extends Table {
       text().withDefault(const Constant('primary')).unique()();
   TextColumn get localName => text()();
   TextColumn get displayName => text().nullable()();
+  TextColumn get timeZoneId => text().nullable()();
   DateTimeColumn get createdAtUtc => dateTime()();
   DateTimeColumn get updatedAtUtc => dateTime()();
 
@@ -401,6 +402,138 @@ class WeeklyIndicatorTargetRevisions extends Table {
   Set<Column<Object>> get primaryKey => <Column<Object>>{id};
 }
 
+@TableIndex(
+  name: 'weekly_plan_profile_period_unique',
+  columns: <Symbol>{#profileId, #periodStartDate},
+  unique: true,
+)
+@DataClassName('WeeklyPlanRow')
+class WeeklyPlans extends Table {
+  TextColumn get id => text()();
+  TextColumn get profileId =>
+      text().references(LocalProfiles, #id, onDelete: KeyAction.restrict)();
+  TextColumn get periodStartDate => text()();
+  TextColumn get periodEndDate => text()();
+  TextColumn get timeZoneId => text()();
+  TextColumn get state => text()();
+  DateTimeColumn get reviewCompletedAtUtc => dateTime().nullable()();
+  DateTimeColumn get createdAtUtc => dateTime()();
+  DateTimeColumn get updatedAtUtc => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => <Column<Object>>{id};
+}
+
+@TableIndex(
+  name: 'weekly_plan_commitment_unique',
+  columns: <Symbol>{#planId, #commitmentKey},
+  unique: true,
+)
+@DataClassName('WeeklyPlanCommitmentRow')
+class WeeklyPlanCommitments extends Table {
+  TextColumn get id => text()();
+  TextColumn get profileId =>
+      text().references(LocalProfiles, #id, onDelete: KeyAction.restrict)();
+  TextColumn get planId =>
+      text().references(WeeklyPlans, #id, onDelete: KeyAction.restrict)();
+  TextColumn get commitmentKey => text()();
+  TextColumn get sourceType => text()();
+  TextColumn get sourceId => text()();
+  TextColumn get occurrenceId => text().nullable()();
+  DateTimeColumn get addedAtUtc => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => <Column<Object>>{id};
+}
+
+@TableIndex(
+  name: 'weekly_plan_review_plan_unique',
+  columns: <Symbol>{#planId},
+  unique: true,
+)
+@TableIndex(
+  name: 'weekly_plan_review_operation_unique',
+  columns: <Symbol>{#operationId},
+  unique: true,
+)
+@DataClassName('WeeklyPlanReviewRow')
+class WeeklyPlanReviews extends Table {
+  TextColumn get id => text()();
+  TextColumn get profileId =>
+      text().references(LocalProfiles, #id, onDelete: KeyAction.restrict)();
+  TextColumn get planId =>
+      text().references(WeeklyPlans, #id, onDelete: KeyAction.restrict)();
+  TextColumn get operationId => text()();
+  TextColumn get privateReflection => text().nullable()();
+  BoolColumn get unresolvedReportsAcknowledged => boolean()();
+  DateTimeColumn get completedAtUtc => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => <Column<Object>>{id};
+}
+
+@TableIndex(
+  name: 'weekly_plan_review_indicator_unique',
+  columns: <Symbol>{#reviewId, #indicatorKey},
+  unique: true,
+)
+@DataClassName('WeeklyPlanReviewIndicatorSnapshotRow')
+class WeeklyPlanReviewIndicatorSnapshots extends Table {
+  TextColumn get id => text()();
+  TextColumn get profileId =>
+      text().references(LocalProfiles, #id, onDelete: KeyAction.restrict)();
+  TextColumn get reviewId =>
+      text().references(WeeklyPlanReviews, #id, onDelete: KeyAction.restrict)();
+  TextColumn get indicatorKey => text()();
+  IntColumn get actualValueScaled => integer()();
+  IntColumn get actualValueScale => integer()();
+  TextColumn get actualUnit => text()();
+  TextColumn get targetState => text()();
+  IntColumn get targetValueScaled => integer().nullable()();
+  IntColumn get targetValueScale => integer()();
+  TextColumn get targetUnit => text()();
+  IntColumn get scheduledValueScaled => integer()();
+  IntColumn get scheduledValueScale => integer()();
+  TextColumn get scheduledUnit => text()();
+
+  @override
+  Set<Column<Object>> get primaryKey => <Column<Object>>{id};
+}
+
+@TableIndex(
+  name: 'weekly_plan_carryover_operation_unique',
+  columns: <Symbol>{#operationId},
+  unique: true,
+)
+@TableIndex(
+  name: 'weekly_plan_carryover_task_unique',
+  columns: <Symbol>{#fromPlanId, #taskId},
+  unique: true,
+)
+@DataClassName('WeeklyPlanTaskCarryoverDecisionRow')
+class WeeklyPlanTaskCarryoverDecisions extends Table {
+  TextColumn get id => text()();
+  TextColumn get profileId =>
+      text().references(LocalProfiles, #id, onDelete: KeyAction.restrict)();
+  @ReferenceName('carryoverSourcePlan')
+  TextColumn get fromPlanId =>
+      text().references(WeeklyPlans, #id, onDelete: KeyAction.restrict)();
+  TextColumn get taskId =>
+      text().references(PlannerTasks, #id, onDelete: KeyAction.restrict)();
+  TextColumn get decision => text()();
+  @ReferenceName('carryoverDestinationPlan')
+  TextColumn get toPlanId => text().nullable().references(
+    WeeklyPlans,
+    #id,
+    onDelete: KeyAction.restrict,
+  )();
+  TextColumn get operationId => text()();
+  DateTimeColumn get decidedAtUtc => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => <Column<Object>>{id};
+}
+
 @DriftDatabase(
   tables: <Type>[
     LocalProfiles,
@@ -419,6 +552,11 @@ class WeeklyIndicatorTargetRevisions extends Table {
     OutcomeReportContributionDrafts,
     ActivityLedgerEntries,
     WeeklyIndicatorTargetRevisions,
+    WeeklyPlans,
+    WeeklyPlanCommitments,
+    WeeklyPlanReviews,
+    WeeklyPlanReviewIndicatorSnapshots,
+    WeeklyPlanTaskCarryoverDecisions,
   ],
 )
 final class AppDatabase extends _$AppDatabase {
@@ -430,6 +568,7 @@ final class AppDatabase extends _$AppDatabase {
       _injectTaskEventLinkMigrationFailure = false,
       _injectOutcomeReportingMigrationFailure = false,
       _injectIndicatorMigrationFailure = false,
+      _injectWeeklyPlanningMigrationFailure = false,
       super(driftDatabase(name: 'next_transfer'));
 
   AppDatabase.forTesting(
@@ -441,6 +580,7 @@ final class AppDatabase extends _$AppDatabase {
     bool injectTaskEventLinkMigrationFailure = false,
     bool injectOutcomeReportingMigrationFailure = false,
     bool injectIndicatorMigrationFailure = false,
+    bool injectWeeklyPlanningMigrationFailure = false,
   }) : _schemaVersionOverride = schemaVersionOverride,
        _injectMigrationFailure = injectMigrationFailure,
        _injectTaskMigrationFailure = injectTaskMigrationFailure,
@@ -450,7 +590,9 @@ final class AppDatabase extends _$AppDatabase {
            injectTaskEventLinkMigrationFailure,
        _injectOutcomeReportingMigrationFailure =
            injectOutcomeReportingMigrationFailure,
-       _injectIndicatorMigrationFailure = injectIndicatorMigrationFailure;
+       _injectIndicatorMigrationFailure = injectIndicatorMigrationFailure,
+       _injectWeeklyPlanningMigrationFailure =
+           injectWeeklyPlanningMigrationFailure;
 
   final int? _schemaVersionOverride;
   final bool _injectMigrationFailure;
@@ -459,9 +601,10 @@ final class AppDatabase extends _$AppDatabase {
   final bool _injectTaskEventLinkMigrationFailure;
   final bool _injectOutcomeReportingMigrationFailure;
   final bool _injectIndicatorMigrationFailure;
+  final bool _injectWeeklyPlanningMigrationFailure;
 
   @override
-  int get schemaVersion => _schemaVersionOverride ?? 7;
+  int get schemaVersion => _schemaVersionOverride ?? 8;
 
   @override
   MigrationStrategy get migration {
@@ -494,6 +637,13 @@ final class AppDatabase extends _$AppDatabase {
         }
         if (schemaVersion >= 7) {
           await migrator.createTable(weeklyIndicatorTargetRevisions);
+        }
+        if (schemaVersion >= 8) {
+          await migrator.createTable(weeklyPlans);
+          await migrator.createTable(weeklyPlanCommitments);
+          await migrator.createTable(weeklyPlanReviews);
+          await migrator.createTable(weeklyPlanReviewIndicatorSnapshots);
+          await migrator.createTable(weeklyPlanTaskCarryoverDecisions);
         }
       },
       onUpgrade: (migrator, from, to) async {
@@ -541,11 +691,29 @@ final class AppDatabase extends _$AppDatabase {
               throw StateError('Injected indicator migration failure');
             }
           }
+          if (from < 8 && to >= 8) {
+            if (!await _columnExists('local_profiles', 'time_zone_id')) {
+              await migrator.addColumn(localProfiles, localProfiles.timeZoneId);
+            }
+            await migrator.createTable(weeklyPlans);
+            await migrator.createTable(weeklyPlanCommitments);
+            await migrator.createTable(weeklyPlanReviews);
+            await migrator.createTable(weeklyPlanReviewIndicatorSnapshots);
+            await migrator.createTable(weeklyPlanTaskCarryoverDecisions);
+            if (_injectWeeklyPlanningMigrationFailure) {
+              throw StateError('Injected weekly planning migration failure');
+            }
+          }
         });
       },
       beforeOpen: (details) async {
         await customStatement('PRAGMA foreign_keys = ON');
       },
     );
+  }
+
+  Future<bool> _columnExists(String tableName, String columnName) async {
+    final rows = await customSelect('PRAGMA table_info($tableName)').get();
+    return rows.any((row) => row.read<String>('name') == columnName);
   }
 }

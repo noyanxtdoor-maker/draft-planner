@@ -35,6 +35,9 @@ import 'package:rmplanner/features/startup/data/drift_startup_repository.dart';
 import 'package:rmplanner/features/startup/domain/local_profile.dart';
 import 'package:rmplanner/features/startup/domain/onboarding_checkpoint.dart';
 import 'package:rmplanner/features/startup/domain/startup_snapshot.dart';
+import 'package:rmplanner/features/weekly_planning/application/weekly_planning_providers.dart';
+import 'package:rmplanner/features/weekly_planning/application/weekly_planning_repository.dart';
+import 'package:rmplanner/features/weekly_planning/data/drift_weekly_planning_repository.dart';
 
 final class FixedClock implements AppClock {
   const FixedClock(this.value);
@@ -241,6 +244,7 @@ final class TestPrivacyDependencies {
       PlannerDate(year: 2026, month: 7, day: 27),
     ),
     IdentifierSource? plannerIdentifierSource,
+    WeeklyPlanningRepository? weeklyPlanningRepository,
   }) {
     final linkRepository = DriftTaskEventLinkRepository(
       database: repository.database,
@@ -281,6 +285,18 @@ final class TestPrivacyDependencies {
       clock: FixedClock(DateTime.utc(2026, 7, 27, 12)),
       calendarEvents: resolvedCalendarEventRepository,
     );
+    final resolvedWeeklyPlanningRepository =
+        weeklyPlanningRepository ??
+        DriftWeeklyPlanningRepository(
+          database: repository.database,
+          clock: FixedClock(DateTime.utc(2026, 7, 27, 12)),
+          identifiers: const UuidIdentifierSource(),
+          timeZones: IanaCalendarEventTimeZones(
+            displayTimeZoneId: 'Asia/Manila',
+          ),
+          indicators: indicatorRepository,
+          calendarEvents: resolvedCalendarEventRepository,
+        );
     return ProviderScope(
       overrides: [
         appEnvironmentProvider.overrideWithValue(environment),
@@ -301,6 +317,9 @@ final class TestPrivacyDependencies {
         ),
         plannerRepositoryProvider.overrideWithValue(resolvedPlannerRepository),
         indicatorRepositoryProvider.overrideWithValue(indicatorRepository),
+        weeklyPlanningRepositoryProvider.overrideWithValue(
+          resolvedWeeklyPlanningRepository,
+        ),
         taskEventLinkRepositoryProvider.overrideWithValue(linkRepository),
         taskEventLinkCoordinatorProvider.overrideWithValue(linkCoordinator),
         plannerDateSourceProvider.overrideWithValue(plannerDateSource),

@@ -5,6 +5,7 @@ import 'package:rmplanner/core/ids/identifier_source.dart';
 import 'package:rmplanner/features/indicators/application/indicator_repository.dart';
 import 'package:rmplanner/features/indicators/domain/life_indicator.dart';
 import 'package:rmplanner/features/planner/application/planner_providers.dart';
+import 'package:rmplanner/features/planner/domain/planner_date.dart';
 import 'package:rmplanner/features/startup/application/startup_providers.dart';
 import 'package:rmplanner/features/startup/domain/startup_state.dart';
 
@@ -15,6 +16,31 @@ final indicatorRepositoryProvider = Provider<IndicatorRepository>((ref) {
 final indicatorIdentifierSourceProvider = Provider<IdentifierSource>((ref) {
   return const UuidIdentifierSource();
 });
+
+final indicatorChangesProvider = StreamProvider.family<void, String>((
+  ref,
+  profileId,
+) {
+  return ref.read(indicatorRepositoryProvider).watchChanges(profileId);
+});
+
+final indicatorPeriodSnapshotProvider =
+    FutureProvider.family<HomeIndicatorSnapshot, IndicatorPeriod>((
+      ref,
+      period,
+    ) {
+      final startup = ref.read(startupControllerProvider);
+      if (startup is! StartupReady) {
+        throw StateError('Life Indicators require a ready Local Profile');
+      }
+      return ref
+          .read(indicatorRepositoryProvider)
+          .readHome(
+            profileId: startup.profile.id,
+            period: period,
+            today: ref.read(plannerDateSourceProvider).today(),
+          );
+    });
 
 enum HomeIndicatorLoadStatus { loading, ready, rebuilding, failure }
 
@@ -117,5 +143,16 @@ final class HomeIndicatorController extends Notifier<HomeIndicatorState> {
       ),
     );
     await refresh();
+  }
+
+  Future<List<IndicatorTargetRevision>> readTargetHistory({
+    required String indicatorKey,
+    required PlannerDate periodStart,
+  }) {
+    return _repository.readTargetHistory(
+      profileId: _profileId,
+      indicatorKey: indicatorKey,
+      periodStart: periodStart,
+    );
   }
 }

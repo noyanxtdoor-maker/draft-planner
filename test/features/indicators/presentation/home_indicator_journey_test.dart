@@ -69,6 +69,18 @@ void main() {
     );
     await tester.tap(find.byKey(const Key('weekly-targets-button')));
     await tester.pumpAndSettle();
+    expect(find.text('Weekly Planning'), findsOneWidget);
+    expect(find.byKey(const Key('weekly-plan-identity')), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('weekly-plan-targets-button')),
+      250,
+      scrollable: find.descendant(
+        of: find.byKey(const Key('weekly-plan-list')),
+        matching: find.byType(Scrollable),
+      ),
+    );
+    await tester.tap(find.byKey(const Key('weekly-plan-targets-button')));
+    await tester.pumpAndSettle();
     expect(find.text('Weekly Targets'), findsOneWidget);
     expect(find.textContaining('Actual is read-only'), findsOneWidget);
 
