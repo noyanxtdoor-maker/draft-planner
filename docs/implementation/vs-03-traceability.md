@@ -138,14 +138,14 @@ reference's fake iOS status bar or home indicator.
 
 | Gate | VS-03 status |
 | --- | --- |
-| Q0 Authority and traceability | Pass locally — approved hashes, authorization overlay, and all VS-03 IDs are mapped |
-| Q1 Static and build | Pass locally — strict format, analyzer, byte-identical codegen, dependency review, and debug APK assembly |
-| Q2 Domain/database/migration | Pass locally — schema v3 upgrade/rollback and all Task repository/domain tests pass |
-| Q3 Offline/privacy/idempotency | Pass locally — atomic failure, retry, concurrent status, no-permission, and relaunch boundaries pass |
-| Q4 UI/accessibility | Pass locally — matching viewport, timeline geometry, complete widget flow, and 200% text scale pass |
-| Q5 Android platform | Pending API 24/API 36 workflow |
+| Q0 Authority and traceability | Pass — local verifier and protected quality run 30326469061 confirm approved hashes, authorization overlay, Android identity, and all VS-03 IDs |
+| Q1 Static and build | Pass — strict format, analyzer, byte-identical codegen, dependency review, debug APK assembly, and protected quality run 30326469061 |
+| Q2 Domain/database/migration | Pass — schema v3 upgrade/rollback and all Task repository/domain tests pass locally and in protected quality |
+| Q3 Offline/privacy/idempotency | Pass — atomic failure, retry, concurrent status, no-permission, relaunch, and API 24/API 36 persistence boundaries pass |
+| Q4 UI/accessibility | Pass — matching viewport, timeline geometry, complete widget flow, 200% text scale, and API 24/API 36 Planner journeys pass |
+| Q5 Android platform | Pass — Android matrix run 30326502074 verifies startup, privacy, Planner, and process persistence on API 24 and API 36; its cancelled API 24 install lane passed on attempt 2 |
 | Q6 Remote security | Not applicable; no remote code introduced |
-| Q7 Slice evidence | Local evidence passes; pending API 24/API 36 workflow |
+| Q7 Slice evidence | Pass — all mapped local tests, protected quality run 30326469061, and Android matrix run 30326502074 are green |
 
 No VS-04 schema, recurrence engine, Calendar Event write repository, remote
 client, notification worker, maps SDK, contacts SDK, or unrelated permission is

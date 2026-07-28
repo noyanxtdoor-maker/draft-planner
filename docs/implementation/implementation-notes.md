@@ -244,5 +244,22 @@ repairs did not modify project source or global Git configuration.
   Gradle's optional HTML problems report. Direct `app:assembleDebug` with
   `--no-problems-report` and the same production Dart defines completed
   successfully. No source or global Git configuration changed.
-- API 24 and API 36 clean-emulator evidence is pending the published Android
-  smoke workflow.
+- Protected quality
+  [run 30326469061](https://github.com/noyanxtdoor-maker/draft-planner/actions/runs/30326469061)
+  passed on commit `fdf671f`, including authority verification, formatting,
+  static analysis, byte-clean code generation, all 46 Flutter tests, debug APK
+  assembly, dependency reporting, and secret scanning.
+- Android matrix
+  [run 30326502074](https://github.com/noyanxtdoor-maker/draft-planner/actions/runs/30326502074)
+  passed startup, privacy, Planner, and force-stop persistence flows on both API
+  24 and API 36. On attempt 1, seven lanes passed while the API 24 persistence
+  lane compiled successfully and then stalled for 40 minutes while ADB installed
+  the APK; GitHub cancelled it at the 45-minute job limit before test code ran.
+  The same lane passed on attempt 2 without a source change.
+- Two earlier Android runs exposed test-only viewport assumptions. The permanent
+  shell legitimately renders `Home` in both its app bar and bottom navigation,
+  so legacy smoke tests now target the unique bottom-navigation key. The real
+  Android viewport also places the Task section below the day timeline, so the
+  Planner smoke test now scrolls the saved Task into view before tapping it.
+  These corrections changed only integration-test selectors/scrolling and did
+  not alter production behavior or acceptance criteria.
