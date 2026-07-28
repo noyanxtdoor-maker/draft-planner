@@ -26,6 +26,7 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
     required this.timeZones,
     this.reportSource = const EmptyCalendarEventReportSource(),
     this.taskContextSource = const EmptyCalendarEventTaskContextSource(),
+    this.linkContextTransfer = const EmptyCalendarEventLinkContextTransfer(),
     this.writeGuard = const AllowCalendarEventWrites(),
   });
 
@@ -34,6 +35,7 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
   final IanaCalendarEventTimeZones timeZones;
   final CalendarEventReportSource reportSource;
   final CalendarEventTaskContextSource taskContextSource;
+  final CalendarEventLinkContextTransfer linkContextTransfer;
   final CalendarEventWriteGuard writeGuard;
 
   @override
@@ -426,6 +428,16 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
             replacementEventId: replacementDraft.id,
           );
       }
+      await linkContextTransfer.transferOnReschedule(
+        profileId: profileId,
+        sourceEventId: eventId,
+        sourceOccurrenceId: current.id,
+        sourceOriginalDate: originalDate,
+        scope: scope,
+        replacementEventId: replacementDraft.id,
+        replacementOriginalDate: replacementDraft.startDate,
+        operationId: operationId,
+      );
       await _insertOperation(
         operationId: operationId,
         profileId: profileId,
@@ -672,7 +684,10 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
       recurrence: rule,
       replacementEventId:
           exception?.replacementEventId ?? row.replacementEventId,
-      linkedTaskIds: await taskContextSource.readLinkedTaskIds(occurrenceId),
+      linkedTaskIds: await taskContextSource.readLinkedTaskIds(
+        eventId: row.id,
+        occurrenceId: occurrenceId,
+      ),
     );
   }
 

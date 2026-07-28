@@ -8,8 +8,8 @@ permanent application ID and namespace are `com.nexttransfer.rmplanner`.
 
 Repository bootstrap, Q0, VS-01 (Guest Startup and Local Profile), VS-02
 (Privacy Lock, Permissions, and Privacy Center), VS-03 (Planner Day and Tasks),
-and VS-04 (Calendar Events) are implemented. VS-05 and later slices are
-intentionally not started.
+VS-04 (Calendar Events), and VS-05 (Task-Event Linking) are implemented.
+VS-06 and later slices are intentionally not started.
 
 VS-01 provides:
 
@@ -60,9 +60,20 @@ VS-04 adds:
 - schema version 4 with profile-scoped Event series, append-only exceptions,
   and retry-idempotent operation records.
 
-Task-Event linking writes, report and Activity Ledger writes, remote
-account/sync code, and later planning features remain outside the authorized
-slice.
+VS-05 adds:
+
+- explicit, offline Task-to-Calendar-Event links from either detail flow;
+- multiple Tasks per Event and multiple Events per Task without merged status;
+- series links plus occurrence-level overrides for recurring Events;
+- explicit canonical planning-source selection so a link never creates
+  progress, Actual, or duplicate Scheduled Potential;
+- atomic “Create Calendar Event from Task” and reschedule-link transfer;
+- reversible unlinking, append-only link history, and recoverable broken
+  references;
+- schema version 5 with profile-scoped links and idempotent history operations.
+
+Report and Activity Ledger writes, remote account/sync code, and later planning
+features remain outside the authorized slice.
 
 ## Locked toolchain
 
@@ -95,7 +106,7 @@ flutter run \
 
 Equivalent non-secret examples exist for development, staging, and production.
 
-No secret is required through VS-04. Never commit signing keys, private
+No secret is required through VS-05. Never commit signing keys, private
 environment files, service-role keys, or user database files.
 
 ## Repository layout
@@ -106,7 +117,7 @@ lib/app/           App shell, theme, and routing
 lib/core/          Database, diagnostics, platform, privacy, time, and IDs
 lib/features/      Vertical feature modules; startup, privacy, and planner
 test/              Unit, repository, migration, and widget tests
-integration_test/  Android VS-01 through VS-04 smoke journeys
+integration_test/  Android VS-01 through VS-05 smoke journeys
 tool/              Toolchain metadata and authority verification
 docs/              Approved sources, preserved baselines, and implementation evidence
 .github/           PR quality and scheduled Android smoke workflows
@@ -122,12 +133,12 @@ Slice mappings and verification evidence are maintained in
 [`docs/implementation/vs-01-traceability.md`](docs/implementation/vs-01-traceability.md)
 and
 [`docs/implementation/vs-02-traceability.md`](docs/implementation/vs-02-traceability.md),
-and
 [`docs/implementation/vs-03-traceability.md`](docs/implementation/vs-03-traceability.md),
+[`docs/implementation/vs-04-traceability.md`](docs/implementation/vs-04-traceability.md),
 and
-[`docs/implementation/vs-04-traceability.md`](docs/implementation/vs-04-traceability.md).
+[`docs/implementation/vs-05-traceability.md`](docs/implementation/vs-05-traceability.md).
 
-Do not begin VS-05 without explicit product-owner authorization after the VS-04
+Do not begin VS-06 without explicit product-owner authorization after the VS-05
 quality-gate report.
 
 ## APPROVED VISUAL AND PIXEL-REFERENCE CONTRACT

@@ -5942,6 +5942,1384 @@ class CalendarEventOperationsCompanion
   }
 }
 
+class $TaskEventLinksTable extends TaskEventLinks
+    with TableInfo<$TaskEventLinksTable, TaskEventLinkRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $TaskEventLinksTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _profileIdMeta = const VerificationMeta(
+    'profileId',
+  );
+  @override
+  late final GeneratedColumn<String> profileId = GeneratedColumn<String>(
+    'profile_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES local_profiles (id) ON DELETE RESTRICT',
+    ),
+  );
+  static const VerificationMeta _taskIdMeta = const VerificationMeta('taskId');
+  @override
+  late final GeneratedColumn<String> taskId = GeneratedColumn<String>(
+    'task_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _eventIdMeta = const VerificationMeta(
+    'eventId',
+  );
+  @override
+  late final GeneratedColumn<String> eventId = GeneratedColumn<String>(
+    'event_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _scopeMeta = const VerificationMeta('scope');
+  @override
+  late final GeneratedColumn<String> scope = GeneratedColumn<String>(
+    'scope',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _targetKeyMeta = const VerificationMeta(
+    'targetKey',
+  );
+  @override
+  late final GeneratedColumn<String> targetKey = GeneratedColumn<String>(
+    'target_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _occurrenceIdMeta = const VerificationMeta(
+    'occurrenceId',
+  );
+  @override
+  late final GeneratedColumn<String> occurrenceId = GeneratedColumn<String>(
+    'occurrence_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _originalDateMeta = const VerificationMeta(
+    'originalDate',
+  );
+  @override
+  late final GeneratedColumn<String> originalDate = GeneratedColumn<String>(
+    'original_date',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('active'),
+  );
+  static const VerificationMeta _canonicalSourceMeta = const VerificationMeta(
+    'canonicalSource',
+  );
+  @override
+  late final GeneratedColumn<String> canonicalSource = GeneratedColumn<String>(
+    'canonical_source',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _transferredFromLinkIdMeta =
+      const VerificationMeta('transferredFromLinkId');
+  @override
+  late final GeneratedColumn<String> transferredFromLinkId =
+      GeneratedColumn<String>(
+        'transferred_from_link_id',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _createdAtUtcMeta = const VerificationMeta(
+    'createdAtUtc',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAtUtc = GeneratedColumn<DateTime>(
+    'created_at_utc',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtUtcMeta = const VerificationMeta(
+    'updatedAtUtc',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAtUtc = GeneratedColumn<DateTime>(
+    'updated_at_utc',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    profileId,
+    taskId,
+    eventId,
+    scope,
+    targetKey,
+    occurrenceId,
+    originalDate,
+    status,
+    canonicalSource,
+    transferredFromLinkId,
+    createdAtUtc,
+    updatedAtUtc,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'task_event_links';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<TaskEventLinkRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('profile_id')) {
+      context.handle(
+        _profileIdMeta,
+        profileId.isAcceptableOrUnknown(data['profile_id']!, _profileIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_profileIdMeta);
+    }
+    if (data.containsKey('task_id')) {
+      context.handle(
+        _taskIdMeta,
+        taskId.isAcceptableOrUnknown(data['task_id']!, _taskIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_taskIdMeta);
+    }
+    if (data.containsKey('event_id')) {
+      context.handle(
+        _eventIdMeta,
+        eventId.isAcceptableOrUnknown(data['event_id']!, _eventIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_eventIdMeta);
+    }
+    if (data.containsKey('scope')) {
+      context.handle(
+        _scopeMeta,
+        scope.isAcceptableOrUnknown(data['scope']!, _scopeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_scopeMeta);
+    }
+    if (data.containsKey('target_key')) {
+      context.handle(
+        _targetKeyMeta,
+        targetKey.isAcceptableOrUnknown(data['target_key']!, _targetKeyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_targetKeyMeta);
+    }
+    if (data.containsKey('occurrence_id')) {
+      context.handle(
+        _occurrenceIdMeta,
+        occurrenceId.isAcceptableOrUnknown(
+          data['occurrence_id']!,
+          _occurrenceIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('original_date')) {
+      context.handle(
+        _originalDateMeta,
+        originalDate.isAcceptableOrUnknown(
+          data['original_date']!,
+          _originalDateMeta,
+        ),
+      );
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    }
+    if (data.containsKey('canonical_source')) {
+      context.handle(
+        _canonicalSourceMeta,
+        canonicalSource.isAcceptableOrUnknown(
+          data['canonical_source']!,
+          _canonicalSourceMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_canonicalSourceMeta);
+    }
+    if (data.containsKey('transferred_from_link_id')) {
+      context.handle(
+        _transferredFromLinkIdMeta,
+        transferredFromLinkId.isAcceptableOrUnknown(
+          data['transferred_from_link_id']!,
+          _transferredFromLinkIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_at_utc')) {
+      context.handle(
+        _createdAtUtcMeta,
+        createdAtUtc.isAcceptableOrUnknown(
+          data['created_at_utc']!,
+          _createdAtUtcMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtUtcMeta);
+    }
+    if (data.containsKey('updated_at_utc')) {
+      context.handle(
+        _updatedAtUtcMeta,
+        updatedAtUtc.isAcceptableOrUnknown(
+          data['updated_at_utc']!,
+          _updatedAtUtcMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtUtcMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  TaskEventLinkRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return TaskEventLinkRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      profileId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}profile_id'],
+      )!,
+      taskId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}task_id'],
+      )!,
+      eventId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}event_id'],
+      )!,
+      scope: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}scope'],
+      )!,
+      targetKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}target_key'],
+      )!,
+      occurrenceId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}occurrence_id'],
+      ),
+      originalDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}original_date'],
+      ),
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      canonicalSource: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}canonical_source'],
+      )!,
+      transferredFromLinkId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}transferred_from_link_id'],
+      ),
+      createdAtUtc: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at_utc'],
+      )!,
+      updatedAtUtc: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at_utc'],
+      )!,
+    );
+  }
+
+  @override
+  $TaskEventLinksTable createAlias(String alias) {
+    return $TaskEventLinksTable(attachedDatabase, alias);
+  }
+}
+
+class TaskEventLinkRow extends DataClass
+    implements Insertable<TaskEventLinkRow> {
+  final String id;
+  final String profileId;
+  final String taskId;
+  final String eventId;
+  final String scope;
+  final String targetKey;
+  final String? occurrenceId;
+  final String? originalDate;
+  final String status;
+  final String canonicalSource;
+  final String? transferredFromLinkId;
+  final DateTime createdAtUtc;
+  final DateTime updatedAtUtc;
+  const TaskEventLinkRow({
+    required this.id,
+    required this.profileId,
+    required this.taskId,
+    required this.eventId,
+    required this.scope,
+    required this.targetKey,
+    this.occurrenceId,
+    this.originalDate,
+    required this.status,
+    required this.canonicalSource,
+    this.transferredFromLinkId,
+    required this.createdAtUtc,
+    required this.updatedAtUtc,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['profile_id'] = Variable<String>(profileId);
+    map['task_id'] = Variable<String>(taskId);
+    map['event_id'] = Variable<String>(eventId);
+    map['scope'] = Variable<String>(scope);
+    map['target_key'] = Variable<String>(targetKey);
+    if (!nullToAbsent || occurrenceId != null) {
+      map['occurrence_id'] = Variable<String>(occurrenceId);
+    }
+    if (!nullToAbsent || originalDate != null) {
+      map['original_date'] = Variable<String>(originalDate);
+    }
+    map['status'] = Variable<String>(status);
+    map['canonical_source'] = Variable<String>(canonicalSource);
+    if (!nullToAbsent || transferredFromLinkId != null) {
+      map['transferred_from_link_id'] = Variable<String>(transferredFromLinkId);
+    }
+    map['created_at_utc'] = Variable<DateTime>(createdAtUtc);
+    map['updated_at_utc'] = Variable<DateTime>(updatedAtUtc);
+    return map;
+  }
+
+  TaskEventLinksCompanion toCompanion(bool nullToAbsent) {
+    return TaskEventLinksCompanion(
+      id: Value(id),
+      profileId: Value(profileId),
+      taskId: Value(taskId),
+      eventId: Value(eventId),
+      scope: Value(scope),
+      targetKey: Value(targetKey),
+      occurrenceId: occurrenceId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(occurrenceId),
+      originalDate: originalDate == null && nullToAbsent
+          ? const Value.absent()
+          : Value(originalDate),
+      status: Value(status),
+      canonicalSource: Value(canonicalSource),
+      transferredFromLinkId: transferredFromLinkId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(transferredFromLinkId),
+      createdAtUtc: Value(createdAtUtc),
+      updatedAtUtc: Value(updatedAtUtc),
+    );
+  }
+
+  factory TaskEventLinkRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return TaskEventLinkRow(
+      id: serializer.fromJson<String>(json['id']),
+      profileId: serializer.fromJson<String>(json['profileId']),
+      taskId: serializer.fromJson<String>(json['taskId']),
+      eventId: serializer.fromJson<String>(json['eventId']),
+      scope: serializer.fromJson<String>(json['scope']),
+      targetKey: serializer.fromJson<String>(json['targetKey']),
+      occurrenceId: serializer.fromJson<String?>(json['occurrenceId']),
+      originalDate: serializer.fromJson<String?>(json['originalDate']),
+      status: serializer.fromJson<String>(json['status']),
+      canonicalSource: serializer.fromJson<String>(json['canonicalSource']),
+      transferredFromLinkId: serializer.fromJson<String?>(
+        json['transferredFromLinkId'],
+      ),
+      createdAtUtc: serializer.fromJson<DateTime>(json['createdAtUtc']),
+      updatedAtUtc: serializer.fromJson<DateTime>(json['updatedAtUtc']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'profileId': serializer.toJson<String>(profileId),
+      'taskId': serializer.toJson<String>(taskId),
+      'eventId': serializer.toJson<String>(eventId),
+      'scope': serializer.toJson<String>(scope),
+      'targetKey': serializer.toJson<String>(targetKey),
+      'occurrenceId': serializer.toJson<String?>(occurrenceId),
+      'originalDate': serializer.toJson<String?>(originalDate),
+      'status': serializer.toJson<String>(status),
+      'canonicalSource': serializer.toJson<String>(canonicalSource),
+      'transferredFromLinkId': serializer.toJson<String?>(
+        transferredFromLinkId,
+      ),
+      'createdAtUtc': serializer.toJson<DateTime>(createdAtUtc),
+      'updatedAtUtc': serializer.toJson<DateTime>(updatedAtUtc),
+    };
+  }
+
+  TaskEventLinkRow copyWith({
+    String? id,
+    String? profileId,
+    String? taskId,
+    String? eventId,
+    String? scope,
+    String? targetKey,
+    Value<String?> occurrenceId = const Value.absent(),
+    Value<String?> originalDate = const Value.absent(),
+    String? status,
+    String? canonicalSource,
+    Value<String?> transferredFromLinkId = const Value.absent(),
+    DateTime? createdAtUtc,
+    DateTime? updatedAtUtc,
+  }) => TaskEventLinkRow(
+    id: id ?? this.id,
+    profileId: profileId ?? this.profileId,
+    taskId: taskId ?? this.taskId,
+    eventId: eventId ?? this.eventId,
+    scope: scope ?? this.scope,
+    targetKey: targetKey ?? this.targetKey,
+    occurrenceId: occurrenceId.present ? occurrenceId.value : this.occurrenceId,
+    originalDate: originalDate.present ? originalDate.value : this.originalDate,
+    status: status ?? this.status,
+    canonicalSource: canonicalSource ?? this.canonicalSource,
+    transferredFromLinkId: transferredFromLinkId.present
+        ? transferredFromLinkId.value
+        : this.transferredFromLinkId,
+    createdAtUtc: createdAtUtc ?? this.createdAtUtc,
+    updatedAtUtc: updatedAtUtc ?? this.updatedAtUtc,
+  );
+  TaskEventLinkRow copyWithCompanion(TaskEventLinksCompanion data) {
+    return TaskEventLinkRow(
+      id: data.id.present ? data.id.value : this.id,
+      profileId: data.profileId.present ? data.profileId.value : this.profileId,
+      taskId: data.taskId.present ? data.taskId.value : this.taskId,
+      eventId: data.eventId.present ? data.eventId.value : this.eventId,
+      scope: data.scope.present ? data.scope.value : this.scope,
+      targetKey: data.targetKey.present ? data.targetKey.value : this.targetKey,
+      occurrenceId: data.occurrenceId.present
+          ? data.occurrenceId.value
+          : this.occurrenceId,
+      originalDate: data.originalDate.present
+          ? data.originalDate.value
+          : this.originalDate,
+      status: data.status.present ? data.status.value : this.status,
+      canonicalSource: data.canonicalSource.present
+          ? data.canonicalSource.value
+          : this.canonicalSource,
+      transferredFromLinkId: data.transferredFromLinkId.present
+          ? data.transferredFromLinkId.value
+          : this.transferredFromLinkId,
+      createdAtUtc: data.createdAtUtc.present
+          ? data.createdAtUtc.value
+          : this.createdAtUtc,
+      updatedAtUtc: data.updatedAtUtc.present
+          ? data.updatedAtUtc.value
+          : this.updatedAtUtc,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('TaskEventLinkRow(')
+          ..write('id: $id, ')
+          ..write('profileId: $profileId, ')
+          ..write('taskId: $taskId, ')
+          ..write('eventId: $eventId, ')
+          ..write('scope: $scope, ')
+          ..write('targetKey: $targetKey, ')
+          ..write('occurrenceId: $occurrenceId, ')
+          ..write('originalDate: $originalDate, ')
+          ..write('status: $status, ')
+          ..write('canonicalSource: $canonicalSource, ')
+          ..write('transferredFromLinkId: $transferredFromLinkId, ')
+          ..write('createdAtUtc: $createdAtUtc, ')
+          ..write('updatedAtUtc: $updatedAtUtc')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    profileId,
+    taskId,
+    eventId,
+    scope,
+    targetKey,
+    occurrenceId,
+    originalDate,
+    status,
+    canonicalSource,
+    transferredFromLinkId,
+    createdAtUtc,
+    updatedAtUtc,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is TaskEventLinkRow &&
+          other.id == this.id &&
+          other.profileId == this.profileId &&
+          other.taskId == this.taskId &&
+          other.eventId == this.eventId &&
+          other.scope == this.scope &&
+          other.targetKey == this.targetKey &&
+          other.occurrenceId == this.occurrenceId &&
+          other.originalDate == this.originalDate &&
+          other.status == this.status &&
+          other.canonicalSource == this.canonicalSource &&
+          other.transferredFromLinkId == this.transferredFromLinkId &&
+          other.createdAtUtc == this.createdAtUtc &&
+          other.updatedAtUtc == this.updatedAtUtc);
+}
+
+class TaskEventLinksCompanion extends UpdateCompanion<TaskEventLinkRow> {
+  final Value<String> id;
+  final Value<String> profileId;
+  final Value<String> taskId;
+  final Value<String> eventId;
+  final Value<String> scope;
+  final Value<String> targetKey;
+  final Value<String?> occurrenceId;
+  final Value<String?> originalDate;
+  final Value<String> status;
+  final Value<String> canonicalSource;
+  final Value<String?> transferredFromLinkId;
+  final Value<DateTime> createdAtUtc;
+  final Value<DateTime> updatedAtUtc;
+  final Value<int> rowid;
+  const TaskEventLinksCompanion({
+    this.id = const Value.absent(),
+    this.profileId = const Value.absent(),
+    this.taskId = const Value.absent(),
+    this.eventId = const Value.absent(),
+    this.scope = const Value.absent(),
+    this.targetKey = const Value.absent(),
+    this.occurrenceId = const Value.absent(),
+    this.originalDate = const Value.absent(),
+    this.status = const Value.absent(),
+    this.canonicalSource = const Value.absent(),
+    this.transferredFromLinkId = const Value.absent(),
+    this.createdAtUtc = const Value.absent(),
+    this.updatedAtUtc = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  TaskEventLinksCompanion.insert({
+    required String id,
+    required String profileId,
+    required String taskId,
+    required String eventId,
+    required String scope,
+    required String targetKey,
+    this.occurrenceId = const Value.absent(),
+    this.originalDate = const Value.absent(),
+    this.status = const Value.absent(),
+    required String canonicalSource,
+    this.transferredFromLinkId = const Value.absent(),
+    required DateTime createdAtUtc,
+    required DateTime updatedAtUtc,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       profileId = Value(profileId),
+       taskId = Value(taskId),
+       eventId = Value(eventId),
+       scope = Value(scope),
+       targetKey = Value(targetKey),
+       canonicalSource = Value(canonicalSource),
+       createdAtUtc = Value(createdAtUtc),
+       updatedAtUtc = Value(updatedAtUtc);
+  static Insertable<TaskEventLinkRow> custom({
+    Expression<String>? id,
+    Expression<String>? profileId,
+    Expression<String>? taskId,
+    Expression<String>? eventId,
+    Expression<String>? scope,
+    Expression<String>? targetKey,
+    Expression<String>? occurrenceId,
+    Expression<String>? originalDate,
+    Expression<String>? status,
+    Expression<String>? canonicalSource,
+    Expression<String>? transferredFromLinkId,
+    Expression<DateTime>? createdAtUtc,
+    Expression<DateTime>? updatedAtUtc,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (profileId != null) 'profile_id': profileId,
+      if (taskId != null) 'task_id': taskId,
+      if (eventId != null) 'event_id': eventId,
+      if (scope != null) 'scope': scope,
+      if (targetKey != null) 'target_key': targetKey,
+      if (occurrenceId != null) 'occurrence_id': occurrenceId,
+      if (originalDate != null) 'original_date': originalDate,
+      if (status != null) 'status': status,
+      if (canonicalSource != null) 'canonical_source': canonicalSource,
+      if (transferredFromLinkId != null)
+        'transferred_from_link_id': transferredFromLinkId,
+      if (createdAtUtc != null) 'created_at_utc': createdAtUtc,
+      if (updatedAtUtc != null) 'updated_at_utc': updatedAtUtc,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  TaskEventLinksCompanion copyWith({
+    Value<String>? id,
+    Value<String>? profileId,
+    Value<String>? taskId,
+    Value<String>? eventId,
+    Value<String>? scope,
+    Value<String>? targetKey,
+    Value<String?>? occurrenceId,
+    Value<String?>? originalDate,
+    Value<String>? status,
+    Value<String>? canonicalSource,
+    Value<String?>? transferredFromLinkId,
+    Value<DateTime>? createdAtUtc,
+    Value<DateTime>? updatedAtUtc,
+    Value<int>? rowid,
+  }) {
+    return TaskEventLinksCompanion(
+      id: id ?? this.id,
+      profileId: profileId ?? this.profileId,
+      taskId: taskId ?? this.taskId,
+      eventId: eventId ?? this.eventId,
+      scope: scope ?? this.scope,
+      targetKey: targetKey ?? this.targetKey,
+      occurrenceId: occurrenceId ?? this.occurrenceId,
+      originalDate: originalDate ?? this.originalDate,
+      status: status ?? this.status,
+      canonicalSource: canonicalSource ?? this.canonicalSource,
+      transferredFromLinkId:
+          transferredFromLinkId ?? this.transferredFromLinkId,
+      createdAtUtc: createdAtUtc ?? this.createdAtUtc,
+      updatedAtUtc: updatedAtUtc ?? this.updatedAtUtc,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (profileId.present) {
+      map['profile_id'] = Variable<String>(profileId.value);
+    }
+    if (taskId.present) {
+      map['task_id'] = Variable<String>(taskId.value);
+    }
+    if (eventId.present) {
+      map['event_id'] = Variable<String>(eventId.value);
+    }
+    if (scope.present) {
+      map['scope'] = Variable<String>(scope.value);
+    }
+    if (targetKey.present) {
+      map['target_key'] = Variable<String>(targetKey.value);
+    }
+    if (occurrenceId.present) {
+      map['occurrence_id'] = Variable<String>(occurrenceId.value);
+    }
+    if (originalDate.present) {
+      map['original_date'] = Variable<String>(originalDate.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (canonicalSource.present) {
+      map['canonical_source'] = Variable<String>(canonicalSource.value);
+    }
+    if (transferredFromLinkId.present) {
+      map['transferred_from_link_id'] = Variable<String>(
+        transferredFromLinkId.value,
+      );
+    }
+    if (createdAtUtc.present) {
+      map['created_at_utc'] = Variable<DateTime>(createdAtUtc.value);
+    }
+    if (updatedAtUtc.present) {
+      map['updated_at_utc'] = Variable<DateTime>(updatedAtUtc.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('TaskEventLinksCompanion(')
+          ..write('id: $id, ')
+          ..write('profileId: $profileId, ')
+          ..write('taskId: $taskId, ')
+          ..write('eventId: $eventId, ')
+          ..write('scope: $scope, ')
+          ..write('targetKey: $targetKey, ')
+          ..write('occurrenceId: $occurrenceId, ')
+          ..write('originalDate: $originalDate, ')
+          ..write('status: $status, ')
+          ..write('canonicalSource: $canonicalSource, ')
+          ..write('transferredFromLinkId: $transferredFromLinkId, ')
+          ..write('createdAtUtc: $createdAtUtc, ')
+          ..write('updatedAtUtc: $updatedAtUtc, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $TaskEventLinkHistoryTable extends TaskEventLinkHistory
+    with TableInfo<$TaskEventLinkHistoryTable, TaskEventLinkHistoryRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $TaskEventLinkHistoryTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _profileIdMeta = const VerificationMeta(
+    'profileId',
+  );
+  @override
+  late final GeneratedColumn<String> profileId = GeneratedColumn<String>(
+    'profile_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES local_profiles (id) ON DELETE RESTRICT',
+    ),
+  );
+  static const VerificationMeta _linkIdMeta = const VerificationMeta('linkId');
+  @override
+  late final GeneratedColumn<String> linkId = GeneratedColumn<String>(
+    'link_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _operationIdMeta = const VerificationMeta(
+    'operationId',
+  );
+  @override
+  late final GeneratedColumn<String> operationId = GeneratedColumn<String>(
+    'operation_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _actionMeta = const VerificationMeta('action');
+  @override
+  late final GeneratedColumn<String> action = GeneratedColumn<String>(
+    'action',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _fromStatusMeta = const VerificationMeta(
+    'fromStatus',
+  );
+  @override
+  late final GeneratedColumn<String> fromStatus = GeneratedColumn<String>(
+    'from_status',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _toStatusMeta = const VerificationMeta(
+    'toStatus',
+  );
+  @override
+  late final GeneratedColumn<String> toStatus = GeneratedColumn<String>(
+    'to_status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _relatedLinkIdMeta = const VerificationMeta(
+    'relatedLinkId',
+  );
+  @override
+  late final GeneratedColumn<String> relatedLinkId = GeneratedColumn<String>(
+    'related_link_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtUtcMeta = const VerificationMeta(
+    'createdAtUtc',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAtUtc = GeneratedColumn<DateTime>(
+    'created_at_utc',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    profileId,
+    linkId,
+    operationId,
+    action,
+    fromStatus,
+    toStatus,
+    relatedLinkId,
+    createdAtUtc,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'task_event_link_history';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<TaskEventLinkHistoryRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('profile_id')) {
+      context.handle(
+        _profileIdMeta,
+        profileId.isAcceptableOrUnknown(data['profile_id']!, _profileIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_profileIdMeta);
+    }
+    if (data.containsKey('link_id')) {
+      context.handle(
+        _linkIdMeta,
+        linkId.isAcceptableOrUnknown(data['link_id']!, _linkIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_linkIdMeta);
+    }
+    if (data.containsKey('operation_id')) {
+      context.handle(
+        _operationIdMeta,
+        operationId.isAcceptableOrUnknown(
+          data['operation_id']!,
+          _operationIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_operationIdMeta);
+    }
+    if (data.containsKey('action')) {
+      context.handle(
+        _actionMeta,
+        action.isAcceptableOrUnknown(data['action']!, _actionMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_actionMeta);
+    }
+    if (data.containsKey('from_status')) {
+      context.handle(
+        _fromStatusMeta,
+        fromStatus.isAcceptableOrUnknown(data['from_status']!, _fromStatusMeta),
+      );
+    }
+    if (data.containsKey('to_status')) {
+      context.handle(
+        _toStatusMeta,
+        toStatus.isAcceptableOrUnknown(data['to_status']!, _toStatusMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_toStatusMeta);
+    }
+    if (data.containsKey('related_link_id')) {
+      context.handle(
+        _relatedLinkIdMeta,
+        relatedLinkId.isAcceptableOrUnknown(
+          data['related_link_id']!,
+          _relatedLinkIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_at_utc')) {
+      context.handle(
+        _createdAtUtcMeta,
+        createdAtUtc.isAcceptableOrUnknown(
+          data['created_at_utc']!,
+          _createdAtUtcMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtUtcMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  TaskEventLinkHistoryRow map(
+    Map<String, dynamic> data, {
+    String? tablePrefix,
+  }) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return TaskEventLinkHistoryRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      profileId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}profile_id'],
+      )!,
+      linkId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}link_id'],
+      )!,
+      operationId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}operation_id'],
+      )!,
+      action: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}action'],
+      )!,
+      fromStatus: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}from_status'],
+      ),
+      toStatus: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}to_status'],
+      )!,
+      relatedLinkId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}related_link_id'],
+      ),
+      createdAtUtc: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at_utc'],
+      )!,
+    );
+  }
+
+  @override
+  $TaskEventLinkHistoryTable createAlias(String alias) {
+    return $TaskEventLinkHistoryTable(attachedDatabase, alias);
+  }
+}
+
+class TaskEventLinkHistoryRow extends DataClass
+    implements Insertable<TaskEventLinkHistoryRow> {
+  final String id;
+  final String profileId;
+  final String linkId;
+  final String operationId;
+  final String action;
+  final String? fromStatus;
+  final String toStatus;
+  final String? relatedLinkId;
+  final DateTime createdAtUtc;
+  const TaskEventLinkHistoryRow({
+    required this.id,
+    required this.profileId,
+    required this.linkId,
+    required this.operationId,
+    required this.action,
+    this.fromStatus,
+    required this.toStatus,
+    this.relatedLinkId,
+    required this.createdAtUtc,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['profile_id'] = Variable<String>(profileId);
+    map['link_id'] = Variable<String>(linkId);
+    map['operation_id'] = Variable<String>(operationId);
+    map['action'] = Variable<String>(action);
+    if (!nullToAbsent || fromStatus != null) {
+      map['from_status'] = Variable<String>(fromStatus);
+    }
+    map['to_status'] = Variable<String>(toStatus);
+    if (!nullToAbsent || relatedLinkId != null) {
+      map['related_link_id'] = Variable<String>(relatedLinkId);
+    }
+    map['created_at_utc'] = Variable<DateTime>(createdAtUtc);
+    return map;
+  }
+
+  TaskEventLinkHistoryCompanion toCompanion(bool nullToAbsent) {
+    return TaskEventLinkHistoryCompanion(
+      id: Value(id),
+      profileId: Value(profileId),
+      linkId: Value(linkId),
+      operationId: Value(operationId),
+      action: Value(action),
+      fromStatus: fromStatus == null && nullToAbsent
+          ? const Value.absent()
+          : Value(fromStatus),
+      toStatus: Value(toStatus),
+      relatedLinkId: relatedLinkId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(relatedLinkId),
+      createdAtUtc: Value(createdAtUtc),
+    );
+  }
+
+  factory TaskEventLinkHistoryRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return TaskEventLinkHistoryRow(
+      id: serializer.fromJson<String>(json['id']),
+      profileId: serializer.fromJson<String>(json['profileId']),
+      linkId: serializer.fromJson<String>(json['linkId']),
+      operationId: serializer.fromJson<String>(json['operationId']),
+      action: serializer.fromJson<String>(json['action']),
+      fromStatus: serializer.fromJson<String?>(json['fromStatus']),
+      toStatus: serializer.fromJson<String>(json['toStatus']),
+      relatedLinkId: serializer.fromJson<String?>(json['relatedLinkId']),
+      createdAtUtc: serializer.fromJson<DateTime>(json['createdAtUtc']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'profileId': serializer.toJson<String>(profileId),
+      'linkId': serializer.toJson<String>(linkId),
+      'operationId': serializer.toJson<String>(operationId),
+      'action': serializer.toJson<String>(action),
+      'fromStatus': serializer.toJson<String?>(fromStatus),
+      'toStatus': serializer.toJson<String>(toStatus),
+      'relatedLinkId': serializer.toJson<String?>(relatedLinkId),
+      'createdAtUtc': serializer.toJson<DateTime>(createdAtUtc),
+    };
+  }
+
+  TaskEventLinkHistoryRow copyWith({
+    String? id,
+    String? profileId,
+    String? linkId,
+    String? operationId,
+    String? action,
+    Value<String?> fromStatus = const Value.absent(),
+    String? toStatus,
+    Value<String?> relatedLinkId = const Value.absent(),
+    DateTime? createdAtUtc,
+  }) => TaskEventLinkHistoryRow(
+    id: id ?? this.id,
+    profileId: profileId ?? this.profileId,
+    linkId: linkId ?? this.linkId,
+    operationId: operationId ?? this.operationId,
+    action: action ?? this.action,
+    fromStatus: fromStatus.present ? fromStatus.value : this.fromStatus,
+    toStatus: toStatus ?? this.toStatus,
+    relatedLinkId: relatedLinkId.present
+        ? relatedLinkId.value
+        : this.relatedLinkId,
+    createdAtUtc: createdAtUtc ?? this.createdAtUtc,
+  );
+  TaskEventLinkHistoryRow copyWithCompanion(
+    TaskEventLinkHistoryCompanion data,
+  ) {
+    return TaskEventLinkHistoryRow(
+      id: data.id.present ? data.id.value : this.id,
+      profileId: data.profileId.present ? data.profileId.value : this.profileId,
+      linkId: data.linkId.present ? data.linkId.value : this.linkId,
+      operationId: data.operationId.present
+          ? data.operationId.value
+          : this.operationId,
+      action: data.action.present ? data.action.value : this.action,
+      fromStatus: data.fromStatus.present
+          ? data.fromStatus.value
+          : this.fromStatus,
+      toStatus: data.toStatus.present ? data.toStatus.value : this.toStatus,
+      relatedLinkId: data.relatedLinkId.present
+          ? data.relatedLinkId.value
+          : this.relatedLinkId,
+      createdAtUtc: data.createdAtUtc.present
+          ? data.createdAtUtc.value
+          : this.createdAtUtc,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('TaskEventLinkHistoryRow(')
+          ..write('id: $id, ')
+          ..write('profileId: $profileId, ')
+          ..write('linkId: $linkId, ')
+          ..write('operationId: $operationId, ')
+          ..write('action: $action, ')
+          ..write('fromStatus: $fromStatus, ')
+          ..write('toStatus: $toStatus, ')
+          ..write('relatedLinkId: $relatedLinkId, ')
+          ..write('createdAtUtc: $createdAtUtc')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    profileId,
+    linkId,
+    operationId,
+    action,
+    fromStatus,
+    toStatus,
+    relatedLinkId,
+    createdAtUtc,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is TaskEventLinkHistoryRow &&
+          other.id == this.id &&
+          other.profileId == this.profileId &&
+          other.linkId == this.linkId &&
+          other.operationId == this.operationId &&
+          other.action == this.action &&
+          other.fromStatus == this.fromStatus &&
+          other.toStatus == this.toStatus &&
+          other.relatedLinkId == this.relatedLinkId &&
+          other.createdAtUtc == this.createdAtUtc);
+}
+
+class TaskEventLinkHistoryCompanion
+    extends UpdateCompanion<TaskEventLinkHistoryRow> {
+  final Value<String> id;
+  final Value<String> profileId;
+  final Value<String> linkId;
+  final Value<String> operationId;
+  final Value<String> action;
+  final Value<String?> fromStatus;
+  final Value<String> toStatus;
+  final Value<String?> relatedLinkId;
+  final Value<DateTime> createdAtUtc;
+  final Value<int> rowid;
+  const TaskEventLinkHistoryCompanion({
+    this.id = const Value.absent(),
+    this.profileId = const Value.absent(),
+    this.linkId = const Value.absent(),
+    this.operationId = const Value.absent(),
+    this.action = const Value.absent(),
+    this.fromStatus = const Value.absent(),
+    this.toStatus = const Value.absent(),
+    this.relatedLinkId = const Value.absent(),
+    this.createdAtUtc = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  TaskEventLinkHistoryCompanion.insert({
+    required String id,
+    required String profileId,
+    required String linkId,
+    required String operationId,
+    required String action,
+    this.fromStatus = const Value.absent(),
+    required String toStatus,
+    this.relatedLinkId = const Value.absent(),
+    required DateTime createdAtUtc,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       profileId = Value(profileId),
+       linkId = Value(linkId),
+       operationId = Value(operationId),
+       action = Value(action),
+       toStatus = Value(toStatus),
+       createdAtUtc = Value(createdAtUtc);
+  static Insertable<TaskEventLinkHistoryRow> custom({
+    Expression<String>? id,
+    Expression<String>? profileId,
+    Expression<String>? linkId,
+    Expression<String>? operationId,
+    Expression<String>? action,
+    Expression<String>? fromStatus,
+    Expression<String>? toStatus,
+    Expression<String>? relatedLinkId,
+    Expression<DateTime>? createdAtUtc,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (profileId != null) 'profile_id': profileId,
+      if (linkId != null) 'link_id': linkId,
+      if (operationId != null) 'operation_id': operationId,
+      if (action != null) 'action': action,
+      if (fromStatus != null) 'from_status': fromStatus,
+      if (toStatus != null) 'to_status': toStatus,
+      if (relatedLinkId != null) 'related_link_id': relatedLinkId,
+      if (createdAtUtc != null) 'created_at_utc': createdAtUtc,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  TaskEventLinkHistoryCompanion copyWith({
+    Value<String>? id,
+    Value<String>? profileId,
+    Value<String>? linkId,
+    Value<String>? operationId,
+    Value<String>? action,
+    Value<String?>? fromStatus,
+    Value<String>? toStatus,
+    Value<String?>? relatedLinkId,
+    Value<DateTime>? createdAtUtc,
+    Value<int>? rowid,
+  }) {
+    return TaskEventLinkHistoryCompanion(
+      id: id ?? this.id,
+      profileId: profileId ?? this.profileId,
+      linkId: linkId ?? this.linkId,
+      operationId: operationId ?? this.operationId,
+      action: action ?? this.action,
+      fromStatus: fromStatus ?? this.fromStatus,
+      toStatus: toStatus ?? this.toStatus,
+      relatedLinkId: relatedLinkId ?? this.relatedLinkId,
+      createdAtUtc: createdAtUtc ?? this.createdAtUtc,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (profileId.present) {
+      map['profile_id'] = Variable<String>(profileId.value);
+    }
+    if (linkId.present) {
+      map['link_id'] = Variable<String>(linkId.value);
+    }
+    if (operationId.present) {
+      map['operation_id'] = Variable<String>(operationId.value);
+    }
+    if (action.present) {
+      map['action'] = Variable<String>(action.value);
+    }
+    if (fromStatus.present) {
+      map['from_status'] = Variable<String>(fromStatus.value);
+    }
+    if (toStatus.present) {
+      map['to_status'] = Variable<String>(toStatus.value);
+    }
+    if (relatedLinkId.present) {
+      map['related_link_id'] = Variable<String>(relatedLinkId.value);
+    }
+    if (createdAtUtc.present) {
+      map['created_at_utc'] = Variable<DateTime>(createdAtUtc.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('TaskEventLinkHistoryCompanion(')
+          ..write('id: $id, ')
+          ..write('profileId: $profileId, ')
+          ..write('linkId: $linkId, ')
+          ..write('operationId: $operationId, ')
+          ..write('action: $action, ')
+          ..write('fromStatus: $fromStatus, ')
+          ..write('toStatus: $toStatus, ')
+          ..write('relatedLinkId: $relatedLinkId, ')
+          ..write('createdAtUtc: $createdAtUtc, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -5963,6 +7341,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       $CalendarEventExceptionsTable(this);
   late final $CalendarEventOperationsTable calendarEventOperations =
       $CalendarEventOperationsTable(this);
+  late final $TaskEventLinksTable taskEventLinks = $TaskEventLinksTable(this);
+  late final $TaskEventLinkHistoryTable taskEventLinkHistory =
+      $TaskEventLinkHistoryTable(this);
   late final Index lifeIndicatorProfileKeyUnique = Index(
     'life_indicator_profile_key_unique',
     'CREATE UNIQUE INDEX life_indicator_profile_key_unique ON life_indicator_definitions (profile_id, indicator_key)',
@@ -5987,6 +7368,26 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     'calendar_event_exception_occurrence_time',
     'CREATE INDEX calendar_event_exception_occurrence_time ON calendar_event_exceptions (event_id, occurrence_id, created_at_utc)',
   );
+  late final Index taskEventLinkEquivalentUnique = Index(
+    'task_event_link_equivalent_unique',
+    'CREATE UNIQUE INDEX task_event_link_equivalent_unique ON task_event_links (profile_id, task_id, event_id, target_key)',
+  );
+  late final Index taskEventLinkTaskStatus = Index(
+    'task_event_link_task_status',
+    'CREATE INDEX task_event_link_task_status ON task_event_links (task_id, status)',
+  );
+  late final Index taskEventLinkEventStatus = Index(
+    'task_event_link_event_status',
+    'CREATE INDEX task_event_link_event_status ON task_event_links (event_id, status)',
+  );
+  late final Index taskEventLinkHistoryOperationUnique = Index(
+    'task_event_link_history_operation_unique',
+    'CREATE UNIQUE INDEX task_event_link_history_operation_unique ON task_event_link_history (operation_id)',
+  );
+  late final Index taskEventLinkHistoryLinkTime = Index(
+    'task_event_link_history_link_time',
+    'CREATE INDEX task_event_link_history_link_time ON task_event_link_history (link_id, created_at_utc)',
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -6002,12 +7403,19 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     calendarEvents,
     calendarEventExceptions,
     calendarEventOperations,
+    taskEventLinks,
+    taskEventLinkHistory,
     lifeIndicatorProfileKeyUnique,
     plannerTaskProfileDueDate,
     taskStatusChangeOperationUnique,
     taskStatusChangeTaskTime,
     calendarEventProfileStartDate,
     calendarEventExceptionOccurrenceTime,
+    taskEventLinkEquivalentUnique,
+    taskEventLinkTaskStatus,
+    taskEventLinkEventStatus,
+    taskEventLinkHistoryOperationUnique,
+    taskEventLinkHistoryLinkTime,
   ];
 }
 
@@ -6167,6 +7575,49 @@ final class $$LocalProfilesTableReferences
 
     final cache = $_typedResult.readTableOrNull(
       _calendarEventOperationsRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$TaskEventLinksTable, List<TaskEventLinkRow>>
+  _taskEventLinksRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.taskEventLinks,
+    aliasName: 'local_profiles__id__task_event_links__profile_id',
+  );
+
+  $$TaskEventLinksTableProcessedTableManager get taskEventLinksRefs {
+    final manager = $$TaskEventLinksTableTableManager(
+      $_db,
+      $_db.taskEventLinks,
+    ).filter((f) => f.profileId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_taskEventLinksRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<
+    $TaskEventLinkHistoryTable,
+    List<TaskEventLinkHistoryRow>
+  >
+  _taskEventLinkHistoryRefsTable(_$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.taskEventLinkHistory,
+        aliasName: 'local_profiles__id__task_event_link_history__profile_id',
+      );
+
+  $$TaskEventLinkHistoryTableProcessedTableManager
+  get taskEventLinkHistoryRefs {
+    final manager = $$TaskEventLinkHistoryTableTableManager(
+      $_db,
+      $_db.taskEventLinkHistory,
+    ).filter((f) => f.profileId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _taskEventLinkHistoryRefsTable($_db),
     );
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: cache),
@@ -6364,6 +7815,56 @@ class $$LocalProfilesTableFilterComposer
                     $removeJoinBuilderFromRootComposer,
               ),
         );
+    return f(composer);
+  }
+
+  Expression<bool> taskEventLinksRefs(
+    Expression<bool> Function($$TaskEventLinksTableFilterComposer f) f,
+  ) {
+    final $$TaskEventLinksTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.taskEventLinks,
+      getReferencedColumn: (t) => t.profileId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TaskEventLinksTableFilterComposer(
+            $db: $db,
+            $table: $db.taskEventLinks,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> taskEventLinkHistoryRefs(
+    Expression<bool> Function($$TaskEventLinkHistoryTableFilterComposer f) f,
+  ) {
+    final $$TaskEventLinkHistoryTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.taskEventLinkHistory,
+      getReferencedColumn: (t) => t.profileId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TaskEventLinkHistoryTableFilterComposer(
+            $db: $db,
+            $table: $db.taskEventLinkHistory,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
     return f(composer);
   }
 }
@@ -6597,6 +8098,57 @@ class $$LocalProfilesTableAnnotationComposer
         );
     return f(composer);
   }
+
+  Expression<T> taskEventLinksRefs<T extends Object>(
+    Expression<T> Function($$TaskEventLinksTableAnnotationComposer a) f,
+  ) {
+    final $$TaskEventLinksTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.taskEventLinks,
+      getReferencedColumn: (t) => t.profileId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TaskEventLinksTableAnnotationComposer(
+            $db: $db,
+            $table: $db.taskEventLinks,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<T> taskEventLinkHistoryRefs<T extends Object>(
+    Expression<T> Function($$TaskEventLinkHistoryTableAnnotationComposer a) f,
+  ) {
+    final $$TaskEventLinkHistoryTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.taskEventLinkHistory,
+          getReferencedColumn: (t) => t.profileId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$TaskEventLinkHistoryTableAnnotationComposer(
+                $db: $db,
+                $table: $db.taskEventLinkHistory,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
 }
 
 class $$LocalProfilesTableTableManager
@@ -6619,6 +8171,8 @@ class $$LocalProfilesTableTableManager
             bool calendarEventsRefs,
             bool calendarEventExceptionsRefs,
             bool calendarEventOperationsRefs,
+            bool taskEventLinksRefs,
+            bool taskEventLinkHistoryRefs,
           })
         > {
   $$LocalProfilesTableTableManager(_$AppDatabase db, $LocalProfilesTable table)
@@ -6684,6 +8238,8 @@ class $$LocalProfilesTableTableManager
                 calendarEventsRefs = false,
                 calendarEventExceptionsRefs = false,
                 calendarEventOperationsRefs = false,
+                taskEventLinksRefs = false,
+                taskEventLinkHistoryRefs = false,
               }) {
                 return PrefetchHooks(
                   db: db,
@@ -6695,6 +8251,8 @@ class $$LocalProfilesTableTableManager
                     if (calendarEventsRefs) db.calendarEvents,
                     if (calendarEventExceptionsRefs) db.calendarEventExceptions,
                     if (calendarEventOperationsRefs) db.calendarEventOperations,
+                    if (taskEventLinksRefs) db.taskEventLinks,
+                    if (taskEventLinkHistoryRefs) db.taskEventLinkHistory,
                   ],
                   addJoins: null,
                   getPrefetchedDataCallback: (items) async {
@@ -6825,6 +8383,48 @@ class $$LocalProfilesTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (taskEventLinksRefs)
+                        await $_getPrefetchedData<
+                          LocalProfileRow,
+                          $LocalProfilesTable,
+                          TaskEventLinkRow
+                        >(
+                          currentTable: table,
+                          referencedTable: $$LocalProfilesTableReferences
+                              ._taskEventLinksRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$LocalProfilesTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).taskEventLinksRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.profileId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (taskEventLinkHistoryRefs)
+                        await $_getPrefetchedData<
+                          LocalProfileRow,
+                          $LocalProfilesTable,
+                          TaskEventLinkHistoryRow
+                        >(
+                          currentTable: table,
+                          referencedTable: $$LocalProfilesTableReferences
+                              ._taskEventLinkHistoryRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$LocalProfilesTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).taskEventLinkHistoryRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.profileId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -6852,6 +8452,8 @@ typedef $$LocalProfilesTableProcessedTableManager =
         bool calendarEventsRefs,
         bool calendarEventExceptionsRefs,
         bool calendarEventOperationsRefs,
+        bool taskEventLinksRefs,
+        bool taskEventLinkHistoryRefs,
       })
     >;
 typedef $$OnboardingCheckpointsTableCreateCompanionBuilder =
@@ -10714,6 +12316,917 @@ typedef $$CalendarEventOperationsTableProcessedTableManager =
       CalendarEventOperationRow,
       PrefetchHooks Function({bool profileId})
     >;
+typedef $$TaskEventLinksTableCreateCompanionBuilder =
+    TaskEventLinksCompanion Function({
+      required String id,
+      required String profileId,
+      required String taskId,
+      required String eventId,
+      required String scope,
+      required String targetKey,
+      Value<String?> occurrenceId,
+      Value<String?> originalDate,
+      Value<String> status,
+      required String canonicalSource,
+      Value<String?> transferredFromLinkId,
+      required DateTime createdAtUtc,
+      required DateTime updatedAtUtc,
+      Value<int> rowid,
+    });
+typedef $$TaskEventLinksTableUpdateCompanionBuilder =
+    TaskEventLinksCompanion Function({
+      Value<String> id,
+      Value<String> profileId,
+      Value<String> taskId,
+      Value<String> eventId,
+      Value<String> scope,
+      Value<String> targetKey,
+      Value<String?> occurrenceId,
+      Value<String?> originalDate,
+      Value<String> status,
+      Value<String> canonicalSource,
+      Value<String?> transferredFromLinkId,
+      Value<DateTime> createdAtUtc,
+      Value<DateTime> updatedAtUtc,
+      Value<int> rowid,
+    });
+
+final class $$TaskEventLinksTableReferences
+    extends
+        BaseReferences<_$AppDatabase, $TaskEventLinksTable, TaskEventLinkRow> {
+  $$TaskEventLinksTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $LocalProfilesTable _profileIdTable(_$AppDatabase db) => db
+      .localProfiles
+      .createAlias('task_event_links__profile_id__local_profiles__id');
+
+  $$LocalProfilesTableProcessedTableManager get profileId {
+    final $_column = $_itemColumn<String>('profile_id')!;
+
+    final manager = $$LocalProfilesTableTableManager(
+      $_db,
+      $_db.localProfiles,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_profileIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$TaskEventLinksTableFilterComposer
+    extends Composer<_$AppDatabase, $TaskEventLinksTable> {
+  $$TaskEventLinksTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get taskId => $composableBuilder(
+    column: $table.taskId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get eventId => $composableBuilder(
+    column: $table.eventId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get scope => $composableBuilder(
+    column: $table.scope,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get targetKey => $composableBuilder(
+    column: $table.targetKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get occurrenceId => $composableBuilder(
+    column: $table.occurrenceId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get originalDate => $composableBuilder(
+    column: $table.originalDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get canonicalSource => $composableBuilder(
+    column: $table.canonicalSource,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get transferredFromLinkId => $composableBuilder(
+    column: $table.transferredFromLinkId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAtUtc => $composableBuilder(
+    column: $table.createdAtUtc,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAtUtc => $composableBuilder(
+    column: $table.updatedAtUtc,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$LocalProfilesTableFilterComposer get profileId {
+    final $$LocalProfilesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.profileId,
+      referencedTable: $db.localProfiles,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LocalProfilesTableFilterComposer(
+            $db: $db,
+            $table: $db.localProfiles,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$TaskEventLinksTableOrderingComposer
+    extends Composer<_$AppDatabase, $TaskEventLinksTable> {
+  $$TaskEventLinksTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get taskId => $composableBuilder(
+    column: $table.taskId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get eventId => $composableBuilder(
+    column: $table.eventId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get scope => $composableBuilder(
+    column: $table.scope,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get targetKey => $composableBuilder(
+    column: $table.targetKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get occurrenceId => $composableBuilder(
+    column: $table.occurrenceId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get originalDate => $composableBuilder(
+    column: $table.originalDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get canonicalSource => $composableBuilder(
+    column: $table.canonicalSource,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get transferredFromLinkId => $composableBuilder(
+    column: $table.transferredFromLinkId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAtUtc => $composableBuilder(
+    column: $table.createdAtUtc,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAtUtc => $composableBuilder(
+    column: $table.updatedAtUtc,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$LocalProfilesTableOrderingComposer get profileId {
+    final $$LocalProfilesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.profileId,
+      referencedTable: $db.localProfiles,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LocalProfilesTableOrderingComposer(
+            $db: $db,
+            $table: $db.localProfiles,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$TaskEventLinksTableAnnotationComposer
+    extends Composer<_$AppDatabase, $TaskEventLinksTable> {
+  $$TaskEventLinksTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get taskId =>
+      $composableBuilder(column: $table.taskId, builder: (column) => column);
+
+  GeneratedColumn<String> get eventId =>
+      $composableBuilder(column: $table.eventId, builder: (column) => column);
+
+  GeneratedColumn<String> get scope =>
+      $composableBuilder(column: $table.scope, builder: (column) => column);
+
+  GeneratedColumn<String> get targetKey =>
+      $composableBuilder(column: $table.targetKey, builder: (column) => column);
+
+  GeneratedColumn<String> get occurrenceId => $composableBuilder(
+    column: $table.occurrenceId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get originalDate => $composableBuilder(
+    column: $table.originalDate,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<String> get canonicalSource => $composableBuilder(
+    column: $table.canonicalSource,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get transferredFromLinkId => $composableBuilder(
+    column: $table.transferredFromLinkId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAtUtc => $composableBuilder(
+    column: $table.createdAtUtc,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get updatedAtUtc => $composableBuilder(
+    column: $table.updatedAtUtc,
+    builder: (column) => column,
+  );
+
+  $$LocalProfilesTableAnnotationComposer get profileId {
+    final $$LocalProfilesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.profileId,
+      referencedTable: $db.localProfiles,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LocalProfilesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.localProfiles,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$TaskEventLinksTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $TaskEventLinksTable,
+          TaskEventLinkRow,
+          $$TaskEventLinksTableFilterComposer,
+          $$TaskEventLinksTableOrderingComposer,
+          $$TaskEventLinksTableAnnotationComposer,
+          $$TaskEventLinksTableCreateCompanionBuilder,
+          $$TaskEventLinksTableUpdateCompanionBuilder,
+          (TaskEventLinkRow, $$TaskEventLinksTableReferences),
+          TaskEventLinkRow,
+          PrefetchHooks Function({bool profileId})
+        > {
+  $$TaskEventLinksTableTableManager(
+    _$AppDatabase db,
+    $TaskEventLinksTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$TaskEventLinksTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$TaskEventLinksTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$TaskEventLinksTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> profileId = const Value.absent(),
+                Value<String> taskId = const Value.absent(),
+                Value<String> eventId = const Value.absent(),
+                Value<String> scope = const Value.absent(),
+                Value<String> targetKey = const Value.absent(),
+                Value<String?> occurrenceId = const Value.absent(),
+                Value<String?> originalDate = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<String> canonicalSource = const Value.absent(),
+                Value<String?> transferredFromLinkId = const Value.absent(),
+                Value<DateTime> createdAtUtc = const Value.absent(),
+                Value<DateTime> updatedAtUtc = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => TaskEventLinksCompanion(
+                id: id,
+                profileId: profileId,
+                taskId: taskId,
+                eventId: eventId,
+                scope: scope,
+                targetKey: targetKey,
+                occurrenceId: occurrenceId,
+                originalDate: originalDate,
+                status: status,
+                canonicalSource: canonicalSource,
+                transferredFromLinkId: transferredFromLinkId,
+                createdAtUtc: createdAtUtc,
+                updatedAtUtc: updatedAtUtc,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String profileId,
+                required String taskId,
+                required String eventId,
+                required String scope,
+                required String targetKey,
+                Value<String?> occurrenceId = const Value.absent(),
+                Value<String?> originalDate = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                required String canonicalSource,
+                Value<String?> transferredFromLinkId = const Value.absent(),
+                required DateTime createdAtUtc,
+                required DateTime updatedAtUtc,
+                Value<int> rowid = const Value.absent(),
+              }) => TaskEventLinksCompanion.insert(
+                id: id,
+                profileId: profileId,
+                taskId: taskId,
+                eventId: eventId,
+                scope: scope,
+                targetKey: targetKey,
+                occurrenceId: occurrenceId,
+                originalDate: originalDate,
+                status: status,
+                canonicalSource: canonicalSource,
+                transferredFromLinkId: transferredFromLinkId,
+                createdAtUtc: createdAtUtc,
+                updatedAtUtc: updatedAtUtc,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$TaskEventLinksTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({profileId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (profileId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.profileId,
+                                referencedTable: $$TaskEventLinksTableReferences
+                                    ._profileIdTable(db),
+                                referencedColumn:
+                                    $$TaskEventLinksTableReferences
+                                        ._profileIdTable(db)
+                                        .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$TaskEventLinksTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $TaskEventLinksTable,
+      TaskEventLinkRow,
+      $$TaskEventLinksTableFilterComposer,
+      $$TaskEventLinksTableOrderingComposer,
+      $$TaskEventLinksTableAnnotationComposer,
+      $$TaskEventLinksTableCreateCompanionBuilder,
+      $$TaskEventLinksTableUpdateCompanionBuilder,
+      (TaskEventLinkRow, $$TaskEventLinksTableReferences),
+      TaskEventLinkRow,
+      PrefetchHooks Function({bool profileId})
+    >;
+typedef $$TaskEventLinkHistoryTableCreateCompanionBuilder =
+    TaskEventLinkHistoryCompanion Function({
+      required String id,
+      required String profileId,
+      required String linkId,
+      required String operationId,
+      required String action,
+      Value<String?> fromStatus,
+      required String toStatus,
+      Value<String?> relatedLinkId,
+      required DateTime createdAtUtc,
+      Value<int> rowid,
+    });
+typedef $$TaskEventLinkHistoryTableUpdateCompanionBuilder =
+    TaskEventLinkHistoryCompanion Function({
+      Value<String> id,
+      Value<String> profileId,
+      Value<String> linkId,
+      Value<String> operationId,
+      Value<String> action,
+      Value<String?> fromStatus,
+      Value<String> toStatus,
+      Value<String?> relatedLinkId,
+      Value<DateTime> createdAtUtc,
+      Value<int> rowid,
+    });
+
+final class $$TaskEventLinkHistoryTableReferences
+    extends
+        BaseReferences<
+          _$AppDatabase,
+          $TaskEventLinkHistoryTable,
+          TaskEventLinkHistoryRow
+        > {
+  $$TaskEventLinkHistoryTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $LocalProfilesTable _profileIdTable(_$AppDatabase db) => db
+      .localProfiles
+      .createAlias('task_event_link_history__profile_id__local_profiles__id');
+
+  $$LocalProfilesTableProcessedTableManager get profileId {
+    final $_column = $_itemColumn<String>('profile_id')!;
+
+    final manager = $$LocalProfilesTableTableManager(
+      $_db,
+      $_db.localProfiles,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_profileIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$TaskEventLinkHistoryTableFilterComposer
+    extends Composer<_$AppDatabase, $TaskEventLinkHistoryTable> {
+  $$TaskEventLinkHistoryTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get linkId => $composableBuilder(
+    column: $table.linkId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get operationId => $composableBuilder(
+    column: $table.operationId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get action => $composableBuilder(
+    column: $table.action,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get fromStatus => $composableBuilder(
+    column: $table.fromStatus,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get toStatus => $composableBuilder(
+    column: $table.toStatus,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get relatedLinkId => $composableBuilder(
+    column: $table.relatedLinkId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAtUtc => $composableBuilder(
+    column: $table.createdAtUtc,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$LocalProfilesTableFilterComposer get profileId {
+    final $$LocalProfilesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.profileId,
+      referencedTable: $db.localProfiles,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LocalProfilesTableFilterComposer(
+            $db: $db,
+            $table: $db.localProfiles,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$TaskEventLinkHistoryTableOrderingComposer
+    extends Composer<_$AppDatabase, $TaskEventLinkHistoryTable> {
+  $$TaskEventLinkHistoryTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get linkId => $composableBuilder(
+    column: $table.linkId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get operationId => $composableBuilder(
+    column: $table.operationId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get action => $composableBuilder(
+    column: $table.action,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get fromStatus => $composableBuilder(
+    column: $table.fromStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get toStatus => $composableBuilder(
+    column: $table.toStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get relatedLinkId => $composableBuilder(
+    column: $table.relatedLinkId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAtUtc => $composableBuilder(
+    column: $table.createdAtUtc,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$LocalProfilesTableOrderingComposer get profileId {
+    final $$LocalProfilesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.profileId,
+      referencedTable: $db.localProfiles,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LocalProfilesTableOrderingComposer(
+            $db: $db,
+            $table: $db.localProfiles,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$TaskEventLinkHistoryTableAnnotationComposer
+    extends Composer<_$AppDatabase, $TaskEventLinkHistoryTable> {
+  $$TaskEventLinkHistoryTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get linkId =>
+      $composableBuilder(column: $table.linkId, builder: (column) => column);
+
+  GeneratedColumn<String> get operationId => $composableBuilder(
+    column: $table.operationId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get action =>
+      $composableBuilder(column: $table.action, builder: (column) => column);
+
+  GeneratedColumn<String> get fromStatus => $composableBuilder(
+    column: $table.fromStatus,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get toStatus =>
+      $composableBuilder(column: $table.toStatus, builder: (column) => column);
+
+  GeneratedColumn<String> get relatedLinkId => $composableBuilder(
+    column: $table.relatedLinkId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAtUtc => $composableBuilder(
+    column: $table.createdAtUtc,
+    builder: (column) => column,
+  );
+
+  $$LocalProfilesTableAnnotationComposer get profileId {
+    final $$LocalProfilesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.profileId,
+      referencedTable: $db.localProfiles,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LocalProfilesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.localProfiles,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$TaskEventLinkHistoryTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $TaskEventLinkHistoryTable,
+          TaskEventLinkHistoryRow,
+          $$TaskEventLinkHistoryTableFilterComposer,
+          $$TaskEventLinkHistoryTableOrderingComposer,
+          $$TaskEventLinkHistoryTableAnnotationComposer,
+          $$TaskEventLinkHistoryTableCreateCompanionBuilder,
+          $$TaskEventLinkHistoryTableUpdateCompanionBuilder,
+          (TaskEventLinkHistoryRow, $$TaskEventLinkHistoryTableReferences),
+          TaskEventLinkHistoryRow,
+          PrefetchHooks Function({bool profileId})
+        > {
+  $$TaskEventLinkHistoryTableTableManager(
+    _$AppDatabase db,
+    $TaskEventLinkHistoryTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$TaskEventLinkHistoryTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$TaskEventLinkHistoryTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$TaskEventLinkHistoryTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> profileId = const Value.absent(),
+                Value<String> linkId = const Value.absent(),
+                Value<String> operationId = const Value.absent(),
+                Value<String> action = const Value.absent(),
+                Value<String?> fromStatus = const Value.absent(),
+                Value<String> toStatus = const Value.absent(),
+                Value<String?> relatedLinkId = const Value.absent(),
+                Value<DateTime> createdAtUtc = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => TaskEventLinkHistoryCompanion(
+                id: id,
+                profileId: profileId,
+                linkId: linkId,
+                operationId: operationId,
+                action: action,
+                fromStatus: fromStatus,
+                toStatus: toStatus,
+                relatedLinkId: relatedLinkId,
+                createdAtUtc: createdAtUtc,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String profileId,
+                required String linkId,
+                required String operationId,
+                required String action,
+                Value<String?> fromStatus = const Value.absent(),
+                required String toStatus,
+                Value<String?> relatedLinkId = const Value.absent(),
+                required DateTime createdAtUtc,
+                Value<int> rowid = const Value.absent(),
+              }) => TaskEventLinkHistoryCompanion.insert(
+                id: id,
+                profileId: profileId,
+                linkId: linkId,
+                operationId: operationId,
+                action: action,
+                fromStatus: fromStatus,
+                toStatus: toStatus,
+                relatedLinkId: relatedLinkId,
+                createdAtUtc: createdAtUtc,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$TaskEventLinkHistoryTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({profileId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (profileId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.profileId,
+                                referencedTable:
+                                    $$TaskEventLinkHistoryTableReferences
+                                        ._profileIdTable(db),
+                                referencedColumn:
+                                    $$TaskEventLinkHistoryTableReferences
+                                        ._profileIdTable(db)
+                                        .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$TaskEventLinkHistoryTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $TaskEventLinkHistoryTable,
+      TaskEventLinkHistoryRow,
+      $$TaskEventLinkHistoryTableFilterComposer,
+      $$TaskEventLinkHistoryTableOrderingComposer,
+      $$TaskEventLinkHistoryTableAnnotationComposer,
+      $$TaskEventLinkHistoryTableCreateCompanionBuilder,
+      $$TaskEventLinkHistoryTableUpdateCompanionBuilder,
+      (TaskEventLinkHistoryRow, $$TaskEventLinkHistoryTableReferences),
+      TaskEventLinkHistoryRow,
+      PrefetchHooks Function({bool profileId})
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -10747,4 +13260,8 @@ class $AppDatabaseManager {
         _db,
         _db.calendarEventOperations,
       );
+  $$TaskEventLinksTableTableManager get taskEventLinks =>
+      $$TaskEventLinksTableTableManager(_db, _db.taskEventLinks);
+  $$TaskEventLinkHistoryTableTableManager get taskEventLinkHistory =>
+      $$TaskEventLinkHistoryTableTableManager(_db, _db.taskEventLinkHistory);
 }

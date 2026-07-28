@@ -242,4 +242,100 @@ void main() {
       }
     },
   );
+
+  test(
+    'AC-F-018 / Q2: v4 upgrades to schema v5 without prior-data loss',
+    () async {
+      final sqliteDatabase = sqlite3.openInMemory();
+      try {
+        final versionFour = AppDatabase.forTesting(
+          NativeDatabase.opened(sqliteDatabase, closeUnderlyingOnClose: false),
+          schemaVersionOverride: 4,
+        );
+        final original = await buildTestRepository(
+          database: versionFour,
+        ).completeOnboarding();
+        await versionFour.close();
+
+        final versionFive = AppDatabase.forTesting(
+          NativeDatabase.opened(sqliteDatabase, closeUnderlyingOnClose: false),
+          schemaVersionOverride: 5,
+        );
+        expect(
+          (await versionFive.select(versionFive.localProfiles).get()).single.id,
+          original.id,
+        );
+        expect(
+          await versionFive.select(versionFive.taskEventLinks).get(),
+          isEmpty,
+        );
+        expect(
+          (await versionFive.customSelect('PRAGMA user_version').getSingle())
+              .read<int>('user_version'),
+          5,
+        );
+        await versionFive.close();
+      } finally {
+        sqliteDatabase.close();
+      }
+    },
+  );
+
+  test(
+    'AC-F-018 / Q2: failed v5 migration preserves the valid v4 database',
+    () async {
+      final sqliteDatabase = sqlite3.openInMemory();
+      try {
+        final versionFour = AppDatabase.forTesting(
+          NativeDatabase.opened(sqliteDatabase, closeUnderlyingOnClose: false),
+          schemaVersionOverride: 4,
+        );
+        final original = await buildTestRepository(
+          database: versionFour,
+        ).completeOnboarding();
+        await versionFour.close();
+
+        final failingVersionFive = AppDatabase.forTesting(
+          NativeDatabase.opened(sqliteDatabase, closeUnderlyingOnClose: false),
+          schemaVersionOverride: 5,
+          injectTaskEventLinkMigrationFailure: true,
+        );
+        await expectLater(
+          failingVersionFive.select(failingVersionFive.localProfiles).get(),
+          throwsA(isA<StateError>()),
+        );
+        await failingVersionFive.close();
+
+        final reopenedVersionFour = AppDatabase.forTesting(
+          NativeDatabase.opened(sqliteDatabase, closeUnderlyingOnClose: false),
+          schemaVersionOverride: 4,
+        );
+        expect(
+          (await reopenedVersionFour
+                  .select(reopenedVersionFour.localProfiles)
+                  .get())
+              .single
+              .id,
+          original.id,
+        );
+        expect(
+          (await reopenedVersionFour
+                  .customSelect('PRAGMA user_version')
+                  .getSingle())
+              .read<int>('user_version'),
+          4,
+        );
+        final linkTable = await reopenedVersionFour
+            .customSelect(
+              "SELECT COUNT(*) AS count FROM sqlite_master "
+              "WHERE type='table' AND name='task_event_links'",
+            )
+            .getSingle();
+        expect(linkTable.read<int>('count'), 0);
+        await reopenedVersionFour.close();
+      } finally {
+        sqliteDatabase.close();
+      }
+    },
+  );
 }

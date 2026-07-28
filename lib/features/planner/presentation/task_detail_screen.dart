@@ -93,6 +93,26 @@ final class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                   ),
                 const SizedBox(height: 20),
                 Text(
+                  'Calendar Event links',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                FilledButton.tonalIcon(
+                  key: const Key('manage-task-event-links'),
+                  onPressed: _manageLinks,
+                  icon: const Icon(Icons.link),
+                  label: const Text('Link or manage Calendar Events'),
+                ),
+                OutlinedButton.icon(
+                  key: const Key('create-event-from-task'),
+                  onPressed: () => _createEvent(task),
+                  icon: const Icon(Icons.event_available_outlined),
+                  label: const Text('Create Calendar Event from Task'),
+                ),
+                const SizedBox(height: 20),
+                Text(
                   'Task status',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w800,
@@ -142,6 +162,25 @@ final class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
   Future<void> _edit() async {
     final changed = await context.push<bool>(
       '${RoutePaths.tasks}/${widget.taskId}/edit',
+    );
+    if (changed == true && mounted) {
+      setState(_reload);
+    }
+  }
+
+  Future<void> _manageLinks() async {
+    await context.push<bool>('${RoutePaths.tasks}/${widget.taskId}/link-event');
+    if (mounted) {
+      setState(_reload);
+    }
+  }
+
+  Future<void> _createEvent(PlannerTask task) async {
+    final date =
+        task.dueDate ?? ref.read(plannerControllerProvider).selectedDate;
+    final changed = await context.push<bool>(
+      '${RoutePaths.tasks}/${widget.taskId}/create-event'
+      '?date=${date.iso8601}',
     );
     if (changed == true && mounted) {
       setState(_reload);

@@ -207,6 +207,66 @@ class CalendarEventOperations extends Table {
   Set<Column<Object>> get primaryKey => <Column<Object>>{operationId};
 }
 
+@TableIndex(
+  name: 'task_event_link_equivalent_unique',
+  columns: <Symbol>{#profileId, #taskId, #eventId, #targetKey},
+  unique: true,
+)
+@TableIndex(
+  name: 'task_event_link_task_status',
+  columns: <Symbol>{#taskId, #status},
+)
+@TableIndex(
+  name: 'task_event_link_event_status',
+  columns: <Symbol>{#eventId, #status},
+)
+@DataClassName('TaskEventLinkRow')
+class TaskEventLinks extends Table {
+  TextColumn get id => text()();
+  TextColumn get profileId =>
+      text().references(LocalProfiles, #id, onDelete: KeyAction.restrict)();
+  TextColumn get taskId => text()();
+  TextColumn get eventId => text()();
+  TextColumn get scope => text()();
+  TextColumn get targetKey => text()();
+  TextColumn get occurrenceId => text().nullable()();
+  TextColumn get originalDate => text().nullable()();
+  TextColumn get status => text().withDefault(const Constant('active'))();
+  TextColumn get canonicalSource => text()();
+  TextColumn get transferredFromLinkId => text().nullable()();
+  DateTimeColumn get createdAtUtc => dateTime()();
+  DateTimeColumn get updatedAtUtc => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => <Column<Object>>{id};
+}
+
+@TableIndex(
+  name: 'task_event_link_history_operation_unique',
+  columns: <Symbol>{#operationId},
+  unique: true,
+)
+@TableIndex(
+  name: 'task_event_link_history_link_time',
+  columns: <Symbol>{#linkId, #createdAtUtc},
+)
+@DataClassName('TaskEventLinkHistoryRow')
+class TaskEventLinkHistory extends Table {
+  TextColumn get id => text()();
+  TextColumn get profileId =>
+      text().references(LocalProfiles, #id, onDelete: KeyAction.restrict)();
+  TextColumn get linkId => text()();
+  TextColumn get operationId => text()();
+  TextColumn get action => text()();
+  TextColumn get fromStatus => text().nullable()();
+  TextColumn get toStatus => text()();
+  TextColumn get relatedLinkId => text().nullable()();
+  DateTimeColumn get createdAtUtc => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => <Column<Object>>{id};
+}
+
 @DriftDatabase(
   tables: <Type>[
     LocalProfiles,
@@ -219,6 +279,8 @@ class CalendarEventOperations extends Table {
     CalendarEvents,
     CalendarEventExceptions,
     CalendarEventOperations,
+    TaskEventLinks,
+    TaskEventLinkHistory,
   ],
 )
 final class AppDatabase extends _$AppDatabase {
@@ -227,6 +289,7 @@ final class AppDatabase extends _$AppDatabase {
       _injectMigrationFailure = false,
       _injectTaskMigrationFailure = false,
       _injectCalendarEventMigrationFailure = false,
+      _injectTaskEventLinkMigrationFailure = false,
       super(driftDatabase(name: 'next_transfer'));
 
   AppDatabase.forTesting(
@@ -235,19 +298,23 @@ final class AppDatabase extends _$AppDatabase {
     bool injectMigrationFailure = false,
     bool injectTaskMigrationFailure = false,
     bool injectCalendarEventMigrationFailure = false,
+    bool injectTaskEventLinkMigrationFailure = false,
   }) : _schemaVersionOverride = schemaVersionOverride,
        _injectMigrationFailure = injectMigrationFailure,
        _injectTaskMigrationFailure = injectTaskMigrationFailure,
        _injectCalendarEventMigrationFailure =
-           injectCalendarEventMigrationFailure;
+           injectCalendarEventMigrationFailure,
+       _injectTaskEventLinkMigrationFailure =
+           injectTaskEventLinkMigrationFailure;
 
   final int? _schemaVersionOverride;
   final bool _injectMigrationFailure;
   final bool _injectTaskMigrationFailure;
   final bool _injectCalendarEventMigrationFailure;
+  final bool _injectTaskEventLinkMigrationFailure;
 
   @override
-  int get schemaVersion => _schemaVersionOverride ?? 4;
+  int get schemaVersion => _schemaVersionOverride ?? 5;
 
   @override
   MigrationStrategy get migration {
@@ -268,6 +335,10 @@ final class AppDatabase extends _$AppDatabase {
           await migrator.createTable(calendarEvents);
           await migrator.createTable(calendarEventExceptions);
           await migrator.createTable(calendarEventOperations);
+        }
+        if (schemaVersion >= 5) {
+          await migrator.createTable(taskEventLinks);
+          await migrator.createTable(taskEventLinkHistory);
         }
       },
       onUpgrade: (migrator, from, to) async {
@@ -292,6 +363,13 @@ final class AppDatabase extends _$AppDatabase {
             await migrator.createTable(calendarEventOperations);
             if (_injectCalendarEventMigrationFailure) {
               throw StateError('Injected Calendar Event migration failure');
+            }
+          }
+          if (from < 5 && to >= 5) {
+            await migrator.createTable(taskEventLinks);
+            await migrator.createTable(taskEventLinkHistory);
+            if (_injectTaskEventLinkMigrationFailure) {
+              throw StateError('Injected Task-Event link migration failure');
             }
           }
         });

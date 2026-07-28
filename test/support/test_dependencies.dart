@@ -13,9 +13,11 @@ import 'package:rmplanner/features/planner/application/calendar_event_providers.
 import 'package:rmplanner/features/planner/application/calendar_event_repository.dart';
 import 'package:rmplanner/features/planner/application/planner_providers.dart';
 import 'package:rmplanner/features/planner/application/planner_repository.dart';
+import 'package:rmplanner/features/planner/application/task_event_link_providers.dart';
 import 'package:rmplanner/features/planner/data/calendar_event_time_zones.dart';
 import 'package:rmplanner/features/planner/data/drift_calendar_event_repository.dart';
 import 'package:rmplanner/features/planner/data/drift_planner_repository.dart';
+import 'package:rmplanner/features/planner/data/drift_task_event_link_repository.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 import 'package:rmplanner/features/planner/domain/planner_day.dart';
 import 'package:rmplanner/features/planner/domain/planner_task.dart';
@@ -236,6 +238,10 @@ final class TestPrivacyDependencies {
     ),
     IdentifierSource? plannerIdentifierSource,
   }) {
+    final linkRepository = DriftTaskEventLinkRepository(
+      database: repository.database,
+      clock: FixedClock(DateTime.utc(2026, 7, 27, 12)),
+    );
     final resolvedCalendarEventRepository =
         calendarEventRepository ??
         DriftCalendarEventRepository(
@@ -244,6 +250,8 @@ final class TestPrivacyDependencies {
           timeZones: IanaCalendarEventTimeZones(
             displayTimeZoneId: 'Asia/Manila',
           ),
+          taskContextSource: linkRepository,
+          linkContextTransfer: linkRepository,
         );
     final resolvedPlannerRepository =
         plannerRepository ??
@@ -251,7 +259,13 @@ final class TestPrivacyDependencies {
           database: repository.database,
           clock: FixedClock(DateTime.utc(2026, 7, 27, 12)),
           calendarSource: resolvedCalendarEventRepository,
+          taskContextSource: linkRepository,
         );
+    final linkCoordinator = DriftTaskEventLinkCoordinator(
+      database: repository.database,
+      calendarEvents: resolvedCalendarEventRepository,
+      links: linkRepository,
+    );
     return ProviderScope(
       overrides: [
         appEnvironmentProvider.overrideWithValue(environment),
@@ -268,6 +282,8 @@ final class TestPrivacyDependencies {
           resolvedCalendarEventRepository,
         ),
         plannerRepositoryProvider.overrideWithValue(resolvedPlannerRepository),
+        taskEventLinkRepositoryProvider.overrideWithValue(linkRepository),
+        taskEventLinkCoordinatorProvider.overrideWithValue(linkCoordinator),
         plannerDateSourceProvider.overrideWithValue(plannerDateSource),
         if (plannerIdentifierSource != null)
           plannerIdentifierSourceProvider.overrideWithValue(

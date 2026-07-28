@@ -333,3 +333,63 @@ repairs did not modify project source or global Git configuration.
   off-screen Save button; the first correction then selected multiple
   `Scrollable` descendants. The final test drags the visible form `ListView`
   directly. No production source, behavior, or acceptance criterion changed.
+
+## 2026-07-28 — VS-05 Task-Event Linking
+
+- Product-owner authorization expanded the active boundary through VS-05 only.
+  VS-06 reports and Activity Ledger writes and all later slices remain
+  unauthorized.
+- Added profile-scoped Task-Event relationships and append-only history in
+  Drift schema version 5. Task and Event IDs deliberately are not foreign keys
+  on the relationship row so a missing side can remain visible and repairable;
+  the Local Profile remains a restrictive foreign key.
+- Links support series and occurrence scope. An occurrence row explicitly
+  overrides a series row for the same Task. Multiple Tasks per Event and
+  multiple Events per Task remain valid.
+- Every relationship records one explicit canonical planning source. The link
+  itself never contributes progress, Actual, or Scheduled Potential.
+- Added native supporting routes from both detail screens, reversible unlink
+  confirmation, and an atomic Create Calendar Event from Task flow.
+- Calendar Event rescheduling transfers the effective link context inside the
+  same database transaction. Injected failures prove the Event, relationship,
+  and history cannot partially commit.
+- Broken references are displayed as missing records and can be repaired using
+  explicit stable identities. Titles are labels only and are never identity or
+  classification inputs.
+- Re-opened the approved Planner PNG and matching HTML before implementing the
+  supporting routes. The permanent Planner destination is unchanged; native
+  Android-first controls are used where the visual references define no
+  detail/link screen.
+- VS-05 adds no dependency, Android permission, remote client, provider
+  Calendar access, report write, Activity Ledger write, notification worker,
+  contact access, location access, or map integration.
+
+### VS-05 local verification evidence
+
+- Authority verification passed for immutable approved hashes, permanent
+  Android identity, the production permission lock, schema version 5, and the
+  VS-05 dependency boundary.
+- Strict formatting passed across 94 Dart files and static analysis passed
+  with no issues.
+- All 70 Flutter unit, domain, repository, migration, and widget tests passed,
+  including the matching-viewport Task-to-Event journey.
+- Drift generation reproduced `app_database.g.dart` byte-for-byte with SHA-256
+  `9C2F148BC2EDF18812B8C6B63BD8A72CBB1137844A767206D0FF41614E1D816E`.
+- Direct Gradle debug assembly with production Dart defines passed all 203
+  tasks. The APK is 192,880,574 bytes with SHA-256
+  `FC6068782E7A88AFC76B11BA09C792DA1340B2E34D7F8F16155D5D7873059471`.
+- APK inspection confirmed `com.nexttransfer.rmplanner`, version `0.1.0+1`,
+  minimum SDK 24, compile/target SDK 36, and no Calendar, location, contacts,
+  storage, or notification permission.
+- Flutter's wrapper produced the APK but returned failure while replacing
+  Gradle's optional problems report. Direct `app:assembleDebug` with
+  `--no-problems-report` passed; no production source changed to mask the
+  local filesystem/tooling behavior.
+- The Android integration journey cannot execute against Windows because this
+  Android-first repository has no Windows desktop host. The same journey is in
+  the API 24/API 36 clean-emulator matrix; its equivalent Flutter widget
+  journey passed locally.
+- Secret-pattern and Git whitespace scans passed. `pubspec.yaml`,
+  `pubspec.lock`, and the production manifest are unchanged. The five
+  pre-existing untracked `UI Preferences/**/screen.png` files remain untouched
+  and excluded.

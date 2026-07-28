@@ -11,10 +11,13 @@ abstract final class RouteNames {
   static const String taskCreate = 'task-create';
   static const String taskDetail = 'task-detail';
   static const String taskEdit = 'task-edit';
+  static const String taskLinkEvent = 'task-link-event';
+  static const String taskCreateEvent = 'task-create-event';
   static const String calendarEventCreate = 'calendar-event-create';
   static const String calendarEventDetail = 'calendar-event-detail';
   static const String calendarEventEdit = 'calendar-event-edit';
   static const String calendarEventReschedule = 'calendar-event-reschedule';
+  static const String calendarEventLinkTask = 'calendar-event-link-task';
   static const String privacyCenter = 'privacy-center';
   static const String permissions = 'permissions';
   static const String diagnosticPreview = 'diagnostic-preview';

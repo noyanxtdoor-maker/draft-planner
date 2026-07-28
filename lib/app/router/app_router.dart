@@ -9,6 +9,7 @@ import 'package:rmplanner/features/planner/presentation/calendar_event_detail_sc
 import 'package:rmplanner/features/planner/presentation/calendar_event_form_screen.dart';
 import 'package:rmplanner/features/planner/presentation/planner_screen.dart';
 import 'package:rmplanner/features/planner/presentation/task_detail_screen.dart';
+import 'package:rmplanner/features/planner/presentation/task_event_link_screen.dart';
 import 'package:rmplanner/features/planner/presentation/task_form_screen.dart';
 import 'package:rmplanner/features/privacy/presentation/diagnostic_preview_screen.dart';
 import 'package:rmplanner/features/privacy/presentation/permissions_screen.dart';
@@ -93,6 +94,26 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               );
             },
           ),
+          GoRoute(
+            name: RouteNames.taskLinkEvent,
+            path: 'link-event',
+            builder: (context, state) => TaskEventLinkScreen.forTask(
+              taskId: state.pathParameters['taskId']!,
+            ),
+          ),
+          GoRoute(
+            name: RouteNames.taskCreateEvent,
+            path: 'create-event',
+            builder: (context, state) {
+              final rawDate = state.uri.queryParameters['date'];
+              return CalendarEventFormScreen.createFromTask(
+                sourceTaskId: state.pathParameters['taskId']!,
+                initialDate: rawDate == null
+                    ? PlannerDate.fromDateTime(DateTime.now())
+                    : PlannerDate.parse(rawDate),
+              );
+            },
+          ),
         ],
       ),
       GoRoute(
@@ -146,6 +167,24 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 scope: rawScope == null
                     ? CalendarEventEditScope.occurrence
                     : CalendarEventEditScope.values.byName(rawScope),
+              );
+            },
+          ),
+          GoRoute(
+            name: RouteNames.calendarEventLinkTask,
+            path: 'link-task',
+            builder: (context, state) {
+              final eventId = state.pathParameters['eventId']!;
+              final originalDate = PlannerDate.parse(
+                state.pathParameters['originalDate']!,
+              );
+              return TaskEventLinkScreen.forEvent(
+                eventId: eventId,
+                occurrenceId: CalendarEventOccurrenceIdentity.forDate(
+                  eventId: eventId,
+                  originalDate: originalDate,
+                ),
+                originalDate: originalDate,
               );
             },
           ),

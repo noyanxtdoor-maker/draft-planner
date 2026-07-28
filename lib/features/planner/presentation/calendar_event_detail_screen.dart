@@ -147,6 +147,13 @@ final class _CalendarEventDetailScreenState
                   label: 'Replacement Event: ${occurrence.replacementEventId}',
                 ),
               const SizedBox(height: 22),
+              FilledButton.tonalIcon(
+                key: const Key('manage-event-task-links'),
+                onPressed: () => _manageLinks(occurrence),
+                icon: const Icon(Icons.link),
+                label: const Text('Link or manage Tasks'),
+              ),
+              const SizedBox(height: 8),
               if (occurrence.status ==
                   CalendarEventStatus.scheduled) ...<Widget>[
                 FilledButton.icon(
@@ -226,6 +233,15 @@ final class _CalendarEventDetailScreenState
           );
     final changed = await context.push<bool>(path);
     if (changed == true && mounted) {
+      setState(_reload);
+    }
+  }
+
+  Future<void> _manageLinks(CalendarEventOccurrence occurrence) async {
+    await context.push<bool>(
+      '${RoutePaths.calendarEventDetail(occurrence.eventId, occurrence.originalDate)}/link-task',
+    );
+    if (mounted) {
       setState(_reload);
     }
   }

@@ -57,6 +57,15 @@ against their primary pub.dev documentation on 2026-07-28. VS-04 introduces no
 Calendar provider SDK, device-calendar permission, location permission, maps
 SDK, remote client, analytics SDK, notification SDK, or background worker.
 
+## VS-05 review
+
+VS-05 adds no package. Task-Event links, append-only link history, canonical
+planning-source selection, occurrence overrides, and atomic coordination reuse
+the locked Drift, Riverpod, GoRouter, UUID, and Flutter SDK dependencies.
+No Calendar provider SDK, device-calendar permission, contacts SDK, maps SDK,
+remote client, analytics SDK, notification SDK, or background worker enters
+the graph.
+
 ## Recorded deviation
 
 `drift_dev 2.34.2` is retracted. Its patched successor and all `drift_dev 2.34.1+` releases require analyzer 13, which requires `meta ^1.18.3`; Flutter 3.44.7 pins `meta 1.18.0`. The selected `drift_dev 2.34.0` supports `drift >=2.30.0 <2.35.0` and analyzer below 13, so it is the newest compatible generator in the same 2.34 family. `build_runner 2.15.1` is the matching newest release that allows analyzer below 13. Runtime `drift` remains exactly `2.34.2`.

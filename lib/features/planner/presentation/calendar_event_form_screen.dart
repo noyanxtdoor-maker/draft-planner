@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rmplanner/features/planner/application/calendar_event_providers.dart';
 import 'package:rmplanner/features/planner/application/planner_providers.dart';
+import 'package:rmplanner/features/planner/application/task_event_link_providers.dart';
 import 'package:rmplanner/features/planner/domain/calendar_event.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
+import 'package:rmplanner/features/planner/domain/task_event_link.dart';
 
 enum CalendarEventFormMode { create, edit, reschedule }
 
@@ -14,7 +16,17 @@ final class CalendarEventFormScreen extends ConsumerStatefulWidget {
     : mode = CalendarEventFormMode.create,
       eventId = null,
       originalDate = null,
-      scope = null;
+      scope = null,
+      sourceTaskId = null;
+
+  const CalendarEventFormScreen.createFromTask({
+    required this.sourceTaskId,
+    required this.initialDate,
+    super.key,
+  }) : mode = CalendarEventFormMode.create,
+       eventId = null,
+       originalDate = null,
+       scope = null;
 
   const CalendarEventFormScreen.edit({
     required this.eventId,
@@ -22,7 +34,8 @@ final class CalendarEventFormScreen extends ConsumerStatefulWidget {
     required this.scope,
     super.key,
   }) : mode = CalendarEventFormMode.edit,
-       initialDate = null;
+       initialDate = null,
+       sourceTaskId = null;
 
   const CalendarEventFormScreen.reschedule({
     required this.eventId,
@@ -30,13 +43,15 @@ final class CalendarEventFormScreen extends ConsumerStatefulWidget {
     required this.scope,
     super.key,
   }) : mode = CalendarEventFormMode.reschedule,
-       initialDate = null;
+       initialDate = null,
+       sourceTaskId = null;
 
   final CalendarEventFormMode mode;
   final PlannerDate? initialDate;
   final String? eventId;
   final PlannerDate? originalDate;
   final CalendarEventEditScope? scope;
+  final String? sourceTaskId;
 
   @override
   ConsumerState<CalendarEventFormScreen> createState() =>
@@ -53,6 +68,7 @@ final class _CalendarEventFormScreenState
   final _countController = TextEditingController(text: '2');
   late final String _draftId;
   late final String _operationId;
+  String? _linkId;
   late PlannerDate _date;
   CalendarEventTiming _timing = CalendarEventTiming.timed;
   TimeOfDay _start = const TimeOfDay(hour: 9, minute: 0);
@@ -63,12 +79,16 @@ final class _CalendarEventFormScreenState
   PlannerDate? _recurrenceEndDate;
   bool _loading = false;
   bool _saving = false;
+  TaskEventCanonicalSource _canonicalSource = TaskEventCanonicalSource.task;
 
   @override
   void initState() {
     super.initState();
     final ids = ref.read(plannerIdentifierSourceProvider);
     _operationId = ids.nextUuid();
+    if (widget.sourceTaskId != null) {
+      _linkId = ids.nextUuid();
+    }
     _draftId = switch (widget.mode) {
       CalendarEventFormMode.create ||
       CalendarEventFormMode.reschedule => ids.nextUuid(),
@@ -84,6 +104,17 @@ final class _CalendarEventFormScreenState
     if (widget.mode != CalendarEventFormMode.create) {
       _loading = true;
       unawaited(Future<void>.microtask(_loadExisting));
+    } else if (widget.sourceTaskId != null) {
+      unawaited(Future<void>.microtask(_loadSourceTask));
+    }
+  }
+
+  Future<void> _loadSourceTask() async {
+    final task = await ref
+        .read(plannerControllerProvider.notifier)
+        .readTask(widget.sourceTaskId!);
+    if (mounted && task != null && _titleController.text.isEmpty) {
+      setState(() => _titleController.text = task.title);
     }
   }
 
@@ -136,7 +167,9 @@ final class _CalendarEventFormScreenState
 
   @override
   Widget build(BuildContext context) {
-    final message = ref.watch(calendarEventControllerProvider);
+    final message =
+        ref.watch(calendarEventControllerProvider) ??
+        ref.watch(taskEventLinkControllerProvider);
     return Scaffold(
       appBar: AppBar(title: Text(_title)),
       body: _loading
@@ -149,6 +182,44 @@ final class _CalendarEventFormScreenState
                   children: <Widget>[
                     if (widget.scope != null) ...<Widget>[
                       _ScopeBanner(scope: widget.scope!),
+                      const SizedBox(height: 14),
+                    ],
+                    if (widget.sourceTaskId != null) ...<Widget>[
+                      Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: <Widget>[
+                              const Text(
+                                'The Calendar Event and Task remain '
+                                'independent. Creating this link never '
+                                'completes either record.',
+                              ),
+                              const SizedBox(height: 10),
+                              DropdownButtonFormField<TaskEventCanonicalSource>(
+                                key: const Key('create-event-canonical-source'),
+                                initialValue: _canonicalSource,
+                                decoration: const InputDecoration(
+                                  labelText: 'Planning source counted once',
+                                ),
+                                items: TaskEventCanonicalSource.values
+                                    .map(
+                                      (value) => DropdownMenuItem(
+                                        value: value,
+                                        child: Text(
+                                          taskEventCanonicalSourceLabel(value),
+                                        ),
+                                      ),
+                                    )
+                                    .toList(),
+                                onChanged: (value) =>
+                                    setState(() => _canonicalSource = value!),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                       const SizedBox(height: 14),
                     ],
                     if (message != null) ...<Widget>[
@@ -376,6 +447,8 @@ final class _CalendarEventFormScreenState
   }
 
   String get _title => switch (widget.mode) {
+    CalendarEventFormMode.create when widget.sourceTaskId != null =>
+      'Create Event from Task',
     CalendarEventFormMode.create => 'New Calendar Event',
     CalendarEventFormMode.edit => 'Edit Calendar Event',
     CalendarEventFormMode.reschedule => 'Reschedule Calendar Event',
@@ -391,6 +464,7 @@ final class _CalendarEventFormScreenState
 
   Future<void> _save() async {
     ref.read(calendarEventControllerProvider.notifier).clearMessage();
+    ref.read(taskEventLinkControllerProvider.notifier).clearMessage();
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -431,6 +505,16 @@ final class _CalendarEventFormScreenState
     );
     final controller = ref.read(calendarEventControllerProvider.notifier);
     final saved = switch (widget.mode) {
+      CalendarEventFormMode.create when widget.sourceTaskId != null =>
+        await ref
+            .read(taskEventLinkControllerProvider.notifier)
+            .createEventFromTask(
+              taskId: widget.sourceTaskId!,
+              event: draft,
+              linkId: _linkId!,
+              operationId: _operationId,
+              canonicalSource: _canonicalSource,
+            ),
       CalendarEventFormMode.create => await controller.saveEvent(draft),
       CalendarEventFormMode.edit => await controller.editEvent(
         eventId: widget.eventId!,
