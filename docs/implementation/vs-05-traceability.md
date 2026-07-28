@@ -83,14 +83,14 @@ documented visual deviation required by the approved VS-05 behavior.
 
 | Gate | VS-05 status |
 | --- | --- |
-| Q0 Authority and traceability | Pass locally — approved hashes, identity, permission boundary, schema v5, and all FR/BR/AC mappings verified |
-| Q1 Static and build | Pass locally — strict format, analyzer, byte-clean codegen, and direct Gradle debug assembly |
-| Q2 Domain/database/migration | Pass locally — repository, v4-to-v5 upgrade, failed-migration rollback, and injected coordinator rollback |
+| Q0 Authority and traceability | Pass — approved hashes, identity, permission boundary, schema v5, and all FR/BR/AC mappings verified locally and in protected quality run 30336464959 |
+| Q1 Static and build | Pass — strict format, analyzer, byte-clean codegen, direct Gradle debug assembly, and protected quality run 30336464959 |
+| Q2 Domain/database/migration | Pass — repository, v4-to-v5 upgrade, failed-migration rollback, injected coordinator rollback, and all 70 Flutter tests in protected quality run 30336464959 |
 | Q3 Offline/privacy/idempotency | Pass locally — offline link/unlink/relink, operation retry, reschedule transfer, and no new permission or dependency |
 | Q4 UI/accessibility | Pass locally — matching-viewport native link journey plus retained 200% Planner coverage |
-| Q5 Android platform | Pending protected API 24/API 36 emulator evidence |
+| Q5 Android platform | Pass — Android matrix run 30337613752 passed all 12 lanes, including Task-Event linking on API 24 and API 36 |
 | Q6 Remote security | Not applicable; no remote client or provider identity introduced |
-| Q7 Slice evidence | Local evidence complete; protected CI evidence pending |
+| Q7 Slice evidence | Pass — local evidence, protected quality run 30336464959, and Android matrix run 30337613752 are complete |
 
 VS-06 report and Activity Ledger writes, remote sync, provider Calendar
 integration, notifications, maps, and later slice work are not implemented.

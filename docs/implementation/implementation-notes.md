@@ -393,3 +393,19 @@ repairs did not modify project source or global Git configuration.
   `pubspec.lock`, and the production manifest are unchanged. The five
   pre-existing untracked `UI Preferences/**/screen.png` files remain untouched
   and excluded.
+- Protected quality
+  [run 30336464959](https://github.com/noyanxtdoor-maker/draft-planner/actions/runs/30336464959)
+  passed on commit `a677d25`, including authority verification, formatting,
+  static analysis, byte-clean code generation, all 70 Flutter tests, debug APK
+  assembly, dependency reporting, and secret scanning.
+- Android matrix
+  [run 30337613752](https://github.com/noyanxtdoor-maker/draft-planner/actions/runs/30337613752)
+  passed all 12 startup, privacy, Planner, process-persistence, Calendar Event,
+  and Task-Event link lanes on API 24 and API 36.
+- The first Android matrix attempt exposed a test-only viewport assumption: the
+  smoke test tapped an off-screen Planner tile and never reached Task detail.
+  The correction enters the persisted Task detail route directly and scrolls
+  within explicit `ListView` controls. Production source and behavior were
+  unchanged. A later matrix attempt passed 11 lanes but its legacy API 24
+  Calendar Event runner stalled; it was cancelled after the clean retry passed
+  all 12 lanes.
