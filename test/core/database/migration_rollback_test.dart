@@ -438,4 +438,105 @@ void main() {
       sqliteDatabase.close();
     }
   });
+
+  test(
+    'AC-B-004 / Q2: v6 upgrades to schema v7 without prior-data loss',
+    () async {
+      final sqliteDatabase = sqlite3.openInMemory();
+      try {
+        final versionSix = AppDatabase.forTesting(
+          NativeDatabase.opened(sqliteDatabase, closeUnderlyingOnClose: false),
+          schemaVersionOverride: 6,
+        );
+        final original = await buildTestRepository(
+          database: versionSix,
+        ).completeOnboarding();
+        await versionSix.close();
+
+        final versionSeven = AppDatabase.forTesting(
+          NativeDatabase.opened(sqliteDatabase, closeUnderlyingOnClose: false),
+          schemaVersionOverride: 7,
+        );
+        expect(
+          (await versionSeven.select(versionSeven.localProfiles).get())
+              .single
+              .id,
+          original.id,
+        );
+        expect(
+          await versionSeven
+              .select(versionSeven.weeklyIndicatorTargetRevisions)
+              .get(),
+          isEmpty,
+        );
+        expect(
+          (await versionSeven.customSelect('PRAGMA user_version').getSingle())
+              .read<int>('user_version'),
+          7,
+        );
+        await versionSeven.close();
+      } finally {
+        sqliteDatabase.close();
+      }
+    },
+  );
+
+  test(
+    'AC-B-004 / Q2: failed v7 migration preserves the valid v6 database',
+    () async {
+      final sqliteDatabase = sqlite3.openInMemory();
+      try {
+        final versionSix = AppDatabase.forTesting(
+          NativeDatabase.opened(sqliteDatabase, closeUnderlyingOnClose: false),
+          schemaVersionOverride: 6,
+        );
+        final original = await buildTestRepository(
+          database: versionSix,
+        ).completeOnboarding();
+        await versionSix.close();
+
+        final failingVersionSeven = AppDatabase.forTesting(
+          NativeDatabase.opened(sqliteDatabase, closeUnderlyingOnClose: false),
+          schemaVersionOverride: 7,
+          injectIndicatorMigrationFailure: true,
+        );
+        await expectLater(
+          failingVersionSeven.select(failingVersionSeven.localProfiles).get(),
+          throwsA(isA<StateError>()),
+        );
+        await failingVersionSeven.close();
+
+        final reopenedVersionSix = AppDatabase.forTesting(
+          NativeDatabase.opened(sqliteDatabase, closeUnderlyingOnClose: false),
+          schemaVersionOverride: 6,
+        );
+        expect(
+          (await reopenedVersionSix
+                  .select(reopenedVersionSix.localProfiles)
+                  .get())
+              .single
+              .id,
+          original.id,
+        );
+        expect(
+          (await reopenedVersionSix
+                  .customSelect('PRAGMA user_version')
+                  .getSingle())
+              .read<int>('user_version'),
+          6,
+        );
+        final targetTable = await reopenedVersionSix
+            .customSelect(
+              "SELECT COUNT(*) AS count FROM sqlite_master "
+              "WHERE type='table' AND "
+              "name='weekly_indicator_target_revisions'",
+            )
+            .getSingle();
+        expect(targetTable.read<int>('count'), 0);
+        await reopenedVersionSix.close();
+      } finally {
+        sqliteDatabase.close();
+      }
+    },
+  );
 }

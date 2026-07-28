@@ -9,6 +9,8 @@ import 'package:rmplanner/core/platform/app_environment.dart';
 import 'package:rmplanner/core/security/auth_token_store.dart';
 import 'package:rmplanner/core/security/privacy_gate.dart';
 import 'package:rmplanner/core/time/app_clock.dart';
+import 'package:rmplanner/features/indicators/application/indicator_providers.dart';
+import 'package:rmplanner/features/indicators/data/drift_indicator_repository.dart';
 import 'package:rmplanner/features/planner/application/calendar_event_providers.dart';
 import 'package:rmplanner/features/planner/application/calendar_event_repository.dart';
 import 'package:rmplanner/features/planner/application/outcome_reporting_providers.dart';
@@ -274,6 +276,11 @@ final class TestPrivacyDependencies {
       calendarEvents: resolvedCalendarEventRepository,
       links: linkRepository,
     );
+    final indicatorRepository = DriftIndicatorRepository(
+      database: repository.database,
+      clock: FixedClock(DateTime.utc(2026, 7, 27, 12)),
+      calendarEvents: resolvedCalendarEventRepository,
+    );
     return ProviderScope(
       overrides: [
         appEnvironmentProvider.overrideWithValue(environment),
@@ -293,6 +300,7 @@ final class TestPrivacyDependencies {
           outcomeReportingRepository,
         ),
         plannerRepositoryProvider.overrideWithValue(resolvedPlannerRepository),
+        indicatorRepositoryProvider.overrideWithValue(indicatorRepository),
         taskEventLinkRepositoryProvider.overrideWithValue(linkRepository),
         taskEventLinkCoordinatorProvider.overrideWithValue(linkCoordinator),
         plannerDateSourceProvider.overrideWithValue(plannerDateSource),

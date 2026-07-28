@@ -23,6 +23,8 @@ abstract final class RouteNames {
   static const String outcomeReportCreate = 'outcome-report-create';
   static const String outcomeReportCorrection = 'outcome-report-correction';
   static const String activityHistory = 'activity-history';
+  static const String indicatorDetail = 'indicator-detail';
+  static const String weeklyPlanningTargets = 'weekly-planning-targets';
   static const String privacyCenter = 'privacy-center';
   static const String permissions = 'permissions';
   static const String diagnosticPreview = 'diagnostic-preview';
@@ -42,6 +44,8 @@ abstract final class RoutePaths {
   static const String reports = '/reports';
   static const String outcomeReportCreate = '/reports/new';
   static const String activityHistory = '/activity-history';
+  static const String progress = '/progress';
+  static const String weeklyPlanning = '/planner/weekly-planning';
   static const String privacyCenter = '/privacy';
   static const String permissions = '/privacy/permissions';
   static const String diagnosticPreview = '/privacy/diagnostics';
@@ -78,5 +82,17 @@ abstract final class RoutePaths {
 
   static String outcomeReportCorrection(String reportId) {
     return '$reports/$reportId/correct';
+  }
+
+  static String indicatorDetail(String indicatorKey, PlannerDate periodStart) {
+    return '$progress/metric/$indicatorKey?week=${periodStart.iso8601}';
+  }
+
+  static String weeklyPlanningTargets(
+    PlannerDate periodStart, {
+    String? indicatorKey,
+  }) {
+    final indicator = indicatorKey == null ? '' : '&indicator=$indicatorKey';
+    return '$weeklyPlanning?week=${periodStart.iso8601}$indicator';
   }
 }

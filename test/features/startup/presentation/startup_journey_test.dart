@@ -69,15 +69,12 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('main-bottom-navigation')), findsOneWidget);
-      expect(find.text('Welcome, Offline UI user'), findsOneWidget);
-      expect(find.text('Ready offline'), findsOneWidget);
-      expect(find.text('Not connected — optional'), findsOneWidget);
-      await tester.scrollUntilVisible(
-        find.text('Weekly targets are not set'),
-        240,
-        scrollable: find.byType(Scrollable).first,
+      expect(find.text('Weekly Life Indicators'), findsOneWidget);
+      expect(
+        find.byKey(const Key('home-indicator-job_applications')),
+        findsOneWidget,
       );
-      expect(find.text('Weekly targets are not set'), findsOneWidget);
+      expect(find.text('Not set'), findsNWidgets(6));
       expect(tester.takeException(), isNull);
 
       final homeContext = tester.element(
@@ -90,6 +87,9 @@ void main() {
       await tester.tap(find.text('Return to Home'));
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('main-bottom-navigation')), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(milliseconds: 1));
     },
   );
 

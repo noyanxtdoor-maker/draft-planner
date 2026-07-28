@@ -482,3 +482,70 @@ repairs did not modify project source or global Git configuration.
   Task-Event link, and outcome-report lanes on API 24 and API 36.
 - The five pre-existing untracked `UI Preferences/**/screen.png` files remain
   untouched and excluded.
+
+## 2026-07-28 — VS-07 Home and Life Indicators
+
+- Product-owner authorization expanded the active boundary through VS-07 only.
+  VS-08 and all later slices remain unauthorized.
+- Added a local Home projection over the six approved indicator definitions,
+  signed Activity Ledger entries, weekly target revisions, explicitly
+  qualified future Tasks/Events, canonical Task-Event links, and Calendar Event
+  occurrence status.
+- Actual, Target, and Scheduled Potential are separate domain and presentation
+  values. There is no blended total, direct Actual mutation, composite score,
+  worthiness calculation, or title-based classification.
+- Added append-only weekly target revisions in Drift schema version 7. Not set,
+  explicit zero, and positive targets remain distinct. The latest revision is
+  resolved from the supersession chain rather than timestamp coincidence.
+  Migration from schema v6 is transactional and has an injected rollback
+  fixture.
+- Home is current-week only. Indicator detail retains the period and exposes
+  Scheduled sources plus immutable contribution/reversal history. The limited
+  target prompt offers a scheduled-derived suggestion only after a tap and
+  never applies it silently.
+- Cancelled, rescheduled-original, elapsed-awaiting-report, and non-canonical
+  linked records are excluded from Scheduled Potential. Reschedule
+  replacements qualify once through their own explicit structured rule.
+- Projection states are isolated per indicator. Stale, Rebuilding, and Partial
+  Failure states remain factual and preserve unaffected local summaries.
+- The approved Home PNG and matching HTML were inspected first. Native Flutter
+  retains the charcoal/pink compact composition, card geometry, Android safe
+  areas, and permanent bottom navigation.
+- The PNG's blended fraction presentation is intentionally replaced by
+  separately labeled Actual, Target, and Scheduled values because the approved
+  behavioral specification and OPD-1-007 take precedence. The unauthorized
+  sample Pathways content, sample values, photos, search/notification actions,
+  and fake OS chrome are not reproduced.
+- VS-07 adds no package, Android permission, remote client, analytics SDK,
+  Calendar provider access, notification code, map code, WebView, or VS-08
+  Weekly Plan lifecycle.
+
+### VS-07 verification evidence
+
+- Focused repository, widget, startup, and schema migration tests pass,
+  including cancellation/reschedule de-duplication, title-only exclusion,
+  correction reversal/replacement refresh, same-clock target revisions, stale
+  state, isolated projection failure, period-preserving detail navigation, and
+  the 941 by 1672 approved Home viewport.
+- Strict formatting passed across all 112 Dart files and static analysis passed
+  with no issues. All 86 Flutter unit, domain, repository, migration, and widget
+  tests passed.
+- Drift generation reproduced `app_database.g.dart` byte-for-byte with SHA-256
+  `917B305A0F031FD3E05F2652ED5CF0E880CDB3BBCC4EE1D9A16504A1B5015803`.
+- Direct Gradle debug assembly passed all 203 tasks. The APK is 193,132,994
+  bytes with SHA-256
+  `3389B14144CE4A6D04E419D70EB67CA0EE57D5B71C025B73D8B9DBD7F0DE00B3`.
+  APK inspection confirmed `com.nexttransfer.rmplanner`, version `0.1.0+1`,
+  minimum SDK 24, compile/target SDK 36, and no Calendar, contacts, location,
+  storage, or notification permission.
+- Flutter's wrapper produced the APK but returned failure while replacing
+  Gradle's optional problems report. Direct `app:assembleDebug` with
+  `--no-problems-report` passed; no production source changed to mask the local
+  filesystem/tooling behavior.
+- No Android device is currently connected. The equivalent Home widget journey
+  passed locally; the Android flow is assigned to API 24 and API 36 clean CI
+  emulators.
+- Protected-quality and API 24/API 36 evidence will be recorded after those
+  gates complete.
+- The five pre-existing untracked `UI Preferences/**/screen.png` files remain
+  untouched and excluded.

@@ -8,6 +8,8 @@ import 'package:rmplanner/core/platform/app_environment.dart';
 import 'package:rmplanner/core/security/auth_token_store.dart';
 import 'package:rmplanner/core/security/privacy_gate.dart';
 import 'package:rmplanner/core/time/app_clock.dart';
+import 'package:rmplanner/features/indicators/application/indicator_providers.dart';
+import 'package:rmplanner/features/indicators/data/drift_indicator_repository.dart';
 import 'package:rmplanner/features/planner/application/calendar_event_providers.dart';
 import 'package:rmplanner/features/planner/application/outcome_reporting_providers.dart';
 import 'package:rmplanner/features/planner/application/planner_providers.dart';
@@ -63,6 +65,11 @@ Future<void> main() async {
     taskContextSource: taskEventLinkRepository,
     historicalEffectReader: outcomeReportingRepository,
   );
+  final indicatorRepository = DriftIndicatorRepository(
+    database: database,
+    clock: clock,
+    calendarEvents: calendarEventRepository,
+  );
   final taskEventLinkCoordinator = DriftTaskEventLinkCoordinator(
     database: database,
     calendarEvents: calendarEventRepository,
@@ -98,6 +105,7 @@ Future<void> main() async {
           outcomeReportingRepository,
         ),
         plannerRepositoryProvider.overrideWithValue(plannerRepository),
+        indicatorRepositoryProvider.overrideWithValue(indicatorRepository),
         taskEventLinkRepositoryProvider.overrideWithValue(
           taskEventLinkRepository,
         ),

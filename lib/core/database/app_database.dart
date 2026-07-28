@@ -373,6 +373,34 @@ class ActivityLedgerEntries extends Table {
   Set<Column<Object>> get primaryKey => <Column<Object>>{id};
 }
 
+@TableIndex(
+  name: 'weekly_indicator_target_operation_unique',
+  columns: <Symbol>{#operationId},
+  unique: true,
+)
+@TableIndex(
+  name: 'weekly_indicator_target_period_history',
+  columns: <Symbol>{#profileId, #indicatorKey, #periodStartDate, #createdAtUtc},
+)
+@DataClassName('WeeklyIndicatorTargetRevisionRow')
+class WeeklyIndicatorTargetRevisions extends Table {
+  TextColumn get id => text()();
+  TextColumn get profileId =>
+      text().references(LocalProfiles, #id, onDelete: KeyAction.restrict)();
+  TextColumn get indicatorKey => text()();
+  TextColumn get periodStartDate => text()();
+  TextColumn get state => text()();
+  IntColumn get valueScaled => integer().nullable()();
+  IntColumn get valueScale => integer()();
+  TextColumn get unit => text()();
+  TextColumn get supersedesRevisionId => text().nullable()();
+  TextColumn get operationId => text()();
+  DateTimeColumn get createdAtUtc => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => <Column<Object>>{id};
+}
+
 @DriftDatabase(
   tables: <Type>[
     LocalProfiles,
@@ -390,6 +418,7 @@ class ActivityLedgerEntries extends Table {
     OutcomeReports,
     OutcomeReportContributionDrafts,
     ActivityLedgerEntries,
+    WeeklyIndicatorTargetRevisions,
   ],
 )
 final class AppDatabase extends _$AppDatabase {
@@ -400,6 +429,7 @@ final class AppDatabase extends _$AppDatabase {
       _injectCalendarEventMigrationFailure = false,
       _injectTaskEventLinkMigrationFailure = false,
       _injectOutcomeReportingMigrationFailure = false,
+      _injectIndicatorMigrationFailure = false,
       super(driftDatabase(name: 'next_transfer'));
 
   AppDatabase.forTesting(
@@ -410,6 +440,7 @@ final class AppDatabase extends _$AppDatabase {
     bool injectCalendarEventMigrationFailure = false,
     bool injectTaskEventLinkMigrationFailure = false,
     bool injectOutcomeReportingMigrationFailure = false,
+    bool injectIndicatorMigrationFailure = false,
   }) : _schemaVersionOverride = schemaVersionOverride,
        _injectMigrationFailure = injectMigrationFailure,
        _injectTaskMigrationFailure = injectTaskMigrationFailure,
@@ -418,7 +449,8 @@ final class AppDatabase extends _$AppDatabase {
        _injectTaskEventLinkMigrationFailure =
            injectTaskEventLinkMigrationFailure,
        _injectOutcomeReportingMigrationFailure =
-           injectOutcomeReportingMigrationFailure;
+           injectOutcomeReportingMigrationFailure,
+       _injectIndicatorMigrationFailure = injectIndicatorMigrationFailure;
 
   final int? _schemaVersionOverride;
   final bool _injectMigrationFailure;
@@ -426,9 +458,10 @@ final class AppDatabase extends _$AppDatabase {
   final bool _injectCalendarEventMigrationFailure;
   final bool _injectTaskEventLinkMigrationFailure;
   final bool _injectOutcomeReportingMigrationFailure;
+  final bool _injectIndicatorMigrationFailure;
 
   @override
-  int get schemaVersion => _schemaVersionOverride ?? 6;
+  int get schemaVersion => _schemaVersionOverride ?? 7;
 
   @override
   MigrationStrategy get migration {
@@ -458,6 +491,9 @@ final class AppDatabase extends _$AppDatabase {
           await migrator.createTable(outcomeReports);
           await migrator.createTable(outcomeReportContributionDrafts);
           await migrator.createTable(activityLedgerEntries);
+        }
+        if (schemaVersion >= 7) {
+          await migrator.createTable(weeklyIndicatorTargetRevisions);
         }
       },
       onUpgrade: (migrator, from, to) async {
@@ -497,6 +533,12 @@ final class AppDatabase extends _$AppDatabase {
             await migrator.createTable(activityLedgerEntries);
             if (_injectOutcomeReportingMigrationFailure) {
               throw StateError('Injected outcome reporting migration failure');
+            }
+          }
+          if (from < 7 && to >= 7) {
+            await migrator.createTable(weeklyIndicatorTargetRevisions);
+            if (_injectIndicatorMigrationFailure) {
+              throw StateError('Injected indicator migration failure');
             }
           }
         });
