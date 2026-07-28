@@ -125,6 +125,88 @@ class TaskStatusChanges extends Table {
   Set<Column<Object>> get primaryKey => <Column<Object>>{id};
 }
 
+@TableIndex(
+  name: 'calendar_event_profile_start_date',
+  columns: <Symbol>{#profileId, #startDate},
+)
+@DataClassName('CalendarEventRow')
+class CalendarEvents extends Table {
+  TextColumn get id => text()();
+  TextColumn get profileId =>
+      text().references(LocalProfiles, #id, onDelete: KeyAction.restrict)();
+  TextColumn get title => text()();
+  TextColumn get notes => text().nullable()();
+  TextColumn get timing => text()();
+  TextColumn get startDate => text()();
+  IntColumn get startMinute => integer().nullable()();
+  IntColumn get endMinute => integer().nullable()();
+  TextColumn get timeZoneId => text().nullable()();
+  TextColumn get locationText => text().nullable()();
+  BoolColumn get requiresReport =>
+      boolean().withDefault(const Constant(false))();
+  TextColumn get contributionRuleKey => text().nullable()();
+  TextColumn get recurrenceFrequency =>
+      text().withDefault(const Constant('none'))();
+  TextColumn get recurrenceEndMode =>
+      text().withDefault(const Constant('never'))();
+  TextColumn get recurrenceEndDate => text().nullable()();
+  IntColumn get recurrenceCount => integer().nullable()();
+  TextColumn get status => text().withDefault(const Constant('scheduled'))();
+  TextColumn get parentEventId => text().nullable()();
+  TextColumn get replacementEventId => text().nullable()();
+  DateTimeColumn get createdAtUtc => dateTime()();
+  DateTimeColumn get updatedAtUtc => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => <Column<Object>>{id};
+}
+
+@TableIndex(
+  name: 'calendar_event_exception_occurrence_time',
+  columns: <Symbol>{#eventId, #occurrenceId, #createdAtUtc},
+)
+@DataClassName('CalendarEventExceptionRow')
+class CalendarEventExceptions extends Table {
+  TextColumn get id => text()();
+  TextColumn get profileId =>
+      text().references(LocalProfiles, #id, onDelete: KeyAction.restrict)();
+  TextColumn get eventId =>
+      text().references(CalendarEvents, #id, onDelete: KeyAction.restrict)();
+  TextColumn get occurrenceId => text()();
+  TextColumn get originalDate => text()();
+  TextColumn get effectiveDate => text()();
+  TextColumn get title => text()();
+  TextColumn get notes => text().nullable()();
+  TextColumn get timing => text()();
+  IntColumn get startMinute => integer().nullable()();
+  IntColumn get endMinute => integer().nullable()();
+  TextColumn get timeZoneId => text().nullable()();
+  TextColumn get locationText => text().nullable()();
+  BoolColumn get requiresReport =>
+      boolean().withDefault(const Constant(false))();
+  TextColumn get contributionRuleKey => text().nullable()();
+  TextColumn get status => text()();
+  TextColumn get replacementEventId => text().nullable()();
+  DateTimeColumn get createdAtUtc => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => <Column<Object>>{id};
+}
+
+@DataClassName('CalendarEventOperationRow')
+class CalendarEventOperations extends Table {
+  TextColumn get operationId => text()();
+  TextColumn get profileId =>
+      text().references(LocalProfiles, #id, onDelete: KeyAction.restrict)();
+  TextColumn get eventId => text()();
+  TextColumn get occurrenceId => text().nullable()();
+  TextColumn get command => text()();
+  DateTimeColumn get createdAtUtc => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => <Column<Object>>{operationId};
+}
+
 @DriftDatabase(
   tables: <Type>[
     LocalProfiles,
@@ -134,6 +216,9 @@ class TaskStatusChanges extends Table {
     PermissionAudits,
     PlannerTasks,
     TaskStatusChanges,
+    CalendarEvents,
+    CalendarEventExceptions,
+    CalendarEventOperations,
   ],
 )
 final class AppDatabase extends _$AppDatabase {
@@ -141,6 +226,7 @@ final class AppDatabase extends _$AppDatabase {
     : _schemaVersionOverride = null,
       _injectMigrationFailure = false,
       _injectTaskMigrationFailure = false,
+      _injectCalendarEventMigrationFailure = false,
       super(driftDatabase(name: 'next_transfer'));
 
   AppDatabase.forTesting(
@@ -148,16 +234,20 @@ final class AppDatabase extends _$AppDatabase {
     int? schemaVersionOverride,
     bool injectMigrationFailure = false,
     bool injectTaskMigrationFailure = false,
+    bool injectCalendarEventMigrationFailure = false,
   }) : _schemaVersionOverride = schemaVersionOverride,
        _injectMigrationFailure = injectMigrationFailure,
-       _injectTaskMigrationFailure = injectTaskMigrationFailure;
+       _injectTaskMigrationFailure = injectTaskMigrationFailure,
+       _injectCalendarEventMigrationFailure =
+           injectCalendarEventMigrationFailure;
 
   final int? _schemaVersionOverride;
   final bool _injectMigrationFailure;
   final bool _injectTaskMigrationFailure;
+  final bool _injectCalendarEventMigrationFailure;
 
   @override
-  int get schemaVersion => _schemaVersionOverride ?? 3;
+  int get schemaVersion => _schemaVersionOverride ?? 4;
 
   @override
   MigrationStrategy get migration {
@@ -174,6 +264,11 @@ final class AppDatabase extends _$AppDatabase {
           await migrator.createTable(plannerTasks);
           await migrator.createTable(taskStatusChanges);
         }
+        if (schemaVersion >= 4) {
+          await migrator.createTable(calendarEvents);
+          await migrator.createTable(calendarEventExceptions);
+          await migrator.createTable(calendarEventOperations);
+        }
       },
       onUpgrade: (migrator, from, to) async {
         await transaction(() async {
@@ -189,6 +284,14 @@ final class AppDatabase extends _$AppDatabase {
             await migrator.createTable(taskStatusChanges);
             if (_injectTaskMigrationFailure) {
               throw StateError('Injected task migration failure');
+            }
+          }
+          if (from < 4 && to >= 4) {
+            await migrator.createTable(calendarEvents);
+            await migrator.createTable(calendarEventExceptions);
+            await migrator.createTable(calendarEventOperations);
+            if (_injectCalendarEventMigrationFailure) {
+              throw StateError('Injected Calendar Event migration failure');
             }
           }
         });

@@ -8,7 +8,10 @@ import 'package:rmplanner/core/platform/app_environment.dart';
 import 'package:rmplanner/core/security/auth_token_store.dart';
 import 'package:rmplanner/core/security/privacy_gate.dart';
 import 'package:rmplanner/core/time/app_clock.dart';
+import 'package:rmplanner/features/planner/application/calendar_event_providers.dart';
 import 'package:rmplanner/features/planner/application/planner_providers.dart';
+import 'package:rmplanner/features/planner/data/calendar_event_time_zones.dart';
+import 'package:rmplanner/features/planner/data/drift_calendar_event_repository.dart';
 import 'package:rmplanner/features/planner/data/drift_planner_repository.dart';
 import 'package:rmplanner/features/privacy/application/privacy_providers.dart';
 import 'package:rmplanner/features/privacy/data/drift_privacy_repository.dart';
@@ -17,7 +20,7 @@ import 'package:rmplanner/features/privacy/data/permission_handler_gateway.dart'
 import 'package:rmplanner/features/startup/application/startup_providers.dart';
 import 'package:rmplanner/features/startup/data/drift_startup_repository.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   final environment = AppEnvironment.fromDartDefines();
@@ -32,9 +35,16 @@ void main() {
   );
   final privacyGate = SessionPrivacyGate(settingsReader: privacyRepository);
   final authTokenStore = SecureAuthTokenStore(FlutterSecureStorageDriver());
+  final calendarEventTimeZones = await IanaCalendarEventTimeZones.forDevice();
+  final calendarEventRepository = DriftCalendarEventRepository(
+    database: database,
+    clock: clock,
+    timeZones: calendarEventTimeZones,
+  );
   final plannerRepository = DriftPlannerRepository(
     database: database,
     clock: clock,
+    calendarSource: calendarEventRepository,
   );
   final startupRepository = DriftStartupRepository(
     database: database,
@@ -59,6 +69,9 @@ void main() {
           const PermissionHandlerGateway(),
         ),
         authTokenStoreProvider.overrideWithValue(authTokenStore),
+        calendarEventRepositoryProvider.overrideWithValue(
+          calendarEventRepository,
+        ),
         plannerRepositoryProvider.overrideWithValue(plannerRepository),
       ],
       child: const NextTransferApp(),

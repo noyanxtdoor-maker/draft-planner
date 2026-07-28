@@ -3,8 +3,10 @@ import 'package:go_router/go_router.dart';
 import 'package:rmplanner/app/router/route_names.dart';
 import 'package:rmplanner/app/router/startup_route_guard.dart';
 import 'package:rmplanner/app/shell/main_shell.dart';
+import 'package:rmplanner/features/planner/domain/calendar_event.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
-import 'package:rmplanner/features/planner/presentation/calendar_event_unavailable_screen.dart';
+import 'package:rmplanner/features/planner/presentation/calendar_event_detail_screen.dart';
+import 'package:rmplanner/features/planner/presentation/calendar_event_form_screen.dart';
 import 'package:rmplanner/features/planner/presentation/planner_screen.dart';
 import 'package:rmplanner/features/planner/presentation/task_detail_screen.dart';
 import 'package:rmplanner/features/planner/presentation/task_form_screen.dart';
@@ -94,11 +96,60 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ],
       ),
       GoRoute(
-        name: RouteNames.calendarEventUnavailable,
-        path: RoutePaths.calendarEventUnavailable,
-        builder: (context, state) => CalendarEventUnavailableScreen(
-          eventId: state.uri.queryParameters['eventId'],
+        name: RouteNames.calendarEventCreate,
+        path: RoutePaths.calendarEventCreate,
+        builder: (context, state) {
+          final rawDate = state.uri.queryParameters['date'];
+          return CalendarEventFormScreen.create(
+            initialDate: rawDate == null
+                ? PlannerDate.fromDateTime(DateTime.now())
+                : PlannerDate.parse(rawDate),
+          );
+        },
+      ),
+      GoRoute(
+        name: RouteNames.calendarEventDetail,
+        path: '${RoutePaths.calendarEvents}/:eventId/:originalDate',
+        builder: (context, state) => CalendarEventDetailScreen(
+          eventId: state.pathParameters['eventId']!,
+          originalDate: PlannerDate.parse(
+            state.pathParameters['originalDate']!,
+          ),
         ),
+        routes: <RouteBase>[
+          GoRoute(
+            name: RouteNames.calendarEventEdit,
+            path: 'edit',
+            builder: (context, state) {
+              final rawScope = state.uri.queryParameters['scope'];
+              return CalendarEventFormScreen.edit(
+                eventId: state.pathParameters['eventId']!,
+                originalDate: PlannerDate.parse(
+                  state.pathParameters['originalDate']!,
+                ),
+                scope: rawScope == null
+                    ? CalendarEventEditScope.occurrence
+                    : CalendarEventEditScope.values.byName(rawScope),
+              );
+            },
+          ),
+          GoRoute(
+            name: RouteNames.calendarEventReschedule,
+            path: 'reschedule',
+            builder: (context, state) {
+              final rawScope = state.uri.queryParameters['scope'];
+              return CalendarEventFormScreen.reschedule(
+                eventId: state.pathParameters['eventId']!,
+                originalDate: PlannerDate.parse(
+                  state.pathParameters['originalDate']!,
+                ),
+                scope: rawScope == null
+                    ? CalendarEventEditScope.occurrence
+                    : CalendarEventEditScope.values.byName(rawScope),
+              );
+            },
+          ),
+        ],
       ),
       GoRoute(
         name: RouteNames.privacyCenter,

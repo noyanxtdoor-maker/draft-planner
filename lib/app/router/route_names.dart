@@ -1,3 +1,6 @@
+import 'package:rmplanner/features/planner/domain/calendar_event.dart';
+import 'package:rmplanner/features/planner/domain/planner_date.dart';
+
 abstract final class RouteNames {
   static const String startup = 'startup';
   static const String onboarding = 'onboarding';
@@ -8,7 +11,10 @@ abstract final class RouteNames {
   static const String taskCreate = 'task-create';
   static const String taskDetail = 'task-detail';
   static const String taskEdit = 'task-edit';
-  static const String calendarEventUnavailable = 'calendar-event-unavailable';
+  static const String calendarEventCreate = 'calendar-event-create';
+  static const String calendarEventDetail = 'calendar-event-detail';
+  static const String calendarEventEdit = 'calendar-event-edit';
+  static const String calendarEventReschedule = 'calendar-event-reschedule';
   static const String privacyCenter = 'privacy-center';
   static const String permissions = 'permissions';
   static const String diagnosticPreview = 'diagnostic-preview';
@@ -23,8 +29,31 @@ abstract final class RoutePaths {
   static const String planner = '/planner';
   static const String tasks = '/tasks';
   static const String taskCreate = '/tasks/new';
-  static const String calendarEventUnavailable = '/planner/calendar-event';
+  static const String calendarEvents = '/events';
+  static const String calendarEventCreate = '/events/new';
   static const String privacyCenter = '/privacy';
   static const String permissions = '/privacy/permissions';
   static const String diagnosticPreview = '/privacy/diagnostics';
+
+  static String calendarEventDetail(String eventId, PlannerDate originalDate) {
+    return '$calendarEvents/$eventId/${originalDate.iso8601}';
+  }
+
+  static String calendarEventEdit(
+    String eventId,
+    PlannerDate originalDate,
+    CalendarEventEditScope scope,
+  ) {
+    return '${calendarEventDetail(eventId, originalDate)}/edit'
+        '?scope=${scope.name}';
+  }
+
+  static String calendarEventReschedule(
+    String eventId,
+    PlannerDate originalDate,
+    CalendarEventEditScope scope,
+  ) {
+    return '${calendarEventDetail(eventId, originalDate)}/reschedule'
+        '?scope=${scope.name}';
+  }
 }

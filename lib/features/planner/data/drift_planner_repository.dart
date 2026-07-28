@@ -125,7 +125,10 @@ final class DriftPlannerRepository implements PlannerRepository {
               ]))
             .get();
     final allTasks = await Future.wait(taskRows.map(_mapTask));
-    final calendarItems = await calendarSource.readDay(selectedDate);
+    final calendarItems = await calendarSource.readDay(
+      profileId: profileId,
+      date: selectedDate,
+    );
     final nowLocal = clock.nowUtc().toLocal();
     final awaiting = calendarItems
         .where((item) => item.isAwaitingReport(nowLocal))
@@ -165,6 +168,8 @@ final class DriftPlannerRepository implements PlannerRepository {
                 ? 'Cancelled event'
                 : 'Rescheduled event',
             isTask: false,
+            eventId: event.eventId,
+            originalDate: event.originalDate,
           ),
     ];
 

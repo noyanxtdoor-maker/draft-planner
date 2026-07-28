@@ -3,7 +3,14 @@ import 'package:rmplanner/features/planner/domain/planner_task.dart';
 
 enum PlannerEventTiming { allDay, timed }
 
-enum PlannerEventState { scheduled, cancelled, rescheduled }
+enum PlannerEventState {
+  scheduled,
+  completedHappened,
+  partiallyCompleted,
+  didNotHappen,
+  cancelled,
+  rescheduled,
+}
 
 final class PlannerCalendarItem {
   const PlannerCalendarItem({
@@ -16,10 +23,16 @@ final class PlannerCalendarItem {
     required this.hasOutcomeReport,
     this.startLocal,
     this.endLocal,
+    this.startUtc,
+    this.endUtc,
     this.locationText,
     this.isRecurring = false,
     this.replacementId,
     this.linkedTaskIds = const <String>[],
+    this.eventId,
+    this.originalDate,
+    this.timeZoneId,
+    this.displayTimeZoneId,
   });
 
   final String id;
@@ -31,10 +44,16 @@ final class PlannerCalendarItem {
   final bool hasOutcomeReport;
   final DateTime? startLocal;
   final DateTime? endLocal;
+  final DateTime? startUtc;
+  final DateTime? endUtc;
   final String? locationText;
   final bool isRecurring;
   final String? replacementId;
   final List<String> linkedTaskIds;
+  final String? eventId;
+  final PlannerDate? originalDate;
+  final String? timeZoneId;
+  final String? displayTimeZoneId;
 
   bool isAwaitingReport(DateTime nowLocal) {
     if (state != PlannerEventState.scheduled ||
@@ -44,6 +63,10 @@ final class PlannerCalendarItem {
     }
     if (timing == PlannerEventTiming.allDay) {
       return date.compareTo(PlannerDate.fromDateTime(nowLocal)) < 0;
+    }
+    final instant = endUtc;
+    if (instant != null) {
+      return instant.isBefore(nowLocal.toUtc());
     }
     final end = endLocal;
     return end != null && end.isBefore(nowLocal);
@@ -60,12 +83,16 @@ final class PlannerChangeItem {
     required this.title,
     required this.label,
     required this.isTask,
+    this.eventId,
+    this.originalDate,
   });
 
   final String id;
   final String title;
   final String label;
   final bool isTask;
+  final String? eventId;
+  final PlannerDate? originalDate;
 }
 
 final class PlannerDay {
