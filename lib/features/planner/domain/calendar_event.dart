@@ -187,6 +187,9 @@ final class CalendarEventDraft {
     this.activityTypeId,
     this.activityTypeMappingVersion,
     this.contributionRuleKey,
+    this.isBackupAppointment = false,
+    this.backupForEventId,
+    this.backupRelationshipProvenance,
     this.recurrence = const CalendarRecurrenceRule(),
   });
 
@@ -203,6 +206,9 @@ final class CalendarEventDraft {
   final int? activityTypeMappingVersion;
   final bool requiresReport;
   final String? contributionRuleKey;
+  final bool isBackupAppointment;
+  final String? backupForEventId;
+  final String? backupRelationshipProvenance;
   final CalendarRecurrenceRule recurrence;
 
   CalendarEventDraft normalized() {
@@ -233,6 +239,13 @@ final class CalendarEventDraft {
         activityTypeId: activityTypeId,
         activityTypeMappingVersion: activityTypeMappingVersion,
         contributionRuleKey: normalizedContribution,
+        isBackupAppointment: isBackupAppointment,
+        backupForEventId: isBackupAppointment
+            ? _normalizeOptional(backupForEventId)
+            : null,
+        backupRelationshipProvenance: isBackupAppointment
+            ? _normalizeOptional(backupRelationshipProvenance)
+            : null,
         recurrence: normalizedRecurrence,
       );
     }
@@ -269,6 +282,13 @@ final class CalendarEventDraft {
       activityTypeMappingVersion: activityTypeMappingVersion,
       requiresReport: requiresReport,
       contributionRuleKey: normalizedContribution,
+      isBackupAppointment: isBackupAppointment,
+      backupForEventId: isBackupAppointment
+          ? _normalizeOptional(backupForEventId)
+          : null,
+      backupRelationshipProvenance: isBackupAppointment
+          ? _normalizeOptional(backupRelationshipProvenance)
+          : null,
       recurrence: normalizedRecurrence,
     );
   }
@@ -287,6 +307,9 @@ final class CalendarEventDraft {
     int? activityTypeMappingVersion,
     bool? requiresReport,
     String? contributionRuleKey,
+    bool? isBackupAppointment,
+    String? backupForEventId,
+    String? backupRelationshipProvenance,
     CalendarRecurrenceRule? recurrence,
   }) {
     return CalendarEventDraft(
@@ -304,6 +327,10 @@ final class CalendarEventDraft {
           activityTypeMappingVersion ?? this.activityTypeMappingVersion,
       requiresReport: requiresReport ?? this.requiresReport,
       contributionRuleKey: contributionRuleKey ?? this.contributionRuleKey,
+      isBackupAppointment: isBackupAppointment ?? this.isBackupAppointment,
+      backupForEventId: backupForEventId ?? this.backupForEventId,
+      backupRelationshipProvenance:
+          backupRelationshipProvenance ?? this.backupRelationshipProvenance,
       recurrence: recurrence ?? this.recurrence,
     );
   }
@@ -339,6 +366,9 @@ final class CalendarEventOccurrence {
     this.activityTypeLabel,
     this.activityTypeColorValue,
     this.contributionRuleKey,
+    this.isBackupAppointment = false,
+    this.backupForEventId,
+    this.backupRelationshipProvenance,
     this.replacementEventId,
     this.linkedTaskIds = const <String>[],
   });
@@ -365,6 +395,9 @@ final class CalendarEventOccurrence {
   final CalendarEventStatus status;
   final bool requiresReport;
   final String? contributionRuleKey;
+  final bool isBackupAppointment;
+  final String? backupForEventId;
+  final String? backupRelationshipProvenance;
   final CalendarRecurrenceRule recurrence;
   final String? replacementEventId;
   final List<String> linkedTaskIds;

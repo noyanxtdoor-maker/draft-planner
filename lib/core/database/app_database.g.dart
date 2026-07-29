@@ -3420,6 +3420,42 @@ class $CalendarEventsTable extends CalendarEvents
         type: DriftSqlType.string,
         requiredDuringInsert: false,
       );
+  static const VerificationMeta _isBackupAppointmentMeta =
+      const VerificationMeta('isBackupAppointment');
+  @override
+  late final GeneratedColumn<bool> isBackupAppointment = GeneratedColumn<bool>(
+    'is_backup_appointment',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_backup_appointment" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _backupForEventIdMeta = const VerificationMeta(
+    'backupForEventId',
+  );
+  @override
+  late final GeneratedColumn<String> backupForEventId = GeneratedColumn<String>(
+    'backup_for_event_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _backupRelationshipProvenanceMeta =
+      const VerificationMeta('backupRelationshipProvenance');
+  @override
+  late final GeneratedColumn<String> backupRelationshipProvenance =
+      GeneratedColumn<String>(
+        'backup_relationship_provenance',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _recurrenceFrequencyMeta =
       const VerificationMeta('recurrenceFrequency');
   @override
@@ -3538,6 +3574,9 @@ class $CalendarEventsTable extends CalendarEvents
     activityTypeId,
     activityTypeMappingVersion,
     contributionRuleKey,
+    isBackupAppointment,
+    backupForEventId,
+    backupRelationshipProvenance,
     recurrenceFrequency,
     recurrenceEndMode,
     recurrenceEndDate,
@@ -3669,6 +3708,33 @@ class $CalendarEventsTable extends CalendarEvents
         contributionRuleKey.isAcceptableOrUnknown(
           data['contribution_rule_key']!,
           _contributionRuleKeyMeta,
+        ),
+      );
+    }
+    if (data.containsKey('is_backup_appointment')) {
+      context.handle(
+        _isBackupAppointmentMeta,
+        isBackupAppointment.isAcceptableOrUnknown(
+          data['is_backup_appointment']!,
+          _isBackupAppointmentMeta,
+        ),
+      );
+    }
+    if (data.containsKey('backup_for_event_id')) {
+      context.handle(
+        _backupForEventIdMeta,
+        backupForEventId.isAcceptableOrUnknown(
+          data['backup_for_event_id']!,
+          _backupForEventIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('backup_relationship_provenance')) {
+      context.handle(
+        _backupRelationshipProvenanceMeta,
+        backupRelationshipProvenance.isAcceptableOrUnknown(
+          data['backup_relationship_provenance']!,
+          _backupRelationshipProvenanceMeta,
         ),
       );
     }
@@ -3819,6 +3885,18 @@ class $CalendarEventsTable extends CalendarEvents
         DriftSqlType.string,
         data['${effectivePrefix}contribution_rule_key'],
       ),
+      isBackupAppointment: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_backup_appointment'],
+      )!,
+      backupForEventId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}backup_for_event_id'],
+      ),
+      backupRelationshipProvenance: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}backup_relationship_provenance'],
+      ),
       recurrenceFrequency: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}recurrence_frequency'],
@@ -3880,6 +3958,9 @@ class CalendarEventRow extends DataClass
   final String? activityTypeId;
   final int? activityTypeMappingVersion;
   final String? contributionRuleKey;
+  final bool isBackupAppointment;
+  final String? backupForEventId;
+  final String? backupRelationshipProvenance;
   final String recurrenceFrequency;
   final String recurrenceEndMode;
   final String? recurrenceEndDate;
@@ -3904,6 +3985,9 @@ class CalendarEventRow extends DataClass
     this.activityTypeId,
     this.activityTypeMappingVersion,
     this.contributionRuleKey,
+    required this.isBackupAppointment,
+    this.backupForEventId,
+    this.backupRelationshipProvenance,
     required this.recurrenceFrequency,
     required this.recurrenceEndMode,
     this.recurrenceEndDate,
@@ -3948,6 +4032,15 @@ class CalendarEventRow extends DataClass
     }
     if (!nullToAbsent || contributionRuleKey != null) {
       map['contribution_rule_key'] = Variable<String>(contributionRuleKey);
+    }
+    map['is_backup_appointment'] = Variable<bool>(isBackupAppointment);
+    if (!nullToAbsent || backupForEventId != null) {
+      map['backup_for_event_id'] = Variable<String>(backupForEventId);
+    }
+    if (!nullToAbsent || backupRelationshipProvenance != null) {
+      map['backup_relationship_provenance'] = Variable<String>(
+        backupRelationshipProvenance,
+      );
     }
     map['recurrence_frequency'] = Variable<String>(recurrenceFrequency);
     map['recurrence_end_mode'] = Variable<String>(recurrenceEndMode);
@@ -4002,6 +4095,14 @@ class CalendarEventRow extends DataClass
       contributionRuleKey: contributionRuleKey == null && nullToAbsent
           ? const Value.absent()
           : Value(contributionRuleKey),
+      isBackupAppointment: Value(isBackupAppointment),
+      backupForEventId: backupForEventId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(backupForEventId),
+      backupRelationshipProvenance:
+          backupRelationshipProvenance == null && nullToAbsent
+          ? const Value.absent()
+          : Value(backupRelationshipProvenance),
       recurrenceFrequency: Value(recurrenceFrequency),
       recurrenceEndMode: Value(recurrenceEndMode),
       recurrenceEndDate: recurrenceEndDate == null && nullToAbsent
@@ -4046,6 +4147,13 @@ class CalendarEventRow extends DataClass
       contributionRuleKey: serializer.fromJson<String?>(
         json['contributionRuleKey'],
       ),
+      isBackupAppointment: serializer.fromJson<bool>(
+        json['isBackupAppointment'],
+      ),
+      backupForEventId: serializer.fromJson<String?>(json['backupForEventId']),
+      backupRelationshipProvenance: serializer.fromJson<String?>(
+        json['backupRelationshipProvenance'],
+      ),
       recurrenceFrequency: serializer.fromJson<String>(
         json['recurrenceFrequency'],
       ),
@@ -4083,6 +4191,11 @@ class CalendarEventRow extends DataClass
         activityTypeMappingVersion,
       ),
       'contributionRuleKey': serializer.toJson<String?>(contributionRuleKey),
+      'isBackupAppointment': serializer.toJson<bool>(isBackupAppointment),
+      'backupForEventId': serializer.toJson<String?>(backupForEventId),
+      'backupRelationshipProvenance': serializer.toJson<String?>(
+        backupRelationshipProvenance,
+      ),
       'recurrenceFrequency': serializer.toJson<String>(recurrenceFrequency),
       'recurrenceEndMode': serializer.toJson<String>(recurrenceEndMode),
       'recurrenceEndDate': serializer.toJson<String?>(recurrenceEndDate),
@@ -4110,6 +4223,9 @@ class CalendarEventRow extends DataClass
     Value<String?> activityTypeId = const Value.absent(),
     Value<int?> activityTypeMappingVersion = const Value.absent(),
     Value<String?> contributionRuleKey = const Value.absent(),
+    bool? isBackupAppointment,
+    Value<String?> backupForEventId = const Value.absent(),
+    Value<String?> backupRelationshipProvenance = const Value.absent(),
     String? recurrenceFrequency,
     String? recurrenceEndMode,
     Value<String?> recurrenceEndDate = const Value.absent(),
@@ -4140,6 +4256,13 @@ class CalendarEventRow extends DataClass
     contributionRuleKey: contributionRuleKey.present
         ? contributionRuleKey.value
         : this.contributionRuleKey,
+    isBackupAppointment: isBackupAppointment ?? this.isBackupAppointment,
+    backupForEventId: backupForEventId.present
+        ? backupForEventId.value
+        : this.backupForEventId,
+    backupRelationshipProvenance: backupRelationshipProvenance.present
+        ? backupRelationshipProvenance.value
+        : this.backupRelationshipProvenance,
     recurrenceFrequency: recurrenceFrequency ?? this.recurrenceFrequency,
     recurrenceEndMode: recurrenceEndMode ?? this.recurrenceEndMode,
     recurrenceEndDate: recurrenceEndDate.present
@@ -4188,6 +4311,15 @@ class CalendarEventRow extends DataClass
       contributionRuleKey: data.contributionRuleKey.present
           ? data.contributionRuleKey.value
           : this.contributionRuleKey,
+      isBackupAppointment: data.isBackupAppointment.present
+          ? data.isBackupAppointment.value
+          : this.isBackupAppointment,
+      backupForEventId: data.backupForEventId.present
+          ? data.backupForEventId.value
+          : this.backupForEventId,
+      backupRelationshipProvenance: data.backupRelationshipProvenance.present
+          ? data.backupRelationshipProvenance.value
+          : this.backupRelationshipProvenance,
       recurrenceFrequency: data.recurrenceFrequency.present
           ? data.recurrenceFrequency.value
           : this.recurrenceFrequency,
@@ -4233,6 +4365,11 @@ class CalendarEventRow extends DataClass
           ..write('activityTypeId: $activityTypeId, ')
           ..write('activityTypeMappingVersion: $activityTypeMappingVersion, ')
           ..write('contributionRuleKey: $contributionRuleKey, ')
+          ..write('isBackupAppointment: $isBackupAppointment, ')
+          ..write('backupForEventId: $backupForEventId, ')
+          ..write(
+            'backupRelationshipProvenance: $backupRelationshipProvenance, ',
+          )
           ..write('recurrenceFrequency: $recurrenceFrequency, ')
           ..write('recurrenceEndMode: $recurrenceEndMode, ')
           ..write('recurrenceEndDate: $recurrenceEndDate, ')
@@ -4262,6 +4399,9 @@ class CalendarEventRow extends DataClass
     activityTypeId,
     activityTypeMappingVersion,
     contributionRuleKey,
+    isBackupAppointment,
+    backupForEventId,
+    backupRelationshipProvenance,
     recurrenceFrequency,
     recurrenceEndMode,
     recurrenceEndDate,
@@ -4290,6 +4430,10 @@ class CalendarEventRow extends DataClass
           other.activityTypeId == this.activityTypeId &&
           other.activityTypeMappingVersion == this.activityTypeMappingVersion &&
           other.contributionRuleKey == this.contributionRuleKey &&
+          other.isBackupAppointment == this.isBackupAppointment &&
+          other.backupForEventId == this.backupForEventId &&
+          other.backupRelationshipProvenance ==
+              this.backupRelationshipProvenance &&
           other.recurrenceFrequency == this.recurrenceFrequency &&
           other.recurrenceEndMode == this.recurrenceEndMode &&
           other.recurrenceEndDate == this.recurrenceEndDate &&
@@ -4316,6 +4460,9 @@ class CalendarEventsCompanion extends UpdateCompanion<CalendarEventRow> {
   final Value<String?> activityTypeId;
   final Value<int?> activityTypeMappingVersion;
   final Value<String?> contributionRuleKey;
+  final Value<bool> isBackupAppointment;
+  final Value<String?> backupForEventId;
+  final Value<String?> backupRelationshipProvenance;
   final Value<String> recurrenceFrequency;
   final Value<String> recurrenceEndMode;
   final Value<String?> recurrenceEndDate;
@@ -4341,6 +4488,9 @@ class CalendarEventsCompanion extends UpdateCompanion<CalendarEventRow> {
     this.activityTypeId = const Value.absent(),
     this.activityTypeMappingVersion = const Value.absent(),
     this.contributionRuleKey = const Value.absent(),
+    this.isBackupAppointment = const Value.absent(),
+    this.backupForEventId = const Value.absent(),
+    this.backupRelationshipProvenance = const Value.absent(),
     this.recurrenceFrequency = const Value.absent(),
     this.recurrenceEndMode = const Value.absent(),
     this.recurrenceEndDate = const Value.absent(),
@@ -4367,6 +4517,9 @@ class CalendarEventsCompanion extends UpdateCompanion<CalendarEventRow> {
     this.activityTypeId = const Value.absent(),
     this.activityTypeMappingVersion = const Value.absent(),
     this.contributionRuleKey = const Value.absent(),
+    this.isBackupAppointment = const Value.absent(),
+    this.backupForEventId = const Value.absent(),
+    this.backupRelationshipProvenance = const Value.absent(),
     this.recurrenceFrequency = const Value.absent(),
     this.recurrenceEndMode = const Value.absent(),
     this.recurrenceEndDate = const Value.absent(),
@@ -4399,6 +4552,9 @@ class CalendarEventsCompanion extends UpdateCompanion<CalendarEventRow> {
     Expression<String>? activityTypeId,
     Expression<int>? activityTypeMappingVersion,
     Expression<String>? contributionRuleKey,
+    Expression<bool>? isBackupAppointment,
+    Expression<String>? backupForEventId,
+    Expression<String>? backupRelationshipProvenance,
     Expression<String>? recurrenceFrequency,
     Expression<String>? recurrenceEndMode,
     Expression<String>? recurrenceEndDate,
@@ -4427,6 +4583,11 @@ class CalendarEventsCompanion extends UpdateCompanion<CalendarEventRow> {
         'activity_type_mapping_version': activityTypeMappingVersion,
       if (contributionRuleKey != null)
         'contribution_rule_key': contributionRuleKey,
+      if (isBackupAppointment != null)
+        'is_backup_appointment': isBackupAppointment,
+      if (backupForEventId != null) 'backup_for_event_id': backupForEventId,
+      if (backupRelationshipProvenance != null)
+        'backup_relationship_provenance': backupRelationshipProvenance,
       if (recurrenceFrequency != null)
         'recurrence_frequency': recurrenceFrequency,
       if (recurrenceEndMode != null) 'recurrence_end_mode': recurrenceEndMode,
@@ -4457,6 +4618,9 @@ class CalendarEventsCompanion extends UpdateCompanion<CalendarEventRow> {
     Value<String?>? activityTypeId,
     Value<int?>? activityTypeMappingVersion,
     Value<String?>? contributionRuleKey,
+    Value<bool>? isBackupAppointment,
+    Value<String?>? backupForEventId,
+    Value<String?>? backupRelationshipProvenance,
     Value<String>? recurrenceFrequency,
     Value<String>? recurrenceEndMode,
     Value<String?>? recurrenceEndDate,
@@ -4484,6 +4648,10 @@ class CalendarEventsCompanion extends UpdateCompanion<CalendarEventRow> {
       activityTypeMappingVersion:
           activityTypeMappingVersion ?? this.activityTypeMappingVersion,
       contributionRuleKey: contributionRuleKey ?? this.contributionRuleKey,
+      isBackupAppointment: isBackupAppointment ?? this.isBackupAppointment,
+      backupForEventId: backupForEventId ?? this.backupForEventId,
+      backupRelationshipProvenance:
+          backupRelationshipProvenance ?? this.backupRelationshipProvenance,
       recurrenceFrequency: recurrenceFrequency ?? this.recurrenceFrequency,
       recurrenceEndMode: recurrenceEndMode ?? this.recurrenceEndMode,
       recurrenceEndDate: recurrenceEndDate ?? this.recurrenceEndDate,
@@ -4546,6 +4714,17 @@ class CalendarEventsCompanion extends UpdateCompanion<CalendarEventRow> {
         contributionRuleKey.value,
       );
     }
+    if (isBackupAppointment.present) {
+      map['is_backup_appointment'] = Variable<bool>(isBackupAppointment.value);
+    }
+    if (backupForEventId.present) {
+      map['backup_for_event_id'] = Variable<String>(backupForEventId.value);
+    }
+    if (backupRelationshipProvenance.present) {
+      map['backup_relationship_provenance'] = Variable<String>(
+        backupRelationshipProvenance.value,
+      );
+    }
     if (recurrenceFrequency.present) {
       map['recurrence_frequency'] = Variable<String>(recurrenceFrequency.value);
     }
@@ -4596,6 +4775,11 @@ class CalendarEventsCompanion extends UpdateCompanion<CalendarEventRow> {
           ..write('activityTypeId: $activityTypeId, ')
           ..write('activityTypeMappingVersion: $activityTypeMappingVersion, ')
           ..write('contributionRuleKey: $contributionRuleKey, ')
+          ..write('isBackupAppointment: $isBackupAppointment, ')
+          ..write('backupForEventId: $backupForEventId, ')
+          ..write(
+            'backupRelationshipProvenance: $backupRelationshipProvenance, ',
+          )
           ..write('recurrenceFrequency: $recurrenceFrequency, ')
           ..write('recurrenceEndMode: $recurrenceEndMode, ')
           ..write('recurrenceEndDate: $recurrenceEndDate, ')
@@ -4806,6 +4990,42 @@ class $CalendarEventExceptionsTable extends CalendarEventExceptions
         type: DriftSqlType.string,
         requiredDuringInsert: false,
       );
+  static const VerificationMeta _isBackupAppointmentMeta =
+      const VerificationMeta('isBackupAppointment');
+  @override
+  late final GeneratedColumn<bool> isBackupAppointment = GeneratedColumn<bool>(
+    'is_backup_appointment',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_backup_appointment" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _backupForEventIdMeta = const VerificationMeta(
+    'backupForEventId',
+  );
+  @override
+  late final GeneratedColumn<String> backupForEventId = GeneratedColumn<String>(
+    'backup_for_event_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _backupRelationshipProvenanceMeta =
+      const VerificationMeta('backupRelationshipProvenance');
+  @override
+  late final GeneratedColumn<String> backupRelationshipProvenance =
+      GeneratedColumn<String>(
+        'backup_relationship_provenance',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _statusMeta = const VerificationMeta('status');
   @override
   late final GeneratedColumn<String> status = GeneratedColumn<String>(
@@ -4856,6 +5076,9 @@ class $CalendarEventExceptionsTable extends CalendarEventExceptions
     activityTypeId,
     activityTypeMappingVersion,
     contributionRuleKey,
+    isBackupAppointment,
+    backupForEventId,
+    backupRelationshipProvenance,
     status,
     replacementEventId,
     createdAtUtc,
@@ -5017,6 +5240,33 @@ class $CalendarEventExceptionsTable extends CalendarEventExceptions
         ),
       );
     }
+    if (data.containsKey('is_backup_appointment')) {
+      context.handle(
+        _isBackupAppointmentMeta,
+        isBackupAppointment.isAcceptableOrUnknown(
+          data['is_backup_appointment']!,
+          _isBackupAppointmentMeta,
+        ),
+      );
+    }
+    if (data.containsKey('backup_for_event_id')) {
+      context.handle(
+        _backupForEventIdMeta,
+        backupForEventId.isAcceptableOrUnknown(
+          data['backup_for_event_id']!,
+          _backupForEventIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('backup_relationship_provenance')) {
+      context.handle(
+        _backupRelationshipProvenanceMeta,
+        backupRelationshipProvenance.isAcceptableOrUnknown(
+          data['backup_relationship_provenance']!,
+          _backupRelationshipProvenanceMeta,
+        ),
+      );
+    }
     if (data.containsKey('status')) {
       context.handle(
         _statusMeta,
@@ -5125,6 +5375,18 @@ class $CalendarEventExceptionsTable extends CalendarEventExceptions
         DriftSqlType.string,
         data['${effectivePrefix}contribution_rule_key'],
       ),
+      isBackupAppointment: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_backup_appointment'],
+      )!,
+      backupForEventId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}backup_for_event_id'],
+      ),
+      backupRelationshipProvenance: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}backup_relationship_provenance'],
+      ),
       status: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}status'],
@@ -5165,6 +5427,9 @@ class CalendarEventExceptionRow extends DataClass
   final String? activityTypeId;
   final int? activityTypeMappingVersion;
   final String? contributionRuleKey;
+  final bool isBackupAppointment;
+  final String? backupForEventId;
+  final String? backupRelationshipProvenance;
   final String status;
   final String? replacementEventId;
   final DateTime createdAtUtc;
@@ -5186,6 +5451,9 @@ class CalendarEventExceptionRow extends DataClass
     this.activityTypeId,
     this.activityTypeMappingVersion,
     this.contributionRuleKey,
+    required this.isBackupAppointment,
+    this.backupForEventId,
+    this.backupRelationshipProvenance,
     required this.status,
     this.replacementEventId,
     required this.createdAtUtc,
@@ -5227,6 +5495,15 @@ class CalendarEventExceptionRow extends DataClass
     }
     if (!nullToAbsent || contributionRuleKey != null) {
       map['contribution_rule_key'] = Variable<String>(contributionRuleKey);
+    }
+    map['is_backup_appointment'] = Variable<bool>(isBackupAppointment);
+    if (!nullToAbsent || backupForEventId != null) {
+      map['backup_for_event_id'] = Variable<String>(backupForEventId);
+    }
+    if (!nullToAbsent || backupRelationshipProvenance != null) {
+      map['backup_relationship_provenance'] = Variable<String>(
+        backupRelationshipProvenance,
+      );
     }
     map['status'] = Variable<String>(status);
     if (!nullToAbsent || replacementEventId != null) {
@@ -5272,6 +5549,14 @@ class CalendarEventExceptionRow extends DataClass
       contributionRuleKey: contributionRuleKey == null && nullToAbsent
           ? const Value.absent()
           : Value(contributionRuleKey),
+      isBackupAppointment: Value(isBackupAppointment),
+      backupForEventId: backupForEventId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(backupForEventId),
+      backupRelationshipProvenance:
+          backupRelationshipProvenance == null && nullToAbsent
+          ? const Value.absent()
+          : Value(backupRelationshipProvenance),
       status: Value(status),
       replacementEventId: replacementEventId == null && nullToAbsent
           ? const Value.absent()
@@ -5307,6 +5592,13 @@ class CalendarEventExceptionRow extends DataClass
       contributionRuleKey: serializer.fromJson<String?>(
         json['contributionRuleKey'],
       ),
+      isBackupAppointment: serializer.fromJson<bool>(
+        json['isBackupAppointment'],
+      ),
+      backupForEventId: serializer.fromJson<String?>(json['backupForEventId']),
+      backupRelationshipProvenance: serializer.fromJson<String?>(
+        json['backupRelationshipProvenance'],
+      ),
       status: serializer.fromJson<String>(json['status']),
       replacementEventId: serializer.fromJson<String?>(
         json['replacementEventId'],
@@ -5337,6 +5629,11 @@ class CalendarEventExceptionRow extends DataClass
         activityTypeMappingVersion,
       ),
       'contributionRuleKey': serializer.toJson<String?>(contributionRuleKey),
+      'isBackupAppointment': serializer.toJson<bool>(isBackupAppointment),
+      'backupForEventId': serializer.toJson<String?>(backupForEventId),
+      'backupRelationshipProvenance': serializer.toJson<String?>(
+        backupRelationshipProvenance,
+      ),
       'status': serializer.toJson<String>(status),
       'replacementEventId': serializer.toJson<String?>(replacementEventId),
       'createdAtUtc': serializer.toJson<DateTime>(createdAtUtc),
@@ -5361,6 +5658,9 @@ class CalendarEventExceptionRow extends DataClass
     Value<String?> activityTypeId = const Value.absent(),
     Value<int?> activityTypeMappingVersion = const Value.absent(),
     Value<String?> contributionRuleKey = const Value.absent(),
+    bool? isBackupAppointment,
+    Value<String?> backupForEventId = const Value.absent(),
+    Value<String?> backupRelationshipProvenance = const Value.absent(),
     String? status,
     Value<String?> replacementEventId = const Value.absent(),
     DateTime? createdAtUtc,
@@ -5388,6 +5688,13 @@ class CalendarEventExceptionRow extends DataClass
     contributionRuleKey: contributionRuleKey.present
         ? contributionRuleKey.value
         : this.contributionRuleKey,
+    isBackupAppointment: isBackupAppointment ?? this.isBackupAppointment,
+    backupForEventId: backupForEventId.present
+        ? backupForEventId.value
+        : this.backupForEventId,
+    backupRelationshipProvenance: backupRelationshipProvenance.present
+        ? backupRelationshipProvenance.value
+        : this.backupRelationshipProvenance,
     status: status ?? this.status,
     replacementEventId: replacementEventId.present
         ? replacementEventId.value
@@ -5435,6 +5742,15 @@ class CalendarEventExceptionRow extends DataClass
       contributionRuleKey: data.contributionRuleKey.present
           ? data.contributionRuleKey.value
           : this.contributionRuleKey,
+      isBackupAppointment: data.isBackupAppointment.present
+          ? data.isBackupAppointment.value
+          : this.isBackupAppointment,
+      backupForEventId: data.backupForEventId.present
+          ? data.backupForEventId.value
+          : this.backupForEventId,
+      backupRelationshipProvenance: data.backupRelationshipProvenance.present
+          ? data.backupRelationshipProvenance.value
+          : this.backupRelationshipProvenance,
       status: data.status.present ? data.status.value : this.status,
       replacementEventId: data.replacementEventId.present
           ? data.replacementEventId.value
@@ -5465,6 +5781,11 @@ class CalendarEventExceptionRow extends DataClass
           ..write('activityTypeId: $activityTypeId, ')
           ..write('activityTypeMappingVersion: $activityTypeMappingVersion, ')
           ..write('contributionRuleKey: $contributionRuleKey, ')
+          ..write('isBackupAppointment: $isBackupAppointment, ')
+          ..write('backupForEventId: $backupForEventId, ')
+          ..write(
+            'backupRelationshipProvenance: $backupRelationshipProvenance, ',
+          )
           ..write('status: $status, ')
           ..write('replacementEventId: $replacementEventId, ')
           ..write('createdAtUtc: $createdAtUtc')
@@ -5473,7 +5794,7 @@ class CalendarEventExceptionRow extends DataClass
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     id,
     profileId,
     eventId,
@@ -5491,10 +5812,13 @@ class CalendarEventExceptionRow extends DataClass
     activityTypeId,
     activityTypeMappingVersion,
     contributionRuleKey,
+    isBackupAppointment,
+    backupForEventId,
+    backupRelationshipProvenance,
     status,
     replacementEventId,
     createdAtUtc,
-  );
+  ]);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -5516,6 +5840,10 @@ class CalendarEventExceptionRow extends DataClass
           other.activityTypeId == this.activityTypeId &&
           other.activityTypeMappingVersion == this.activityTypeMappingVersion &&
           other.contributionRuleKey == this.contributionRuleKey &&
+          other.isBackupAppointment == this.isBackupAppointment &&
+          other.backupForEventId == this.backupForEventId &&
+          other.backupRelationshipProvenance ==
+              this.backupRelationshipProvenance &&
           other.status == this.status &&
           other.replacementEventId == this.replacementEventId &&
           other.createdAtUtc == this.createdAtUtc);
@@ -5540,6 +5868,9 @@ class CalendarEventExceptionsCompanion
   final Value<String?> activityTypeId;
   final Value<int?> activityTypeMappingVersion;
   final Value<String?> contributionRuleKey;
+  final Value<bool> isBackupAppointment;
+  final Value<String?> backupForEventId;
+  final Value<String?> backupRelationshipProvenance;
   final Value<String> status;
   final Value<String?> replacementEventId;
   final Value<DateTime> createdAtUtc;
@@ -5562,6 +5893,9 @@ class CalendarEventExceptionsCompanion
     this.activityTypeId = const Value.absent(),
     this.activityTypeMappingVersion = const Value.absent(),
     this.contributionRuleKey = const Value.absent(),
+    this.isBackupAppointment = const Value.absent(),
+    this.backupForEventId = const Value.absent(),
+    this.backupRelationshipProvenance = const Value.absent(),
     this.status = const Value.absent(),
     this.replacementEventId = const Value.absent(),
     this.createdAtUtc = const Value.absent(),
@@ -5585,6 +5919,9 @@ class CalendarEventExceptionsCompanion
     this.activityTypeId = const Value.absent(),
     this.activityTypeMappingVersion = const Value.absent(),
     this.contributionRuleKey = const Value.absent(),
+    this.isBackupAppointment = const Value.absent(),
+    this.backupForEventId = const Value.absent(),
+    this.backupRelationshipProvenance = const Value.absent(),
     required String status,
     this.replacementEventId = const Value.absent(),
     required DateTime createdAtUtc,
@@ -5617,6 +5954,9 @@ class CalendarEventExceptionsCompanion
     Expression<String>? activityTypeId,
     Expression<int>? activityTypeMappingVersion,
     Expression<String>? contributionRuleKey,
+    Expression<bool>? isBackupAppointment,
+    Expression<String>? backupForEventId,
+    Expression<String>? backupRelationshipProvenance,
     Expression<String>? status,
     Expression<String>? replacementEventId,
     Expression<DateTime>? createdAtUtc,
@@ -5642,6 +5982,11 @@ class CalendarEventExceptionsCompanion
         'activity_type_mapping_version': activityTypeMappingVersion,
       if (contributionRuleKey != null)
         'contribution_rule_key': contributionRuleKey,
+      if (isBackupAppointment != null)
+        'is_backup_appointment': isBackupAppointment,
+      if (backupForEventId != null) 'backup_for_event_id': backupForEventId,
+      if (backupRelationshipProvenance != null)
+        'backup_relationship_provenance': backupRelationshipProvenance,
       if (status != null) 'status': status,
       if (replacementEventId != null)
         'replacement_event_id': replacementEventId,
@@ -5668,6 +6013,9 @@ class CalendarEventExceptionsCompanion
     Value<String?>? activityTypeId,
     Value<int?>? activityTypeMappingVersion,
     Value<String?>? contributionRuleKey,
+    Value<bool>? isBackupAppointment,
+    Value<String?>? backupForEventId,
+    Value<String?>? backupRelationshipProvenance,
     Value<String>? status,
     Value<String?>? replacementEventId,
     Value<DateTime>? createdAtUtc,
@@ -5692,6 +6040,10 @@ class CalendarEventExceptionsCompanion
       activityTypeMappingVersion:
           activityTypeMappingVersion ?? this.activityTypeMappingVersion,
       contributionRuleKey: contributionRuleKey ?? this.contributionRuleKey,
+      isBackupAppointment: isBackupAppointment ?? this.isBackupAppointment,
+      backupForEventId: backupForEventId ?? this.backupForEventId,
+      backupRelationshipProvenance:
+          backupRelationshipProvenance ?? this.backupRelationshipProvenance,
       status: status ?? this.status,
       replacementEventId: replacementEventId ?? this.replacementEventId,
       createdAtUtc: createdAtUtc ?? this.createdAtUtc,
@@ -5757,6 +6109,17 @@ class CalendarEventExceptionsCompanion
         contributionRuleKey.value,
       );
     }
+    if (isBackupAppointment.present) {
+      map['is_backup_appointment'] = Variable<bool>(isBackupAppointment.value);
+    }
+    if (backupForEventId.present) {
+      map['backup_for_event_id'] = Variable<String>(backupForEventId.value);
+    }
+    if (backupRelationshipProvenance.present) {
+      map['backup_relationship_provenance'] = Variable<String>(
+        backupRelationshipProvenance.value,
+      );
+    }
     if (status.present) {
       map['status'] = Variable<String>(status.value);
     }
@@ -5792,6 +6155,11 @@ class CalendarEventExceptionsCompanion
           ..write('activityTypeId: $activityTypeId, ')
           ..write('activityTypeMappingVersion: $activityTypeMappingVersion, ')
           ..write('contributionRuleKey: $contributionRuleKey, ')
+          ..write('isBackupAppointment: $isBackupAppointment, ')
+          ..write('backupForEventId: $backupForEventId, ')
+          ..write(
+            'backupRelationshipProvenance: $backupRelationshipProvenance, ',
+          )
           ..write('status: $status, ')
           ..write('replacementEventId: $replacementEventId, ')
           ..write('createdAtUtc: $createdAtUtc, ')
@@ -15612,7 +15980,7 @@ class $PlannerPreferencesTable extends PlannerPreferences
         false,
         type: DriftSqlType.string,
         requiredDuringInsert: false,
-        defaultValue: const Constant('fullScreen'),
+        defaultValue: const Constant('sheet'),
       );
   static const VerificationMeta _quickEditEnabledMeta = const VerificationMeta(
     'quickEditEnabled',
@@ -15669,6 +16037,88 @@ class $PlannerPreferencesTable extends PlannerPreferences
     requiredDuringInsert: false,
     defaultValue: const Constant(DateTime.monday),
   );
+  static const VerificationMeta _preferredPresentationMeta =
+      const VerificationMeta('preferredPresentation');
+  @override
+  late final GeneratedColumn<String> preferredPresentation =
+      GeneratedColumn<String>(
+        'preferred_presentation',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant('day'),
+      );
+  static const VerificationMeta _showEventsMeta = const VerificationMeta(
+    'showEvents',
+  );
+  @override
+  late final GeneratedColumn<bool> showEvents = GeneratedColumn<bool>(
+    'show_events',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("show_events" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _showBackupEventsMeta = const VerificationMeta(
+    'showBackupEvents',
+  );
+  @override
+  late final GeneratedColumn<bool> showBackupEvents = GeneratedColumn<bool>(
+    'show_backup_events',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("show_backup_events" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _showTasksMeta = const VerificationMeta(
+    'showTasks',
+  );
+  @override
+  late final GeneratedColumn<bool> showTasks = GeneratedColumn<bool>(
+    'show_tasks',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("show_tasks" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _showCompletedTasksMeta =
+      const VerificationMeta('showCompletedTasks');
+  @override
+  late final GeneratedColumn<bool> showCompletedTasks = GeneratedColumn<bool>(
+    'show_completed_tasks',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("show_completed_tasks" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _timelineHourHeightMeta =
+      const VerificationMeta('timelineHourHeight');
+  @override
+  late final GeneratedColumn<int> timelineHourHeight = GeneratedColumn<int>(
+    'timeline_hour_height',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(60),
+  );
   static const VerificationMeta _updatedAtUtcMeta = const VerificationMeta(
     'updatedAtUtc',
   );
@@ -15697,6 +16147,12 @@ class $PlannerPreferencesTable extends PlannerPreferences
     showCompletedItems,
     showCancelledItems,
     weekStartDay,
+    preferredPresentation,
+    showEvents,
+    showBackupEvents,
+    showTasks,
+    showCompletedTasks,
+    timelineHourHeight,
     updatedAtUtc,
   ];
   @override
@@ -15845,6 +16301,54 @@ class $PlannerPreferencesTable extends PlannerPreferences
         ),
       );
     }
+    if (data.containsKey('preferred_presentation')) {
+      context.handle(
+        _preferredPresentationMeta,
+        preferredPresentation.isAcceptableOrUnknown(
+          data['preferred_presentation']!,
+          _preferredPresentationMeta,
+        ),
+      );
+    }
+    if (data.containsKey('show_events')) {
+      context.handle(
+        _showEventsMeta,
+        showEvents.isAcceptableOrUnknown(data['show_events']!, _showEventsMeta),
+      );
+    }
+    if (data.containsKey('show_backup_events')) {
+      context.handle(
+        _showBackupEventsMeta,
+        showBackupEvents.isAcceptableOrUnknown(
+          data['show_backup_events']!,
+          _showBackupEventsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('show_tasks')) {
+      context.handle(
+        _showTasksMeta,
+        showTasks.isAcceptableOrUnknown(data['show_tasks']!, _showTasksMeta),
+      );
+    }
+    if (data.containsKey('show_completed_tasks')) {
+      context.handle(
+        _showCompletedTasksMeta,
+        showCompletedTasks.isAcceptableOrUnknown(
+          data['show_completed_tasks']!,
+          _showCompletedTasksMeta,
+        ),
+      );
+    }
+    if (data.containsKey('timeline_hour_height')) {
+      context.handle(
+        _timelineHourHeightMeta,
+        timelineHourHeight.isAcceptableOrUnknown(
+          data['timeline_hour_height']!,
+          _timelineHourHeightMeta,
+        ),
+      );
+    }
     if (data.containsKey('updated_at_utc')) {
       context.handle(
         _updatedAtUtcMeta,
@@ -15925,6 +16429,30 @@ class $PlannerPreferencesTable extends PlannerPreferences
         DriftSqlType.int,
         data['${effectivePrefix}week_start_day'],
       )!,
+      preferredPresentation: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}preferred_presentation'],
+      )!,
+      showEvents: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}show_events'],
+      )!,
+      showBackupEvents: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}show_backup_events'],
+      )!,
+      showTasks: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}show_tasks'],
+      )!,
+      showCompletedTasks: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}show_completed_tasks'],
+      )!,
+      timelineHourHeight: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}timeline_hour_height'],
+      )!,
       updatedAtUtc: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}updated_at_utc'],
@@ -15955,6 +16483,12 @@ class PlannerPreferenceRow extends DataClass
   final bool showCompletedItems;
   final bool showCancelledItems;
   final int weekStartDay;
+  final String preferredPresentation;
+  final bool showEvents;
+  final bool showBackupEvents;
+  final bool showTasks;
+  final bool showCompletedTasks;
+  final int timelineHourHeight;
   final DateTime updatedAtUtc;
   const PlannerPreferenceRow({
     required this.profileId,
@@ -15972,6 +16506,12 @@ class PlannerPreferenceRow extends DataClass
     required this.showCompletedItems,
     required this.showCancelledItems,
     required this.weekStartDay,
+    required this.preferredPresentation,
+    required this.showEvents,
+    required this.showBackupEvents,
+    required this.showTasks,
+    required this.showCompletedTasks,
+    required this.timelineHourHeight,
     required this.updatedAtUtc,
   });
   @override
@@ -15996,6 +16536,12 @@ class PlannerPreferenceRow extends DataClass
     map['show_completed_items'] = Variable<bool>(showCompletedItems);
     map['show_cancelled_items'] = Variable<bool>(showCancelledItems);
     map['week_start_day'] = Variable<int>(weekStartDay);
+    map['preferred_presentation'] = Variable<String>(preferredPresentation);
+    map['show_events'] = Variable<bool>(showEvents);
+    map['show_backup_events'] = Variable<bool>(showBackupEvents);
+    map['show_tasks'] = Variable<bool>(showTasks);
+    map['show_completed_tasks'] = Variable<bool>(showCompletedTasks);
+    map['timeline_hour_height'] = Variable<int>(timelineHourHeight);
     map['updated_at_utc'] = Variable<DateTime>(updatedAtUtc);
     return map;
   }
@@ -16021,6 +16567,12 @@ class PlannerPreferenceRow extends DataClass
       showCompletedItems: Value(showCompletedItems),
       showCancelledItems: Value(showCancelledItems),
       weekStartDay: Value(weekStartDay),
+      preferredPresentation: Value(preferredPresentation),
+      showEvents: Value(showEvents),
+      showBackupEvents: Value(showBackupEvents),
+      showTasks: Value(showTasks),
+      showCompletedTasks: Value(showCompletedTasks),
+      timelineHourHeight: Value(timelineHourHeight),
       updatedAtUtc: Value(updatedAtUtc),
     );
   }
@@ -16056,6 +16608,14 @@ class PlannerPreferenceRow extends DataClass
       showCompletedItems: serializer.fromJson<bool>(json['showCompletedItems']),
       showCancelledItems: serializer.fromJson<bool>(json['showCancelledItems']),
       weekStartDay: serializer.fromJson<int>(json['weekStartDay']),
+      preferredPresentation: serializer.fromJson<String>(
+        json['preferredPresentation'],
+      ),
+      showEvents: serializer.fromJson<bool>(json['showEvents']),
+      showBackupEvents: serializer.fromJson<bool>(json['showBackupEvents']),
+      showTasks: serializer.fromJson<bool>(json['showTasks']),
+      showCompletedTasks: serializer.fromJson<bool>(json['showCompletedTasks']),
+      timelineHourHeight: serializer.fromJson<int>(json['timelineHourHeight']),
       updatedAtUtc: serializer.fromJson<DateTime>(json['updatedAtUtc']),
     );
   }
@@ -16080,6 +16640,12 @@ class PlannerPreferenceRow extends DataClass
       'showCompletedItems': serializer.toJson<bool>(showCompletedItems),
       'showCancelledItems': serializer.toJson<bool>(showCancelledItems),
       'weekStartDay': serializer.toJson<int>(weekStartDay),
+      'preferredPresentation': serializer.toJson<String>(preferredPresentation),
+      'showEvents': serializer.toJson<bool>(showEvents),
+      'showBackupEvents': serializer.toJson<bool>(showBackupEvents),
+      'showTasks': serializer.toJson<bool>(showTasks),
+      'showCompletedTasks': serializer.toJson<bool>(showCompletedTasks),
+      'timelineHourHeight': serializer.toJson<int>(timelineHourHeight),
       'updatedAtUtc': serializer.toJson<DateTime>(updatedAtUtc),
     };
   }
@@ -16100,6 +16666,12 @@ class PlannerPreferenceRow extends DataClass
     bool? showCompletedItems,
     bool? showCancelledItems,
     int? weekStartDay,
+    String? preferredPresentation,
+    bool? showEvents,
+    bool? showBackupEvents,
+    bool? showTasks,
+    bool? showCompletedTasks,
+    int? timelineHourHeight,
     DateTime? updatedAtUtc,
   }) => PlannerPreferenceRow(
     profileId: profileId ?? this.profileId,
@@ -16122,6 +16694,12 @@ class PlannerPreferenceRow extends DataClass
     showCompletedItems: showCompletedItems ?? this.showCompletedItems,
     showCancelledItems: showCancelledItems ?? this.showCancelledItems,
     weekStartDay: weekStartDay ?? this.weekStartDay,
+    preferredPresentation: preferredPresentation ?? this.preferredPresentation,
+    showEvents: showEvents ?? this.showEvents,
+    showBackupEvents: showBackupEvents ?? this.showBackupEvents,
+    showTasks: showTasks ?? this.showTasks,
+    showCompletedTasks: showCompletedTasks ?? this.showCompletedTasks,
+    timelineHourHeight: timelineHourHeight ?? this.timelineHourHeight,
     updatedAtUtc: updatedAtUtc ?? this.updatedAtUtc,
   );
   PlannerPreferenceRow copyWithCompanion(PlannerPreferencesCompanion data) {
@@ -16169,6 +16747,22 @@ class PlannerPreferenceRow extends DataClass
       weekStartDay: data.weekStartDay.present
           ? data.weekStartDay.value
           : this.weekStartDay,
+      preferredPresentation: data.preferredPresentation.present
+          ? data.preferredPresentation.value
+          : this.preferredPresentation,
+      showEvents: data.showEvents.present
+          ? data.showEvents.value
+          : this.showEvents,
+      showBackupEvents: data.showBackupEvents.present
+          ? data.showBackupEvents.value
+          : this.showBackupEvents,
+      showTasks: data.showTasks.present ? data.showTasks.value : this.showTasks,
+      showCompletedTasks: data.showCompletedTasks.present
+          ? data.showCompletedTasks.value
+          : this.showCompletedTasks,
+      timelineHourHeight: data.timelineHourHeight.present
+          ? data.timelineHourHeight.value
+          : this.timelineHourHeight,
       updatedAtUtc: data.updatedAtUtc.present
           ? data.updatedAtUtc.value
           : this.updatedAtUtc,
@@ -16193,13 +16787,19 @@ class PlannerPreferenceRow extends DataClass
           ..write('showCompletedItems: $showCompletedItems, ')
           ..write('showCancelledItems: $showCancelledItems, ')
           ..write('weekStartDay: $weekStartDay, ')
+          ..write('preferredPresentation: $preferredPresentation, ')
+          ..write('showEvents: $showEvents, ')
+          ..write('showBackupEvents: $showBackupEvents, ')
+          ..write('showTasks: $showTasks, ')
+          ..write('showCompletedTasks: $showCompletedTasks, ')
+          ..write('timelineHourHeight: $timelineHourHeight, ')
           ..write('updatedAtUtc: $updatedAtUtc')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     profileId,
     defaultActivityTypeId,
     defaultDurationMinutes,
@@ -16215,8 +16815,14 @@ class PlannerPreferenceRow extends DataClass
     showCompletedItems,
     showCancelledItems,
     weekStartDay,
+    preferredPresentation,
+    showEvents,
+    showBackupEvents,
+    showTasks,
+    showCompletedTasks,
+    timelineHourHeight,
     updatedAtUtc,
-  );
+  ]);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -16236,6 +16842,12 @@ class PlannerPreferenceRow extends DataClass
           other.showCompletedItems == this.showCompletedItems &&
           other.showCancelledItems == this.showCancelledItems &&
           other.weekStartDay == this.weekStartDay &&
+          other.preferredPresentation == this.preferredPresentation &&
+          other.showEvents == this.showEvents &&
+          other.showBackupEvents == this.showBackupEvents &&
+          other.showTasks == this.showTasks &&
+          other.showCompletedTasks == this.showCompletedTasks &&
+          other.timelineHourHeight == this.timelineHourHeight &&
           other.updatedAtUtc == this.updatedAtUtc);
 }
 
@@ -16256,6 +16868,12 @@ class PlannerPreferencesCompanion
   final Value<bool> showCompletedItems;
   final Value<bool> showCancelledItems;
   final Value<int> weekStartDay;
+  final Value<String> preferredPresentation;
+  final Value<bool> showEvents;
+  final Value<bool> showBackupEvents;
+  final Value<bool> showTasks;
+  final Value<bool> showCompletedTasks;
+  final Value<int> timelineHourHeight;
   final Value<DateTime> updatedAtUtc;
   final Value<int> rowid;
   const PlannerPreferencesCompanion({
@@ -16274,6 +16892,12 @@ class PlannerPreferencesCompanion
     this.showCompletedItems = const Value.absent(),
     this.showCancelledItems = const Value.absent(),
     this.weekStartDay = const Value.absent(),
+    this.preferredPresentation = const Value.absent(),
+    this.showEvents = const Value.absent(),
+    this.showBackupEvents = const Value.absent(),
+    this.showTasks = const Value.absent(),
+    this.showCompletedTasks = const Value.absent(),
+    this.timelineHourHeight = const Value.absent(),
     this.updatedAtUtc = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -16293,6 +16917,12 @@ class PlannerPreferencesCompanion
     this.showCompletedItems = const Value.absent(),
     this.showCancelledItems = const Value.absent(),
     this.weekStartDay = const Value.absent(),
+    this.preferredPresentation = const Value.absent(),
+    this.showEvents = const Value.absent(),
+    this.showBackupEvents = const Value.absent(),
+    this.showTasks = const Value.absent(),
+    this.showCompletedTasks = const Value.absent(),
+    this.timelineHourHeight = const Value.absent(),
     required DateTime updatedAtUtc,
     this.rowid = const Value.absent(),
   }) : profileId = Value(profileId),
@@ -16313,6 +16943,12 @@ class PlannerPreferencesCompanion
     Expression<bool>? showCompletedItems,
     Expression<bool>? showCancelledItems,
     Expression<int>? weekStartDay,
+    Expression<String>? preferredPresentation,
+    Expression<bool>? showEvents,
+    Expression<bool>? showBackupEvents,
+    Expression<bool>? showTasks,
+    Expression<bool>? showCompletedTasks,
+    Expression<int>? timelineHourHeight,
     Expression<DateTime>? updatedAtUtc,
     Expression<int>? rowid,
   }) {
@@ -16339,6 +16975,15 @@ class PlannerPreferencesCompanion
       if (showCancelledItems != null)
         'show_cancelled_items': showCancelledItems,
       if (weekStartDay != null) 'week_start_day': weekStartDay,
+      if (preferredPresentation != null)
+        'preferred_presentation': preferredPresentation,
+      if (showEvents != null) 'show_events': showEvents,
+      if (showBackupEvents != null) 'show_backup_events': showBackupEvents,
+      if (showTasks != null) 'show_tasks': showTasks,
+      if (showCompletedTasks != null)
+        'show_completed_tasks': showCompletedTasks,
+      if (timelineHourHeight != null)
+        'timeline_hour_height': timelineHourHeight,
       if (updatedAtUtc != null) 'updated_at_utc': updatedAtUtc,
       if (rowid != null) 'rowid': rowid,
     });
@@ -16360,6 +17005,12 @@ class PlannerPreferencesCompanion
     Value<bool>? showCompletedItems,
     Value<bool>? showCancelledItems,
     Value<int>? weekStartDay,
+    Value<String>? preferredPresentation,
+    Value<bool>? showEvents,
+    Value<bool>? showBackupEvents,
+    Value<bool>? showTasks,
+    Value<bool>? showCompletedTasks,
+    Value<int>? timelineHourHeight,
     Value<DateTime>? updatedAtUtc,
     Value<int>? rowid,
   }) {
@@ -16383,6 +17034,13 @@ class PlannerPreferencesCompanion
       showCompletedItems: showCompletedItems ?? this.showCompletedItems,
       showCancelledItems: showCancelledItems ?? this.showCancelledItems,
       weekStartDay: weekStartDay ?? this.weekStartDay,
+      preferredPresentation:
+          preferredPresentation ?? this.preferredPresentation,
+      showEvents: showEvents ?? this.showEvents,
+      showBackupEvents: showBackupEvents ?? this.showBackupEvents,
+      showTasks: showTasks ?? this.showTasks,
+      showCompletedTasks: showCompletedTasks ?? this.showCompletedTasks,
+      timelineHourHeight: timelineHourHeight ?? this.timelineHourHeight,
       updatedAtUtc: updatedAtUtc ?? this.updatedAtUtc,
       rowid: rowid ?? this.rowid,
     );
@@ -16446,6 +17104,26 @@ class PlannerPreferencesCompanion
     if (weekStartDay.present) {
       map['week_start_day'] = Variable<int>(weekStartDay.value);
     }
+    if (preferredPresentation.present) {
+      map['preferred_presentation'] = Variable<String>(
+        preferredPresentation.value,
+      );
+    }
+    if (showEvents.present) {
+      map['show_events'] = Variable<bool>(showEvents.value);
+    }
+    if (showBackupEvents.present) {
+      map['show_backup_events'] = Variable<bool>(showBackupEvents.value);
+    }
+    if (showTasks.present) {
+      map['show_tasks'] = Variable<bool>(showTasks.value);
+    }
+    if (showCompletedTasks.present) {
+      map['show_completed_tasks'] = Variable<bool>(showCompletedTasks.value);
+    }
+    if (timelineHourHeight.present) {
+      map['timeline_hour_height'] = Variable<int>(timelineHourHeight.value);
+    }
     if (updatedAtUtc.present) {
       map['updated_at_utc'] = Variable<DateTime>(updatedAtUtc.value);
     }
@@ -16473,6 +17151,12 @@ class PlannerPreferencesCompanion
           ..write('showCompletedItems: $showCompletedItems, ')
           ..write('showCancelledItems: $showCancelledItems, ')
           ..write('weekStartDay: $weekStartDay, ')
+          ..write('preferredPresentation: $preferredPresentation, ')
+          ..write('showEvents: $showEvents, ')
+          ..write('showBackupEvents: $showBackupEvents, ')
+          ..write('showTasks: $showTasks, ')
+          ..write('showCompletedTasks: $showCompletedTasks, ')
+          ..write('timelineHourHeight: $timelineHourHeight, ')
           ..write('updatedAtUtc: $updatedAtUtc, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -21082,6 +21766,9 @@ typedef $$CalendarEventsTableCreateCompanionBuilder =
       Value<String?> activityTypeId,
       Value<int?> activityTypeMappingVersion,
       Value<String?> contributionRuleKey,
+      Value<bool> isBackupAppointment,
+      Value<String?> backupForEventId,
+      Value<String?> backupRelationshipProvenance,
       Value<String> recurrenceFrequency,
       Value<String> recurrenceEndMode,
       Value<String?> recurrenceEndDate,
@@ -21109,6 +21796,9 @@ typedef $$CalendarEventsTableUpdateCompanionBuilder =
       Value<String?> activityTypeId,
       Value<int?> activityTypeMappingVersion,
       Value<String?> contributionRuleKey,
+      Value<bool> isBackupAppointment,
+      Value<String?> backupForEventId,
+      Value<String?> backupRelationshipProvenance,
       Value<String> recurrenceFrequency,
       Value<String> recurrenceEndMode,
       Value<String?> recurrenceEndDate,
@@ -21245,6 +21935,21 @@ class $$CalendarEventsTableFilterComposer
 
   ColumnFilters<String> get contributionRuleKey => $composableBuilder(
     column: $table.contributionRuleKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isBackupAppointment => $composableBuilder(
+    column: $table.isBackupAppointment,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get backupForEventId => $composableBuilder(
+    column: $table.backupForEventId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get backupRelationshipProvenance => $composableBuilder(
+    column: $table.backupRelationshipProvenance,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -21417,6 +22122,22 @@ class $$CalendarEventsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get isBackupAppointment => $composableBuilder(
+    column: $table.isBackupAppointment,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get backupForEventId => $composableBuilder(
+    column: $table.backupForEventId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get backupRelationshipProvenance =>
+      $composableBuilder(
+        column: $table.backupRelationshipProvenance,
+        builder: (column) => ColumnOrderings(column),
+      );
+
   ColumnOrderings<String> get recurrenceFrequency => $composableBuilder(
     column: $table.recurrenceFrequency,
     builder: (column) => ColumnOrderings(column),
@@ -21547,6 +22268,22 @@ class $$CalendarEventsTableAnnotationComposer
     column: $table.contributionRuleKey,
     builder: (column) => column,
   );
+
+  GeneratedColumn<bool> get isBackupAppointment => $composableBuilder(
+    column: $table.isBackupAppointment,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get backupForEventId => $composableBuilder(
+    column: $table.backupForEventId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get backupRelationshipProvenance =>
+      $composableBuilder(
+        column: $table.backupRelationshipProvenance,
+        builder: (column) => column,
+      );
 
   GeneratedColumn<String> get recurrenceFrequency => $composableBuilder(
     column: $table.recurrenceFrequency,
@@ -21689,6 +22426,10 @@ class $$CalendarEventsTableTableManager
                 Value<String?> activityTypeId = const Value.absent(),
                 Value<int?> activityTypeMappingVersion = const Value.absent(),
                 Value<String?> contributionRuleKey = const Value.absent(),
+                Value<bool> isBackupAppointment = const Value.absent(),
+                Value<String?> backupForEventId = const Value.absent(),
+                Value<String?> backupRelationshipProvenance =
+                    const Value.absent(),
                 Value<String> recurrenceFrequency = const Value.absent(),
                 Value<String> recurrenceEndMode = const Value.absent(),
                 Value<String?> recurrenceEndDate = const Value.absent(),
@@ -21714,6 +22455,9 @@ class $$CalendarEventsTableTableManager
                 activityTypeId: activityTypeId,
                 activityTypeMappingVersion: activityTypeMappingVersion,
                 contributionRuleKey: contributionRuleKey,
+                isBackupAppointment: isBackupAppointment,
+                backupForEventId: backupForEventId,
+                backupRelationshipProvenance: backupRelationshipProvenance,
                 recurrenceFrequency: recurrenceFrequency,
                 recurrenceEndMode: recurrenceEndMode,
                 recurrenceEndDate: recurrenceEndDate,
@@ -21741,6 +22485,10 @@ class $$CalendarEventsTableTableManager
                 Value<String?> activityTypeId = const Value.absent(),
                 Value<int?> activityTypeMappingVersion = const Value.absent(),
                 Value<String?> contributionRuleKey = const Value.absent(),
+                Value<bool> isBackupAppointment = const Value.absent(),
+                Value<String?> backupForEventId = const Value.absent(),
+                Value<String?> backupRelationshipProvenance =
+                    const Value.absent(),
                 Value<String> recurrenceFrequency = const Value.absent(),
                 Value<String> recurrenceEndMode = const Value.absent(),
                 Value<String?> recurrenceEndDate = const Value.absent(),
@@ -21766,6 +22514,9 @@ class $$CalendarEventsTableTableManager
                 activityTypeId: activityTypeId,
                 activityTypeMappingVersion: activityTypeMappingVersion,
                 contributionRuleKey: contributionRuleKey,
+                isBackupAppointment: isBackupAppointment,
+                backupForEventId: backupForEventId,
+                backupRelationshipProvenance: backupRelationshipProvenance,
                 recurrenceFrequency: recurrenceFrequency,
                 recurrenceEndMode: recurrenceEndMode,
                 recurrenceEndDate: recurrenceEndDate,
@@ -21890,6 +22641,9 @@ typedef $$CalendarEventExceptionsTableCreateCompanionBuilder =
       Value<String?> activityTypeId,
       Value<int?> activityTypeMappingVersion,
       Value<String?> contributionRuleKey,
+      Value<bool> isBackupAppointment,
+      Value<String?> backupForEventId,
+      Value<String?> backupRelationshipProvenance,
       required String status,
       Value<String?> replacementEventId,
       required DateTime createdAtUtc,
@@ -21914,6 +22668,9 @@ typedef $$CalendarEventExceptionsTableUpdateCompanionBuilder =
       Value<String?> activityTypeId,
       Value<int?> activityTypeMappingVersion,
       Value<String?> contributionRuleKey,
+      Value<bool> isBackupAppointment,
+      Value<String?> backupForEventId,
+      Value<String?> backupRelationshipProvenance,
       Value<String> status,
       Value<String?> replacementEventId,
       Value<DateTime> createdAtUtc,
@@ -22051,6 +22808,21 @@ class $$CalendarEventExceptionsTableFilterComposer
 
   ColumnFilters<String> get contributionRuleKey => $composableBuilder(
     column: $table.contributionRuleKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isBackupAppointment => $composableBuilder(
+    column: $table.isBackupAppointment,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get backupForEventId => $composableBuilder(
+    column: $table.backupForEventId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get backupRelationshipProvenance => $composableBuilder(
+    column: $table.backupRelationshipProvenance,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -22200,6 +22972,22 @@ class $$CalendarEventExceptionsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get isBackupAppointment => $composableBuilder(
+    column: $table.isBackupAppointment,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get backupForEventId => $composableBuilder(
+    column: $table.backupForEventId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get backupRelationshipProvenance =>
+      $composableBuilder(
+        column: $table.backupRelationshipProvenance,
+        builder: (column) => ColumnOrderings(column),
+      );
+
   ColumnOrderings<String> get status => $composableBuilder(
     column: $table.status,
     builder: (column) => ColumnOrderings(column),
@@ -22336,6 +23124,22 @@ class $$CalendarEventExceptionsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<bool> get isBackupAppointment => $composableBuilder(
+    column: $table.isBackupAppointment,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get backupForEventId => $composableBuilder(
+    column: $table.backupForEventId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get backupRelationshipProvenance =>
+      $composableBuilder(
+        column: $table.backupRelationshipProvenance,
+        builder: (column) => column,
+      );
+
   GeneratedColumn<String> get status =>
       $composableBuilder(column: $table.status, builder: (column) => column);
 
@@ -22452,6 +23256,10 @@ class $$CalendarEventExceptionsTableTableManager
                 Value<String?> activityTypeId = const Value.absent(),
                 Value<int?> activityTypeMappingVersion = const Value.absent(),
                 Value<String?> contributionRuleKey = const Value.absent(),
+                Value<bool> isBackupAppointment = const Value.absent(),
+                Value<String?> backupForEventId = const Value.absent(),
+                Value<String?> backupRelationshipProvenance =
+                    const Value.absent(),
                 Value<String> status = const Value.absent(),
                 Value<String?> replacementEventId = const Value.absent(),
                 Value<DateTime> createdAtUtc = const Value.absent(),
@@ -22474,6 +23282,9 @@ class $$CalendarEventExceptionsTableTableManager
                 activityTypeId: activityTypeId,
                 activityTypeMappingVersion: activityTypeMappingVersion,
                 contributionRuleKey: contributionRuleKey,
+                isBackupAppointment: isBackupAppointment,
+                backupForEventId: backupForEventId,
+                backupRelationshipProvenance: backupRelationshipProvenance,
                 status: status,
                 replacementEventId: replacementEventId,
                 createdAtUtc: createdAtUtc,
@@ -22498,6 +23309,10 @@ class $$CalendarEventExceptionsTableTableManager
                 Value<String?> activityTypeId = const Value.absent(),
                 Value<int?> activityTypeMappingVersion = const Value.absent(),
                 Value<String?> contributionRuleKey = const Value.absent(),
+                Value<bool> isBackupAppointment = const Value.absent(),
+                Value<String?> backupForEventId = const Value.absent(),
+                Value<String?> backupRelationshipProvenance =
+                    const Value.absent(),
                 required String status,
                 Value<String?> replacementEventId = const Value.absent(),
                 required DateTime createdAtUtc,
@@ -22520,6 +23335,9 @@ class $$CalendarEventExceptionsTableTableManager
                 activityTypeId: activityTypeId,
                 activityTypeMappingVersion: activityTypeMappingVersion,
                 contributionRuleKey: contributionRuleKey,
+                isBackupAppointment: isBackupAppointment,
+                backupForEventId: backupForEventId,
+                backupRelationshipProvenance: backupRelationshipProvenance,
                 status: status,
                 replacementEventId: replacementEventId,
                 createdAtUtc: createdAtUtc,
@@ -30678,6 +31496,12 @@ typedef $$PlannerPreferencesTableCreateCompanionBuilder =
       Value<bool> showCompletedItems,
       Value<bool> showCancelledItems,
       Value<int> weekStartDay,
+      Value<String> preferredPresentation,
+      Value<bool> showEvents,
+      Value<bool> showBackupEvents,
+      Value<bool> showTasks,
+      Value<bool> showCompletedTasks,
+      Value<int> timelineHourHeight,
       required DateTime updatedAtUtc,
       Value<int> rowid,
     });
@@ -30698,6 +31522,12 @@ typedef $$PlannerPreferencesTableUpdateCompanionBuilder =
       Value<bool> showCompletedItems,
       Value<bool> showCancelledItems,
       Value<int> weekStartDay,
+      Value<String> preferredPresentation,
+      Value<bool> showEvents,
+      Value<bool> showBackupEvents,
+      Value<bool> showTasks,
+      Value<bool> showCompletedTasks,
+      Value<int> timelineHourHeight,
       Value<DateTime> updatedAtUtc,
       Value<int> rowid,
     });
@@ -30813,6 +31643,36 @@ class $$PlannerPreferencesTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get preferredPresentation => $composableBuilder(
+    column: $table.preferredPresentation,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get showEvents => $composableBuilder(
+    column: $table.showEvents,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get showBackupEvents => $composableBuilder(
+    column: $table.showBackupEvents,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get showTasks => $composableBuilder(
+    column: $table.showTasks,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get showCompletedTasks => $composableBuilder(
+    column: $table.showCompletedTasks,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get timelineHourHeight => $composableBuilder(
+    column: $table.timelineHourHeight,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<DateTime> get updatedAtUtc => $composableBuilder(
     column: $table.updatedAtUtc,
     builder: (column) => ColumnFilters(column),
@@ -30918,6 +31778,36 @@ class $$PlannerPreferencesTableOrderingComposer
 
   ColumnOrderings<int> get weekStartDay => $composableBuilder(
     column: $table.weekStartDay,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get preferredPresentation => $composableBuilder(
+    column: $table.preferredPresentation,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get showEvents => $composableBuilder(
+    column: $table.showEvents,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get showBackupEvents => $composableBuilder(
+    column: $table.showBackupEvents,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get showTasks => $composableBuilder(
+    column: $table.showTasks,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get showCompletedTasks => $composableBuilder(
+    column: $table.showCompletedTasks,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get timelineHourHeight => $composableBuilder(
+    column: $table.timelineHourHeight,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -31029,6 +31919,34 @@ class $$PlannerPreferencesTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get preferredPresentation => $composableBuilder(
+    column: $table.preferredPresentation,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get showEvents => $composableBuilder(
+    column: $table.showEvents,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get showBackupEvents => $composableBuilder(
+    column: $table.showBackupEvents,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get showTasks =>
+      $composableBuilder(column: $table.showTasks, builder: (column) => column);
+
+  GeneratedColumn<bool> get showCompletedTasks => $composableBuilder(
+    column: $table.showCompletedTasks,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get timelineHourHeight => $composableBuilder(
+    column: $table.timelineHourHeight,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<DateTime> get updatedAtUtc => $composableBuilder(
     column: $table.updatedAtUtc,
     builder: (column) => column,
@@ -31106,6 +32024,12 @@ class $$PlannerPreferencesTableTableManager
                 Value<bool> showCompletedItems = const Value.absent(),
                 Value<bool> showCancelledItems = const Value.absent(),
                 Value<int> weekStartDay = const Value.absent(),
+                Value<String> preferredPresentation = const Value.absent(),
+                Value<bool> showEvents = const Value.absent(),
+                Value<bool> showBackupEvents = const Value.absent(),
+                Value<bool> showTasks = const Value.absent(),
+                Value<bool> showCompletedTasks = const Value.absent(),
+                Value<int> timelineHourHeight = const Value.absent(),
                 Value<DateTime> updatedAtUtc = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PlannerPreferencesCompanion(
@@ -31124,6 +32048,12 @@ class $$PlannerPreferencesTableTableManager
                 showCompletedItems: showCompletedItems,
                 showCancelledItems: showCancelledItems,
                 weekStartDay: weekStartDay,
+                preferredPresentation: preferredPresentation,
+                showEvents: showEvents,
+                showBackupEvents: showBackupEvents,
+                showTasks: showTasks,
+                showCompletedTasks: showCompletedTasks,
+                timelineHourHeight: timelineHourHeight,
                 updatedAtUtc: updatedAtUtc,
                 rowid: rowid,
               ),
@@ -31144,6 +32074,12 @@ class $$PlannerPreferencesTableTableManager
                 Value<bool> showCompletedItems = const Value.absent(),
                 Value<bool> showCancelledItems = const Value.absent(),
                 Value<int> weekStartDay = const Value.absent(),
+                Value<String> preferredPresentation = const Value.absent(),
+                Value<bool> showEvents = const Value.absent(),
+                Value<bool> showBackupEvents = const Value.absent(),
+                Value<bool> showTasks = const Value.absent(),
+                Value<bool> showCompletedTasks = const Value.absent(),
+                Value<int> timelineHourHeight = const Value.absent(),
                 required DateTime updatedAtUtc,
                 Value<int> rowid = const Value.absent(),
               }) => PlannerPreferencesCompanion.insert(
@@ -31162,6 +32098,12 @@ class $$PlannerPreferencesTableTableManager
                 showCompletedItems: showCompletedItems,
                 showCancelledItems: showCancelledItems,
                 weekStartDay: weekStartDay,
+                preferredPresentation: preferredPresentation,
+                showEvents: showEvents,
+                showBackupEvents: showBackupEvents,
+                showTasks: showTasks,
+                showCompletedTasks: showCompletedTasks,
+                timelineHourHeight: timelineHourHeight,
                 updatedAtUtc: updatedAtUtc,
                 rowid: rowid,
               ),

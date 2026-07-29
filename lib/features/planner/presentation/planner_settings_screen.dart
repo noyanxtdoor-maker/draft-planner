@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:rmplanner/app/router/route_names.dart';
 import 'package:rmplanner/features/planner/application/event_type_providers.dart';
 import 'package:rmplanner/features/planner/domain/planner_settings.dart';
+import 'package:rmplanner/features/planner/domain/planner_view.dart';
 
 final class PlannerSettingsScreen extends ConsumerWidget {
   const PlannerSettingsScreen({super.key});
@@ -96,6 +97,33 @@ final class PlannerSettingsScreen extends ConsumerWidget {
                         ],
                         onChanged: (value) => controller.saveSettings(
                           settings.copyWith(defaultDurationMinutes: value),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<PlannerZoomPreset>(
+                        key: const Key('planner-zoom-preset-setting'),
+                        initialValue: _presetFor(settings.timelineHourHeight),
+                        decoration: const InputDecoration(
+                          labelText: 'Timeline zoom',
+                        ),
+                        items: const <DropdownMenuItem<PlannerZoomPreset>>[
+                          DropdownMenuItem(
+                            value: PlannerZoomPreset.compact,
+                            child: Text('Compact'),
+                          ),
+                          DropdownMenuItem(
+                            value: PlannerZoomPreset.normal,
+                            child: Text('Normal'),
+                          ),
+                          DropdownMenuItem(
+                            value: PlannerZoomPreset.expanded,
+                            child: Text('Expanded'),
+                          ),
+                        ],
+                        onChanged: (value) => controller.saveSettings(
+                          settings.copyWith(
+                            timelineHourHeight: value?.hourHeight,
+                          ),
                         ),
                       ),
                     ],
@@ -235,6 +263,22 @@ final class PlannerSettingsScreen extends ConsumerWidget {
               ),
       ),
     );
+  }
+
+  static PlannerZoomPreset _presetFor(double hourHeight) {
+    if (hourHeight <
+        (PlannerZoomPolicy.compactHourHeight +
+                PlannerZoomPolicy.normalHourHeight) /
+            2) {
+      return PlannerZoomPreset.compact;
+    }
+    if (hourHeight >
+        (PlannerZoomPolicy.normalHourHeight +
+                PlannerZoomPolicy.expandedHourHeight) /
+            2) {
+      return PlannerZoomPreset.expanded;
+    }
+    return PlannerZoomPreset.normal;
   }
 }
 

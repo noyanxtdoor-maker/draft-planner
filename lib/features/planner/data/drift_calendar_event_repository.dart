@@ -512,6 +512,11 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
       activityTypeId: Value<String?>(draft.activityTypeId),
       activityTypeMappingVersion: Value<int?>(draft.activityTypeMappingVersion),
       contributionRuleKey: Value<String?>(draft.contributionRuleKey),
+      isBackupAppointment: Value<bool>(draft.isBackupAppointment),
+      backupForEventId: Value<String?>(draft.backupForEventId),
+      backupRelationshipProvenance: Value<String?>(
+        draft.backupRelationshipProvenance,
+      ),
       recurrenceFrequency: Value<String>(draft.recurrence.frequency.name),
       recurrenceEndMode: Value<String>(draft.recurrence.endMode.name),
       recurrenceEndDate: Value<String?>(draft.recurrence.endDate?.iso8601),
@@ -542,6 +547,11 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
                 draft.activityTypeMappingVersion,
               ),
               contributionRuleKey: Value<String?>(draft.contributionRuleKey),
+              isBackupAppointment: Value<bool>(draft.isBackupAppointment),
+              backupForEventId: Value<String?>(draft.backupForEventId),
+              backupRelationshipProvenance: Value<String?>(
+                draft.backupRelationshipProvenance,
+              ),
               recurrenceFrequency: Value<String>(
                 draft.recurrence.frequency.name,
               ),
@@ -577,6 +587,9 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
       activityTypeId: row.activityTypeId,
       activityTypeMappingVersion: row.activityTypeMappingVersion,
       contributionRuleKey: row.contributionRuleKey,
+      isBackupAppointment: row.isBackupAppointment,
+      backupForEventId: row.backupForEventId,
+      backupRelationshipProvenance: row.backupRelationshipProvenance,
       recurrence: _ruleFromRow(row),
     );
   }
@@ -713,6 +726,14 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
       contributionRuleKey: exception == null
           ? row.contributionRuleKey
           : exception.contributionRuleKey,
+      isBackupAppointment:
+          exception?.isBackupAppointment ?? row.isBackupAppointment,
+      backupForEventId: exception == null
+          ? row.backupForEventId
+          : exception.backupForEventId,
+      backupRelationshipProvenance: exception == null
+          ? row.backupRelationshipProvenance
+          : exception.backupRelationshipProvenance,
       recurrence: rule,
       replacementEventId:
           exception?.replacementEventId ?? row.replacementEventId,
@@ -761,6 +782,8 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
       activityTypeId: occurrence.activityTypeId,
       activityTypeLabel: occurrence.activityTypeLabel,
       activityTypeColorValue: occurrence.activityTypeColorValue,
+      isBackupAppointment: occurrence.isBackupAppointment,
+      backupForEventId: occurrence.backupForEventId,
     );
   }
 
@@ -864,6 +887,9 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
         activityTypeId: occurrence.activityTypeId,
         activityTypeMappingVersion: occurrence.activityTypeMappingVersion,
         contributionRuleKey: occurrence.contributionRuleKey,
+        isBackupAppointment: occurrence.isBackupAppointment,
+        backupForEventId: occurrence.backupForEventId,
+        backupRelationshipProvenance: occurrence.backupRelationshipProvenance,
       ),
       status: status,
       operationId: operationId,
@@ -907,6 +933,11 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
               draft.activityTypeMappingVersion,
             ),
             contributionRuleKey: Value<String?>(draft.contributionRuleKey),
+            isBackupAppointment: Value<bool>(draft.isBackupAppointment),
+            backupForEventId: Value<String?>(draft.backupForEventId),
+            backupRelationshipProvenance: Value<String?>(
+              draft.backupRelationshipProvenance,
+            ),
             status: status.name,
             replacementEventId: Value<String?>(replacementEventId),
             createdAtUtc: clock.nowUtc(),

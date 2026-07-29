@@ -47,6 +47,12 @@ also authorizes the Planner/Event Type correction within VS-08. The preserved
 workbook and DOCX remain immutable; every other locked decision remains in
 force.
 
+`docs/decisions/vs08-planner-owner-refinement.md` records the later explicit
+owner authorization for the VS-08 top bar, filter/selection modes, permanent
+footer removal, bottom-sheet event detail/create workflow, contextual global
+plus, pinch zoom, Settings relocation, and Backup Appointment classification.
+It changes no VS-09 or later domain ownership.
+
 ## Exception protocol
 
 Stop affected work and cite the exact ADR, OPD, FR, BR, AC, and slice when a direct contradiction, technical impossibility, security vulnerability, or data-loss risk is found. Do not silently reinterpret a locked decision.

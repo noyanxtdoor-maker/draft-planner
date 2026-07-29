@@ -7,7 +7,7 @@ import 'package:rmplanner/app/router/route_names.dart';
 import 'package:rmplanner/features/indicators/application/indicator_providers.dart';
 import 'package:rmplanner/features/indicators/domain/life_indicator.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
-import 'package:rmplanner/features/planner/presentation/event_type_picker_dialog.dart';
+import 'package:rmplanner/features/planner/presentation/calendar_event_creation.dart';
 
 final class IndicatorDetailScreen extends ConsumerWidget {
   const IndicatorDetailScreen({

@@ -21,6 +21,7 @@ final class CalendarEventFormScreen extends ConsumerStatefulWidget {
     this.initialStartMinute,
     this.initialIndicatorKey,
     this.initialEventTypeId,
+    this.sheetPresentation = false,
     super.key,
   }) : mode = CalendarEventFormMode.create,
        eventId = null,
@@ -34,6 +35,7 @@ final class CalendarEventFormScreen extends ConsumerStatefulWidget {
     this.initialStartMinute,
     this.initialIndicatorKey,
     this.initialEventTypeId,
+    this.sheetPresentation = false,
     super.key,
   }) : mode = CalendarEventFormMode.create,
        eventId = null,
@@ -44,6 +46,7 @@ final class CalendarEventFormScreen extends ConsumerStatefulWidget {
     required this.eventId,
     required this.originalDate,
     required this.scope,
+    this.sheetPresentation = false,
     super.key,
   }) : mode = CalendarEventFormMode.edit,
        initialDate = null,
@@ -56,6 +59,7 @@ final class CalendarEventFormScreen extends ConsumerStatefulWidget {
     required this.eventId,
     required this.originalDate,
     required this.scope,
+    this.sheetPresentation = false,
     super.key,
   }) : mode = CalendarEventFormMode.reschedule,
        initialDate = null,
@@ -73,6 +77,7 @@ final class CalendarEventFormScreen extends ConsumerStatefulWidget {
   final PlannerDate? originalDate;
   final CalendarEventEditScope? scope;
   final String? sourceTaskId;
+  final bool sheetPresentation;
 
   @override
   ConsumerState<CalendarEventFormScreen> createState() =>
@@ -95,6 +100,9 @@ final class _CalendarEventFormScreenState
   TimeOfDay _start = const TimeOfDay(hour: 9, minute: 0);
   TimeOfDay _end = const TimeOfDay(hour: 10, minute: 0);
   bool _requiresReport = false;
+  bool _isBackupAppointment = false;
+  String? _backupForEventId;
+  String? _backupRelationshipProvenance;
   CalendarRecurrenceFrequency _frequency = CalendarRecurrenceFrequency.none;
   CalendarRecurrenceEndMode _endMode = CalendarRecurrenceEndMode.never;
   PlannerDate? _recurrenceEndDate;
@@ -268,6 +276,9 @@ final class _CalendarEventFormScreenState
     _end = _timeFromMinute(draft.endMinute ?? 10 * 60);
     _durationWasEntered = true;
     _requiresReport = draft.requiresReport;
+    _isBackupAppointment = draft.isBackupAppointment;
+    _backupForEventId = draft.backupForEventId;
+    _backupRelationshipProvenance = draft.backupRelationshipProvenance;
     _frequency =
         widget.mode == CalendarEventFormMode.reschedule &&
             widget.scope == CalendarEventEditScope.occurrence
@@ -286,321 +297,413 @@ final class _CalendarEventFormScreenState
     final message =
         ref.watch(calendarEventControllerProvider) ??
         ref.watch(taskEventLinkControllerProvider);
-    return Scaffold(
-      appBar: AppBar(title: Text(_title)),
-      body: _loading || _configurationLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SafeArea(
-              child: Form(
-                key: _formKey,
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 36),
-                  children: <Widget>[
-                    if (widget.scope != null) ...<Widget>[
-                      _ScopeBanner(scope: widget.scope!),
-                      const SizedBox(height: 14),
-                    ],
-                    if (widget.sourceTaskId != null) ...<Widget>[
-                      Card(
-                        child: Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: <Widget>[
-                              const Text(
-                                'The Calendar Event and Task remain '
-                                'independent. Creating this link never '
-                                'completes either record.',
-                              ),
-                              const SizedBox(height: 10),
-                              DropdownButtonFormField<TaskEventCanonicalSource>(
-                                key: const Key('create-event-canonical-source'),
-                                initialValue: _canonicalSource,
-                                decoration: const InputDecoration(
-                                  labelText: 'Planning source counted once',
-                                ),
-                                items: TaskEventCanonicalSource.values
-                                    .map(
-                                      (value) => DropdownMenuItem(
-                                        value: value,
-                                        child: Text(
-                                          taskEventCanonicalSourceLabel(value),
-                                        ),
-                                      ),
-                                    )
-                                    .toList(),
-                                onChanged: (value) =>
-                                    setState(() => _canonicalSource = value!),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                    ],
-                    if (message != null) ...<Widget>[
-                      _ErrorBanner(message: message),
-                      const SizedBox(height: 14),
-                    ],
+    final content = _loading || _configurationLoading
+        ? const Center(child: CircularProgressIndicator())
+        : SafeArea(
+            top: !widget.sheetPresentation,
+            child: Form(
+              key: _formKey,
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 36),
+                children: <Widget>[
+                  const _FormSectionLabel(
+                    icon: Icons.category_outlined,
+                    label: 'Event identity',
+                  ),
+                  const SizedBox(height: 8),
+                  if (widget.scope != null) ...<Widget>[
+                    _ScopeBanner(scope: widget.scope!),
+                    const SizedBox(height: 14),
+                  ],
+                  if (widget.sourceTaskId != null) ...<Widget>[
                     Card(
-                      key: const Key('event-type-field'),
-                      child: ListTile(
-                        leading: _selectedEventType == null
-                            ? const Icon(Icons.category_outlined)
-                            : Container(
-                                width: 20,
-                                height: 20,
-                                decoration: BoxDecoration(
-                                  color: Color(_selectedEventType!.colorValue),
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: Colors.white.withValues(alpha: 0.35),
-                                  ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: <Widget>[
+                            const Text(
+                              'The Calendar Event and Task remain '
+                              'independent. Creating this link never '
+                              'completes either record.',
+                            ),
+                            const SizedBox(height: 10),
+                            DropdownButtonFormField<TaskEventCanonicalSource>(
+                              key: const Key('create-event-canonical-source'),
+                              initialValue: _canonicalSource,
+                              decoration: const InputDecoration(
+                                labelText: 'Planning source counted once',
+                              ),
+                              items: TaskEventCanonicalSource.values
+                                  .map(
+                                    (value) => DropdownMenuItem(
+                                      value: value,
+                                      child: Text(
+                                        taskEventCanonicalSourceLabel(value),
+                                      ),
+                                    ),
+                                  )
+                                  .toList(),
+                              onChanged: (value) =>
+                                  setState(() => _canonicalSource = value!),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                  ],
+                  if (message != null) ...<Widget>[
+                    _ErrorBanner(message: message),
+                    const SizedBox(height: 14),
+                  ],
+                  Card(
+                    key: const Key('event-type-field'),
+                    child: ListTile(
+                      leading: _selectedEventType == null
+                          ? const Icon(Icons.category_outlined)
+                          : Container(
+                              width: 20,
+                              height: 20,
+                              decoration: BoxDecoration(
+                                color: Color(_selectedEventType!.colorValue),
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.35),
                                 ),
                               ),
-                        title: const Text(
-                          'Event Type',
-                          style: TextStyle(color: Colors.white70, fontSize: 12),
-                        ),
-                        subtitle: Text(
-                          _selectedEventType?.label ?? 'Not selected',
-                          key: const Key('selected-event-type-label'),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        trailing: TextButton(
-                          key: const Key('change-event-type-button'),
-                          onPressed: _changeEventType,
-                          child: const Text('Change'),
+                            ),
+                      title: const Text(
+                        'Event Type',
+                        style: TextStyle(color: Colors.white70, fontSize: 12),
+                      ),
+                      subtitle: Text(
+                        _selectedEventType?.label ?? 'Not selected',
+                        key: const Key('selected-event-type-label'),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
-                    ),
-                    if (_selectedEventType != null) ...<Widget>[
-                      const SizedBox(height: 8),
-                      _EventTypeMappingNotice(type: _selectedEventType!),
-                    ],
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      key: const Key('event-title-field'),
-                      controller: _titleController,
-                      decoration: const InputDecoration(
-                        labelText: 'Title',
-                        prefixIcon: Icon(Icons.event_outlined),
-                      ),
-                      textInputAction: TextInputAction.next,
-                      validator: (value) =>
-                          value == null || value.trim().isEmpty
-                          ? 'Title is required'
-                          : null,
-                    ),
-                    const SizedBox(height: 12),
-                    SwitchListTile(
-                      key: const Key('event-all-day-switch'),
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('All-day event'),
-                      subtitle: const Text(
-                        'All-day dates never shift through time-zone conversion',
-                      ),
-                      value: _timing == CalendarEventTiming.allDay,
-                      onChanged: (value) => setState(
-                        () => _timing = value
-                            ? CalendarEventTiming.allDay
-                            : CalendarEventTiming.timed,
+                      trailing: TextButton(
+                        key: const Key('change-event-type-button'),
+                        onPressed: _changeEventType,
+                        child: const Text('Change'),
                       ),
                     ),
-                    _DateTile(
-                      label: 'Event date',
-                      date: _date,
-                      onTap: () => _selectDate(
-                        initial: _date,
-                        onSelected: (value) => setState(() => _date = value),
-                      ),
+                  ),
+                  if (_selectedEventType != null) ...<Widget>[
+                    const SizedBox(height: 8),
+                    _EventTypeMappingNotice(type: _selectedEventType!),
+                  ],
+                  const SizedBox(height: 18),
+                  const _FormSectionLabel(
+                    icon: Icons.edit_note_outlined,
+                    label: 'Basic details',
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    key: const Key('event-title-field'),
+                    controller: _titleController,
+                    decoration: const InputDecoration(
+                      labelText: 'Title',
+                      prefixIcon: Icon(Icons.event_outlined),
                     ),
-                    if (_timing == CalendarEventTiming.timed) ...<Widget>[
-                      const SizedBox(height: 8),
-                      Row(
-                        children: <Widget>[
-                          Expanded(
-                            child: _TimeTile(
-                              key: const Key('event-start-time'),
-                              label: 'Start',
-                              value: _start,
-                              onTap: () => _selectTime(
-                                initial: _start,
-                                onSelected: (value) =>
-                                    setState(() => _start = value),
-                              ),
+                    textInputAction: TextInputAction.next,
+                    validator: (value) => value == null || value.trim().isEmpty
+                        ? 'Title is required'
+                        : null,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    key: const Key('event-notes-field'),
+                    controller: _notesController,
+                    decoration: const InputDecoration(
+                      labelText: 'Notes (optional)',
+                      prefixIcon: Icon(Icons.notes),
+                    ),
+                    minLines: 2,
+                    maxLines: 5,
+                  ),
+                  const SizedBox(height: 18),
+                  const _FormSectionLabel(
+                    icon: Icons.schedule_outlined,
+                    label: 'Date and time',
+                  ),
+                  const SizedBox(height: 4),
+                  SwitchListTile(
+                    key: const Key('event-all-day-switch'),
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('All-day event'),
+                    subtitle: const Text(
+                      'All-day dates never shift through time-zone conversion',
+                    ),
+                    value: _timing == CalendarEventTiming.allDay,
+                    onChanged: (value) => setState(
+                      () => _timing = value
+                          ? CalendarEventTiming.allDay
+                          : CalendarEventTiming.timed,
+                    ),
+                  ),
+                  _DateTile(
+                    label: 'Event date',
+                    date: _date,
+                    onTap: () => _selectDate(
+                      initial: _date,
+                      onSelected: (value) => setState(() => _date = value),
+                    ),
+                  ),
+                  if (_timing == CalendarEventTiming.timed) ...<Widget>[
+                    const SizedBox(height: 8),
+                    Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: _TimeTile(
+                            key: const Key('event-start-time'),
+                            label: 'Start',
+                            value: _start,
+                            onTap: () => _selectTime(
+                              initial: _start,
+                              onSelected: (value) =>
+                                  setState(() => _start = value),
                             ),
                           ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: _TimeTile(
-                              key: const Key('event-end-time'),
-                              label: 'End',
-                              value: _end,
-                              onTap: () => _selectTime(
-                                initial: _end,
-                                onSelected: (value) => setState(() {
-                                  _end = value;
-                                  _durationWasEntered = true;
-                                }),
-                              ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _TimeTile(
+                            key: const Key('event-end-time'),
+                            label: 'End',
+                            value: _end,
+                            onTap: () => _selectTime(
+                              initial: _end,
+                              onSelected: (value) => setState(() {
+                                _end = value;
+                                _durationWasEntered = true;
+                              }),
                             ),
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        key: const Key('event-time-zone-field'),
-                        controller: _timeZoneController,
-                        decoration: const InputDecoration(
-                          labelText: 'Original IANA time zone',
-                          helperText: 'Example: Asia/Manila',
-                          prefixIcon: Icon(Icons.public),
                         ),
-                        validator: (value) {
-                          final zone = value?.trim() ?? '';
-                          if (zone.isEmpty) {
-                            return 'Time zone is required';
-                          }
-                          return ref
-                                  .read(
-                                    calendarEventControllerProvider.notifier,
-                                  )
-                                  .isValidTimeZone(zone)
-                              ? null
-                              : 'Use a valid IANA time zone';
-                        },
-                      ),
-                    ],
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      key: const Key('event-location-field'),
-                      controller: _locationController,
-                      decoration: const InputDecoration(
-                        labelText: 'Typed location (optional)',
-                        helperText: 'No location permission is required',
-                        prefixIcon: Icon(Icons.place_outlined),
-                      ),
-                      textInputAction: TextInputAction.next,
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      key: const Key('event-notes-field'),
-                      controller: _notesController,
-                      decoration: const InputDecoration(
-                        labelText: 'Notes (optional)',
-                        prefixIcon: Icon(Icons.notes),
-                      ),
-                      minLines: 2,
-                      maxLines: 5,
-                    ),
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<CalendarRecurrenceFrequency>(
-                      key: const Key('event-recurrence-frequency'),
-                      initialValue: _frequency,
-                      decoration: const InputDecoration(
-                        labelText: 'Recurrence',
-                        prefixIcon: Icon(Icons.repeat),
-                      ),
-                      items: <DropdownMenuItem<CalendarRecurrenceFrequency>>[
-                        for (final value in CalendarRecurrenceFrequency.values)
-                          DropdownMenuItem<CalendarRecurrenceFrequency>(
-                            value: value,
-                            child: Text(_frequencyLabel(value)),
-                          ),
                       ],
-                      onChanged: (value) => setState(() {
-                        _frequency = value ?? CalendarRecurrenceFrequency.none;
-                        if (_frequency == CalendarRecurrenceFrequency.none) {
-                          _endMode = CalendarRecurrenceEndMode.never;
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      key: const Key('event-time-zone-field'),
+                      controller: _timeZoneController,
+                      decoration: const InputDecoration(
+                        labelText: 'Original IANA time zone',
+                        helperText: 'Example: Asia/Manila',
+                        prefixIcon: Icon(Icons.public),
+                      ),
+                      validator: (value) {
+                        final zone = value?.trim() ?? '';
+                        if (zone.isEmpty) {
+                          return 'Time zone is required';
                         }
-                      }),
-                    ),
-                    if (_frequency !=
-                        CalendarRecurrenceFrequency.none) ...<Widget>[
-                      const SizedBox(height: 12),
-                      DropdownButtonFormField<CalendarRecurrenceEndMode>(
-                        key: const Key('event-recurrence-end-mode'),
-                        initialValue: _endMode,
-                        decoration: const InputDecoration(
-                          labelText: 'Recurrence end',
-                        ),
-                        items:
-                            const <DropdownMenuItem<CalendarRecurrenceEndMode>>[
-                              DropdownMenuItem<CalendarRecurrenceEndMode>(
-                                value: CalendarRecurrenceEndMode.never,
-                                child: Text('No end'),
-                              ),
-                              DropdownMenuItem<CalendarRecurrenceEndMode>(
-                                value: CalendarRecurrenceEndMode.onDate,
-                                child: Text('End on date'),
-                              ),
-                              DropdownMenuItem<CalendarRecurrenceEndMode>(
-                                value: CalendarRecurrenceEndMode.afterCount,
-                                child: Text('End after count'),
-                              ),
-                            ],
-                        onChanged: (value) => setState(
-                          () => _endMode =
-                              value ?? CalendarRecurrenceEndMode.never,
-                        ),
-                      ),
-                      if (_endMode == CalendarRecurrenceEndMode.onDate)
-                        _DateTile(
-                          label: 'Last occurrence',
-                          date: _recurrenceEndDate ?? _date,
-                          onTap: () => _selectDate(
-                            initial: _recurrenceEndDate ?? _date,
-                            onSelected: (value) =>
-                                setState(() => _recurrenceEndDate = value),
-                          ),
-                        ),
-                      if (_endMode == CalendarRecurrenceEndMode.afterCount)
-                        TextFormField(
-                          key: const Key('event-recurrence-count'),
-                          controller: _countController,
-                          decoration: const InputDecoration(
-                            labelText: 'Number of occurrences',
-                          ),
-                          keyboardType: TextInputType.number,
-                          validator: (value) {
-                            final parsed = int.tryParse(value ?? '');
-                            return parsed == null || parsed < 1
-                                ? 'Enter at least 1'
-                                : null;
-                          },
-                        ),
-                    ],
-                    SwitchListTile(
-                      key: const Key('event-requires-report-switch'),
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Report required'),
-                      subtitle: const Text(
-                        'Elapsed time creates attention, never an outcome',
-                      ),
-                      value: _requiresReport,
-                      onChanged: (value) =>
-                          setState(() => _requiresReport = value),
-                    ),
-                    const SizedBox(height: 20),
-                    FilledButton.icon(
-                      key: const Key('save-event-button'),
-                      onPressed: _saving ? null : _save,
-                      icon: _saving
-                          ? const SizedBox.square(
-                              dimension: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.save_outlined),
-                      label: Text(_saving ? 'Saving…' : _saveLabel),
+                        return ref
+                                .read(calendarEventControllerProvider.notifier)
+                                .isValidTimeZone(zone)
+                            ? null
+                            : 'Use a valid IANA time zone';
+                      },
                     ),
                   ],
-                ),
+                  const SizedBox(height: 12),
+                  SwitchListTile(
+                    key: const Key('event-backup-appointment-switch'),
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Backup Appointment'),
+                    subtitle: const Text(
+                      'Keeps normal Event Type and report rules; scheduling '
+                      'still creates no Actual',
+                    ),
+                    value: _isBackupAppointment,
+                    onChanged: (value) =>
+                        setState(() => _isBackupAppointment = value),
+                  ),
+                  const SizedBox(height: 18),
+                  const _FormSectionLabel(
+                    icon: Icons.place_outlined,
+                    label: 'Location',
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    key: const Key('event-location-field'),
+                    controller: _locationController,
+                    decoration: const InputDecoration(
+                      labelText: 'Typed location (optional)',
+                      helperText: 'No location permission is required',
+                      prefixIcon: Icon(Icons.place_outlined),
+                    ),
+                    textInputAction: TextInputAction.next,
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.only(top: 6),
+                    child: Text(
+                      'Choose on Map will appear in the authorized map '
+                      'slice. No location permission is requested here.',
+                      style: TextStyle(color: Colors.white54, fontSize: 12),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<CalendarRecurrenceFrequency>(
+                    key: const Key('event-recurrence-frequency'),
+                    initialValue: _frequency,
+                    decoration: const InputDecoration(
+                      labelText: 'Recurrence',
+                      prefixIcon: Icon(Icons.repeat),
+                    ),
+                    items: <DropdownMenuItem<CalendarRecurrenceFrequency>>[
+                      for (final value in CalendarRecurrenceFrequency.values)
+                        DropdownMenuItem<CalendarRecurrenceFrequency>(
+                          value: value,
+                          child: Text(_frequencyLabel(value)),
+                        ),
+                    ],
+                    onChanged: (value) => setState(() {
+                      _frequency = value ?? CalendarRecurrenceFrequency.none;
+                      if (_frequency == CalendarRecurrenceFrequency.none) {
+                        _endMode = CalendarRecurrenceEndMode.never;
+                      }
+                    }),
+                  ),
+                  if (_frequency !=
+                      CalendarRecurrenceFrequency.none) ...<Widget>[
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<CalendarRecurrenceEndMode>(
+                      key: const Key('event-recurrence-end-mode'),
+                      initialValue: _endMode,
+                      decoration: const InputDecoration(
+                        labelText: 'Recurrence end',
+                      ),
+                      items:
+                          const <DropdownMenuItem<CalendarRecurrenceEndMode>>[
+                            DropdownMenuItem<CalendarRecurrenceEndMode>(
+                              value: CalendarRecurrenceEndMode.never,
+                              child: Text('No end'),
+                            ),
+                            DropdownMenuItem<CalendarRecurrenceEndMode>(
+                              value: CalendarRecurrenceEndMode.onDate,
+                              child: Text('End on date'),
+                            ),
+                            DropdownMenuItem<CalendarRecurrenceEndMode>(
+                              value: CalendarRecurrenceEndMode.afterCount,
+                              child: Text('End after count'),
+                            ),
+                          ],
+                      onChanged: (value) => setState(
+                        () =>
+                            _endMode = value ?? CalendarRecurrenceEndMode.never,
+                      ),
+                    ),
+                    if (_endMode == CalendarRecurrenceEndMode.onDate)
+                      _DateTile(
+                        label: 'Last occurrence',
+                        date: _recurrenceEndDate ?? _date,
+                        onTap: () => _selectDate(
+                          initial: _recurrenceEndDate ?? _date,
+                          onSelected: (value) =>
+                              setState(() => _recurrenceEndDate = value),
+                        ),
+                      ),
+                    if (_endMode == CalendarRecurrenceEndMode.afterCount)
+                      TextFormField(
+                        key: const Key('event-recurrence-count'),
+                        controller: _countController,
+                        decoration: const InputDecoration(
+                          labelText: 'Number of occurrences',
+                        ),
+                        keyboardType: TextInputType.number,
+                        validator: (value) {
+                          final parsed = int.tryParse(value ?? '');
+                          return parsed == null || parsed < 1
+                              ? 'Enter at least 1'
+                              : null;
+                        },
+                      ),
+                  ],
+                  const SizedBox(height: 18),
+                  const _FormSectionLabel(
+                    icon: Icons.fact_check_outlined,
+                    label: 'Reporting and progress context',
+                  ),
+                  SwitchListTile(
+                    key: const Key('event-requires-report-switch'),
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Report required'),
+                    subtitle: const Text(
+                      'Elapsed time creates attention, never an outcome',
+                    ),
+                    value: _requiresReport,
+                    onChanged: (value) =>
+                        setState(() => _requiresReport = value),
+                  ),
+                  const SizedBox(height: 20),
+                  FilledButton.icon(
+                    key: const Key('save-event-button'),
+                    onPressed: _saving ? null : _save,
+                    icon: _saving
+                        ? const SizedBox.square(
+                            dimension: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.save_outlined),
+                    label: Text(_saving ? 'Saving…' : _saveLabel),
+                  ),
+                ],
               ),
             ),
+          );
+    if (!widget.sheetPresentation) {
+      return Scaffold(
+        appBar: AppBar(title: Text(_title)),
+        body: content,
+      );
+    }
+    return Material(
+      key: const Key('calendar-event-detail-sheet'),
+      color: Theme.of(context).scaffoldBackgroundColor,
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: <Widget>[
+          const SizedBox(height: 8),
+          Container(
+            key: const Key('calendar-event-sheet-handle'),
+            width: 42,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.white30,
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8, 4, 8, 2),
+            child: Row(
+              children: <Widget>[
+                IconButton(
+                  key: const Key('calendar-event-sheet-close'),
+                  tooltip: 'Cancel',
+                  onPressed: () => Navigator.of(context).pop(false),
+                  icon: const Icon(Icons.close),
+                ),
+                Expanded(
+                  child: Text(
+                    _title,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 48),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          Expanded(child: content),
+        ],
+      ),
     );
   }
 
@@ -613,7 +716,7 @@ final class _CalendarEventFormScreenState
   };
 
   String get _saveLabel => switch (widget.mode) {
-    CalendarEventFormMode.create => 'Create Event',
+    CalendarEventFormMode.create => 'Save Event',
     CalendarEventFormMode.edit =>
       'Save ${calendarEventScopeLabel(widget.scope!)}',
     CalendarEventFormMode.reschedule =>
@@ -668,6 +771,11 @@ final class _CalendarEventFormScreenState
       activityTypeId: _selectedEventType?.id,
       activityTypeMappingVersion: _selectedEventType?.mappingVersion,
       contributionRuleKey: _scheduledPotentialRule(_selectedEventType),
+      isBackupAppointment: _isBackupAppointment,
+      backupForEventId: _isBackupAppointment ? _backupForEventId : null,
+      backupRelationshipProvenance: _isBackupAppointment
+          ? _backupRelationshipProvenance ?? 'user-classified'
+          : null,
       recurrence: CalendarRecurrenceRule(
         frequency: _frequency,
         endMode: _frequency == CalendarRecurrenceFrequency.none
@@ -786,6 +894,31 @@ final class _CalendarEventFormScreenState
       CalendarRecurrenceFrequency.monthly => 'Monthly',
       CalendarRecurrenceFrequency.yearly => 'Yearly',
     };
+  }
+}
+
+final class _FormSectionLabel extends StatelessWidget {
+  const _FormSectionLabel({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: <Widget>[
+        Icon(icon, size: 18, color: Theme.of(context).colorScheme.primary),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            label,
+            style: Theme.of(
+              context,
+            ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+          ),
+        ),
+      ],
+    );
   }
 }
 

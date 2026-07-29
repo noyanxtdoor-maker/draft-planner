@@ -75,9 +75,13 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Planner'));
       await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('planner-overflow-button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Tasks'));
+      await tester.pumpAndSettle();
       final taskTile = find.byKey(const Key('planner-task-$taskId'));
       final plannerScroll = find.descendant(
-        of: find.byKey(const Key('planner-day-scroll')),
+        of: find.byKey(const Key('planner-tasks-view')),
         matching: find.byType(Scrollable),
       );
       await tester.scrollUntilVisible(taskTile, 250, scrollable: plannerScroll);

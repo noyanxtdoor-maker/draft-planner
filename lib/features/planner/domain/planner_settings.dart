@@ -1,3 +1,5 @@
+import 'package:rmplanner/features/planner/domain/planner_view.dart';
+
 enum PlannerInitialScrollBehavior { currentTime, visibleStart, dayStart }
 
 enum EventCreationPresentation { fullScreen, sheet }
@@ -16,6 +18,9 @@ final class PlannerSettings {
     required this.showCompletedItems,
     required this.showCancelledItems,
     required this.weekStartDay,
+    required this.preferredPresentation,
+    required this.contentFilters,
+    required this.timelineHourHeight,
     this.defaultEventTypeId,
     this.defaultReminderMinutes,
   });
@@ -30,11 +35,14 @@ final class PlannerSettings {
       snapMinutes = 15,
       showCurrentTime = true,
       initialScrollBehavior = PlannerInitialScrollBehavior.currentTime,
-      creationPresentation = EventCreationPresentation.fullScreen,
+      creationPresentation = EventCreationPresentation.sheet,
       quickEditEnabled = true,
       showCompletedItems = true,
       showCancelledItems = false,
-      weekStartDay = DateTime.monday;
+      weekStartDay = DateTime.monday,
+      preferredPresentation = PlannerPresentation.day,
+      contentFilters = const PlannerContentFilters.defaults(),
+      timelineHourHeight = PlannerZoomPolicy.normalHourHeight;
 
   final String? defaultEventTypeId;
   final int defaultDurationMinutes;
@@ -50,6 +58,9 @@ final class PlannerSettings {
   final bool showCompletedItems;
   final bool showCancelledItems;
   final int weekStartDay;
+  final PlannerPresentation preferredPresentation;
+  final PlannerContentFilters contentFilters;
+  final double timelineHourHeight;
 
   PlannerSettings copyWith({
     String? defaultEventTypeId,
@@ -68,6 +79,9 @@ final class PlannerSettings {
     bool? showCompletedItems,
     bool? showCancelledItems,
     int? weekStartDay,
+    PlannerPresentation? preferredPresentation,
+    PlannerContentFilters? contentFilters,
+    double? timelineHourHeight,
   }) {
     return PlannerSettings(
       defaultEventTypeId: clearDefaultEventType
@@ -90,6 +104,12 @@ final class PlannerSettings {
       showCompletedItems: showCompletedItems ?? this.showCompletedItems,
       showCancelledItems: showCancelledItems ?? this.showCancelledItems,
       weekStartDay: weekStartDay ?? this.weekStartDay,
+      preferredPresentation:
+          preferredPresentation ?? this.preferredPresentation,
+      contentFilters: contentFilters ?? this.contentFilters,
+      timelineHourHeight: PlannerZoomPolicy.clamp(
+        timelineHourHeight ?? this.timelineHourHeight,
+      ),
     );
   }
 
@@ -112,6 +132,10 @@ final class PlannerSettings {
     }
     if (weekStartDay < DateTime.monday || weekStartDay > DateTime.sunday) {
       throw ArgumentError.value(weekStartDay, 'weekStartDay');
+    }
+    if (timelineHourHeight < PlannerZoomPolicy.minimumHourHeight ||
+        timelineHourHeight > PlannerZoomPolicy.maximumHourHeight) {
+      throw ArgumentError.value(timelineHourHeight, 'timelineHourHeight');
     }
   }
 }

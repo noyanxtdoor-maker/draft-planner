@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:rmplanner/app/router/route_names.dart';
 import 'package:rmplanner/features/planner/application/planner_providers.dart';
 import 'package:rmplanner/features/planner/domain/planner_task.dart';
-import 'package:rmplanner/features/planner/presentation/event_type_picker_dialog.dart';
+import 'package:rmplanner/features/planner/presentation/calendar_event_creation.dart';
 
 final class TaskDetailScreen extends ConsumerStatefulWidget {
   const TaskDetailScreen({required this.taskId, super.key});
@@ -210,6 +210,7 @@ final class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
         source: 'task',
         destinationPath: '${RoutePaths.tasks}/${widget.taskId}/create-event',
         date: date,
+        sourceTaskId: widget.taskId,
       ),
     );
     if (changed == true && mounted) {

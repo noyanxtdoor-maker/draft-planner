@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rmplanner/app/router/route_names.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
-import 'package:rmplanner/features/planner/presentation/calendar_event_form_screen.dart';
+import 'package:rmplanner/features/planner/presentation/calendar_event_creation.dart';
 import 'package:rmplanner/features/planner/presentation/event_type_picker_dialog.dart';
 
 final class CalendarEventCreateGateScreen extends ConsumerStatefulWidget {
@@ -31,37 +31,10 @@ final class CalendarEventCreateGateScreen extends ConsumerStatefulWidget {
 
 final class _CalendarEventCreateGateScreenState
     extends ConsumerState<CalendarEventCreateGateScreen> {
-  String? _selectedEventTypeId;
   var _pickerScheduled = false;
 
   @override
-  void initState() {
-    super.initState();
-    _selectedEventTypeId = widget.initialEventTypeId;
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final selectedEventTypeId = _selectedEventTypeId;
-    if (selectedEventTypeId != null) {
-      final sourceTaskId = widget.sourceTaskId;
-      if (sourceTaskId != null) {
-        return CalendarEventFormScreen.createFromTask(
-          sourceTaskId: sourceTaskId,
-          initialDate: widget.initialDate,
-          initialStartMinute: widget.initialStartMinute,
-          initialEventTypeId: selectedEventTypeId,
-          initialIndicatorKey: widget.initialIndicatorKey,
-        );
-      }
-      return CalendarEventFormScreen.create(
-        initialDate: widget.initialDate,
-        initialStartMinute: widget.initialStartMinute,
-        initialIndicatorKey: widget.initialIndicatorKey,
-        initialEventTypeId: selectedEventTypeId,
-      );
-    }
-
     if (!_pickerScheduled) {
       _pickerScheduled = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -84,6 +57,7 @@ final class _CalendarEventCreateGateScreenState
       context: context,
       ref: ref,
       recommendedIndicatorKey: widget.initialIndicatorKey,
+      recommendedEventTypeId: widget.initialEventTypeId,
     );
     if (!mounted) {
       return;
@@ -96,6 +70,21 @@ final class _CalendarEventCreateGateScreenState
       }
       return;
     }
-    setState(() => _selectedEventTypeId = selected.id);
+    final saved = await showCalendarEventFormSheet<bool>(
+      context: context,
+      eventType: selected,
+      date: widget.initialDate,
+      startMinute: widget.initialStartMinute,
+      indicatorKey: widget.initialIndicatorKey,
+      sourceTaskId: widget.sourceTaskId,
+    );
+    if (!mounted) {
+      return;
+    }
+    if (context.canPop()) {
+      context.pop(saved == true);
+    } else {
+      context.go(RoutePaths.planner);
+    }
   }
 }

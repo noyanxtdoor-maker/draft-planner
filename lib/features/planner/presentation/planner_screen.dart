@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rmplanner/app/router/route_names.dart';
@@ -14,7 +15,10 @@ import 'package:rmplanner/features/planner/domain/planner_day.dart';
 import 'package:rmplanner/features/planner/domain/planner_settings.dart';
 import 'package:rmplanner/features/planner/domain/planner_task.dart';
 import 'package:rmplanner/features/planner/domain/planner_timeline_layout.dart';
-import 'package:rmplanner/features/planner/presentation/event_type_picker_dialog.dart';
+import 'package:rmplanner/features/planner/domain/planner_view.dart';
+import 'package:rmplanner/features/planner/presentation/calendar_event_creation.dart';
+import 'package:rmplanner/features/planner/presentation/calendar_event_detail_screen.dart';
+import 'package:rmplanner/features/planner/presentation/contextual_create_fab.dart';
 
 final class PlannerScreen extends ConsumerStatefulWidget {
   const PlannerScreen({super.key});
@@ -28,6 +32,13 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
   final GlobalKey _dayScrollKey = GlobalKey();
   final GlobalKey _timelineKey = GlobalKey();
   String? _initialScrollSignature;
+  PlannerPresentation? _presentation;
+  final Set<PlannerSelectionId> _selectedItems = <PlannerSelectionId>{};
+  Future<List<PlannerDay>>? _rangeLoad;
+  String? _rangeSignature;
+  bool _selectionActive = false;
+
+  bool get _selectionMode => _selectionActive;
 
   @override
   void dispose() {
@@ -40,42 +51,10 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     final state = ref.watch(plannerControllerProvider);
     final controller = ref.read(plannerControllerProvider.notifier);
     final plannerSettings = ref.watch(eventTypeControllerProvider).settings;
+    _presentation ??= plannerSettings.preferredPresentation;
 
     return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          tooltip: 'Planner sections',
-          onPressed: () => _showPlannerSections(context),
-          icon: const Icon(Icons.menu),
-        ),
-        title: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Text('Planner'),
-            SizedBox(width: 4),
-            Icon(Icons.arrow_drop_down, size: 22),
-          ],
-        ),
-        actions: <Widget>[
-          IconButton(
-            key: const Key('planner-activity-history-button'),
-            tooltip: 'Activity History',
-            onPressed: () => context.push(RoutePaths.activityHistory),
-            icon: const Icon(Icons.history),
-          ),
-          IconButton(
-            key: const Key('planner-settings-button'),
-            tooltip: 'Planner and Calendar settings',
-            onPressed: () => context.push(RoutePaths.plannerSettings),
-            icon: const Icon(Icons.tune),
-          ),
-          IconButton(
-            tooltip: 'Privacy and Data',
-            onPressed: () => context.push(RoutePaths.privacyCenter),
-            icon: const Icon(Icons.shield_outlined),
-          ),
-        ],
-      ),
+      appBar: _buildAppBar(context, ref, state, plannerSettings, controller),
       body: SafeArea(
         top: false,
         child: Column(
@@ -92,14 +71,340 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        key: const Key('planner-create-button'),
-        tooltip: 'Create Task, Calendar Event, or Activity Report',
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        onPressed: () => _showCreateActions(context, ref, state.selectedDate),
-        child: const Icon(Icons.add, size: 30),
+      floatingActionButton: ContextualCreateFab(
+        buttonKey: const Key('planner-create-button'),
+        destination: CreateActionDestination.planner,
+        onSelected: (action) =>
+            _handleCreateAction(context, ref, state.selectedDate, action),
       ),
     );
+  }
+
+  PreferredSizeWidget _buildAppBar(
+    BuildContext context,
+    WidgetRef ref,
+    PlannerState state,
+    PlannerSettings settings,
+    PlannerController controller,
+  ) {
+    if (_selectionMode) {
+      return AppBar(
+        leading: IconButton(
+          key: const Key('planner-selection-cancel'),
+          tooltip: 'Cancel selection',
+          onPressed: () => setState(() {
+            _selectionActive = false;
+            _selectedItems.clear();
+          }),
+          icon: const Icon(Icons.close),
+        ),
+        title: Text('${_selectedItems.length} selected'),
+        actions: <Widget>[
+          IconButton(
+            key: const Key('planner-selection-delete'),
+            tooltip: 'Remove selected items',
+            onPressed: _selectedItems.isEmpty
+                ? null
+                : () => _removeSelected(context, ref, state, settings),
+            icon: const Icon(Icons.delete_outline),
+          ),
+        ],
+      );
+    }
+    return AppBar(
+      leading: IconButton(
+        tooltip: 'Planner views',
+        onPressed: () => _showPlannerSections(context, ref, settings),
+        icon: const Icon(Icons.menu),
+      ),
+      titleSpacing: 0,
+      title: InkWell(
+        key: const Key('planner-date-label'),
+        borderRadius: BorderRadius.circular(8),
+        onTap: () => _openCalendar(context, controller, state),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+          child: Text(
+            _dateLabel(state.selectedDate, _presentation!),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+          ),
+        ),
+      ),
+      actions: <Widget>[
+        IconButton(
+          key: const Key('planner-calendar-button'),
+          tooltip: 'Choose Planner date',
+          onPressed: () => _openCalendar(context, controller, state),
+          icon: const Icon(Icons.calendar_month_outlined),
+        ),
+        IconButton(
+          key: const Key('planner-filter-button'),
+          tooltip: 'Filter Planner content',
+          onPressed: () => _showFilters(context, ref, settings),
+          icon: const Icon(Icons.filter_alt_outlined),
+        ),
+        IconButton(
+          key: const Key('planner-selection-button'),
+          tooltip: 'Select Events or Tasks',
+          onPressed: () => setState(() => _selectionActive = true),
+          icon: const Icon(Icons.checklist_outlined),
+        ),
+        PopupMenuButton<_PlannerOverflowAction>(
+          key: const Key('planner-overflow-button'),
+          tooltip: 'Planner menu',
+          onSelected: (action) =>
+              _handleOverflow(context, ref, state, settings, action),
+          itemBuilder: (context) => <PopupMenuEntry<_PlannerOverflowAction>>[
+            _overflowItem(
+              _PlannerOverflowAction.search,
+              'Search',
+              Icons.search,
+            ),
+            _overflowItem(
+              _PlannerOverflowAction.schedule,
+              'Schedule',
+              Icons.view_agenda_outlined,
+              selected: _presentation == PlannerPresentation.schedule,
+            ),
+            _overflowItem(
+              _PlannerOverflowAction.day,
+              'Day',
+              Icons.calendar_view_day_outlined,
+              selected: _presentation == PlannerPresentation.day,
+            ),
+            _overflowItem(
+              _PlannerOverflowAction.week,
+              'Week',
+              Icons.calendar_view_week_outlined,
+              selected: _presentation == PlannerPresentation.week,
+            ),
+            _overflowItem(
+              _PlannerOverflowAction.tasks,
+              'Tasks',
+              Icons.task_alt_outlined,
+              selected: _presentation == PlannerPresentation.tasks,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  PopupMenuItem<_PlannerOverflowAction> _overflowItem(
+    _PlannerOverflowAction value,
+    String label,
+    IconData icon, {
+    bool selected = false,
+  }) {
+    return PopupMenuItem<_PlannerOverflowAction>(
+      value: value,
+      child: Row(
+        children: <Widget>[
+          Icon(selected ? Icons.check : icon, size: 20),
+          const SizedBox(width: 12),
+          Text(label),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showFilters(
+    BuildContext context,
+    WidgetRef ref,
+    PlannerSettings settings,
+  ) async {
+    var filters = settings.contentFilters;
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setSheetState) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+            child: Column(
+              key: const Key('planner-filter-menu'),
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                Text(
+                  'Show in Planner',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+                ),
+                CheckboxListTile(
+                  key: const Key('planner-filter-events'),
+                  title: const Text('Events'),
+                  value: filters.events,
+                  onChanged: (value) => setSheetState(
+                    () => filters = filters.copyWith(events: value),
+                  ),
+                ),
+                CheckboxListTile(
+                  key: const Key('planner-filter-backup-events'),
+                  title: const Text('Backup Events'),
+                  value: filters.backupEvents,
+                  onChanged: (value) => setSheetState(
+                    () => filters = filters.copyWith(backupEvents: value),
+                  ),
+                ),
+                CheckboxListTile(
+                  key: const Key('planner-filter-tasks'),
+                  title: const Text('Tasks'),
+                  value: filters.tasks,
+                  onChanged: (value) => setSheetState(
+                    () => filters = filters.copyWith(tasks: value),
+                  ),
+                ),
+                CheckboxListTile(
+                  key: const Key('planner-filter-completed-tasks'),
+                  title: const Text('Completed Tasks'),
+                  value: filters.completedTasks,
+                  onChanged: filters.tasks
+                      ? (value) => setSheetState(
+                          () =>
+                              filters = filters.copyWith(completedTasks: value),
+                        )
+                      : null,
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: <Widget>[
+                    TextButton(
+                      onPressed: () => setSheetState(
+                        () => filters = const PlannerContentFilters.defaults(),
+                      ),
+                      child: const Text('Restore defaults'),
+                    ),
+                    const Spacer(),
+                    FilledButton(
+                      key: const Key('planner-filter-apply'),
+                      onPressed: () => Navigator.of(sheetContext).pop(),
+                      child: const Text('Apply'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    if (!mounted || filters == settings.contentFilters) {
+      return;
+    }
+    await ref
+        .read(eventTypeControllerProvider.notifier)
+        .saveSettings(settings.copyWith(contentFilters: filters));
+  }
+
+  Future<void> _handleOverflow(
+    BuildContext context,
+    WidgetRef ref,
+    PlannerState state,
+    PlannerSettings settings,
+    _PlannerOverflowAction action,
+  ) async {
+    if (action == _PlannerOverflowAction.search) {
+      final day = state.day;
+      if (day != null) {
+        await showSearch<void>(
+          context: context,
+          delegate: _PlannerSearchDelegate(day: day),
+        );
+      }
+      return;
+    }
+    final presentation = switch (action) {
+      _PlannerOverflowAction.schedule => PlannerPresentation.schedule,
+      _PlannerOverflowAction.day => PlannerPresentation.day,
+      _PlannerOverflowAction.week => PlannerPresentation.week,
+      _PlannerOverflowAction.tasks => PlannerPresentation.tasks,
+      _PlannerOverflowAction.search => settings.preferredPresentation,
+    };
+    await _setPresentation(ref, settings, presentation);
+  }
+
+  Future<void> _setPresentation(
+    WidgetRef ref,
+    PlannerSettings settings,
+    PlannerPresentation presentation,
+  ) async {
+    setState(() {
+      _presentation = presentation;
+      _selectionActive = false;
+      _selectedItems.clear();
+    });
+    await ref
+        .read(eventTypeControllerProvider.notifier)
+        .saveSettings(settings.copyWith(preferredPresentation: presentation));
+  }
+
+  void _handleCreateAction(
+    BuildContext context,
+    WidgetRef ref,
+    PlannerDate selectedDate,
+    ContextualCreateAction action,
+  ) {
+    switch (action) {
+      case ContextualCreateAction.event:
+        unawaited(
+          launchCalendarEventCreation<void>(
+            context,
+            ref,
+            CalendarEventCreationContext(
+              source: 'planner-fab',
+              destinationPath: RoutePaths.calendarEventCreate,
+              date: selectedDate,
+            ),
+          ),
+        );
+        return;
+      case ContextualCreateAction.task:
+        unawaited(
+          context.push('${RoutePaths.taskCreate}?date=${selectedDate.iso8601}'),
+        );
+        return;
+      case ContextualCreateAction.person:
+      case ContextualCreateAction.contact:
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '${action.label} remains distinct and will open when the '
+              'authorized Contacts slice is implemented.',
+            ),
+          ),
+        );
+        return;
+    }
+  }
+
+  static String _dateLabel(PlannerDate date, PlannerPresentation presentation) {
+    const months = <String>[
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    if (presentation == PlannerPresentation.week) {
+      final start = date.addDays(-(date.weekday - DateTime.monday));
+      final end = start.addDays(6);
+      return '${months[start.month - 1]} ${start.day}–'
+          '${months[end.month - 1]} ${end.day}';
+    }
+    return '${months[date.month - 1]} ${date.day}';
   }
 
   Widget _buildContent(
@@ -122,6 +427,9 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     }
     if (day == null) {
       return const SizedBox.shrink();
+    }
+    if (_presentation != PlannerPresentation.day) {
+      return _buildAlternatePresentation(context, ref, state, settings, day);
     }
     _scheduleInitialScroll(
       selectedDate: state.selectedDate,
@@ -146,20 +454,25 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                 _PlannerNotice(message: state.message!),
                 const SizedBox(height: 12),
               ],
-              if (day.allDayEvents.isEmpty)
+              if (_visibleEvents(day.allDayEvents, settings).isEmpty)
                 const SizedBox.shrink(key: Key('all-day-section'))
               else
                 Padding(
                   key: const Key('all-day-section'),
                   padding: const EdgeInsets.only(bottom: 10),
-                  child: _CompactAllDayEvents(events: day.allDayEvents),
+                  child: _CompactAllDayEvents(
+                    events: _visibleEvents(day.allDayEvents, settings),
+                    selectionMode: _selectionMode,
+                    selectedItems: _selectedItems,
+                    onToggle: _toggleEventSelection,
+                  ),
                 ),
               Container(
                 key: _timelineKey,
                 child: KeyedSubtree(
                   key: const Key('timed-events-section'),
                   child: _TimedEventTimeline(
-                    events: day.timedEvents
+                    events: _visibleEvents(day.timedEvents, settings)
                         .where(
                           (event) =>
                               (settings.showCancelledItems ||
@@ -184,65 +497,271 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                         _moveEvent(ref, event, startMinute),
                     onResize: (event, endMinute) =>
                         _resizeEvent(ref, event, endMinute),
+                    selectionMode: _selectionMode,
+                    selectedItems: _selectedItems,
+                    onToggleSelection: _toggleEventSelection,
+                    hourHeight: settings.timelineHourHeight,
+                    onZoomEnd: (value) => _persistZoom(ref, settings, value),
                   ),
                 ),
-              ),
-              _PlannerSection(
-                key: const Key('tasks-section'),
-                title: 'Tasks',
-                icon: Icons.task_alt_outlined,
-                children: <Widget>[
-                  for (final task in day.tasks) _TaskTile(task: task),
-                ],
-              ),
-              _PlannerSection(
-                key: const Key('overdue-section'),
-                title: 'Overdue Tasks',
-                icon: Icons.priority_high,
-                accent: AppTheme.warning,
-                children: <Widget>[
-                  for (final task in day.overdueTasks) _TaskTile(task: task),
-                ],
-              ),
-              _PlannerSection(
-                key: const Key('awaiting-report-section'),
-                title: 'Awaiting Report',
-                icon: Icons.assignment_late_outlined,
-                accent: AppTheme.rose,
-                children: <Widget>[
-                  for (final event in day.awaitingReportEvents)
-                    _EventTile(event: event, awaitingReport: true),
-                ],
-              ),
-              _PlannerSection(
-                key: const Key('changes-section'),
-                title: 'Changes',
-                icon: Icons.history,
-                trailing: IconButton(
-                  tooltip: state.historicalItemsExpanded
-                      ? 'Collapse historical items'
-                      : 'Expand historical items',
-                  onPressed: () => ref
-                      .read(plannerControllerProvider.notifier)
-                      .toggleHistoricalItems(),
-                  icon: Icon(
-                    state.historicalItemsExpanded
-                        ? Icons.expand_less
-                        : Icons.expand_more,
-                  ),
-                ),
-                children: state.historicalItemsExpanded
-                    ? <Widget>[
-                        for (final change in day.changes)
-                          _ChangeTile(change: change),
-                      ]
-                    : const <Widget>[],
               ),
             ],
           ),
         ),
       ),
     );
+  }
+
+  Widget _buildAlternatePresentation(
+    BuildContext context,
+    WidgetRef ref,
+    PlannerState state,
+    PlannerSettings settings,
+    PlannerDay selectedDay,
+  ) {
+    final presentation = _presentation!;
+    final dates = _weekDates(state.selectedDate, settings.weekStartDay);
+    final signature =
+        '${dates.first.iso8601}:${settings.contentFilters.hashCode}:'
+        '${_dayContentSignature(selectedDay)}';
+    if (_rangeSignature != signature) {
+      _rangeSignature = signature;
+      _rangeLoad = ref.read(plannerControllerProvider.notifier).readDays(dates);
+    }
+    return FutureBuilder<List<PlannerDay>>(
+      future: _rangeLoad,
+      builder: (context, snapshot) {
+        final days = snapshot.data ?? <PlannerDay>[selectedDay];
+        if (!snapshot.hasData &&
+            snapshot.connectionState != ConnectionState.done) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        return switch (presentation) {
+          PlannerPresentation.schedule => _SchedulePresentation(
+            days: days,
+            settings: settings,
+            selectionMode: _selectionMode,
+            selectedItems: _selectedItems,
+            onToggleEvent: _toggleEventSelection,
+            onToggleTask: _toggleTaskSelection,
+          ),
+          PlannerPresentation.week => _WeekPresentation(
+            days: days,
+            settings: settings,
+            onSelected: (date) =>
+                ref.read(plannerControllerProvider.notifier).selectDate(date),
+          ),
+          PlannerPresentation.tasks => _TasksPresentation(
+            days: days,
+            settings: settings,
+            selectionMode: _selectionMode,
+            selectedItems: _selectedItems,
+            onToggleTask: _toggleTaskSelection,
+          ),
+          PlannerPresentation.awaitingReports => _AwaitingPresentation(
+            days: days,
+            settings: settings,
+            selectionMode: _selectionMode,
+            selectedItems: _selectedItems,
+            onToggleEvent: _toggleEventSelection,
+          ),
+          PlannerPresentation.day => const SizedBox.shrink(),
+        };
+      },
+    );
+  }
+
+  List<PlannerCalendarItem> _visibleEvents(
+    List<PlannerCalendarItem> events,
+    PlannerSettings settings,
+  ) {
+    final filters = settings.contentFilters;
+    return events
+        .where(
+          (event) =>
+              event.isBackupAppointment ? filters.backupEvents : filters.events,
+        )
+        .toList(growable: false);
+  }
+
+  static List<PlannerDate> _weekDates(PlannerDate date, int weekStartDay) {
+    final offset = (date.weekday - weekStartDay + 7) % 7;
+    final start = date.addDays(-offset);
+    return List<PlannerDate>.generate(7, start.addDays);
+  }
+
+  static String _dayContentSignature(PlannerDay day) {
+    return <String>[
+      for (final event in <PlannerCalendarItem>[
+        ...day.allDayEvents,
+        ...day.timedEvents,
+      ])
+        '${event.id}:${event.state.name}:${event.hasOutcomeReport}',
+      for (final task in <PlannerTask>[
+        ...day.overdueTasks,
+        ...day.tasks,
+        ...day.completedTasks,
+      ])
+        '${task.id}:${task.status.name}',
+    ].join('|');
+  }
+
+  void _toggleEventSelection(PlannerCalendarItem event) {
+    setState(() {
+      final selection = PlannerSelectionId(
+        kind: PlannerSelectionKind.event,
+        id: event.id,
+      );
+      _selectedItems.contains(selection)
+          ? _selectedItems.remove(selection)
+          : _selectedItems.add(selection);
+    });
+  }
+
+  void _toggleTaskSelection(PlannerTask task) {
+    setState(() {
+      final selection = PlannerSelectionId(
+        kind: PlannerSelectionKind.task,
+        id: task.id,
+      );
+      _selectedItems.contains(selection)
+          ? _selectedItems.remove(selection)
+          : _selectedItems.add(selection);
+    });
+  }
+
+  Future<void> _persistZoom(
+    WidgetRef ref,
+    PlannerSettings settings,
+    double hourHeight,
+  ) async {
+    await ref
+        .read(eventTypeControllerProvider.notifier)
+        .saveSettings(
+          settings.copyWith(
+            timelineHourHeight: PlannerZoomPolicy.clamp(hourHeight),
+          ),
+        );
+  }
+
+  Future<void> _removeSelected(
+    BuildContext context,
+    WidgetRef ref,
+    PlannerState state,
+    PlannerSettings settings,
+  ) async {
+    final count = _selectedItems.length;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('Remove $count selected item${count == 1 ? '' : 's'}?'),
+        content: const Text(
+          'Events are cancelled and Tasks are cancelled independently. '
+          'Links, reports, provenance, and the related record are preserved.',
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Keep items'),
+          ),
+          FilledButton(
+            key: const Key('planner-confirm-selection-delete'),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) {
+      return;
+    }
+    final days = await ref
+        .read(plannerControllerProvider.notifier)
+        .readDays(_weekDates(state.selectedDate, settings.weekStartDay));
+    final events = <String, PlannerCalendarItem>{
+      for (final day in days)
+        for (final event in <PlannerCalendarItem>[
+          ...day.allDayEvents,
+          ...day.timedEvents,
+        ])
+          event.id: event,
+    };
+    final tasks = <String, PlannerTask>{
+      for (final day in days)
+        for (final task in <PlannerTask>[
+          ...day.tasks,
+          ...day.overdueTasks,
+          ...day.completedTasks,
+        ])
+          task.id: task,
+    };
+    var failed = 0;
+    for (final selected in _selectedItems.toList(growable: false)) {
+      switch (selected.kind) {
+        case PlannerSelectionKind.event:
+          final event = events[selected.id];
+          if (event?.eventId == null || event?.originalDate == null) {
+            failed += 1;
+            continue;
+          }
+          final success = await ref
+              .read(calendarEventControllerProvider.notifier)
+              .cancelEvent(
+                eventId: event!.eventId!,
+                originalDate: event.originalDate!,
+                scope: CalendarEventEditScope.occurrence,
+                operationId: ref
+                    .read(plannerIdentifierSourceProvider)
+                    .nextUuid(),
+              );
+          if (!success) {
+            failed += 1;
+          }
+          break;
+        case PlannerSelectionKind.task:
+          final task = tasks[selected.id];
+          if (task == null) {
+            failed += 1;
+            continue;
+          }
+          final outcome = await ref
+              .read(plannerControllerProvider.notifier)
+              .changeStatus(
+                taskId: task.id,
+                target: PlannerTaskStatus.cancelled,
+                operationId: ref
+                    .read(plannerIdentifierSourceProvider)
+                    .nextUuid(),
+                reason: 'Removed from Planner selection mode',
+              );
+          if (outcome != TaskStatusChangeOutcome.changed &&
+              outcome != TaskStatusChangeOutcome.unchanged) {
+            failed += 1;
+          }
+          break;
+      }
+    }
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _selectionActive = false;
+      _selectedItems.clear();
+      _rangeSignature = null;
+    });
+    await ref
+        .read(plannerControllerProvider.notifier)
+        .selectDate(state.selectedDate);
+    if (failed > 0 && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '$failed item${failed == 1 ? '' : 's'} could not be removed. '
+            'Protected history was left unchanged.',
+          ),
+        ),
+      );
+    }
   }
 
   void _scheduleInitialScroll({
@@ -408,90 +927,43 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     }
   }
 
-  Future<void> _showCreateActions(
+  Future<void> _showPlannerSections(
     BuildContext context,
     WidgetRef ref,
-    PlannerDate selectedDate,
+    PlannerSettings settings,
   ) async {
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
       builder: (sheetContext) {
         return SafeArea(
-          child: SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: <Widget>[
-                  Text(
-                    'Create',
-                    style: Theme.of(sheetContext).textTheme.titleLarge
-                        ?.copyWith(fontWeight: FontWeight.w800),
-                  ),
-                  const SizedBox(height: 12),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                Text(
+                  'Planner views',
+                  style: Theme.of(
+                    sheetContext,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+                ),
+                for (final view in PlannerPresentation.values)
                   ListTile(
-                    key: const Key('create-task-action'),
-                    leading: const Icon(Icons.task_alt_outlined),
-                    title: const Text('Task'),
-                    subtitle: const Text('Create immediately on this device'),
-                    onTap: () {
-                      Navigator.of(sheetContext).pop();
-                      unawaited(
-                        context.push(
-                          '${RoutePaths.taskCreate}'
-                          '?date=${selectedDate.iso8601}',
-                        ),
-                      );
-                    },
-                  ),
-                  ListTile(
-                    key: const Key('create-calendar-event-action'),
-                    leading: const Icon(Icons.event_outlined),
-                    title: const Text('Calendar Event'),
-                    subtitle: const Text(
-                      'Separate from Tasks and saved offline',
+                    key: Key('planner-view-${view.name}'),
+                    leading: Icon(
+                      view == _presentation
+                          ? Icons.radio_button_checked
+                          : Icons.radio_button_unchecked,
                     ),
+                    title: Text(_presentationLabel(view)),
                     onTap: () {
                       Navigator.of(sheetContext).pop();
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        if (!context.mounted) {
-                          return;
-                        }
-                        unawaited(
-                          launchCalendarEventCreation<void>(
-                            context,
-                            ref,
-                            CalendarEventCreationContext(
-                              source: 'planner-fab',
-                              destinationPath: RoutePaths.calendarEventCreate,
-                              date: selectedDate,
-                            ),
-                          ),
-                        );
-                      });
+                      unawaited(_setPresentation(ref, settings, view));
                     },
                   ),
-                  ListTile(
-                    key: const Key('create-activity-report-action'),
-                    leading: const Icon(Icons.assignment_outlined),
-                    title: const Text('Activity Report'),
-                    subtitle: const Text(
-                      'Structured manual reporting; never raw ledger editing',
-                    ),
-                    onTap: () {
-                      Navigator.of(sheetContext).pop();
-                      unawaited(
-                        context.push(
-                          '${RoutePaths.outcomeReportCreate}'
-                          '?date=${selectedDate.iso8601}',
-                        ),
-                      );
-                    },
-                  ),
-                ],
-              ),
+              ],
             ),
           ),
         );
@@ -499,24 +971,18 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     );
   }
 
-  Future<void> _showPlannerSections(BuildContext context) async {
-    await showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (sheetContext) {
-        return const SafeArea(
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(20, 0, 20, 24),
-            child: Text(
-              'Planner keeps all-day events, timed events, Tasks, overdue '
-              'Tasks, Awaiting Report, and Changes visibly separate.',
-            ),
-          ),
-        );
-      },
-    );
+  static String _presentationLabel(PlannerPresentation presentation) {
+    return switch (presentation) {
+      PlannerPresentation.schedule => 'Schedule',
+      PlannerPresentation.day => 'Day',
+      PlannerPresentation.week => 'Week',
+      PlannerPresentation.tasks => 'Tasks',
+      PlannerPresentation.awaitingReports => 'Awaiting Reports',
+    };
   }
 }
+
+enum _PlannerOverflowAction { search, schedule, day, week, tasks }
 
 final class _WeekStrip extends StatelessWidget {
   const _WeekStrip({
@@ -634,59 +1100,18 @@ final class _DayButton extends StatelessWidget {
   }
 }
 
-final class _PlannerSection extends StatelessWidget {
-  const _PlannerSection({
-    required this.title,
-    required this.icon,
-    required this.children,
-    this.accent,
-    this.trailing,
-    super.key,
+final class _CompactAllDayEvents extends StatelessWidget {
+  const _CompactAllDayEvents({
+    required this.events,
+    required this.selectionMode,
+    required this.selectedItems,
+    required this.onToggle,
   });
 
-  final String title;
-  final IconData icon;
-  final List<Widget> children;
-  final Color? accent;
-  final Widget? trailing;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 18),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: <Widget>[
-          Row(
-            children: <Widget>[
-              Icon(icon, size: 20, color: accent ?? AppTheme.rose),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  title,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              ?trailing,
-            ],
-          ),
-          const SizedBox(height: 8),
-          if (children.isEmpty)
-            const _EmptySectionMessage('Nothing in this section.')
-          else
-            ...children,
-        ],
-      ),
-    );
-  }
-}
-
-final class _CompactAllDayEvents extends StatelessWidget {
-  const _CompactAllDayEvents({required this.events});
-
   final List<PlannerCalendarItem> events;
+  final bool selectionMode;
+  final Set<PlannerSelectionId> selectedItems;
+  final ValueChanged<PlannerCalendarItem> onToggle;
 
   @override
   Widget build(BuildContext context) {
@@ -710,7 +1135,19 @@ final class _CompactAllDayEvents extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 6),
-        for (final event in events) _EventTile(event: event),
+        for (final event in events)
+          _EventTile(
+            event: event,
+            awaitingReport: event.isAwaitingReport(DateTime.now()),
+            selectionMode: selectionMode,
+            selected: selectedItems.contains(
+              PlannerSelectionId(
+                kind: PlannerSelectionKind.event,
+                id: event.id,
+              ),
+            ),
+            onToggleSelection: () => onToggle(event),
+          ),
       ],
     );
   }
@@ -724,6 +1161,11 @@ final class _TimedEventTimeline extends StatefulWidget {
     required this.onCreate,
     required this.onMove,
     required this.onResize,
+    required this.selectionMode,
+    required this.selectedItems,
+    required this.onToggleSelection,
+    required this.hourHeight,
+    required this.onZoomEnd,
   });
 
   final List<PlannerCalendarItem> events;
@@ -734,19 +1176,39 @@ final class _TimedEventTimeline extends StatefulWidget {
   onMove;
   final Future<bool> Function(PlannerCalendarItem event, int endMinute)
   onResize;
+  final bool selectionMode;
+  final Set<PlannerSelectionId> selectedItems;
+  final ValueChanged<PlannerCalendarItem> onToggleSelection;
+  final double hourHeight;
+  final ValueChanged<double> onZoomEnd;
 
   @override
   State<_TimedEventTimeline> createState() => _TimedEventTimelineState();
 }
 
 final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
-  static const double _hourHeight = 60;
   static const double _timeColumnWidth = 56;
   static const double _eventGap = 3;
 
   final Map<String, int> _previewStartMinutes = <String, int>{};
   final Map<String, int> _previewEndMinutes = <String, int>{};
   final Set<String> _persisting = <String>{};
+  late double _hourHeight;
+  double? _zoomStartHeight;
+
+  @override
+  void initState() {
+    super.initState();
+    _hourHeight = PlannerZoomPolicy.clamp(widget.hourHeight);
+  }
+
+  @override
+  void didUpdateWidget(covariant _TimedEventTimeline oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_zoomStartHeight == null && oldWidget.hourHeight != widget.hourHeight) {
+      _hourHeight = PlannerZoomPolicy.clamp(widget.hourHeight);
+    }
+  }
 
   int get _firstHour => widget.settings.visibleStartHour;
   int get _lastHour => widget.settings.visibleEndHour;
@@ -762,80 +1224,105 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
         widget.selectedDate == PlannerDate.fromDateTime(now) &&
         now.hour >= _firstHour &&
         now.hour < _lastHour;
-    return SizedBox(
-      key: const Key('planner-time-grid'),
-      height: timelineHeight,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          return Stack(
-            clipBehavior: Clip.none,
-            children: <Widget>[
-              Positioned.fill(
-                left: _timeColumnWidth,
-                child: GestureDetector(
-                  key: const Key('planner-timeline-create-surface'),
-                  behavior: HitTestBehavior.opaque,
-                  onTapUp: (details) {
-                    final minute = snapPlannerMinute(
-                      _firstHour * 60 +
-                          (details.localPosition.dy / _hourHeight * 60).round(),
-                      widget.settings.snapMinutes,
-                    ).clamp(_firstHour * 60, _lastHour * 60 - 15);
-                    widget.onCreate(minute);
-                  },
-                ),
-              ),
-              for (var index = 0; index <= slotCount; index++) ...<Widget>[
-                Positioned(
-                  top: index * _hourHeight - 7,
-                  left: 0,
-                  width: _timeColumnWidth - 8,
-                  child: Text(
-                    _hourLabel(_firstHour + index),
-                    textAlign: TextAlign.right,
-                    style: Theme.of(
-                      context,
-                    ).textTheme.labelSmall?.copyWith(color: Colors.white54),
+    return GestureDetector(
+      key: const Key('planner-zoom-surface'),
+      behavior: HitTestBehavior.translucent,
+      onScaleStart: (details) {
+        if (details.pointerCount >= 2) {
+          _zoomStartHeight = _hourHeight;
+        }
+      },
+      onScaleUpdate: (details) {
+        final start = _zoomStartHeight;
+        if (start == null || details.pointerCount < 2) {
+          return;
+        }
+        setState(
+          () => _hourHeight = PlannerZoomPolicy.clamp(start * details.scale),
+        );
+      },
+      onScaleEnd: (_) {
+        if (_zoomStartHeight != null) {
+          _zoomStartHeight = null;
+          widget.onZoomEnd(_hourHeight);
+        }
+      },
+      child: SizedBox(
+        key: const Key('planner-time-grid'),
+        height: timelineHeight,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return Stack(
+              clipBehavior: Clip.none,
+              children: <Widget>[
+                Positioned.fill(
+                  left: _timeColumnWidth,
+                  child: GestureDetector(
+                    key: const Key('planner-timeline-create-surface'),
+                    behavior: HitTestBehavior.opaque,
+                    onTapUp: (details) {
+                      final minute = snapPlannerMinute(
+                        _firstHour * 60 +
+                            (details.localPosition.dy / _hourHeight * 60)
+                                .round(),
+                        widget.settings.snapMinutes,
+                      ).clamp(_firstHour * 60, _lastHour * 60 - 15);
+                      widget.onCreate(minute);
+                    },
                   ),
                 ),
+                for (var index = 0; index <= slotCount; index++) ...<Widget>[
+                  Positioned(
+                    top: index * _hourHeight - 7,
+                    left: 0,
+                    width: _timeColumnWidth - 8,
+                    child: Text(
+                      _hourLabel(_firstHour + index),
+                      textAlign: TextAlign.right,
+                      style: Theme.of(
+                        context,
+                      ).textTheme.labelSmall?.copyWith(color: Colors.white54),
+                    ),
+                  ),
+                  Positioned(
+                    top: index * _hourHeight,
+                    left: _timeColumnWidth,
+                    right: 0,
+                    child: const Divider(height: 1, color: AppTheme.outline),
+                  ),
+                ],
                 Positioned(
-                  top: index * _hourHeight,
+                  top: 0,
+                  bottom: 0,
                   left: _timeColumnWidth,
-                  right: 0,
-                  child: const Divider(height: 1, color: AppTheme.outline),
+                  child: Container(width: 1, color: AppTheme.outline),
                 ),
+                if (widget.events.isEmpty)
+                  const Positioned(
+                    top: 18,
+                    left: _timeColumnWidth + 14,
+                    right: 8,
+                    child: _EmptySectionMessage(
+                      'No timed Calendar Events. Tap the timeline to add one.',
+                    ),
+                  ),
+                if (showNow)
+                  _CurrentTimeLine(
+                    top:
+                        ((now.hour - _firstHour) * 60 + now.minute) *
+                        (_hourHeight / 60),
+                    left: _timeColumnWidth,
+                  ),
+                for (final placement in placements)
+                  _positionedEvent(
+                    placement,
+                    constraints.maxWidth,
+                    timelineHeight,
+                  ),
               ],
-              Positioned(
-                top: 0,
-                bottom: 0,
-                left: _timeColumnWidth,
-                child: Container(width: 1, color: AppTheme.outline),
-              ),
-              if (widget.events.isEmpty)
-                const Positioned(
-                  top: 18,
-                  left: _timeColumnWidth + 14,
-                  right: 8,
-                  child: _EmptySectionMessage(
-                    'No timed Calendar Events. Tap the timeline to add one.',
-                  ),
-                ),
-              if (showNow)
-                _CurrentTimeLine(
-                  top:
-                      ((now.hour - _firstHour) * 60 + now.minute) *
-                      (_hourHeight / 60),
-                  left: _timeColumnWidth,
-                ),
-              for (final placement in placements)
-                _positionedEvent(
-                  placement,
-                  constraints.maxWidth,
-                  timelineHeight,
-                ),
-            ],
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
@@ -875,8 +1362,18 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
       child: _TimelineEventBlock(
         event: event,
         use24HourTime: widget.settings.use24HourTime,
+        displayStartMinute: startMinute,
+        displayEndMinute: endMinute,
+        awaitingReport: event.isAwaitingReport(DateTime.now()),
+        selectionMode: widget.selectionMode,
+        selected: widget.selectedItems.contains(
+          PlannerSelectionId(kind: PlannerSelectionKind.event, id: event.id),
+        ),
+        onToggleSelection: () => widget.onToggleSelection(event),
         interactive:
-            widget.settings.quickEditEnabled && !_persisting.contains(event.id),
+            !widget.selectionMode &&
+            widget.settings.quickEditEnabled &&
+            !_persisting.contains(event.id),
         onMoveUpdate: (deltaPixels) {
           final rawDelta = (deltaPixels / _hourHeight * 60).round();
           final deltaMinutes =
@@ -995,6 +1492,12 @@ final class _TimelineEventBlock extends StatelessWidget {
   const _TimelineEventBlock({
     required this.event,
     required this.use24HourTime,
+    required this.displayStartMinute,
+    required this.displayEndMinute,
+    required this.awaitingReport,
+    required this.selectionMode,
+    required this.selected,
+    required this.onToggleSelection,
     required this.interactive,
     required this.onMoveUpdate,
     required this.onMoveEnd,
@@ -1006,6 +1509,12 @@ final class _TimelineEventBlock extends StatelessWidget {
 
   final PlannerCalendarItem event;
   final bool use24HourTime;
+  final int displayStartMinute;
+  final int displayEndMinute;
+  final bool awaitingReport;
+  final bool selectionMode;
+  final bool selected;
+  final VoidCallback onToggleSelection;
   final bool interactive;
   final ValueChanged<double> onMoveUpdate;
   final VoidCallback onMoveEnd;
@@ -1021,7 +1530,9 @@ final class _TimelineEventBlock extends StatelessWidget {
       button: true,
       label:
           '${event.title}, ${event.activityTypeLabel ?? 'Calendar Event'}, '
-          '${_timeRange(event, use24HourTime)}'
+          '${_minuteRange(displayStartMinute, displayEndMinute, use24HourTime)}'
+          '${event.isBackupAppointment ? ', Backup Appointment' : ''}'
+          '${awaitingReport ? ', Awaiting Report' : ''}'
           '${event.linkedTaskIds.isEmpty ? '' : ', ${event.linkedTaskIds.length} linked Task(s)'}',
       hint: interactive
           ? 'Tap for details. Long-press and move to change time.'
@@ -1034,6 +1545,9 @@ final class _TimelineEventBlock extends StatelessWidget {
               onLongPressMoveUpdate: interactive
                   ? (details) => onMoveUpdate(details.offsetFromOrigin.dy)
                   : null,
+              onLongPressStart: interactive
+                  ? (_) => unawaited(HapticFeedback.mediumImpact())
+                  : null,
               onLongPressEnd: interactive ? (_) => onMoveEnd() : null,
               onLongPressCancel: interactive ? onMoveCancel : null,
               child: Material(
@@ -1044,10 +1558,19 @@ final class _TimelineEventBlock extends StatelessWidget {
                 ),
                 clipBehavior: Clip.antiAlias,
                 child: InkWell(
-                  onTap: () => _openCalendarEvent(context, event),
+                  onTap: selectionMode
+                      ? onToggleSelection
+                      : () => _openCalendarEvent(context, event),
                   child: DecoratedBox(
                     decoration: BoxDecoration(
-                      border: Border(left: BorderSide(color: color, width: 4)),
+                      border: Border(
+                        left: BorderSide(
+                          color: event.isBackupAppointment
+                              ? Colors.black
+                              : color,
+                          width: event.isBackupAppointment ? 7 : 4,
+                        ),
+                      ),
                     ),
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(8, 4, 5, 7),
@@ -1082,10 +1605,27 @@ final class _TimelineEventBlock extends StatelessWidget {
                                     child: const Icon(Icons.link, size: 13),
                                   ),
                                 ),
+                              if (event.isBackupAppointment)
+                                const Padding(
+                                  padding: EdgeInsets.only(left: 3),
+                                  child: Icon(Icons.layers_outlined, size: 13),
+                                ),
+                              if (awaitingReport)
+                                const Padding(
+                                  padding: EdgeInsets.only(left: 3),
+                                  child: Icon(
+                                    Icons.assignment_late_outlined,
+                                    size: 13,
+                                  ),
+                                ),
                             ],
                           ),
                           Text(
-                            _timeRange(event, use24HourTime),
+                            _minuteRange(
+                              displayStartMinute,
+                              displayEndMinute,
+                              use24HourTime,
+                            ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: Theme.of(context).textTheme.labelSmall
@@ -1124,25 +1664,49 @@ final class _TimelineEventBlock extends StatelessWidget {
                 ),
               ),
             ),
+          if (selectionMode)
+            Positioned(
+              top: 4,
+              right: 4,
+              child: Icon(
+                selected ? Icons.check_box : Icons.check_box_outline_blank,
+                color: selected ? AppTheme.rose : Colors.white,
+                size: 20,
+              ),
+            ),
+          if (awaitingReport)
+            const Positioned(
+              left: 8,
+              bottom: 2,
+              child: Text(
+                'Awaiting Report',
+                style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700),
+              ),
+            ),
         ],
       ),
     );
   }
 
-  static String _timeRange(PlannerCalendarItem event, bool use24HourTime) {
-    return '${_time(event.startLocal, use24HourTime)} – '
-        '${_time(event.endLocal, use24HourTime)}';
+  static String _minuteRange(int start, int end, bool use24HourTime) {
+    return '${_minute(start, use24HourTime)} – '
+        '${_minute(end, use24HourTime)}';
   }
 
-  static String _time(DateTime? value, bool use24HourTime) {
-    if (value == null) {
-      return 'Time not set';
-    }
+  static String _minute(int value, bool use24HourTime) {
+    final hour = value ~/ 60;
+    final minute = value % 60;
     if (use24HourTime) {
-      return '${value.hour.toString().padLeft(2, '0')}:'
-          '${value.minute.toString().padLeft(2, '0')}';
+      return '${hour.toString().padLeft(2, '0')}:'
+          '${minute.toString().padLeft(2, '0')}';
     }
-    return _EventTile._time(value);
+    final displayHour = hour == 0
+        ? 12
+        : hour > 12
+        ? hour - 12
+        : hour;
+    return '$displayHour:${minute.toString().padLeft(2, '0')} '
+        '${hour >= 12 ? 'PM' : 'AM'}';
   }
 }
 
@@ -1179,9 +1743,17 @@ final class _CurrentTimeLine extends StatelessWidget {
 }
 
 final class _TaskTile extends StatelessWidget {
-  const _TaskTile({required this.task});
+  const _TaskTile({
+    required this.task,
+    this.selectionMode = false,
+    this.selected = false,
+    this.onToggleSelection,
+  });
 
   final PlannerTask task;
+  final bool selectionMode;
+  final bool selected;
+  final VoidCallback? onToggleSelection;
 
   @override
   Widget build(BuildContext context) {
@@ -1189,11 +1761,18 @@ final class _TaskTile extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 6),
       child: ListTile(
         key: Key('planner-task-${task.id}'),
-        leading: const Icon(Icons.task_alt_outlined, color: AppTheme.rose),
+        leading: selectionMode
+            ? Icon(
+                selected ? Icons.check_box : Icons.check_box_outline_blank,
+                color: selected ? AppTheme.rose : Colors.white70,
+              )
+            : const Icon(Icons.task_alt_outlined, color: AppTheme.rose),
         title: Text(task.title),
         subtitle: Text(_taskSubtitle(task)),
         trailing: const Icon(Icons.chevron_right),
-        onTap: () => context.push('${RoutePaths.tasks}/${task.id}'),
+        onTap: selectionMode
+            ? onToggleSelection
+            : () => context.push('${RoutePaths.tasks}/${task.id}'),
       ),
     );
   }
@@ -1206,10 +1785,19 @@ final class _TaskTile extends StatelessWidget {
 }
 
 final class _EventTile extends StatelessWidget {
-  const _EventTile({required this.event, this.awaitingReport = false});
+  const _EventTile({
+    required this.event,
+    this.awaitingReport = false,
+    this.selectionMode = false,
+    this.selected = false,
+    this.onToggleSelection,
+  });
 
   final PlannerCalendarItem event;
   final bool awaitingReport;
+  final bool selectionMode;
+  final bool selected;
+  final VoidCallback? onToggleSelection;
 
   @override
   Widget build(BuildContext context) {
@@ -1221,41 +1809,67 @@ final class _EventTile extends StatelessWidget {
       if (event.linkedTaskIds.isNotEmpty)
         '${event.linkedTaskIds.length} linked Task(s)',
       if (awaitingReport) 'Awaiting Report',
+      if (event.isBackupAppointment) 'Backup Appointment',
     ].join(' · ');
     return Card(
       margin: const EdgeInsets.only(bottom: 6),
-      child: ListTile(
-        leading: Icon(
-          event.timing == PlannerEventTiming.allDay
-              ? Icons.event_available_outlined
-              : Icons.schedule,
-          color: awaitingReport ? AppTheme.warning : AppTheme.eventAccent,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          border: event.isBackupAppointment
+              ? const Border(left: BorderSide(color: Colors.black, width: 7))
+              : null,
         ),
-        title: Row(
-          children: <Widget>[
-            Flexible(child: Text(event.title)),
-            if (event.isRecurring) ...const <Widget>[
-              SizedBox(width: 6),
-              Icon(Icons.repeat, size: 16),
+        child: ListTile(
+          key: Key('planner-event-${event.id}'),
+          leading: selectionMode
+              ? Icon(
+                  selected ? Icons.check_box : Icons.check_box_outline_blank,
+                  color: selected ? AppTheme.rose : Colors.white70,
+                )
+              : Icon(
+                  awaitingReport
+                      ? Icons.assignment_late_outlined
+                      : event.timing == PlannerEventTiming.allDay
+                      ? Icons.event_available_outlined
+                      : Icons.schedule,
+                  color: awaitingReport
+                      ? AppTheme.warning
+                      : AppTheme.eventAccent,
+                ),
+          title: Row(
+            children: <Widget>[
+              Flexible(child: Text(event.title)),
+              if (event.isRecurring) ...const <Widget>[
+                SizedBox(width: 6),
+                Icon(Icons.repeat, size: 16),
+              ],
+              if (event.isBackupAppointment) ...const <Widget>[
+                SizedBox(width: 6),
+                Icon(Icons.layers_outlined, size: 16),
+              ],
             ],
-          ],
-        ),
-        subtitle: Text(detail),
-        trailing: event.locationText == null
-            ? const Icon(Icons.chevron_right)
-            : IconButton(
-                tooltip: 'Open contextual map action',
-                onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text(
-                      'The stored location remains visible. Map handoff is '
-                      'not available in this authorized build.',
+          ),
+          subtitle: Text(detail),
+          trailing: selectionMode
+              ? null
+              : event.locationText == null
+              ? const Icon(Icons.chevron_right)
+              : IconButton(
+                  tooltip: 'Open contextual map action',
+                  onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'The stored location remains visible. Map handoff is '
+                        'not available in this authorized build.',
+                      ),
                     ),
                   ),
+                  icon: const Icon(Icons.map_outlined),
                 ),
-                icon: const Icon(Icons.map_outlined),
-              ),
-        onTap: () => _openCalendarEvent(context, event),
+          onTap: selectionMode
+              ? onToggleSelection
+              : () => _openCalendarEvent(context, event),
+        ),
       ),
     );
   }
@@ -1274,30 +1888,367 @@ final class _EventTile extends StatelessWidget {
   }
 }
 
-final class _ChangeTile extends StatelessWidget {
-  const _ChangeTile({required this.change});
+final class _SchedulePresentation extends StatelessWidget {
+  const _SchedulePresentation({
+    required this.days,
+    required this.settings,
+    required this.selectionMode,
+    required this.selectedItems,
+    required this.onToggleEvent,
+    required this.onToggleTask,
+  });
 
-  final PlannerChangeItem change;
+  final List<PlannerDay> days;
+  final PlannerSettings settings;
+  final bool selectionMode;
+  final Set<PlannerSelectionId> selectedItems;
+  final ValueChanged<PlannerCalendarItem> onToggleEvent;
+  final ValueChanged<PlannerTask> onToggleTask;
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      dense: true,
-      leading: Icon(
-        change.isTask ? Icons.task_alt_outlined : Icons.event_outlined,
-      ),
-      title: Text(change.title),
-      subtitle: Text(change.label),
-      onTap: change.isTask
-          ? () => context.push('${RoutePaths.tasks}/${change.id}')
-          : change.eventId == null || change.originalDate == null
-          ? null
-          : () => context.push(
-              RoutePaths.calendarEventDetail(
-                change.eventId!,
-                change.originalDate!,
+    final filters = settings.contentFilters;
+    return ListView(
+      key: const Key('planner-schedule-view'),
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 96),
+      children: <Widget>[
+        for (final day in days) ...<Widget>[
+          Text(
+            day.selectedDate.iso8601,
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 8),
+          for (final event in <PlannerCalendarItem>[
+            ...day.allDayEvents,
+            ...day.timedEvents,
+          ])
+            if (event.isBackupAppointment
+                ? filters.backupEvents
+                : filters.events)
+              _EventTile(
+                event: event,
+                awaitingReport: event.isAwaitingReport(DateTime.now()),
+                selectionMode: selectionMode,
+                selected: selectedItems.contains(
+                  PlannerSelectionId(
+                    kind: PlannerSelectionKind.event,
+                    id: event.id,
+                  ),
+                ),
+                onToggleSelection: () => onToggleEvent(event),
+              ),
+          if (filters.tasks)
+            for (final task in <PlannerTask>[
+              ...day.overdueTasks,
+              ...day.tasks,
+              if (filters.completedTasks) ...day.completedTasks,
+            ])
+              _TaskTile(
+                task: task,
+                selectionMode: selectionMode,
+                selected: selectedItems.contains(
+                  PlannerSelectionId(
+                    kind: PlannerSelectionKind.task,
+                    id: task.id,
+                  ),
+                ),
+                onToggleSelection: () => onToggleTask(task),
+              ),
+          const SizedBox(height: 18),
+        ],
+      ],
+    );
+  }
+}
+
+final class _WeekPresentation extends StatelessWidget {
+  const _WeekPresentation({
+    required this.days,
+    required this.settings,
+    required this.onSelected,
+  });
+
+  final List<PlannerDay> days;
+  final PlannerSettings settings;
+  final ValueChanged<PlannerDate> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final filters = settings.contentFilters;
+    return ListView(
+      key: const Key('planner-week-view'),
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 96),
+      children: <Widget>[
+        for (final day in days)
+          Card(
+            child: InkWell(
+              onTap: () => onSelected(day.selectedDate),
+              borderRadius: BorderRadius.circular(14),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    SizedBox(
+                      width: 76,
+                      child: Text(
+                        day.selectedDate.iso8601,
+                        style: const TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                    Expanded(
+                      child: Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: <Widget>[
+                          for (final event in <PlannerCalendarItem>[
+                            ...day.allDayEvents,
+                            ...day.timedEvents,
+                          ])
+                            if (event.isBackupAppointment
+                                ? filters.backupEvents
+                                : filters.events)
+                              Chip(
+                                key: Key('planner-week-event-${event.id}'),
+                                avatar: Icon(
+                                  event.isBackupAppointment
+                                      ? Icons.layers_outlined
+                                      : event.isAwaitingReport(DateTime.now())
+                                      ? Icons.assignment_late_outlined
+                                      : Icons.event_outlined,
+                                  size: 16,
+                                ),
+                                label: Text(
+                                  event.title,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                          if (filters.tasks)
+                            for (final task in day.tasks)
+                              Chip(
+                                avatar: const Icon(
+                                  Icons.task_alt_outlined,
+                                  size: 16,
+                                ),
+                                label: Text(task.title),
+                              ),
+                          if (<Object>[
+                            ...day.allDayEvents,
+                            ...day.timedEvents,
+                            ...day.tasks,
+                          ].isEmpty)
+                            const Text(
+                              'No visible items',
+                              style: TextStyle(color: Colors.white54),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
+          ),
+      ],
+    );
+  }
+}
+
+final class _TasksPresentation extends StatelessWidget {
+  const _TasksPresentation({
+    required this.days,
+    required this.settings,
+    required this.selectionMode,
+    required this.selectedItems,
+    required this.onToggleTask,
+  });
+
+  final List<PlannerDay> days;
+  final PlannerSettings settings;
+  final bool selectionMode;
+  final Set<PlannerSelectionId> selectedItems;
+  final ValueChanged<PlannerTask> onToggleTask;
+
+  @override
+  Widget build(BuildContext context) {
+    final incomplete = <String, PlannerTask>{
+      for (final day in days)
+        for (final task in <PlannerTask>[...day.overdueTasks, ...day.tasks])
+          task.id: task,
+    }.values.toList(growable: false);
+    final completed = <String, PlannerTask>{
+      for (final day in days)
+        for (final task in day.completedTasks) task.id: task,
+    }.values.toList(growable: false);
+    return ListView(
+      key: const Key('planner-tasks-view'),
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 96),
+      children: <Widget>[
+        const _ViewHeading('Incomplete'),
+        for (final task in incomplete) _taskTile(task),
+        const SizedBox(height: 18),
+        const _ViewHeading('Completed'),
+        if (!settings.contentFilters.tasks ||
+            !settings.contentFilters.completedTasks)
+          const _EmptySectionMessage(
+            'Enable Tasks and Completed Tasks in Filter to show completed '
+            'items.',
+          )
+        else
+          for (final task in completed) _taskTile(task),
+      ],
+    );
+  }
+
+  Widget _taskTile(PlannerTask task) {
+    return _TaskTile(
+      task: task,
+      selectionMode: selectionMode,
+      selected: selectedItems.contains(
+        PlannerSelectionId(kind: PlannerSelectionKind.task, id: task.id),
+      ),
+      onToggleSelection: () => onToggleTask(task),
+    );
+  }
+}
+
+final class _AwaitingPresentation extends StatelessWidget {
+  const _AwaitingPresentation({
+    required this.days,
+    required this.settings,
+    required this.selectionMode,
+    required this.selectedItems,
+    required this.onToggleEvent,
+  });
+
+  final List<PlannerDay> days;
+  final PlannerSettings settings;
+  final bool selectionMode;
+  final Set<PlannerSelectionId> selectedItems;
+  final ValueChanged<PlannerCalendarItem> onToggleEvent;
+
+  @override
+  Widget build(BuildContext context) {
+    final events =
+        <String, PlannerCalendarItem>{
+              for (final day in days)
+                for (final event in day.awaitingReportEvents) event.id: event,
+            }.values
+            .where((event) {
+              return event.isBackupAppointment
+                  ? settings.contentFilters.backupEvents
+                  : settings.contentFilters.events;
+            })
+            .toList(growable: false);
+    return ListView(
+      key: const Key('planner-awaiting-reports-view'),
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 96),
+      children: <Widget>[
+        const _ViewHeading('Awaiting Reports'),
+        if (events.isEmpty)
+          const _EmptySectionMessage('No qualifying reports are pending.')
+        else
+          for (final event in events)
+            _EventTile(
+              event: event,
+              awaitingReport: true,
+              selectionMode: selectionMode,
+              selected: selectedItems.contains(
+                PlannerSelectionId(
+                  kind: PlannerSelectionKind.event,
+                  id: event.id,
+                ),
+              ),
+              onToggleSelection: () => onToggleEvent(event),
+            ),
+      ],
+    );
+  }
+}
+
+final class _ViewHeading extends StatelessWidget {
+  const _ViewHeading(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Text(
+        label,
+        style: Theme.of(
+          context,
+        ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+      ),
+    );
+  }
+}
+
+final class _PlannerSearchDelegate extends SearchDelegate<void> {
+  _PlannerSearchDelegate({required this.day});
+
+  final PlannerDay day;
+
+  @override
+  String get searchFieldLabel => 'Search Planner';
+
+  @override
+  List<Widget> buildActions(BuildContext context) => <Widget>[
+    if (query.isNotEmpty)
+      IconButton(
+        tooltip: 'Clear search',
+        onPressed: () => query = '',
+        icon: const Icon(Icons.clear),
+      ),
+  ];
+
+  @override
+  Widget buildLeading(BuildContext context) => IconButton(
+    tooltip: 'Close search',
+    onPressed: () => close(context, null),
+    icon: const Icon(Icons.arrow_back),
+  );
+
+  @override
+  Widget buildResults(BuildContext context) => _results(context);
+
+  @override
+  Widget buildSuggestions(BuildContext context) => _results(context);
+
+  Widget _results(BuildContext context) {
+    final normalized = query.trim().toLowerCase();
+    final events =
+        <PlannerCalendarItem>[...day.allDayEvents, ...day.timedEvents].where(
+          (event) =>
+              normalized.isEmpty ||
+              <String?>[
+                event.title,
+                event.locationText,
+                event.activityTypeLabel,
+              ].whereType<String>().any(
+                (value) => value.toLowerCase().contains(normalized),
+              ),
+        );
+    final tasks =
+        <PlannerTask>[
+          ...day.overdueTasks,
+          ...day.tasks,
+          ...day.completedTasks,
+        ].where(
+          (task) =>
+              normalized.isEmpty ||
+              <String?>[task.title, task.notes].whereType<String>().any(
+                (value) => value.toLowerCase().contains(normalized),
+              ),
+        );
+    return ListView(
+      children: <Widget>[
+        for (final event in events) _EventTile(event: event),
+        for (final task in tasks) _TaskTile(task: task),
+      ],
     );
   }
 }
@@ -1316,7 +2267,11 @@ void _openCalendarEvent(BuildContext context, PlannerCalendarItem event) {
     return;
   }
   unawaited(
-    context.push(RoutePaths.calendarEventDetail(eventId, originalDate)),
+    showCalendarEventDetailSheet<void>(
+      context: context,
+      eventId: eventId,
+      originalDate: originalDate,
+    ),
   );
 }
 

@@ -55,19 +55,31 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('New Calendar Event'), findsOneWidget);
       expect(find.text('General'), findsOneWidget);
+      expect(tester.takeException(), isNull, reason: 'form opened');
       await tester.enterText(
         find.byKey(const Key('event-title-field')),
         'Offline Calendar Event',
       );
       await tester.tap(find.byKey(const Key('event-all-day-switch')));
+      expect(tester.takeException(), isNull, reason: 'all-day selected');
+      await tester.dragUntilVisible(
+        find.byKey(const Key('event-location-field')),
+        find.byType(ListView),
+        const Offset(0, -250),
+      );
+      expect(tester.takeException(), isNull, reason: 'location revealed');
       await tester.enterText(
         find.byKey(const Key('event-location-field')),
         'Typed location only',
       );
+      expect(tester.takeException(), isNull, reason: 'location entered');
       await tester.dragUntilVisible(
         find.byKey(const Key('save-event-button')),
         find.byType(ListView),
         const Offset(0, -250),
+      );
+      await tester.tap(
+        find.byKey(const Key('event-backup-appointment-switch')),
       );
       await tester.tap(find.byKey(const Key('event-requires-report-switch')));
       await tester.drag(find.byType(ListView), const Offset(0, -100));
@@ -83,9 +95,13 @@ void main() {
 
       expect(find.byKey(const Key('event-detail-title')), findsOneWidget);
       expect(find.text('Scheduled'), findsOneWidget);
-      expect(find.textContaining('All day'), findsOneWidget);
+      expect(find.textContaining('All day'), findsWidgets);
       expect(find.text('Typed location only'), findsOneWidget);
       expect(find.text('Report required'), findsOneWidget);
+      expect(
+        find.byKey(const Key('event-detail-backup-badge')),
+        findsOneWidget,
+      );
       expect(find.byKey(const Key('edit-event-button')), findsOneWidget);
       expect(find.byKey(const Key('reschedule-event-button')), findsOneWidget);
       expect(find.byKey(const Key('cancel-event-button')), findsOneWidget);

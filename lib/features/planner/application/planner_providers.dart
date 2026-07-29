@@ -87,6 +87,18 @@ final class PlannerController extends Notifier<PlannerState> {
 
   Future<void> moveDays(int days) => _load(state.selectedDate.addDays(days));
 
+  Future<List<PlannerDay>> readDays(Iterable<PlannerDate> dates) {
+    return Future.wait(
+      dates.map(
+        (date) => _repository.readDay(
+          profileId: _profileId,
+          selectedDate: date,
+          today: _dateSource.today(),
+        ),
+      ),
+    );
+  }
+
   void toggleHistoricalItems() {
     state = state.copyWith(
       historicalItemsExpanded: !state.historicalItemsExpanded,

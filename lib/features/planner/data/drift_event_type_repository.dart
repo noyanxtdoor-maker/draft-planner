@@ -4,6 +4,7 @@ import 'package:rmplanner/core/time/app_clock.dart';
 import 'package:rmplanner/features/planner/application/event_type_repository.dart';
 import 'package:rmplanner/features/planner/domain/event_type.dart';
 import 'package:rmplanner/features/planner/domain/planner_settings.dart';
+import 'package:rmplanner/features/planner/domain/planner_view.dart';
 
 final class DriftEventTypeRepository implements EventTypeRepository {
   const DriftEventTypeRepository({required this.database, required this.clock});
@@ -245,6 +246,16 @@ final class DriftEventTypeRepository implements EventTypeRepository {
       showCompletedItems: row.showCompletedItems,
       showCancelledItems: row.showCancelledItems,
       weekStartDay: row.weekStartDay,
+      preferredPresentation: PlannerPresentation.values.byName(
+        row.preferredPresentation,
+      ),
+      contentFilters: PlannerContentFilters(
+        events: row.showEvents,
+        backupEvents: row.showBackupEvents,
+        tasks: row.showTasks,
+        completedTasks: row.showCompletedTasks,
+      ),
+      timelineHourHeight: row.timelineHourHeight.toDouble(),
     );
   }
 
@@ -289,6 +300,16 @@ final class DriftEventTypeRepository implements EventTypeRepository {
             showCompletedItems: Value<bool>(settings.showCompletedItems),
             showCancelledItems: Value<bool>(settings.showCancelledItems),
             weekStartDay: Value<int>(settings.weekStartDay),
+            preferredPresentation: Value<String>(
+              settings.preferredPresentation.name,
+            ),
+            showEvents: Value<bool>(settings.contentFilters.events),
+            showBackupEvents: Value<bool>(settings.contentFilters.backupEvents),
+            showTasks: Value<bool>(settings.contentFilters.tasks),
+            showCompletedTasks: Value<bool>(
+              settings.contentFilters.completedTasks,
+            ),
+            timelineHourHeight: Value<int>(settings.timelineHourHeight.round()),
             updatedAtUtc: clock.nowUtc(),
           ),
         );

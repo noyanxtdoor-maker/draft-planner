@@ -8,9 +8,9 @@
 
 | Target | Debug | Release | Status/evidence |
 | --- | --- | --- | --- |
-| Local Android assembly | Passed | Passed, QA-signed | Final production-defined debug: 191,348,456 bytes, SHA-256 `6BC6E516F87F7FFFDAA345701BAE3C7C79CF461457111A72DEF73321B125E6BE`; corrected release: 65,721,487 bytes, SHA-256 `E2A190B5FF161621CB66EC78E498D0C6B0153D521C203CB2BA5839C930527448` |
+| Local Android assembly | Passed | Passed, QA-signed | Final-refinement production-defined debug: 191,421,139 bytes, SHA-256 `B6FA19C5DA809942241B16803C2F075EE3098D9C23D7A72BC47E197FA806FA84`; final-refinement release: 66,196,623 bytes, SHA-256 `71F7077AEDEB3F06EDB6D3C04EEECA88E1142FDC815C82D473A23F6982083374` |
 | Representative Android emulator | Passed in CI on API 24 and API 36 | Not run | All 18 startup, Privacy, Planner, corrected picker-first Calendar Event, Task/Event link, reporting, Home/Indicators, weekly-planning, and process-persistence jobs passed in run `30433029259` on code commit `dea0aa2` |
-| Infinix X6731 | Passed for corrected type-first workflow | Passed for picker-first smoke | Wireless ADB installed both APKs with `install -r`; debug UI evidence proves the complete non-saving workflow, and the QA-signed release independently proves one-tap picker-first behavior |
+| Infinix X6731 | Passed for final-refinement non-saving smoke | Passed for final-refinement picker-first smoke | Wireless ADB installed both final APKs with `install -r` and preserved app data. Debug evidence proves the top bar, `Awaiting Report` overlay, no old footer, picker-first creation/detail, filters, selection, global create order, and More Settings; release independently proves picker-first creation |
 
 APK inspection confirms application ID `com.nexttransfer.rmplanner`, version
 `0.1.0+1`, minimum SDK 24, compile/target SDK 36, and no Calendar, contacts,
@@ -86,6 +86,28 @@ Physical corrected-flow evidence is under `build/manual-qa/vs-08/`:
 - `next-transfer-vs08-release-picker.png` and `.xml`: the installed QA-signed
   release independently opens `Select Event Type` before the event form.
 
+Final owner-refinement evidence is under `build/manual-qa/vs-08-owner/`:
+
+- `launch.png`: top-bar composition, normal ended-Event visibility with
+  `Awaiting Report`, and no permanent Task/Overdue/Awaiting/Changes footer;
+- `planner-main.png` and `.xml`: empty-time tap opens `Select Event Type`;
+- `event-sheet.png` and `.xml`: selecting Temple Visit opens the native detail
+  sheet, retains Event Type, and shows the no-Actual rule without saving.
+- `indicator-picker.png` and `.xml`: Scripture Study is first and marked
+  Recommended from the Life Indicator.
+- `filters.png` and `.xml`: Events, Backup Events, and Tasks are on while
+  Completed Tasks is off.
+- `existing-detail.png` and `.xml`: an existing Event opens the detail sheet and
+  retains its factual `Awaiting Report` status.
+- `selection.png` and `.xml`: selection mode starts at zero selected and exposes
+  the removal action without deleting anything.
+- `settings.png` and `.xml`: More -> Settings exposes Planner and Calendar plus
+  Privacy and Data.
+- `global-create-corrected.png` and `.xml`: the corrected action order is Event,
+  Task, `+ Person`, Contact.
+- `release-picker-final.png` and `.xml`: the installed final QA release
+  independently opens `Select Event Type` from one empty-time tap.
+
 The direct debug device evidence used the same source with the local debug
 environment build (191,364,643 bytes, SHA-256
 `9D66529680E913BAC39B117FE9A3E976D338EFBD49AA3455B068F31BC5CB41E8`).
@@ -144,6 +166,30 @@ Compare at the matching approved viewport against
 - [ ] Typography, borders, corner radii, icons, FAB, and permanent bottom
   navigation match materially.
 - [ ] Android safe areas are used and fake iOS chrome is absent.
+
+## Final Planner owner-refinement scenarios
+
+- [x] Tap an existing Event and confirm the detail sheet slides up.
+- [x] Confirm one empty-time tap opens `Select Event Type`, then the detail
+  sheet, with no database write until Save.
+- [ ] Confirm long-press move updates both times live and persists once.
+- [ ] Confirm resize updates the displayed end time live and persists once.
+- [ ] Pinch in/out and confirm timeline scale changes without losing the
+  selected day; restart and confirm the scale persists.
+- [x] Confirm top-bar Date, Filter, Select/Delete, and overflow
+  Search/Schedule/Day/Week/Tasks.
+- [x] Confirm no permanent Task, Overdue, Awaiting Report, or Changes footer.
+- [ ] Confirm Report Required on/off Events are both visible.
+- [x] Confirm an ended required/unreported Event shows `Awaiting Report`
+  without creating Actual.
+- [ ] Confirm Filter defaults are Events on, Backup Events on, Tasks on, and
+  Completed Tasks off; restart after changes and confirm persistence.
+- [ ] Confirm a Backup Appointment shows the approved black stripe/badge and a
+  linked backup does not duplicate Scheduled Potential.
+- [x] Confirm More -> Settings exposes Planner and Calendar plus Privacy and
+  Data.
+- [x] Confirm the global plus exposes Event, Task, Person, and Contact; deferred
+  Person/Contact actions must not create placeholder records.
 
 ## Result policy
 

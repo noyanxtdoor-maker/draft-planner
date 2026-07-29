@@ -135,7 +135,7 @@ void main() {
       await tester.tap(find.byKey(const Key('planner-create-button')));
       await tester.pumpAndSettle();
       expect(find.text('Task'), findsOneWidget);
-      expect(find.text('Calendar Event'), findsOneWidget);
+      expect(find.text('Event'), findsOneWidget);
       await tester.tap(find.byKey(const Key('create-task-action')));
       await tester.pumpAndSettle();
       await tester.enterText(
@@ -148,12 +148,16 @@ void main() {
       );
       await tester.tap(find.byKey(const Key('save-task-button')));
       await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('planner-overflow-button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Tasks'));
+      await tester.pumpAndSettle();
 
       await tester.scrollUntilVisible(
         find.text('Offline Task'),
         250,
         scrollable: find.descendant(
-          of: find.byKey(const Key('planner-day-scroll')),
+          of: find.byKey(const Key('planner-tasks-view')),
           matching: find.byType(Scrollable),
         ),
       );
@@ -177,27 +181,25 @@ void main() {
       await tester.pageBack();
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('planner-day-2026-07-27')), findsOneWidget);
-      await tester.scrollUntilVisible(
-        find.text('Offline Task'),
-        250,
-        scrollable: find.descendant(
-          of: find.byKey(const Key('planner-day-scroll')),
-          matching: find.byType(Scrollable),
-        ),
-      );
+      expect(find.text('Offline Task'), findsNothing);
+      await tester.tap(find.byKey(const Key('planner-filter-button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('planner-filter-completed-tasks')));
+      await tester.tap(find.byKey(const Key('planner-filter-apply')));
+      await tester.pumpAndSettle();
       expect(find.text('Offline Task'), findsOneWidget);
 
       await tester.scrollUntilVisible(
         find.text('Report-required fixture'),
         250,
         scrollable: find.descendant(
-          of: find.byKey(const Key('planner-day-scroll')),
+          of: find.byKey(const Key('planner-tasks-view')),
           matching: find.byType(Scrollable),
         ),
       );
       await tester.drag(
         find.descendant(
-          of: find.byKey(const Key('planner-day-scroll')),
+          of: find.byKey(const Key('planner-tasks-view')),
           matching: find.byType(Scrollable),
         ),
         const Offset(0, 180),
@@ -215,24 +217,13 @@ void main() {
 
       await tester.pageBack();
       await tester.pumpAndSettle();
-      await tester.scrollUntilVisible(
-        find.text('Awaiting fixture'),
-        250,
-        scrollable: find.descendant(
-          of: find.byKey(const Key('planner-day-scroll')),
-          matching: find.byType(Scrollable),
-        ),
-      );
+      await tester.tap(find.byKey(const Key('planner-overflow-button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Day'));
+      await tester.pumpAndSettle();
       expect(find.text('Awaiting fixture'), findsOneWidget);
-      await tester.scrollUntilVisible(
-        find.text('Cancelled fixture'),
-        250,
-        scrollable: find.descendant(
-          of: find.byKey(const Key('planner-day-scroll')),
-          matching: find.byType(Scrollable),
-        ),
-      );
-      expect(find.text('Cancelled fixture'), findsOneWidget);
+      expect(find.text('Awaiting Report'), findsWidgets);
+      expect(find.text('Cancelled fixture'), findsNothing);
 
       final taskRows = await database.select(database.plannerTasks).get();
       expect(taskRows, hasLength(2));

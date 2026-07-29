@@ -23,6 +23,8 @@ import 'package:rmplanner/features/planner/presentation/task_form_screen.dart';
 import 'package:rmplanner/features/privacy/presentation/diagnostic_preview_screen.dart';
 import 'package:rmplanner/features/privacy/presentation/permissions_screen.dart';
 import 'package:rmplanner/features/privacy/presentation/privacy_center_screen.dart';
+import 'package:rmplanner/features/settings/presentation/more_screen.dart';
+import 'package:rmplanner/features/settings/presentation/settings_screen.dart';
 import 'package:rmplanner/features/startup/application/startup_providers.dart';
 import 'package:rmplanner/features/startup/presentation/home_screen.dart';
 import 'package:rmplanner/features/startup/presentation/link_recovery_screen.dart';
@@ -77,6 +79,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             name: RouteNames.planner,
             path: RoutePaths.planner,
             builder: (context, state) => const PlannerScreen(),
+          ),
+          GoRoute(
+            name: RouteNames.more,
+            path: RoutePaths.more,
+            builder: (context, state) => const MoreScreen(),
+          ),
+          GoRoute(
+            name: RouteNames.settings,
+            path: RoutePaths.settings,
+            builder: (context, state) => const SettingsScreen(),
           ),
           GoRoute(
             name: RouteNames.indicatorDetail,

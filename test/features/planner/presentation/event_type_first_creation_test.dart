@@ -68,6 +68,14 @@ void main() {
 
       expect(find.text('New Calendar Event'), findsOneWidget);
       expect(
+        find.byKey(const Key('calendar-event-detail-sheet')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('calendar-event-sheet-handle')),
+        findsOneWidget,
+      );
+      expect(
         find.descendant(
           of: find.byKey(const Key('event-type-field')),
           matching: find.text('Temple Visit'),
@@ -271,12 +279,16 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Planner'));
     await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('planner-overflow-button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Tasks'));
+    await tester.pumpAndSettle();
     final taskTile = find.byKey(const Key('planner-task-$taskId'));
     await tester.scrollUntilVisible(
       taskTile,
       250,
       scrollable: find.descendant(
-        of: find.byKey(const Key('planner-day-scroll')),
+        of: find.byKey(const Key('planner-tasks-view')),
         matching: find.byType(Scrollable),
       ),
     );

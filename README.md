@@ -120,16 +120,29 @@ VS-08 adds:
   automatically;
 - prior-week history and read-only reopening;
 - a corrected native Planner time grid with duration-based and collision-aware
-  event placement, current-time/initial scrolling, long-press creation,
-  deliberate move/resize gestures, configured snapping, and Event Type colors;
+  event placement, current-time/initial scrolling, one-tap empty-time creation,
+  deliberate long-press move/resize gestures, pinch zoom, configured snapping,
+  and Event Type colors;
+- a permanent top-bar workflow for date, filters, selection/delete, Search,
+  Schedule, Day, Week, and Tasks without permanent Planner footer sections;
+- an Event-Type-first, native bottom-sheet create/detail workflow and a
+  destination-aware global `+` menu for Event, Task, Person, and Contact
+  actions;
+- all Events remain visible independently of Report Required, while an ended,
+  unreported required Event receives a factual `Awaiting Report` overlay;
+- local Event, Backup Event, Task, and Completed Task filters with the approved
+  true/true/true/false defaults, plus a locally persisted pinch-zoom scale;
+- Backup Appointment classification, linked-primary provenance, black-stripe
+  treatment, and Scheduled Potential de-duplication;
 - ten stable built-in Event Types, six exact Life Indicator mappings, explicit
   custom zero/one/many mappings, append-only mapping revisions, archive/restore,
   and locally persisted Planner settings;
 - indicator-detail Schedule Activity routes that preselect the exact matching
   system Event Type while scheduling still creates no Actual;
-- schema version 9 with profile timezone, plans, commitments, review snapshots,
+- schema version 10 with profile timezone, plans, commitments, review snapshots,
   carryover decisions, Activity Types/Event Types, versioned mappings, Planner
-  preferences, and Event Type snapshots on Calendar Events.
+  preferences, Event Type snapshots, Backup Appointment identity/provenance,
+  Planner views/filters, and timeline zoom.
 
 Remote account/sync code, provider Calendar integration, notifications, maps,
 VS-09 Pathways, and later planning features remain outside the authorized
@@ -223,7 +236,9 @@ VS-08 evidence is recorded in
 The correction source audit, owner amendment, and Android capture QA checklist
 are recorded in
 [`docs/audits/vs08-planner-event-types-reference-audit.md`](docs/audits/vs08-planner-event-types-reference-audit.md),
+[`docs/audits/vs08-planner-detail-plus-zoom-reference-review.md`](docs/audits/vs08-planner-detail-plus-zoom-reference-review.md),
 [`docs/decisions/OWNER-AMENDMENT-001-screen-capture-and-vs08-scope.md`](docs/decisions/OWNER-AMENDMENT-001-screen-capture-and-vs08-scope.md),
+[`docs/decisions/vs08-planner-owner-refinement.md`](docs/decisions/vs08-planner-owner-refinement.md),
 and
 [`docs/implementation/vs-08-correction-manual-qa.md`](docs/implementation/vs-08-correction-manual-qa.md).
 

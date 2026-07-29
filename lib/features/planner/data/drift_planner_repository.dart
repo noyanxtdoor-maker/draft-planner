@@ -136,6 +136,14 @@ final class DriftPlannerRepository implements PlannerRepository {
     final overdueTasks = allTasks
         .where((task) => task.isOverdueOn(selectedDate))
         .toList(growable: false);
+    final completedTasks = allTasks
+        .where(
+          (task) =>
+              task.status == PlannerTaskStatus.completed &&
+              (task.dueDate == selectedDate ||
+                  (task.dueDate == null && selectedDate == today)),
+        )
+        .toList(growable: false);
 
     final changes = <PlannerChangeItem>[
       for (final task in allTasks)
@@ -168,20 +176,19 @@ final class DriftPlannerRepository implements PlannerRepository {
           .where(
             (item) =>
                 item.timing == PlannerEventTiming.allDay &&
-                item.state == PlannerEventState.scheduled &&
-                !awaiting.contains(item),
+                item.state == PlannerEventState.scheduled,
           )
           .toList(growable: false),
       timedEvents: calendarItems
           .where(
             (item) =>
                 item.timing == PlannerEventTiming.timed &&
-                item.state == PlannerEventState.scheduled &&
-                !awaiting.contains(item),
+                item.state == PlannerEventState.scheduled,
           )
           .toList(growable: false),
       tasks: tasks,
       overdueTasks: overdueTasks,
+      completedTasks: completedTasks,
       awaitingReportEvents: awaiting,
       changes: changes,
     );

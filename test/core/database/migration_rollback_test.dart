@@ -742,4 +742,130 @@ void main() {
       }
     },
   );
+
+  test(
+    'VS08-OWNER / Q2: v9 upgrades to schema v10 with safe Planner defaults',
+    () async {
+      final sqliteDatabase = sqlite3.openInMemory();
+      try {
+        final versionNine = AppDatabase.forTesting(
+          NativeDatabase.opened(sqliteDatabase, closeUnderlyingOnClose: false),
+          schemaVersionOverride: 9,
+        );
+        final original = await buildTestRepository(
+          database: versionNine,
+        ).completeOnboarding();
+        await versionNine
+            .into(versionNine.plannerPreferences)
+            .insert(
+              PlannerPreferencesCompanion.insert(
+                profileId: original.id,
+                updatedAtUtc: DateTime.utc(2026, 7, 29),
+              ),
+            );
+        await _makeHistoricalV9Schema(versionNine);
+        await versionNine.close();
+
+        final versionTen = AppDatabase.forTesting(
+          NativeDatabase.opened(sqliteDatabase, closeUnderlyingOnClose: false),
+        );
+        final preference =
+            (await versionTen.select(versionTen.plannerPreferences).get())
+                .single;
+        expect(preference.profileId, original.id);
+        expect(preference.preferredPresentation, 'day');
+        expect(preference.showEvents, isTrue);
+        expect(preference.showBackupEvents, isTrue);
+        expect(preference.showTasks, isTrue);
+        expect(preference.showCompletedTasks, isFalse);
+        expect(preference.timelineHourHeight, 60);
+        expect(
+          (await versionTen.customSelect('PRAGMA user_version').getSingle())
+              .read<int>('user_version'),
+          10,
+        );
+        await versionTen.close();
+      } finally {
+        sqliteDatabase.close();
+      }
+    },
+  );
+
+  test(
+    'VS08-OWNER / Q2: failed v10 migration preserves the valid v9 database',
+    () async {
+      final sqliteDatabase = sqlite3.openInMemory();
+      try {
+        final versionNine = AppDatabase.forTesting(
+          NativeDatabase.opened(sqliteDatabase, closeUnderlyingOnClose: false),
+          schemaVersionOverride: 9,
+        );
+        final original = await buildTestRepository(
+          database: versionNine,
+        ).completeOnboarding();
+        await _makeHistoricalV9Schema(versionNine);
+        await versionNine.close();
+
+        final failingVersionTen = AppDatabase.forTesting(
+          NativeDatabase.opened(sqliteDatabase, closeUnderlyingOnClose: false),
+          injectPlannerExperienceMigrationFailure: true,
+        );
+        await expectLater(
+          failingVersionTen.select(failingVersionTen.localProfiles).get(),
+          throwsA(isA<StateError>()),
+        );
+        await failingVersionTen.close();
+
+        final reopenedVersionNine = AppDatabase.forTesting(
+          NativeDatabase.opened(sqliteDatabase, closeUnderlyingOnClose: false),
+          schemaVersionOverride: 9,
+        );
+        expect(
+          (await reopenedVersionNine
+                  .select(reopenedVersionNine.localProfiles)
+                  .get())
+              .single
+              .id,
+          original.id,
+        );
+        expect(
+          (await reopenedVersionNine
+                  .customSelect('PRAGMA user_version')
+                  .getSingle())
+              .read<int>('user_version'),
+          9,
+        );
+        final columns = await reopenedVersionNine
+            .customSelect('PRAGMA table_info(planner_preferences)')
+            .get();
+        expect(
+          columns.map((row) => row.read<String>('name')),
+          isNot(contains('timeline_hour_height')),
+        );
+        await reopenedVersionNine.close();
+      } finally {
+        sqliteDatabase.close();
+      }
+    },
+  );
+}
+
+Future<void> _makeHistoricalV9Schema(AppDatabase database) async {
+  for (final statement in <String>[
+    'ALTER TABLE calendar_events DROP COLUMN is_backup_appointment',
+    'ALTER TABLE calendar_events DROP COLUMN backup_for_event_id',
+    'ALTER TABLE calendar_events DROP COLUMN backup_relationship_provenance',
+    'ALTER TABLE calendar_event_exceptions DROP COLUMN is_backup_appointment',
+    'ALTER TABLE calendar_event_exceptions DROP COLUMN backup_for_event_id',
+    'ALTER TABLE calendar_event_exceptions DROP COLUMN '
+        'backup_relationship_provenance',
+    'ALTER TABLE planner_preferences DROP COLUMN preferred_presentation',
+    'ALTER TABLE planner_preferences DROP COLUMN show_events',
+    'ALTER TABLE planner_preferences DROP COLUMN show_backup_events',
+    'ALTER TABLE planner_preferences DROP COLUMN show_tasks',
+    'ALTER TABLE planner_preferences DROP COLUMN show_completed_tasks',
+    'ALTER TABLE planner_preferences DROP COLUMN timeline_hour_height',
+  ]) {
+    await database.customStatement(statement);
+  }
 }

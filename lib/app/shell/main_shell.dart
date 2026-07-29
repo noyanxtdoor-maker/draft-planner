@@ -10,7 +10,11 @@ final class MainShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final location = GoRouterState.of(context).matchedLocation;
-    final selectedIndex = location.startsWith(RoutePaths.planner) ? 1 : 0;
+    final selectedIndex = location.startsWith(RoutePaths.planner)
+        ? 1
+        : location.startsWith(RoutePaths.more)
+        ? 4
+        : 0;
 
     return Scaffold(
       body: child,
@@ -27,7 +31,6 @@ final class MainShell extends StatelessWidget {
               return;
             case 2:
             case 3:
-            case 4:
               final label = const <String>[
                 'Home',
                 'Planner',
@@ -45,6 +48,9 @@ final class MainShell extends StatelessWidget {
                     ),
                   ),
                 );
+              return;
+            case 4:
+              context.go(RoutePaths.more);
               return;
           }
         },

@@ -1,61 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:rmplanner/app/theme/app_theme.dart';
 import 'package:rmplanner/features/planner/application/event_type_providers.dart';
 import 'package:rmplanner/features/planner/domain/event_type.dart';
-import 'package:rmplanner/features/planner/domain/planner_date.dart';
-
-final class CalendarEventCreationContext {
-  const CalendarEventCreationContext({
-    required this.source,
-    required this.destinationPath,
-    required this.date,
-    this.startMinute,
-    this.indicatorKey,
-    this.recommendedEventTypeId,
-  });
-
-  final String source;
-  final String destinationPath;
-  final PlannerDate date;
-  final int? startMinute;
-  final String? indicatorKey;
-  final String? recommendedEventTypeId;
-
-  Uri destinationFor(EventType eventType) {
-    final queryParameters = <String, String>{
-      'date': date.iso8601,
-      'eventType': eventType.id,
-    };
-    final capturedStartMinute = startMinute;
-    if (capturedStartMinute != null) {
-      queryParameters['startMinute'] = '$capturedStartMinute';
-    }
-    final capturedIndicatorKey = indicatorKey;
-    if (capturedIndicatorKey != null) {
-      queryParameters['indicator'] = capturedIndicatorKey;
-    }
-    return Uri(path: destinationPath, queryParameters: queryParameters);
-  }
-}
-
-Future<T?> launchCalendarEventCreation<T>(
-  BuildContext context,
-  WidgetRef ref,
-  CalendarEventCreationContext creationContext,
-) async {
-  final selected = await showEventTypePicker(
-    context: context,
-    ref: ref,
-    recommendedEventTypeId: creationContext.recommendedEventTypeId,
-    recommendedIndicatorKey: creationContext.indicatorKey,
-  );
-  if (selected == null || !context.mounted) {
-    return null;
-  }
-  return context.push<T>(creationContext.destinationFor(selected).toString());
-}
 
 Future<EventType?> showEventTypePicker({
   required BuildContext context,

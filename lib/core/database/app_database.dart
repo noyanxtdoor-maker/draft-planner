@@ -148,6 +148,10 @@ class CalendarEvents extends Table {
   TextColumn get activityTypeId => text().nullable()();
   IntColumn get activityTypeMappingVersion => integer().nullable()();
   TextColumn get contributionRuleKey => text().nullable()();
+  BoolColumn get isBackupAppointment =>
+      boolean().withDefault(const Constant(false))();
+  TextColumn get backupForEventId => text().nullable()();
+  TextColumn get backupRelationshipProvenance => text().nullable()();
   TextColumn get recurrenceFrequency =>
       text().withDefault(const Constant('none'))();
   TextColumn get recurrenceEndMode =>
@@ -190,6 +194,10 @@ class CalendarEventExceptions extends Table {
   TextColumn get activityTypeId => text().nullable()();
   IntColumn get activityTypeMappingVersion => integer().nullable()();
   TextColumn get contributionRuleKey => text().nullable()();
+  BoolColumn get isBackupAppointment =>
+      boolean().withDefault(const Constant(false))();
+  TextColumn get backupForEventId => text().nullable()();
+  TextColumn get backupRelationshipProvenance => text().nullable()();
   TextColumn get status => text()();
   TextColumn get replacementEventId => text().nullable()();
   DateTimeColumn get createdAtUtc => dateTime()();
@@ -610,7 +618,7 @@ class PlannerPreferences extends Table {
   TextColumn get initialScrollBehavior =>
       text().withDefault(const Constant('currentTime'))();
   TextColumn get creationPresentation =>
-      text().withDefault(const Constant('fullScreen'))();
+      text().withDefault(const Constant('sheet'))();
   BoolColumn get quickEditEnabled =>
       boolean().withDefault(const Constant(true))();
   BoolColumn get showCompletedItems =>
@@ -619,6 +627,16 @@ class PlannerPreferences extends Table {
       boolean().withDefault(const Constant(false))();
   IntColumn get weekStartDay =>
       integer().withDefault(const Constant(DateTime.monday))();
+  TextColumn get preferredPresentation =>
+      text().withDefault(const Constant('day'))();
+  BoolColumn get showEvents => boolean().withDefault(const Constant(true))();
+  BoolColumn get showBackupEvents =>
+      boolean().withDefault(const Constant(true))();
+  BoolColumn get showTasks => boolean().withDefault(const Constant(true))();
+  BoolColumn get showCompletedTasks =>
+      boolean().withDefault(const Constant(false))();
+  IntColumn get timelineHourHeight =>
+      integer().withDefault(const Constant(60))();
   DateTimeColumn get updatedAtUtc => dateTime()();
 
   @override
@@ -664,6 +682,7 @@ final class AppDatabase extends _$AppDatabase {
       _injectIndicatorMigrationFailure = false,
       _injectWeeklyPlanningMigrationFailure = false,
       _injectPlannerCorrectionMigrationFailure = false,
+      _injectPlannerExperienceMigrationFailure = false,
       super(driftDatabase(name: 'next_transfer'));
 
   AppDatabase.forTesting(
@@ -677,6 +696,7 @@ final class AppDatabase extends _$AppDatabase {
     bool injectIndicatorMigrationFailure = false,
     bool injectWeeklyPlanningMigrationFailure = false,
     bool injectPlannerCorrectionMigrationFailure = false,
+    bool injectPlannerExperienceMigrationFailure = false,
   }) : _schemaVersionOverride = schemaVersionOverride,
        _injectMigrationFailure = injectMigrationFailure,
        _injectTaskMigrationFailure = injectTaskMigrationFailure,
@@ -690,7 +710,9 @@ final class AppDatabase extends _$AppDatabase {
        _injectWeeklyPlanningMigrationFailure =
            injectWeeklyPlanningMigrationFailure,
        _injectPlannerCorrectionMigrationFailure =
-           injectPlannerCorrectionMigrationFailure;
+           injectPlannerCorrectionMigrationFailure,
+       _injectPlannerExperienceMigrationFailure =
+           injectPlannerExperienceMigrationFailure;
 
   final int? _schemaVersionOverride;
   final bool _injectMigrationFailure;
@@ -701,9 +723,10 @@ final class AppDatabase extends _$AppDatabase {
   final bool _injectIndicatorMigrationFailure;
   final bool _injectWeeklyPlanningMigrationFailure;
   final bool _injectPlannerCorrectionMigrationFailure;
+  final bool _injectPlannerExperienceMigrationFailure;
 
   @override
-  int get schemaVersion => _schemaVersionOverride ?? 9;
+  int get schemaVersion => _schemaVersionOverride ?? 10;
 
   @override
   MigrationStrategy get migration {
@@ -847,6 +870,113 @@ final class AppDatabase extends _$AppDatabase {
             }
             if (_injectPlannerCorrectionMigrationFailure) {
               throw StateError('Injected Planner correction migration failure');
+            }
+          }
+          if (from < 10 && to >= 10) {
+            if (!await _columnExists(
+              'calendar_events',
+              'is_backup_appointment',
+            )) {
+              await migrator.addColumn(
+                calendarEvents,
+                calendarEvents.isBackupAppointment,
+              );
+            }
+            if (!await _columnExists(
+              'calendar_events',
+              'backup_for_event_id',
+            )) {
+              await migrator.addColumn(
+                calendarEvents,
+                calendarEvents.backupForEventId,
+              );
+            }
+            if (!await _columnExists(
+              'calendar_events',
+              'backup_relationship_provenance',
+            )) {
+              await migrator.addColumn(
+                calendarEvents,
+                calendarEvents.backupRelationshipProvenance,
+              );
+            }
+            if (!await _columnExists(
+              'calendar_event_exceptions',
+              'is_backup_appointment',
+            )) {
+              await migrator.addColumn(
+                calendarEventExceptions,
+                calendarEventExceptions.isBackupAppointment,
+              );
+            }
+            if (!await _columnExists(
+              'calendar_event_exceptions',
+              'backup_for_event_id',
+            )) {
+              await migrator.addColumn(
+                calendarEventExceptions,
+                calendarEventExceptions.backupForEventId,
+              );
+            }
+            if (!await _columnExists(
+              'calendar_event_exceptions',
+              'backup_relationship_provenance',
+            )) {
+              await migrator.addColumn(
+                calendarEventExceptions,
+                calendarEventExceptions.backupRelationshipProvenance,
+              );
+            }
+            if (!await _columnExists(
+              'planner_preferences',
+              'preferred_presentation',
+            )) {
+              await migrator.addColumn(
+                plannerPreferences,
+                plannerPreferences.preferredPresentation,
+              );
+            }
+            if (!await _columnExists('planner_preferences', 'show_events')) {
+              await migrator.addColumn(
+                plannerPreferences,
+                plannerPreferences.showEvents,
+              );
+            }
+            if (!await _columnExists(
+              'planner_preferences',
+              'show_backup_events',
+            )) {
+              await migrator.addColumn(
+                plannerPreferences,
+                plannerPreferences.showBackupEvents,
+              );
+            }
+            if (!await _columnExists('planner_preferences', 'show_tasks')) {
+              await migrator.addColumn(
+                plannerPreferences,
+                plannerPreferences.showTasks,
+              );
+            }
+            if (!await _columnExists(
+              'planner_preferences',
+              'show_completed_tasks',
+            )) {
+              await migrator.addColumn(
+                plannerPreferences,
+                plannerPreferences.showCompletedTasks,
+              );
+            }
+            if (!await _columnExists(
+              'planner_preferences',
+              'timeline_hour_height',
+            )) {
+              await migrator.addColumn(
+                plannerPreferences,
+                plannerPreferences.timelineHourHeight,
+              );
+            }
+            if (_injectPlannerExperienceMigrationFailure) {
+              throw StateError('Injected Planner experience migration failure');
             }
           }
         });

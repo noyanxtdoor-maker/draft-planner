@@ -36,6 +36,8 @@ final class PlannerCalendarItem {
     this.activityTypeId,
     this.activityTypeLabel,
     this.activityTypeColorValue,
+    this.isBackupAppointment = false,
+    this.backupForEventId,
   });
 
   final String id;
@@ -60,6 +62,8 @@ final class PlannerCalendarItem {
   final String? activityTypeId;
   final String? activityTypeLabel;
   final int? activityTypeColorValue;
+  final bool isBackupAppointment;
+  final String? backupForEventId;
 
   bool isAwaitingReport(DateTime nowLocal) {
     if (state != PlannerEventState.scheduled ||
@@ -108,6 +112,7 @@ final class PlannerDay {
     required this.timedEvents,
     required this.tasks,
     required this.overdueTasks,
+    this.completedTasks = const <PlannerTask>[],
     required this.awaitingReportEvents,
     required this.changes,
   });
@@ -117,6 +122,7 @@ final class PlannerDay {
   final List<PlannerCalendarItem> timedEvents;
   final List<PlannerTask> tasks;
   final List<PlannerTask> overdueTasks;
+  final List<PlannerTask> completedTasks;
   final List<PlannerCalendarItem> awaitingReportEvents;
   final List<PlannerChangeItem> changes;
 
@@ -125,6 +131,7 @@ final class PlannerDay {
       timedEvents.isEmpty &&
       tasks.isEmpty &&
       overdueTasks.isEmpty &&
+      completedTasks.isEmpty &&
       awaitingReportEvents.isEmpty &&
       changes.isEmpty;
 }

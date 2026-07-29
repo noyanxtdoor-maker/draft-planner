@@ -1,9 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rmplanner/app/router/route_names.dart';
 import 'package:rmplanner/features/indicators/application/indicator_providers.dart';
 import 'package:rmplanner/features/indicators/domain/life_indicator.dart';
+import 'package:rmplanner/features/planner/domain/planner_date.dart';
+import 'package:rmplanner/features/planner/presentation/calendar_event_creation.dart';
+import 'package:rmplanner/features/planner/presentation/contextual_create_fab.dart';
 
 final class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -95,7 +100,50 @@ final class HomeScreen extends ConsumerWidget {
                 ),
               ),
       ),
+      floatingActionButton: ContextualCreateFab(
+        destination: CreateActionDestination.home,
+        onSelected: (action) => _handleCreate(context, ref, action),
+      ),
     );
+  }
+
+  void _handleCreate(
+    BuildContext context,
+    WidgetRef ref,
+    ContextualCreateAction action,
+  ) {
+    final today = PlannerDate.fromDateTime(DateTime.now());
+    switch (action) {
+      case ContextualCreateAction.event:
+        unawaited(
+          launchCalendarEventCreation<void>(
+            context,
+            ref,
+            CalendarEventCreationContext(
+              source: 'home-fab',
+              destinationPath: RoutePaths.calendarEventCreate,
+              date: today,
+            ),
+          ),
+        );
+        return;
+      case ContextualCreateAction.task:
+        unawaited(
+          context.push('${RoutePaths.taskCreate}?date=${today.iso8601}'),
+        );
+        return;
+      case ContextualCreateAction.person:
+      case ContextualCreateAction.contact:
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '${action.label} remains distinct and will open in the '
+              'authorized Contacts slice.',
+            ),
+          ),
+        );
+        return;
+    }
   }
 }
 

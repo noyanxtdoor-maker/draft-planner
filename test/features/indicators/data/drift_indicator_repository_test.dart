@@ -138,6 +138,37 @@ void main() {
       ),
       operationId: '71000000-0000-4000-8000-000000000012',
     );
+    await calendar.saveEvent(
+      profileId: profile.id,
+      draft: CalendarEventDraft(
+        id: '71000000-0000-4000-8000-000000000013',
+        title: 'Primary paired session',
+        timing: CalendarEventTiming.allDay,
+        startDate: monday.addDays(5),
+        requiresReport: true,
+        contributionRuleKey: const ScheduledPotentialRule(
+          indicatorKey: 'job_applications',
+          value: IndicatorAmount(scaledValue: 4, scale: 0, unit: 'count'),
+        ).encode(),
+      ),
+    );
+    await calendar.saveEvent(
+      profileId: profile.id,
+      draft: CalendarEventDraft(
+        id: '71000000-0000-4000-8000-000000000014',
+        title: 'Backup paired session',
+        timing: CalendarEventTiming.allDay,
+        startDate: monday.addDays(5),
+        requiresReport: true,
+        contributionRuleKey: const ScheduledPotentialRule(
+          indicatorKey: 'job_applications',
+          value: IndicatorAmount(scaledValue: 4, scale: 0, unit: 'count'),
+        ).encode(),
+        isBackupAppointment: true,
+        backupForEventId: '71000000-0000-4000-8000-000000000013',
+        backupRelationshipProvenance: 'user-classified',
+      ),
+    );
 
     final first = await repository.readHome(
       profileId: profile.id,
@@ -156,12 +187,13 @@ void main() {
     final jobs = first.indicators.first;
     expect(jobs.actual.scaledValue, 1);
     expect(jobs.target.isSet, isFalse);
-    expect(jobs.scheduledPotential.scaledValue, 5);
+    expect(jobs.scheduledPotential.scaledValue, 9);
     expect(
       jobs.scheduledSources.map((source) => source.label),
       containsAll(<String>[
         'Explicit application session',
         'Replacement qualified session',
+        'Primary paired session',
       ]),
     );
     expect(
@@ -171,6 +203,11 @@ void main() {
           anyOf('Job Applications title only', 'Cancelled qualified session'),
         ),
       ),
+    );
+    expect(
+      jobs.scheduledSources.map((source) => source.label),
+      isNot(contains('Backup paired session')),
+      reason: 'A linked backup must not duplicate Scheduled Potential.',
     );
 
     await repository.saveTarget(

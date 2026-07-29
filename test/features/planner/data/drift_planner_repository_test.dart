@@ -155,8 +155,13 @@ void main() {
 
     expect(day.allDayEvents.single.id, 'all-day');
     expect(day.allDayEvents.single.locationText, 'Typed location');
-    expect(day.timedEvents.single.id, 'timed');
-    expect(day.timedEvents.single.isRecurring, isTrue);
+    final timed = day.timedEvents.singleWhere((event) => event.id == 'timed');
+    expect(timed.isRecurring, isTrue);
+    expect(
+      day.timedEvents.map((event) => event.id),
+      contains('awaiting'),
+      reason: 'Awaiting Report is an overlay, not a visibility filter.',
+    );
     expect(day.awaitingReportEvents.single.id, 'awaiting');
     expect(
       day.changes.map((change) => change.id),

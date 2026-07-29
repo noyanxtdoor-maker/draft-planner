@@ -64,11 +64,15 @@ void main() {
 
       await tester.tap(find.text('Planner'));
       await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('planner-overflow-button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Tasks'));
+      await tester.pumpAndSettle();
       await tester.scrollUntilVisible(
         find.text('Required reporting fixture'),
         250,
         scrollable: find.descendant(
-          of: find.byKey(const Key('planner-day-scroll')),
+          of: find.byKey(const Key('planner-tasks-view')),
           matching: find.byType(Scrollable),
         ),
       );

@@ -11,11 +11,13 @@ final class CalendarEventDetailScreen extends ConsumerStatefulWidget {
   const CalendarEventDetailScreen({
     required this.eventId,
     required this.originalDate,
+    this.sheetPresentation = false,
     super.key,
   });
 
   final String eventId;
   final PlannerDate originalDate;
+  final bool sheetPresentation;
 
   @override
   ConsumerState<CalendarEventDetailScreen> createState() =>
@@ -44,174 +46,234 @@ final class _CalendarEventDetailScreenState
   @override
   Widget build(BuildContext context) {
     final message = ref.watch(calendarEventControllerProvider);
-    return Scaffold(
-      appBar: AppBar(title: const Text('Calendar Event')),
-      body: FutureBuilder<CalendarEventOccurrence?>(
-        future: _load,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          final occurrence = snapshot.data;
-          if (occurrence == null) {
-            return const Center(
-              child: Padding(
-                padding: EdgeInsets.all(24),
-                child: Text(
-                  'This Calendar Event occurrence is no longer available. '
-                  'No local record was changed.',
-                  textAlign: TextAlign.center,
+    final content = FutureBuilder<CalendarEventOccurrence?>(
+      future: _load,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final occurrence = snapshot.data;
+        if (occurrence == null) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: Text(
+                'This Calendar Event occurrence is no longer available. '
+                'No local record was changed.',
+                textAlign: TextAlign.center,
+              ),
+            ),
+          );
+        }
+        final awaitingReport = occurrence.isAwaitingReport(
+          nowUtc: DateTime.now().toUtc(),
+          displayToday: PlannerDate.fromDateTime(DateTime.now()),
+        );
+        return ListView(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+          children: <Widget>[
+            if (message != null) ...<Widget>[
+              Card(
+                color: Theme.of(
+                  context,
+                ).colorScheme.error.withValues(alpha: 0.12),
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Text(message),
                 ),
               ),
-            );
-          }
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-            children: <Widget>[
-              if (message != null) ...<Widget>[
-                Card(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.error.withValues(alpha: 0.12),
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Text(message),
-                  ),
+              const SizedBox(height: 10),
+            ],
+            Text(
+              occurrence.title,
+              key: const Key('event-detail-title'),
+              style: Theme.of(
+                context,
+              ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: <Widget>[
+                Chip(
+                  avatar: const Icon(Icons.event_outlined, size: 18),
+                  label: Text(calendarEventStatusLabel(occurrence.status)),
                 ),
-                const SizedBox(height: 10),
-              ],
-              Text(
-                occurrence.title,
-                key: const Key('event-detail-title'),
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: <Widget>[
+                if (occurrence.activityTypeLabel != null)
                   Chip(
-                    avatar: const Icon(Icons.event_outlined, size: 18),
-                    label: Text(calendarEventStatusLabel(occurrence.status)),
-                  ),
-                  if (occurrence.activityTypeLabel != null)
-                    Chip(
-                      key: const Key('event-detail-event-type'),
-                      avatar: Icon(
-                        Icons.category_outlined,
-                        size: 18,
-                        color: Color(
-                          occurrence.activityTypeColorValue ?? 0xFFE91E63,
-                        ),
+                    key: const Key('event-detail-event-type'),
+                    avatar: Icon(
+                      Icons.category_outlined,
+                      size: 18,
+                      color: Color(
+                        occurrence.activityTypeColorValue ?? 0xFFE91E63,
                       ),
-                      label: Text(occurrence.activityTypeLabel!),
                     ),
-                  if (occurrence.isRecurring)
-                    const Chip(
-                      avatar: Icon(Icons.repeat, size: 18),
-                      label: Text('Recurring'),
-                    ),
-                  if (occurrence.requiresReport)
-                    const Chip(label: Text('Report required')),
-                ],
-              ),
-              const SizedBox(height: 18),
+                    label: Text(occurrence.activityTypeLabel!),
+                  ),
+                if (occurrence.isRecurring)
+                  const Chip(
+                    avatar: Icon(Icons.repeat, size: 18),
+                    label: Text('Recurring'),
+                  ),
+                if (occurrence.requiresReport)
+                  const Chip(label: Text('Report required')),
+                if (occurrence.isBackupAppointment)
+                  const Chip(
+                    key: Key('event-detail-backup-badge'),
+                    avatar: Icon(Icons.layers_outlined, size: 18),
+                    label: Text('Backup Appointment'),
+                  ),
+                if (awaitingReport)
+                  const Chip(
+                    key: Key('event-detail-awaiting-report'),
+                    avatar: Icon(Icons.assignment_late_outlined, size: 18),
+                    label: Text('Awaiting Report'),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            _DetailRow(
+              icon: Icons.calendar_today_outlined,
+              label: occurrence.timing == CalendarEventTiming.allDay
+                  ? '${occurrence.displayDate.iso8601} · All day'
+                  : occurrence.displayDate.iso8601,
+            ),
+            if (occurrence.timing == CalendarEventTiming.timed)
               _DetailRow(
-                icon: Icons.calendar_today_outlined,
-                label: occurrence.timing == CalendarEventTiming.allDay
-                    ? '${occurrence.displayDate.iso8601} · All day'
-                    : occurrence.displayDate.iso8601,
+                icon: Icons.schedule,
+                label:
+                    '${_time(occurrence.startDisplay)} – '
+                    '${_time(occurrence.endDisplay)}',
               ),
-              if (occurrence.timing == CalendarEventTiming.timed)
-                _DetailRow(
-                  icon: Icons.schedule,
-                  label:
-                      '${_time(occurrence.startDisplay)} – '
-                      '${_time(occurrence.endDisplay)}',
-                ),
-              if (occurrence.timeZoneId != null)
-                _DetailRow(
-                  icon: Icons.public,
-                  label: occurrence.timeZoneId == occurrence.displayTimeZoneId
-                      ? 'Original time zone: ${occurrence.timeZoneId}'
-                      : 'Original: ${occurrence.timeZoneId} · Shown in '
-                            '${occurrence.displayTimeZoneId}',
-                ),
-              if (occurrence.locationText != null)
-                _DetailRow(
-                  icon: Icons.place_outlined,
-                  label: occurrence.locationText!,
-                ),
-              if (occurrence.notes != null)
-                _DetailRow(icon: Icons.notes, label: occurrence.notes!),
-              if (occurrence.linkedTaskIds.isNotEmpty)
-                _DetailRow(
-                  icon: Icons.link,
-                  label:
-                      '${occurrence.linkedTaskIds.length} linked Task(s); '
-                      'statuses remain independent',
-                ),
-              if (occurrence.replacementEventId != null)
-                _DetailRow(
-                  icon: Icons.redo,
-                  label: 'Replacement Event: ${occurrence.replacementEventId}',
-                ),
-              const SizedBox(height: 22),
-              FilledButton.tonalIcon(
-                key: const Key('manage-event-task-links'),
-                onPressed: () => _manageLinks(occurrence),
-                icon: const Icon(Icons.link),
-                label: const Text('Link or manage Tasks'),
+            if (occurrence.timeZoneId != null)
+              _DetailRow(
+                icon: Icons.public,
+                label: occurrence.timeZoneId == occurrence.displayTimeZoneId
+                    ? 'Original time zone: ${occurrence.timeZoneId}'
+                    : 'Original: ${occurrence.timeZoneId} · Shown in '
+                          '${occurrence.displayTimeZoneId}',
+              ),
+            if (occurrence.locationText != null)
+              _DetailRow(
+                icon: Icons.place_outlined,
+                label: occurrence.locationText!,
+              ),
+            if (occurrence.notes != null)
+              _DetailRow(icon: Icons.notes, label: occurrence.notes!),
+            if (occurrence.linkedTaskIds.isNotEmpty)
+              _DetailRow(
+                icon: Icons.link,
+                label:
+                    '${occurrence.linkedTaskIds.length} linked Task(s); '
+                    'statuses remain independent',
+              ),
+            if (occurrence.replacementEventId != null)
+              _DetailRow(
+                icon: Icons.redo,
+                label: 'Replacement Event: ${occurrence.replacementEventId}',
+              ),
+            const SizedBox(height: 22),
+            FilledButton.tonalIcon(
+              key: const Key('manage-event-task-links'),
+              onPressed: () => _manageLinks(occurrence),
+              icon: const Icon(Icons.link),
+              label: const Text('Link or manage Tasks'),
+            ),
+            const SizedBox(height: 8),
+            if (occurrence.status == CalendarEventStatus.scheduled) ...<Widget>[
+              FilledButton.icon(
+                key: const Key('edit-event-button'),
+                onPressed: () =>
+                    _openForm(occurrence: occurrence, reschedule: false),
+                icon: const Icon(Icons.edit_outlined),
+                label: const Text('Edit'),
               ),
               const SizedBox(height: 8),
-              if (occurrence.status ==
-                  CalendarEventStatus.scheduled) ...<Widget>[
-                FilledButton.icon(
-                  key: const Key('edit-event-button'),
-                  onPressed: () =>
-                      _openForm(occurrence: occurrence, reschedule: false),
-                  icon: const Icon(Icons.edit_outlined),
-                  label: const Text('Edit'),
-                ),
-                const SizedBox(height: 8),
-                OutlinedButton.icon(
-                  key: const Key('reschedule-event-button'),
-                  onPressed: () =>
-                      _openForm(occurrence: occurrence, reschedule: true),
-                  icon: const Icon(Icons.event_repeat_outlined),
-                  label: const Text('Reschedule'),
-                ),
-                const SizedBox(height: 8),
-                OutlinedButton.icon(
-                  key: const Key('cancel-event-button'),
-                  onPressed: () => _cancel(occurrence),
-                  icon: const Icon(Icons.event_busy_outlined),
-                  label: const Text('Cancel'),
-                ),
-              ],
-              if (occurrence.requiresReport &&
-                  occurrence.status ==
-                      CalendarEventStatus.scheduled) ...<Widget>[
-                const SizedBox(height: 8),
-                OutlinedButton.icon(
-                  key: const Key('open-event-report-button'),
-                  onPressed: () => _openReport(occurrence),
-                  icon: const Icon(Icons.assignment_outlined),
-                  label: const Text('Open Report'),
-                ),
-              ],
+              OutlinedButton.icon(
+                key: const Key('reschedule-event-button'),
+                onPressed: () =>
+                    _openForm(occurrence: occurrence, reschedule: true),
+                icon: const Icon(Icons.event_repeat_outlined),
+                label: const Text('Reschedule'),
+              ),
               const SizedBox(height: 8),
-              TextButton.icon(
-                key: const Key('event-activity-history-button'),
-                onPressed: () => context.push(RoutePaths.activityHistory),
-                icon: const Icon(Icons.history),
-                label: const Text('View Activity History'),
+              OutlinedButton.icon(
+                key: const Key('cancel-event-button'),
+                onPressed: () => _cancel(occurrence),
+                icon: const Icon(Icons.event_busy_outlined),
+                label: const Text('Cancel'),
               ),
             ],
-          );
-        },
+            if (occurrence.requiresReport &&
+                occurrence.status == CalendarEventStatus.scheduled) ...<Widget>[
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                key: const Key('open-event-report-button'),
+                onPressed: () => _openReport(occurrence),
+                icon: const Icon(Icons.assignment_outlined),
+                label: Text(awaitingReport ? 'Report Activity' : 'Open Report'),
+              ),
+            ],
+            const SizedBox(height: 8),
+            TextButton.icon(
+              key: const Key('event-activity-history-button'),
+              onPressed: () => context.push(RoutePaths.activityHistory),
+              icon: const Icon(Icons.history),
+              label: const Text('View Activity History'),
+            ),
+          ],
+        );
+      },
+    );
+    if (!widget.sheetPresentation) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Calendar Event')),
+        body: content,
+      );
+    }
+    return Material(
+      key: const Key('calendar-event-existing-detail-sheet'),
+      color: Theme.of(context).scaffoldBackgroundColor,
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: <Widget>[
+          const SizedBox(height: 8),
+          Container(
+            width: 42,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.white30,
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8, 4, 8, 2),
+            child: Row(
+              children: <Widget>[
+                IconButton(
+                  tooltip: 'Close Calendar Event details',
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.close),
+                ),
+                Expanded(
+                  child: Text(
+                    'Calendar Event',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 48),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          Expanded(child: content),
+        ],
       ),
     );
   }
@@ -369,6 +431,28 @@ final class _CalendarEventDetailScreenState
     return '$hour:${value.minute.toString().padLeft(2, '0')} '
         '${value.hour >= 12 ? 'PM' : 'AM'}';
   }
+}
+
+Future<T?> showCalendarEventDetailSheet<T>({
+  required BuildContext context,
+  required String eventId,
+  required PlannerDate originalDate,
+}) {
+  return showModalBottomSheet<T>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    backgroundColor: Colors.transparent,
+    barrierColor: Colors.black.withValues(alpha: 0.62),
+    builder: (sheetContext) => FractionallySizedBox(
+      heightFactor: 0.92,
+      child: CalendarEventDetailScreen(
+        eventId: eventId,
+        originalDate: originalDate,
+        sheetPresentation: true,
+      ),
+    ),
+  );
 }
 
 final class _DetailRow extends StatelessWidget {

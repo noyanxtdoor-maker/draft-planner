@@ -277,6 +277,49 @@ void main() {
       expect(await database.select(database.calendarEvents).get(), isEmpty);
     },
   );
+
+  test(
+    'VS08-OWNER: backup identity and provenance survive an ordinary edit',
+    () async {
+      final repository = buildRepository();
+      await repository.saveEvent(
+        profileId: profileId,
+        draft: const CalendarEventDraft(
+          id: _eventId,
+          title: 'Backup visit',
+          timing: CalendarEventTiming.allDay,
+          startDate: _start,
+          requiresReport: false,
+          isBackupAppointment: true,
+          backupForEventId: _replacementId,
+          backupRelationshipProvenance: 'user-classified',
+        ),
+      );
+      final existing = await repository.readEventDraft(
+        profileId: profileId,
+        eventId: _eventId,
+      );
+      await repository.editEvent(
+        profileId: profileId,
+        eventId: _eventId,
+        originalDate: _start,
+        scope: CalendarEventEditScope.series,
+        draft: existing!.copyWith(title: 'Edited backup visit'),
+        operationId: _operationId,
+      );
+
+      final row = (await database.select(database.calendarEvents).get()).single;
+      expect(row.isBackupAppointment, isTrue);
+      expect(row.backupForEventId, _replacementId);
+      expect(row.backupRelationshipProvenance, 'user-classified');
+
+      final normalized = existing
+          .copyWith(isBackupAppointment: false)
+          .normalized();
+      expect(normalized.backupForEventId, isNull);
+      expect(normalized.backupRelationshipProvenance, isNull);
+    },
+  );
 }
 
 CalendarEventDraft _allDayDraft({String title = 'Month-end visit'}) {

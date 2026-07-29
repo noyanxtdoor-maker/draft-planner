@@ -107,7 +107,9 @@ Future<void> main() async {
         !text.contains('refreshToken') &&
         !text.contains('biometricData') &&
         !text.contains('appPin') &&
-        text.contains('int get schemaVersion => _schemaVersionOverride ?? 9') &&
+        text.contains(
+          'int get schemaVersion => _schemaVersionOverride ?? 10',
+        ) &&
         text.contains('PlannerTasks') &&
         text.contains('TaskStatusChanges') &&
         text.contains('CalendarEvents') &&
@@ -127,6 +129,9 @@ Future<void> main() async {
         text.contains('ActivityTypes') &&
         text.contains('ActivityTypeIndicatorMappings') &&
         text.contains('PlannerPreferences') &&
+        text.contains('BoolColumn get isBackupAppointment') &&
+        text.contains('TextColumn get preferredPresentation') &&
+        text.contains('IntColumn get timelineHourHeight') &&
         text.contains('TextColumn get timeZoneId'),
     'The VS-08 Drift schema boundary or sensitive-field exclusion changed',
     failures,

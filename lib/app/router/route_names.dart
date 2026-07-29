@@ -8,6 +8,8 @@ abstract final class RouteNames {
   static const String protectedContent = 'protected-content';
   static const String home = 'home';
   static const String planner = 'planner';
+  static const String more = 'more';
+  static const String settings = 'settings';
   static const String taskCreate = 'task-create';
   static const String taskDetail = 'task-detail';
   static const String taskEdit = 'task-edit';
@@ -44,6 +46,8 @@ abstract final class RoutePaths {
   static const String protectedContent = '/protected';
   static const String home = '/home';
   static const String planner = '/planner';
+  static const String more = '/more';
+  static const String settings = '/more/settings';
   static const String tasks = '/tasks';
   static const String taskCreate = '/tasks/new';
   static const String calendarEvents = '/events';

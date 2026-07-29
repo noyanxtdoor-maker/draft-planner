@@ -519,6 +519,8 @@ final class DriftIndicatorRepository implements IndicatorRepository {
         if (occurrence.status != CalendarEventStatus.scheduled ||
             occurrence.displayDate.compareTo(today) < 0 ||
             !period.contains(occurrence.displayDate) ||
+            (occurrence.isBackupAppointment &&
+                occurrence.backupForEventId != null) ||
             occurrence.isAwaitingReport(
               nowUtc: clock.nowUtc(),
               displayToday: today,

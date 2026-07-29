@@ -4,6 +4,7 @@ import 'package:rmplanner/core/database/app_database.dart';
 import 'package:rmplanner/features/planner/data/drift_event_type_repository.dart';
 import 'package:rmplanner/features/planner/domain/event_type.dart';
 import 'package:rmplanner/features/planner/domain/planner_settings.dart';
+import 'package:rmplanner/features/planner/domain/planner_view.dart';
 
 import '../../../support/test_dependencies.dart';
 
@@ -181,6 +182,9 @@ void main() {
         showCompletedItems: false,
         showCancelledItems: true,
         weekStartDay: DateTime.monday,
+        preferredPresentation: PlannerPresentation.day,
+        contentFilters: PlannerContentFilters.defaults(),
+        timelineHourHeight: PlannerZoomPolicy.normalHourHeight,
       );
 
       await repository.savePlannerSettings(

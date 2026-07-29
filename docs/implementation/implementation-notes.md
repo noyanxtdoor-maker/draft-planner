@@ -755,3 +755,66 @@ repairs did not modify project source or global Git configuration.
 - Android matrix run `30433029259` passed all 18 API 24/API 36 jobs on
   `dea0aa2`, including the corrected picker-first Calendar Event smoke journey
   and process-restart persistence.
+
+## 2026-07-29 — Final VS-08 Planner owner refinement
+
+- The product owner authorized the narrow refinement recorded in
+  `docs/decisions/vs08-planner-owner-refinement.md`; VS-09 remains outside the
+  active boundary.
+- Every supplied `Reference 01` recording was inspected across its full
+  duration. The evidence, authority order, mechanism inventory, risks, and
+  explicit owning-slice deferrals are recorded in
+  `docs/audits/vs08-planner-detail-plus-zoom-reference-review.md`.
+- Event creation remains Event-Type-first, then opens a native 94%-height
+  detail sheet and persists only on Save. Existing Event taps open the native
+  detail sheet; long press remains reserved for move, and the resize handle
+  updates the end time live.
+- Planner now uses top-bar date/calendar, Filter, Select/Delete, and overflow
+  Search/Schedule/Day/Week/Tasks controls. The old Task, Overdue, Awaiting
+  Report, and Changes footer sections are removed.
+- Report Required no longer filters Events. Ended required/unreported Events
+  remain visible in their normal position with an `Awaiting Report` overlay;
+  no elapsed-time, scheduling, move, or resize path creates Actual.
+- Schema version 10 adds local preferred-view/filter/zoom settings and Backup
+  Appointment identity, optional primary link, and provenance to Event series
+  and exceptions. Defaults are Events on, Backup Events on, Tasks on,
+  Completed Tasks off.
+- Linked backups are excluded from duplicate Scheduled Potential. Event form
+  edits preserve backup link/provenance, and changing to non-backup clears the
+  relationship rather than retaining hidden stale metadata.
+- More now owns Settings, with explicit Planner and Calendar and Privacy and
+  Data entries. Contact/Person creation remains a truthful deferred action
+  because implementing those domains would begin a later owning slice.
+- No package, Android permission, remote client, map provider, notification
+  scheduler, Contact/Pathways persistence, or VS-09 implementation was added.
+- Final local verification passed authority checks, formatting, strict static
+  analysis, byte-clean Drift generation, and all 112 Flutter tests.
+- The final-refinement production-defined debug APK is 191,421,139 bytes with
+  SHA-256
+  `B6FA19C5DA809942241B16803C2F075EE3098D9C23D7A72BC47E197FA806FA84`.
+  It installed with `adb install -r` on the existing Infinix X6731 app without
+  clearing data.
+- Current debug-device evidence under `build/manual-qa/vs-08-owner/` proves the
+  top-bar layout, ended required/unreported Events remaining in their normal
+  timeline positions with `Awaiting Report`, removal of the old permanent
+  footer, empty-time tap opening `Select Event Type`, and selection opening the
+  native 94%-height Event sheet without saving.
+- Physical QA exposed one narrow ordering defect: Planner listed Contact before
+  `+ Person` in the global create sheet. Planner now uses the approved
+  Event, Task, `+ Person`, Contact order, and a widget position assertion plus
+  corrected-device hierarchy prevent regression.
+- Further non-saving device evidence proves suggested Scripture Study is first
+  and marked Recommended, the exact Events/Backup Events/Tasks/Completed Tasks
+  defaults, existing-Event tap opening the detail sheet, selection mode entering
+  at zero selected, and More -> Settings exposing Planner and Calendar plus
+  Privacy and Data.
+- The final QA release is 66,196,623 bytes with SHA-256
+  `71F7077AEDEB3F06EDB6D3C04EEECA88E1142FDC815C82D473A23F6982083374`.
+  `apksigner verify --verbose --print-certs` confirms one APK Signature Scheme
+  v2 signer. It uses only the temporary non-production QA certificate supplied
+  through process-local environment variables; no signing secret or key entered
+  the repository.
+- The final QA release installed with `adb install -r`, preserved the same local
+  profile and records, launched normally, and independently opened
+  `Select Event Type` from one empty-time tap. The picker was cancelled, so no
+  test Event or draft was saved.
