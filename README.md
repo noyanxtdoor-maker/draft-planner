@@ -26,7 +26,8 @@ VS-01 provides:
 VS-02 adds:
 
 - OS biometric/device-credential Privacy Lock with immediate background relock;
-- Android recent-app/screenshot obscuring where `FLAG_SECURE` is honored;
+- Android screenshots, screen recordings, and normal recent-app previews are
+  allowed under `OWNER-AMENDMENT-001`;
 - just-in-time permission foundations with no optional runtime permission
   declared or requested;
 - Privacy and Data, Permissions, diagnostic-preview, and deletion-impact views;
@@ -118,8 +119,17 @@ VS-08 adds:
 - explicit incomplete-Task carryover decisions while Events never carry
   automatically;
 - prior-week history and read-only reopening;
-- schema version 8 with profile timezone, plans, commitments, review snapshots,
-  and carryover decisions.
+- a corrected native Planner time grid with duration-based and collision-aware
+  event placement, current-time/initial scrolling, long-press creation,
+  deliberate move/resize gestures, configured snapping, and Event Type colors;
+- ten stable built-in Event Types, six exact Life Indicator mappings, explicit
+  custom zero/one/many mappings, append-only mapping revisions, archive/restore,
+  and locally persisted Planner settings;
+- indicator-detail Schedule Activity routes that preselect the exact matching
+  system Event Type while scheduling still creates no Actual;
+- schema version 9 with profile timezone, plans, commitments, review snapshots,
+  carryover decisions, Activity Types/Event Types, versioned mappings, Planner
+  preferences, and Event Type snapshots on Calendar Events.
 
 Remote account/sync code, provider Calendar integration, notifications, maps,
 VS-09 Pathways, and later planning features remain outside the authorized
@@ -196,6 +206,12 @@ VS-07 evidence is recorded in
 
 VS-08 evidence is recorded in
 [`docs/implementation/vs-08-traceability.md`](docs/implementation/vs-08-traceability.md).
+The correction source audit, owner amendment, and Android capture QA checklist
+are recorded in
+[`docs/audits/vs08-planner-event-types-reference-audit.md`](docs/audits/vs08-planner-event-types-reference-audit.md),
+[`docs/decisions/OWNER-AMENDMENT-001-screen-capture-and-vs08-scope.md`](docs/decisions/OWNER-AMENDMENT-001-screen-capture-and-vs08-scope.md),
+and
+[`docs/implementation/vs-08-correction-manual-qa.md`](docs/implementation/vs-08-correction-manual-qa.md).
 
 Do not begin VS-09 without explicit product-owner authorization after the VS-08
 quality-gate report.

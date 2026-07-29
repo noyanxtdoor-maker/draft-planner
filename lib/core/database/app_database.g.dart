@@ -3387,6 +3387,28 @@ class $CalendarEventsTable extends CalendarEvents
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _activityTypeIdMeta = const VerificationMeta(
+    'activityTypeId',
+  );
+  @override
+  late final GeneratedColumn<String> activityTypeId = GeneratedColumn<String>(
+    'activity_type_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _activityTypeMappingVersionMeta =
+      const VerificationMeta('activityTypeMappingVersion');
+  @override
+  late final GeneratedColumn<int> activityTypeMappingVersion =
+      GeneratedColumn<int>(
+        'activity_type_mapping_version',
+        aliasedName,
+        true,
+        type: DriftSqlType.int,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _contributionRuleKeyMeta =
       const VerificationMeta('contributionRuleKey');
   @override
@@ -3513,6 +3535,8 @@ class $CalendarEventsTable extends CalendarEvents
     timeZoneId,
     locationText,
     requiresReport,
+    activityTypeId,
+    activityTypeMappingVersion,
     contributionRuleKey,
     recurrenceFrequency,
     recurrenceEndMode,
@@ -3618,6 +3642,24 @@ class $CalendarEventsTable extends CalendarEvents
         requiresReport.isAcceptableOrUnknown(
           data['requires_report']!,
           _requiresReportMeta,
+        ),
+      );
+    }
+    if (data.containsKey('activity_type_id')) {
+      context.handle(
+        _activityTypeIdMeta,
+        activityTypeId.isAcceptableOrUnknown(
+          data['activity_type_id']!,
+          _activityTypeIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('activity_type_mapping_version')) {
+      context.handle(
+        _activityTypeMappingVersionMeta,
+        activityTypeMappingVersion.isAcceptableOrUnknown(
+          data['activity_type_mapping_version']!,
+          _activityTypeMappingVersionMeta,
         ),
       );
     }
@@ -3765,6 +3807,14 @@ class $CalendarEventsTable extends CalendarEvents
         DriftSqlType.bool,
         data['${effectivePrefix}requires_report'],
       )!,
+      activityTypeId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}activity_type_id'],
+      ),
+      activityTypeMappingVersion: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}activity_type_mapping_version'],
+      ),
       contributionRuleKey: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}contribution_rule_key'],
@@ -3827,6 +3877,8 @@ class CalendarEventRow extends DataClass
   final String? timeZoneId;
   final String? locationText;
   final bool requiresReport;
+  final String? activityTypeId;
+  final int? activityTypeMappingVersion;
   final String? contributionRuleKey;
   final String recurrenceFrequency;
   final String recurrenceEndMode;
@@ -3849,6 +3901,8 @@ class CalendarEventRow extends DataClass
     this.timeZoneId,
     this.locationText,
     required this.requiresReport,
+    this.activityTypeId,
+    this.activityTypeMappingVersion,
     this.contributionRuleKey,
     required this.recurrenceFrequency,
     required this.recurrenceEndMode,
@@ -3884,6 +3938,14 @@ class CalendarEventRow extends DataClass
       map['location_text'] = Variable<String>(locationText);
     }
     map['requires_report'] = Variable<bool>(requiresReport);
+    if (!nullToAbsent || activityTypeId != null) {
+      map['activity_type_id'] = Variable<String>(activityTypeId);
+    }
+    if (!nullToAbsent || activityTypeMappingVersion != null) {
+      map['activity_type_mapping_version'] = Variable<int>(
+        activityTypeMappingVersion,
+      );
+    }
     if (!nullToAbsent || contributionRuleKey != null) {
       map['contribution_rule_key'] = Variable<String>(contributionRuleKey);
     }
@@ -3930,6 +3992,13 @@ class CalendarEventRow extends DataClass
           ? const Value.absent()
           : Value(locationText),
       requiresReport: Value(requiresReport),
+      activityTypeId: activityTypeId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(activityTypeId),
+      activityTypeMappingVersion:
+          activityTypeMappingVersion == null && nullToAbsent
+          ? const Value.absent()
+          : Value(activityTypeMappingVersion),
       contributionRuleKey: contributionRuleKey == null && nullToAbsent
           ? const Value.absent()
           : Value(contributionRuleKey),
@@ -3970,6 +4039,10 @@ class CalendarEventRow extends DataClass
       timeZoneId: serializer.fromJson<String?>(json['timeZoneId']),
       locationText: serializer.fromJson<String?>(json['locationText']),
       requiresReport: serializer.fromJson<bool>(json['requiresReport']),
+      activityTypeId: serializer.fromJson<String?>(json['activityTypeId']),
+      activityTypeMappingVersion: serializer.fromJson<int?>(
+        json['activityTypeMappingVersion'],
+      ),
       contributionRuleKey: serializer.fromJson<String?>(
         json['contributionRuleKey'],
       ),
@@ -4005,6 +4078,10 @@ class CalendarEventRow extends DataClass
       'timeZoneId': serializer.toJson<String?>(timeZoneId),
       'locationText': serializer.toJson<String?>(locationText),
       'requiresReport': serializer.toJson<bool>(requiresReport),
+      'activityTypeId': serializer.toJson<String?>(activityTypeId),
+      'activityTypeMappingVersion': serializer.toJson<int?>(
+        activityTypeMappingVersion,
+      ),
       'contributionRuleKey': serializer.toJson<String?>(contributionRuleKey),
       'recurrenceFrequency': serializer.toJson<String>(recurrenceFrequency),
       'recurrenceEndMode': serializer.toJson<String>(recurrenceEndMode),
@@ -4030,6 +4107,8 @@ class CalendarEventRow extends DataClass
     Value<String?> timeZoneId = const Value.absent(),
     Value<String?> locationText = const Value.absent(),
     bool? requiresReport,
+    Value<String?> activityTypeId = const Value.absent(),
+    Value<int?> activityTypeMappingVersion = const Value.absent(),
     Value<String?> contributionRuleKey = const Value.absent(),
     String? recurrenceFrequency,
     String? recurrenceEndMode,
@@ -4052,6 +4131,12 @@ class CalendarEventRow extends DataClass
     timeZoneId: timeZoneId.present ? timeZoneId.value : this.timeZoneId,
     locationText: locationText.present ? locationText.value : this.locationText,
     requiresReport: requiresReport ?? this.requiresReport,
+    activityTypeId: activityTypeId.present
+        ? activityTypeId.value
+        : this.activityTypeId,
+    activityTypeMappingVersion: activityTypeMappingVersion.present
+        ? activityTypeMappingVersion.value
+        : this.activityTypeMappingVersion,
     contributionRuleKey: contributionRuleKey.present
         ? contributionRuleKey.value
         : this.contributionRuleKey,
@@ -4094,6 +4179,12 @@ class CalendarEventRow extends DataClass
       requiresReport: data.requiresReport.present
           ? data.requiresReport.value
           : this.requiresReport,
+      activityTypeId: data.activityTypeId.present
+          ? data.activityTypeId.value
+          : this.activityTypeId,
+      activityTypeMappingVersion: data.activityTypeMappingVersion.present
+          ? data.activityTypeMappingVersion.value
+          : this.activityTypeMappingVersion,
       contributionRuleKey: data.contributionRuleKey.present
           ? data.contributionRuleKey.value
           : this.contributionRuleKey,
@@ -4139,6 +4230,8 @@ class CalendarEventRow extends DataClass
           ..write('timeZoneId: $timeZoneId, ')
           ..write('locationText: $locationText, ')
           ..write('requiresReport: $requiresReport, ')
+          ..write('activityTypeId: $activityTypeId, ')
+          ..write('activityTypeMappingVersion: $activityTypeMappingVersion, ')
           ..write('contributionRuleKey: $contributionRuleKey, ')
           ..write('recurrenceFrequency: $recurrenceFrequency, ')
           ..write('recurrenceEndMode: $recurrenceEndMode, ')
@@ -4166,6 +4259,8 @@ class CalendarEventRow extends DataClass
     timeZoneId,
     locationText,
     requiresReport,
+    activityTypeId,
+    activityTypeMappingVersion,
     contributionRuleKey,
     recurrenceFrequency,
     recurrenceEndMode,
@@ -4192,6 +4287,8 @@ class CalendarEventRow extends DataClass
           other.timeZoneId == this.timeZoneId &&
           other.locationText == this.locationText &&
           other.requiresReport == this.requiresReport &&
+          other.activityTypeId == this.activityTypeId &&
+          other.activityTypeMappingVersion == this.activityTypeMappingVersion &&
           other.contributionRuleKey == this.contributionRuleKey &&
           other.recurrenceFrequency == this.recurrenceFrequency &&
           other.recurrenceEndMode == this.recurrenceEndMode &&
@@ -4216,6 +4313,8 @@ class CalendarEventsCompanion extends UpdateCompanion<CalendarEventRow> {
   final Value<String?> timeZoneId;
   final Value<String?> locationText;
   final Value<bool> requiresReport;
+  final Value<String?> activityTypeId;
+  final Value<int?> activityTypeMappingVersion;
   final Value<String?> contributionRuleKey;
   final Value<String> recurrenceFrequency;
   final Value<String> recurrenceEndMode;
@@ -4239,6 +4338,8 @@ class CalendarEventsCompanion extends UpdateCompanion<CalendarEventRow> {
     this.timeZoneId = const Value.absent(),
     this.locationText = const Value.absent(),
     this.requiresReport = const Value.absent(),
+    this.activityTypeId = const Value.absent(),
+    this.activityTypeMappingVersion = const Value.absent(),
     this.contributionRuleKey = const Value.absent(),
     this.recurrenceFrequency = const Value.absent(),
     this.recurrenceEndMode = const Value.absent(),
@@ -4263,6 +4364,8 @@ class CalendarEventsCompanion extends UpdateCompanion<CalendarEventRow> {
     this.timeZoneId = const Value.absent(),
     this.locationText = const Value.absent(),
     this.requiresReport = const Value.absent(),
+    this.activityTypeId = const Value.absent(),
+    this.activityTypeMappingVersion = const Value.absent(),
     this.contributionRuleKey = const Value.absent(),
     this.recurrenceFrequency = const Value.absent(),
     this.recurrenceEndMode = const Value.absent(),
@@ -4293,6 +4396,8 @@ class CalendarEventsCompanion extends UpdateCompanion<CalendarEventRow> {
     Expression<String>? timeZoneId,
     Expression<String>? locationText,
     Expression<bool>? requiresReport,
+    Expression<String>? activityTypeId,
+    Expression<int>? activityTypeMappingVersion,
     Expression<String>? contributionRuleKey,
     Expression<String>? recurrenceFrequency,
     Expression<String>? recurrenceEndMode,
@@ -4317,6 +4422,9 @@ class CalendarEventsCompanion extends UpdateCompanion<CalendarEventRow> {
       if (timeZoneId != null) 'time_zone_id': timeZoneId,
       if (locationText != null) 'location_text': locationText,
       if (requiresReport != null) 'requires_report': requiresReport,
+      if (activityTypeId != null) 'activity_type_id': activityTypeId,
+      if (activityTypeMappingVersion != null)
+        'activity_type_mapping_version': activityTypeMappingVersion,
       if (contributionRuleKey != null)
         'contribution_rule_key': contributionRuleKey,
       if (recurrenceFrequency != null)
@@ -4346,6 +4454,8 @@ class CalendarEventsCompanion extends UpdateCompanion<CalendarEventRow> {
     Value<String?>? timeZoneId,
     Value<String?>? locationText,
     Value<bool>? requiresReport,
+    Value<String?>? activityTypeId,
+    Value<int?>? activityTypeMappingVersion,
     Value<String?>? contributionRuleKey,
     Value<String>? recurrenceFrequency,
     Value<String>? recurrenceEndMode,
@@ -4370,6 +4480,9 @@ class CalendarEventsCompanion extends UpdateCompanion<CalendarEventRow> {
       timeZoneId: timeZoneId ?? this.timeZoneId,
       locationText: locationText ?? this.locationText,
       requiresReport: requiresReport ?? this.requiresReport,
+      activityTypeId: activityTypeId ?? this.activityTypeId,
+      activityTypeMappingVersion:
+          activityTypeMappingVersion ?? this.activityTypeMappingVersion,
       contributionRuleKey: contributionRuleKey ?? this.contributionRuleKey,
       recurrenceFrequency: recurrenceFrequency ?? this.recurrenceFrequency,
       recurrenceEndMode: recurrenceEndMode ?? this.recurrenceEndMode,
@@ -4419,6 +4532,14 @@ class CalendarEventsCompanion extends UpdateCompanion<CalendarEventRow> {
     }
     if (requiresReport.present) {
       map['requires_report'] = Variable<bool>(requiresReport.value);
+    }
+    if (activityTypeId.present) {
+      map['activity_type_id'] = Variable<String>(activityTypeId.value);
+    }
+    if (activityTypeMappingVersion.present) {
+      map['activity_type_mapping_version'] = Variable<int>(
+        activityTypeMappingVersion.value,
+      );
     }
     if (contributionRuleKey.present) {
       map['contribution_rule_key'] = Variable<String>(
@@ -4472,6 +4593,8 @@ class CalendarEventsCompanion extends UpdateCompanion<CalendarEventRow> {
           ..write('timeZoneId: $timeZoneId, ')
           ..write('locationText: $locationText, ')
           ..write('requiresReport: $requiresReport, ')
+          ..write('activityTypeId: $activityTypeId, ')
+          ..write('activityTypeMappingVersion: $activityTypeMappingVersion, ')
           ..write('contributionRuleKey: $contributionRuleKey, ')
           ..write('recurrenceFrequency: $recurrenceFrequency, ')
           ..write('recurrenceEndMode: $recurrenceEndMode, ')
@@ -4650,6 +4773,28 @@ class $CalendarEventExceptionsTable extends CalendarEventExceptions
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _activityTypeIdMeta = const VerificationMeta(
+    'activityTypeId',
+  );
+  @override
+  late final GeneratedColumn<String> activityTypeId = GeneratedColumn<String>(
+    'activity_type_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _activityTypeMappingVersionMeta =
+      const VerificationMeta('activityTypeMappingVersion');
+  @override
+  late final GeneratedColumn<int> activityTypeMappingVersion =
+      GeneratedColumn<int>(
+        'activity_type_mapping_version',
+        aliasedName,
+        true,
+        type: DriftSqlType.int,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _contributionRuleKeyMeta =
       const VerificationMeta('contributionRuleKey');
   @override
@@ -4708,6 +4853,8 @@ class $CalendarEventExceptionsTable extends CalendarEventExceptions
     timeZoneId,
     locationText,
     requiresReport,
+    activityTypeId,
+    activityTypeMappingVersion,
     contributionRuleKey,
     status,
     replacementEventId,
@@ -4843,6 +4990,24 @@ class $CalendarEventExceptionsTable extends CalendarEventExceptions
         ),
       );
     }
+    if (data.containsKey('activity_type_id')) {
+      context.handle(
+        _activityTypeIdMeta,
+        activityTypeId.isAcceptableOrUnknown(
+          data['activity_type_id']!,
+          _activityTypeIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('activity_type_mapping_version')) {
+      context.handle(
+        _activityTypeMappingVersionMeta,
+        activityTypeMappingVersion.isAcceptableOrUnknown(
+          data['activity_type_mapping_version']!,
+          _activityTypeMappingVersionMeta,
+        ),
+      );
+    }
     if (data.containsKey('contribution_rule_key')) {
       context.handle(
         _contributionRuleKeyMeta,
@@ -4948,6 +5113,14 @@ class $CalendarEventExceptionsTable extends CalendarEventExceptions
         DriftSqlType.bool,
         data['${effectivePrefix}requires_report'],
       )!,
+      activityTypeId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}activity_type_id'],
+      ),
+      activityTypeMappingVersion: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}activity_type_mapping_version'],
+      ),
       contributionRuleKey: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}contribution_rule_key'],
@@ -4989,6 +5162,8 @@ class CalendarEventExceptionRow extends DataClass
   final String? timeZoneId;
   final String? locationText;
   final bool requiresReport;
+  final String? activityTypeId;
+  final int? activityTypeMappingVersion;
   final String? contributionRuleKey;
   final String status;
   final String? replacementEventId;
@@ -5008,6 +5183,8 @@ class CalendarEventExceptionRow extends DataClass
     this.timeZoneId,
     this.locationText,
     required this.requiresReport,
+    this.activityTypeId,
+    this.activityTypeMappingVersion,
     this.contributionRuleKey,
     required this.status,
     this.replacementEventId,
@@ -5040,6 +5217,14 @@ class CalendarEventExceptionRow extends DataClass
       map['location_text'] = Variable<String>(locationText);
     }
     map['requires_report'] = Variable<bool>(requiresReport);
+    if (!nullToAbsent || activityTypeId != null) {
+      map['activity_type_id'] = Variable<String>(activityTypeId);
+    }
+    if (!nullToAbsent || activityTypeMappingVersion != null) {
+      map['activity_type_mapping_version'] = Variable<int>(
+        activityTypeMappingVersion,
+      );
+    }
     if (!nullToAbsent || contributionRuleKey != null) {
       map['contribution_rule_key'] = Variable<String>(contributionRuleKey);
     }
@@ -5077,6 +5262,13 @@ class CalendarEventExceptionRow extends DataClass
           ? const Value.absent()
           : Value(locationText),
       requiresReport: Value(requiresReport),
+      activityTypeId: activityTypeId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(activityTypeId),
+      activityTypeMappingVersion:
+          activityTypeMappingVersion == null && nullToAbsent
+          ? const Value.absent()
+          : Value(activityTypeMappingVersion),
       contributionRuleKey: contributionRuleKey == null && nullToAbsent
           ? const Value.absent()
           : Value(contributionRuleKey),
@@ -5108,6 +5300,10 @@ class CalendarEventExceptionRow extends DataClass
       timeZoneId: serializer.fromJson<String?>(json['timeZoneId']),
       locationText: serializer.fromJson<String?>(json['locationText']),
       requiresReport: serializer.fromJson<bool>(json['requiresReport']),
+      activityTypeId: serializer.fromJson<String?>(json['activityTypeId']),
+      activityTypeMappingVersion: serializer.fromJson<int?>(
+        json['activityTypeMappingVersion'],
+      ),
       contributionRuleKey: serializer.fromJson<String?>(
         json['contributionRuleKey'],
       ),
@@ -5136,6 +5332,10 @@ class CalendarEventExceptionRow extends DataClass
       'timeZoneId': serializer.toJson<String?>(timeZoneId),
       'locationText': serializer.toJson<String?>(locationText),
       'requiresReport': serializer.toJson<bool>(requiresReport),
+      'activityTypeId': serializer.toJson<String?>(activityTypeId),
+      'activityTypeMappingVersion': serializer.toJson<int?>(
+        activityTypeMappingVersion,
+      ),
       'contributionRuleKey': serializer.toJson<String?>(contributionRuleKey),
       'status': serializer.toJson<String>(status),
       'replacementEventId': serializer.toJson<String?>(replacementEventId),
@@ -5158,6 +5358,8 @@ class CalendarEventExceptionRow extends DataClass
     Value<String?> timeZoneId = const Value.absent(),
     Value<String?> locationText = const Value.absent(),
     bool? requiresReport,
+    Value<String?> activityTypeId = const Value.absent(),
+    Value<int?> activityTypeMappingVersion = const Value.absent(),
     Value<String?> contributionRuleKey = const Value.absent(),
     String? status,
     Value<String?> replacementEventId = const Value.absent(),
@@ -5177,6 +5379,12 @@ class CalendarEventExceptionRow extends DataClass
     timeZoneId: timeZoneId.present ? timeZoneId.value : this.timeZoneId,
     locationText: locationText.present ? locationText.value : this.locationText,
     requiresReport: requiresReport ?? this.requiresReport,
+    activityTypeId: activityTypeId.present
+        ? activityTypeId.value
+        : this.activityTypeId,
+    activityTypeMappingVersion: activityTypeMappingVersion.present
+        ? activityTypeMappingVersion.value
+        : this.activityTypeMappingVersion,
     contributionRuleKey: contributionRuleKey.present
         ? contributionRuleKey.value
         : this.contributionRuleKey,
@@ -5218,6 +5426,12 @@ class CalendarEventExceptionRow extends DataClass
       requiresReport: data.requiresReport.present
           ? data.requiresReport.value
           : this.requiresReport,
+      activityTypeId: data.activityTypeId.present
+          ? data.activityTypeId.value
+          : this.activityTypeId,
+      activityTypeMappingVersion: data.activityTypeMappingVersion.present
+          ? data.activityTypeMappingVersion.value
+          : this.activityTypeMappingVersion,
       contributionRuleKey: data.contributionRuleKey.present
           ? data.contributionRuleKey.value
           : this.contributionRuleKey,
@@ -5248,6 +5462,8 @@ class CalendarEventExceptionRow extends DataClass
           ..write('timeZoneId: $timeZoneId, ')
           ..write('locationText: $locationText, ')
           ..write('requiresReport: $requiresReport, ')
+          ..write('activityTypeId: $activityTypeId, ')
+          ..write('activityTypeMappingVersion: $activityTypeMappingVersion, ')
           ..write('contributionRuleKey: $contributionRuleKey, ')
           ..write('status: $status, ')
           ..write('replacementEventId: $replacementEventId, ')
@@ -5272,6 +5488,8 @@ class CalendarEventExceptionRow extends DataClass
     timeZoneId,
     locationText,
     requiresReport,
+    activityTypeId,
+    activityTypeMappingVersion,
     contributionRuleKey,
     status,
     replacementEventId,
@@ -5295,6 +5513,8 @@ class CalendarEventExceptionRow extends DataClass
           other.timeZoneId == this.timeZoneId &&
           other.locationText == this.locationText &&
           other.requiresReport == this.requiresReport &&
+          other.activityTypeId == this.activityTypeId &&
+          other.activityTypeMappingVersion == this.activityTypeMappingVersion &&
           other.contributionRuleKey == this.contributionRuleKey &&
           other.status == this.status &&
           other.replacementEventId == this.replacementEventId &&
@@ -5317,6 +5537,8 @@ class CalendarEventExceptionsCompanion
   final Value<String?> timeZoneId;
   final Value<String?> locationText;
   final Value<bool> requiresReport;
+  final Value<String?> activityTypeId;
+  final Value<int?> activityTypeMappingVersion;
   final Value<String?> contributionRuleKey;
   final Value<String> status;
   final Value<String?> replacementEventId;
@@ -5337,6 +5559,8 @@ class CalendarEventExceptionsCompanion
     this.timeZoneId = const Value.absent(),
     this.locationText = const Value.absent(),
     this.requiresReport = const Value.absent(),
+    this.activityTypeId = const Value.absent(),
+    this.activityTypeMappingVersion = const Value.absent(),
     this.contributionRuleKey = const Value.absent(),
     this.status = const Value.absent(),
     this.replacementEventId = const Value.absent(),
@@ -5358,6 +5582,8 @@ class CalendarEventExceptionsCompanion
     this.timeZoneId = const Value.absent(),
     this.locationText = const Value.absent(),
     this.requiresReport = const Value.absent(),
+    this.activityTypeId = const Value.absent(),
+    this.activityTypeMappingVersion = const Value.absent(),
     this.contributionRuleKey = const Value.absent(),
     required String status,
     this.replacementEventId = const Value.absent(),
@@ -5388,6 +5614,8 @@ class CalendarEventExceptionsCompanion
     Expression<String>? timeZoneId,
     Expression<String>? locationText,
     Expression<bool>? requiresReport,
+    Expression<String>? activityTypeId,
+    Expression<int>? activityTypeMappingVersion,
     Expression<String>? contributionRuleKey,
     Expression<String>? status,
     Expression<String>? replacementEventId,
@@ -5409,6 +5637,9 @@ class CalendarEventExceptionsCompanion
       if (timeZoneId != null) 'time_zone_id': timeZoneId,
       if (locationText != null) 'location_text': locationText,
       if (requiresReport != null) 'requires_report': requiresReport,
+      if (activityTypeId != null) 'activity_type_id': activityTypeId,
+      if (activityTypeMappingVersion != null)
+        'activity_type_mapping_version': activityTypeMappingVersion,
       if (contributionRuleKey != null)
         'contribution_rule_key': contributionRuleKey,
       if (status != null) 'status': status,
@@ -5434,6 +5665,8 @@ class CalendarEventExceptionsCompanion
     Value<String?>? timeZoneId,
     Value<String?>? locationText,
     Value<bool>? requiresReport,
+    Value<String?>? activityTypeId,
+    Value<int?>? activityTypeMappingVersion,
     Value<String?>? contributionRuleKey,
     Value<String>? status,
     Value<String?>? replacementEventId,
@@ -5455,6 +5688,9 @@ class CalendarEventExceptionsCompanion
       timeZoneId: timeZoneId ?? this.timeZoneId,
       locationText: locationText ?? this.locationText,
       requiresReport: requiresReport ?? this.requiresReport,
+      activityTypeId: activityTypeId ?? this.activityTypeId,
+      activityTypeMappingVersion:
+          activityTypeMappingVersion ?? this.activityTypeMappingVersion,
       contributionRuleKey: contributionRuleKey ?? this.contributionRuleKey,
       status: status ?? this.status,
       replacementEventId: replacementEventId ?? this.replacementEventId,
@@ -5508,6 +5744,14 @@ class CalendarEventExceptionsCompanion
     if (requiresReport.present) {
       map['requires_report'] = Variable<bool>(requiresReport.value);
     }
+    if (activityTypeId.present) {
+      map['activity_type_id'] = Variable<String>(activityTypeId.value);
+    }
+    if (activityTypeMappingVersion.present) {
+      map['activity_type_mapping_version'] = Variable<int>(
+        activityTypeMappingVersion.value,
+      );
+    }
     if (contributionRuleKey.present) {
       map['contribution_rule_key'] = Variable<String>(
         contributionRuleKey.value,
@@ -5545,6 +5789,8 @@ class CalendarEventExceptionsCompanion
           ..write('timeZoneId: $timeZoneId, ')
           ..write('locationText: $locationText, ')
           ..write('requiresReport: $requiresReport, ')
+          ..write('activityTypeId: $activityTypeId, ')
+          ..write('activityTypeMappingVersion: $activityTypeMappingVersion, ')
           ..write('contributionRuleKey: $contributionRuleKey, ')
           ..write('status: $status, ')
           ..write('replacementEventId: $replacementEventId, ')
@@ -13871,6 +14117,2369 @@ class WeeklyPlanTaskCarryoverDecisionsCompanion
   }
 }
 
+class $ActivityTypesTable extends ActivityTypes
+    with TableInfo<$ActivityTypesTable, ActivityTypeRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ActivityTypesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _profileIdMeta = const VerificationMeta(
+    'profileId',
+  );
+  @override
+  late final GeneratedColumn<String> profileId = GeneratedColumn<String>(
+    'profile_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES local_profiles (id) ON DELETE RESTRICT',
+    ),
+  );
+  static const VerificationMeta _stableKeyMeta = const VerificationMeta(
+    'stableKey',
+  );
+  @override
+  late final GeneratedColumn<String> stableKey = GeneratedColumn<String>(
+    'stable_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _labelMeta = const VerificationMeta('label');
+  @override
+  late final GeneratedColumn<String> label = GeneratedColumn<String>(
+    'label',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _iconKeyMeta = const VerificationMeta(
+    'iconKey',
+  );
+  @override
+  late final GeneratedColumn<String> iconKey = GeneratedColumn<String>(
+    'icon_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _colorValueMeta = const VerificationMeta(
+    'colorValue',
+  );
+  @override
+  late final GeneratedColumn<int> colorValue = GeneratedColumn<int>(
+    'color_value',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _isSystemMeta = const VerificationMeta(
+    'isSystem',
+  );
+  @override
+  late final GeneratedColumn<bool> isSystem = GeneratedColumn<bool>(
+    'is_system',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_system" IN (0, 1))',
+    ),
+  );
+  static const VerificationMeta _isArchivedMeta = const VerificationMeta(
+    'isArchived',
+  );
+  @override
+  late final GeneratedColumn<bool> isArchived = GeneratedColumn<bool>(
+    'is_archived',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_archived" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _reportRequiredDefaultMeta =
+      const VerificationMeta('reportRequiredDefault');
+  @override
+  late final GeneratedColumn<bool> reportRequiredDefault =
+      GeneratedColumn<bool>(
+        'report_required_default',
+        aliasedName,
+        false,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("report_required_default" IN (0, 1))',
+        ),
+        defaultValue: const Constant(false),
+      );
+  static const VerificationMeta _defaultDurationMinutesMeta =
+      const VerificationMeta('defaultDurationMinutes');
+  @override
+  late final GeneratedColumn<int> defaultDurationMinutes = GeneratedColumn<int>(
+    'default_duration_minutes',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(60),
+  );
+  static const VerificationMeta _defaultReminderMinutesMeta =
+      const VerificationMeta('defaultReminderMinutes');
+  @override
+  late final GeneratedColumn<int> defaultReminderMinutes = GeneratedColumn<int>(
+    'default_reminder_minutes',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _positionMeta = const VerificationMeta(
+    'position',
+  );
+  @override
+  late final GeneratedColumn<int> position = GeneratedColumn<int>(
+    'position',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _mappingVersionMeta = const VerificationMeta(
+    'mappingVersion',
+  );
+  @override
+  late final GeneratedColumn<int> mappingVersion = GeneratedColumn<int>(
+    'mapping_version',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1),
+  );
+  static const VerificationMeta _createdAtUtcMeta = const VerificationMeta(
+    'createdAtUtc',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAtUtc = GeneratedColumn<DateTime>(
+    'created_at_utc',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtUtcMeta = const VerificationMeta(
+    'updatedAtUtc',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAtUtc = GeneratedColumn<DateTime>(
+    'updated_at_utc',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    profileId,
+    stableKey,
+    label,
+    iconKey,
+    colorValue,
+    isSystem,
+    isArchived,
+    reportRequiredDefault,
+    defaultDurationMinutes,
+    defaultReminderMinutes,
+    position,
+    mappingVersion,
+    createdAtUtc,
+    updatedAtUtc,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'activity_types';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ActivityTypeRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('profile_id')) {
+      context.handle(
+        _profileIdMeta,
+        profileId.isAcceptableOrUnknown(data['profile_id']!, _profileIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_profileIdMeta);
+    }
+    if (data.containsKey('stable_key')) {
+      context.handle(
+        _stableKeyMeta,
+        stableKey.isAcceptableOrUnknown(data['stable_key']!, _stableKeyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_stableKeyMeta);
+    }
+    if (data.containsKey('label')) {
+      context.handle(
+        _labelMeta,
+        label.isAcceptableOrUnknown(data['label']!, _labelMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_labelMeta);
+    }
+    if (data.containsKey('icon_key')) {
+      context.handle(
+        _iconKeyMeta,
+        iconKey.isAcceptableOrUnknown(data['icon_key']!, _iconKeyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_iconKeyMeta);
+    }
+    if (data.containsKey('color_value')) {
+      context.handle(
+        _colorValueMeta,
+        colorValue.isAcceptableOrUnknown(data['color_value']!, _colorValueMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_colorValueMeta);
+    }
+    if (data.containsKey('is_system')) {
+      context.handle(
+        _isSystemMeta,
+        isSystem.isAcceptableOrUnknown(data['is_system']!, _isSystemMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_isSystemMeta);
+    }
+    if (data.containsKey('is_archived')) {
+      context.handle(
+        _isArchivedMeta,
+        isArchived.isAcceptableOrUnknown(data['is_archived']!, _isArchivedMeta),
+      );
+    }
+    if (data.containsKey('report_required_default')) {
+      context.handle(
+        _reportRequiredDefaultMeta,
+        reportRequiredDefault.isAcceptableOrUnknown(
+          data['report_required_default']!,
+          _reportRequiredDefaultMeta,
+        ),
+      );
+    }
+    if (data.containsKey('default_duration_minutes')) {
+      context.handle(
+        _defaultDurationMinutesMeta,
+        defaultDurationMinutes.isAcceptableOrUnknown(
+          data['default_duration_minutes']!,
+          _defaultDurationMinutesMeta,
+        ),
+      );
+    }
+    if (data.containsKey('default_reminder_minutes')) {
+      context.handle(
+        _defaultReminderMinutesMeta,
+        defaultReminderMinutes.isAcceptableOrUnknown(
+          data['default_reminder_minutes']!,
+          _defaultReminderMinutesMeta,
+        ),
+      );
+    }
+    if (data.containsKey('position')) {
+      context.handle(
+        _positionMeta,
+        position.isAcceptableOrUnknown(data['position']!, _positionMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_positionMeta);
+    }
+    if (data.containsKey('mapping_version')) {
+      context.handle(
+        _mappingVersionMeta,
+        mappingVersion.isAcceptableOrUnknown(
+          data['mapping_version']!,
+          _mappingVersionMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_at_utc')) {
+      context.handle(
+        _createdAtUtcMeta,
+        createdAtUtc.isAcceptableOrUnknown(
+          data['created_at_utc']!,
+          _createdAtUtcMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtUtcMeta);
+    }
+    if (data.containsKey('updated_at_utc')) {
+      context.handle(
+        _updatedAtUtcMeta,
+        updatedAtUtc.isAcceptableOrUnknown(
+          data['updated_at_utc']!,
+          _updatedAtUtcMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtUtcMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  ActivityTypeRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ActivityTypeRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      profileId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}profile_id'],
+      )!,
+      stableKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}stable_key'],
+      )!,
+      label: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}label'],
+      )!,
+      iconKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}icon_key'],
+      )!,
+      colorValue: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}color_value'],
+      )!,
+      isSystem: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_system'],
+      )!,
+      isArchived: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_archived'],
+      )!,
+      reportRequiredDefault: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}report_required_default'],
+      )!,
+      defaultDurationMinutes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}default_duration_minutes'],
+      )!,
+      defaultReminderMinutes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}default_reminder_minutes'],
+      ),
+      position: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}position'],
+      )!,
+      mappingVersion: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}mapping_version'],
+      )!,
+      createdAtUtc: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at_utc'],
+      )!,
+      updatedAtUtc: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at_utc'],
+      )!,
+    );
+  }
+
+  @override
+  $ActivityTypesTable createAlias(String alias) {
+    return $ActivityTypesTable(attachedDatabase, alias);
+  }
+}
+
+class ActivityTypeRow extends DataClass implements Insertable<ActivityTypeRow> {
+  final String id;
+  final String profileId;
+  final String stableKey;
+  final String label;
+  final String iconKey;
+  final int colorValue;
+  final bool isSystem;
+  final bool isArchived;
+  final bool reportRequiredDefault;
+  final int defaultDurationMinutes;
+  final int? defaultReminderMinutes;
+  final int position;
+  final int mappingVersion;
+  final DateTime createdAtUtc;
+  final DateTime updatedAtUtc;
+  const ActivityTypeRow({
+    required this.id,
+    required this.profileId,
+    required this.stableKey,
+    required this.label,
+    required this.iconKey,
+    required this.colorValue,
+    required this.isSystem,
+    required this.isArchived,
+    required this.reportRequiredDefault,
+    required this.defaultDurationMinutes,
+    this.defaultReminderMinutes,
+    required this.position,
+    required this.mappingVersion,
+    required this.createdAtUtc,
+    required this.updatedAtUtc,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['profile_id'] = Variable<String>(profileId);
+    map['stable_key'] = Variable<String>(stableKey);
+    map['label'] = Variable<String>(label);
+    map['icon_key'] = Variable<String>(iconKey);
+    map['color_value'] = Variable<int>(colorValue);
+    map['is_system'] = Variable<bool>(isSystem);
+    map['is_archived'] = Variable<bool>(isArchived);
+    map['report_required_default'] = Variable<bool>(reportRequiredDefault);
+    map['default_duration_minutes'] = Variable<int>(defaultDurationMinutes);
+    if (!nullToAbsent || defaultReminderMinutes != null) {
+      map['default_reminder_minutes'] = Variable<int>(defaultReminderMinutes);
+    }
+    map['position'] = Variable<int>(position);
+    map['mapping_version'] = Variable<int>(mappingVersion);
+    map['created_at_utc'] = Variable<DateTime>(createdAtUtc);
+    map['updated_at_utc'] = Variable<DateTime>(updatedAtUtc);
+    return map;
+  }
+
+  ActivityTypesCompanion toCompanion(bool nullToAbsent) {
+    return ActivityTypesCompanion(
+      id: Value(id),
+      profileId: Value(profileId),
+      stableKey: Value(stableKey),
+      label: Value(label),
+      iconKey: Value(iconKey),
+      colorValue: Value(colorValue),
+      isSystem: Value(isSystem),
+      isArchived: Value(isArchived),
+      reportRequiredDefault: Value(reportRequiredDefault),
+      defaultDurationMinutes: Value(defaultDurationMinutes),
+      defaultReminderMinutes: defaultReminderMinutes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(defaultReminderMinutes),
+      position: Value(position),
+      mappingVersion: Value(mappingVersion),
+      createdAtUtc: Value(createdAtUtc),
+      updatedAtUtc: Value(updatedAtUtc),
+    );
+  }
+
+  factory ActivityTypeRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ActivityTypeRow(
+      id: serializer.fromJson<String>(json['id']),
+      profileId: serializer.fromJson<String>(json['profileId']),
+      stableKey: serializer.fromJson<String>(json['stableKey']),
+      label: serializer.fromJson<String>(json['label']),
+      iconKey: serializer.fromJson<String>(json['iconKey']),
+      colorValue: serializer.fromJson<int>(json['colorValue']),
+      isSystem: serializer.fromJson<bool>(json['isSystem']),
+      isArchived: serializer.fromJson<bool>(json['isArchived']),
+      reportRequiredDefault: serializer.fromJson<bool>(
+        json['reportRequiredDefault'],
+      ),
+      defaultDurationMinutes: serializer.fromJson<int>(
+        json['defaultDurationMinutes'],
+      ),
+      defaultReminderMinutes: serializer.fromJson<int?>(
+        json['defaultReminderMinutes'],
+      ),
+      position: serializer.fromJson<int>(json['position']),
+      mappingVersion: serializer.fromJson<int>(json['mappingVersion']),
+      createdAtUtc: serializer.fromJson<DateTime>(json['createdAtUtc']),
+      updatedAtUtc: serializer.fromJson<DateTime>(json['updatedAtUtc']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'profileId': serializer.toJson<String>(profileId),
+      'stableKey': serializer.toJson<String>(stableKey),
+      'label': serializer.toJson<String>(label),
+      'iconKey': serializer.toJson<String>(iconKey),
+      'colorValue': serializer.toJson<int>(colorValue),
+      'isSystem': serializer.toJson<bool>(isSystem),
+      'isArchived': serializer.toJson<bool>(isArchived),
+      'reportRequiredDefault': serializer.toJson<bool>(reportRequiredDefault),
+      'defaultDurationMinutes': serializer.toJson<int>(defaultDurationMinutes),
+      'defaultReminderMinutes': serializer.toJson<int?>(defaultReminderMinutes),
+      'position': serializer.toJson<int>(position),
+      'mappingVersion': serializer.toJson<int>(mappingVersion),
+      'createdAtUtc': serializer.toJson<DateTime>(createdAtUtc),
+      'updatedAtUtc': serializer.toJson<DateTime>(updatedAtUtc),
+    };
+  }
+
+  ActivityTypeRow copyWith({
+    String? id,
+    String? profileId,
+    String? stableKey,
+    String? label,
+    String? iconKey,
+    int? colorValue,
+    bool? isSystem,
+    bool? isArchived,
+    bool? reportRequiredDefault,
+    int? defaultDurationMinutes,
+    Value<int?> defaultReminderMinutes = const Value.absent(),
+    int? position,
+    int? mappingVersion,
+    DateTime? createdAtUtc,
+    DateTime? updatedAtUtc,
+  }) => ActivityTypeRow(
+    id: id ?? this.id,
+    profileId: profileId ?? this.profileId,
+    stableKey: stableKey ?? this.stableKey,
+    label: label ?? this.label,
+    iconKey: iconKey ?? this.iconKey,
+    colorValue: colorValue ?? this.colorValue,
+    isSystem: isSystem ?? this.isSystem,
+    isArchived: isArchived ?? this.isArchived,
+    reportRequiredDefault: reportRequiredDefault ?? this.reportRequiredDefault,
+    defaultDurationMinutes:
+        defaultDurationMinutes ?? this.defaultDurationMinutes,
+    defaultReminderMinutes: defaultReminderMinutes.present
+        ? defaultReminderMinutes.value
+        : this.defaultReminderMinutes,
+    position: position ?? this.position,
+    mappingVersion: mappingVersion ?? this.mappingVersion,
+    createdAtUtc: createdAtUtc ?? this.createdAtUtc,
+    updatedAtUtc: updatedAtUtc ?? this.updatedAtUtc,
+  );
+  ActivityTypeRow copyWithCompanion(ActivityTypesCompanion data) {
+    return ActivityTypeRow(
+      id: data.id.present ? data.id.value : this.id,
+      profileId: data.profileId.present ? data.profileId.value : this.profileId,
+      stableKey: data.stableKey.present ? data.stableKey.value : this.stableKey,
+      label: data.label.present ? data.label.value : this.label,
+      iconKey: data.iconKey.present ? data.iconKey.value : this.iconKey,
+      colorValue: data.colorValue.present
+          ? data.colorValue.value
+          : this.colorValue,
+      isSystem: data.isSystem.present ? data.isSystem.value : this.isSystem,
+      isArchived: data.isArchived.present
+          ? data.isArchived.value
+          : this.isArchived,
+      reportRequiredDefault: data.reportRequiredDefault.present
+          ? data.reportRequiredDefault.value
+          : this.reportRequiredDefault,
+      defaultDurationMinutes: data.defaultDurationMinutes.present
+          ? data.defaultDurationMinutes.value
+          : this.defaultDurationMinutes,
+      defaultReminderMinutes: data.defaultReminderMinutes.present
+          ? data.defaultReminderMinutes.value
+          : this.defaultReminderMinutes,
+      position: data.position.present ? data.position.value : this.position,
+      mappingVersion: data.mappingVersion.present
+          ? data.mappingVersion.value
+          : this.mappingVersion,
+      createdAtUtc: data.createdAtUtc.present
+          ? data.createdAtUtc.value
+          : this.createdAtUtc,
+      updatedAtUtc: data.updatedAtUtc.present
+          ? data.updatedAtUtc.value
+          : this.updatedAtUtc,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ActivityTypeRow(')
+          ..write('id: $id, ')
+          ..write('profileId: $profileId, ')
+          ..write('stableKey: $stableKey, ')
+          ..write('label: $label, ')
+          ..write('iconKey: $iconKey, ')
+          ..write('colorValue: $colorValue, ')
+          ..write('isSystem: $isSystem, ')
+          ..write('isArchived: $isArchived, ')
+          ..write('reportRequiredDefault: $reportRequiredDefault, ')
+          ..write('defaultDurationMinutes: $defaultDurationMinutes, ')
+          ..write('defaultReminderMinutes: $defaultReminderMinutes, ')
+          ..write('position: $position, ')
+          ..write('mappingVersion: $mappingVersion, ')
+          ..write('createdAtUtc: $createdAtUtc, ')
+          ..write('updatedAtUtc: $updatedAtUtc')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    profileId,
+    stableKey,
+    label,
+    iconKey,
+    colorValue,
+    isSystem,
+    isArchived,
+    reportRequiredDefault,
+    defaultDurationMinutes,
+    defaultReminderMinutes,
+    position,
+    mappingVersion,
+    createdAtUtc,
+    updatedAtUtc,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ActivityTypeRow &&
+          other.id == this.id &&
+          other.profileId == this.profileId &&
+          other.stableKey == this.stableKey &&
+          other.label == this.label &&
+          other.iconKey == this.iconKey &&
+          other.colorValue == this.colorValue &&
+          other.isSystem == this.isSystem &&
+          other.isArchived == this.isArchived &&
+          other.reportRequiredDefault == this.reportRequiredDefault &&
+          other.defaultDurationMinutes == this.defaultDurationMinutes &&
+          other.defaultReminderMinutes == this.defaultReminderMinutes &&
+          other.position == this.position &&
+          other.mappingVersion == this.mappingVersion &&
+          other.createdAtUtc == this.createdAtUtc &&
+          other.updatedAtUtc == this.updatedAtUtc);
+}
+
+class ActivityTypesCompanion extends UpdateCompanion<ActivityTypeRow> {
+  final Value<String> id;
+  final Value<String> profileId;
+  final Value<String> stableKey;
+  final Value<String> label;
+  final Value<String> iconKey;
+  final Value<int> colorValue;
+  final Value<bool> isSystem;
+  final Value<bool> isArchived;
+  final Value<bool> reportRequiredDefault;
+  final Value<int> defaultDurationMinutes;
+  final Value<int?> defaultReminderMinutes;
+  final Value<int> position;
+  final Value<int> mappingVersion;
+  final Value<DateTime> createdAtUtc;
+  final Value<DateTime> updatedAtUtc;
+  final Value<int> rowid;
+  const ActivityTypesCompanion({
+    this.id = const Value.absent(),
+    this.profileId = const Value.absent(),
+    this.stableKey = const Value.absent(),
+    this.label = const Value.absent(),
+    this.iconKey = const Value.absent(),
+    this.colorValue = const Value.absent(),
+    this.isSystem = const Value.absent(),
+    this.isArchived = const Value.absent(),
+    this.reportRequiredDefault = const Value.absent(),
+    this.defaultDurationMinutes = const Value.absent(),
+    this.defaultReminderMinutes = const Value.absent(),
+    this.position = const Value.absent(),
+    this.mappingVersion = const Value.absent(),
+    this.createdAtUtc = const Value.absent(),
+    this.updatedAtUtc = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ActivityTypesCompanion.insert({
+    required String id,
+    required String profileId,
+    required String stableKey,
+    required String label,
+    required String iconKey,
+    required int colorValue,
+    required bool isSystem,
+    this.isArchived = const Value.absent(),
+    this.reportRequiredDefault = const Value.absent(),
+    this.defaultDurationMinutes = const Value.absent(),
+    this.defaultReminderMinutes = const Value.absent(),
+    required int position,
+    this.mappingVersion = const Value.absent(),
+    required DateTime createdAtUtc,
+    required DateTime updatedAtUtc,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       profileId = Value(profileId),
+       stableKey = Value(stableKey),
+       label = Value(label),
+       iconKey = Value(iconKey),
+       colorValue = Value(colorValue),
+       isSystem = Value(isSystem),
+       position = Value(position),
+       createdAtUtc = Value(createdAtUtc),
+       updatedAtUtc = Value(updatedAtUtc);
+  static Insertable<ActivityTypeRow> custom({
+    Expression<String>? id,
+    Expression<String>? profileId,
+    Expression<String>? stableKey,
+    Expression<String>? label,
+    Expression<String>? iconKey,
+    Expression<int>? colorValue,
+    Expression<bool>? isSystem,
+    Expression<bool>? isArchived,
+    Expression<bool>? reportRequiredDefault,
+    Expression<int>? defaultDurationMinutes,
+    Expression<int>? defaultReminderMinutes,
+    Expression<int>? position,
+    Expression<int>? mappingVersion,
+    Expression<DateTime>? createdAtUtc,
+    Expression<DateTime>? updatedAtUtc,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (profileId != null) 'profile_id': profileId,
+      if (stableKey != null) 'stable_key': stableKey,
+      if (label != null) 'label': label,
+      if (iconKey != null) 'icon_key': iconKey,
+      if (colorValue != null) 'color_value': colorValue,
+      if (isSystem != null) 'is_system': isSystem,
+      if (isArchived != null) 'is_archived': isArchived,
+      if (reportRequiredDefault != null)
+        'report_required_default': reportRequiredDefault,
+      if (defaultDurationMinutes != null)
+        'default_duration_minutes': defaultDurationMinutes,
+      if (defaultReminderMinutes != null)
+        'default_reminder_minutes': defaultReminderMinutes,
+      if (position != null) 'position': position,
+      if (mappingVersion != null) 'mapping_version': mappingVersion,
+      if (createdAtUtc != null) 'created_at_utc': createdAtUtc,
+      if (updatedAtUtc != null) 'updated_at_utc': updatedAtUtc,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ActivityTypesCompanion copyWith({
+    Value<String>? id,
+    Value<String>? profileId,
+    Value<String>? stableKey,
+    Value<String>? label,
+    Value<String>? iconKey,
+    Value<int>? colorValue,
+    Value<bool>? isSystem,
+    Value<bool>? isArchived,
+    Value<bool>? reportRequiredDefault,
+    Value<int>? defaultDurationMinutes,
+    Value<int?>? defaultReminderMinutes,
+    Value<int>? position,
+    Value<int>? mappingVersion,
+    Value<DateTime>? createdAtUtc,
+    Value<DateTime>? updatedAtUtc,
+    Value<int>? rowid,
+  }) {
+    return ActivityTypesCompanion(
+      id: id ?? this.id,
+      profileId: profileId ?? this.profileId,
+      stableKey: stableKey ?? this.stableKey,
+      label: label ?? this.label,
+      iconKey: iconKey ?? this.iconKey,
+      colorValue: colorValue ?? this.colorValue,
+      isSystem: isSystem ?? this.isSystem,
+      isArchived: isArchived ?? this.isArchived,
+      reportRequiredDefault:
+          reportRequiredDefault ?? this.reportRequiredDefault,
+      defaultDurationMinutes:
+          defaultDurationMinutes ?? this.defaultDurationMinutes,
+      defaultReminderMinutes:
+          defaultReminderMinutes ?? this.defaultReminderMinutes,
+      position: position ?? this.position,
+      mappingVersion: mappingVersion ?? this.mappingVersion,
+      createdAtUtc: createdAtUtc ?? this.createdAtUtc,
+      updatedAtUtc: updatedAtUtc ?? this.updatedAtUtc,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (profileId.present) {
+      map['profile_id'] = Variable<String>(profileId.value);
+    }
+    if (stableKey.present) {
+      map['stable_key'] = Variable<String>(stableKey.value);
+    }
+    if (label.present) {
+      map['label'] = Variable<String>(label.value);
+    }
+    if (iconKey.present) {
+      map['icon_key'] = Variable<String>(iconKey.value);
+    }
+    if (colorValue.present) {
+      map['color_value'] = Variable<int>(colorValue.value);
+    }
+    if (isSystem.present) {
+      map['is_system'] = Variable<bool>(isSystem.value);
+    }
+    if (isArchived.present) {
+      map['is_archived'] = Variable<bool>(isArchived.value);
+    }
+    if (reportRequiredDefault.present) {
+      map['report_required_default'] = Variable<bool>(
+        reportRequiredDefault.value,
+      );
+    }
+    if (defaultDurationMinutes.present) {
+      map['default_duration_minutes'] = Variable<int>(
+        defaultDurationMinutes.value,
+      );
+    }
+    if (defaultReminderMinutes.present) {
+      map['default_reminder_minutes'] = Variable<int>(
+        defaultReminderMinutes.value,
+      );
+    }
+    if (position.present) {
+      map['position'] = Variable<int>(position.value);
+    }
+    if (mappingVersion.present) {
+      map['mapping_version'] = Variable<int>(mappingVersion.value);
+    }
+    if (createdAtUtc.present) {
+      map['created_at_utc'] = Variable<DateTime>(createdAtUtc.value);
+    }
+    if (updatedAtUtc.present) {
+      map['updated_at_utc'] = Variable<DateTime>(updatedAtUtc.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ActivityTypesCompanion(')
+          ..write('id: $id, ')
+          ..write('profileId: $profileId, ')
+          ..write('stableKey: $stableKey, ')
+          ..write('label: $label, ')
+          ..write('iconKey: $iconKey, ')
+          ..write('colorValue: $colorValue, ')
+          ..write('isSystem: $isSystem, ')
+          ..write('isArchived: $isArchived, ')
+          ..write('reportRequiredDefault: $reportRequiredDefault, ')
+          ..write('defaultDurationMinutes: $defaultDurationMinutes, ')
+          ..write('defaultReminderMinutes: $defaultReminderMinutes, ')
+          ..write('position: $position, ')
+          ..write('mappingVersion: $mappingVersion, ')
+          ..write('createdAtUtc: $createdAtUtc, ')
+          ..write('updatedAtUtc: $updatedAtUtc, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $ActivityTypeIndicatorMappingsTable extends ActivityTypeIndicatorMappings
+    with
+        TableInfo<
+          $ActivityTypeIndicatorMappingsTable,
+          ActivityTypeIndicatorMappingRow
+        > {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ActivityTypeIndicatorMappingsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _profileIdMeta = const VerificationMeta(
+    'profileId',
+  );
+  @override
+  late final GeneratedColumn<String> profileId = GeneratedColumn<String>(
+    'profile_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES local_profiles (id) ON DELETE RESTRICT',
+    ),
+  );
+  static const VerificationMeta _activityTypeIdMeta = const VerificationMeta(
+    'activityTypeId',
+  );
+  @override
+  late final GeneratedColumn<String> activityTypeId = GeneratedColumn<String>(
+    'activity_type_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES activity_types (id) ON DELETE RESTRICT',
+    ),
+  );
+  static const VerificationMeta _indicatorKeyMeta = const VerificationMeta(
+    'indicatorKey',
+  );
+  @override
+  late final GeneratedColumn<String> indicatorKey = GeneratedColumn<String>(
+    'indicator_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _mappingVersionMeta = const VerificationMeta(
+    'mappingVersion',
+  );
+  @override
+  late final GeneratedColumn<int> mappingVersion = GeneratedColumn<int>(
+    'mapping_version',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1),
+  );
+  static const VerificationMeta _createdAtUtcMeta = const VerificationMeta(
+    'createdAtUtc',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAtUtc = GeneratedColumn<DateTime>(
+    'created_at_utc',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    profileId,
+    activityTypeId,
+    indicatorKey,
+    mappingVersion,
+    createdAtUtc,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'activity_type_indicator_mappings';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ActivityTypeIndicatorMappingRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('profile_id')) {
+      context.handle(
+        _profileIdMeta,
+        profileId.isAcceptableOrUnknown(data['profile_id']!, _profileIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_profileIdMeta);
+    }
+    if (data.containsKey('activity_type_id')) {
+      context.handle(
+        _activityTypeIdMeta,
+        activityTypeId.isAcceptableOrUnknown(
+          data['activity_type_id']!,
+          _activityTypeIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_activityTypeIdMeta);
+    }
+    if (data.containsKey('indicator_key')) {
+      context.handle(
+        _indicatorKeyMeta,
+        indicatorKey.isAcceptableOrUnknown(
+          data['indicator_key']!,
+          _indicatorKeyMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_indicatorKeyMeta);
+    }
+    if (data.containsKey('mapping_version')) {
+      context.handle(
+        _mappingVersionMeta,
+        mappingVersion.isAcceptableOrUnknown(
+          data['mapping_version']!,
+          _mappingVersionMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_at_utc')) {
+      context.handle(
+        _createdAtUtcMeta,
+        createdAtUtc.isAcceptableOrUnknown(
+          data['created_at_utc']!,
+          _createdAtUtcMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtUtcMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  ActivityTypeIndicatorMappingRow map(
+    Map<String, dynamic> data, {
+    String? tablePrefix,
+  }) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ActivityTypeIndicatorMappingRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      profileId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}profile_id'],
+      )!,
+      activityTypeId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}activity_type_id'],
+      )!,
+      indicatorKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}indicator_key'],
+      )!,
+      mappingVersion: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}mapping_version'],
+      )!,
+      createdAtUtc: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at_utc'],
+      )!,
+    );
+  }
+
+  @override
+  $ActivityTypeIndicatorMappingsTable createAlias(String alias) {
+    return $ActivityTypeIndicatorMappingsTable(attachedDatabase, alias);
+  }
+}
+
+class ActivityTypeIndicatorMappingRow extends DataClass
+    implements Insertable<ActivityTypeIndicatorMappingRow> {
+  final String id;
+  final String profileId;
+  final String activityTypeId;
+  final String indicatorKey;
+  final int mappingVersion;
+  final DateTime createdAtUtc;
+  const ActivityTypeIndicatorMappingRow({
+    required this.id,
+    required this.profileId,
+    required this.activityTypeId,
+    required this.indicatorKey,
+    required this.mappingVersion,
+    required this.createdAtUtc,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['profile_id'] = Variable<String>(profileId);
+    map['activity_type_id'] = Variable<String>(activityTypeId);
+    map['indicator_key'] = Variable<String>(indicatorKey);
+    map['mapping_version'] = Variable<int>(mappingVersion);
+    map['created_at_utc'] = Variable<DateTime>(createdAtUtc);
+    return map;
+  }
+
+  ActivityTypeIndicatorMappingsCompanion toCompanion(bool nullToAbsent) {
+    return ActivityTypeIndicatorMappingsCompanion(
+      id: Value(id),
+      profileId: Value(profileId),
+      activityTypeId: Value(activityTypeId),
+      indicatorKey: Value(indicatorKey),
+      mappingVersion: Value(mappingVersion),
+      createdAtUtc: Value(createdAtUtc),
+    );
+  }
+
+  factory ActivityTypeIndicatorMappingRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ActivityTypeIndicatorMappingRow(
+      id: serializer.fromJson<String>(json['id']),
+      profileId: serializer.fromJson<String>(json['profileId']),
+      activityTypeId: serializer.fromJson<String>(json['activityTypeId']),
+      indicatorKey: serializer.fromJson<String>(json['indicatorKey']),
+      mappingVersion: serializer.fromJson<int>(json['mappingVersion']),
+      createdAtUtc: serializer.fromJson<DateTime>(json['createdAtUtc']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'profileId': serializer.toJson<String>(profileId),
+      'activityTypeId': serializer.toJson<String>(activityTypeId),
+      'indicatorKey': serializer.toJson<String>(indicatorKey),
+      'mappingVersion': serializer.toJson<int>(mappingVersion),
+      'createdAtUtc': serializer.toJson<DateTime>(createdAtUtc),
+    };
+  }
+
+  ActivityTypeIndicatorMappingRow copyWith({
+    String? id,
+    String? profileId,
+    String? activityTypeId,
+    String? indicatorKey,
+    int? mappingVersion,
+    DateTime? createdAtUtc,
+  }) => ActivityTypeIndicatorMappingRow(
+    id: id ?? this.id,
+    profileId: profileId ?? this.profileId,
+    activityTypeId: activityTypeId ?? this.activityTypeId,
+    indicatorKey: indicatorKey ?? this.indicatorKey,
+    mappingVersion: mappingVersion ?? this.mappingVersion,
+    createdAtUtc: createdAtUtc ?? this.createdAtUtc,
+  );
+  ActivityTypeIndicatorMappingRow copyWithCompanion(
+    ActivityTypeIndicatorMappingsCompanion data,
+  ) {
+    return ActivityTypeIndicatorMappingRow(
+      id: data.id.present ? data.id.value : this.id,
+      profileId: data.profileId.present ? data.profileId.value : this.profileId,
+      activityTypeId: data.activityTypeId.present
+          ? data.activityTypeId.value
+          : this.activityTypeId,
+      indicatorKey: data.indicatorKey.present
+          ? data.indicatorKey.value
+          : this.indicatorKey,
+      mappingVersion: data.mappingVersion.present
+          ? data.mappingVersion.value
+          : this.mappingVersion,
+      createdAtUtc: data.createdAtUtc.present
+          ? data.createdAtUtc.value
+          : this.createdAtUtc,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ActivityTypeIndicatorMappingRow(')
+          ..write('id: $id, ')
+          ..write('profileId: $profileId, ')
+          ..write('activityTypeId: $activityTypeId, ')
+          ..write('indicatorKey: $indicatorKey, ')
+          ..write('mappingVersion: $mappingVersion, ')
+          ..write('createdAtUtc: $createdAtUtc')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    profileId,
+    activityTypeId,
+    indicatorKey,
+    mappingVersion,
+    createdAtUtc,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ActivityTypeIndicatorMappingRow &&
+          other.id == this.id &&
+          other.profileId == this.profileId &&
+          other.activityTypeId == this.activityTypeId &&
+          other.indicatorKey == this.indicatorKey &&
+          other.mappingVersion == this.mappingVersion &&
+          other.createdAtUtc == this.createdAtUtc);
+}
+
+class ActivityTypeIndicatorMappingsCompanion
+    extends UpdateCompanion<ActivityTypeIndicatorMappingRow> {
+  final Value<String> id;
+  final Value<String> profileId;
+  final Value<String> activityTypeId;
+  final Value<String> indicatorKey;
+  final Value<int> mappingVersion;
+  final Value<DateTime> createdAtUtc;
+  final Value<int> rowid;
+  const ActivityTypeIndicatorMappingsCompanion({
+    this.id = const Value.absent(),
+    this.profileId = const Value.absent(),
+    this.activityTypeId = const Value.absent(),
+    this.indicatorKey = const Value.absent(),
+    this.mappingVersion = const Value.absent(),
+    this.createdAtUtc = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ActivityTypeIndicatorMappingsCompanion.insert({
+    required String id,
+    required String profileId,
+    required String activityTypeId,
+    required String indicatorKey,
+    this.mappingVersion = const Value.absent(),
+    required DateTime createdAtUtc,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       profileId = Value(profileId),
+       activityTypeId = Value(activityTypeId),
+       indicatorKey = Value(indicatorKey),
+       createdAtUtc = Value(createdAtUtc);
+  static Insertable<ActivityTypeIndicatorMappingRow> custom({
+    Expression<String>? id,
+    Expression<String>? profileId,
+    Expression<String>? activityTypeId,
+    Expression<String>? indicatorKey,
+    Expression<int>? mappingVersion,
+    Expression<DateTime>? createdAtUtc,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (profileId != null) 'profile_id': profileId,
+      if (activityTypeId != null) 'activity_type_id': activityTypeId,
+      if (indicatorKey != null) 'indicator_key': indicatorKey,
+      if (mappingVersion != null) 'mapping_version': mappingVersion,
+      if (createdAtUtc != null) 'created_at_utc': createdAtUtc,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ActivityTypeIndicatorMappingsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? profileId,
+    Value<String>? activityTypeId,
+    Value<String>? indicatorKey,
+    Value<int>? mappingVersion,
+    Value<DateTime>? createdAtUtc,
+    Value<int>? rowid,
+  }) {
+    return ActivityTypeIndicatorMappingsCompanion(
+      id: id ?? this.id,
+      profileId: profileId ?? this.profileId,
+      activityTypeId: activityTypeId ?? this.activityTypeId,
+      indicatorKey: indicatorKey ?? this.indicatorKey,
+      mappingVersion: mappingVersion ?? this.mappingVersion,
+      createdAtUtc: createdAtUtc ?? this.createdAtUtc,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (profileId.present) {
+      map['profile_id'] = Variable<String>(profileId.value);
+    }
+    if (activityTypeId.present) {
+      map['activity_type_id'] = Variable<String>(activityTypeId.value);
+    }
+    if (indicatorKey.present) {
+      map['indicator_key'] = Variable<String>(indicatorKey.value);
+    }
+    if (mappingVersion.present) {
+      map['mapping_version'] = Variable<int>(mappingVersion.value);
+    }
+    if (createdAtUtc.present) {
+      map['created_at_utc'] = Variable<DateTime>(createdAtUtc.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ActivityTypeIndicatorMappingsCompanion(')
+          ..write('id: $id, ')
+          ..write('profileId: $profileId, ')
+          ..write('activityTypeId: $activityTypeId, ')
+          ..write('indicatorKey: $indicatorKey, ')
+          ..write('mappingVersion: $mappingVersion, ')
+          ..write('createdAtUtc: $createdAtUtc, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $PlannerPreferencesTable extends PlannerPreferences
+    with TableInfo<$PlannerPreferencesTable, PlannerPreferenceRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PlannerPreferencesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _profileIdMeta = const VerificationMeta(
+    'profileId',
+  );
+  @override
+  late final GeneratedColumn<String> profileId = GeneratedColumn<String>(
+    'profile_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES local_profiles (id) ON DELETE RESTRICT',
+    ),
+  );
+  static const VerificationMeta _defaultActivityTypeIdMeta =
+      const VerificationMeta('defaultActivityTypeId');
+  @override
+  late final GeneratedColumn<String> defaultActivityTypeId =
+      GeneratedColumn<String>(
+        'default_activity_type_id',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _defaultDurationMinutesMeta =
+      const VerificationMeta('defaultDurationMinutes');
+  @override
+  late final GeneratedColumn<int> defaultDurationMinutes = GeneratedColumn<int>(
+    'default_duration_minutes',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(60),
+  );
+  static const VerificationMeta _defaultReminderMinutesMeta =
+      const VerificationMeta('defaultReminderMinutes');
+  @override
+  late final GeneratedColumn<int> defaultReminderMinutes = GeneratedColumn<int>(
+    'default_reminder_minutes',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _visibleStartHourMeta = const VerificationMeta(
+    'visibleStartHour',
+  );
+  @override
+  late final GeneratedColumn<int> visibleStartHour = GeneratedColumn<int>(
+    'visible_start_hour',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(6),
+  );
+  static const VerificationMeta _visibleEndHourMeta = const VerificationMeta(
+    'visibleEndHour',
+  );
+  @override
+  late final GeneratedColumn<int> visibleEndHour = GeneratedColumn<int>(
+    'visible_end_hour',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(22),
+  );
+  static const VerificationMeta _use24HourTimeMeta = const VerificationMeta(
+    'use24HourTime',
+  );
+  @override
+  late final GeneratedColumn<bool> use24HourTime = GeneratedColumn<bool>(
+    'use24_hour_time',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("use24_hour_time" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _snapMinutesMeta = const VerificationMeta(
+    'snapMinutes',
+  );
+  @override
+  late final GeneratedColumn<int> snapMinutes = GeneratedColumn<int>(
+    'snap_minutes',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(15),
+  );
+  static const VerificationMeta _showCurrentTimeMeta = const VerificationMeta(
+    'showCurrentTime',
+  );
+  @override
+  late final GeneratedColumn<bool> showCurrentTime = GeneratedColumn<bool>(
+    'show_current_time',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("show_current_time" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _initialScrollBehaviorMeta =
+      const VerificationMeta('initialScrollBehavior');
+  @override
+  late final GeneratedColumn<String> initialScrollBehavior =
+      GeneratedColumn<String>(
+        'initial_scroll_behavior',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant('currentTime'),
+      );
+  static const VerificationMeta _creationPresentationMeta =
+      const VerificationMeta('creationPresentation');
+  @override
+  late final GeneratedColumn<String> creationPresentation =
+      GeneratedColumn<String>(
+        'creation_presentation',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant('fullScreen'),
+      );
+  static const VerificationMeta _quickEditEnabledMeta = const VerificationMeta(
+    'quickEditEnabled',
+  );
+  @override
+  late final GeneratedColumn<bool> quickEditEnabled = GeneratedColumn<bool>(
+    'quick_edit_enabled',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("quick_edit_enabled" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _showCompletedItemsMeta =
+      const VerificationMeta('showCompletedItems');
+  @override
+  late final GeneratedColumn<bool> showCompletedItems = GeneratedColumn<bool>(
+    'show_completed_items',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("show_completed_items" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _showCancelledItemsMeta =
+      const VerificationMeta('showCancelledItems');
+  @override
+  late final GeneratedColumn<bool> showCancelledItems = GeneratedColumn<bool>(
+    'show_cancelled_items',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("show_cancelled_items" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _weekStartDayMeta = const VerificationMeta(
+    'weekStartDay',
+  );
+  @override
+  late final GeneratedColumn<int> weekStartDay = GeneratedColumn<int>(
+    'week_start_day',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(DateTime.monday),
+  );
+  static const VerificationMeta _updatedAtUtcMeta = const VerificationMeta(
+    'updatedAtUtc',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAtUtc = GeneratedColumn<DateTime>(
+    'updated_at_utc',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    profileId,
+    defaultActivityTypeId,
+    defaultDurationMinutes,
+    defaultReminderMinutes,
+    visibleStartHour,
+    visibleEndHour,
+    use24HourTime,
+    snapMinutes,
+    showCurrentTime,
+    initialScrollBehavior,
+    creationPresentation,
+    quickEditEnabled,
+    showCompletedItems,
+    showCancelledItems,
+    weekStartDay,
+    updatedAtUtc,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'planner_preferences';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PlannerPreferenceRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('profile_id')) {
+      context.handle(
+        _profileIdMeta,
+        profileId.isAcceptableOrUnknown(data['profile_id']!, _profileIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_profileIdMeta);
+    }
+    if (data.containsKey('default_activity_type_id')) {
+      context.handle(
+        _defaultActivityTypeIdMeta,
+        defaultActivityTypeId.isAcceptableOrUnknown(
+          data['default_activity_type_id']!,
+          _defaultActivityTypeIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('default_duration_minutes')) {
+      context.handle(
+        _defaultDurationMinutesMeta,
+        defaultDurationMinutes.isAcceptableOrUnknown(
+          data['default_duration_minutes']!,
+          _defaultDurationMinutesMeta,
+        ),
+      );
+    }
+    if (data.containsKey('default_reminder_minutes')) {
+      context.handle(
+        _defaultReminderMinutesMeta,
+        defaultReminderMinutes.isAcceptableOrUnknown(
+          data['default_reminder_minutes']!,
+          _defaultReminderMinutesMeta,
+        ),
+      );
+    }
+    if (data.containsKey('visible_start_hour')) {
+      context.handle(
+        _visibleStartHourMeta,
+        visibleStartHour.isAcceptableOrUnknown(
+          data['visible_start_hour']!,
+          _visibleStartHourMeta,
+        ),
+      );
+    }
+    if (data.containsKey('visible_end_hour')) {
+      context.handle(
+        _visibleEndHourMeta,
+        visibleEndHour.isAcceptableOrUnknown(
+          data['visible_end_hour']!,
+          _visibleEndHourMeta,
+        ),
+      );
+    }
+    if (data.containsKey('use24_hour_time')) {
+      context.handle(
+        _use24HourTimeMeta,
+        use24HourTime.isAcceptableOrUnknown(
+          data['use24_hour_time']!,
+          _use24HourTimeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('snap_minutes')) {
+      context.handle(
+        _snapMinutesMeta,
+        snapMinutes.isAcceptableOrUnknown(
+          data['snap_minutes']!,
+          _snapMinutesMeta,
+        ),
+      );
+    }
+    if (data.containsKey('show_current_time')) {
+      context.handle(
+        _showCurrentTimeMeta,
+        showCurrentTime.isAcceptableOrUnknown(
+          data['show_current_time']!,
+          _showCurrentTimeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('initial_scroll_behavior')) {
+      context.handle(
+        _initialScrollBehaviorMeta,
+        initialScrollBehavior.isAcceptableOrUnknown(
+          data['initial_scroll_behavior']!,
+          _initialScrollBehaviorMeta,
+        ),
+      );
+    }
+    if (data.containsKey('creation_presentation')) {
+      context.handle(
+        _creationPresentationMeta,
+        creationPresentation.isAcceptableOrUnknown(
+          data['creation_presentation']!,
+          _creationPresentationMeta,
+        ),
+      );
+    }
+    if (data.containsKey('quick_edit_enabled')) {
+      context.handle(
+        _quickEditEnabledMeta,
+        quickEditEnabled.isAcceptableOrUnknown(
+          data['quick_edit_enabled']!,
+          _quickEditEnabledMeta,
+        ),
+      );
+    }
+    if (data.containsKey('show_completed_items')) {
+      context.handle(
+        _showCompletedItemsMeta,
+        showCompletedItems.isAcceptableOrUnknown(
+          data['show_completed_items']!,
+          _showCompletedItemsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('show_cancelled_items')) {
+      context.handle(
+        _showCancelledItemsMeta,
+        showCancelledItems.isAcceptableOrUnknown(
+          data['show_cancelled_items']!,
+          _showCancelledItemsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('week_start_day')) {
+      context.handle(
+        _weekStartDayMeta,
+        weekStartDay.isAcceptableOrUnknown(
+          data['week_start_day']!,
+          _weekStartDayMeta,
+        ),
+      );
+    }
+    if (data.containsKey('updated_at_utc')) {
+      context.handle(
+        _updatedAtUtcMeta,
+        updatedAtUtc.isAcceptableOrUnknown(
+          data['updated_at_utc']!,
+          _updatedAtUtcMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtUtcMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {profileId};
+  @override
+  PlannerPreferenceRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PlannerPreferenceRow(
+      profileId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}profile_id'],
+      )!,
+      defaultActivityTypeId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}default_activity_type_id'],
+      ),
+      defaultDurationMinutes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}default_duration_minutes'],
+      )!,
+      defaultReminderMinutes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}default_reminder_minutes'],
+      ),
+      visibleStartHour: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}visible_start_hour'],
+      )!,
+      visibleEndHour: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}visible_end_hour'],
+      )!,
+      use24HourTime: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}use24_hour_time'],
+      )!,
+      snapMinutes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}snap_minutes'],
+      )!,
+      showCurrentTime: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}show_current_time'],
+      )!,
+      initialScrollBehavior: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}initial_scroll_behavior'],
+      )!,
+      creationPresentation: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}creation_presentation'],
+      )!,
+      quickEditEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}quick_edit_enabled'],
+      )!,
+      showCompletedItems: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}show_completed_items'],
+      )!,
+      showCancelledItems: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}show_cancelled_items'],
+      )!,
+      weekStartDay: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}week_start_day'],
+      )!,
+      updatedAtUtc: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at_utc'],
+      )!,
+    );
+  }
+
+  @override
+  $PlannerPreferencesTable createAlias(String alias) {
+    return $PlannerPreferencesTable(attachedDatabase, alias);
+  }
+}
+
+class PlannerPreferenceRow extends DataClass
+    implements Insertable<PlannerPreferenceRow> {
+  final String profileId;
+  final String? defaultActivityTypeId;
+  final int defaultDurationMinutes;
+  final int? defaultReminderMinutes;
+  final int visibleStartHour;
+  final int visibleEndHour;
+  final bool use24HourTime;
+  final int snapMinutes;
+  final bool showCurrentTime;
+  final String initialScrollBehavior;
+  final String creationPresentation;
+  final bool quickEditEnabled;
+  final bool showCompletedItems;
+  final bool showCancelledItems;
+  final int weekStartDay;
+  final DateTime updatedAtUtc;
+  const PlannerPreferenceRow({
+    required this.profileId,
+    this.defaultActivityTypeId,
+    required this.defaultDurationMinutes,
+    this.defaultReminderMinutes,
+    required this.visibleStartHour,
+    required this.visibleEndHour,
+    required this.use24HourTime,
+    required this.snapMinutes,
+    required this.showCurrentTime,
+    required this.initialScrollBehavior,
+    required this.creationPresentation,
+    required this.quickEditEnabled,
+    required this.showCompletedItems,
+    required this.showCancelledItems,
+    required this.weekStartDay,
+    required this.updatedAtUtc,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['profile_id'] = Variable<String>(profileId);
+    if (!nullToAbsent || defaultActivityTypeId != null) {
+      map['default_activity_type_id'] = Variable<String>(defaultActivityTypeId);
+    }
+    map['default_duration_minutes'] = Variable<int>(defaultDurationMinutes);
+    if (!nullToAbsent || defaultReminderMinutes != null) {
+      map['default_reminder_minutes'] = Variable<int>(defaultReminderMinutes);
+    }
+    map['visible_start_hour'] = Variable<int>(visibleStartHour);
+    map['visible_end_hour'] = Variable<int>(visibleEndHour);
+    map['use24_hour_time'] = Variable<bool>(use24HourTime);
+    map['snap_minutes'] = Variable<int>(snapMinutes);
+    map['show_current_time'] = Variable<bool>(showCurrentTime);
+    map['initial_scroll_behavior'] = Variable<String>(initialScrollBehavior);
+    map['creation_presentation'] = Variable<String>(creationPresentation);
+    map['quick_edit_enabled'] = Variable<bool>(quickEditEnabled);
+    map['show_completed_items'] = Variable<bool>(showCompletedItems);
+    map['show_cancelled_items'] = Variable<bool>(showCancelledItems);
+    map['week_start_day'] = Variable<int>(weekStartDay);
+    map['updated_at_utc'] = Variable<DateTime>(updatedAtUtc);
+    return map;
+  }
+
+  PlannerPreferencesCompanion toCompanion(bool nullToAbsent) {
+    return PlannerPreferencesCompanion(
+      profileId: Value(profileId),
+      defaultActivityTypeId: defaultActivityTypeId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(defaultActivityTypeId),
+      defaultDurationMinutes: Value(defaultDurationMinutes),
+      defaultReminderMinutes: defaultReminderMinutes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(defaultReminderMinutes),
+      visibleStartHour: Value(visibleStartHour),
+      visibleEndHour: Value(visibleEndHour),
+      use24HourTime: Value(use24HourTime),
+      snapMinutes: Value(snapMinutes),
+      showCurrentTime: Value(showCurrentTime),
+      initialScrollBehavior: Value(initialScrollBehavior),
+      creationPresentation: Value(creationPresentation),
+      quickEditEnabled: Value(quickEditEnabled),
+      showCompletedItems: Value(showCompletedItems),
+      showCancelledItems: Value(showCancelledItems),
+      weekStartDay: Value(weekStartDay),
+      updatedAtUtc: Value(updatedAtUtc),
+    );
+  }
+
+  factory PlannerPreferenceRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PlannerPreferenceRow(
+      profileId: serializer.fromJson<String>(json['profileId']),
+      defaultActivityTypeId: serializer.fromJson<String?>(
+        json['defaultActivityTypeId'],
+      ),
+      defaultDurationMinutes: serializer.fromJson<int>(
+        json['defaultDurationMinutes'],
+      ),
+      defaultReminderMinutes: serializer.fromJson<int?>(
+        json['defaultReminderMinutes'],
+      ),
+      visibleStartHour: serializer.fromJson<int>(json['visibleStartHour']),
+      visibleEndHour: serializer.fromJson<int>(json['visibleEndHour']),
+      use24HourTime: serializer.fromJson<bool>(json['use24HourTime']),
+      snapMinutes: serializer.fromJson<int>(json['snapMinutes']),
+      showCurrentTime: serializer.fromJson<bool>(json['showCurrentTime']),
+      initialScrollBehavior: serializer.fromJson<String>(
+        json['initialScrollBehavior'],
+      ),
+      creationPresentation: serializer.fromJson<String>(
+        json['creationPresentation'],
+      ),
+      quickEditEnabled: serializer.fromJson<bool>(json['quickEditEnabled']),
+      showCompletedItems: serializer.fromJson<bool>(json['showCompletedItems']),
+      showCancelledItems: serializer.fromJson<bool>(json['showCancelledItems']),
+      weekStartDay: serializer.fromJson<int>(json['weekStartDay']),
+      updatedAtUtc: serializer.fromJson<DateTime>(json['updatedAtUtc']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'profileId': serializer.toJson<String>(profileId),
+      'defaultActivityTypeId': serializer.toJson<String?>(
+        defaultActivityTypeId,
+      ),
+      'defaultDurationMinutes': serializer.toJson<int>(defaultDurationMinutes),
+      'defaultReminderMinutes': serializer.toJson<int?>(defaultReminderMinutes),
+      'visibleStartHour': serializer.toJson<int>(visibleStartHour),
+      'visibleEndHour': serializer.toJson<int>(visibleEndHour),
+      'use24HourTime': serializer.toJson<bool>(use24HourTime),
+      'snapMinutes': serializer.toJson<int>(snapMinutes),
+      'showCurrentTime': serializer.toJson<bool>(showCurrentTime),
+      'initialScrollBehavior': serializer.toJson<String>(initialScrollBehavior),
+      'creationPresentation': serializer.toJson<String>(creationPresentation),
+      'quickEditEnabled': serializer.toJson<bool>(quickEditEnabled),
+      'showCompletedItems': serializer.toJson<bool>(showCompletedItems),
+      'showCancelledItems': serializer.toJson<bool>(showCancelledItems),
+      'weekStartDay': serializer.toJson<int>(weekStartDay),
+      'updatedAtUtc': serializer.toJson<DateTime>(updatedAtUtc),
+    };
+  }
+
+  PlannerPreferenceRow copyWith({
+    String? profileId,
+    Value<String?> defaultActivityTypeId = const Value.absent(),
+    int? defaultDurationMinutes,
+    Value<int?> defaultReminderMinutes = const Value.absent(),
+    int? visibleStartHour,
+    int? visibleEndHour,
+    bool? use24HourTime,
+    int? snapMinutes,
+    bool? showCurrentTime,
+    String? initialScrollBehavior,
+    String? creationPresentation,
+    bool? quickEditEnabled,
+    bool? showCompletedItems,
+    bool? showCancelledItems,
+    int? weekStartDay,
+    DateTime? updatedAtUtc,
+  }) => PlannerPreferenceRow(
+    profileId: profileId ?? this.profileId,
+    defaultActivityTypeId: defaultActivityTypeId.present
+        ? defaultActivityTypeId.value
+        : this.defaultActivityTypeId,
+    defaultDurationMinutes:
+        defaultDurationMinutes ?? this.defaultDurationMinutes,
+    defaultReminderMinutes: defaultReminderMinutes.present
+        ? defaultReminderMinutes.value
+        : this.defaultReminderMinutes,
+    visibleStartHour: visibleStartHour ?? this.visibleStartHour,
+    visibleEndHour: visibleEndHour ?? this.visibleEndHour,
+    use24HourTime: use24HourTime ?? this.use24HourTime,
+    snapMinutes: snapMinutes ?? this.snapMinutes,
+    showCurrentTime: showCurrentTime ?? this.showCurrentTime,
+    initialScrollBehavior: initialScrollBehavior ?? this.initialScrollBehavior,
+    creationPresentation: creationPresentation ?? this.creationPresentation,
+    quickEditEnabled: quickEditEnabled ?? this.quickEditEnabled,
+    showCompletedItems: showCompletedItems ?? this.showCompletedItems,
+    showCancelledItems: showCancelledItems ?? this.showCancelledItems,
+    weekStartDay: weekStartDay ?? this.weekStartDay,
+    updatedAtUtc: updatedAtUtc ?? this.updatedAtUtc,
+  );
+  PlannerPreferenceRow copyWithCompanion(PlannerPreferencesCompanion data) {
+    return PlannerPreferenceRow(
+      profileId: data.profileId.present ? data.profileId.value : this.profileId,
+      defaultActivityTypeId: data.defaultActivityTypeId.present
+          ? data.defaultActivityTypeId.value
+          : this.defaultActivityTypeId,
+      defaultDurationMinutes: data.defaultDurationMinutes.present
+          ? data.defaultDurationMinutes.value
+          : this.defaultDurationMinutes,
+      defaultReminderMinutes: data.defaultReminderMinutes.present
+          ? data.defaultReminderMinutes.value
+          : this.defaultReminderMinutes,
+      visibleStartHour: data.visibleStartHour.present
+          ? data.visibleStartHour.value
+          : this.visibleStartHour,
+      visibleEndHour: data.visibleEndHour.present
+          ? data.visibleEndHour.value
+          : this.visibleEndHour,
+      use24HourTime: data.use24HourTime.present
+          ? data.use24HourTime.value
+          : this.use24HourTime,
+      snapMinutes: data.snapMinutes.present
+          ? data.snapMinutes.value
+          : this.snapMinutes,
+      showCurrentTime: data.showCurrentTime.present
+          ? data.showCurrentTime.value
+          : this.showCurrentTime,
+      initialScrollBehavior: data.initialScrollBehavior.present
+          ? data.initialScrollBehavior.value
+          : this.initialScrollBehavior,
+      creationPresentation: data.creationPresentation.present
+          ? data.creationPresentation.value
+          : this.creationPresentation,
+      quickEditEnabled: data.quickEditEnabled.present
+          ? data.quickEditEnabled.value
+          : this.quickEditEnabled,
+      showCompletedItems: data.showCompletedItems.present
+          ? data.showCompletedItems.value
+          : this.showCompletedItems,
+      showCancelledItems: data.showCancelledItems.present
+          ? data.showCancelledItems.value
+          : this.showCancelledItems,
+      weekStartDay: data.weekStartDay.present
+          ? data.weekStartDay.value
+          : this.weekStartDay,
+      updatedAtUtc: data.updatedAtUtc.present
+          ? data.updatedAtUtc.value
+          : this.updatedAtUtc,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PlannerPreferenceRow(')
+          ..write('profileId: $profileId, ')
+          ..write('defaultActivityTypeId: $defaultActivityTypeId, ')
+          ..write('defaultDurationMinutes: $defaultDurationMinutes, ')
+          ..write('defaultReminderMinutes: $defaultReminderMinutes, ')
+          ..write('visibleStartHour: $visibleStartHour, ')
+          ..write('visibleEndHour: $visibleEndHour, ')
+          ..write('use24HourTime: $use24HourTime, ')
+          ..write('snapMinutes: $snapMinutes, ')
+          ..write('showCurrentTime: $showCurrentTime, ')
+          ..write('initialScrollBehavior: $initialScrollBehavior, ')
+          ..write('creationPresentation: $creationPresentation, ')
+          ..write('quickEditEnabled: $quickEditEnabled, ')
+          ..write('showCompletedItems: $showCompletedItems, ')
+          ..write('showCancelledItems: $showCancelledItems, ')
+          ..write('weekStartDay: $weekStartDay, ')
+          ..write('updatedAtUtc: $updatedAtUtc')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    profileId,
+    defaultActivityTypeId,
+    defaultDurationMinutes,
+    defaultReminderMinutes,
+    visibleStartHour,
+    visibleEndHour,
+    use24HourTime,
+    snapMinutes,
+    showCurrentTime,
+    initialScrollBehavior,
+    creationPresentation,
+    quickEditEnabled,
+    showCompletedItems,
+    showCancelledItems,
+    weekStartDay,
+    updatedAtUtc,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PlannerPreferenceRow &&
+          other.profileId == this.profileId &&
+          other.defaultActivityTypeId == this.defaultActivityTypeId &&
+          other.defaultDurationMinutes == this.defaultDurationMinutes &&
+          other.defaultReminderMinutes == this.defaultReminderMinutes &&
+          other.visibleStartHour == this.visibleStartHour &&
+          other.visibleEndHour == this.visibleEndHour &&
+          other.use24HourTime == this.use24HourTime &&
+          other.snapMinutes == this.snapMinutes &&
+          other.showCurrentTime == this.showCurrentTime &&
+          other.initialScrollBehavior == this.initialScrollBehavior &&
+          other.creationPresentation == this.creationPresentation &&
+          other.quickEditEnabled == this.quickEditEnabled &&
+          other.showCompletedItems == this.showCompletedItems &&
+          other.showCancelledItems == this.showCancelledItems &&
+          other.weekStartDay == this.weekStartDay &&
+          other.updatedAtUtc == this.updatedAtUtc);
+}
+
+class PlannerPreferencesCompanion
+    extends UpdateCompanion<PlannerPreferenceRow> {
+  final Value<String> profileId;
+  final Value<String?> defaultActivityTypeId;
+  final Value<int> defaultDurationMinutes;
+  final Value<int?> defaultReminderMinutes;
+  final Value<int> visibleStartHour;
+  final Value<int> visibleEndHour;
+  final Value<bool> use24HourTime;
+  final Value<int> snapMinutes;
+  final Value<bool> showCurrentTime;
+  final Value<String> initialScrollBehavior;
+  final Value<String> creationPresentation;
+  final Value<bool> quickEditEnabled;
+  final Value<bool> showCompletedItems;
+  final Value<bool> showCancelledItems;
+  final Value<int> weekStartDay;
+  final Value<DateTime> updatedAtUtc;
+  final Value<int> rowid;
+  const PlannerPreferencesCompanion({
+    this.profileId = const Value.absent(),
+    this.defaultActivityTypeId = const Value.absent(),
+    this.defaultDurationMinutes = const Value.absent(),
+    this.defaultReminderMinutes = const Value.absent(),
+    this.visibleStartHour = const Value.absent(),
+    this.visibleEndHour = const Value.absent(),
+    this.use24HourTime = const Value.absent(),
+    this.snapMinutes = const Value.absent(),
+    this.showCurrentTime = const Value.absent(),
+    this.initialScrollBehavior = const Value.absent(),
+    this.creationPresentation = const Value.absent(),
+    this.quickEditEnabled = const Value.absent(),
+    this.showCompletedItems = const Value.absent(),
+    this.showCancelledItems = const Value.absent(),
+    this.weekStartDay = const Value.absent(),
+    this.updatedAtUtc = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  PlannerPreferencesCompanion.insert({
+    required String profileId,
+    this.defaultActivityTypeId = const Value.absent(),
+    this.defaultDurationMinutes = const Value.absent(),
+    this.defaultReminderMinutes = const Value.absent(),
+    this.visibleStartHour = const Value.absent(),
+    this.visibleEndHour = const Value.absent(),
+    this.use24HourTime = const Value.absent(),
+    this.snapMinutes = const Value.absent(),
+    this.showCurrentTime = const Value.absent(),
+    this.initialScrollBehavior = const Value.absent(),
+    this.creationPresentation = const Value.absent(),
+    this.quickEditEnabled = const Value.absent(),
+    this.showCompletedItems = const Value.absent(),
+    this.showCancelledItems = const Value.absent(),
+    this.weekStartDay = const Value.absent(),
+    required DateTime updatedAtUtc,
+    this.rowid = const Value.absent(),
+  }) : profileId = Value(profileId),
+       updatedAtUtc = Value(updatedAtUtc);
+  static Insertable<PlannerPreferenceRow> custom({
+    Expression<String>? profileId,
+    Expression<String>? defaultActivityTypeId,
+    Expression<int>? defaultDurationMinutes,
+    Expression<int>? defaultReminderMinutes,
+    Expression<int>? visibleStartHour,
+    Expression<int>? visibleEndHour,
+    Expression<bool>? use24HourTime,
+    Expression<int>? snapMinutes,
+    Expression<bool>? showCurrentTime,
+    Expression<String>? initialScrollBehavior,
+    Expression<String>? creationPresentation,
+    Expression<bool>? quickEditEnabled,
+    Expression<bool>? showCompletedItems,
+    Expression<bool>? showCancelledItems,
+    Expression<int>? weekStartDay,
+    Expression<DateTime>? updatedAtUtc,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (profileId != null) 'profile_id': profileId,
+      if (defaultActivityTypeId != null)
+        'default_activity_type_id': defaultActivityTypeId,
+      if (defaultDurationMinutes != null)
+        'default_duration_minutes': defaultDurationMinutes,
+      if (defaultReminderMinutes != null)
+        'default_reminder_minutes': defaultReminderMinutes,
+      if (visibleStartHour != null) 'visible_start_hour': visibleStartHour,
+      if (visibleEndHour != null) 'visible_end_hour': visibleEndHour,
+      if (use24HourTime != null) 'use24_hour_time': use24HourTime,
+      if (snapMinutes != null) 'snap_minutes': snapMinutes,
+      if (showCurrentTime != null) 'show_current_time': showCurrentTime,
+      if (initialScrollBehavior != null)
+        'initial_scroll_behavior': initialScrollBehavior,
+      if (creationPresentation != null)
+        'creation_presentation': creationPresentation,
+      if (quickEditEnabled != null) 'quick_edit_enabled': quickEditEnabled,
+      if (showCompletedItems != null)
+        'show_completed_items': showCompletedItems,
+      if (showCancelledItems != null)
+        'show_cancelled_items': showCancelledItems,
+      if (weekStartDay != null) 'week_start_day': weekStartDay,
+      if (updatedAtUtc != null) 'updated_at_utc': updatedAtUtc,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  PlannerPreferencesCompanion copyWith({
+    Value<String>? profileId,
+    Value<String?>? defaultActivityTypeId,
+    Value<int>? defaultDurationMinutes,
+    Value<int?>? defaultReminderMinutes,
+    Value<int>? visibleStartHour,
+    Value<int>? visibleEndHour,
+    Value<bool>? use24HourTime,
+    Value<int>? snapMinutes,
+    Value<bool>? showCurrentTime,
+    Value<String>? initialScrollBehavior,
+    Value<String>? creationPresentation,
+    Value<bool>? quickEditEnabled,
+    Value<bool>? showCompletedItems,
+    Value<bool>? showCancelledItems,
+    Value<int>? weekStartDay,
+    Value<DateTime>? updatedAtUtc,
+    Value<int>? rowid,
+  }) {
+    return PlannerPreferencesCompanion(
+      profileId: profileId ?? this.profileId,
+      defaultActivityTypeId:
+          defaultActivityTypeId ?? this.defaultActivityTypeId,
+      defaultDurationMinutes:
+          defaultDurationMinutes ?? this.defaultDurationMinutes,
+      defaultReminderMinutes:
+          defaultReminderMinutes ?? this.defaultReminderMinutes,
+      visibleStartHour: visibleStartHour ?? this.visibleStartHour,
+      visibleEndHour: visibleEndHour ?? this.visibleEndHour,
+      use24HourTime: use24HourTime ?? this.use24HourTime,
+      snapMinutes: snapMinutes ?? this.snapMinutes,
+      showCurrentTime: showCurrentTime ?? this.showCurrentTime,
+      initialScrollBehavior:
+          initialScrollBehavior ?? this.initialScrollBehavior,
+      creationPresentation: creationPresentation ?? this.creationPresentation,
+      quickEditEnabled: quickEditEnabled ?? this.quickEditEnabled,
+      showCompletedItems: showCompletedItems ?? this.showCompletedItems,
+      showCancelledItems: showCancelledItems ?? this.showCancelledItems,
+      weekStartDay: weekStartDay ?? this.weekStartDay,
+      updatedAtUtc: updatedAtUtc ?? this.updatedAtUtc,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (profileId.present) {
+      map['profile_id'] = Variable<String>(profileId.value);
+    }
+    if (defaultActivityTypeId.present) {
+      map['default_activity_type_id'] = Variable<String>(
+        defaultActivityTypeId.value,
+      );
+    }
+    if (defaultDurationMinutes.present) {
+      map['default_duration_minutes'] = Variable<int>(
+        defaultDurationMinutes.value,
+      );
+    }
+    if (defaultReminderMinutes.present) {
+      map['default_reminder_minutes'] = Variable<int>(
+        defaultReminderMinutes.value,
+      );
+    }
+    if (visibleStartHour.present) {
+      map['visible_start_hour'] = Variable<int>(visibleStartHour.value);
+    }
+    if (visibleEndHour.present) {
+      map['visible_end_hour'] = Variable<int>(visibleEndHour.value);
+    }
+    if (use24HourTime.present) {
+      map['use24_hour_time'] = Variable<bool>(use24HourTime.value);
+    }
+    if (snapMinutes.present) {
+      map['snap_minutes'] = Variable<int>(snapMinutes.value);
+    }
+    if (showCurrentTime.present) {
+      map['show_current_time'] = Variable<bool>(showCurrentTime.value);
+    }
+    if (initialScrollBehavior.present) {
+      map['initial_scroll_behavior'] = Variable<String>(
+        initialScrollBehavior.value,
+      );
+    }
+    if (creationPresentation.present) {
+      map['creation_presentation'] = Variable<String>(
+        creationPresentation.value,
+      );
+    }
+    if (quickEditEnabled.present) {
+      map['quick_edit_enabled'] = Variable<bool>(quickEditEnabled.value);
+    }
+    if (showCompletedItems.present) {
+      map['show_completed_items'] = Variable<bool>(showCompletedItems.value);
+    }
+    if (showCancelledItems.present) {
+      map['show_cancelled_items'] = Variable<bool>(showCancelledItems.value);
+    }
+    if (weekStartDay.present) {
+      map['week_start_day'] = Variable<int>(weekStartDay.value);
+    }
+    if (updatedAtUtc.present) {
+      map['updated_at_utc'] = Variable<DateTime>(updatedAtUtc.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PlannerPreferencesCompanion(')
+          ..write('profileId: $profileId, ')
+          ..write('defaultActivityTypeId: $defaultActivityTypeId, ')
+          ..write('defaultDurationMinutes: $defaultDurationMinutes, ')
+          ..write('defaultReminderMinutes: $defaultReminderMinutes, ')
+          ..write('visibleStartHour: $visibleStartHour, ')
+          ..write('visibleEndHour: $visibleEndHour, ')
+          ..write('use24HourTime: $use24HourTime, ')
+          ..write('snapMinutes: $snapMinutes, ')
+          ..write('showCurrentTime: $showCurrentTime, ')
+          ..write('initialScrollBehavior: $initialScrollBehavior, ')
+          ..write('creationPresentation: $creationPresentation, ')
+          ..write('quickEditEnabled: $quickEditEnabled, ')
+          ..write('showCompletedItems: $showCompletedItems, ')
+          ..write('showCancelledItems: $showCancelledItems, ')
+          ..write('weekStartDay: $weekStartDay, ')
+          ..write('updatedAtUtc: $updatedAtUtc, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -13915,6 +16524,11 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   weeklyPlanTaskCarryoverDecisions = $WeeklyPlanTaskCarryoverDecisionsTable(
     this,
   );
+  late final $ActivityTypesTable activityTypes = $ActivityTypesTable(this);
+  late final $ActivityTypeIndicatorMappingsTable activityTypeIndicatorMappings =
+      $ActivityTypeIndicatorMappingsTable(this);
+  late final $PlannerPreferencesTable plannerPreferences =
+      $PlannerPreferencesTable(this);
   late final Index lifeIndicatorProfileKeyUnique = Index(
     'life_indicator_profile_key_unique',
     'CREATE UNIQUE INDEX life_indicator_profile_key_unique ON life_indicator_definitions (profile_id, indicator_key)',
@@ -14027,6 +16641,18 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     'weekly_plan_carryover_task_unique',
     'CREATE UNIQUE INDEX weekly_plan_carryover_task_unique ON weekly_plan_task_carryover_decisions (from_plan_id, task_id)',
   );
+  late final Index activityTypeProfileKeyUnique = Index(
+    'activity_type_profile_key_unique',
+    'CREATE UNIQUE INDEX activity_type_profile_key_unique ON activity_types (profile_id, stable_key)',
+  );
+  late final Index activityTypeProfilePosition = Index(
+    'activity_type_profile_position',
+    'CREATE INDEX activity_type_profile_position ON activity_types (profile_id, position)',
+  );
+  late final Index activityTypeIndicatorMappingUnique = Index(
+    'activity_type_indicator_mapping_unique',
+    'CREATE UNIQUE INDEX activity_type_indicator_mapping_unique ON activity_type_indicator_mappings (activity_type_id, mapping_version, indicator_key)',
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -14053,6 +16679,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     weeklyPlanReviews,
     weeklyPlanReviewIndicatorSnapshots,
     weeklyPlanTaskCarryoverDecisions,
+    activityTypes,
+    activityTypeIndicatorMappings,
+    plannerPreferences,
     lifeIndicatorProfileKeyUnique,
     plannerTaskProfileDueDate,
     taskStatusChangeOperationUnique,
@@ -14081,6 +16710,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     weeklyPlanReviewIndicatorUnique,
     weeklyPlanCarryoverOperationUnique,
     weeklyPlanCarryoverTaskUnique,
+    activityTypeProfileKeyUnique,
+    activityTypeProfilePosition,
+    activityTypeIndicatorMappingUnique,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -14487,6 +17119,74 @@ final class $$LocalProfilesTableReferences
 
     final cache = $_typedResult.readTableOrNull(
       _weeklyPlanTaskCarryoverDecisionsRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$ActivityTypesTable, List<ActivityTypeRow>>
+  _activityTypesRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.activityTypes,
+    aliasName: 'local_profiles__id__activity_types__profile_id',
+  );
+
+  $$ActivityTypesTableProcessedTableManager get activityTypesRefs {
+    final manager = $$ActivityTypesTableTableManager(
+      $_db,
+      $_db.activityTypes,
+    ).filter((f) => f.profileId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_activityTypesRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<
+    $ActivityTypeIndicatorMappingsTable,
+    List<ActivityTypeIndicatorMappingRow>
+  >
+  _activityTypeIndicatorMappingsRefsTable(_$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.activityTypeIndicatorMappings,
+        aliasName:
+            'local_profiles__id__activity_type_indicator_mappings__profile_id',
+      );
+
+  $$ActivityTypeIndicatorMappingsTableProcessedTableManager
+  get activityTypeIndicatorMappingsRefs {
+    final manager = $$ActivityTypeIndicatorMappingsTableTableManager(
+      $_db,
+      $_db.activityTypeIndicatorMappings,
+    ).filter((f) => f.profileId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _activityTypeIndicatorMappingsRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<
+    $PlannerPreferencesTable,
+    List<PlannerPreferenceRow>
+  >
+  _plannerPreferencesRefsTable(_$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.plannerPreferences,
+        aliasName: 'local_profiles__id__planner_preferences__profile_id',
+      );
+
+  $$PlannerPreferencesTableProcessedTableManager get plannerPreferencesRefs {
+    final manager = $$PlannerPreferencesTableTableManager(
+      $_db,
+      $_db.plannerPreferences,
+    ).filter((f) => f.profileId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _plannerPreferencesRefsTable($_db),
     );
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: cache),
@@ -14953,6 +17653,85 @@ class $$LocalProfilesTableFilterComposer
                     $removeJoinBuilderFromRootComposer,
               ),
         );
+    return f(composer);
+  }
+
+  Expression<bool> activityTypesRefs(
+    Expression<bool> Function($$ActivityTypesTableFilterComposer f) f,
+  ) {
+    final $$ActivityTypesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.activityTypes,
+      getReferencedColumn: (t) => t.profileId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ActivityTypesTableFilterComposer(
+            $db: $db,
+            $table: $db.activityTypes,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> activityTypeIndicatorMappingsRefs(
+    Expression<bool> Function(
+      $$ActivityTypeIndicatorMappingsTableFilterComposer f,
+    )
+    f,
+  ) {
+    final $$ActivityTypeIndicatorMappingsTableFilterComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.activityTypeIndicatorMappings,
+          getReferencedColumn: (t) => t.profileId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$ActivityTypeIndicatorMappingsTableFilterComposer(
+                $db: $db,
+                $table: $db.activityTypeIndicatorMappings,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
+
+  Expression<bool> plannerPreferencesRefs(
+    Expression<bool> Function($$PlannerPreferencesTableFilterComposer f) f,
+  ) {
+    final $$PlannerPreferencesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.plannerPreferences,
+      getReferencedColumn: (t) => t.profileId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PlannerPreferencesTableFilterComposer(
+            $db: $db,
+            $table: $db.plannerPreferences,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
     return f(composer);
   }
 }
@@ -15462,6 +18241,86 @@ class $$LocalProfilesTableAnnotationComposer
         );
     return f(composer);
   }
+
+  Expression<T> activityTypesRefs<T extends Object>(
+    Expression<T> Function($$ActivityTypesTableAnnotationComposer a) f,
+  ) {
+    final $$ActivityTypesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.activityTypes,
+      getReferencedColumn: (t) => t.profileId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ActivityTypesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.activityTypes,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<T> activityTypeIndicatorMappingsRefs<T extends Object>(
+    Expression<T> Function(
+      $$ActivityTypeIndicatorMappingsTableAnnotationComposer a,
+    )
+    f,
+  ) {
+    final $$ActivityTypeIndicatorMappingsTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.activityTypeIndicatorMappings,
+          getReferencedColumn: (t) => t.profileId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$ActivityTypeIndicatorMappingsTableAnnotationComposer(
+                $db: $db,
+                $table: $db.activityTypeIndicatorMappings,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
+
+  Expression<T> plannerPreferencesRefs<T extends Object>(
+    Expression<T> Function($$PlannerPreferencesTableAnnotationComposer a) f,
+  ) {
+    final $$PlannerPreferencesTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.plannerPreferences,
+          getReferencedColumn: (t) => t.profileId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$PlannerPreferencesTableAnnotationComposer(
+                $db: $db,
+                $table: $db.plannerPreferences,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
 }
 
 class $$LocalProfilesTableTableManager
@@ -15494,6 +18353,9 @@ class $$LocalProfilesTableTableManager
             bool weeklyPlanReviewsRefs,
             bool weeklyPlanReviewIndicatorSnapshotsRefs,
             bool weeklyPlanTaskCarryoverDecisionsRefs,
+            bool activityTypesRefs,
+            bool activityTypeIndicatorMappingsRefs,
+            bool plannerPreferencesRefs,
           })
         > {
   $$LocalProfilesTableTableManager(_$AppDatabase db, $LocalProfilesTable table)
@@ -15573,6 +18435,9 @@ class $$LocalProfilesTableTableManager
                 weeklyPlanReviewsRefs = false,
                 weeklyPlanReviewIndicatorSnapshotsRefs = false,
                 weeklyPlanTaskCarryoverDecisionsRefs = false,
+                activityTypesRefs = false,
+                activityTypeIndicatorMappingsRefs = false,
+                plannerPreferencesRefs = false,
               }) {
                 return PrefetchHooks(
                   db: db,
@@ -15597,6 +18462,10 @@ class $$LocalProfilesTableTableManager
                       db.weeklyPlanReviewIndicatorSnapshots,
                     if (weeklyPlanTaskCarryoverDecisionsRefs)
                       db.weeklyPlanTaskCarryoverDecisions,
+                    if (activityTypesRefs) db.activityTypes,
+                    if (activityTypeIndicatorMappingsRefs)
+                      db.activityTypeIndicatorMappings,
+                    if (plannerPreferencesRefs) db.plannerPreferences,
                   ],
                   addJoins: null,
                   getPrefetchedDataCallback: (items) async {
@@ -15937,6 +18806,69 @@ class $$LocalProfilesTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (activityTypesRefs)
+                        await $_getPrefetchedData<
+                          LocalProfileRow,
+                          $LocalProfilesTable,
+                          ActivityTypeRow
+                        >(
+                          currentTable: table,
+                          referencedTable: $$LocalProfilesTableReferences
+                              ._activityTypesRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$LocalProfilesTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).activityTypesRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.profileId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (activityTypeIndicatorMappingsRefs)
+                        await $_getPrefetchedData<
+                          LocalProfileRow,
+                          $LocalProfilesTable,
+                          ActivityTypeIndicatorMappingRow
+                        >(
+                          currentTable: table,
+                          referencedTable: $$LocalProfilesTableReferences
+                              ._activityTypeIndicatorMappingsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$LocalProfilesTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).activityTypeIndicatorMappingsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.profileId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (plannerPreferencesRefs)
+                        await $_getPrefetchedData<
+                          LocalProfileRow,
+                          $LocalProfilesTable,
+                          PlannerPreferenceRow
+                        >(
+                          currentTable: table,
+                          referencedTable: $$LocalProfilesTableReferences
+                              ._plannerPreferencesRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$LocalProfilesTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).plannerPreferencesRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.profileId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -15974,6 +18906,9 @@ typedef $$LocalProfilesTableProcessedTableManager =
         bool weeklyPlanReviewsRefs,
         bool weeklyPlanReviewIndicatorSnapshotsRefs,
         bool weeklyPlanTaskCarryoverDecisionsRefs,
+        bool activityTypesRefs,
+        bool activityTypeIndicatorMappingsRefs,
+        bool plannerPreferencesRefs,
       })
     >;
 typedef $$OnboardingCheckpointsTableCreateCompanionBuilder =
@@ -18144,6 +21079,8 @@ typedef $$CalendarEventsTableCreateCompanionBuilder =
       Value<String?> timeZoneId,
       Value<String?> locationText,
       Value<bool> requiresReport,
+      Value<String?> activityTypeId,
+      Value<int?> activityTypeMappingVersion,
       Value<String?> contributionRuleKey,
       Value<String> recurrenceFrequency,
       Value<String> recurrenceEndMode,
@@ -18169,6 +21106,8 @@ typedef $$CalendarEventsTableUpdateCompanionBuilder =
       Value<String?> timeZoneId,
       Value<String?> locationText,
       Value<bool> requiresReport,
+      Value<String?> activityTypeId,
+      Value<int?> activityTypeMappingVersion,
       Value<String?> contributionRuleKey,
       Value<String> recurrenceFrequency,
       Value<String> recurrenceEndMode,
@@ -18291,6 +21230,16 @@ class $$CalendarEventsTableFilterComposer
 
   ColumnFilters<bool> get requiresReport => $composableBuilder(
     column: $table.requiresReport,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get activityTypeId => $composableBuilder(
+    column: $table.activityTypeId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get activityTypeMappingVersion => $composableBuilder(
+    column: $table.activityTypeMappingVersion,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -18453,6 +21402,16 @@ class $$CalendarEventsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get activityTypeId => $composableBuilder(
+    column: $table.activityTypeId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get activityTypeMappingVersion => $composableBuilder(
+    column: $table.activityTypeMappingVersion,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get contributionRuleKey => $composableBuilder(
     column: $table.contributionRuleKey,
     builder: (column) => ColumnOrderings(column),
@@ -18571,6 +21530,16 @@ class $$CalendarEventsTableAnnotationComposer
 
   GeneratedColumn<bool> get requiresReport => $composableBuilder(
     column: $table.requiresReport,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get activityTypeId => $composableBuilder(
+    column: $table.activityTypeId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get activityTypeMappingVersion => $composableBuilder(
+    column: $table.activityTypeMappingVersion,
     builder: (column) => column,
   );
 
@@ -18717,6 +21686,8 @@ class $$CalendarEventsTableTableManager
                 Value<String?> timeZoneId = const Value.absent(),
                 Value<String?> locationText = const Value.absent(),
                 Value<bool> requiresReport = const Value.absent(),
+                Value<String?> activityTypeId = const Value.absent(),
+                Value<int?> activityTypeMappingVersion = const Value.absent(),
                 Value<String?> contributionRuleKey = const Value.absent(),
                 Value<String> recurrenceFrequency = const Value.absent(),
                 Value<String> recurrenceEndMode = const Value.absent(),
@@ -18740,6 +21711,8 @@ class $$CalendarEventsTableTableManager
                 timeZoneId: timeZoneId,
                 locationText: locationText,
                 requiresReport: requiresReport,
+                activityTypeId: activityTypeId,
+                activityTypeMappingVersion: activityTypeMappingVersion,
                 contributionRuleKey: contributionRuleKey,
                 recurrenceFrequency: recurrenceFrequency,
                 recurrenceEndMode: recurrenceEndMode,
@@ -18765,6 +21738,8 @@ class $$CalendarEventsTableTableManager
                 Value<String?> timeZoneId = const Value.absent(),
                 Value<String?> locationText = const Value.absent(),
                 Value<bool> requiresReport = const Value.absent(),
+                Value<String?> activityTypeId = const Value.absent(),
+                Value<int?> activityTypeMappingVersion = const Value.absent(),
                 Value<String?> contributionRuleKey = const Value.absent(),
                 Value<String> recurrenceFrequency = const Value.absent(),
                 Value<String> recurrenceEndMode = const Value.absent(),
@@ -18788,6 +21763,8 @@ class $$CalendarEventsTableTableManager
                 timeZoneId: timeZoneId,
                 locationText: locationText,
                 requiresReport: requiresReport,
+                activityTypeId: activityTypeId,
+                activityTypeMappingVersion: activityTypeMappingVersion,
                 contributionRuleKey: contributionRuleKey,
                 recurrenceFrequency: recurrenceFrequency,
                 recurrenceEndMode: recurrenceEndMode,
@@ -18910,6 +21887,8 @@ typedef $$CalendarEventExceptionsTableCreateCompanionBuilder =
       Value<String?> timeZoneId,
       Value<String?> locationText,
       Value<bool> requiresReport,
+      Value<String?> activityTypeId,
+      Value<int?> activityTypeMappingVersion,
       Value<String?> contributionRuleKey,
       required String status,
       Value<String?> replacementEventId,
@@ -18932,6 +21911,8 @@ typedef $$CalendarEventExceptionsTableUpdateCompanionBuilder =
       Value<String?> timeZoneId,
       Value<String?> locationText,
       Value<bool> requiresReport,
+      Value<String?> activityTypeId,
+      Value<int?> activityTypeMappingVersion,
       Value<String?> contributionRuleKey,
       Value<String> status,
       Value<String?> replacementEventId,
@@ -19055,6 +22036,16 @@ class $$CalendarEventExceptionsTableFilterComposer
 
   ColumnFilters<bool> get requiresReport => $composableBuilder(
     column: $table.requiresReport,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get activityTypeId => $composableBuilder(
+    column: $table.activityTypeId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get activityTypeMappingVersion => $composableBuilder(
+    column: $table.activityTypeMappingVersion,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -19194,6 +22185,16 @@ class $$CalendarEventExceptionsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get activityTypeId => $composableBuilder(
+    column: $table.activityTypeId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get activityTypeMappingVersion => $composableBuilder(
+    column: $table.activityTypeMappingVersion,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get contributionRuleKey => $composableBuilder(
     column: $table.contributionRuleKey,
     builder: (column) => ColumnOrderings(column),
@@ -19320,6 +22321,16 @@ class $$CalendarEventExceptionsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get activityTypeId => $composableBuilder(
+    column: $table.activityTypeId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get activityTypeMappingVersion => $composableBuilder(
+    column: $table.activityTypeMappingVersion,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get contributionRuleKey => $composableBuilder(
     column: $table.contributionRuleKey,
     builder: (column) => column,
@@ -19438,6 +22449,8 @@ class $$CalendarEventExceptionsTableTableManager
                 Value<String?> timeZoneId = const Value.absent(),
                 Value<String?> locationText = const Value.absent(),
                 Value<bool> requiresReport = const Value.absent(),
+                Value<String?> activityTypeId = const Value.absent(),
+                Value<int?> activityTypeMappingVersion = const Value.absent(),
                 Value<String?> contributionRuleKey = const Value.absent(),
                 Value<String> status = const Value.absent(),
                 Value<String?> replacementEventId = const Value.absent(),
@@ -19458,6 +22471,8 @@ class $$CalendarEventExceptionsTableTableManager
                 timeZoneId: timeZoneId,
                 locationText: locationText,
                 requiresReport: requiresReport,
+                activityTypeId: activityTypeId,
+                activityTypeMappingVersion: activityTypeMappingVersion,
                 contributionRuleKey: contributionRuleKey,
                 status: status,
                 replacementEventId: replacementEventId,
@@ -19480,6 +22495,8 @@ class $$CalendarEventExceptionsTableTableManager
                 Value<String?> timeZoneId = const Value.absent(),
                 Value<String?> locationText = const Value.absent(),
                 Value<bool> requiresReport = const Value.absent(),
+                Value<String?> activityTypeId = const Value.absent(),
+                Value<int?> activityTypeMappingVersion = const Value.absent(),
                 Value<String?> contributionRuleKey = const Value.absent(),
                 required String status,
                 Value<String?> replacementEventId = const Value.absent(),
@@ -19500,6 +22517,8 @@ class $$CalendarEventExceptionsTableTableManager
                 timeZoneId: timeZoneId,
                 locationText: locationText,
                 requiresReport: requiresReport,
+                activityTypeId: activityTypeId,
+                activityTypeMappingVersion: activityTypeMappingVersion,
                 contributionRuleKey: contributionRuleKey,
                 status: status,
                 replacementEventId: replacementEventId,
@@ -26531,6 +29550,1690 @@ typedef $$WeeklyPlanTaskCarryoverDecisionsTableProcessedTableManager =
         bool toPlanId,
       })
     >;
+typedef $$ActivityTypesTableCreateCompanionBuilder =
+    ActivityTypesCompanion Function({
+      required String id,
+      required String profileId,
+      required String stableKey,
+      required String label,
+      required String iconKey,
+      required int colorValue,
+      required bool isSystem,
+      Value<bool> isArchived,
+      Value<bool> reportRequiredDefault,
+      Value<int> defaultDurationMinutes,
+      Value<int?> defaultReminderMinutes,
+      required int position,
+      Value<int> mappingVersion,
+      required DateTime createdAtUtc,
+      required DateTime updatedAtUtc,
+      Value<int> rowid,
+    });
+typedef $$ActivityTypesTableUpdateCompanionBuilder =
+    ActivityTypesCompanion Function({
+      Value<String> id,
+      Value<String> profileId,
+      Value<String> stableKey,
+      Value<String> label,
+      Value<String> iconKey,
+      Value<int> colorValue,
+      Value<bool> isSystem,
+      Value<bool> isArchived,
+      Value<bool> reportRequiredDefault,
+      Value<int> defaultDurationMinutes,
+      Value<int?> defaultReminderMinutes,
+      Value<int> position,
+      Value<int> mappingVersion,
+      Value<DateTime> createdAtUtc,
+      Value<DateTime> updatedAtUtc,
+      Value<int> rowid,
+    });
+
+final class $$ActivityTypesTableReferences
+    extends
+        BaseReferences<_$AppDatabase, $ActivityTypesTable, ActivityTypeRow> {
+  $$ActivityTypesTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $LocalProfilesTable _profileIdTable(_$AppDatabase db) => db
+      .localProfiles
+      .createAlias('activity_types__profile_id__local_profiles__id');
+
+  $$LocalProfilesTableProcessedTableManager get profileId {
+    final $_column = $_itemColumn<String>('profile_id')!;
+
+    final manager = $$LocalProfilesTableTableManager(
+      $_db,
+      $_db.localProfiles,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_profileIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static MultiTypedResultKey<
+    $ActivityTypeIndicatorMappingsTable,
+    List<ActivityTypeIndicatorMappingRow>
+  >
+  _activityTypeIndicatorMappingsRefsTable(
+    _$AppDatabase db,
+  ) => MultiTypedResultKey.fromTable(
+    db.activityTypeIndicatorMappings,
+    aliasName:
+        'activity_types__id__activity_type_indicator_mappings__activity_type_id',
+  );
+
+  $$ActivityTypeIndicatorMappingsTableProcessedTableManager
+  get activityTypeIndicatorMappingsRefs {
+    final manager = $$ActivityTypeIndicatorMappingsTableTableManager(
+      $_db,
+      $_db.activityTypeIndicatorMappings,
+    ).filter((f) => f.activityTypeId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _activityTypeIndicatorMappingsRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
+
+class $$ActivityTypesTableFilterComposer
+    extends Composer<_$AppDatabase, $ActivityTypesTable> {
+  $$ActivityTypesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get stableKey => $composableBuilder(
+    column: $table.stableKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get label => $composableBuilder(
+    column: $table.label,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get iconKey => $composableBuilder(
+    column: $table.iconKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get colorValue => $composableBuilder(
+    column: $table.colorValue,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isSystem => $composableBuilder(
+    column: $table.isSystem,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isArchived => $composableBuilder(
+    column: $table.isArchived,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get reportRequiredDefault => $composableBuilder(
+    column: $table.reportRequiredDefault,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get defaultDurationMinutes => $composableBuilder(
+    column: $table.defaultDurationMinutes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get defaultReminderMinutes => $composableBuilder(
+    column: $table.defaultReminderMinutes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get position => $composableBuilder(
+    column: $table.position,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get mappingVersion => $composableBuilder(
+    column: $table.mappingVersion,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAtUtc => $composableBuilder(
+    column: $table.createdAtUtc,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAtUtc => $composableBuilder(
+    column: $table.updatedAtUtc,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$LocalProfilesTableFilterComposer get profileId {
+    final $$LocalProfilesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.profileId,
+      referencedTable: $db.localProfiles,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LocalProfilesTableFilterComposer(
+            $db: $db,
+            $table: $db.localProfiles,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  Expression<bool> activityTypeIndicatorMappingsRefs(
+    Expression<bool> Function(
+      $$ActivityTypeIndicatorMappingsTableFilterComposer f,
+    )
+    f,
+  ) {
+    final $$ActivityTypeIndicatorMappingsTableFilterComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.activityTypeIndicatorMappings,
+          getReferencedColumn: (t) => t.activityTypeId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$ActivityTypeIndicatorMappingsTableFilterComposer(
+                $db: $db,
+                $table: $db.activityTypeIndicatorMappings,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
+}
+
+class $$ActivityTypesTableOrderingComposer
+    extends Composer<_$AppDatabase, $ActivityTypesTable> {
+  $$ActivityTypesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get stableKey => $composableBuilder(
+    column: $table.stableKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get label => $composableBuilder(
+    column: $table.label,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get iconKey => $composableBuilder(
+    column: $table.iconKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get colorValue => $composableBuilder(
+    column: $table.colorValue,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isSystem => $composableBuilder(
+    column: $table.isSystem,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isArchived => $composableBuilder(
+    column: $table.isArchived,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get reportRequiredDefault => $composableBuilder(
+    column: $table.reportRequiredDefault,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get defaultDurationMinutes => $composableBuilder(
+    column: $table.defaultDurationMinutes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get defaultReminderMinutes => $composableBuilder(
+    column: $table.defaultReminderMinutes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get position => $composableBuilder(
+    column: $table.position,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get mappingVersion => $composableBuilder(
+    column: $table.mappingVersion,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAtUtc => $composableBuilder(
+    column: $table.createdAtUtc,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAtUtc => $composableBuilder(
+    column: $table.updatedAtUtc,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$LocalProfilesTableOrderingComposer get profileId {
+    final $$LocalProfilesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.profileId,
+      referencedTable: $db.localProfiles,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LocalProfilesTableOrderingComposer(
+            $db: $db,
+            $table: $db.localProfiles,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$ActivityTypesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ActivityTypesTable> {
+  $$ActivityTypesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get stableKey =>
+      $composableBuilder(column: $table.stableKey, builder: (column) => column);
+
+  GeneratedColumn<String> get label =>
+      $composableBuilder(column: $table.label, builder: (column) => column);
+
+  GeneratedColumn<String> get iconKey =>
+      $composableBuilder(column: $table.iconKey, builder: (column) => column);
+
+  GeneratedColumn<int> get colorValue => $composableBuilder(
+    column: $table.colorValue,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isSystem =>
+      $composableBuilder(column: $table.isSystem, builder: (column) => column);
+
+  GeneratedColumn<bool> get isArchived => $composableBuilder(
+    column: $table.isArchived,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get reportRequiredDefault => $composableBuilder(
+    column: $table.reportRequiredDefault,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get defaultDurationMinutes => $composableBuilder(
+    column: $table.defaultDurationMinutes,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get defaultReminderMinutes => $composableBuilder(
+    column: $table.defaultReminderMinutes,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get position =>
+      $composableBuilder(column: $table.position, builder: (column) => column);
+
+  GeneratedColumn<int> get mappingVersion => $composableBuilder(
+    column: $table.mappingVersion,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAtUtc => $composableBuilder(
+    column: $table.createdAtUtc,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get updatedAtUtc => $composableBuilder(
+    column: $table.updatedAtUtc,
+    builder: (column) => column,
+  );
+
+  $$LocalProfilesTableAnnotationComposer get profileId {
+    final $$LocalProfilesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.profileId,
+      referencedTable: $db.localProfiles,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LocalProfilesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.localProfiles,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  Expression<T> activityTypeIndicatorMappingsRefs<T extends Object>(
+    Expression<T> Function(
+      $$ActivityTypeIndicatorMappingsTableAnnotationComposer a,
+    )
+    f,
+  ) {
+    final $$ActivityTypeIndicatorMappingsTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.activityTypeIndicatorMappings,
+          getReferencedColumn: (t) => t.activityTypeId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$ActivityTypeIndicatorMappingsTableAnnotationComposer(
+                $db: $db,
+                $table: $db.activityTypeIndicatorMappings,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
+}
+
+class $$ActivityTypesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ActivityTypesTable,
+          ActivityTypeRow,
+          $$ActivityTypesTableFilterComposer,
+          $$ActivityTypesTableOrderingComposer,
+          $$ActivityTypesTableAnnotationComposer,
+          $$ActivityTypesTableCreateCompanionBuilder,
+          $$ActivityTypesTableUpdateCompanionBuilder,
+          (ActivityTypeRow, $$ActivityTypesTableReferences),
+          ActivityTypeRow,
+          PrefetchHooks Function({
+            bool profileId,
+            bool activityTypeIndicatorMappingsRefs,
+          })
+        > {
+  $$ActivityTypesTableTableManager(_$AppDatabase db, $ActivityTypesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ActivityTypesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ActivityTypesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ActivityTypesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> profileId = const Value.absent(),
+                Value<String> stableKey = const Value.absent(),
+                Value<String> label = const Value.absent(),
+                Value<String> iconKey = const Value.absent(),
+                Value<int> colorValue = const Value.absent(),
+                Value<bool> isSystem = const Value.absent(),
+                Value<bool> isArchived = const Value.absent(),
+                Value<bool> reportRequiredDefault = const Value.absent(),
+                Value<int> defaultDurationMinutes = const Value.absent(),
+                Value<int?> defaultReminderMinutes = const Value.absent(),
+                Value<int> position = const Value.absent(),
+                Value<int> mappingVersion = const Value.absent(),
+                Value<DateTime> createdAtUtc = const Value.absent(),
+                Value<DateTime> updatedAtUtc = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ActivityTypesCompanion(
+                id: id,
+                profileId: profileId,
+                stableKey: stableKey,
+                label: label,
+                iconKey: iconKey,
+                colorValue: colorValue,
+                isSystem: isSystem,
+                isArchived: isArchived,
+                reportRequiredDefault: reportRequiredDefault,
+                defaultDurationMinutes: defaultDurationMinutes,
+                defaultReminderMinutes: defaultReminderMinutes,
+                position: position,
+                mappingVersion: mappingVersion,
+                createdAtUtc: createdAtUtc,
+                updatedAtUtc: updatedAtUtc,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String profileId,
+                required String stableKey,
+                required String label,
+                required String iconKey,
+                required int colorValue,
+                required bool isSystem,
+                Value<bool> isArchived = const Value.absent(),
+                Value<bool> reportRequiredDefault = const Value.absent(),
+                Value<int> defaultDurationMinutes = const Value.absent(),
+                Value<int?> defaultReminderMinutes = const Value.absent(),
+                required int position,
+                Value<int> mappingVersion = const Value.absent(),
+                required DateTime createdAtUtc,
+                required DateTime updatedAtUtc,
+                Value<int> rowid = const Value.absent(),
+              }) => ActivityTypesCompanion.insert(
+                id: id,
+                profileId: profileId,
+                stableKey: stableKey,
+                label: label,
+                iconKey: iconKey,
+                colorValue: colorValue,
+                isSystem: isSystem,
+                isArchived: isArchived,
+                reportRequiredDefault: reportRequiredDefault,
+                defaultDurationMinutes: defaultDurationMinutes,
+                defaultReminderMinutes: defaultReminderMinutes,
+                position: position,
+                mappingVersion: mappingVersion,
+                createdAtUtc: createdAtUtc,
+                updatedAtUtc: updatedAtUtc,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$ActivityTypesTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback:
+              ({profileId = false, activityTypeIndicatorMappingsRefs = false}) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [
+                    if (activityTypeIndicatorMappingsRefs)
+                      db.activityTypeIndicatorMappings,
+                  ],
+                  addJoins:
+                      <
+                        T extends TableManagerState<
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic
+                        >
+                      >(state) {
+                        if (profileId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.profileId,
+                                    referencedTable:
+                                        $$ActivityTypesTableReferences
+                                            ._profileIdTable(db),
+                                    referencedColumn:
+                                        $$ActivityTypesTableReferences
+                                            ._profileIdTable(db)
+                                            .id,
+                                  )
+                                  as T;
+                        }
+
+                        return state;
+                      },
+                  getPrefetchedDataCallback: (items) async {
+                    return [
+                      if (activityTypeIndicatorMappingsRefs)
+                        await $_getPrefetchedData<
+                          ActivityTypeRow,
+                          $ActivityTypesTable,
+                          ActivityTypeIndicatorMappingRow
+                        >(
+                          currentTable: table,
+                          referencedTable: $$ActivityTypesTableReferences
+                              ._activityTypeIndicatorMappingsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$ActivityTypesTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).activityTypeIndicatorMappingsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.activityTypeId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                    ];
+                  },
+                );
+              },
+        ),
+      );
+}
+
+typedef $$ActivityTypesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ActivityTypesTable,
+      ActivityTypeRow,
+      $$ActivityTypesTableFilterComposer,
+      $$ActivityTypesTableOrderingComposer,
+      $$ActivityTypesTableAnnotationComposer,
+      $$ActivityTypesTableCreateCompanionBuilder,
+      $$ActivityTypesTableUpdateCompanionBuilder,
+      (ActivityTypeRow, $$ActivityTypesTableReferences),
+      ActivityTypeRow,
+      PrefetchHooks Function({
+        bool profileId,
+        bool activityTypeIndicatorMappingsRefs,
+      })
+    >;
+typedef $$ActivityTypeIndicatorMappingsTableCreateCompanionBuilder =
+    ActivityTypeIndicatorMappingsCompanion Function({
+      required String id,
+      required String profileId,
+      required String activityTypeId,
+      required String indicatorKey,
+      Value<int> mappingVersion,
+      required DateTime createdAtUtc,
+      Value<int> rowid,
+    });
+typedef $$ActivityTypeIndicatorMappingsTableUpdateCompanionBuilder =
+    ActivityTypeIndicatorMappingsCompanion Function({
+      Value<String> id,
+      Value<String> profileId,
+      Value<String> activityTypeId,
+      Value<String> indicatorKey,
+      Value<int> mappingVersion,
+      Value<DateTime> createdAtUtc,
+      Value<int> rowid,
+    });
+
+final class $$ActivityTypeIndicatorMappingsTableReferences
+    extends
+        BaseReferences<
+          _$AppDatabase,
+          $ActivityTypeIndicatorMappingsTable,
+          ActivityTypeIndicatorMappingRow
+        > {
+  $$ActivityTypeIndicatorMappingsTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $LocalProfilesTable _profileIdTable(_$AppDatabase db) =>
+      db.localProfiles.createAlias(
+        'activity_type_indicator_mappings__profile_id__local_profiles__id',
+      );
+
+  $$LocalProfilesTableProcessedTableManager get profileId {
+    final $_column = $_itemColumn<String>('profile_id')!;
+
+    final manager = $$LocalProfilesTableTableManager(
+      $_db,
+      $_db.localProfiles,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_profileIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $ActivityTypesTable _activityTypeIdTable(
+    _$AppDatabase db,
+  ) => db.activityTypes.createAlias(
+    'activity_type_indicator_mappings__activity_type_id__activity_types__id',
+  );
+
+  $$ActivityTypesTableProcessedTableManager get activityTypeId {
+    final $_column = $_itemColumn<String>('activity_type_id')!;
+
+    final manager = $$ActivityTypesTableTableManager(
+      $_db,
+      $_db.activityTypes,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_activityTypeIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$ActivityTypeIndicatorMappingsTableFilterComposer
+    extends Composer<_$AppDatabase, $ActivityTypeIndicatorMappingsTable> {
+  $$ActivityTypeIndicatorMappingsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get indicatorKey => $composableBuilder(
+    column: $table.indicatorKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get mappingVersion => $composableBuilder(
+    column: $table.mappingVersion,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAtUtc => $composableBuilder(
+    column: $table.createdAtUtc,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$LocalProfilesTableFilterComposer get profileId {
+    final $$LocalProfilesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.profileId,
+      referencedTable: $db.localProfiles,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LocalProfilesTableFilterComposer(
+            $db: $db,
+            $table: $db.localProfiles,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$ActivityTypesTableFilterComposer get activityTypeId {
+    final $$ActivityTypesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.activityTypeId,
+      referencedTable: $db.activityTypes,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ActivityTypesTableFilterComposer(
+            $db: $db,
+            $table: $db.activityTypes,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$ActivityTypeIndicatorMappingsTableOrderingComposer
+    extends Composer<_$AppDatabase, $ActivityTypeIndicatorMappingsTable> {
+  $$ActivityTypeIndicatorMappingsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get indicatorKey => $composableBuilder(
+    column: $table.indicatorKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get mappingVersion => $composableBuilder(
+    column: $table.mappingVersion,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAtUtc => $composableBuilder(
+    column: $table.createdAtUtc,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$LocalProfilesTableOrderingComposer get profileId {
+    final $$LocalProfilesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.profileId,
+      referencedTable: $db.localProfiles,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LocalProfilesTableOrderingComposer(
+            $db: $db,
+            $table: $db.localProfiles,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$ActivityTypesTableOrderingComposer get activityTypeId {
+    final $$ActivityTypesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.activityTypeId,
+      referencedTable: $db.activityTypes,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ActivityTypesTableOrderingComposer(
+            $db: $db,
+            $table: $db.activityTypes,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$ActivityTypeIndicatorMappingsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ActivityTypeIndicatorMappingsTable> {
+  $$ActivityTypeIndicatorMappingsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get indicatorKey => $composableBuilder(
+    column: $table.indicatorKey,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get mappingVersion => $composableBuilder(
+    column: $table.mappingVersion,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAtUtc => $composableBuilder(
+    column: $table.createdAtUtc,
+    builder: (column) => column,
+  );
+
+  $$LocalProfilesTableAnnotationComposer get profileId {
+    final $$LocalProfilesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.profileId,
+      referencedTable: $db.localProfiles,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LocalProfilesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.localProfiles,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$ActivityTypesTableAnnotationComposer get activityTypeId {
+    final $$ActivityTypesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.activityTypeId,
+      referencedTable: $db.activityTypes,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ActivityTypesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.activityTypes,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$ActivityTypeIndicatorMappingsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ActivityTypeIndicatorMappingsTable,
+          ActivityTypeIndicatorMappingRow,
+          $$ActivityTypeIndicatorMappingsTableFilterComposer,
+          $$ActivityTypeIndicatorMappingsTableOrderingComposer,
+          $$ActivityTypeIndicatorMappingsTableAnnotationComposer,
+          $$ActivityTypeIndicatorMappingsTableCreateCompanionBuilder,
+          $$ActivityTypeIndicatorMappingsTableUpdateCompanionBuilder,
+          (
+            ActivityTypeIndicatorMappingRow,
+            $$ActivityTypeIndicatorMappingsTableReferences,
+          ),
+          ActivityTypeIndicatorMappingRow,
+          PrefetchHooks Function({bool profileId, bool activityTypeId})
+        > {
+  $$ActivityTypeIndicatorMappingsTableTableManager(
+    _$AppDatabase db,
+    $ActivityTypeIndicatorMappingsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ActivityTypeIndicatorMappingsTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$ActivityTypeIndicatorMappingsTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$ActivityTypeIndicatorMappingsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> profileId = const Value.absent(),
+                Value<String> activityTypeId = const Value.absent(),
+                Value<String> indicatorKey = const Value.absent(),
+                Value<int> mappingVersion = const Value.absent(),
+                Value<DateTime> createdAtUtc = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ActivityTypeIndicatorMappingsCompanion(
+                id: id,
+                profileId: profileId,
+                activityTypeId: activityTypeId,
+                indicatorKey: indicatorKey,
+                mappingVersion: mappingVersion,
+                createdAtUtc: createdAtUtc,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String profileId,
+                required String activityTypeId,
+                required String indicatorKey,
+                Value<int> mappingVersion = const Value.absent(),
+                required DateTime createdAtUtc,
+                Value<int> rowid = const Value.absent(),
+              }) => ActivityTypeIndicatorMappingsCompanion.insert(
+                id: id,
+                profileId: profileId,
+                activityTypeId: activityTypeId,
+                indicatorKey: indicatorKey,
+                mappingVersion: mappingVersion,
+                createdAtUtc: createdAtUtc,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$ActivityTypeIndicatorMappingsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({profileId = false, activityTypeId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (profileId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.profileId,
+                                referencedTable:
+                                    $$ActivityTypeIndicatorMappingsTableReferences
+                                        ._profileIdTable(db),
+                                referencedColumn:
+                                    $$ActivityTypeIndicatorMappingsTableReferences
+                                        ._profileIdTable(db)
+                                        .id,
+                              )
+                              as T;
+                    }
+                    if (activityTypeId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.activityTypeId,
+                                referencedTable:
+                                    $$ActivityTypeIndicatorMappingsTableReferences
+                                        ._activityTypeIdTable(db),
+                                referencedColumn:
+                                    $$ActivityTypeIndicatorMappingsTableReferences
+                                        ._activityTypeIdTable(db)
+                                        .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$ActivityTypeIndicatorMappingsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ActivityTypeIndicatorMappingsTable,
+      ActivityTypeIndicatorMappingRow,
+      $$ActivityTypeIndicatorMappingsTableFilterComposer,
+      $$ActivityTypeIndicatorMappingsTableOrderingComposer,
+      $$ActivityTypeIndicatorMappingsTableAnnotationComposer,
+      $$ActivityTypeIndicatorMappingsTableCreateCompanionBuilder,
+      $$ActivityTypeIndicatorMappingsTableUpdateCompanionBuilder,
+      (
+        ActivityTypeIndicatorMappingRow,
+        $$ActivityTypeIndicatorMappingsTableReferences,
+      ),
+      ActivityTypeIndicatorMappingRow,
+      PrefetchHooks Function({bool profileId, bool activityTypeId})
+    >;
+typedef $$PlannerPreferencesTableCreateCompanionBuilder =
+    PlannerPreferencesCompanion Function({
+      required String profileId,
+      Value<String?> defaultActivityTypeId,
+      Value<int> defaultDurationMinutes,
+      Value<int?> defaultReminderMinutes,
+      Value<int> visibleStartHour,
+      Value<int> visibleEndHour,
+      Value<bool> use24HourTime,
+      Value<int> snapMinutes,
+      Value<bool> showCurrentTime,
+      Value<String> initialScrollBehavior,
+      Value<String> creationPresentation,
+      Value<bool> quickEditEnabled,
+      Value<bool> showCompletedItems,
+      Value<bool> showCancelledItems,
+      Value<int> weekStartDay,
+      required DateTime updatedAtUtc,
+      Value<int> rowid,
+    });
+typedef $$PlannerPreferencesTableUpdateCompanionBuilder =
+    PlannerPreferencesCompanion Function({
+      Value<String> profileId,
+      Value<String?> defaultActivityTypeId,
+      Value<int> defaultDurationMinutes,
+      Value<int?> defaultReminderMinutes,
+      Value<int> visibleStartHour,
+      Value<int> visibleEndHour,
+      Value<bool> use24HourTime,
+      Value<int> snapMinutes,
+      Value<bool> showCurrentTime,
+      Value<String> initialScrollBehavior,
+      Value<String> creationPresentation,
+      Value<bool> quickEditEnabled,
+      Value<bool> showCompletedItems,
+      Value<bool> showCancelledItems,
+      Value<int> weekStartDay,
+      Value<DateTime> updatedAtUtc,
+      Value<int> rowid,
+    });
+
+final class $$PlannerPreferencesTableReferences
+    extends
+        BaseReferences<
+          _$AppDatabase,
+          $PlannerPreferencesTable,
+          PlannerPreferenceRow
+        > {
+  $$PlannerPreferencesTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $LocalProfilesTable _profileIdTable(_$AppDatabase db) => db
+      .localProfiles
+      .createAlias('planner_preferences__profile_id__local_profiles__id');
+
+  $$LocalProfilesTableProcessedTableManager get profileId {
+    final $_column = $_itemColumn<String>('profile_id')!;
+
+    final manager = $$LocalProfilesTableTableManager(
+      $_db,
+      $_db.localProfiles,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_profileIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$PlannerPreferencesTableFilterComposer
+    extends Composer<_$AppDatabase, $PlannerPreferencesTable> {
+  $$PlannerPreferencesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get defaultActivityTypeId => $composableBuilder(
+    column: $table.defaultActivityTypeId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get defaultDurationMinutes => $composableBuilder(
+    column: $table.defaultDurationMinutes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get defaultReminderMinutes => $composableBuilder(
+    column: $table.defaultReminderMinutes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get visibleStartHour => $composableBuilder(
+    column: $table.visibleStartHour,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get visibleEndHour => $composableBuilder(
+    column: $table.visibleEndHour,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get use24HourTime => $composableBuilder(
+    column: $table.use24HourTime,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get snapMinutes => $composableBuilder(
+    column: $table.snapMinutes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get showCurrentTime => $composableBuilder(
+    column: $table.showCurrentTime,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get initialScrollBehavior => $composableBuilder(
+    column: $table.initialScrollBehavior,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get creationPresentation => $composableBuilder(
+    column: $table.creationPresentation,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get quickEditEnabled => $composableBuilder(
+    column: $table.quickEditEnabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get showCompletedItems => $composableBuilder(
+    column: $table.showCompletedItems,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get showCancelledItems => $composableBuilder(
+    column: $table.showCancelledItems,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get weekStartDay => $composableBuilder(
+    column: $table.weekStartDay,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAtUtc => $composableBuilder(
+    column: $table.updatedAtUtc,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$LocalProfilesTableFilterComposer get profileId {
+    final $$LocalProfilesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.profileId,
+      referencedTable: $db.localProfiles,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LocalProfilesTableFilterComposer(
+            $db: $db,
+            $table: $db.localProfiles,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$PlannerPreferencesTableOrderingComposer
+    extends Composer<_$AppDatabase, $PlannerPreferencesTable> {
+  $$PlannerPreferencesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get defaultActivityTypeId => $composableBuilder(
+    column: $table.defaultActivityTypeId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get defaultDurationMinutes => $composableBuilder(
+    column: $table.defaultDurationMinutes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get defaultReminderMinutes => $composableBuilder(
+    column: $table.defaultReminderMinutes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get visibleStartHour => $composableBuilder(
+    column: $table.visibleStartHour,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get visibleEndHour => $composableBuilder(
+    column: $table.visibleEndHour,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get use24HourTime => $composableBuilder(
+    column: $table.use24HourTime,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get snapMinutes => $composableBuilder(
+    column: $table.snapMinutes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get showCurrentTime => $composableBuilder(
+    column: $table.showCurrentTime,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get initialScrollBehavior => $composableBuilder(
+    column: $table.initialScrollBehavior,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get creationPresentation => $composableBuilder(
+    column: $table.creationPresentation,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get quickEditEnabled => $composableBuilder(
+    column: $table.quickEditEnabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get showCompletedItems => $composableBuilder(
+    column: $table.showCompletedItems,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get showCancelledItems => $composableBuilder(
+    column: $table.showCancelledItems,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get weekStartDay => $composableBuilder(
+    column: $table.weekStartDay,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAtUtc => $composableBuilder(
+    column: $table.updatedAtUtc,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$LocalProfilesTableOrderingComposer get profileId {
+    final $$LocalProfilesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.profileId,
+      referencedTable: $db.localProfiles,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LocalProfilesTableOrderingComposer(
+            $db: $db,
+            $table: $db.localProfiles,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$PlannerPreferencesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PlannerPreferencesTable> {
+  $$PlannerPreferencesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get defaultActivityTypeId => $composableBuilder(
+    column: $table.defaultActivityTypeId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get defaultDurationMinutes => $composableBuilder(
+    column: $table.defaultDurationMinutes,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get defaultReminderMinutes => $composableBuilder(
+    column: $table.defaultReminderMinutes,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get visibleStartHour => $composableBuilder(
+    column: $table.visibleStartHour,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get visibleEndHour => $composableBuilder(
+    column: $table.visibleEndHour,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get use24HourTime => $composableBuilder(
+    column: $table.use24HourTime,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get snapMinutes => $composableBuilder(
+    column: $table.snapMinutes,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get showCurrentTime => $composableBuilder(
+    column: $table.showCurrentTime,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get initialScrollBehavior => $composableBuilder(
+    column: $table.initialScrollBehavior,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get creationPresentation => $composableBuilder(
+    column: $table.creationPresentation,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get quickEditEnabled => $composableBuilder(
+    column: $table.quickEditEnabled,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get showCompletedItems => $composableBuilder(
+    column: $table.showCompletedItems,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get showCancelledItems => $composableBuilder(
+    column: $table.showCancelledItems,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get weekStartDay => $composableBuilder(
+    column: $table.weekStartDay,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get updatedAtUtc => $composableBuilder(
+    column: $table.updatedAtUtc,
+    builder: (column) => column,
+  );
+
+  $$LocalProfilesTableAnnotationComposer get profileId {
+    final $$LocalProfilesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.profileId,
+      referencedTable: $db.localProfiles,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LocalProfilesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.localProfiles,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$PlannerPreferencesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $PlannerPreferencesTable,
+          PlannerPreferenceRow,
+          $$PlannerPreferencesTableFilterComposer,
+          $$PlannerPreferencesTableOrderingComposer,
+          $$PlannerPreferencesTableAnnotationComposer,
+          $$PlannerPreferencesTableCreateCompanionBuilder,
+          $$PlannerPreferencesTableUpdateCompanionBuilder,
+          (PlannerPreferenceRow, $$PlannerPreferencesTableReferences),
+          PlannerPreferenceRow,
+          PrefetchHooks Function({bool profileId})
+        > {
+  $$PlannerPreferencesTableTableManager(
+    _$AppDatabase db,
+    $PlannerPreferencesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PlannerPreferencesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PlannerPreferencesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PlannerPreferencesTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> profileId = const Value.absent(),
+                Value<String?> defaultActivityTypeId = const Value.absent(),
+                Value<int> defaultDurationMinutes = const Value.absent(),
+                Value<int?> defaultReminderMinutes = const Value.absent(),
+                Value<int> visibleStartHour = const Value.absent(),
+                Value<int> visibleEndHour = const Value.absent(),
+                Value<bool> use24HourTime = const Value.absent(),
+                Value<int> snapMinutes = const Value.absent(),
+                Value<bool> showCurrentTime = const Value.absent(),
+                Value<String> initialScrollBehavior = const Value.absent(),
+                Value<String> creationPresentation = const Value.absent(),
+                Value<bool> quickEditEnabled = const Value.absent(),
+                Value<bool> showCompletedItems = const Value.absent(),
+                Value<bool> showCancelledItems = const Value.absent(),
+                Value<int> weekStartDay = const Value.absent(),
+                Value<DateTime> updatedAtUtc = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PlannerPreferencesCompanion(
+                profileId: profileId,
+                defaultActivityTypeId: defaultActivityTypeId,
+                defaultDurationMinutes: defaultDurationMinutes,
+                defaultReminderMinutes: defaultReminderMinutes,
+                visibleStartHour: visibleStartHour,
+                visibleEndHour: visibleEndHour,
+                use24HourTime: use24HourTime,
+                snapMinutes: snapMinutes,
+                showCurrentTime: showCurrentTime,
+                initialScrollBehavior: initialScrollBehavior,
+                creationPresentation: creationPresentation,
+                quickEditEnabled: quickEditEnabled,
+                showCompletedItems: showCompletedItems,
+                showCancelledItems: showCancelledItems,
+                weekStartDay: weekStartDay,
+                updatedAtUtc: updatedAtUtc,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String profileId,
+                Value<String?> defaultActivityTypeId = const Value.absent(),
+                Value<int> defaultDurationMinutes = const Value.absent(),
+                Value<int?> defaultReminderMinutes = const Value.absent(),
+                Value<int> visibleStartHour = const Value.absent(),
+                Value<int> visibleEndHour = const Value.absent(),
+                Value<bool> use24HourTime = const Value.absent(),
+                Value<int> snapMinutes = const Value.absent(),
+                Value<bool> showCurrentTime = const Value.absent(),
+                Value<String> initialScrollBehavior = const Value.absent(),
+                Value<String> creationPresentation = const Value.absent(),
+                Value<bool> quickEditEnabled = const Value.absent(),
+                Value<bool> showCompletedItems = const Value.absent(),
+                Value<bool> showCancelledItems = const Value.absent(),
+                Value<int> weekStartDay = const Value.absent(),
+                required DateTime updatedAtUtc,
+                Value<int> rowid = const Value.absent(),
+              }) => PlannerPreferencesCompanion.insert(
+                profileId: profileId,
+                defaultActivityTypeId: defaultActivityTypeId,
+                defaultDurationMinutes: defaultDurationMinutes,
+                defaultReminderMinutes: defaultReminderMinutes,
+                visibleStartHour: visibleStartHour,
+                visibleEndHour: visibleEndHour,
+                use24HourTime: use24HourTime,
+                snapMinutes: snapMinutes,
+                showCurrentTime: showCurrentTime,
+                initialScrollBehavior: initialScrollBehavior,
+                creationPresentation: creationPresentation,
+                quickEditEnabled: quickEditEnabled,
+                showCompletedItems: showCompletedItems,
+                showCancelledItems: showCancelledItems,
+                weekStartDay: weekStartDay,
+                updatedAtUtc: updatedAtUtc,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$PlannerPreferencesTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({profileId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (profileId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.profileId,
+                                referencedTable:
+                                    $$PlannerPreferencesTableReferences
+                                        ._profileIdTable(db),
+                                referencedColumn:
+                                    $$PlannerPreferencesTableReferences
+                                        ._profileIdTable(db)
+                                        .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$PlannerPreferencesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $PlannerPreferencesTable,
+      PlannerPreferenceRow,
+      $$PlannerPreferencesTableFilterComposer,
+      $$PlannerPreferencesTableOrderingComposer,
+      $$PlannerPreferencesTableAnnotationComposer,
+      $$PlannerPreferencesTableCreateCompanionBuilder,
+      $$PlannerPreferencesTableUpdateCompanionBuilder,
+      (PlannerPreferenceRow, $$PlannerPreferencesTableReferences),
+      PlannerPreferenceRow,
+      PrefetchHooks Function({bool profileId})
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -26602,4 +31305,14 @@ class $AppDatabaseManager {
         _db,
         _db.weeklyPlanTaskCarryoverDecisions,
       );
+  $$ActivityTypesTableTableManager get activityTypes =>
+      $$ActivityTypesTableTableManager(_db, _db.activityTypes);
+  $$ActivityTypeIndicatorMappingsTableTableManager
+  get activityTypeIndicatorMappings =>
+      $$ActivityTypeIndicatorMappingsTableTableManager(
+        _db,
+        _db.activityTypeIndicatorMappings,
+      );
+  $$PlannerPreferencesTableTableManager get plannerPreferences =>
+      $$PlannerPreferencesTableTableManager(_db, _db.plannerPreferences);
 }

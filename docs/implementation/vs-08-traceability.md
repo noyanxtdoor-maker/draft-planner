@@ -2,7 +2,8 @@
 
 **Authorized:** 2026-07-28
 
-**Scope boundary:** VS-08 only; VS-09 and later remain unauthorized.
+**Scope boundary:** VS-08 plus the explicitly approved Planner/Event Type and
+screen-capture correction only; VS-09 and later remain unauthorized.
 
 **Dependencies:** VS-03, VS-04, VS-06, and VS-07; all satisfied.
 
@@ -125,18 +126,51 @@ WebView, sample data, fake OS chrome, percentage, composite score, or
 gamification is used. Widget coverage includes the 941 by 1672 reference
 viewport and explicit 200% text scaling.
 
+## Approved correction overlay
+
+The correction is governed by
+`docs/decisions/OWNER-AMENDMENT-001-screen-capture-and-vs08-scope.md` and the
+reference audit at
+`docs/audits/vs08-planner-event-types-reference-audit.md`.
+
+| Correction requirement | Implementation and evidence |
+| --- | --- |
+| Native Planner geometry | 60 px/hour time grid, duration height, overlap columns, compact 56 px time gutter, Event Type fill/accent, all-day separation |
+| Safe interaction | empty-grid long press, deliberate event move and resize handle, configured snapping, preview cancellation, failed-save restoration |
+| Initial navigation | week strip, Today/date picker, configured visible hours, current-time line, initial scroll to current time or first relevant event |
+| First-class Event Type | stable UUID/key, system/custom and archive flags, color/icon, defaults, mapping version, protected system identities |
+| Deterministic mapping | exactly six system mappings; no title inference; explicit custom zero/one/many mappings |
+| Historical provenance | Calendar Event and exception snapshot type ID/version; custom mapping revisions are append-only |
+| Reverse flow | existing Life Indicator detail Schedule Activity opens Event creation with exact system type preselected |
+| No Actual from scheduling | mapping affects planning/report context only; no ledger write exists in Event Type or timeline mutation paths |
+| Local settings | default type/duration, visible hours, time format, snapping, current line, initial scroll, quick edit, status visibility, and week start persist in Drift |
+| Capture override | `MainActivity` has no secure flag; repository test/verifier reject `FLAG_SECURE`; Privacy Center uses approved wording |
+
+Notification behavior is deferred to VS-16. Flows that require unauthorized
+Pathways/Covenant Path, Contacts, Employment, Documents, or Backups screens are
+deferred to their owning slices. These deferrals are explicit scope controls,
+not claims of completed VS-08 QA.
+
+## Schema v9 correction migration
+
+The v8-to-v9 transaction adds Activity Types, append-only mapping revisions,
+Planner preferences, and nullable Event Type snapshots to Calendar Events and
+occurrence exceptions. Migration fixtures prove prior weekly plans, events,
+links, reports, and ledger rows survive. An injected migration failure proves
+the transaction rolls back rather than leaving a partial schema.
+
 ## Quality-gate record
 
 | Gate | VS-08 status |
 | --- | --- |
-| Q0 Authority and traceability | Local pass after approved-hash, permanent Android identity, schema v8, dependency boundary, and FR/BR/AC verification |
-| Q1 Static and build | Local analyzer and debug APK build pass; protected quality pending |
-| Q2 Domain/database/migration | Local pass for lifecycle, v7-to-v8 migration, failed-migration rollback, and injected write rollback |
-| Q3 Offline/privacy/idempotency | Local pass; no package, permission, remote client, direct Actual write, or non-transactional review |
-| Q4 UI/accessibility | Local widget pass at approved viewport and 200% text scale |
-| Q5 Android platform | Debug APK built and installed on Infinix X6731; Flutter integration launch was blocked by stale wireless mDNS alias/tool transport; clean API 24/API 36 matrix pending |
+| Q0 Authority and traceability | Passed locally: immutable hashes, Android identity, schema v9, owner overlay, dependency/slice boundaries |
+| Q1 Static and build | Formatting and analysis pass; debug APK passes; release APK passes with documented incomplete-SDK `--no-tree-shake-icons` fallback |
+| Q2 Domain/database/migration | Targeted lifecycle, v7-to-v8, v8-to-v9, failed-migration rollback, mapping provenance, and injected write rollback tests pass |
+| Q3 Offline/privacy/idempotency | Local pass; no new package, permission, remote client, direct Actual write, or non-transactional mutation |
+| Q4 UI/accessibility | All 103 Flutter tests pass, including approved viewport, 200% text, Planner geometry, overlap, scrolling, and mapping regressions; manual visual comparison pending |
+| Q5 Android platform | Corrected debug/release APKs assemble; no AVD is installed and ADB sees no phone, so install/capture/app-switcher QA remains pending |
 | Q6 Remote security | Not applicable; no remote client or provider identity introduced |
-| Q7 Slice evidence | Local evidence complete; protected quality and Android matrix pending |
+| Q7 Slice evidence | Local automated evidence complete; protected quality, Android matrix, Infinix manual workflow, and capture evidence pending |
 
 VS-09 Pathways, remote sync, provider Calendar integration, notifications,
 maps, contacts, and all later-slice work are not implemented.

@@ -136,9 +136,10 @@ final class PrivacyCenterScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 8),
             const Text(
-              'On Android, screenshots and recent-app previews are blocked '
-              'using the strongest supported window protection. Some operating '
-              'systems or device vendors may behave differently.',
+              'Android screenshots, screen recordings, and normal recent-app '
+              'previews are allowed. Privacy Lock, notification redaction, '
+              'secure token storage, private attachments, and sensitive '
+              'logging restrictions remain independent protections.',
             ),
             const SizedBox(height: 24),
             _SectionTitle(title: 'Review and control'),

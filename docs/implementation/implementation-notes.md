@@ -58,12 +58,11 @@
   session locked. The protected route is rendered when frames resume. Merely
   becoming inactive does not infer a background transition.
 - Android uses `FlutterFragmentActivity`, the host-declared normal
-  `USE_BIOMETRIC` permission, AppCompat launch/normal themes, and `FLAG_SECURE`.
+  `USE_BIOMETRIC` permission, and AppCompat launch/normal themes.
   The local-auth adapter also merges normal `USE_FINGERPRINT` for older-device
   compatibility; neither permission is a runtime prompt.
-  `FLAG_SECURE` is applied to the activity for the strongest supported
-  recent-app-preview and screenshot obscuring; the UI does not claim universal
-  vendor/OS coverage.
+  `OWNER-AMENDMENT-001` now allows screenshots, screen recording, and the
+  normal Android recent-app preview. No secure-window capture blocker is used.
 - Added a Privacy Center, permission status/purpose view, diagnostic preview,
   notification-preview preference, data-boundary explanations, and a
   non-destructive deletion-impact review.
@@ -98,11 +97,9 @@
   device-credential fallback; successful authentication enabled Privacy Lock,
   a genuine Home/background/resume transition rendered the protected route,
   and a second successful unlock returned to Home.
-- The Infinix XOS Recent Apps view displayed a solid dark placeholder for the
-  Next Transfer task card with no private app content visible. This verifies
-  the supported-device result without changing the truthful limitation that
-  preview protection cannot be guaranteed across every Android vendor and OS
-  version.
+- Before `OWNER-AMENDMENT-001`, the Infinix XOS Recent Apps view displayed a
+  solid dark placeholder. That historical observation is superseded; current
+  QA must confirm the normal preview and screen capture are available.
 
 ### VS-02 final local verification evidence
 
@@ -135,11 +132,11 @@
   isolation, an uninitialized test controller, and Flutter's default
   post-integration-test uninstall; each was corrected without changing
   production behavior or acceptance criteria.
-- Real-device AC-W-003 and AC-W-006 verification passed on an Infinix X6731
+- Real-device AC-W-003 verification passed on an Infinix X6731
   running Android 14 (API 34): the real Android authentication prompt,
   credential fallback, enable persistence, immediate background relock,
-  authenticated unlock, and obscured XOS Recent Apps preview were all
-  observed.
+  and authenticated unlock were observed. The former AC-W-006 preview result
+  is historical and replaced by AC-W-006A.
 
 The managed temporary Flutter toolchain was missing two files tracked by the
 pinned Flutter revision. The missing `content_aware_hash.ps1` and Gradle
@@ -631,3 +628,49 @@ repairs did not modify project source or global Git configuration.
 - The five pre-existing untracked `UI Preferences/**/screen.png` files and the
   newly observed untracked `UI Preferences/Screen Recordings/` folder remain
   untouched and excluded.
+
+## 2026-07-29 — VS-08 Planner, Event Type, and capture-policy correction
+
+- Work continued from checkpoint
+  `af3c6b1ddbedecb0cb441eef4f19f20bb0a9b459` on
+  `codex/vs-08-weekly-planning-lifecycle`; VS-09 remains outside scope.
+- The required audit is
+  `docs/audits/vs08-planner-event-types-reference-audit.md`. It records all
+  five approved PNG/HTML pairs, every supported recording under
+  `UI Preferences/Screen Recordings/`, the DayFlow files/mechanics studied,
+  source conflicts, expected changes, and rollback risks.
+- `OWNER-AMENDMENT-001` formally replaces the four locked screen-obscuring
+  clauses. Android no longer sets `FLAG_SECURE`; screenshots, recording, and
+  normal recent-app previews are allowed. Privacy Lock and all other approved
+  controls remain unchanged.
+- Schema version 9 extends the approved Activity Type concept and presents it
+  as Event Type. Calendar Event and exception rows snapshot the stable Event
+  Type ID and mapping version. New Activity Type, versioned indicator mapping,
+  and local Planner preference tables are added transactionally by the v8 to
+  v9 migration.
+- Ten protected system Event Types are seeded idempotently. Exactly six have
+  deterministic Life Indicator mappings. Custom mappings are explicit and
+  mapping changes append a new revision instead of deleting prior provenance.
+  Archiving a custom type never deletes events, reports, or ledger history.
+- The native Planner uses a 60-pixel hour grid, compact week strip, real-time
+  positioning, collision columns, Event Type colors, current-time line,
+  configured initial scrolling, 12/24-hour labels, visible hours, snapping,
+  long-press creation, and deliberate long-press move/resize with rollback on
+  cancellation or failed persistence.
+- Event creation requires Event Type first, displays exact mapping and the
+  no-Actual scheduling rule, applies defaults only while duration is
+  unentered, and supports exact reverse preselection from existing Life
+  Indicator detail.
+- Notification scheduling/privacy behavior remains deferred to VS-16. Reverse
+  flows and QA on Pathways/Covenant Path, Contacts, Employment, Documents, and
+  Backups remain deferred to their owning slices under the owner amendment.
+- Manual Android/capture evidence is maintained in
+  `docs/implementation/vs-08-correction-manual-qa.md`.
+- Final local validation passed authority verification, strict formatting,
+  static analysis, and all 103 Flutter tests. Debug APK assembly passed at
+  191,339,198 bytes. Release assembly passed at 65,713,295 bytes using the
+  documented `--no-tree-shake-icons` fallback because the temporary pinned
+  Flutter checkout lacks its host icon-tree-shaker snapshot.
+- `adb devices -l` returned no device and `flutter emulators` found no Android
+  emulator source. Corrected-device workflow/capture QA therefore remains
+  Pending rather than being inferred from widget tests.

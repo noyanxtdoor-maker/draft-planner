@@ -11,8 +11,11 @@ import 'package:rmplanner/features/planner/domain/planner_date.dart';
 import 'package:rmplanner/features/planner/presentation/activity_history_screen.dart';
 import 'package:rmplanner/features/planner/presentation/calendar_event_detail_screen.dart';
 import 'package:rmplanner/features/planner/presentation/calendar_event_form_screen.dart';
+import 'package:rmplanner/features/planner/presentation/event_type_form_screen.dart';
+import 'package:rmplanner/features/planner/presentation/event_types_screen.dart';
 import 'package:rmplanner/features/planner/presentation/outcome_report_screen.dart';
 import 'package:rmplanner/features/planner/presentation/planner_screen.dart';
+import 'package:rmplanner/features/planner/presentation/planner_settings_screen.dart';
 import 'package:rmplanner/features/planner/presentation/task_detail_screen.dart';
 import 'package:rmplanner/features/planner/presentation/task_event_link_screen.dart';
 import 'package:rmplanner/features/planner/presentation/task_form_screen.dart';
@@ -189,10 +192,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: RoutePaths.calendarEventCreate,
         builder: (context, state) {
           final rawDate = state.uri.queryParameters['date'];
+          final rawStart = state.uri.queryParameters['startMinute'];
           return CalendarEventFormScreen.create(
             initialDate: rawDate == null
                 ? PlannerDate.fromDateTime(DateTime.now())
                 : PlannerDate.parse(rawDate),
+            initialStartMinute: int.tryParse(rawStart ?? ''),
+            initialIndicatorKey: state.uri.queryParameters['indicator'],
+            initialEventTypeId: state.uri.queryParameters['eventType'],
           );
         },
       ),
@@ -289,6 +296,28 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: RouteNames.activityHistory,
         path: RoutePaths.activityHistory,
         builder: (context, state) => const ActivityHistoryScreen(),
+      ),
+      GoRoute(
+        name: RouteNames.plannerSettings,
+        path: RoutePaths.plannerSettings,
+        builder: (context, state) => const PlannerSettingsScreen(),
+      ),
+      GoRoute(
+        name: RouteNames.eventTypes,
+        path: RoutePaths.eventTypes,
+        builder: (context, state) => const EventTypesScreen(),
+      ),
+      GoRoute(
+        name: RouteNames.eventTypeCreate,
+        path: RoutePaths.eventTypeCreate,
+        builder: (context, state) => const EventTypeFormScreen.create(),
+      ),
+      GoRoute(
+        name: RouteNames.eventTypeEdit,
+        path: '${RoutePaths.eventTypes}/:eventTypeId/edit',
+        builder: (context, state) => EventTypeFormScreen.edit(
+          eventTypeId: state.pathParameters['eventTypeId']!,
+        ),
       ),
       GoRoute(
         name: RouteNames.privacyCenter,

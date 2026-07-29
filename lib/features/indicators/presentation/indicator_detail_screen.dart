@@ -64,6 +64,17 @@ final class IndicatorDetailScreen extends ConsumerWidget {
                   icon: const Icon(Icons.flag_outlined),
                   label: const Text('Set or change weekly target'),
                 ),
+                const SizedBox(height: 10),
+                FilledButton.icon(
+                  key: const Key('indicator-schedule-activity'),
+                  onPressed: () => context.push(
+                    '${RoutePaths.calendarEventCreate}'
+                    '?date=${period.start.iso8601}'
+                    '&indicator=$indicatorKey',
+                  ),
+                  icon: const Icon(Icons.add_task_outlined),
+                  label: const Text('Schedule activity'),
+                ),
                 const SizedBox(height: 24),
                 Text(
                   'Scheduled Sources',

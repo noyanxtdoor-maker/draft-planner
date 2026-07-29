@@ -145,6 +145,8 @@ class CalendarEvents extends Table {
   TextColumn get locationText => text().nullable()();
   BoolColumn get requiresReport =>
       boolean().withDefault(const Constant(false))();
+  TextColumn get activityTypeId => text().nullable()();
+  IntColumn get activityTypeMappingVersion => integer().nullable()();
   TextColumn get contributionRuleKey => text().nullable()();
   TextColumn get recurrenceFrequency =>
       text().withDefault(const Constant('none'))();
@@ -185,6 +187,8 @@ class CalendarEventExceptions extends Table {
   TextColumn get locationText => text().nullable()();
   BoolColumn get requiresReport =>
       boolean().withDefault(const Constant(false))();
+  TextColumn get activityTypeId => text().nullable()();
+  IntColumn get activityTypeMappingVersion => integer().nullable()();
   TextColumn get contributionRuleKey => text().nullable()();
   TextColumn get status => text()();
   TextColumn get replacementEventId => text().nullable()();
@@ -534,6 +538,93 @@ class WeeklyPlanTaskCarryoverDecisions extends Table {
   Set<Column<Object>> get primaryKey => <Column<Object>>{id};
 }
 
+@TableIndex(
+  name: 'activity_type_profile_key_unique',
+  columns: <Symbol>{#profileId, #stableKey},
+  unique: true,
+)
+@TableIndex(
+  name: 'activity_type_profile_position',
+  columns: <Symbol>{#profileId, #position},
+)
+@DataClassName('ActivityTypeRow')
+class ActivityTypes extends Table {
+  TextColumn get id => text()();
+  TextColumn get profileId =>
+      text().references(LocalProfiles, #id, onDelete: KeyAction.restrict)();
+  TextColumn get stableKey => text()();
+  TextColumn get label => text()();
+  TextColumn get iconKey => text()();
+  IntColumn get colorValue => integer()();
+  BoolColumn get isSystem => boolean()();
+  BoolColumn get isArchived => boolean().withDefault(const Constant(false))();
+  BoolColumn get reportRequiredDefault =>
+      boolean().withDefault(const Constant(false))();
+  IntColumn get defaultDurationMinutes =>
+      integer().withDefault(const Constant(60))();
+  IntColumn get defaultReminderMinutes => integer().nullable()();
+  IntColumn get position => integer()();
+  IntColumn get mappingVersion => integer().withDefault(const Constant(1))();
+  DateTimeColumn get createdAtUtc => dateTime()();
+  DateTimeColumn get updatedAtUtc => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => <Column<Object>>{id};
+}
+
+@TableIndex(
+  name: 'activity_type_indicator_mapping_unique',
+  columns: <Symbol>{#activityTypeId, #mappingVersion, #indicatorKey},
+  unique: true,
+)
+@DataClassName('ActivityTypeIndicatorMappingRow')
+class ActivityTypeIndicatorMappings extends Table {
+  TextColumn get id => text()();
+  TextColumn get profileId =>
+      text().references(LocalProfiles, #id, onDelete: KeyAction.restrict)();
+  TextColumn get activityTypeId =>
+      text().references(ActivityTypes, #id, onDelete: KeyAction.restrict)();
+  TextColumn get indicatorKey => text()();
+  IntColumn get mappingVersion => integer().withDefault(const Constant(1))();
+  DateTimeColumn get createdAtUtc => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => <Column<Object>>{id};
+}
+
+@DataClassName('PlannerPreferenceRow')
+class PlannerPreferences extends Table {
+  TextColumn get profileId =>
+      text().references(LocalProfiles, #id, onDelete: KeyAction.restrict)();
+  TextColumn get defaultActivityTypeId => text().nullable()();
+  IntColumn get defaultDurationMinutes =>
+      integer().withDefault(const Constant(60))();
+  IntColumn get defaultReminderMinutes => integer().nullable()();
+  IntColumn get visibleStartHour => integer().withDefault(const Constant(6))();
+  IntColumn get visibleEndHour => integer().withDefault(const Constant(22))();
+  BoolColumn get use24HourTime =>
+      boolean().withDefault(const Constant(false))();
+  IntColumn get snapMinutes => integer().withDefault(const Constant(15))();
+  BoolColumn get showCurrentTime =>
+      boolean().withDefault(const Constant(true))();
+  TextColumn get initialScrollBehavior =>
+      text().withDefault(const Constant('currentTime'))();
+  TextColumn get creationPresentation =>
+      text().withDefault(const Constant('fullScreen'))();
+  BoolColumn get quickEditEnabled =>
+      boolean().withDefault(const Constant(true))();
+  BoolColumn get showCompletedItems =>
+      boolean().withDefault(const Constant(true))();
+  BoolColumn get showCancelledItems =>
+      boolean().withDefault(const Constant(false))();
+  IntColumn get weekStartDay =>
+      integer().withDefault(const Constant(DateTime.monday))();
+  DateTimeColumn get updatedAtUtc => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => <Column<Object>>{profileId};
+}
+
 @DriftDatabase(
   tables: <Type>[
     LocalProfiles,
@@ -557,6 +648,9 @@ class WeeklyPlanTaskCarryoverDecisions extends Table {
     WeeklyPlanReviews,
     WeeklyPlanReviewIndicatorSnapshots,
     WeeklyPlanTaskCarryoverDecisions,
+    ActivityTypes,
+    ActivityTypeIndicatorMappings,
+    PlannerPreferences,
   ],
 )
 final class AppDatabase extends _$AppDatabase {
@@ -569,6 +663,7 @@ final class AppDatabase extends _$AppDatabase {
       _injectOutcomeReportingMigrationFailure = false,
       _injectIndicatorMigrationFailure = false,
       _injectWeeklyPlanningMigrationFailure = false,
+      _injectPlannerCorrectionMigrationFailure = false,
       super(driftDatabase(name: 'next_transfer'));
 
   AppDatabase.forTesting(
@@ -581,6 +676,7 @@ final class AppDatabase extends _$AppDatabase {
     bool injectOutcomeReportingMigrationFailure = false,
     bool injectIndicatorMigrationFailure = false,
     bool injectWeeklyPlanningMigrationFailure = false,
+    bool injectPlannerCorrectionMigrationFailure = false,
   }) : _schemaVersionOverride = schemaVersionOverride,
        _injectMigrationFailure = injectMigrationFailure,
        _injectTaskMigrationFailure = injectTaskMigrationFailure,
@@ -592,7 +688,9 @@ final class AppDatabase extends _$AppDatabase {
            injectOutcomeReportingMigrationFailure,
        _injectIndicatorMigrationFailure = injectIndicatorMigrationFailure,
        _injectWeeklyPlanningMigrationFailure =
-           injectWeeklyPlanningMigrationFailure;
+           injectWeeklyPlanningMigrationFailure,
+       _injectPlannerCorrectionMigrationFailure =
+           injectPlannerCorrectionMigrationFailure;
 
   final int? _schemaVersionOverride;
   final bool _injectMigrationFailure;
@@ -602,9 +700,10 @@ final class AppDatabase extends _$AppDatabase {
   final bool _injectOutcomeReportingMigrationFailure;
   final bool _injectIndicatorMigrationFailure;
   final bool _injectWeeklyPlanningMigrationFailure;
+  final bool _injectPlannerCorrectionMigrationFailure;
 
   @override
-  int get schemaVersion => _schemaVersionOverride ?? 8;
+  int get schemaVersion => _schemaVersionOverride ?? 9;
 
   @override
   MigrationStrategy get migration {
@@ -644,6 +743,11 @@ final class AppDatabase extends _$AppDatabase {
           await migrator.createTable(weeklyPlanReviews);
           await migrator.createTable(weeklyPlanReviewIndicatorSnapshots);
           await migrator.createTable(weeklyPlanTaskCarryoverDecisions);
+        }
+        if (schemaVersion >= 9) {
+          await migrator.createTable(activityTypes);
+          await migrator.createTable(activityTypeIndicatorMappings);
+          await migrator.createTable(plannerPreferences);
         }
       },
       onUpgrade: (migrator, from, to) async {
@@ -702,6 +806,47 @@ final class AppDatabase extends _$AppDatabase {
             await migrator.createTable(weeklyPlanTaskCarryoverDecisions);
             if (_injectWeeklyPlanningMigrationFailure) {
               throw StateError('Injected weekly planning migration failure');
+            }
+          }
+          if (from < 9 && to >= 9) {
+            await migrator.createTable(activityTypes);
+            await migrator.createTable(activityTypeIndicatorMappings);
+            await migrator.createTable(plannerPreferences);
+            if (!await _columnExists('calendar_events', 'activity_type_id')) {
+              await migrator.addColumn(
+                calendarEvents,
+                calendarEvents.activityTypeId,
+              );
+            }
+            if (!await _columnExists(
+              'calendar_events',
+              'activity_type_mapping_version',
+            )) {
+              await migrator.addColumn(
+                calendarEvents,
+                calendarEvents.activityTypeMappingVersion,
+              );
+            }
+            if (!await _columnExists(
+              'calendar_event_exceptions',
+              'activity_type_id',
+            )) {
+              await migrator.addColumn(
+                calendarEventExceptions,
+                calendarEventExceptions.activityTypeId,
+              );
+            }
+            if (!await _columnExists(
+              'calendar_event_exceptions',
+              'activity_type_mapping_version',
+            )) {
+              await migrator.addColumn(
+                calendarEventExceptions,
+                calendarEventExceptions.activityTypeMappingVersion,
+              );
+            }
+            if (_injectPlannerCorrectionMigrationFailure) {
+              throw StateError('Injected Planner correction migration failure');
             }
           }
         });

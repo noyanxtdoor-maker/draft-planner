@@ -51,9 +51,11 @@ Future<void> main() async {
     (text) =>
         text.contains('package $_applicationId') &&
         text.contains('FlutterFragmentActivity') &&
-        text.contains('WindowManager.LayoutParams.FLAG_SECURE'),
-    'MainActivity identity, local-auth host, or Android privacy protection '
-    'differs from the VS-02 lock',
+        !text.contains('FLAG_SECURE') &&
+        !text.contains('WindowManager') &&
+        !text.contains('addFlags'),
+    'MainActivity identity, local-auth host, or approved screen-capture policy '
+    'differs from the owner amendment',
     failures,
   );
   _expectFileText(
@@ -105,7 +107,7 @@ Future<void> main() async {
         !text.contains('refreshToken') &&
         !text.contains('biometricData') &&
         !text.contains('appPin') &&
-        text.contains('int get schemaVersion => _schemaVersionOverride ?? 8') &&
+        text.contains('int get schemaVersion => _schemaVersionOverride ?? 9') &&
         text.contains('PlannerTasks') &&
         text.contains('TaskStatusChanges') &&
         text.contains('CalendarEvents') &&
@@ -122,6 +124,9 @@ Future<void> main() async {
         text.contains('WeeklyPlanReviews') &&
         text.contains('WeeklyPlanReviewIndicatorSnapshots') &&
         text.contains('WeeklyPlanTaskCarryoverDecisions') &&
+        text.contains('ActivityTypes') &&
+        text.contains('ActivityTypeIndicatorMappings') &&
+        text.contains('PlannerPreferences') &&
         text.contains('TextColumn get timeZoneId'),
     'The VS-08 Drift schema boundary or sensitive-field exclusion changed',
     failures,

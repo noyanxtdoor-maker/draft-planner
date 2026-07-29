@@ -47,6 +47,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('create-calendar-event-action')));
       await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
 
       expect(find.text('New Calendar Event'), findsOneWidget);
       await tester.enterText(
@@ -62,10 +63,12 @@ void main() {
       await tester.tap(find.byKey(const Key('event-requires-report-switch')));
       await tester.tap(find.byKey(const Key('save-event-button')));
       await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
 
       expect(find.text('Offline Calendar Event'), findsOneWidget);
       await tester.tap(find.text('Offline Calendar Event'));
       await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
 
       expect(find.byKey(const Key('event-detail-title')), findsOneWidget);
       expect(find.text('Scheduled'), findsOneWidget);

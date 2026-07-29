@@ -184,6 +184,8 @@ final class CalendarEventDraft {
     this.endMinute,
     this.timeZoneId,
     this.locationText,
+    this.activityTypeId,
+    this.activityTypeMappingVersion,
     this.contributionRuleKey,
     this.recurrence = const CalendarRecurrenceRule(),
   });
@@ -197,6 +199,8 @@ final class CalendarEventDraft {
   final int? endMinute;
   final String? timeZoneId;
   final String? locationText;
+  final String? activityTypeId;
+  final int? activityTypeMappingVersion;
   final bool requiresReport;
   final String? contributionRuleKey;
   final CalendarRecurrenceRule recurrence;
@@ -226,6 +230,8 @@ final class CalendarEventDraft {
         startDate: startDate,
         requiresReport: requiresReport,
         locationText: normalizedLocation,
+        activityTypeId: activityTypeId,
+        activityTypeMappingVersion: activityTypeMappingVersion,
         contributionRuleKey: normalizedContribution,
         recurrence: normalizedRecurrence,
       );
@@ -259,6 +265,8 @@ final class CalendarEventDraft {
       endMinute: end,
       timeZoneId: zone,
       locationText: normalizedLocation,
+      activityTypeId: activityTypeId,
+      activityTypeMappingVersion: activityTypeMappingVersion,
       requiresReport: requiresReport,
       contributionRuleKey: normalizedContribution,
       recurrence: normalizedRecurrence,
@@ -275,6 +283,8 @@ final class CalendarEventDraft {
     int? endMinute,
     String? timeZoneId,
     String? locationText,
+    String? activityTypeId,
+    int? activityTypeMappingVersion,
     bool? requiresReport,
     String? contributionRuleKey,
     CalendarRecurrenceRule? recurrence,
@@ -289,6 +299,9 @@ final class CalendarEventDraft {
       endMinute: endMinute ?? this.endMinute,
       timeZoneId: timeZoneId ?? this.timeZoneId,
       locationText: locationText ?? this.locationText,
+      activityTypeId: activityTypeId ?? this.activityTypeId,
+      activityTypeMappingVersion:
+          activityTypeMappingVersion ?? this.activityTypeMappingVersion,
       requiresReport: requiresReport ?? this.requiresReport,
       contributionRuleKey: contributionRuleKey ?? this.contributionRuleKey,
       recurrence: recurrence ?? this.recurrence,
@@ -321,6 +334,10 @@ final class CalendarEventOccurrence {
     this.timeZoneId,
     this.displayTimeZoneId,
     this.locationText,
+    this.activityTypeId,
+    this.activityTypeMappingVersion,
+    this.activityTypeLabel,
+    this.activityTypeColorValue,
     this.contributionRuleKey,
     this.replacementEventId,
     this.linkedTaskIds = const <String>[],
@@ -341,6 +358,10 @@ final class CalendarEventOccurrence {
   final String? timeZoneId;
   final String? displayTimeZoneId;
   final String? locationText;
+  final String? activityTypeId;
+  final int? activityTypeMappingVersion;
+  final String? activityTypeLabel;
+  final int? activityTypeColorValue;
   final CalendarEventStatus status;
   final bool requiresReport;
   final String? contributionRuleKey;

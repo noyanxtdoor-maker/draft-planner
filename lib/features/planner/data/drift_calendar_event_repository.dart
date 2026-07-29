@@ -509,6 +509,8 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
       timeZoneId: Value<String?>(draft.timeZoneId),
       locationText: Value<String?>(draft.locationText),
       requiresReport: Value<bool>(draft.requiresReport),
+      activityTypeId: Value<String?>(draft.activityTypeId),
+      activityTypeMappingVersion: Value<int?>(draft.activityTypeMappingVersion),
       contributionRuleKey: Value<String?>(draft.contributionRuleKey),
       recurrenceFrequency: Value<String>(draft.recurrence.frequency.name),
       recurrenceEndMode: Value<String>(draft.recurrence.endMode.name),
@@ -535,6 +537,10 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
               timeZoneId: Value<String?>(draft.timeZoneId),
               locationText: Value<String?>(draft.locationText),
               requiresReport: Value<bool>(draft.requiresReport),
+              activityTypeId: Value<String?>(draft.activityTypeId),
+              activityTypeMappingVersion: Value<int?>(
+                draft.activityTypeMappingVersion,
+              ),
               contributionRuleKey: Value<String?>(draft.contributionRuleKey),
               recurrenceFrequency: Value<String>(
                 draft.recurrence.frequency.name,
@@ -568,6 +574,8 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
       timeZoneId: row.timeZoneId,
       locationText: row.locationText,
       requiresReport: row.requiresReport,
+      activityTypeId: row.activityTypeId,
+      activityTypeMappingVersion: row.activityTypeMappingVersion,
       contributionRuleKey: row.contributionRuleKey,
       recurrence: _ruleFromRow(row),
     );
@@ -599,6 +607,20 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
     return <String, CalendarEventExceptionRow>{
       for (final row in rows) row.occurrenceId: row,
     };
+  }
+
+  Future<ActivityTypeRow?> _readActivityType(
+    String profileId,
+    String activityTypeId,
+  ) {
+    return (database.select(database.activityTypes)
+          ..where(
+            (table) =>
+                table.profileId.equals(profileId) &
+                table.id.equals(activityTypeId),
+          )
+          ..limit(1))
+        .getSingleOrNull();
   }
 
   Future<CalendarEventOccurrence?> _buildOccurrence({
@@ -656,6 +678,10 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
     if (status == CalendarEventStatus.scheduled && report != null) {
       status = report.status;
     }
+    final activityTypeId = exception?.activityTypeId ?? row.activityTypeId;
+    final activityType = activityTypeId == null
+        ? null
+        : await _readActivityType(row.profileId, activityTypeId);
     return CalendarEventOccurrence(
       id: occurrenceId,
       eventId: row.id,
@@ -678,6 +704,12 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
           : exception.locationText,
       status: status,
       requiresReport: exception?.requiresReport ?? row.requiresReport,
+      activityTypeId: activityTypeId,
+      activityTypeMappingVersion:
+          exception?.activityTypeMappingVersion ??
+          row.activityTypeMappingVersion,
+      activityTypeLabel: activityType?.label,
+      activityTypeColorValue: activityType?.colorValue,
       contributionRuleKey: exception == null
           ? row.contributionRuleKey
           : exception.contributionRuleKey,
@@ -726,6 +758,9 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
       linkedTaskIds: occurrence.linkedTaskIds,
       timeZoneId: occurrence.timeZoneId,
       displayTimeZoneId: occurrence.displayTimeZoneId,
+      activityTypeId: occurrence.activityTypeId,
+      activityTypeLabel: occurrence.activityTypeLabel,
+      activityTypeColorValue: occurrence.activityTypeColorValue,
     );
   }
 
@@ -826,6 +861,8 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
         timeZoneId: occurrence.timeZoneId,
         locationText: occurrence.locationText,
         requiresReport: occurrence.requiresReport,
+        activityTypeId: occurrence.activityTypeId,
+        activityTypeMappingVersion: occurrence.activityTypeMappingVersion,
         contributionRuleKey: occurrence.contributionRuleKey,
       ),
       status: status,
@@ -865,6 +902,10 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
             timeZoneId: Value<String?>(draft.timeZoneId),
             locationText: Value<String?>(draft.locationText),
             requiresReport: Value<bool>(draft.requiresReport),
+            activityTypeId: Value<String?>(draft.activityTypeId),
+            activityTypeMappingVersion: Value<int?>(
+              draft.activityTypeMappingVersion,
+            ),
             contributionRuleKey: Value<String?>(draft.contributionRuleKey),
             status: status.name,
             replacementEventId: Value<String?>(replacementEventId),

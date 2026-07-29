@@ -23,6 +23,10 @@ abstract final class RouteNames {
   static const String outcomeReportCreate = 'outcome-report-create';
   static const String outcomeReportCorrection = 'outcome-report-correction';
   static const String activityHistory = 'activity-history';
+  static const String plannerSettings = 'planner-settings';
+  static const String eventTypes = 'event-types';
+  static const String eventTypeCreate = 'event-type-create';
+  static const String eventTypeEdit = 'event-type-edit';
   static const String indicatorDetail = 'indicator-detail';
   static const String weeklyPlanning = 'weekly-planning';
   static const String weeklyPlanningTargets = 'weekly-planning-targets';
@@ -47,6 +51,9 @@ abstract final class RoutePaths {
   static const String reports = '/reports';
   static const String outcomeReportCreate = '/reports/new';
   static const String activityHistory = '/activity-history';
+  static const String plannerSettings = '/planner/settings';
+  static const String eventTypes = '/planner/settings/event-types';
+  static const String eventTypeCreate = '/planner/settings/event-types/new';
   static const String progress = '/progress';
   static const String weeklyPlanning = '/planner/weekly-planning';
   static const String weeklyPlanningTargetsPath =

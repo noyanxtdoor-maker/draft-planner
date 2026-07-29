@@ -96,6 +96,18 @@ final class _CalendarEventDetailScreenState
                     avatar: const Icon(Icons.event_outlined, size: 18),
                     label: Text(calendarEventStatusLabel(occurrence.status)),
                   ),
+                  if (occurrence.activityTypeLabel != null)
+                    Chip(
+                      key: const Key('event-detail-event-type'),
+                      avatar: Icon(
+                        Icons.category_outlined,
+                        size: 18,
+                        color: Color(
+                          occurrence.activityTypeColorValue ?? 0xFFE91E63,
+                        ),
+                      ),
+                      label: Text(occurrence.activityTypeLabel!),
+                    ),
                   if (occurrence.isRecurring)
                     const Chip(
                       avatar: Icon(Icons.repeat, size: 18),

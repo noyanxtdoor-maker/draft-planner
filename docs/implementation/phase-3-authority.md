@@ -39,6 +39,14 @@ Authorized scope:
 
 VS-09 and later slices remain unauthorized.
 
+## Approved authority overlay
+
+`docs/decisions/OWNER-AMENDMENT-001-screen-capture-and-vs08-scope.md` replaces
+only FR-W-006, AC-W-006, BR-W-005, and OPD-5-012 with their `A` variants. It
+also authorizes the Planner/Event Type correction within VS-08. The preserved
+workbook and DOCX remain immutable; every other locked decision remains in
+force.
+
 ## Exception protocol
 
 Stop affected work and cite the exact ADR, OPD, FR, BR, AC, and slice when a direct contradiction, technical impossibility, security vulnerability, or data-loss risk is found. Do not silently reinterpret a locked decision.

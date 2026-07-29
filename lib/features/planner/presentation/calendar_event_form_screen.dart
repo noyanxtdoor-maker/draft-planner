@@ -2,26 +2,37 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rmplanner/features/indicators/domain/life_indicator.dart';
 import 'package:rmplanner/features/planner/application/calendar_event_providers.dart';
+import 'package:rmplanner/features/planner/application/event_type_providers.dart';
 import 'package:rmplanner/features/planner/application/planner_providers.dart';
 import 'package:rmplanner/features/planner/application/task_event_link_providers.dart';
 import 'package:rmplanner/features/planner/domain/calendar_event.dart';
+import 'package:rmplanner/features/planner/domain/event_type.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 import 'package:rmplanner/features/planner/domain/task_event_link.dart';
 
 enum CalendarEventFormMode { create, edit, reschedule }
 
 final class CalendarEventFormScreen extends ConsumerStatefulWidget {
-  const CalendarEventFormScreen.create({required this.initialDate, super.key})
-    : mode = CalendarEventFormMode.create,
-      eventId = null,
-      originalDate = null,
-      scope = null,
-      sourceTaskId = null;
+  const CalendarEventFormScreen.create({
+    required this.initialDate,
+    this.initialStartMinute,
+    this.initialIndicatorKey,
+    this.initialEventTypeId,
+    super.key,
+  }) : mode = CalendarEventFormMode.create,
+       eventId = null,
+       originalDate = null,
+       scope = null,
+       sourceTaskId = null;
 
   const CalendarEventFormScreen.createFromTask({
     required this.sourceTaskId,
     required this.initialDate,
+    this.initialStartMinute,
+    this.initialIndicatorKey,
+    this.initialEventTypeId,
     super.key,
   }) : mode = CalendarEventFormMode.create,
        eventId = null,
@@ -35,6 +46,9 @@ final class CalendarEventFormScreen extends ConsumerStatefulWidget {
     super.key,
   }) : mode = CalendarEventFormMode.edit,
        initialDate = null,
+       initialStartMinute = null,
+       initialIndicatorKey = null,
+       initialEventTypeId = null,
        sourceTaskId = null;
 
   const CalendarEventFormScreen.reschedule({
@@ -44,10 +58,16 @@ final class CalendarEventFormScreen extends ConsumerStatefulWidget {
     super.key,
   }) : mode = CalendarEventFormMode.reschedule,
        initialDate = null,
+       initialStartMinute = null,
+       initialIndicatorKey = null,
+       initialEventTypeId = null,
        sourceTaskId = null;
 
   final CalendarEventFormMode mode;
   final PlannerDate? initialDate;
+  final int? initialStartMinute;
+  final String? initialIndicatorKey;
+  final String? initialEventTypeId;
   final String? eventId;
   final PlannerDate? originalDate;
   final CalendarEventEditScope? scope;
@@ -79,6 +99,10 @@ final class _CalendarEventFormScreenState
   PlannerDate? _recurrenceEndDate;
   bool _loading = false;
   bool _saving = false;
+  bool _configurationLoading = true;
+  bool _durationWasEntered = false;
+  List<EventType> _eventTypes = const <EventType>[];
+  EventType? _selectedEventType;
   TaskEventCanonicalSource _canonicalSource = TaskEventCanonicalSource.task;
 
   @override
@@ -98,6 +122,11 @@ final class _CalendarEventFormScreenState
       CalendarEventFormMode.edit => widget.eventId!,
     };
     _date = widget.initialDate ?? widget.originalDate!;
+    final initialStartMinute = widget.initialStartMinute;
+    if (initialStartMinute != null) {
+      _start = _timeFromMinute(initialStartMinute);
+      _end = _timeFromMinute((initialStartMinute + 60).clamp(1, 1439));
+    }
     _timeZoneController.text = ref
         .read(calendarEventControllerProvider.notifier)
         .displayTimeZoneId;
@@ -107,6 +136,75 @@ final class _CalendarEventFormScreenState
     } else if (widget.sourceTaskId != null) {
       unawaited(Future<void>.microtask(_loadSourceTask));
     }
+    unawaited(Future<void>.microtask(_loadConfiguration));
+  }
+
+  Future<void> _loadConfiguration() async {
+    final controller = ref.read(eventTypeControllerProvider.notifier);
+    await controller.load();
+    if (!mounted) {
+      return;
+    }
+    final state = ref.read(eventTypeControllerProvider);
+    EventType? selected;
+    var preferTypeDuration = false;
+    if (widget.mode != CalendarEventFormMode.create) {
+      final draft = await ref
+          .read(calendarEventControllerProvider.notifier)
+          .readEventDraft(widget.eventId!);
+      final eventTypeId = draft?.activityTypeId;
+      if (eventTypeId != null) {
+        selected = state.eventTypes
+            .where((type) => type.id == eventTypeId)
+            .firstOrNull;
+      }
+    } else if (widget.initialEventTypeId != null) {
+      preferTypeDuration = true;
+      selected = state.eventTypes
+          .where((type) => type.id == widget.initialEventTypeId)
+          .firstOrNull;
+    } else if (widget.initialIndicatorKey != null) {
+      preferTypeDuration = true;
+      selected = await controller.exactTypeForIndicator(
+        widget.initialIndicatorKey!,
+      );
+    } else if (state.settings.defaultEventTypeId != null) {
+      selected = state.eventTypes
+          .where((type) => type.id == state.settings.defaultEventTypeId)
+          .firstOrNull;
+    }
+    selected ??= state.eventTypes
+        .where((type) => type.stableKey == SystemEventTypeKeys.general)
+        .firstOrNull;
+    if (mounted) {
+      setState(() {
+        _eventTypes = state.eventTypes;
+        _configurationLoading = false;
+        _selectedEventType = selected;
+        if (widget.mode == CalendarEventFormMode.create && selected != null) {
+          _applyEventTypeDefaults(
+            selected,
+            durationMinutes: preferTypeDuration
+                ? selected.defaultDurationMinutes
+                : state.settings.defaultDurationMinutes,
+          );
+        }
+      });
+    }
+  }
+
+  void _applyEventTypeDefaults(EventType type, {int? durationMinutes}) {
+    _requiresReport = type.reportRequiredDefault;
+    if (_durationWasEntered) {
+      return;
+    }
+    final startMinute = _start.hour * 60 + _start.minute;
+    _end = _timeFromMinute(
+      (startMinute + (durationMinutes ?? type.defaultDurationMinutes)).clamp(
+        1,
+        1439,
+      ),
+    );
   }
 
   Future<void> _loadSourceTask() async {
@@ -151,6 +249,7 @@ final class _CalendarEventFormScreenState
     _timing = draft.timing;
     _start = _timeFromMinute(draft.startMinute ?? 9 * 60);
     _end = _timeFromMinute(draft.endMinute ?? 10 * 60);
+    _durationWasEntered = true;
     _requiresReport = draft.requiresReport;
     _frequency =
         widget.mode == CalendarEventFormMode.reschedule &&
@@ -172,7 +271,7 @@ final class _CalendarEventFormScreenState
         ref.watch(taskEventLinkControllerProvider);
     return Scaffold(
       appBar: AppBar(title: Text(_title)),
-      body: _loading
+      body: _loading || _configurationLoading
           ? const Center(child: CircularProgressIndicator())
           : SafeArea(
               child: Form(
@@ -226,6 +325,43 @@ final class _CalendarEventFormScreenState
                       _ErrorBanner(message: message),
                       const SizedBox(height: 14),
                     ],
+                    DropdownButtonFormField<String>(
+                      key: const Key('event-type-field'),
+                      initialValue: _selectedEventType?.id,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Event Type',
+                        prefixIcon: Icon(Icons.category_outlined),
+                      ),
+                      items: <DropdownMenuItem<String>>[
+                        for (final type in _eventTypes)
+                          DropdownMenuItem<String>(
+                            value: type.id,
+                            child: Text(type.label),
+                          ),
+                      ],
+                      validator: (value) =>
+                          value == null ? 'Select an Event Type' : null,
+                      onChanged: (value) {
+                        final selected = _eventTypes
+                            .where((type) => type.id == value)
+                            .firstOrNull;
+                        if (selected == null) {
+                          return;
+                        }
+                        setState(() {
+                          _selectedEventType = selected;
+                          if (widget.mode == CalendarEventFormMode.create) {
+                            _applyEventTypeDefaults(selected);
+                          }
+                        });
+                      },
+                    ),
+                    if (_selectedEventType != null) ...<Widget>[
+                      const SizedBox(height: 8),
+                      _EventTypeMappingNotice(type: _selectedEventType!),
+                    ],
+                    const SizedBox(height: 12),
                     TextFormField(
                       key: const Key('event-title-field'),
                       controller: _titleController,
@@ -286,8 +422,10 @@ final class _CalendarEventFormScreenState
                               value: _end,
                               onTap: () => _selectTime(
                                 initial: _end,
-                                onSelected: (value) =>
-                                    setState(() => _end = value),
+                                onSelected: (value) => setState(() {
+                                  _end = value;
+                                  _durationWasEntered = true;
+                                }),
                               ),
                             ),
                           ),
@@ -462,6 +600,17 @@ final class _CalendarEventFormScreenState
       'Create replacement for ${calendarEventScopeLabel(widget.scope!)}',
   };
 
+  String? _scheduledPotentialRule(EventType? type) {
+    final indicatorKey = type?.exactIndicatorKey;
+    if (indicatorKey == null) {
+      return null;
+    }
+    return ScheduledPotentialRule(
+      indicatorKey: indicatorKey,
+      value: const IndicatorAmount(scaledValue: 1, scale: 0, unit: 'count'),
+    ).encode();
+  }
+
   Future<void> _save() async {
     ref.read(calendarEventControllerProvider.notifier).clearMessage();
     ref.read(taskEventLinkControllerProvider.notifier).clearMessage();
@@ -474,6 +623,12 @@ final class _CalendarEventFormScreenState
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('End time must be after start time.')),
       );
+      return;
+    }
+    final selectedType = _selectedEventType;
+    if (selectedType != null &&
+        selectedType.indicatorKeys.length > 1 &&
+        !await _confirmMultipleMappings(selectedType)) {
       return;
     }
     setState(() => _saving = true);
@@ -490,6 +645,9 @@ final class _CalendarEventFormScreenState
           : null,
       locationText: _locationController.text,
       requiresReport: _requiresReport,
+      activityTypeId: _selectedEventType?.id,
+      activityTypeMappingVersion: _selectedEventType?.mappingVersion,
+      contributionRuleKey: _scheduledPotentialRule(_selectedEventType),
       recurrence: CalendarRecurrenceRule(
         frequency: _frequency,
         endMode: _frequency == CalendarRecurrenceFrequency.none
@@ -540,6 +698,36 @@ final class _CalendarEventFormScreenState
     }
   }
 
+  Future<bool> _confirmMultipleMappings(EventType type) async {
+    final labels =
+        type.indicatorKeys
+            .map(_EventTypeMappingNotice.indicatorLabel)
+            .toList(growable: false)
+          ..sort();
+    return await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('Confirm Life Indicator mappings'),
+            content: Text(
+              '${type.label} is explicitly mapped to ${labels.join(', ')}. '
+              'Saving schedules the activity and creates no Actual. Continue?',
+            ),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('Review'),
+              ),
+              FilledButton(
+                key: const Key('confirm-multiple-indicator-mappings'),
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: const Text('Confirm and save'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+  }
+
   Future<void> _selectDate({
     required PlannerDate initial,
     required ValueChanged<PlannerDate> onSelected,
@@ -577,6 +765,59 @@ final class _CalendarEventFormScreenState
       CalendarRecurrenceFrequency.weekly => 'Weekly',
       CalendarRecurrenceFrequency.monthly => 'Monthly',
       CalendarRecurrenceFrequency.yearly => 'Yearly',
+    };
+  }
+}
+
+final class _EventTypeMappingNotice extends StatelessWidget {
+  const _EventTypeMappingNotice({required this.type});
+
+  final EventType type;
+
+  @override
+  Widget build(BuildContext context) {
+    final keys = type.indicatorKeys.toList(growable: false)..sort();
+    final mapping = keys.isEmpty
+        ? 'No Life Indicator mapping'
+        : keys.map(indicatorLabel).join(', ');
+    return Semantics(
+      key: const Key('event-type-mapping-preview'),
+      label: '$mapping. Scheduling creates no Actual progress.',
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: Color(type.colorValue).withValues(alpha: 0.12),
+          border: Border.all(
+            color: Color(type.colorValue).withValues(alpha: 0.7),
+          ),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Icon(Icons.link_outlined, color: Color(type.colorValue), size: 19),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                '$mapping. This sets planning and reporting context only; '
+                'saving never creates Actual.',
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static String indicatorLabel(String key) {
+    return switch (key) {
+      'temple_visit' => 'Temple Visit',
+      'scripture_study' => 'Scripture Study',
+      'exercise' => 'Exercise',
+      'budget_review' => 'Budget Review',
+      'job_applications' => 'Job Applications',
+      'meaningful_connections' => 'Meaningful Connections',
+      _ => key,
     };
   }
 }

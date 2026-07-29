@@ -16,7 +16,7 @@ local operation with every optional permission denied.
 | FR-W-003 / AC-W-003 — OS biometric/device credential where available | `LocalAuthDeviceAuthenticator`, `biometricOnly: false`; enable requires availability and successful auth | controller tests; host verification; Infinix X6731 Android 14 real-device pass |
 | FR-W-004 / AC-W-004 — never store biometric data | Drift schema stores only lock boolean, preview mode, and permission audit | schema/database test; generated schema review |
 | FR-W-005 / AC-W-005 — failure does not delete/reset/corrupt | failed/canceled/unavailable outcomes remain locked and do not mutate data | controller and widget tests |
-| FR-W-006 / AC-W-006 — obscure app switcher where supported | Android activity applies `FLAG_SECURE`; UI states coverage limitation | authority verifier; build; Infinix XOS Recent Apps preview observed obscured |
+| FR-W-006A / AC-W-006A — allow screenshots, recording, and normal app-switcher preview | Android activity has no secure-window flag; Privacy Center states the approved behavior | owner amendment; authority verifier; repository capture-code audit; manual QA checklist |
 | FR-W-007 / AC-W-007 — notification previews follow privacy settings | persisted default-hidden `NotificationPreviewMode`; future-notification boundary stated | repository and widget tests |
 | FR-W-008 / AC-W-008 — explain local, optional sync, and local-only | Privacy Center “Where data lives” cards | widget and 200% text-scale tests |
 | FR-W-009 / AC-W-009 — explain contacts, attachments, permissions, diagnostics, export, backup, deletion | Privacy/Permissions/Diagnostics views and deletion-impact dialog | widget journey |
@@ -46,7 +46,7 @@ the approved workbook.
 | BR-W-002 — just-in-time permission requests | no request API is exposed in VS-02 |
 | BR-W-003 — OS auth; no biometric data | local-auth adapter and schema test |
 | BR-W-004 — failure never deletes/corrupts | controller/widget preservation tests |
-| BR-W-005 — obscure sensitive previews where supported | Android `FLAG_SECURE` |
+| BR-W-005A — capture prevention is not a privacy control | no secure-window flag or prevention claim |
 | BR-W-006 — raw BetterCalendar local/outside diagnostics | fail-closed policy |
 | BR-W-007 — tokens secure, outside Drift/backups | secure token adapter and schema test |
 | BR-W-008 — private data excluded from logs/analytics | diagnostics allow-list and policy test |
@@ -68,7 +68,7 @@ the approved workbook.
 | OPD-1-002 / OPD-5-010 — OS auth with credential fallback; no app PIN | `biometricOnly: false`; no PIN field/UI |
 | OPD-1-003 — immediate relock after genuine background | `paused` lifecycle transition locks; `inactive` alone does not |
 | OPD-5-011 — reflections local-only by default | fail-closed policy |
-| OPD-5-012 — strongest supported app-switcher obscuring, no universal claim | `FLAG_SECURE` plus explicit limitation |
+| OPD-5-012A — permit normal Android capture and app-switcher behavior | `OWNER-AMENDMENT-001` |
 | OPD-5-013 — no private payload analytics | no analytics SDK and fail-closed rules |
 | OPD-5-014 — claim only implemented/verified protections | Privacy Center wording and conditional platform evidence |
 
@@ -120,5 +120,6 @@ removed when the authorized shell/More slice owns that destination.
   (API 34). Android System UI displayed biometric authentication with numeric
   device-credential fallback; successful authentication enabled Privacy Lock;
   background/resume rendered the protected route; authenticated unlock
-  returned to Home; and the XOS Recent Apps card showed a solid dark
-  placeholder with no private app content.
+  returned to Home. The formerly obscured XOS Recent Apps result is historical
+  and superseded by `OWNER-AMENDMENT-001`; current capture QA is tracked in the
+  VS-08 correction evidence.

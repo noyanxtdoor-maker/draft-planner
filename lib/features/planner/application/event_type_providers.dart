@@ -1,0 +1,169 @@
+import 'dart:async';
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rmplanner/features/planner/application/event_type_repository.dart';
+import 'package:rmplanner/features/planner/domain/event_type.dart';
+import 'package:rmplanner/features/planner/domain/planner_settings.dart';
+import 'package:rmplanner/features/startup/application/startup_providers.dart';
+import 'package:rmplanner/features/startup/domain/startup_state.dart';
+
+final eventTypeRepositoryProvider = Provider<EventTypeRepository>((ref) {
+  throw StateError('EventTypeRepository must be overridden at the app root');
+});
+
+final class EventTypeState {
+  const EventTypeState({
+    required this.isLoading,
+    required this.eventTypes,
+    required this.settings,
+    this.message,
+  });
+
+  const EventTypeState.loading()
+    : isLoading = true,
+      eventTypes = const <EventType>[],
+      settings = const PlannerSettings.defaults(),
+      message = null;
+
+  final bool isLoading;
+  final List<EventType> eventTypes;
+  final PlannerSettings settings;
+  final String? message;
+
+  EventTypeState copyWith({
+    bool? isLoading,
+    List<EventType>? eventTypes,
+    PlannerSettings? settings,
+    String? message,
+    bool clearMessage = false,
+  }) {
+    return EventTypeState(
+      isLoading: isLoading ?? this.isLoading,
+      eventTypes: eventTypes ?? this.eventTypes,
+      settings: settings ?? this.settings,
+      message: clearMessage ? null : message ?? this.message,
+    );
+  }
+}
+
+final eventTypeControllerProvider =
+    NotifierProvider<EventTypeController, EventTypeState>(
+      EventTypeController.new,
+    );
+
+final class EventTypeController extends Notifier<EventTypeState> {
+  EventTypeRepository get _repository => ref.read(eventTypeRepositoryProvider);
+
+  String get _profileId {
+    final startup = ref.read(startupControllerProvider);
+    if (startup is! StartupReady) {
+      throw StateError('Event Types require a ready Local Profile');
+    }
+    return startup.profile.id;
+  }
+
+  @override
+  EventTypeState build() {
+    unawaited(Future<void>.microtask(load));
+    return const EventTypeState.loading();
+  }
+
+  Future<void> load({bool includeArchived = false}) async {
+    state = state.copyWith(isLoading: true, clearMessage: true);
+    try {
+      final results = await Future.wait<Object>(<Future<Object>>[
+        _repository.readEventTypes(
+          profileId: _profileId,
+          includeArchived: includeArchived,
+        ),
+        _repository.readPlannerSettings(profileId: _profileId),
+      ]);
+      state = EventTypeState(
+        isLoading: false,
+        eventTypes: results[0] as List<EventType>,
+        settings: results[1] as PlannerSettings,
+      );
+    } on Object {
+      state = state.copyWith(
+        isLoading: false,
+        message:
+            'Planner settings could not be opened. Retry without data loss.',
+      );
+    }
+  }
+
+  Future<EventType?> exactTypeForIndicator(String indicatorKey) {
+    return _repository.readExactTypeForIndicator(
+      profileId: _profileId,
+      indicatorKey: indicatorKey,
+    );
+  }
+
+  Future<EventType?> readType(String eventTypeId) {
+    return _repository.readEventType(
+      profileId: _profileId,
+      eventTypeId: eventTypeId,
+    );
+  }
+
+  Future<bool> saveCustomType(EventTypeDraft draft) async {
+    try {
+      await _repository.saveCustomType(profileId: _profileId, draft: draft);
+      await load(includeArchived: true);
+      return true;
+    } on Object {
+      state = state.copyWith(
+        message: 'Event Type was not changed. Your input is still available.',
+      );
+      return false;
+    }
+  }
+
+  Future<bool> setArchived(EventType type, bool archived) async {
+    try {
+      await _repository.setCustomTypeArchived(
+        profileId: _profileId,
+        eventTypeId: type.id,
+        archived: archived,
+      );
+      await load(includeArchived: true);
+      return true;
+    } on Object {
+      state = state.copyWith(
+        message: 'Event Type archive state was not changed.',
+      );
+      return false;
+    }
+  }
+
+  Future<bool> restoreSystemDefaults() async {
+    try {
+      await _repository.restoreSystemDefaults(profileId: _profileId);
+      await load(includeArchived: true);
+      return true;
+    } on Object {
+      state = state.copyWith(message: 'System defaults were not changed.');
+      return false;
+    }
+  }
+
+  Future<bool> saveSettings(PlannerSettings settings) async {
+    try {
+      final saved = await _repository.savePlannerSettings(
+        profileId: _profileId,
+        settings: settings,
+      );
+      state = state.copyWith(settings: saved, clearMessage: true);
+      return true;
+    } on Object {
+      state = state.copyWith(
+        message: 'Planner settings were not changed. You can safely retry.',
+      );
+      return false;
+    }
+  }
+
+  void clearMessage() {
+    state = state.copyWith(clearMessage: true);
+  }
+}

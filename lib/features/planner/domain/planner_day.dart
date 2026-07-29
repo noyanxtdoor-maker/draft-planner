@@ -33,6 +33,9 @@ final class PlannerCalendarItem {
     this.originalDate,
     this.timeZoneId,
     this.displayTimeZoneId,
+    this.activityTypeId,
+    this.activityTypeLabel,
+    this.activityTypeColorValue,
   });
 
   final String id;
@@ -54,6 +57,9 @@ final class PlannerCalendarItem {
   final PlannerDate? originalDate;
   final String? timeZoneId;
   final String? displayTimeZoneId;
+  final String? activityTypeId;
+  final String? activityTypeLabel;
+  final int? activityTypeColorValue;
 
   bool isAwaitingReport(DateTime nowLocal) {
     if (state != PlannerEventState.scheduled ||

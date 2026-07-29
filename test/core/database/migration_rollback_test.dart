@@ -636,4 +636,110 @@ void main() {
       }
     },
   );
+
+  test(
+    'VS08-CORRECTION / Q2: v8 upgrades to schema v9 without prior-data loss',
+    () async {
+      final sqliteDatabase = sqlite3.openInMemory();
+      try {
+        final versionEight = AppDatabase.forTesting(
+          NativeDatabase.opened(sqliteDatabase, closeUnderlyingOnClose: false),
+          schemaVersionOverride: 8,
+        );
+        final original = await buildTestRepository(
+          database: versionEight,
+        ).completeOnboarding();
+        await versionEight.close();
+
+        final versionNine = AppDatabase.forTesting(
+          NativeDatabase.opened(sqliteDatabase, closeUnderlyingOnClose: false),
+          schemaVersionOverride: 9,
+        );
+        expect(
+          (await versionNine.select(versionNine.localProfiles).get()).single.id,
+          original.id,
+        );
+        expect(
+          await versionNine.select(versionNine.activityTypes).get(),
+          isEmpty,
+        );
+        expect(
+          await versionNine
+              .select(versionNine.activityTypeIndicatorMappings)
+              .get(),
+          isEmpty,
+        );
+        expect(
+          await versionNine.select(versionNine.plannerPreferences).get(),
+          isEmpty,
+        );
+        expect(
+          (await versionNine.customSelect('PRAGMA user_version').getSingle())
+              .read<int>('user_version'),
+          9,
+        );
+        await versionNine.close();
+      } finally {
+        sqliteDatabase.close();
+      }
+    },
+  );
+
+  test(
+    'VS08-CORRECTION / Q2: failed v9 migration preserves valid v8 database',
+    () async {
+      final sqliteDatabase = sqlite3.openInMemory();
+      try {
+        final versionEight = AppDatabase.forTesting(
+          NativeDatabase.opened(sqliteDatabase, closeUnderlyingOnClose: false),
+          schemaVersionOverride: 8,
+        );
+        final original = await buildTestRepository(
+          database: versionEight,
+        ).completeOnboarding();
+        await versionEight.close();
+
+        final failingVersionNine = AppDatabase.forTesting(
+          NativeDatabase.opened(sqliteDatabase, closeUnderlyingOnClose: false),
+          schemaVersionOverride: 9,
+          injectPlannerCorrectionMigrationFailure: true,
+        );
+        await expectLater(
+          failingVersionNine.select(failingVersionNine.localProfiles).get(),
+          throwsA(isA<StateError>()),
+        );
+        await failingVersionNine.close();
+
+        final reopenedVersionEight = AppDatabase.forTesting(
+          NativeDatabase.opened(sqliteDatabase, closeUnderlyingOnClose: false),
+          schemaVersionOverride: 8,
+        );
+        expect(
+          (await reopenedVersionEight
+                  .select(reopenedVersionEight.localProfiles)
+                  .get())
+              .single
+              .id,
+          original.id,
+        );
+        expect(
+          (await reopenedVersionEight
+                  .customSelect('PRAGMA user_version')
+                  .getSingle())
+              .read<int>('user_version'),
+          8,
+        );
+        final typeTable = await reopenedVersionEight
+            .customSelect(
+              "SELECT COUNT(*) AS count FROM sqlite_master "
+              "WHERE type='table' AND name='activity_types'",
+            )
+            .getSingle();
+        expect(typeTable.read<int>('count'), 0);
+        await reopenedVersionEight.close();
+      } finally {
+        sqliteDatabase.close();
+      }
+    },
+  );
 }
