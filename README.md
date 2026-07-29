@@ -169,6 +169,20 @@ Equivalent non-secret examples exist for development, staging, and production.
 No secret is required through VS-08. Never commit signing keys, private
 environment files, service-role keys, or user database files.
 
+Release APK assembly is fail-closed and requires all four values at build time:
+
+```text
+NEXT_TRANSFER_RELEASE_STORE_FILE
+NEXT_TRANSFER_RELEASE_STORE_PASSWORD
+NEXT_TRANSFER_RELEASE_KEY_ALIAS
+NEXT_TRANSFER_RELEASE_KEY_PASSWORD
+```
+
+The key and passwords must come from the local/CI secret store. Never place
+them in Git, `key.properties`, a tracked environment file, a command log, or
+documentation. A local QA release may use a non-production test key; it must
+never be distributed as the production signing identity.
+
 ## Repository layout
 
 ```text

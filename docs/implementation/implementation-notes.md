@@ -679,3 +679,73 @@ repairs did not modify project source or global Git configuration.
   assembly, and secret scanning. Manually dispatched Android matrix run
   `30424212227` passed all 18 API 24/API 36 jobs, including process-restart
   persistence.
+
+## 2026-07-29 — VS-08 mandatory Event Type-first correction
+
+- The single authoritative reference review is
+  `docs/audits/vs08-pmg-bettercalendar-reference-review.md`. All eight supplied
+  PMG/BetterCalendar recordings were reviewed across their complete durations,
+  together with the five approved PNGs, five HTML measurement aids, and the PMG
+  still image.
+- The requested current Next Transfer recording was absent, the PMG still was
+  found in its real `Images/` subfolder, and no local DayFlow checkout existed.
+  These are recorded as missing evidence rather than silently substituted.
+- Existing Calendar Event creation now uses one coordinator:
+  capture temporary date/time/context, show `Select Event Type`, construct the
+  in-memory form state only after selection, apply type defaults/mapping, and
+  persist only on Save.
+- The corrected type-first entry points are one tap on an empty Planner
+  timeline, Planner `+` -> Calendar Event, Weekly Planning -> New Event, Life
+  Indicator -> Schedule Activity, Task -> Create Calendar Event, and the direct
+  create-route fallback.
+- The locked Planner `+` continues to separate Task, Calendar Event, and
+  Activity Report. Pathways and Contacts routes are not present and remain
+  deferred to their authorized slices; the coordinator is reusable when those
+  entry points are implemented.
+- The picker uses only the ten approved protected Event Types plus active custom
+  types. Exact compatible Life Indicator types move to the first row and are
+  marked Recommended. No PMG types, branding, assets, or business rules were
+  copied.
+- Cancellation creates no Calendar Event, operation, report, notification, or
+  Activity Ledger entry and returns to the calling screen. Event Type stays
+  visible in the form and can be changed through the same picker.
+- Empty-timeline creation changed from long press to one tap. Existing-event
+  long-press move and resize interactions retain live start/end previews,
+  snapping, cancellation restoration, and one scheduling-only persistence
+  operation on successful release.
+- The correction adds no schema migration, generated database change, package,
+  Android permission, remote client, notification scheduler, Pathways/Contacts
+  module, or VS-09 work.
+- Strict analysis and the focused six-test creation suite passed. The full
+  Flutter suite passed all 108 tests, including snapped date/time, default
+  duration, mapped recommendation, clean cancellation, Planner `+`, Weekly
+  Planning, Life Indicator, Task scheduling, direct-route guarding, and
+  no-Actual regressions.
+- Authority verification, strict formatting, byte-clean Drift regeneration,
+  all 108 tests, and production-defined debug Android assembly passed. The
+  final debug APK is 191,348,456 bytes with SHA-256
+  `6BC6E516F87F7FFFDAA345701BAE3C7C79CF461457111A72DEF73321B125E6BE`.
+- The APK installed with `adb install -r` on the Infinix X6731 Android 14,
+  preserving existing app data. Direct device evidence proves an empty 3:30 PM
+  tap opens `Select Event Type` before the form; choosing Temple Visit opens a
+  form with the selected date, 3:30 PM start, 5:30 PM end, visible mapping, and
+  no-Actual wording. Back restored the same Wednesday and timeline viewport
+  with no saved Temple Visit.
+- Direct device evidence also proves Planner `+` retains Task/Event/Report and
+  opens the picker before the Event form, while Job Applications -> Schedule
+  Activity orders Job Application first and marks it Recommended.
+- The Flutter integration launcher could build and install its test APK but
+  could not start the test because the temporary Flutter checkout lacks the
+  development-server snapshot. The normal debug app was rebuilt/reinstalled,
+  and direct UIAutomator hierarchy plus screenshots under
+  `build/manual-qa/vs-08/` supplied the corrected physical proof without
+  creating test records.
+- Release signing is fail-closed: invoking `assembleRelease` without the full
+  `NEXT_TRANSFER_RELEASE_*` credential set fails during Gradle configuration.
+  A QA release built with the local non-production Android debug certificate
+  supplied only through temporary environment variables. `apksigner` verified
+  one v2 signer; no key or password entered the repository.
+- The corrected QA-signed release is 65,721,487 bytes with SHA-256
+  `E2A190B5FF161621CB66EC78E498D0C6B0153D521C203CB2BA5839C930527448`.
+  It installed over the existing app with data preservation and independently
+  passed the physical one-tap `Select Event Type`-before-form smoke check.

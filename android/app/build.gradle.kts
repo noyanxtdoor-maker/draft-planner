@@ -4,6 +4,23 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+val releaseSigningValues = mapOf(
+    "storeFile" to providers.environmentVariable("NEXT_TRANSFER_RELEASE_STORE_FILE").orNull,
+    "storePassword" to providers.environmentVariable("NEXT_TRANSFER_RELEASE_STORE_PASSWORD").orNull,
+    "keyAlias" to providers.environmentVariable("NEXT_TRANSFER_RELEASE_KEY_ALIAS").orNull,
+    "keyPassword" to providers.environmentVariable("NEXT_TRANSFER_RELEASE_KEY_PASSWORD").orNull,
+).mapValues { (_, value) -> value?.trim()?.takeIf(String::isNotEmpty) }
+val releaseRequested = gradle.startParameter.taskNames.any {
+    it.contains("release", ignoreCase = true)
+}
+val releaseSigningComplete = releaseSigningValues.values.all { it != null }
+
+if (releaseRequested && !releaseSigningComplete) {
+    throw GradleException(
+        "Release signing requires all NEXT_TRANSFER_RELEASE_* environment variables.",
+    )
+}
+
 android {
     namespace = "com.nexttransfer.rmplanner"
     compileSdk = 36
@@ -20,6 +37,25 @@ android {
         targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+    }
+
+    signingConfigs {
+        if (releaseSigningComplete) {
+            create("release") {
+                storeFile = file(releaseSigningValues.getValue("storeFile")!!)
+                storePassword = releaseSigningValues.getValue("storePassword")
+                keyAlias = releaseSigningValues.getValue("keyAlias")
+                keyPassword = releaseSigningValues.getValue("keyPassword")
+            }
+        }
+    }
+
+    buildTypes {
+        getByName("release") {
+            if (releaseSigningComplete) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+        }
     }
 }
 

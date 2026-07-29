@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rmplanner/app/router/route_names.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 import 'package:rmplanner/features/planner/domain/planner_task.dart';
+import 'package:rmplanner/features/planner/presentation/event_type_picker_dialog.dart';
 import 'package:rmplanner/features/weekly_planning/application/weekly_planning_providers.dart';
 import 'package:rmplanner/features/weekly_planning/domain/weekly_plan.dart';
 
@@ -185,9 +188,16 @@ final class _PlanBody extends ConsumerWidget {
               Expanded(
                 child: OutlinedButton.icon(
                   key: const Key('weekly-plan-create-event'),
-                  onPressed: () => context.push(
-                    '${RoutePaths.calendarEventCreate}'
-                    '?date=${plan.period.start.iso8601}',
+                  onPressed: () => unawaited(
+                    launchCalendarEventCreation<void>(
+                      context,
+                      ref,
+                      CalendarEventCreationContext(
+                        source: 'weekly-planning',
+                        destinationPath: RoutePaths.calendarEventCreate,
+                        date: plan.period.start,
+                      ),
+                    ),
                   ),
                   icon: const Icon(Icons.event_available),
                   label: const Text('New Event'),

@@ -130,26 +130,34 @@ viewport and explicit 200% text scaling.
 
 The correction is governed by
 `docs/decisions/OWNER-AMENDMENT-001-screen-capture-and-vs08-scope.md` and the
-reference audit at
-`docs/audits/vs08-planner-event-types-reference-audit.md`.
+original reference audit at
+`docs/audits/vs08-planner-event-types-reference-audit.md`. The authoritative
+event-creation interaction correction is audited at
+`docs/audits/vs08-pmg-bettercalendar-reference-review.md`.
 
 | Correction requirement | Implementation and evidence |
 | --- | --- |
 | Native Planner geometry | 60 px/hour time grid, duration height, overlap columns, compact 56 px time gutter, Event Type fill/accent, all-day separation |
-| Safe interaction | empty-grid long press, deliberate event move and resize handle, configured snapping, preview cancellation, failed-save restoration |
+| Safe interaction | one empty-grid tap, deliberate long-press event move and resize handle, configured snapping, live preview labels, preview cancellation, failed-save restoration |
 | Initial navigation | week strip, Today/date picker, configured visible hours, current-time line, initial scroll to current time or first relevant event |
 | First-class Event Type | stable UUID/key, system/custom and archive flags, color/icon, defaults, mapping version, protected system identities |
 | Deterministic mapping | exactly six system mappings; no title inference; explicit custom zero/one/many mappings |
 | Historical provenance | Calendar Event and exception snapshot type ID/version; custom mapping revisions are append-only |
-| Reverse flow | existing Life Indicator detail Schedule Activity opens Event creation with exact system type preselected |
+| Mandatory type-first creation | immutable temporary context opens `Select Event Type` before any form or persisted draft from the timeline, Planner `+`, Weekly Planning, Life Indicator, Task, and direct create route |
+| Context and defaults | selected date, snapped time, and compatible Life Indicator context survive the picker; selection then applies the chosen type duration and deterministic mapping |
+| Recommendation | an exact Life Indicator mapping is ordered first and visibly marked `Recommended`; the user can choose another type or cancel |
+| Cancellation | dismissing the picker restores the calling screen and creates no Calendar Event, operation, report, notification, or Activity Ledger row |
+| Reverse flow | existing Life Indicator detail Schedule Activity opens the type picker with its exact system type recommended |
 | No Actual from scheduling | mapping affects planning/report context only; no ledger write exists in Event Type or timeline mutation paths |
 | Local settings | default type/duration, visible hours, time format, snapping, current line, initial scroll, quick edit, status visibility, and week start persist in Drift |
 | Capture override | `MainActivity` has no secure flag; repository test/verifier reject `FLAG_SECURE`; Privacy Center uses approved wording |
 
-Notification behavior is deferred to VS-16. Flows that require unauthorized
-Pathways/Covenant Path, Contacts, Employment, Documents, or Backups screens are
-deferred to their owning slices. These deferrals are explicit scope controls,
-not claims of completed VS-08 QA.
+Notification behavior is deferred to VS-16. Pathways and Contacts scheduling
+entry points do not yet exist; the reusable creation coordinator is ready for
+their owning slices, but no VS-09/later route or test is claimed here. Flows
+that require unauthorized Pathways/Covenant Path, Contacts, Employment,
+Documents, or Backups screens remain deferred. These deferrals are explicit
+scope controls, not claims of completed VS-08 QA.
 
 ## Schema v9 correction migration
 
@@ -164,13 +172,13 @@ the transaction rolls back rather than leaving a partial schema.
 | Gate | VS-08 status |
 | --- | --- |
 | Q0 Authority and traceability | Passed locally: immutable hashes, Android identity, schema v9, owner overlay, dependency/slice boundaries |
-| Q1 Static and build | Formatting and analysis pass; debug APK passes; release APK passes with documented incomplete-SDK `--no-tree-shake-icons` fallback |
+| Q1 Static and build | Formatting, analysis, and byte-clean code generation pass; corrected debug and QA-signed release APKs pass. Release is fail-closed without all four signing environment values; the incomplete local SDK still requires the documented `--no-tree-shake-icons` fallback |
 | Q2 Domain/database/migration | Targeted lifecycle, v7-to-v8, v8-to-v9, failed-migration rollback, mapping provenance, and injected write rollback tests pass |
 | Q3 Offline/privacy/idempotency | Local pass; no new package, permission, remote client, direct Actual write, or non-transactional mutation |
-| Q4 UI/accessibility | All 103 Flutter tests pass, including approved viewport, 200% text, Planner geometry, overlap, scrolling, and mapping regressions; manual visual comparison pending |
-| Q5 Android platform | Corrected debug/release APKs assemble; all 18 API 24/API 36 emulator smoke jobs pass; ADB sees no phone, so Infinix install/capture/app-switcher QA remains pending |
+| Q4 UI/accessibility | All 108 Flutter tests pass, including picker-first Planner `+`, one-tap timeline with snapped time/default duration, Weekly Planning, Life Indicator recommendation/cancel, Task scheduling, direct-route guard, approved viewport, 200% text, Planner geometry, overlap, scrolling, and mapping regressions; corrected physical-device comparison pending |
+| Q5 Android platform | Corrected debug and QA-signed release APKs assemble and install over the existing app on Infinix X6731 Android 14. Direct debug evidence passes timeline tap -> picker -> Temple form at 3:30-5:30 PM, restoration without save, FAB picker-first, and Life Indicator recommendation; release independently passes picker-first smoke. All 18 API 24/API 36 emulator jobs remain valid; unchecked manual scenarios remain pending |
 | Q6 Remote security | Not applicable; no remote client or provider identity introduced |
-| Q7 Slice evidence | Protected quality and the 18-job Android matrix pass; Infinix manual workflow and capture evidence remain pending |
+| Q7 Slice evidence | Local authority/format/analyze/codegen/full-test/debug-build gates pass; prior protected quality and 18-job Android matrix pass; corrected Infinix UI hierarchy/screenshots pass. Corrected branch push and protected CI rerun remain pending |
 
 VS-09 Pathways, remote sync, provider Calendar integration, notifications,
 maps, contacts, and all later-slice work are not implemented.

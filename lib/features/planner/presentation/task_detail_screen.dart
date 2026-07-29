@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:rmplanner/app/router/route_names.dart';
 import 'package:rmplanner/features/planner/application/planner_providers.dart';
 import 'package:rmplanner/features/planner/domain/planner_task.dart';
+import 'package:rmplanner/features/planner/presentation/event_type_picker_dialog.dart';
 
 final class TaskDetailScreen extends ConsumerStatefulWidget {
   const TaskDetailScreen({required this.taskId, super.key});
@@ -202,9 +203,14 @@ final class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
   Future<void> _createEvent(PlannerTask task) async {
     final date =
         task.dueDate ?? ref.read(plannerControllerProvider).selectedDate;
-    final changed = await context.push<bool>(
-      '${RoutePaths.tasks}/${widget.taskId}/create-event'
-      '?date=${date.iso8601}',
+    final changed = await launchCalendarEventCreation<bool>(
+      context,
+      ref,
+      CalendarEventCreationContext(
+        source: 'task',
+        destinationPath: '${RoutePaths.tasks}/${widget.taskId}/create-event',
+        date: date,
+      ),
     );
     if (changed == true && mounted) {
       setState(_reload);

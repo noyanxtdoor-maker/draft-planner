@@ -49,7 +49,12 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
 
+      expect(find.text('Select Event Type'), findsOneWidget);
+      expect(find.text('New Calendar Event'), findsNothing);
+      await tester.tap(find.byKey(const Key('event-type-option-general')));
+      await tester.pumpAndSettle();
       expect(find.text('New Calendar Event'), findsOneWidget);
+      expect(find.text('General'), findsOneWidget);
       await tester.enterText(
         find.byKey(const Key('event-title-field')),
         'Offline Calendar Event',
@@ -59,8 +64,14 @@ void main() {
         find.byKey(const Key('event-location-field')),
         'Typed location only',
       );
-      await tester.ensureVisible(find.byKey(const Key('save-event-button')));
+      await tester.dragUntilVisible(
+        find.byKey(const Key('save-event-button')),
+        find.byType(ListView),
+        const Offset(0, -250),
+      );
       await tester.tap(find.byKey(const Key('event-requires-report-switch')));
+      await tester.drag(find.byType(ListView), const Offset(0, -100));
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('save-event-button')));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);

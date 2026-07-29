@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -5,6 +7,7 @@ import 'package:rmplanner/app/router/route_names.dart';
 import 'package:rmplanner/features/indicators/application/indicator_providers.dart';
 import 'package:rmplanner/features/indicators/domain/life_indicator.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
+import 'package:rmplanner/features/planner/presentation/event_type_picker_dialog.dart';
 
 final class IndicatorDetailScreen extends ConsumerWidget {
   const IndicatorDetailScreen({
@@ -67,10 +70,17 @@ final class IndicatorDetailScreen extends ConsumerWidget {
                 const SizedBox(height: 10),
                 FilledButton.icon(
                   key: const Key('indicator-schedule-activity'),
-                  onPressed: () => context.push(
-                    '${RoutePaths.calendarEventCreate}'
-                    '?date=${period.start.iso8601}'
-                    '&indicator=$indicatorKey',
+                  onPressed: () => unawaited(
+                    launchCalendarEventCreation<void>(
+                      context,
+                      ref,
+                      CalendarEventCreationContext(
+                        source: 'life-indicator',
+                        destinationPath: RoutePaths.calendarEventCreate,
+                        date: period.start,
+                        indicatorKey: indicatorKey,
+                      ),
+                    ),
                   ),
                   icon: const Icon(Icons.add_task_outlined),
                   label: const Text('Schedule activity'),

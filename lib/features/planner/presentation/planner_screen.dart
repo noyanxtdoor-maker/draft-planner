@@ -14,6 +14,7 @@ import 'package:rmplanner/features/planner/domain/planner_day.dart';
 import 'package:rmplanner/features/planner/domain/planner_settings.dart';
 import 'package:rmplanner/features/planner/domain/planner_task.dart';
 import 'package:rmplanner/features/planner/domain/planner_timeline_layout.dart';
+import 'package:rmplanner/features/planner/presentation/event_type_picker_dialog.dart';
 
 final class PlannerScreen extends ConsumerStatefulWidget {
   const PlannerScreen({super.key});
@@ -95,7 +96,7 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
         key: const Key('planner-create-button'),
         tooltip: 'Create Task, Calendar Event, or Activity Report',
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        onPressed: () => _showCreateActions(context, state.selectedDate),
+        onPressed: () => _showCreateActions(context, ref, state.selectedDate),
         child: const Icon(Icons.add, size: 30),
       ),
     );
@@ -173,8 +174,12 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                         .toList(growable: false),
                     selectedDate: state.selectedDate,
                     settings: settings,
-                    onCreate: (minute) =>
-                        _createTimedEvent(context, state.selectedDate, minute),
+                    onCreate: (minute) => _createTimedEvent(
+                      context,
+                      ref,
+                      state.selectedDate,
+                      minute,
+                    ),
                     onMove: (event, startMinute) =>
                         _moveEvent(ref, event, startMinute),
                     onResize: (event, endMinute) =>
@@ -297,13 +302,20 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
 
   void _createTimedEvent(
     BuildContext context,
+    WidgetRef ref,
     PlannerDate selectedDate,
     int startMinute,
   ) {
     unawaited(
-      context.push(
-        '${RoutePaths.calendarEventCreate}'
-        '?date=${selectedDate.iso8601}&startMinute=$startMinute',
+      launchCalendarEventCreation<void>(
+        context,
+        ref,
+        CalendarEventCreationContext(
+          source: 'planner-timeline',
+          destinationPath: RoutePaths.calendarEventCreate,
+          date: selectedDate,
+          startMinute: startMinute,
+        ),
       ),
     );
   }
@@ -398,6 +410,7 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
 
   Future<void> _showCreateActions(
     BuildContext context,
+    WidgetRef ref,
     PlannerDate selectedDate,
   ) async {
     await showModalBottomSheet<void>(
@@ -442,12 +455,22 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                     ),
                     onTap: () {
                       Navigator.of(sheetContext).pop();
-                      unawaited(
-                        context.push(
-                          '${RoutePaths.calendarEventCreate}'
-                          '?date=${selectedDate.iso8601}',
-                        ),
-                      );
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (!context.mounted) {
+                          return;
+                        }
+                        unawaited(
+                          launchCalendarEventCreation<void>(
+                            context,
+                            ref,
+                            CalendarEventCreationContext(
+                              source: 'planner-fab',
+                              destinationPath: RoutePaths.calendarEventCreate,
+                              date: selectedDate,
+                            ),
+                          ),
+                        );
+                      });
                     },
                   ),
                   ListTile(
@@ -752,7 +775,7 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
                 child: GestureDetector(
                   key: const Key('planner-timeline-create-surface'),
                   behavior: HitTestBehavior.opaque,
-                  onLongPressStart: (details) {
+                  onTapUp: (details) {
                     final minute = snapPlannerMinute(
                       _firstHour * 60 +
                           (details.localPosition.dy / _hourHeight * 60).round(),
@@ -794,8 +817,7 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
                   left: _timeColumnWidth + 14,
                   right: 8,
                   child: _EmptySectionMessage(
-                    'No timed Calendar Events. Long-press the timeline to add '
-                    'one.',
+                    'No timed Calendar Events. Tap the timeline to add one.',
                   ),
                 ),
               if (showNow)

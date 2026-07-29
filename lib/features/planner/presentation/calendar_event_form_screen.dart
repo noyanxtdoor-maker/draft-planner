@@ -11,6 +11,7 @@ import 'package:rmplanner/features/planner/domain/calendar_event.dart';
 import 'package:rmplanner/features/planner/domain/event_type.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 import 'package:rmplanner/features/planner/domain/task_event_link.dart';
+import 'package:rmplanner/features/planner/presentation/event_type_picker_dialog.dart';
 
 enum CalendarEventFormMode { create, edit, reschedule }
 
@@ -101,7 +102,6 @@ final class _CalendarEventFormScreenState
   bool _saving = false;
   bool _configurationLoading = true;
   bool _durationWasEntered = false;
-  List<EventType> _eventTypes = const <EventType>[];
   EventType? _selectedEventType;
   TaskEventCanonicalSource _canonicalSource = TaskEventCanonicalSource.task;
 
@@ -178,7 +178,6 @@ final class _CalendarEventFormScreenState
         .firstOrNull;
     if (mounted) {
       setState(() {
-        _eventTypes = state.eventTypes;
         _configurationLoading = false;
         _selectedEventType = selected;
         if (widget.mode == CalendarEventFormMode.create && selected != null) {
@@ -205,6 +204,24 @@ final class _CalendarEventFormScreenState
         1439,
       ),
     );
+  }
+
+  Future<void> _changeEventType() async {
+    final selected = await showEventTypePicker(
+      context: context,
+      ref: ref,
+      recommendedEventTypeId: _selectedEventType?.id,
+      recommendedIndicatorKey: widget.initialIndicatorKey,
+    );
+    if (!mounted || selected == null) {
+      return;
+    }
+    setState(() {
+      _selectedEventType = selected;
+      if (widget.mode == CalendarEventFormMode.create) {
+        _applyEventTypeDefaults(selected);
+      }
+    });
   }
 
   Future<void> _loadSourceTask() async {
@@ -325,37 +342,40 @@ final class _CalendarEventFormScreenState
                       _ErrorBanner(message: message),
                       const SizedBox(height: 14),
                     ],
-                    DropdownButtonFormField<String>(
+                    Card(
                       key: const Key('event-type-field'),
-                      initialValue: _selectedEventType?.id,
-                      isExpanded: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Event Type',
-                        prefixIcon: Icon(Icons.category_outlined),
-                      ),
-                      items: <DropdownMenuItem<String>>[
-                        for (final type in _eventTypes)
-                          DropdownMenuItem<String>(
-                            value: type.id,
-                            child: Text(type.label),
+                      child: ListTile(
+                        leading: _selectedEventType == null
+                            ? const Icon(Icons.category_outlined)
+                            : Container(
+                                width: 20,
+                                height: 20,
+                                decoration: BoxDecoration(
+                                  color: Color(_selectedEventType!.colorValue),
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: Colors.white.withValues(alpha: 0.35),
+                                  ),
+                                ),
+                              ),
+                        title: const Text(
+                          'Event Type',
+                          style: TextStyle(color: Colors.white70, fontSize: 12),
+                        ),
+                        subtitle: Text(
+                          _selectedEventType?.label ?? 'Not selected',
+                          key: const Key('selected-event-type-label'),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
                           ),
-                      ],
-                      validator: (value) =>
-                          value == null ? 'Select an Event Type' : null,
-                      onChanged: (value) {
-                        final selected = _eventTypes
-                            .where((type) => type.id == value)
-                            .firstOrNull;
-                        if (selected == null) {
-                          return;
-                        }
-                        setState(() {
-                          _selectedEventType = selected;
-                          if (widget.mode == CalendarEventFormMode.create) {
-                            _applyEventTypeDefaults(selected);
-                          }
-                        });
-                      },
+                        ),
+                        trailing: TextButton(
+                          key: const Key('change-event-type-button'),
+                          onPressed: _changeEventType,
+                          child: const Text('Change'),
+                        ),
+                      ),
                     ),
                     if (_selectedEventType != null) ...<Widget>[
                       const SizedBox(height: 8),

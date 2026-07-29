@@ -46,6 +46,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('create-calendar-event-action')));
     await tester.pumpAndSettle();
+    expect(find.text('Select Event Type'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('event-type-option-general')));
+    await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const Key('event-title-field')),
       'Android offline Calendar Event',

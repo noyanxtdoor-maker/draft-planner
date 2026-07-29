@@ -8,9 +8,9 @@
 
 | Target | Debug | Release | Status/evidence |
 | --- | --- | --- | --- |
-| Local Android assembly | Passed | Passed with documented toolchain fallback | Debug: 191,339,198 bytes, SHA-256 `3C887B09F91BB1ADAA0F7DF0E3274B8022B0A0BF9D6CAD23CB867AFFAD674C73`; release: 65,713,295 bytes, SHA-256 `3B8B900FE063684B8CB2032EDA2A57147B55E9E3976BB7CCF4D414F94E9D4634` |
+| Local Android assembly | Passed | Passed, QA-signed | Final production-defined debug: 191,348,456 bytes, SHA-256 `6BC6E516F87F7FFFDAA345701BAE3C7C79CF461457111A72DEF73321B125E6BE`; corrected release: 65,721,487 bytes, SHA-256 `E2A190B5FF161621CB66EC78E498D0C6B0153D521C203CB2BA5839C930527448` |
 | Representative Android emulator | Passed in CI on API 24 and API 36 | Not run | All 18 startup, Privacy, Planner, Calendar Event, Task/Event link, reporting, Home/Indicators, weekly-planning, and process-persistence jobs passed in run `30424212227` |
-| Infinix X6731 | Pending connection | Pending connection | `adb devices -l` returned no device; use wireless ADB only when the phone exposes a current connection endpoint |
+| Infinix X6731 | Passed for corrected type-first workflow | Passed for picker-first smoke | Wireless ADB installed both APKs with `install -r`; debug UI evidence proves the complete non-saving workflow, and the QA-signed release independently proves one-tap picker-first behavior |
 
 APK inspection confirms application ID `com.nexttransfer.rmplanner`, version
 `0.1.0+1`, minimum SDK 24, compile/target SDK 36, and no Calendar, contacts,
@@ -31,31 +31,79 @@ The local machine still has no installed AVD/system image. Emulator evidence
 comes from the repository's KVM-backed Android API smoke workflow, not from a
 simulated widget test.
 
+Release signing is now fail-closed. An attempted release without credentials
+failed at Gradle configuration with the required-credentials message. A local
+QA release then used the machine's non-production Android debug certificate via
+temporary `NEXT_TRANSFER_RELEASE_*` environment variables. `apksigner verify`
+passed v2 signing with one signer. The key, passwords, and signing file are not
+tracked. Production must use a permanent production key from the local/CI
+secret store.
+
 ## In-scope Planner and Event Type scenarios
 
+- [x] One tap an empty Planner time and confirm `Select Event Type` appears
+  before the full form.
+- [x] Confirm the tapped date and snapped time survive while the picker is open.
+- [x] Select a type and confirm its default duration is applied before Save.
+- [x] Cancel the picker/form and confirm the Planner scroll/date position is
+  unchanged and no event exists.
+- [x] Planner `+` -> Calendar Event opens the picker before the form while Task
+  and Activity Report remain separate actions.
+- [ ] Weekly Planning -> New Event opens the picker before the form.
+- [x] Life Indicator -> Schedule Activity opens the picker with the exact type
+  first and marked Recommended.
+- [ ] Task -> Create Calendar Event opens the picker before the form.
 - [ ] Create Temple Visit from Planner.
 - [ ] Create Temple Visit from Life Indicator detail.
-- [ ] Confirm automatic Temple Visit mapping is visible.
+- [x] Confirm automatic Temple Visit mapping is visible.
+- [x] Confirm the selected Event Type remains visible in the completed form.
 - [ ] Save offline and restart offline; confirm persistence.
 - [ ] Confirm scheduling creates no Actual or ledger entry.
-- [ ] Drag an event and confirm scheduling fields only change.
-- [ ] Resize an event and confirm duration only changes.
+- [ ] Drag an event and confirm start and end labels update live; release once
+  and confirm scheduling fields only change once.
+- [ ] Resize an event and confirm the end label updates live; release once and
+  confirm duration only changes once.
 - [ ] Rapidly scroll without moving an event.
 - [ ] Cancel/abandon a gesture and confirm original values remain.
-- [ ] Long-press empty grid and confirm snapped draft time.
 - [ ] Change Event Type before reporting and preserve compatible input.
 - [ ] Create custom Event Type with None, one, and multiple explicit mappings.
 - [ ] Archive/restore custom Event Type and confirm historical Event remains.
 - [ ] Change visible hours, 12/24-hour labels, snapping, initial scroll, status
   visibility, quick edit, and week start; restart and confirm local persistence.
 
+Physical corrected-flow evidence is under `build/manual-qa/vs-08/`:
+
+- `next-transfer-vs08-picker.png` and `.xml`: empty 3:30 PM tap shows the
+  picker while `New Calendar Event` is absent;
+- `next-transfer-vs08-form.png` and `.xml`: Temple Visit is visible with
+  2026-07-29, Start 3:30 PM, End 5:30 PM, and no-Actual wording;
+- `next-transfer-vs08-restored.xml`: Back restores the selected Wednesday and
+  2 PM–4 PM viewport with no Temple Visit event;
+- `next-transfer-vs08-fab-picker.xml`: the Planner Calendar Event action shows
+  the picker before the form;
+- `next-transfer-vs08-recommended.png` and `.xml`: Job Application is first and
+  marked Recommended from its Life Indicator.
+- `next-transfer-vs08-release-picker.png` and `.xml`: the installed QA-signed
+  release independently opens `Select Event Type` before the event form.
+
+The direct debug device evidence used the same source with the local debug
+environment build (191,364,643 bytes, SHA-256
+`9D66529680E913BAC39B117FE9A3E976D338EFBD49AA3455B068F31BC5CB41E8`).
+The final Q1 build above uses the required production Dart-define file.
+
+The wireless Flutter integration launcher built and installed its test APK but
+could not start because the temporary Flutter checkout lacks the host
+development-server snapshot. The normal debug APK was immediately rebuilt and
+reinstalled with `adb install -r`, preserving app data. Direct UIAutomator
+inspection then completed the corrected interaction QA above.
+
 ## Capture-policy scenarios
 
-- [ ] Debug Planner screenshot succeeds.
+- [x] Debug Planner screenshot succeeds.
 - [ ] Debug Planner screen recording succeeds.
 - [ ] Debug Privacy Center screenshot succeeds.
 - [ ] Debug normal Android app-switcher preview remains visible.
-- [ ] Release Planner screenshot succeeds.
+- [x] Release Planner screenshot succeeds.
 - [ ] Release Planner screen recording succeeds.
 - [ ] Release Privacy Center screenshot succeeds.
 - [ ] Release normal Android app-switcher preview remains visible.

@@ -9,6 +9,7 @@ import 'package:rmplanner/features/planner/application/planner_providers.dart';
 import 'package:rmplanner/features/planner/domain/calendar_event.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 import 'package:rmplanner/features/planner/presentation/activity_history_screen.dart';
+import 'package:rmplanner/features/planner/presentation/calendar_event_create_gate_screen.dart';
 import 'package:rmplanner/features/planner/presentation/calendar_event_detail_screen.dart';
 import 'package:rmplanner/features/planner/presentation/calendar_event_form_screen.dart';
 import 'package:rmplanner/features/planner/presentation/event_type_form_screen.dart';
@@ -170,11 +171,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             path: 'create-event',
             builder: (context, state) {
               final rawDate = state.uri.queryParameters['date'];
-              return CalendarEventFormScreen.createFromTask(
+              final rawStart = state.uri.queryParameters['startMinute'];
+              return CalendarEventCreateGateScreen(
                 sourceTaskId: state.pathParameters['taskId']!,
                 initialDate: rawDate == null
                     ? PlannerDate.fromDateTime(DateTime.now())
                     : PlannerDate.parse(rawDate),
+                initialStartMinute: int.tryParse(rawStart ?? ''),
+                initialIndicatorKey: state.uri.queryParameters['indicator'],
+                initialEventTypeId: state.uri.queryParameters['eventType'],
               );
             },
           ),
@@ -193,7 +198,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) {
           final rawDate = state.uri.queryParameters['date'];
           final rawStart = state.uri.queryParameters['startMinute'];
-          return CalendarEventFormScreen.create(
+          return CalendarEventCreateGateScreen(
             initialDate: rawDate == null
                 ? PlannerDate.fromDateTime(DateTime.now())
                 : PlannerDate.parse(rawDate),
