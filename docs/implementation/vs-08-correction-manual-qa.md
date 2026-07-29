@@ -9,7 +9,7 @@
 | Target | Debug | Release | Status/evidence |
 | --- | --- | --- | --- |
 | Local Android assembly | Passed | Passed, QA-signed | Final production-defined debug: 191,348,456 bytes, SHA-256 `6BC6E516F87F7FFFDAA345701BAE3C7C79CF461457111A72DEF73321B125E6BE`; corrected release: 65,721,487 bytes, SHA-256 `E2A190B5FF161621CB66EC78E498D0C6B0153D521C203CB2BA5839C930527448` |
-| Representative Android emulator | Passed in CI on API 24 and API 36 | Not run | All 18 startup, Privacy, Planner, Calendar Event, Task/Event link, reporting, Home/Indicators, weekly-planning, and process-persistence jobs passed in run `30424212227` |
+| Representative Android emulator | Passed in CI on API 24 and API 36 | Not run | All 18 startup, Privacy, Planner, corrected picker-first Calendar Event, Task/Event link, reporting, Home/Indicators, weekly-planning, and process-persistence jobs passed in run `30433029259` on code commit `dea0aa2` |
 | Infinix X6731 | Passed for corrected type-first workflow | Passed for picker-first smoke | Wireless ADB installed both APKs with `install -r`; debug UI evidence proves the complete non-saving workflow, and the QA-signed release independently proves one-tap picker-first behavior |
 
 APK inspection confirms application ID `com.nexttransfer.rmplanner`, version

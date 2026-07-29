@@ -749,3 +749,9 @@ repairs did not modify project source or global Git configuration.
   `E2A190B5FF161621CB66EC78E498D0C6B0153D521C203CB2BA5839C930527448`.
   It installed over the existing app with data preservation and independently
   passed the physical one-tap `Select Event Type`-before-form smoke check.
+- Protected quality run `30433009563` passed authority, formatting, static
+  analysis, byte-clean generation, dependency review, all 108 tests, debug APK
+  assembly, and secret scanning on code commit `dea0aa2`.
+- Android matrix run `30433029259` passed all 18 API 24/API 36 jobs on
+  `dea0aa2`, including the corrected picker-first Calendar Event smoke journey
+  and process-restart persistence.
