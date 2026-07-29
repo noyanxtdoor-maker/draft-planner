@@ -674,3 +674,8 @@ repairs did not modify project source or global Git configuration.
 - `adb devices -l` returned no device and `flutter emulators` found no Android
   emulator source. Corrected-device workflow/capture QA therefore remains
   Pending rather than being inferred from widget tests.
+- Protected CI run `30423862372` passed authority, formatting, analysis,
+  generated-source cleanliness, dependency review, all tests, debug APK
+  assembly, and secret scanning. Manually dispatched Android matrix run
+  `30424212227` passed all 18 API 24/API 36 jobs, including process-restart
+  persistence.

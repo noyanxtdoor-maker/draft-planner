@@ -168,9 +168,9 @@ the transaction rolls back rather than leaving a partial schema.
 | Q2 Domain/database/migration | Targeted lifecycle, v7-to-v8, v8-to-v9, failed-migration rollback, mapping provenance, and injected write rollback tests pass |
 | Q3 Offline/privacy/idempotency | Local pass; no new package, permission, remote client, direct Actual write, or non-transactional mutation |
 | Q4 UI/accessibility | All 103 Flutter tests pass, including approved viewport, 200% text, Planner geometry, overlap, scrolling, and mapping regressions; manual visual comparison pending |
-| Q5 Android platform | Corrected debug/release APKs assemble; no AVD is installed and ADB sees no phone, so install/capture/app-switcher QA remains pending |
+| Q5 Android platform | Corrected debug/release APKs assemble; all 18 API 24/API 36 emulator smoke jobs pass; ADB sees no phone, so Infinix install/capture/app-switcher QA remains pending |
 | Q6 Remote security | Not applicable; no remote client or provider identity introduced |
-| Q7 Slice evidence | Local automated evidence complete; protected quality, Android matrix, Infinix manual workflow, and capture evidence pending |
+| Q7 Slice evidence | Protected quality and the 18-job Android matrix pass; Infinix manual workflow and capture evidence remain pending |
 
 VS-09 Pathways, remote sync, provider Calendar integration, notifications,
 maps, contacts, and all later-slice work are not implemented.

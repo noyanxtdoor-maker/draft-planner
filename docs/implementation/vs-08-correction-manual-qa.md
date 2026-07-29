@@ -9,7 +9,7 @@
 | Target | Debug | Release | Status/evidence |
 | --- | --- | --- | --- |
 | Local Android assembly | Passed | Passed with documented toolchain fallback | Debug: 191,339,198 bytes, SHA-256 `3C887B09F91BB1ADAA0F7DF0E3274B8022B0A0BF9D6CAD23CB867AFFAD674C73`; release: 65,713,295 bytes, SHA-256 `3B8B900FE063684B8CB2032EDA2A57147B55E9E3976BB7CCF4D414F94E9D4634` |
-| Representative Android emulator | Blocked | Blocked | No Android AVD/system image is installed; no result is inferred from widget tests |
+| Representative Android emulator | Passed in CI on API 24 and API 36 | Not run | All 18 startup, Privacy, Planner, Calendar Event, Task/Event link, reporting, Home/Indicators, weekly-planning, and process-persistence jobs passed in run `30424212227` |
 | Infinix X6731 | Pending connection | Pending connection | `adb devices -l` returned no device; use wireless ADB only when the phone exposes a current connection endpoint |
 
 APK inspection confirms application ID `com.nexttransfer.rmplanner`, version
@@ -26,6 +26,10 @@ file was restored from the pinned SDK commit. Local release proof therefore
 used Flutter's supported `--no-tree-shake-icons` fallback. This increases APK
 size but does not change runtime behavior, signing semantics, or app security.
 CI should retain its normal release command on a complete Flutter cache.
+
+The local machine still has no installed AVD/system image. Emulator evidence
+comes from the repository's KVM-backed Android API smoke workflow, not from a
+simulated widget test.
 
 ## In-scope Planner and Event Type scenarios
 
