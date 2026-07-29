@@ -221,74 +221,79 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
+      isScrollControlled: true,
       builder: (sheetContext) => StatefulBuilder(
         builder: (context, setSheetState) => SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
-            child: Column(
-              key: const Key('planner-filter-menu'),
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: <Widget>[
-                Text(
-                  'Show in Planner',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
-                ),
-                CheckboxListTile(
-                  key: const Key('planner-filter-events'),
-                  title: const Text('Events'),
-                  value: filters.events,
-                  onChanged: (value) => setSheetState(
-                    () => filters = filters.copyWith(events: value),
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+              child: Column(
+                key: const Key('planner-filter-menu'),
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  Text(
+                    'Show in Planner',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
-                ),
-                CheckboxListTile(
-                  key: const Key('planner-filter-backup-events'),
-                  title: const Text('Backup Events'),
-                  value: filters.backupEvents,
-                  onChanged: (value) => setSheetState(
-                    () => filters = filters.copyWith(backupEvents: value),
+                  CheckboxListTile(
+                    key: const Key('planner-filter-events'),
+                    title: const Text('Events'),
+                    value: filters.events,
+                    onChanged: (value) => setSheetState(
+                      () => filters = filters.copyWith(events: value),
+                    ),
                   ),
-                ),
-                CheckboxListTile(
-                  key: const Key('planner-filter-tasks'),
-                  title: const Text('Tasks'),
-                  value: filters.tasks,
-                  onChanged: (value) => setSheetState(
-                    () => filters = filters.copyWith(tasks: value),
+                  CheckboxListTile(
+                    key: const Key('planner-filter-backup-events'),
+                    title: const Text('Backup Events'),
+                    value: filters.backupEvents,
+                    onChanged: (value) => setSheetState(
+                      () => filters = filters.copyWith(backupEvents: value),
+                    ),
                   ),
-                ),
-                CheckboxListTile(
-                  key: const Key('planner-filter-completed-tasks'),
-                  title: const Text('Completed Tasks'),
-                  value: filters.completedTasks,
-                  onChanged: filters.tasks
-                      ? (value) => setSheetState(
+                  CheckboxListTile(
+                    key: const Key('planner-filter-tasks'),
+                    title: const Text('Tasks'),
+                    value: filters.tasks,
+                    onChanged: (value) => setSheetState(
+                      () => filters = filters.copyWith(tasks: value),
+                    ),
+                  ),
+                  CheckboxListTile(
+                    key: const Key('planner-filter-completed-tasks'),
+                    title: const Text('Completed Tasks'),
+                    value: filters.completedTasks,
+                    onChanged: filters.tasks
+                        ? (value) => setSheetState(
+                            () => filters = filters.copyWith(
+                              completedTasks: value,
+                            ),
+                          )
+                        : null,
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: <Widget>[
+                      TextButton(
+                        onPressed: () => setSheetState(
                           () =>
-                              filters = filters.copyWith(completedTasks: value),
-                        )
-                      : null,
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: <Widget>[
-                    TextButton(
-                      onPressed: () => setSheetState(
-                        () => filters = const PlannerContentFilters.defaults(),
+                              filters = const PlannerContentFilters.defaults(),
+                        ),
+                        child: const Text('Restore defaults'),
                       ),
-                      child: const Text('Restore defaults'),
-                    ),
-                    const Spacer(),
-                    FilledButton(
-                      key: const Key('planner-filter-apply'),
-                      onPressed: () => Navigator.of(sheetContext).pop(),
-                      child: const Text('Apply'),
-                    ),
-                  ],
-                ),
-              ],
+                      const Spacer(),
+                      FilledButton(
+                        key: const Key('planner-filter-apply'),
+                        onPressed: () => Navigator.of(sheetContext).pop(),
+                        child: const Text('Apply'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),

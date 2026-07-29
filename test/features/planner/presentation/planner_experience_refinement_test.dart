@@ -12,7 +12,7 @@ void main() {
   testWidgets(
     'VS08-OWNER: top controls, filters, selection, zoom, and Settings remain local',
     (tester) async {
-      tester.view.physicalSize = const Size(431, 912);
+      tester.view.physicalSize = const Size(411, 731);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       final database = openMemoryDatabase();
