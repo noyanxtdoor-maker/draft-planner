@@ -789,9 +789,9 @@ repairs did not modify project source or global Git configuration.
   scheduler, Contact/Pathways persistence, or VS-09 implementation was added.
 - Final local verification passed authority checks, formatting, strict static
   analysis, byte-clean Drift generation, and all 112 Flutter tests.
-- The final-refinement production-defined debug APK is 191,421,139 bytes with
+- The final production-defined debug APK is 191,422,300 bytes with
   SHA-256
-  `B6FA19C5DA809942241B16803C2F075EE3098D9C23D7A72BC47E197FA806FA84`.
+  `65E18F86C36B340EFD248519ECCCCB8E0007D6EA13D6EE097AFCFD30CCCC35B9`.
   It installed with `adb install -r` on the existing Infinix X6731 app without
   clearing data.
 - Current debug-device evidence under `build/manual-qa/vs-08-owner/` proves the
@@ -809,7 +809,7 @@ repairs did not modify project source or global Git configuration.
   at zero selected, and More -> Settings exposing Planner and Calendar plus
   Privacy and Data.
 - The final QA release is 66,196,623 bytes with SHA-256
-  `71F7077AEDEB3F06EDB6D3C04EEECA88E1142FDC815C82D473A23F6982083374`.
+  `8ABD1F639D4912A6BE646728E66FB6F35C1819AD412E5AD3824B0C98CAC6D0CD`.
   `apksigner verify --verbose --print-certs` confirms one APK Signature Scheme
   v2 signer. It uses only the temporary non-production QA certificate supplied
   through process-local environment variables; no signing secret or key entered
@@ -818,3 +818,12 @@ repairs did not modify project source or global Git configuration.
   profile and records, launched normally, and independently opened
   `Select Event Type` from one empty-time tap. The picker was cancelled, so no
   test Event or draft was saved.
+- Final Android CI stress-testing exposed a real 32-pixel overflow in the
+  Planner filter bottom sheet on the Pixel 2 viewport. The sheet is now
+  scroll-controlled and vertically scrollable, with a 411-by-731 logical-pixel
+  widget regression that keeps Apply reachable.
+- Protected quality run `30448730513` passed on final app commit `3b39af8`.
+  Android run `30448734944`, attempt 2, passed all 18 API 24/API 36 smoke jobs.
+  The first attempt reached 17 passes before one unrelated API-24 Privacy runner
+  hung without a failure; only that runner was recycled for attempt 2. No code
+  changed between attempts.

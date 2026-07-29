@@ -8,9 +8,9 @@
 
 | Target | Debug | Release | Status/evidence |
 | --- | --- | --- | --- |
-| Local Android assembly | Passed | Passed, QA-signed | Final-refinement production-defined debug: 191,421,139 bytes, SHA-256 `B6FA19C5DA809942241B16803C2F075EE3098D9C23D7A72BC47E197FA806FA84`; final-refinement release: 66,196,623 bytes, SHA-256 `71F7077AEDEB3F06EDB6D3C04EEECA88E1142FDC815C82D473A23F6982083374` |
-| Representative Android emulator | Passed in CI on API 24 and API 36 | Not run | All 18 startup, Privacy, Planner, corrected picker-first Calendar Event, Task/Event link, reporting, Home/Indicators, weekly-planning, and process-persistence jobs passed in run `30433029259` on code commit `dea0aa2` |
-| Infinix X6731 | Passed for final-refinement non-saving smoke | Passed for final-refinement picker-first smoke | Wireless ADB installed both final APKs with `install -r` and preserved app data. Debug evidence proves the top bar, `Awaiting Report` overlay, no old footer, picker-first creation/detail, filters, selection, global create order, and More Settings; release independently proves picker-first creation |
+| Local Android assembly | Passed | Passed, QA-signed | Final production-defined debug: 191,422,300 bytes, SHA-256 `65E18F86C36B340EFD248519ECCCCB8E0007D6EA13D6EE097AFCFD30CCCC35B9`; final release: 66,196,623 bytes, SHA-256 `8ABD1F639D4912A6BE646728E66FB6F35C1819AD412E5AD3824B0C98CAC6D0CD` |
+| Representative Android emulator | Passed in CI on API 24 and API 36 | Not run | All 18 startup, Privacy, Planner, corrected picker-first Calendar Event, Task/Event link, reporting, Home/Indicators, weekly-planning, and process-persistence jobs passed in run `30448734944`, attempt 2, on code commit `3b39af8` |
+| Infinix X6731 | Passed for final-refinement non-saving smoke | Passed for final-refinement picker-first smoke | Wireless ADB installed both corrected final APKs with `install -r` and preserved app data. Earlier final-refinement evidence proves the top bar, `Awaiting Report` overlay, no old footer, picker-first creation/detail, filters, selection, global create order, and More Settings; the exact responsive-filter correction is covered by the Pixel 2 viewport widget regression and both Android Planner matrix jobs |
 
 APK inspection confirms application ID `com.nexttransfer.rmplanner`, version
 `0.1.0+1`, minimum SDK 24, compile/target SDK 36, and no Calendar, contacts,
@@ -30,6 +30,14 @@ CI should retain its normal release command on a complete Flutter cache.
 The local machine still has no installed AVD/system image. Emulator evidence
 comes from the repository's KVM-backed Android API smoke workflow, not from a
 simulated widget test.
+
+The first final matrix exposed a 32-pixel Planner filter-sheet overflow on the
+Pixel 2 emulator viewport. The sheet is now height-aware and scrollable, and a
+411-by-731 logical-pixel regression test keeps Apply reachable. The final API
+24 and API 36 Planner jobs both pass. Run `30448734944` initially reached 17
+passes while one unrelated API-24 Privacy runner hung without a failure. That
+single runner was cancelled and recycled; attempt 2 completed the same run at
+18 of 18 passed without changing code.
 
 Release signing is now fail-closed. An attempted release without credentials
 failed at Gradle configuration with the required-credentials message. A local
