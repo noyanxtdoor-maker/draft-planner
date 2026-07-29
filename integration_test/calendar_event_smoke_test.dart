@@ -59,6 +59,8 @@ void main() {
       find.byType(ListView),
       const Offset(0, -300),
     );
+    await tester.drag(find.byType(ListView), const Offset(0, -100));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('save-event-button')));
     await tester.pumpAndSettle();
 

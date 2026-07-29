@@ -57,14 +57,11 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Planner'));
       await tester.pumpAndSettle();
-      await tester.scrollUntilVisible(
-        find.text('Android report fixture'),
-        250,
-        scrollable: find.descendant(
-          of: find.byKey(const Key('planner-day-scroll')),
-          matching: find.byType(Scrollable),
-        ),
-      );
+      await tester.tap(find.byKey(const Key('planner-overflow-button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Tasks'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('planner-tasks-view')), findsOneWidget);
       await tester.tap(find.text('Android report fixture'));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('complete-task-button')));
