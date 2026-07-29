@@ -59,14 +59,11 @@ void main() {
       );
       await tester.tap(find.byKey(const Key('save-task-button')));
       await tester.pumpAndSettle();
-      await tester.scrollUntilVisible(
-        find.text('Android offline Task'),
-        250,
-        scrollable: find.descendant(
-          of: find.byKey(const Key('planner-day-scroll')),
-          matching: find.byType(Scrollable),
-        ),
-      );
+      await tester.tap(find.byKey(const Key('planner-overflow-button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Tasks'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('planner-tasks-view')), findsOneWidget);
       await tester.tap(find.text('Android offline Task'));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('complete-task-button')));
@@ -104,14 +101,12 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Planner'));
       await tester.pumpAndSettle();
-      await tester.scrollUntilVisible(
-        find.text('Android offline Task'),
-        250,
-        scrollable: find.descendant(
-          of: find.byKey(const Key('planner-day-scroll')),
-          matching: find.byType(Scrollable),
-        ),
-      );
+      expect(find.byKey(const Key('planner-tasks-view')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('planner-filter-button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('planner-filter-completed-tasks')));
+      await tester.tap(find.byKey(const Key('planner-filter-apply')));
+      await tester.pumpAndSettle();
 
       expect(find.text('Android offline Task'), findsOneWidget);
     },
