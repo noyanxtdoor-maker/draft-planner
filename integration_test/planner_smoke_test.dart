@@ -101,6 +101,10 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Planner'));
       await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('planner-overflow-button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Tasks'));
+      await tester.pumpAndSettle();
       expect(find.byKey(const Key('planner-tasks-view')), findsOneWidget);
       await tester.tap(find.byKey(const Key('planner-filter-button')));
       await tester.pumpAndSettle();

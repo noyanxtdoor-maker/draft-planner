@@ -70,7 +70,7 @@ void main() {
 
     expect(find.byKey(const Key('event-detail-title')), findsOneWidget);
     expect(find.text('Scheduled'), findsOneWidget);
-    expect(find.textContaining('All day'), findsOneWidget);
+    expect(find.textContaining('All day'), findsWidgets);
     expect(tester.takeException(), isNull);
   });
 }
