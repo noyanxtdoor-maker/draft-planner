@@ -948,21 +948,12 @@ void main() {
       expect(before.height, 60);
 
       // Drag the hit area straight down by 60 px (1 hour).
-      // Use the shared `driveResizeDrag` helper that issues
-      // a sequence of 15-px step moves so each
-      // recognizer dispatch produces a 15-min snap step. The
-      // production code's `onResizeUpdate` uses
-      // `originalEndMinute + deltaMinutes` per update (no
-      // cumulative accumulator), so the preview end is
-      // overwritten with the same 615 (10:15) on each
-      // update. The release persists the final preview, so
-      // the persisted end is 615 (15 min). The
-      // `calendarEventExceptions` row stores the new
-      // `endMinute` for the exception. We assert that:
-      //   * exactly one exception row is written;
-      //   * the row's `endMinute` matches the snap;
-      //   * the Event row's geometry is unchanged in the
-      //     parent table.
+      // The shared `driveResizeDrag` helper issues a 10-px
+      // claim move followed by a single final move; the
+      // cumulative accumulator on the production resize
+      // sums the two updates, so the total proposed delta
+      // is 60 min and the snap-rounded end is 10:00 + 60
+      // = 11:00 (660).
       await driveResizeDrag(tester, hit, totalDeltaY: 60);
 
       // Verify the persistence result on the database, not
@@ -977,9 +968,9 @@ void main() {
       expect(exceptions, hasLength(1));
       expect(exceptions.single.eventId, scheduledEventId);
       expect(exceptions.single.startMinute, 9 * 60);
-      // The last 15-px move's snap rounds 15 to 15 min
-      // past the original 10:00 end ⇒ 10:15 (615).
-      expect(exceptions.single.endMinute, 10 * 60 + 15);
+      // The cumulative 60-px drag → +60 min past the
+      // original 10:00 end ⇒ 11:00 (660).
+      expect(exceptions.single.endMinute, 10 * 60 + 60);
       // The Event row itself is unchanged in shape: only
       // exceptions are written, not the canonical row.
       final events = await database.select(database.calendarEvents).get();

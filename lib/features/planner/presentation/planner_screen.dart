@@ -924,8 +924,12 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     PlannerCalendarItem event,
     int endMinute,
   ) async {
+    // ignore: avoid_print
+    print('DEBUG_RESIZE: eventId=${event.eventId} originalDate=${event.originalDate} startLocal=${event.startLocal} endLocal=${event.endLocal} endMinute=$endMinute');
     final start = event.startLocal;
     if (start == null) {
+      // ignore: avoid_print
+      print('DEBUG_RESIZE: start==null returning false');
       return false;
     }
     final startMinute = start.hour * 60 + start.minute;
@@ -949,11 +953,15 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
         originalDate == null ||
         endMinute <= startMinute ||
         endMinute > 1440) {
+      // ignore: avoid_print
+      print('DEBUG_RESIZE: guard failed eventId=$eventId originalDate=$originalDate endMinute=$endMinute startMinute=$startMinute');
       return false;
     }
     final controller = ref.read(calendarEventControllerProvider.notifier);
     final existing = await controller.readEventDraft(eventId);
     if (existing == null) {
+      // ignore: avoid_print
+      print('DEBUG_RESIZE: existing==null for eventId=$eventId');
       return false;
     }
     final operationId = ref.read(plannerIdentifierSourceProvider).nextUuid();
@@ -1192,6 +1200,7 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
 
   final Map<String, int> _previewStartMinutes = <String, int>{};
   final Map<String, int> _previewEndMinutes = <String, int>{};
+  final Map<String, double> _resizeAccumulatedPixels = <String, double>{};
   final Set<String> _persisting = <String>{};
   late double _hourHeight;
   double? _zoomStartHeight;
@@ -1393,14 +1402,21 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
         onMoveCancel: () => _clearPreview(event.id),
         onResizeStart: () {
           // Resize keeps the original start; ensure no stale start-preview
-          // from a previous move leaks into the resize calculation.
+          // from a previous move leaks into the resize calculation. The
+          // accumulator tracks the cumulative vertical drag distance from
+          // resize start, so each onResizeUpdate adds to it rather than
+          // overwriting the preview with the current incremental delta.
           _previewStartMinutes.remove(event.id);
+          _resizeAccumulatedPixels[event.id] = 0;
         },
         onResizeUpdate: (deltaPixels) {
-          final rawDelta = (deltaPixels / _hourHeight * 60).round();
+          final accumulated =
+              (_resizeAccumulatedPixels[event.id] ?? 0) + (deltaPixels);
+          _resizeAccumulatedPixels[event.id] = accumulated;
+          final rawDelta = (accumulated / _hourHeight * 60).round();
           final deltaMinutes =
               (rawDelta / widget.settings.snapMinutes).round() *
-              widget.settings.snapMinutes;
+                  widget.settings.snapMinutes;
           final nextEnd = (originalEndMinute + deltaMinutes).clamp(
             originalStartMinute + widget.settings.snapMinutes,
             visibleEnd,
@@ -1458,6 +1474,7 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
         _persisting.remove(event.id);
         _previewStartMinutes.remove(event.id);
         _previewEndMinutes.remove(event.id);
+        _resizeAccumulatedPixels.remove(event.id);
       });
       if (!saved) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1476,6 +1493,7 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
     setState(() {
       _previewStartMinutes.remove(eventId);
       _previewEndMinutes.remove(eventId);
+      _resizeAccumulatedPixels.remove(eventId);
     });
   }
 
