@@ -25,7 +25,7 @@ f9fae98
 ab3eca6
 
 Planner-wide checkpoint:
-<new SHA — to be filled after Stage A2A commit>
+d9df609
 
 Remote operations:
 None performed
