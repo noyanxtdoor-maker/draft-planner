@@ -1216,12 +1216,11 @@ void main() {
       final reportCountBefore =
           (await database.select(database.outcomeReports).get()).length;
 
-      // Provide one identifier for the resize write and one
-      // for the report submission (the report submission has
-      // already consumed the first identifier above via the
-      // startup identifier source; the resize needs one more).
+      // One identifier is consumed by the resize write. The
+      // repository rejects non-UUID operation IDs, so the
+      // identifier here must be a 36-character UUID.
       final identifiers = SequenceIdentifierSource(<String>[
-        'op-reported-resize',
+        'a5555555-5555-4555-8555-555555555555',
       ]);
 
       await tester.pumpWidget(
@@ -1278,11 +1277,6 @@ void main() {
       final persistedRows = await database
           .select(database.calendarEventExceptions)
           .get();
-      // ignore: avoid_print
-      print('DEBUG_RESIZE_STAGE3: rows=${persistedRows.length} '
-          'opsCount=${(await database.select(database.calendarEventOperations).get()).length} '
-          'eventsCount=${(await database.select(database.calendarEvents).get()).length} '
-          'reportsCount=${(await database.select(database.outcomeReports).get()).length}');
       expect(persistedRows, hasLength(1));
       expect(persistedRows.single.endMinute, 10 * 60 + 30);
 
@@ -1327,12 +1321,13 @@ void main() {
       expect(ledgerCount, 0);
 
       // The single resize persisted exactly one edit-occurrence
-      // exception with the new end minute.
+      // exception with the new end minute (10:00 + 30 min
+      // = 10:30 ⇒ 630).
       final exceptions = await database
           .select(database.calendarEventExceptions)
           .get();
       expect(exceptions, hasLength(1));
-      expect(exceptions.single.endMinute, 9 * 60 + 30);
+      expect(exceptions.single.endMinute, 10 * 60 + 30);
     });
 
     testWidgets('resizing a 60-minute Event down to 15 minutes does not '
