@@ -120,10 +120,12 @@ void main() {
       await tester.tap(find.text('Planner'));
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('planner-selected-date')), findsOneWidget);
-      expect(find.byKey(const Key('planner-day-2026-07-27')), findsOneWidget);
-      expect(find.byKey(const Key('all-day-section')), findsOneWidget);
-      expect(find.text('All-day fixture'), findsOneWidget);
-      expect(find.text('Timed fixture'), findsOneWidget);
+            expect(find.byKey(const Key('planner-day-2026-07-27')), findsOneWidget);
+            // Day view must not render an all-day lane; all-day records remain in
+            // storage and surface through Schedule, Search, and Event details.
+            expect(find.byKey(const Key('all-day-section')), findsNothing);
+            expect(find.text('All-day fixture'), findsNothing);
+            expect(find.text('Timed fixture'), findsOneWidget);
       expect(find.byTooltip('1 linked Task(s)'), findsOneWidget);
       expect(find.byKey(const Key('planner-time-grid')), findsOneWidget);
       final timedEvent = tester.widget<Positioned>(

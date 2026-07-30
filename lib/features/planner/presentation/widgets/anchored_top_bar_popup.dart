@@ -136,7 +136,7 @@ class _AnchoredTopBarPopupScaffoldState
   @override
   void initState() {
     super.initState();
-    _controller.forward();
+    unawaited(_controller.forward());
   }
 
   @override
@@ -147,11 +147,13 @@ class _AnchoredTopBarPopupScaffoldState
 
   void _dismiss() {
     if (_controller.status == AnimationStatus.completed) {
-      _controller.reverse().whenComplete(() {
-        if (mounted) {
-          widget.onDismissRequest();
-        }
-      });
+      unawaited(
+        _controller.reverse().whenComplete(() {
+          if (mounted) {
+            widget.onDismissRequest();
+          }
+        }),
+      );
     } else {
       widget.onDismissRequest();
     }

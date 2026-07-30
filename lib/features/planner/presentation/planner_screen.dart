@@ -172,11 +172,14 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
             ),
           ),
         ),
-        IconButton(
-          key: _filterButtonKey,
-          tooltip: 'Filter Planner content',
-          onPressed: () => _showFilters(context, ref, settings),
-          icon: const Icon(Icons.filter_alt_outlined),
+        KeyedSubtree(
+          key: const Key('planner-filter-button'),
+          child: IconButton(
+            key: _filterButtonKey,
+            tooltip: 'Filter Planner content',
+            onPressed: () => _showFilters(context, ref, settings),
+            icon: const Icon(Icons.filter_alt_outlined),
+          ),
         ),
         IconButton(
           key: const Key('planner-selection-button'),
@@ -184,11 +187,14 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
           onPressed: () => setState(() => _selectionActive = true),
           icon: const Icon(Icons.checklist_outlined),
         ),
-        IconButton(
-          key: _overflowButtonKey,
-          tooltip: 'Planner menu',
-          onPressed: () => _showOverflowMenu(context, ref, state, settings),
-          icon: const Icon(Icons.more_vert),
+        KeyedSubtree(
+          key: const Key('planner-overflow-button'),
+          child: IconButton(
+            key: _overflowButtonKey,
+            tooltip: 'Planner menu',
+            onPressed: () => _showOverflowMenu(context, ref, state, settings),
+            icon: const Icon(Icons.more_vert),
+          ),
         ),
       ],
     );
@@ -331,14 +337,19 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                     padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
                     child: Row(
                       children: <Widget>[
-                        TextButton(
-                          onPressed: () => setSheetState(
-                            () => filters =
-                                const PlannerContentFilters.defaults(),
+                        Flexible(
+                          child: TextButton(
+                            onPressed: () => setSheetState(
+                              () => filters =
+                                  const PlannerContentFilters.defaults(),
+                            ),
+                            child: const Text(
+                              'Restore defaults',
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
-                          child: const Text('Restore defaults'),
                         ),
-                        const Spacer(),
+                        const SizedBox(width: 8),
                         FilledButton(
                           key: const Key('planner-filter-apply'),
                           onPressed: () async {
@@ -1664,6 +1675,176 @@ final class _TimelineEventBlock extends StatelessWidget {
         : hour;
     return '$displayHour:${minute.toString().padLeft(2, '0')} '
         '${hour >= 12 ? 'PM' : 'AM'}';
+  }
+}
+
+/// Inner content of a Calendar Event timeline block.
+///
+/// Adapts to the available height by selecting how much of the title,
+/// time, and status rows to render. The widget never forces a minimum
+/// content height larger than the block, so it cannot produce a
+/// RenderFlex overflow on short blocks.
+final class _EventBlockContent extends StatelessWidget {
+  const _EventBlockContent({
+    required this.event,
+    required this.use24HourTime,
+    required this.displayStartMinute,
+    required this.displayEndMinute,
+    required this.awaitingReport,
+    required this.content,
+  });
+
+  final PlannerCalendarItem event;
+  final bool use24HourTime;
+  final int displayStartMinute;
+  final int displayEndMinute;
+  final bool awaitingReport;
+  final PlannerEventBlockContent content;
+
+  @override
+  Widget build(BuildContext context) {
+    final density = content.density;
+    final textColor = PlannerEventBlockColorPolicy.textColor(
+      Color(event.activityTypeColorValue ?? 0xFFE91E63),
+    );
+    final titleStyle = TextStyle(
+      color: textColor,
+      fontWeight: FontWeight.w700,
+      fontSize: density == Density.veryShort ? 11 : 12,
+      height: 1.1,
+    );
+    final timeStyle = TextStyle(
+      color: textColor.withValues(alpha: 0.92),
+      fontWeight: FontWeight.w600,
+      fontSize: density == Density.tall ? 11 : 10,
+      height: 1.1,
+    );
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(6, 4, 6, 4),
+      child: Column(
+        key: const Key('planner-event-block-content'),
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          Text(
+            event.title,
+            style: titleStyle,
+            maxLines: content.titleMaxLines,
+            overflow: TextOverflow.ellipsis,
+            softWrap: false,
+          ),
+          if (content.showTime)
+            Padding(
+              padding: EdgeInsets.only(top: density == Density.tall ? 2 : 1),
+              child: Text(
+                _formatRange(
+                  displayStartMinute,
+                  displayEndMinute,
+                  use24HourTime,
+                ),
+                style: timeStyle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                softWrap: false,
+              ),
+            ),
+          if (content.showStatusIcons)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: _StatusRow(
+                textColor: textColor,
+                isBackup: event.isBackupAppointment,
+                awaitingReport: awaitingReport,
+                linkedTaskCount: event.linkedTaskIds.length,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  static String _formatRange(
+    int start,
+    int end,
+    bool use24HourTime,
+  ) {
+    final startText = _minute(start, use24HourTime);
+    final endText = _minute(end, use24HourTime);
+    return '$startText - $endText';
+  }
+
+  static String _minute(int value, bool use24HourTime) {
+    final hour = value ~/ 60;
+    final minute = value % 60;
+    if (use24HourTime) {
+      return '${hour.toString().padLeft(2, '0')}:'
+          '${minute.toString().padLeft(2, '0')}';
+    }
+    final displayHour = hour == 0
+        ? 12
+        : hour > 12
+        ? hour - 12
+        : hour;
+    return '$displayHour:${minute.toString().padLeft(2, '0')} '
+        '${hour >= 12 ? 'PM' : 'AM'}';
+  }
+}
+
+/// Compact status row inside an Event block.
+///
+/// Renders at most one icon-and-text pair that summarises the Event's
+/// most relevant status. Order of preference: Awaiting Report > Backup >
+/// linked Task count.
+final class _StatusRow extends StatelessWidget {
+  const _StatusRow({
+    required this.textColor,
+    required this.isBackup,
+    required this.awaitingReport,
+    required this.linkedTaskCount,
+  });
+
+  final Color textColor;
+  final bool isBackup;
+  final bool awaitingReport;
+  final int linkedTaskCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final IconData icon;
+    final String label;
+    if (awaitingReport) {
+      icon = Icons.assignment_late_outlined;
+      label = 'Awaiting Report';
+    } else if (isBackup) {
+      icon = Icons.layers_outlined;
+      label = 'Backup';
+    } else if (linkedTaskCount > 0) {
+      icon = Icons.task_alt_outlined;
+      label = '$linkedTaskCount linked';
+    } else {
+      return const SizedBox.shrink();
+    }
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        Icon(icon, size: 11, color: textColor),
+        const SizedBox(width: 4),
+        Flexible(
+          child: Text(
+            label,
+            style: TextStyle(
+              color: textColor,
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              height: 1.1,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            softWrap: false,
+          ),
+        ),
+      ],
+    );
   }
 }
 

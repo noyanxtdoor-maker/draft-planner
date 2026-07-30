@@ -3,7 +3,7 @@
 Current worker: MiniMax M3
 Current stage: Completion, Stabilization, Testing, and Device Preview
 Workspace: C:\Users\sherl\Documents\Next Transfer-Temp
-MiniMax partial checkpoint: TBD — pending local commit
+MiniMax partial checkpoint: d0bf980
 GLM-5.2: Currently unavailable
 Remote operations: Forbidden
 PR #8 merge: Forbidden

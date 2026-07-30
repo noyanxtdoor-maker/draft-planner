@@ -20,7 +20,7 @@ final class GlobalDrawerEntry {
     required this.id,
     required this.label,
     required this.icon,
-    required this.routePath,
+    this.routePath,
     this.subtitle,
     this.group = GlobalDrawerGroup.account,
     this.availability = GlobalDrawerEntryAvailability.available,
@@ -308,7 +308,7 @@ class _DrawerHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final name = profile?.displayName?.trim();
-    final fallback = profile == null ? null : profile.localName;
+    final fallback = profile?.localName;
     final resolvedName = (name == null || name.isEmpty) ? fallback : name;
     final colorScheme = Theme.of(context).colorScheme;
     final initialSource = resolvedName == null || resolvedName.isEmpty

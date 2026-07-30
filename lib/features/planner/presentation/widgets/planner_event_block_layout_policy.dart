@@ -148,7 +148,7 @@ abstract final class PlannerEventBlockColorPolicy {
 /// pixel height. It decides what the block renders so that the
 /// [Column] never overflows its parent.
 final class PlannerEventBlockContent {
-  PlannerEventBlockContent({
+  const PlannerEventBlockContent({
     required this.density,
     required this.titleMaxLines,
     required this.showTime,
