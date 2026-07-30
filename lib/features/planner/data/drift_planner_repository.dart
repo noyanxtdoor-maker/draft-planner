@@ -173,18 +173,12 @@ final class DriftPlannerRepository implements PlannerRepository {
     return PlannerDay(
       selectedDate: selectedDate,
       allDayEvents: calendarItems
-          .where(
-            (item) =>
-                item.timing == PlannerEventTiming.allDay &&
-                item.state == PlannerEventState.scheduled,
-          )
+          .where(_isVisibleTimelineState)
+          .where((item) => item.timing == PlannerEventTiming.allDay)
           .toList(growable: false),
       timedEvents: calendarItems
-          .where(
-            (item) =>
-                item.timing == PlannerEventTiming.timed &&
-                item.state == PlannerEventState.scheduled,
-          )
+          .where(_isVisibleTimelineState)
+          .where((item) => item.timing == PlannerEventTiming.timed)
           .toList(growable: false),
       tasks: tasks,
       overdueTasks: overdueTasks,
@@ -303,6 +297,22 @@ final class DriftPlannerRepository implements PlannerRepository {
       PlannerTaskStatus.completed => 'Completed',
       PlannerTaskStatus.skipped => 'Skipped',
       PlannerTaskStatus.cancelled => 'Cancelled',
+    };
+  }
+
+  /// Normal Planner Day timeline keeps events that are still meaningful
+  /// at their scheduled date: scheduled, completed-happened, and
+  /// partially-completed occurrences. Cancelled, rescheduled, and
+  /// did-not-happen occurrences are surfaced only through the changes
+  /// list and awaiting-report surfaces.
+  static bool _isVisibleTimelineState(PlannerCalendarItem item) {
+    return switch (item.state) {
+      PlannerEventState.scheduled ||
+      PlannerEventState.completedHappened ||
+      PlannerEventState.partiallyCompleted => true,
+      PlannerEventState.cancelled ||
+      PlannerEventState.rescheduled ||
+      PlannerEventState.didNotHappen => false,
     };
   }
 }

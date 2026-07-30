@@ -90,6 +90,11 @@ abstract final class PlannerEventBlockLayoutPolicy {
 
   /// Minimum height that still admits a meaningful resize affordance.
   static const double minimumInteractiveHeight = 40;
+
+  /// Height of the invisible resize hit area at the bottom of every
+  /// interactive Event block. Clamped to the available height so very
+  /// short blocks never expose a hit area larger than the block itself.
+  static const double resizeHitAreaHeight = 40;
 }
 
 enum Density { veryShort, short, medium, tall }

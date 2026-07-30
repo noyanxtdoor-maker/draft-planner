@@ -544,12 +544,8 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                           (event) =>
                               (settings.showCancelledItems ||
                                   event.state != PlannerEventState.cancelled) &&
-                              (settings.showCompletedItems ||
-                                  (event.state !=
-                                          PlannerEventState.completedHappened &&
-                                      event.state !=
-                                          PlannerEventState
-                                              .partiallyCompleted)),
+                              (!event.hasOutcomeReport ||
+                                  settings.showCompletedItems),
                         )
                         .toList(growable: false),
                     selectedDate: state.selectedDate,
@@ -1610,11 +1606,18 @@ final class _TimelineEventBlock extends StatelessWidget {
                   bottom: 0,
                   height: 14,
                   child: GestureDetector(
+                    key: Key('planner-resize-drag-${event.id}'),
                     behavior: HitTestBehavior.opaque,
-                    onLongPressMoveUpdate: (details) =>
-                        onResizeUpdate(details.offsetFromOrigin.dy),
-                    onLongPressEnd: (_) => onResizeEnd(),
-                    onLongPressCancel: onResizeCancel,
+                    onVerticalDragStart: interactive
+                        ? (_) => onResizeStart?.call()
+                        : null,
+                    onVerticalDragUpdate: interactive
+                        ? (details) => onResizeUpdate(details.primaryDelta ?? 0)
+                        : null,
+                    onVerticalDragEnd: interactive
+                        ? (_) => onResizeEnd()
+                        : null,
+                    onVerticalDragCancel: interactive ? onResizeCancel : null,
                     child: Center(
                       child: Container(
                         width: 28,
@@ -1625,6 +1628,29 @@ final class _TimelineEventBlock extends StatelessWidget {
                         ),
                       ),
                     ),
+                  ),
+                ),
+              // Always-available resize hit area that overlaps the
+              // bottom edge of the block, even on short blocks that
+              // cannot fit a visible handle. Sized to the practical
+              // minimum touch target (40dp) but constrained to the
+              // bottom region so the Event tap area is preserved.
+              if (interactive)
+                Positioned(
+                  key: Key('planner-resize-hit-${event.id}'),
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  height: PlannerEventBlockLayoutPolicy.resizeHitAreaHeight
+                      .clamp(0.0, availableHeight),
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.translucent,
+                    onVerticalDragStart: (_) => onResizeStart?.call(),
+                    onVerticalDragUpdate: (details) =>
+                        onResizeUpdate(details.primaryDelta ?? 0),
+                    onVerticalDragEnd: (_) => onResizeEnd(),
+                    onVerticalDragCancel: onResizeCancel,
+                    child: const SizedBox.expand(),
                   ),
                 ),
               if (selectionMode)
