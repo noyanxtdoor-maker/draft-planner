@@ -3,7 +3,7 @@
 Current worker: None
 
 Current stage:
-Stage A2A complete; waiting for Stage A2B full-suite verification
+Stage A complete; waiting for Stage B
 
 Workspace:
 C:\Users\sherl\Documents\Next Transfer-Temp
@@ -27,6 +27,12 @@ ab3eca6
 Planner-wide checkpoint:
 d9df609
 
+Stage A2A handoff:
+e7f6968
+
+Final Stage A stabilization checkpoint:
+Recorded in the final Stage A2B report
+
 Remote operations:
 None performed
 
@@ -40,7 +46,7 @@ Maps:
 Not implemented
 
 Device preview: Installed (com.nexttransfer.rmplanner 0.1.0, firstInstallTime preserved, lastUpdateTime 2026-07-30 15:46:17)
-Full test suite: 121/121 passed (Stage A1 baseline; Stage A2A did NOT re-run)
+Full test suite: 137/137 passed (Stage A2B final run; Stage A1 baseline was 121/121 — Stage A added 16 tests)
 Known defects: None from automated suite; see "Items requiring owner visual confirmation" in docs/handoffs/minimax-vs08-temp-preview.md
 Owner visual confirmation: Required for (a) date-control downward chevron, (b) short Event block shows no RenderFlex marker, (c) no black/yellow overflow stripe on real Events on the live device
 
@@ -58,12 +64,9 @@ All Planner tests:
 0 skipped
 
 Full Flutter suite:
-Not run in Stage A2A
-
-Remaining Stage A2B:
-- full Flutter test suite;
-- fix confirmed cross-feature regressions;
-- final Stage A stabilization checkpoint.
+137 passed
+0 failed
+0 skipped
 
 Remaining Stage B:
 - pinch-to-zoom;
