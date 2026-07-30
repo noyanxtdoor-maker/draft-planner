@@ -12,7 +12,9 @@ void main() {
   const selected = PlannerDate(year: 2026, month: 7, day: 27);
 
   group('VS-08 shared popup family', () {
-    testWidgets('Filter reveals downward beneath the Filter icon', (tester) async {
+    testWidgets('Filter reveals downward beneath the Filter icon', (
+      tester,
+    ) async {
       tester.view.physicalSize = const Size(411, 731);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
@@ -67,8 +69,9 @@ void main() {
       expect(find.byKey(const Key('planner-filter-menu')), findsNothing);
     });
 
-    testWidgets('Overflow opens the same popup family beneath the icon',
-        (tester) async {
+    testWidgets('Overflow opens the same popup family beneath the icon', (
+      tester,
+    ) async {
       tester.view.physicalSize = const Size(411, 731);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
@@ -118,8 +121,9 @@ void main() {
   });
 
   group('VS-08 Planner top bar', () {
-    testWidgets('Current date chevron is present and is one touch target',
-        (tester) async {
+    testWidgets('Current date chevron is present and is one touch target', (
+      tester,
+    ) async {
       tester.view.physicalSize = const Size(411, 731);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
@@ -151,10 +155,7 @@ void main() {
       expect(find.byKey(const Key('planner-date-label')), findsOneWidget);
       expect(find.byKey(const Key('planner-date-chevron')), findsOneWidget);
       expect(find.byKey(const Key('planner-calendar-button')), findsOneWidget);
-      expect(
-        find.byKey(const Key('planner-selection-button')),
-        findsOneWidget,
-      );
+      expect(find.byKey(const Key('planner-selection-button')), findsOneWidget);
     });
   });
 
@@ -183,13 +184,10 @@ void main() {
       expect(content.showResizeHandle, isFalse);
     });
 
-    test('short shows time but no status', () {
-      final content = PlannerEventBlockContent.forHeight(
-        40,
-        interactive: true,
-      );
+    test('short suppresses time and status to avoid RenderFlex overflow', () {
+      final content = PlannerEventBlockContent.forHeight(40, interactive: true);
       expect(content.density, Density.short);
-      expect(content.showTime, isTrue);
+      expect(content.showTime, isFalse);
       expect(content.showStatusIcons, isFalse);
       expect(content.showResizeHandle, isFalse);
     });

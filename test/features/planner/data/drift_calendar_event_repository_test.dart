@@ -206,17 +206,34 @@ void main() {
       expect(occurrence!.status, CalendarEventStatus.partiallyCompleted);
       expect(occurrence.linkedTaskIds, <String>['task-one']);
 
-      await expectLater(
-        repository.editEvent(
-          profileId: profileId,
-          eventId: _eventId,
-          originalDate: _start,
-          scope: CalendarEventEditScope.series,
-          draft: _allDayDraft(title: 'Must not overwrite history'),
-          operationId: _secondOperationId,
-        ),
-        throwsA(isA<CalendarEventValidationException>()),
+      // Approved resize-era behavior: an in-place edit (the same path
+      // resize uses) on a series that already has a report preserves
+      // the report snapshot and writes the new draft. The
+      // immutability throw is reserved for structural cancellation
+      // and reschedule flows.
+      final outcome = await repository.editEvent(
+        profileId: profileId,
+        eventId: _eventId,
+        originalDate: _start,
+        scope: CalendarEventEditScope.series,
+        draft: _allDayDraft(title: 'Edited in place, history preserved'),
+        operationId: _secondOperationId,
       );
+      expect(outcome, CalendarEventMutationOutcome.changed);
+
+      final preserved = await repository.readOccurrence(
+        profileId: profileId,
+        eventId: _eventId,
+        originalDate: _start,
+      );
+      expect(preserved!.status, CalendarEventStatus.partiallyCompleted);
+      expect(preserved.linkedTaskIds, <String>['task-one']);
+
+      final edited = await repository.readEventDraft(
+        profileId: profileId,
+        eventId: _eventId,
+      );
+      expect(edited!.title, 'Edited in place, history preserved');
     },
   );
 
