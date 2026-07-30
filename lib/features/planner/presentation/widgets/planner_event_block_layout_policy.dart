@@ -122,10 +122,7 @@ abstract final class PlannerEventBlockColorPolicy {
     final hsl = HSLColor.fromColor(base);
     final lightness = (hsl.lightness * 0.6 + 0.32).clamp(0.0, 0.85);
     final saturation = (hsl.saturation * 0.85 + 0.1).clamp(0.0, 1.0);
-    return hsl
-        .withLightness(lightness)
-        .withSaturation(saturation)
-        .toColor();
+    return hsl.withLightness(lightness).withSaturation(saturation).toColor();
   }
 
   /// Returns the border color used to outline the block.
@@ -161,8 +158,10 @@ final class PlannerEventBlockContent {
     required this.showResizeHandle,
   });
 
-  factory PlannerEventBlockContent.forHeight(double height,
-      {required bool interactive}) {
+  factory PlannerEventBlockContent.forHeight(
+    double height, {
+    required bool interactive,
+  }) {
     final density = PlannerEventBlockLayoutPolicy.classify(height);
     return PlannerEventBlockContent(
       density: density,

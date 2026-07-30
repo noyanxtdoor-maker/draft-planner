@@ -542,10 +542,8 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                     events: _visibleEvents(day.timedEvents, settings)
                         .where(
                           (event) =>
-                              (settings.showCancelledItems ||
-                                  event.state != PlannerEventState.cancelled) &&
-                              (!event.hasOutcomeReport ||
-                                  settings.showCompletedItems),
+                              settings.showCancelledItems ||
+                              event.state != PlannerEventState.cancelled,
                         )
                         .toList(growable: false),
                     selectedDate: state.selectedDate,
@@ -1393,6 +1391,11 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
         },
         onMoveEnd: () => _finishMove(event, originalStartMinute),
         onMoveCancel: () => _clearPreview(event.id),
+        onResizeStart: () {
+          // Resize keeps the original start; ensure no stale start-preview
+          // from a previous move leaks into the resize calculation.
+          _previewStartMinutes.remove(event.id);
+        },
         onResizeUpdate: (deltaPixels) {
           final rawDelta = (deltaPixels / _hourHeight * 60).round();
           final deltaMinutes =
@@ -1504,6 +1507,7 @@ final class _TimelineEventBlock extends StatelessWidget {
     required this.onMoveUpdate,
     required this.onMoveEnd,
     required this.onMoveCancel,
+    required this.onResizeStart,
     required this.onResizeUpdate,
     required this.onResizeEnd,
     required this.onResizeCancel,
@@ -1521,6 +1525,7 @@ final class _TimelineEventBlock extends StatelessWidget {
   final ValueChanged<double> onMoveUpdate;
   final VoidCallback onMoveEnd;
   final VoidCallback onMoveCancel;
+  final VoidCallback onResizeStart;
   final ValueChanged<double> onResizeUpdate;
   final VoidCallback onResizeEnd;
   final VoidCallback onResizeCancel;
@@ -1609,7 +1614,7 @@ final class _TimelineEventBlock extends StatelessWidget {
                     key: Key('planner-resize-drag-${event.id}'),
                     behavior: HitTestBehavior.opaque,
                     onVerticalDragStart: interactive
-                        ? (_) => onResizeStart?.call()
+                        ? (_) => onResizeStart()
                         : null,
                     onVerticalDragUpdate: interactive
                         ? (details) => onResizeUpdate(details.primaryDelta ?? 0)
@@ -1645,7 +1650,7 @@ final class _TimelineEventBlock extends StatelessWidget {
                       .clamp(0.0, availableHeight),
                   child: GestureDetector(
                     behavior: HitTestBehavior.translucent,
-                    onVerticalDragStart: (_) => onResizeStart?.call(),
+                    onVerticalDragStart: (_) => onResizeStart(),
                     onVerticalDragUpdate: (details) =>
                         onResizeUpdate(details.primaryDelta ?? 0),
                     onVerticalDragEnd: (_) => onResizeEnd(),
@@ -1780,6 +1785,7 @@ final class _EventBlockContent extends StatelessWidget {
                 textColor: textColor,
                 isBackup: event.isBackupAppointment,
                 awaitingReport: awaitingReport,
+                isReported: event.hasOutcomeReport,
                 linkedTaskCount: event.linkedTaskIds.length,
               ),
             ),
@@ -1821,12 +1827,14 @@ final class _StatusRow extends StatelessWidget {
     required this.textColor,
     required this.isBackup,
     required this.awaitingReport,
+    required this.isReported,
     required this.linkedTaskCount,
   });
 
   final Color textColor;
   final bool isBackup;
   final bool awaitingReport;
+  final bool isReported;
   final int linkedTaskCount;
 
   @override
@@ -1836,6 +1844,9 @@ final class _StatusRow extends StatelessWidget {
     if (awaitingReport) {
       icon = Icons.assignment_late_outlined;
       label = 'Awaiting Report';
+    } else if (isReported) {
+      icon = Icons.check_circle_outline;
+      label = 'Completed';
     } else if (isBackup) {
       icon = Icons.layers_outlined;
       label = 'Backup';
