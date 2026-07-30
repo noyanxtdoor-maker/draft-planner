@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/gestures.dart' show DragStartBehavior;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -924,12 +925,8 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     PlannerCalendarItem event,
     int endMinute,
   ) async {
-    // ignore: avoid_print
-    print('DEBUG_RESIZE: eventId=${event.eventId} originalDate=${event.originalDate} startLocal=${event.startLocal} endLocal=${event.endLocal} endMinute=$endMinute');
     final start = event.startLocal;
     if (start == null) {
-      // ignore: avoid_print
-      print('DEBUG_RESIZE: start==null returning false');
       return false;
     }
     final startMinute = start.hour * 60 + start.minute;
@@ -953,15 +950,11 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
         originalDate == null ||
         endMinute <= startMinute ||
         endMinute > 1440) {
-      // ignore: avoid_print
-      print('DEBUG_RESIZE: guard failed eventId=$eventId originalDate=$originalDate endMinute=$endMinute startMinute=$startMinute');
       return false;
     }
     final controller = ref.read(calendarEventControllerProvider.notifier);
     final existing = await controller.readEventDraft(eventId);
     if (existing == null) {
-      // ignore: avoid_print
-      print('DEBUG_RESIZE: existing==null for eventId=$eventId');
       return false;
     }
     final operationId = ref.read(plannerIdentifierSourceProvider).nextUuid();
@@ -1416,7 +1409,7 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
           final rawDelta = (accumulated / _hourHeight * 60).round();
           final deltaMinutes =
               (rawDelta / widget.settings.snapMinutes).round() *
-                  widget.settings.snapMinutes;
+              widget.settings.snapMinutes;
           final nextEnd = (originalEndMinute + deltaMinutes).clamp(
             originalStartMinute + widget.settings.snapMinutes,
             visibleEnd,
@@ -1668,6 +1661,7 @@ final class _TimelineEventBlock extends StatelessWidget {
                       .clamp(0.0, availableHeight),
                   child: GestureDetector(
                     behavior: HitTestBehavior.translucent,
+                    dragStartBehavior: DragStartBehavior.down,
                     onVerticalDragStart: (_) => onResizeStart(),
                     onVerticalDragUpdate: (details) =>
                         onResizeUpdate(details.primaryDelta ?? 0),

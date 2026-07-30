@@ -94,17 +94,14 @@ void main() {
 
   /// Drive a vertical drag on the resize hit area of an Event
   /// block. The recognizer on the resize hit is a
-  /// `VerticalDragGestureRecognizer` that competes with the
-  /// `LongPressGestureRecognizer` on the Event body. A small
-  /// initial move (10 px) crosses kTouchSlop and claims the
-  /// arena; the recognizer dispatches `onStart` and the
-  /// first `onUpdate` is dispatched on the next move. The
-  /// production code's `onResizeUpdate` uses
-  /// `originalEndMinute + deltaMinutes` per update (no
-  /// cumulative accumulator), so the FINAL preview is set
-  /// by the LAST `onUpdate`. We issue a single final move
-  /// with the full remaining delta so the snap-rounded
-  /// `primaryDelta` reflects the total drag.
+  /// `VerticalDragGestureRecognizer` whose `kTouchSlop` is 18
+  /// logical pixels. Issue a first move that crosses slop so
+  /// the recognizer dispatches `onStart`, then a follow-up
+  /// move that carries the rest of the drag distance. The
+  /// production code uses a cumulative per-event-id pixel
+  /// accumulator (`onResizeUpdate` adds `primaryDelta` to the
+  /// running total and converts pixels to minutes), so both
+  /// moves contribute their incremental deltas to the preview.
   Future<void> driveResizeDrag(
     WidgetTester tester,
     Finder hit, {
@@ -112,16 +109,16 @@ void main() {
   }) async {
     final hitCenter = tester.getCenter(hit);
     final gesture = await tester.startGesture(hitCenter);
-    // First small move to claim the gesture. The recognizer
-    // dispatches onStart when this move crosses kTouchSlop.
-    await gesture.moveBy(const Offset(0, 10));
+    // First move crosses kTouchSlop (18 logical pixels) so
+    // the vertical drag recognizer dispatches `onStart` and
+    // the first `onUpdate` for this crossing event.
+    await gesture.moveBy(const Offset(0, 24));
     await tester.pump();
-    // Final move with the full remaining delta. The
-    // recognizer dispatches onUpdate for this move; the
-    // snap rounds the primaryDelta to the nearest 15 min
-    // and the production code's onResizeUpdate sets the
-    // final preview end.
-    final remaining = totalDeltaY - 10;
+    // Second move carries the remaining delta. Each emitted
+    // pointer move produces exactly one `onUpdate` for the
+    // cumulative accumulator (snap minutes are applied per
+    // total).
+    final remaining = totalDeltaY - 24;
     await gesture.moveBy(Offset(0, remaining));
     await tester.pump();
     await gesture.up();
