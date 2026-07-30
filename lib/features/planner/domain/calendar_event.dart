@@ -217,12 +217,7 @@ final class CalendarEventDraft {
         'Calendar Events require stable UUID identifiers.',
       );
     }
-    final normalizedTitle = title.trim();
-    if (normalizedTitle.isEmpty) {
-      throw const CalendarEventValidationException(
-        'Calendar Event title is required.',
-      );
-    }
+    final normalizedTitle = _normalizeOptional(title);
     final normalizedNotes = _normalizeOptional(notes);
     final normalizedLocation = _normalizeOptional(locationText);
     final normalizedContribution = _normalizeOptional(contributionRuleKey);
@@ -230,7 +225,7 @@ final class CalendarEventDraft {
     if (timing == CalendarEventTiming.allDay) {
       return CalendarEventDraft(
         id: id,
-        title: normalizedTitle,
+        title: normalizedTitle ?? '',
         notes: normalizedNotes,
         timing: timing,
         startDate: startDate,
@@ -270,7 +265,7 @@ final class CalendarEventDraft {
     }
     return CalendarEventDraft(
       id: id,
-      title: normalizedTitle,
+      title: normalizedTitle ?? '',
       notes: normalizedNotes,
       timing: timing,
       startDate: startDate,
@@ -341,6 +336,38 @@ final class CalendarEventDraft {
   }
 }
 
+/// Returns the human-visible title for a stored Calendar Event.
+///
+/// Prefers the user-entered title; falls back to the Event Type label
+/// when the user left the title blank. Callers should never substitute
+/// a generic placeholder string here.
+String calendarEventDisplayTitle({
+  required String? storedTitle,
+  required String? eventTypeLabel,
+}) {
+  final trimmed = storedTitle?.trim();
+  if (trimmed != null && trimmed.isNotEmpty) {
+    return trimmed;
+  }
+  final label = eventTypeLabel?.trim();
+  if (label != null && label.isNotEmpty) {
+    return label;
+  }
+  return '';
+}
+
+/// Returns the human-visible title for a Planner display item.
+String plannerItemDisplayTitle({
+  required String storedTitle,
+  required String? eventTypeLabel,
+}) {
+  final resolved = calendarEventDisplayTitle(
+    storedTitle: storedTitle,
+    eventTypeLabel: eventTypeLabel,
+  );
+  return resolved.isEmpty ? 'Calendar Event' : resolved;
+}
+
 final class CalendarEventOccurrence {
   const CalendarEventOccurrence({
     required this.id,
@@ -403,6 +430,12 @@ final class CalendarEventOccurrence {
   final List<String> linkedTaskIds;
 
   bool get isRecurring => recurrence.isRecurring;
+
+  /// Human-visible title with the Event Type label fallback.
+  String get displayTitle => calendarEventDisplayTitle(
+    storedTitle: title,
+    eventTypeLabel: activityTypeLabel,
+  );
 
   bool get isChange =>
       status == CalendarEventStatus.cancelled ||

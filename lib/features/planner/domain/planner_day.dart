@@ -1,3 +1,4 @@
+import 'package:rmplanner/features/planner/domain/calendar_event.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 import 'package:rmplanner/features/planner/domain/planner_task.dart';
 
@@ -64,6 +65,12 @@ final class PlannerCalendarItem {
   final int? activityTypeColorValue;
   final bool isBackupAppointment;
   final String? backupForEventId;
+
+  /// Human-visible title with the Event Type label fallback.
+  String get displayTitle => plannerItemDisplayTitle(
+    storedTitle: title,
+    eventTypeLabel: activityTypeLabel,
+  );
 
   bool isAwaitingReport(DateTime nowLocal) {
     if (state != PlannerEventState.scheduled ||

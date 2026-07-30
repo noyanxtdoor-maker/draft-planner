@@ -410,16 +410,13 @@ final class _CalendarEventFormScreenState
                       prefixIcon: Icon(Icons.event_outlined),
                     ),
                     textInputAction: TextInputAction.next,
-                    validator: (value) => value == null || value.trim().isEmpty
-                        ? 'Title is required'
-                        : null,
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
                     key: const Key('event-notes-field'),
                     controller: _notesController,
                     decoration: const InputDecoration(
-                      labelText: 'Notes (optional)',
+                      labelText: 'Notes',
                       prefixIcon: Icon(Icons.notes),
                     ),
                     minLines: 2,
@@ -486,27 +483,6 @@ final class _CalendarEventFormScreenState
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      key: const Key('event-time-zone-field'),
-                      controller: _timeZoneController,
-                      decoration: const InputDecoration(
-                        labelText: 'Original IANA time zone',
-                        helperText: 'Example: Asia/Manila',
-                        prefixIcon: Icon(Icons.public),
-                      ),
-                      validator: (value) {
-                        final zone = value?.trim() ?? '';
-                        if (zone.isEmpty) {
-                          return 'Time zone is required';
-                        }
-                        return ref
-                                .read(calendarEventControllerProvider.notifier)
-                                .isValidTimeZone(zone)
-                            ? null
-                            : 'Use a valid IANA time zone';
-                      },
-                    ),
                   ],
                   const SizedBox(height: 12),
                   SwitchListTile(
@@ -531,8 +507,7 @@ final class _CalendarEventFormScreenState
                     key: const Key('event-location-field'),
                     controller: _locationController,
                     decoration: const InputDecoration(
-                      labelText: 'Typed location (optional)',
-                      helperText: 'No location permission is required',
+                      labelText: 'Typed location',
                       prefixIcon: Icon(Icons.place_outlined),
                     ),
                     textInputAction: TextInputAction.next,

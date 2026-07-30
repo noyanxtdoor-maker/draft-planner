@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rmplanner/app/router/route_names.dart';
+import 'package:rmplanner/app/shell/global_drawer_controller.dart';
 import 'package:rmplanner/app/theme/app_theme.dart';
 import 'package:rmplanner/features/planner/application/calendar_event_providers.dart';
 import 'package:rmplanner/features/planner/application/event_type_providers.dart';
@@ -119,7 +120,7 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
         builder: (innerContext) => IconButton(
           key: const Key('planner-hamburger'),
           tooltip: 'Open global navigation',
-          onPressed: () => Scaffold.of(innerContext).openDrawer(),
+          onPressed: () => GlobalDrawerScope.of(innerContext).open(),
           icon: const Icon(Icons.menu),
         ),
       ),
@@ -1631,9 +1632,7 @@ final class _TimelineEventBlock extends StatelessWidget {
                   top: 4,
                   right: 4,
                   child: Icon(
-                    selected
-                        ? Icons.check_box
-                        : Icons.check_box_outline_blank,
+                    selected ? Icons.check_box : Icons.check_box_outline_blank,
                     color: selected ? AppTheme.rose : Colors.white,
                     size: 20,
                   ),
@@ -1763,11 +1762,7 @@ final class _EventBlockContent extends StatelessWidget {
     );
   }
 
-  static String _formatRange(
-    int start,
-    int end,
-    bool use24HourTime,
-  ) {
+  static String _formatRange(int start, int end, bool use24HourTime) {
     final startText = _minute(start, use24HourTime);
     final endText = _minute(end, use24HourTime);
     return '$startText - $endText';

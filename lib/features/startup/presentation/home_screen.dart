@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rmplanner/app/router/route_names.dart';
+import 'package:rmplanner/app/shell/global_drawer_controller.dart';
 import 'package:rmplanner/features/indicators/application/indicator_providers.dart';
 import 'package:rmplanner/features/indicators/domain/life_indicator.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
@@ -20,6 +21,14 @@ final class HomeScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Home'),
+        leading: Builder(
+          builder: (innerContext) => IconButton(
+            key: const Key('home-hamburger'),
+            tooltip: 'Open global navigation',
+            onPressed: () => GlobalDrawerScope.of(innerContext).open(),
+            icon: const Icon(Icons.menu),
+          ),
+        ),
         actions: <Widget>[
           IconButton(
             tooltip: 'Open today in Planner',
