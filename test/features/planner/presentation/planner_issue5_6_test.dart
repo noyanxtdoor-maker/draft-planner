@@ -797,14 +797,12 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(find.text('Planner'));
         await tester.pumpAndSettle();
-        // Drain any pre-existing layout warning that originates
-        // from the 30-minute block content so the assertions
-        // below are not masked by it.
-        tester.takeException();
 
         // The hit area must be present even on a short block;
         // the visible handle is gated by density but the hit
-        // area is not.
+        // area is not. No pre-existing layout warning may be
+        // masked — the visible content must fit without a
+        // RenderFlex overflow.
         expect(
           find.byKey(
             Key('planner-resize-hit-${occurrenceIdFor(scheduledEventId)}'),
