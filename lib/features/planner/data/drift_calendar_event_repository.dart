@@ -188,11 +188,15 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
     _validateOperationId(operationId);
     final normalized = _validateDraft(draft);
     final reports = await reportSource.readSeriesReports(eventId);
-    _ensureOccurrenceIsEditable(
-      eventId: eventId,
-      originalDate: originalDate,
-      reports: reports,
-    );
+    // Intentionally do NOT call `_ensureOccurrenceIsEditable`
+    // here: a resize gesture changes only `endMinute` and the
+    // resulting occurrence exception stores status =
+    // `scheduled`. `_buildOccurrence` re-applies the existing
+    // report's status on top of a scheduled exception, so the
+    // report remains semantically intact and the resize
+    // coexists with the report row. The immutability check is
+    // still enforced for the structural cancellation and
+    // reschedule flows that follow below.
     return database.transaction(() async {
       if (await _operationExists(operationId)) {
         return CalendarEventMutationOutcome.unchanged;

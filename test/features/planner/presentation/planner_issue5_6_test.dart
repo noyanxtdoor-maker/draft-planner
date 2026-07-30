@@ -1278,6 +1278,11 @@ void main() {
       final persistedRows = await database
           .select(database.calendarEventExceptions)
           .get();
+      // ignore: avoid_print
+      print('DEBUG_RESIZE_STAGE3: rows=${persistedRows.length} '
+          'opsCount=${(await database.select(database.calendarEventOperations).get()).length} '
+          'eventsCount=${(await database.select(database.calendarEvents).get()).length} '
+          'reportsCount=${(await database.select(database.outcomeReports).get()).length}');
       expect(persistedRows, hasLength(1));
       expect(persistedRows.single.endMinute, 10 * 60 + 30);
 

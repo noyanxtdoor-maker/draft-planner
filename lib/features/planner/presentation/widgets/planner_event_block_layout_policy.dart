@@ -64,10 +64,16 @@ abstract final class PlannerEventBlockLayoutPolicy {
   }
 
   /// Whether the time row should render at [density].
+  ///
+  /// The `short` regime renders title-only because the remaining
+  /// height after title + padding does not reliably accommodate
+  /// the time row without exceeding the available block height
+  /// (which would surface as a 1-pixel RenderFlex overflow on
+  /// ~32 px blocks, e.g. after a minimum-duration resize).
   static bool showTime(Density density) {
     return switch (density) {
       Density.veryShort => false,
-      Density.short => true,
+      Density.short => false,
       Density.medium => true,
       Density.tall => true,
     };
