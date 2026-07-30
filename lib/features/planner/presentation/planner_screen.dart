@@ -19,6 +19,8 @@ import 'package:rmplanner/features/planner/domain/planner_view.dart';
 import 'package:rmplanner/features/planner/presentation/calendar_event_creation.dart';
 import 'package:rmplanner/features/planner/presentation/calendar_event_detail_screen.dart';
 import 'package:rmplanner/features/planner/presentation/contextual_create_fab.dart';
+import 'package:rmplanner/features/planner/presentation/widgets/anchored_top_bar_popup.dart';
+import 'package:rmplanner/features/planner/presentation/widgets/planner_event_block_layout_policy.dart';
 
 final class PlannerScreen extends ConsumerStatefulWidget {
   const PlannerScreen({super.key});
@@ -31,6 +33,8 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
   final ScrollController _dayScrollController = ScrollController();
   final GlobalKey _dayScrollKey = GlobalKey();
   final GlobalKey _timelineKey = GlobalKey();
+  final GlobalKey _filterButtonKey = GlobalKey();
+  final GlobalKey _overflowButtonKey = GlobalKey();
   String? _initialScrollSignature;
   PlannerPresentation? _presentation;
   final Set<PlannerSelectionId> _selectedItems = <PlannerSelectionId>{};
@@ -63,7 +67,6 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
               selectedDate: state.selectedDate,
               weekStartDay: plannerSettings.weekStartDay,
               onSelected: controller.selectDate,
-              onOpenCalendar: () => _openCalendar(context, controller, state),
             ),
             Expanded(
               child: _buildContent(context, ref, state, plannerSettings),
@@ -112,10 +115,13 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
       );
     }
     return AppBar(
-      leading: IconButton(
-        tooltip: 'Planner views',
-        onPressed: () => _showPlannerSections(context, ref, settings),
-        icon: const Icon(Icons.menu),
+      leading: Builder(
+        builder: (innerContext) => IconButton(
+          key: const Key('planner-hamburger'),
+          tooltip: 'Open global navigation',
+          onPressed: () => Scaffold.of(innerContext).openDrawer(),
+          icon: const Icon(Icons.menu),
+        ),
       ),
       titleSpacing: 0,
       title: InkWell(
@@ -124,25 +130,50 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
         onTap: () => _openCalendar(context, controller, state),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-          child: Text(
-            _dateLabel(state.selectedDate, _presentation!),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(
-              context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+          child: Row(
+            key: const Key('planner-date-label-row'),
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Flexible(
+                child: Text(
+                  _dateLabel(state.selectedDate, _presentation!),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 2),
+              const Icon(
+                Icons.keyboard_arrow_down_rounded,
+                key: Key('planner-date-chevron'),
+                size: 18,
+                color: AppTheme.rose,
+              ),
+            ],
           ),
         ),
       ),
       actions: <Widget>[
-        IconButton(
-          key: const Key('planner-calendar-button'),
-          tooltip: 'Choose Planner date',
-          onPressed: () => _openCalendar(context, controller, state),
-          icon: const Icon(Icons.calendar_month_outlined),
+        Semantics(
+          label: 'Calendar view active',
+          button: false,
+          child: ExcludeSemantics(
+            child: Container(
+              key: const Key('planner-calendar-button'),
+              alignment: Alignment.center,
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              child: const Icon(
+                Icons.calendar_month,
+                color: AppTheme.rose,
+                size: 22,
+              ),
+            ),
+          ),
         ),
         IconButton(
-          key: const Key('planner-filter-button'),
+          key: _filterButtonKey,
           tooltip: 'Filter Planner content',
           onPressed: () => _showFilters(context, ref, settings),
           icon: const Icon(Icons.filter_alt_outlined),
@@ -153,62 +184,80 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
           onPressed: () => setState(() => _selectionActive = true),
           icon: const Icon(Icons.checklist_outlined),
         ),
-        PopupMenuButton<_PlannerOverflowAction>(
-          key: const Key('planner-overflow-button'),
+        IconButton(
+          key: _overflowButtonKey,
           tooltip: 'Planner menu',
-          onSelected: (action) =>
-              _handleOverflow(context, ref, state, settings, action),
-          itemBuilder: (context) => <PopupMenuEntry<_PlannerOverflowAction>>[
-            _overflowItem(
-              _PlannerOverflowAction.search,
-              'Search',
-              Icons.search,
-            ),
-            _overflowItem(
-              _PlannerOverflowAction.schedule,
-              'Schedule',
-              Icons.view_agenda_outlined,
-              selected: _presentation == PlannerPresentation.schedule,
-            ),
-            _overflowItem(
-              _PlannerOverflowAction.day,
-              'Day',
-              Icons.calendar_view_day_outlined,
-              selected: _presentation == PlannerPresentation.day,
-            ),
-            _overflowItem(
-              _PlannerOverflowAction.week,
-              'Week',
-              Icons.calendar_view_week_outlined,
-              selected: _presentation == PlannerPresentation.week,
-            ),
-            _overflowItem(
-              _PlannerOverflowAction.tasks,
-              'Tasks',
-              Icons.task_alt_outlined,
-              selected: _presentation == PlannerPresentation.tasks,
-            ),
-          ],
+          onPressed: () => _showOverflowMenu(context, ref, state, settings),
+          icon: const Icon(Icons.more_vert),
         ),
       ],
     );
   }
 
-  PopupMenuItem<_PlannerOverflowAction> _overflowItem(
-    _PlannerOverflowAction value,
-    String label,
-    IconData icon, {
-    bool selected = false,
-  }) {
-    return PopupMenuItem<_PlannerOverflowAction>(
-      value: value,
-      child: Row(
-        children: <Widget>[
-          Icon(selected ? Icons.check : icon, size: 20),
-          const SizedBox(width: 12),
-          Text(label),
-        ],
-      ),
+  Future<void> _showOverflowMenu(
+    BuildContext context,
+    WidgetRef ref,
+    PlannerState state,
+    PlannerSettings settings,
+  ) async {
+    await showAnchoredTopBarPopup(
+      context: context,
+      triggerKey: _overflowButtonKey,
+      width: 240,
+      maxHeight: 320,
+      builder: (popupContext) {
+        return Column(
+          key: const Key('planner-overflow-menu'),
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            for (final entry in <_OverflowEntry>[
+              _OverflowEntry(
+                action: _PlannerOverflowAction.search,
+                label: 'Search',
+                icon: Icons.search,
+              ),
+              _OverflowEntry(
+                action: _PlannerOverflowAction.schedule,
+                label: 'Schedule',
+                icon: Icons.view_agenda_outlined,
+                selected: _presentation == PlannerPresentation.schedule,
+              ),
+              _OverflowEntry(
+                action: _PlannerOverflowAction.day,
+                label: 'Day',
+                icon: Icons.calendar_view_day_outlined,
+                selected: _presentation == PlannerPresentation.day,
+              ),
+              _OverflowEntry(
+                action: _PlannerOverflowAction.week,
+                label: 'Week',
+                icon: Icons.calendar_view_week_outlined,
+                selected: _presentation == PlannerPresentation.week,
+              ),
+              _OverflowEntry(
+                action: _PlannerOverflowAction.tasks,
+                label: 'Tasks',
+                icon: Icons.task_alt_outlined,
+                selected: _presentation == PlannerPresentation.tasks,
+              ),
+            ])
+              _OverflowPopupRow(
+                entry: entry,
+                onTap: () async {
+                  anchoredTopBarPopupController.dismiss();
+                  await _handleOverflow(
+                    context,
+                    ref,
+                    state,
+                    settings,
+                    entry.action,
+                  );
+                },
+              ),
+          ],
+        );
+      },
     );
   }
 
@@ -218,24 +267,27 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     PlannerSettings settings,
   ) async {
     var filters = settings.contentFilters;
-    await showModalBottomSheet<void>(
+    await showAnchoredTopBarPopup(
       context: context,
-      showDragHandle: true,
-      isScrollControlled: true,
-      builder: (sheetContext) => StatefulBuilder(
-        builder: (context, setSheetState) => SafeArea(
-          child: SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+      triggerKey: _filterButtonKey,
+      width: 300,
+      maxHeight: 380,
+      builder: (popupContext) {
+        return StatefulBuilder(
+          builder: (innerContext, setSheetState) {
+            return SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(vertical: 4),
               child: Column(
                 key: const Key('planner-filter-menu'),
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
-                  Text(
-                    'Show in Planner',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w800,
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+                    child: Text(
+                      'Show in Planner',
+                      style: Theme.of(innerContext).textTheme.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w800),
                     ),
                   ),
                   CheckboxListTile(
@@ -274,37 +326,48 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                           )
                         : null,
                   ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: <Widget>[
-                      TextButton(
-                        onPressed: () => setSheetState(
-                          () =>
-                              filters = const PlannerContentFilters.defaults(),
+                  const SizedBox(height: 6),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+                    child: Row(
+                      children: <Widget>[
+                        TextButton(
+                          onPressed: () => setSheetState(
+                            () => filters =
+                                const PlannerContentFilters.defaults(),
+                          ),
+                          child: const Text('Restore defaults'),
                         ),
-                        child: const Text('Restore defaults'),
-                      ),
-                      const Spacer(),
-                      FilledButton(
-                        key: const Key('planner-filter-apply'),
-                        onPressed: () => Navigator.of(sheetContext).pop(),
-                        child: const Text('Apply'),
-                      ),
-                    ],
+                        const Spacer(),
+                        FilledButton(
+                          key: const Key('planner-filter-apply'),
+                          onPressed: () async {
+                            anchoredTopBarPopupController.dismiss();
+                            if (!mounted ||
+                                filters == settings.contentFilters) {
+                              return;
+                            }
+                            await ref
+                                .read(eventTypeControllerProvider.notifier)
+                                .saveSettings(
+                                  settings.copyWith(contentFilters: filters),
+                                );
+                          },
+                          child: const Text('Apply'),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
-            ),
-          ),
-        ),
-      ),
+            );
+          },
+        );
+      },
     );
-    if (!mounted || filters == settings.contentFilters) {
+    if (!mounted) {
       return;
     }
-    await ref
-        .read(eventTypeControllerProvider.notifier)
-        .saveSettings(settings.copyWith(contentFilters: filters));
   }
 
   Future<void> _handleOverflow(
@@ -459,19 +522,6 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                 _PlannerNotice(message: state.message!),
                 const SizedBox(height: 12),
               ],
-              if (_visibleEvents(day.allDayEvents, settings).isEmpty)
-                const SizedBox.shrink(key: Key('all-day-section'))
-              else
-                Padding(
-                  key: const Key('all-day-section'),
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: _CompactAllDayEvents(
-                    events: _visibleEvents(day.allDayEvents, settings),
-                    selectionMode: _selectionMode,
-                    selectedItems: _selectedItems,
-                    onToggle: _toggleEventSelection,
-                  ),
-                ),
               Container(
                 key: _timelineKey,
                 child: KeyedSubtree(
@@ -931,82 +981,81 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
       await controller.selectDate(PlannerDate.fromDateTime(result));
     }
   }
-
-  Future<void> _showPlannerSections(
-    BuildContext context,
-    WidgetRef ref,
-    PlannerSettings settings,
-  ) async {
-    await showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (sheetContext) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: <Widget>[
-                Text(
-                  'Planner views',
-                  style: Theme.of(
-                    sheetContext,
-                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
-                ),
-                for (final view in PlannerPresentation.values)
-                  ListTile(
-                    key: Key('planner-view-${view.name}'),
-                    leading: Icon(
-                      view == _presentation
-                          ? Icons.radio_button_checked
-                          : Icons.radio_button_unchecked,
-                    ),
-                    title: Text(_presentationLabel(view)),
-                    onTap: () {
-                      Navigator.of(sheetContext).pop();
-                      unawaited(_setPresentation(ref, settings, view));
-                    },
-                  ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  static String _presentationLabel(PlannerPresentation presentation) {
-    return switch (presentation) {
-      PlannerPresentation.schedule => 'Schedule',
-      PlannerPresentation.day => 'Day',
-      PlannerPresentation.week => 'Week',
-      PlannerPresentation.tasks => 'Tasks',
-      PlannerPresentation.awaitingReports => 'Awaiting Reports',
-    };
-  }
 }
 
 enum _PlannerOverflowAction { search, schedule, day, week, tasks }
+
+/// Internal descriptor for a row inside the top-bar overflow popup.
+final class _OverflowEntry {
+  const _OverflowEntry({
+    required this.action,
+    required this.label,
+    required this.icon,
+    this.selected = false,
+  });
+
+  final _PlannerOverflowAction action;
+  final String label;
+  final IconData icon;
+  final bool selected;
+}
+
+/// Single row in the anchored top-bar overflow popup.
+class _OverflowPopupRow extends StatelessWidget {
+  const _OverflowPopupRow({required this.entry, required this.onTap});
+
+  final _OverflowEntry entry;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isSelected = entry.selected;
+    return InkWell(
+      key: Key('planner-overflow-${entry.action.name}'),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        child: Row(
+          children: <Widget>[
+            Icon(
+              isSelected ? Icons.check : entry.icon,
+              size: 20,
+              color: isSelected ? colorScheme.primary : colorScheme.onSurface,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                entry.label,
+                style: TextStyle(
+                  fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 final class _WeekStrip extends StatelessWidget {
   const _WeekStrip({
     required this.selectedDate,
     required this.weekStartDay,
     required this.onSelected,
-    required this.onOpenCalendar,
   });
 
   final PlannerDate selectedDate;
   final int weekStartDay;
   final ValueChanged<PlannerDate> onSelected;
-  final VoidCallback onOpenCalendar;
 
   @override
   Widget build(BuildContext context) {
     final offset = (selectedDate.weekday - weekStartDay + 7) % 7;
     final weekStart = selectedDate.addDays(-offset);
     return Container(
+      key: const Key('planner-week-strip'),
       margin: const EdgeInsets.fromLTRB(8, 4, 8, 0),
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
       decoration: BoxDecoration(
@@ -1015,15 +1064,8 @@ final class _WeekStrip extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
+        key: const Key('planner-week-strip-row'),
         children: <Widget>[
-          IconButton(
-            tooltip: 'Choose any date',
-            onPressed: onOpenCalendar,
-            visualDensity: VisualDensity.compact,
-            icon: const Icon(Icons.calendar_month, color: AppTheme.rose),
-          ),
-          Container(width: 1, height: 52, color: AppTheme.outline),
-          const SizedBox(width: 4),
           for (var index = 0; index < 7; index++)
             Expanded(
               child: _DayButton(
@@ -1101,59 +1143,6 @@ final class _DayButton extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-final class _CompactAllDayEvents extends StatelessWidget {
-  const _CompactAllDayEvents({
-    required this.events,
-    required this.selectionMode,
-    required this.selectedItems,
-    required this.onToggle,
-  });
-
-  final List<PlannerCalendarItem> events;
-  final bool selectionMode;
-  final Set<PlannerSelectionId> selectedItems;
-  final ValueChanged<PlannerCalendarItem> onToggle;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: <Widget>[
-        Row(
-          children: <Widget>[
-            const Icon(
-              Icons.event_available_outlined,
-              size: 18,
-              color: AppTheme.rose,
-            ),
-            const SizedBox(width: 7),
-            Text(
-              'All-day events',
-              style: Theme.of(
-                context,
-              ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
-            ),
-          ],
-        ),
-        const SizedBox(height: 6),
-        for (final event in events)
-          _EventTile(
-            event: event,
-            awaitingReport: event.isAwaitingReport(DateTime.now()),
-            selectionMode: selectionMode,
-            selected: selectedItems.contains(
-              PlannerSelectionId(
-                kind: PlannerSelectionKind.event,
-                id: event.id,
-              ),
-            ),
-            onToggleSelection: () => onToggle(event),
-          ),
-      ],
     );
   }
 }
@@ -1530,166 +1519,129 @@ final class _TimelineEventBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = Color(event.activityTypeColorValue ?? 0xFFE91E63);
-    return Semantics(
-      button: true,
-      label:
-          '${event.title}, ${event.activityTypeLabel ?? 'Calendar Event'}, '
-          '${_minuteRange(displayStartMinute, displayEndMinute, use24HourTime)}'
-          '${event.isBackupAppointment ? ', Backup Appointment' : ''}'
-          '${awaitingReport ? ', Awaiting Report' : ''}'
-          '${event.linkedTaskIds.isEmpty ? '' : ', ${event.linkedTaskIds.length} linked Task(s)'}',
-      hint: interactive
-          ? 'Tap for details. Long-press and move to change time.'
-          : 'Tap for details.',
-      child: Stack(
-        children: <Widget>[
-          Positioned.fill(
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onLongPressMoveUpdate: interactive
-                  ? (details) => onMoveUpdate(details.offsetFromOrigin.dy)
-                  : null,
-              onLongPressStart: interactive
-                  ? (_) => unawaited(HapticFeedback.mediumImpact())
-                  : null,
-              onLongPressEnd: interactive ? (_) => onMoveEnd() : null,
-              onLongPressCancel: interactive ? onMoveCancel : null,
-              child: Material(
-                color: color.withValues(alpha: 0.18),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(4),
-                  side: BorderSide(color: color.withValues(alpha: 0.8)),
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: InkWell(
-                  onTap: selectionMode
-                      ? onToggleSelection
-                      : () => _openCalendarEvent(context, event),
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      border: Border(
-                        left: BorderSide(
-                          color: event.isBackupAppointment
-                              ? Colors.black
-                              : color,
-                          width: event.isBackupAppointment ? 7 : 4,
+    final base = Color(event.activityTypeColorValue ?? 0xFFE91E63);
+    final fill = PlannerEventBlockColorPolicy.surfaceColor(base);
+    final border = PlannerEventBlockColorPolicy.borderColor(base);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final availableHeight = constraints.maxHeight.isFinite
+            ? constraints.maxHeight
+            : PlannerEventBlockLayoutPolicy.mediumThreshold + 1;
+        final content = PlannerEventBlockContent.forHeight(
+          availableHeight,
+          interactive: interactive,
+        );
+        return Semantics(
+          button: true,
+          label:
+              '${event.title}, ${event.activityTypeLabel ?? 'Calendar Event'}, '
+              '${_minuteRange(displayStartMinute, displayEndMinute, use24HourTime)}'
+              '${event.isBackupAppointment ? ', Backup Appointment' : ''}'
+              '${awaitingReport ? ', Awaiting Report' : ''}'
+              '${event.linkedTaskIds.isEmpty ? '' : ', ${event.linkedTaskIds.length} linked Task(s)'}',
+          hint: interactive
+              ? 'Tap for details. Long-press and move to change time.'
+              : 'Tap for details.',
+          child: Stack(
+            children: <Widget>[
+              Positioned.fill(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onLongPressMoveUpdate: interactive
+                      ? (details) => onMoveUpdate(details.offsetFromOrigin.dy)
+                      : null,
+                  onLongPressStart: interactive
+                      ? (_) => unawaited(HapticFeedback.mediumImpact())
+                      : null,
+                  onLongPressEnd: interactive ? (_) => onMoveEnd() : null,
+                  onLongPressCancel: interactive ? onMoveCancel : null,
+                  child: Material(
+                    color: fill,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(4),
+                      side: BorderSide(color: border),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: InkWell(
+                      onTap: selectionMode
+                          ? onToggleSelection
+                          : () => _openCalendarEvent(context, event),
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          border: Border(
+                            left: BorderSide(
+                              color: event.isBackupAppointment
+                                  ? Colors.black
+                                  : border,
+                              width: event.isBackupAppointment ? 7 : 4,
+                            ),
+                          ),
+                        ),
+                        child: _EventBlockContent(
+                          event: event,
+                          use24HourTime: use24HourTime,
+                          displayStartMinute: displayStartMinute,
+                          displayEndMinute: displayEndMinute,
+                          awaitingReport: awaitingReport,
+                          content: content,
                         ),
                       ),
                     ),
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(8, 4, 5, 7),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Row(
-                            children: <Widget>[
-                              Expanded(
-                                child: Text(
-                                  event.title,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ),
-                              if (event.isRecurring)
-                                const Padding(
-                                  padding: EdgeInsets.only(left: 3),
-                                  child: Icon(Icons.repeat, size: 13),
-                                ),
-                              if (event.linkedTaskIds.isNotEmpty)
-                                Padding(
-                                  padding: const EdgeInsets.only(left: 3),
-                                  child: Tooltip(
-                                    message:
-                                        '${event.linkedTaskIds.length} linked Task(s)',
-                                    child: const Icon(Icons.link, size: 13),
-                                  ),
-                                ),
-                              if (event.isBackupAppointment)
-                                const Padding(
-                                  padding: EdgeInsets.only(left: 3),
-                                  child: Icon(Icons.layers_outlined, size: 13),
-                                ),
-                              if (awaitingReport)
-                                const Padding(
-                                  padding: EdgeInsets.only(left: 3),
-                                  child: Icon(
-                                    Icons.assignment_late_outlined,
-                                    size: 13,
-                                  ),
-                                ),
-                            ],
-                          ),
-                          Text(
-                            _minuteRange(
-                              displayStartMinute,
-                              displayEndMinute,
-                              use24HourTime,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.labelSmall
-                                ?.copyWith(color: Colors.white60),
-                          ),
-                        ],
+                  ),
+                ),
+              ),
+              if (content.showResizeHandle)
+                Positioned(
+                  key: Key('planner-resize-handle-${event.id}'),
+                  left: 14,
+                  right: 14,
+                  bottom: 0,
+                  height: 14,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onLongPressMoveUpdate: (details) =>
+                        onResizeUpdate(details.offsetFromOrigin.dy),
+                    onLongPressEnd: (_) => onResizeEnd(),
+                    onLongPressCancel: onResizeCancel,
+                    child: Center(
+                      child: Container(
+                        width: 28,
+                        height: 3,
+                        decoration: BoxDecoration(
+                          color: Colors.white60,
+                          borderRadius: BorderRadius.circular(3),
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-            ),
-          ),
-          if (interactive)
-            Positioned(
-              key: Key('planner-resize-handle-${event.id}'),
-              left: 14,
-              right: 14,
-              bottom: 0,
-              height: 14,
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onLongPressMoveUpdate: (details) =>
-                    onResizeUpdate(details.offsetFromOrigin.dy),
-                onLongPressEnd: (_) => onResizeEnd(),
-                onLongPressCancel: onResizeCancel,
-                child: Center(
-                  child: Container(
-                    width: 28,
-                    height: 3,
-                    decoration: BoxDecoration(
-                      color: Colors.white60,
-                      borderRadius: BorderRadius.circular(3),
-                    ),
+              if (selectionMode)
+                Positioned(
+                  top: 4,
+                  right: 4,
+                  child: Icon(
+                    selected
+                        ? Icons.check_box
+                        : Icons.check_box_outline_blank,
+                    color: selected ? AppTheme.rose : Colors.white,
+                    size: 20,
                   ),
                 ),
-              ),
-            ),
-          if (selectionMode)
-            Positioned(
-              top: 4,
-              right: 4,
-              child: Icon(
-                selected ? Icons.check_box : Icons.check_box_outline_blank,
-                color: selected ? AppTheme.rose : Colors.white,
-                size: 20,
-              ),
-            ),
-          if (awaitingReport)
-            const Positioned(
-              left: 8,
-              bottom: 2,
-              child: Text(
-                'Awaiting Report',
-                style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700),
-              ),
-            ),
-        ],
-      ),
+              if (awaitingReport &&
+                  PlannerEventBlockLayoutPolicy.classify(availableHeight) ==
+                      Density.tall)
+                const Positioned(
+                  left: 8,
+                  bottom: 2,
+                  child: Text(
+                    'Awaiting Report',
+                    style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 

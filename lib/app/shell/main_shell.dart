@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rmplanner/app/router/route_names.dart';
+import 'package:rmplanner/features/shell/global_app_drawer.dart';
 
 final class MainShell extends StatelessWidget {
   const MainShell({required this.child, super.key});
@@ -17,6 +18,8 @@ final class MainShell extends StatelessWidget {
         : 0;
 
     return Scaffold(
+      drawer: const GlobalAppDrawer(),
+      drawerEdgeDragWidth: 24,
       body: child,
       bottomNavigationBar: NavigationBar(
         key: const Key('main-bottom-navigation'),
