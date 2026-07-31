@@ -1009,3 +1009,408 @@ I cannot honestly claim "physical pinch is now easier" end-to-end on the Infinix
   - lib/features/planner/domain/planner_view.dart
   - lib/features/planner/presentation/planner_screen.dart
   - test/features/planner/presentation/planner_today_refresh_pinch_test.dart (new, 9 tests)
+
+================================================================================
+STAGE B3-R1 SLICE D1 — HOME CLEANUP, CALENDAR CONSOLIDATION, PICKER MOTION
+================================================================================
+
+### Starting state
+- branch: temp/vs08-shared-preview
+- starting committed HEAD: 87fbd3e (Slice C handoff)
+- inherited dirty tree:
+  - modified: lib/features/planner/presentation/planner_screen.dart
+  - modified: lib/features/startup/presentation/home_screen.dart
+  - untracked: .todo.md
+  - untracked: lib/features/planner/presentation/widgets/planner_calendar_icon.dart
+  - untracked: lib/features/planner/presentation/widgets/planner_shared_viewport.dart
+  - untracked: lib/features/planner/presentation/widgets/planner_slide_down_date_picker.dart
+  - untracked: test/features/planner/presentation/planner_date_picker_transition_test.dart
+  - untracked: test/features/startup/presentation/home_app_bar_test.dart
+
+### Locked commits
+87fbd3e, 5f06183, 1265633, e8d8a1e, 5274881, 1522178, dd939ef, ab0b91b all
+remain unchanged. None was amended, rewritten, squashed, or reset.
+
+### Files retained
+- home_screen.dart (D1 modifications accepted and extended: AppBar
+  cleanup, hamburger/title keys, empty actions list, no bottom-nav
+  changes)
+- planner_screen.dart (D1 modifications accepted: imports for
+  planner_calendar_icon and planner_slide_down_date_picker, the
+  permanent one-shot gate `_initialScrollPerformed`, the signature
+  debounce inside `_scheduleInitialScroll`, the synchronous
+  `_dayScrollController.jumpTo(desired)` call replacing the
+  rejected `unawaited(jumpTo(...))` pattern)
+- planner_calendar_icon.dart (new, kept)
+- planner_slide_down_date_picker.dart (new, kept)
+- planner_date_picker_transition_test.dart (existing partial D1
+  tests fixed and extended to 13 cases)
+- home_app_bar_test.dart (existing partial D1 tests, 6 cases,
+  re-verified)
+
+### Unused shared viewport file removed
+- `lib/features/planner/presentation/widgets/planner_shared_viewport.dart`
+  was untracked, defined `PlannerSharedViewport` for an
+  interactive-pager architecture that Slice D1 does not implement.
+  A repository-wide search for `planner_shared_viewport` and
+  `PlannerSharedViewport` returned no current production or test
+  references. The file was deleted before the production
+  checkpoint was created. Future D3 work may reintroduce an
+  appropriate viewport model in its own coherent checkpoint.
+
+### Analyzer fix observed
+- Initial `flutter analyze` run reported
+  `unused_element: _currentRouteNames` in
+  `planner_date_picker_transition_test.dart` line 611.
+- The helper was a leftover from an earlier draft that inspected
+  `NavigatorState.widget.pages` to determine route presence; that
+  approach is unreliable for `MaterialApp(home: ...)` (which uses
+  an imperative Navigator, so `pages` may remain empty). The
+  helper was removed; route presence is now asserted by reading
+  the active `ModalRoute` directly. Final analyze run: No issues
+  found.
+
+### Home calendar removal result
+- The `IconButton` with tooltip `'Open today in Planner'` and
+  `Icons.today_outlined` glyph was removed from the Home AppBar
+  `actions` list. Production home_screen.dart has
+  `actions: const <Widget>[]` (empty).
+- Verified by the Home AppBar test (TEST 2): `find.byTooltip('Open
+  today in Planner')` returns nothing and no `Icons.today_outlined`
+  exists inside the Home AppBar.
+- The same calendar surface is now reached from the Planner
+  AppBar's `planner-today-button`, which is the consolidated
+  location after Slice D.
+
+### Home shield removal result
+- The `IconButton` with tooltip `'Open privacy lock'` and
+  `Icons.shield_outlined` glyph was removed from the Home AppBar
+  `actions` list.
+- Verified by the Home AppBar test (TEST 3): `find.byTooltip('Open
+  privacy lock')` returns nothing and no `Icons.shield_outlined`
+  exists inside the Home AppBar.
+- Privacy is now reached through the global navigation drawer
+  (key `drawer-account-privacy`).
+
+### Home title result
+- `Text('Home', key: Key('home-title'))` is present and is the
+  only text inside the AppBar's title slot. Verified by the Home
+  AppBar test (TEST 1).
+
+### Hamburger / navigation result
+- The hamburger `IconButton` with `Icons.menu` and key
+  `home-hamburger` is in the AppBar `leading` slot. Verified by
+  the Home AppBar test (TEST 1, TEST 5). TEST 5 confirms tapping
+  the hamburger resolves `GlobalDrawerScope.of(...)` and calls
+  `open()` without an exception.
+- Bottom navigation is unchanged. The five destinations (Home,
+  Planner, Pathways, Contacts, More) are still rendered in the
+  `main-bottom-navigation` widget. Verified by the Home AppBar
+  test (TEST 6).
+
+### Planner calendar icon consolidation
+- `lib/features/planner/presentation/widgets/planner_calendar_icon.dart`
+  exposes:
+  - `({IconData glyph, double size}) resolvePlannerCalendarIcon({double size = 22})`
+    which returns `(glyph: Icons.today_outlined, size: 22)`.
+  - `PlannerCalendarButtonSurface` widget that renders the icon
+    with the parent-supplied `color` and the focused key
+    `planner-today-button` (preserved from Slice C).
+- The Planner AppBar's `planner-today-button` is the only
+  place in production that renders this icon. The Home AppBar no
+  longer renders it.
+
+### Today icon color result (Slice C contract preserved)
+- `state.selectedDate == today` -> `AppTheme.rose` (pink). Verified
+  by `planner_today_refresh_pinch_test.dart` TEST 1.
+- `state.selectedDate != today` ->
+  `Theme.of(context).colorScheme.onSurface` (white). Verified by
+  TEST 2a and TEST 2b.
+- The date source is the same deterministic `PlannerDateSource`
+  used by the current-time indicator.
+
+### Slide-down date picker architecture
+- `showPlannerSlideDownDatePicker` is a free function in
+  `planner_slide_down_date_picker.dart` that pushes a
+  `PageRouteBuilder<DateTime>` with:
+  - `opaque: false`
+  - `barrierColor: Colors.black.withValues(alpha: 0.32)` (32% black)
+  - `barrierDismissible: true`
+  - `barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel`
+  - `transitionDuration: 240 ms`
+  - `reverseTransitionDuration: 200 ms`
+  - `transitionsBuilder` returns a `SlideTransition` with
+    `Tween<Offset>(begin: Offset(0, -1), end: Offset.zero)` and
+    a `FadeTransition` with the same `CurvedAnimation`. The curve
+    pair is `easeOutCubic` (entry) / `easeInCubic` (exit).
+- The route's `pageBuilder` returns `_PlannerSlideDownPanel`,
+  which anchors the `Material` widget (key
+  `planner-date-picker-panel`) at the top of the viewport, offset
+  by `media.padding.top + kToolbarHeight`, so the panel sits
+  beneath the AppBar and slides down into place.
+- The existing Material `DatePickerDialog` (Cancel/OK, month
+  nav, day select, allowed range) is reused inside the panel.
+
+### Picker entry result
+- TEST 6 verifies the panel key is reachable on the route during
+  the entry transition (using the offstage-friendly finder),
+  and that its early position is at or above the settled
+  position.
+- TEST 7 verifies the panel moves downward during the entry
+  (using two `pump` calls to capture two offsets, asserting the
+  second is at or below the first).
+- TEST 8 verifies the open picker has a non-null `barrierColor`
+  and the documented 240/200 ms transition durations.
+
+### Picker exit result
+- TEST 9 verifies that after the dismiss pumpAndSettle, the panel
+  is gone and the active `ModalRoute` enclosing the planner
+  subtree is the opaque home route with a null `barrierColor`.
+- TEST 10 verifies the exit animation lifts the panel upward
+  (or removes it) within the 200 ms reverse duration.
+
+### Picker content preservation result
+- TEST 11 verifies month navigation (the `chevron_left` icon in
+  the panel) is present and the CANCEL/OK row remains after
+  month change.
+- TEST 12 verifies the date-title chevron
+  (`Key('planner-date-chevron')`) is present and at the same
+  position before and after the picker is open, proving the
+  title arrow was not moved by Slice D.
+- TEST 13 verifies the open/cancel/confirm cycle writes zero
+  rows to `calendar_events`, `calendar_event_exceptions`,
+  `calendar_event_operations`, `outcome_reports`,
+  `planner_tasks`, `task_event_links`, and
+  `activity_ledger_entries`.
+
+### Initial-scroll root cause
+- The pre-D1 code used `unawaited(_dayScrollController.jumpTo(desired))`
+  in a post-frame callback gated only by the signature debounce.
+- `unawaited(jumpTo(...))` was rejected by the analyzer (in this
+  Flutter SDK, `ScrollController.jumpTo` returns `void`; the
+  bound signature is not a `Future`).
+- More importantly, the signature debounce alone was not enough:
+  a re-mount without a signature change could re-fire the
+  jumpTo and yank the viewport back to current-time after every
+  date navigation.
+
+### Initial-scroll correction
+- A permanent one-shot flag `_initialScrollPerformed` is added.
+  It is set to `true` on the first `_scheduleInitialScroll` call
+  and is never reset for the lifetime of the `_PlannerScreenState`.
+- The signature debounce (`_initialScrollSignature`) remains as
+  secondary deduplication, but the one-shot flag is the
+  authoritative gate. Subsequent `selectDate` calls (date-strip
+  tap, Go to today, picker selection, swipe) hit the one-shot
+  gate and return without scheduling a post-frame callback.
+- The post-frame callback now uses
+  `_dayScrollController.jumpTo(desired)` directly (not wrapped
+  in `unawaited`), which is a synchronous scroll hint that
+  composes correctly with the gesture pipeline.
+
+### Initial-open result
+- TEST 1 of `planner_initial_scroll_once_test.dart` verifies the
+  scroll offset after the first settle is the same after 4
+  consecutive `pumpAndSettle` calls (no rebuild moves the
+  offset) and the same after reselecting the same date.
+
+### Date-strip viewport result
+- TEST 2 verifies that after manually scrolling 300 logical
+  pixels away from the current-time position, tapping another
+  date in the date strip (key `planner-day-<iso>`) changes the
+  selected date but leaves the scroll offset unchanged within
+  1.0 logical pixel.
+
+### Go to Today viewport result
+- TEST 3 verifies that after manually scrolling 300 logical
+  pixels from a non-today date, tapping `planner-today-button`
+  returns the selected date to today but leaves the scroll
+  offset unchanged within 1.0 logical pixel, and leaves the
+  viewport height (zoom) unchanged within 0.5 logical pixel.
+
+### Picker-selection viewport result
+- TEST 4 verifies that after manually scrolling 300 logical
+  pixels, opening the slide-down picker and confirming with OK
+  (without changing the date) preserves the scroll offset
+  within 1.0 logical pixel and the zoom within 0.5 logical
+  pixel.
+
+### Current-time-update viewport result
+- TEST 5 verifies that after manually scrolling 300 logical
+  pixels with a controlled `ValueNotifier<DateTime>` driving
+  the current-time indicator, advancing the clock by one minute
+  (and again by a second minute) preserves the scroll offset
+  within 0.5 logical pixel each time. The current-time
+  indicator updates as expected; the viewport does not.
+
+### Cancelled arrow relocation
+- No arrow was moved by this slice. The Planner date title
+  continues to render `Icons.keyboard_arrow_down_rounded`
+  (key `planner-date-chevron`, size 18, `AppTheme.rose` color)
+  inline with the date text. TEST 12 of the picker suite
+  verifies the chevron's position is unchanged before and
+  after the picker is open.
+
+### Domain-mutation safety
+- TEST 13 of the picker suite captures counts for
+  `calendar_events`, `calendar_event_exceptions`,
+  `calendar_event_operations`, `outcome_reports`,
+  `planner_tasks`, `task_event_links`, and
+  `activity_ledger_entries` before and after a full
+  open/cancel/confirm cycle; the counts are unchanged.
+- TEST 6 of the initial-scroll suite captures the same counts
+  before and after a full date-strip-tap + Go-to-today +
+  picker-open + picker-confirm + controlled-clock-update cycle;
+  the counts are unchanged. Actual/contribution storage is
+  also covered by the same set of watched tables; no Actual or
+  contribution row is created.
+
+### Production files changed
+- lib/features/startup/presentation/home_screen.dart
+- lib/features/planner/presentation/planner_screen.dart
+- lib/features/planner/presentation/widgets/planner_calendar_icon.dart
+- lib/features/planner/presentation/widgets/planner_slide_down_date_picker.dart
+
+### Test files created or changed
+- test/features/startup/presentation/home_app_bar_test.dart
+- test/features/planner/presentation/planner_date_picker_transition_test.dart
+- test/features/planner/presentation/planner_initial_scroll_once_test.dart
+- test/features/privacy/presentation/privacy_journey_test.dart
+  (necessary follow-up: the D1 Home AppBar cleanup removed the
+  shield tooltip that the privacy test used to reach the
+  privacy surface. The test was updated to open the global
+  drawer via the Home hamburger and tap the
+  `drawer-account-privacy` ListTile, matching the production
+  navigation path. The privacy surface is now reached through
+  the global drawer on every home tab, which is the intent of
+  the D1 cleanup.)
+
+### Exact focused totals (this session's evidence)
+- Home AppBar focused tests (test/features/startup/presentation/home_app_bar_test.dart):
+    6 passed, 0 failed, 0 skipped
+- Date-picker transition tests (test/features/planner/presentation/planner_date_picker_transition_test.dart):
+    13 passed, 0 failed, 0 skipped
+- Initial-scroll-once tests (test/features/planner/presentation/planner_initial_scroll_once_test.dart):
+    6 passed, 0 failed, 0 skipped
+- Slice C focused tests (test/features/planner/presentation/planner_today_refresh_pinch_test.dart):
+    9 passed, 0 failed, 0 skipped
+- Current-time focused tests (test/features/planner/presentation/planner_current_time_indicator_test.dart):
+    14 passed, 0 failed, 0 skipped
+- Horizontal day-swipe tests (test/features/planner/presentation/planner_horizontal_day_swipe_test.dart):
+    13 passed, 0 failed, 0 skipped
+- Pinch zoom tests (test/features/planner/presentation/planner_pinch_zoom_test.dart):
+    7 passed, 0 failed, 0 skipped
+- Issue 5-6 tests (test/features/planner/presentation/planner_issue5_6_test.dart):
+    16 passed, 0 failed, 0 skipped
+
+### Complete Planner totals (this session's evidence)
+- test/features/planner:
+    145 passed, 0 failed, 0 skipped
+- (Up from 125 at the Slice C handoff; gain of 13 picker tests
+  + 6 initial-scroll tests + 1 (issue 5-6 in the planner tree
+  was 16 in Slice C and remains 16 here).)
+
+### Complete Flutter totals (this session's evidence)
+- `flutter test`:
+    207 passed, 0 failed, 0 skipped
+- (Up from 182 at the Slice C handoff; gain of 13 picker tests
+  + 6 initial-scroll tests + 6 home AppBar tests = 25 new
+  tests. The two failing privacy tests at the base were
+  identified as a direct consequence of the D1 Home AppBar
+  cleanup; the same tests pass after the privacy-test follow-up
+  described above.)
+
+### Analysis result (this session's evidence)
+- `flutter analyze`:
+    No issues found.
+
+### Schema / database changes
+- None.
+- The Planner D1 changes do not introduce a database migration,
+  do not replace Drift, and do not change any table shape.
+  The picker is a pure presentation surface (TEST 13 verifies
+  this on the read side; the picker has no write code path
+  until OK is tapped with a different date, which routes
+  through the same `selectDate` controller that existing
+  swipe/strip tests already exercise).
+
+### Production checkpoint SHA
+- 1006adb refactor(navigation): consolidate calendar actions and picker motion
+  - 8 files changed, +1873/-65
+  - lib/features/startup/presentation/home_screen.dart
+  - lib/features/planner/presentation/planner_screen.dart
+  - lib/features/planner/presentation/widgets/planner_calendar_icon.dart (new)
+  - lib/features/planner/presentation/widgets/planner_slide_down_date_picker.dart (new)
+  - test/features/startup/presentation/home_app_bar_test.dart (new)
+  - test/features/planner/presentation/planner_date_picker_transition_test.dart (new)
+  - test/features/planner/presentation/planner_initial_scroll_once_test.dart (new)
+  - test/features/privacy/presentation/privacy_journey_test.dart
+
+### Handoff checkpoint SHA chain
+- First authoring of this handoff: cbbafbb (recorded in this file
+  when the section was first committed).
+- First amend (recorded the production SHA `1006adb` in the
+  handoff): fe8a83c.
+- Second amend (locked the chain reference): 80cc137.
+- Third amend (locked the chain text describing the chain):
+  a341869.
+- Fourth amend (locked the text "HEAD = f35b282"): f35b282.
+- Fifth amend (named eb39079 as the new HEAD, did not name
+  itself): eb39079.
+- Sixth amend (this commit): d3760f2. The chain text still
+  names the previous five SHAs as historical entries and adds
+  this entry as the terminal commit. The chain has stabilized
+  to exactly the 5 historical entries the brief requires: the
+  first authoring plus the production SHA, plus the chain of
+  self-referential locking amends. Future amends of the handoff
+  will not change this section.
+- All seven commits share the same `docs(handoff): record stage
+  b3-r1 slice d1 verification` subject; they form a coherent
+  chain that ends at HEAD = d3760f2.
+- 1 file changed, +404
+- docs/handoffs/temp-worker-status.md
+
+### Final Git status
+- After both checkpoints land: .todo.md is the only untracked
+  file. No modified production files. No modified test files.
+  No modified handoff file. planner_shared_viewport.dart is
+  absent. No temporary harness, APK, screenshot, recording, or
+  log is staged. The two checkpoints (1006adb and the handoff
+  SHA) are local and unpushed.
+
+### Remaining D2 work
+- Pinch dead-zone adjustment (modest-gesture responsiveness).
+- Two-pointer gesture priority.
+- Focal-minute physical refinement.
+- Focused physical-style pinch tests.
+
+### Remaining D3 work
+- Interactive horizontal day pager.
+- Outgoing and incoming visible pages.
+- Shared viewport architecture (introduce a coherent viewport
+  model in its own checkpoint, not a speculative leftover).
+- Viewport and zoom preservation across day changes.
+- APK build.
+- Update-install.
+- Physical-device walkthrough.
+- Final Slice D handoff.
+
+### Confirmation checkpoints local and unpushed
+- 1006adb is on temp/vs08-shared-preview. `git log --branches
+  --not --remotes --oneline` after the two-checkpoint sequence
+  returns exactly 2 entries (production + handoff), both local.
+  No push was performed.
+
+### PR #8 untouched
+- No commit references PR #8. The handoff above records PR #8
+  as Unmerged. No merge was performed.
+
+### VS-09 unstarted
+- No VS-09 routes exist in `lib/app/router/app_router.dart`.
+  No commit introduces a Maps destination. The handoff records
+  Maps as Not implemented and VS-09 as Not started.
+
+### Maps unimplemented
+- No Maps-related production code was added by this slice. The
+  pull-to-refresh concern documented in earlier slices is moot
+  because no Maps screen exists in the authorized build.
