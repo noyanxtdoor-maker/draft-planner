@@ -549,6 +549,7 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                         .toList(growable: false),
                     selectedDate: state.selectedDate,
                     settings: settings,
+                    scrollController: _dayScrollController,
                     onCreate: (minute) => _createTimedEvent(
                       context,
                       ref,
@@ -1159,6 +1160,7 @@ final class _TimedEventTimeline extends StatefulWidget {
     required this.events,
     required this.selectedDate,
     required this.settings,
+    required this.scrollController,
     required this.onCreate,
     required this.onMove,
     required this.onResize,
@@ -1172,6 +1174,10 @@ final class _TimedEventTimeline extends StatefulWidget {
   final List<PlannerCalendarItem> events;
   final PlannerDate selectedDate;
   final PlannerSettings settings;
+  // Parent-owned SingleChildScrollView controller used for focal-time
+  // preservation while pinching. Held here by reference so pinch
+  // updates can reposition the viewport without rebuilding the screen.
+  final ScrollController scrollController;
   final ValueChanged<int> onCreate;
   final Future<bool> Function(PlannerCalendarItem event, int startMinute)
   onMove;
@@ -1196,7 +1202,19 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
   final Map<String, double> _resizeAccumulatedPixels = <String, double>{};
   final Set<String> _persisting = <String>{};
   late double _hourHeight;
+  // Pinch focal-time preservation: captured at two-finger scale start
+  // and reapplied on every onScaleUpdate so the time under the focal
+  // point stays under the same screen-local position as hour height
+  // changes. The local Y is measured from the GestureDetector origin,
+  // which sits at the top of the timeline surface (inside the
+  // scrollable; not the global screen). The focal content Y is the
+  // pointer's position in the scrollable's content space (scroll
+  // offset + local Y), so dividing by the start pixelsPerMinute gives
+  // the focal minute-of-day relative to `_firstHour`.
   double? _zoomStartHeight;
+  double? _zoomStartScrollOffset;
+  double? _zoomFocalLocalY;
+  double? _zoomFocalMinute;
 
   @override
   void initState() {
@@ -1232,20 +1250,73 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
       onScaleStart: (details) {
         if (details.pointerCount >= 2) {
           _zoomStartHeight = _hourHeight;
+          // Capture focal-time anchors: the local Y from this
+          // GestureDetector's coordinate space and the scroll
+          // offset of the parent SingleChildScrollView. The
+          // local coordinate is the pointer's position inside
+          // the timeline surface (origin at the top of the
+          // SizedBox). The scroll offset is read defensively
+          // (the controller has clients while mounted inside
+          // the scroll view).
+          _zoomStartScrollOffset = widget.scrollController.hasClients
+              ? widget.scrollController.offset
+              : 0;
+          _zoomFocalLocalY = details.localFocalPoint.dy;
+          final focalContentY =
+              (_zoomStartScrollOffset ?? 0) + (_zoomFocalLocalY ?? 0);
+          // Convert the content-Y to a focal minute using the
+          // *effective* current pixelsPerMinute (the start hour
+          // height). This is the minute whose time label was
+          // sitting under the focal point when the pinch began
+          // and is the value preserved by scroll recomputation
+          // on every subsequent scale update.
+          final startPixelsPerMinute = _hourHeight / 60;
+          _zoomFocalMinute = startPixelsPerMinute > 0
+              ? focalContentY / startPixelsPerMinute
+              : 0;
         }
       },
       onScaleUpdate: (details) {
         final start = _zoomStartHeight;
-        if (start == null || details.pointerCount < 2) {
+        final focalMinute = _zoomFocalMinute;
+        final focalLocalY = _zoomFocalLocalY;
+        if (start == null ||
+            focalMinute == null ||
+            focalLocalY == null ||
+            details.pointerCount < 2) {
           return;
         }
-        setState(
-          () => _hourHeight = PlannerZoomPolicy.clamp(start * details.scale),
-        );
+        final newHourHeight =
+            PlannerZoomPolicy.clamp(start * details.scale);
+        final newPixelsPerMinute = newHourHeight / 60;
+        final controller = widget.scrollController;
+        // Compute the scroll offset that keeps the captured focal
+        // minute directly beneath the same local Y on the timeline
+        // surface. Clamp to the controller's valid extent so we
+        // cannot overshoot the start or end of the scrollable.
+        final desiredFocalContentY = focalMinute * newPixelsPerMinute;
+        final desiredOffset = (desiredFocalContentY - focalLocalY).toDouble();
+        final hasClients = controller.hasClients;
+        final maxExtent = hasClients
+            ? controller.position.maxScrollExtent
+            : double.infinity;
+        final minExtent = hasClients
+            ? controller.position.minScrollExtent
+            : 0.0;
+        final clampedOffset = desiredOffset.clamp(minExtent, maxExtent).toDouble();
+        setState(() {
+          _hourHeight = newHourHeight;
+          if (hasClients) {
+            controller.jumpTo(clampedOffset);
+          }
+        });
       },
       onScaleEnd: (_) {
         if (_zoomStartHeight != null) {
           _zoomStartHeight = null;
+          _zoomStartScrollOffset = null;
+          _zoomFocalLocalY = null;
+          _zoomFocalMinute = null;
           widget.onZoomEnd(_hourHeight);
         }
       },
