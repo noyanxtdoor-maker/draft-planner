@@ -1527,6 +1527,13 @@ final class _TimedEventTimeline extends StatefulWidget {
 final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
   static const double _timeColumnWidth = 56;
   static const double _eventGap = 3;
+  // Vertical extent of the current-time indicator Row. The Row is
+  // centered on the exact current minute within the timeline, so
+  // this value defines the band whose center marks the minute.
+  // Tall enough to host the 11-px time label and the 8-px dot and
+  // 2-px line, with crossAxisAlignment.center centering each on
+  // the minute within normal logical-pixel rounding tolerance.
+  static const double _currentTimeIndicatorHeight = 12;
 
   final Map<String, int> _previewStartMinutes = <String, int>{};
   final Map<String, int> _previewEndMinutes = <String, int>{};
@@ -1714,28 +1721,117 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
                       'No timed Calendar Events. Tap the timeline to add one.',
                     ),
                   ),
-                ValueListenableBuilder<DateTime>(
-                  valueListenable: widget.currentTimeListenable,
-                  builder: (context, currentNow, _) {
-                    final indicatorVisible =
-                        widget.settings.showCurrentTime &&
-                        widget.selectedDate ==
-                            PlannerDate.fromDateTime(currentNow) &&
-                        currentNow.hour >= _firstHour &&
-                        currentNow.hour < _lastHour;
-                    if (!indicatorVisible) {
-                      return const SizedBox.shrink();
-                    }
-                    return _CurrentTimeIndicator(
-                      top:
-                          ((currentNow.hour - _firstHour) * 60 +
-                                  currentNow.minute) *
-                          (_hourHeight / 60),
-                      left: 0,
-                      timeColumnWidth: _timeColumnWidth,
-                      label: formatPlannerCurrentTimeLabel(currentNow),
-                    );
-                  },
+                Positioned.fill(
+                  key: const Key('planner-current-time-overlay'),
+                  child: IgnorePointer(
+                    child: ValueListenableBuilder<DateTime>(
+                      valueListenable: widget.currentTimeListenable,
+                      builder: (context, currentNow, _) {
+                        // Current-time overlay: nested-Stack pattern so
+                        // both ParentData relationships remain valid.
+                        //
+                        // * Outer [Positioned.fill] is a direct child of
+                        //   the main timeline [Stack] (Positioned MUST
+                        //   be laid out by a Stack).
+                        // * Inner [Stack] is the builder's return value;
+                        //   the inner [Positioned] for the indicator Row
+                        //   is a direct child of that inner [Stack],
+                        //   keeping ParentData valid when the indicator
+                        //   is visible.
+                        // * When hidden, the inner [Stack] contains no
+                        //   Positioned and is therefore safe to render.
+                        //
+                        // The ValueListenableBuilder rebuilds only this
+                        // overlay subtree on minute ticks; the pinch,
+                        // long-press, resize, day-swipe, and event-tap
+                        // recognizers are not in the rebuild path.
+                        final minuteFromVisibleStart =
+                            ((currentNow.hour - _firstHour) * 60) +
+                                currentNow.minute;
+                        final pixelsPerMinute = _hourHeight / 60;
+                        final resolvedMinuteY =
+                            minuteFromVisibleStart * pixelsPerMinute;
+                        final resolvedIndicatorTop =
+                            resolvedMinuteY - _currentTimeIndicatorHeight / 2;
+                        final indicatorVisible =
+                            widget.settings.showCurrentTime &&
+                                widget.selectedDate ==
+                                    PlannerDate.fromDateTime(currentNow) &&
+                                currentNow.hour >= _firstHour &&
+                                currentNow.hour < _lastHour;
+                        return Stack(
+                          clipBehavior: Clip.none,
+                          children: <Widget>[
+                            if (indicatorVisible)
+                              Positioned(
+                                key: const Key(
+                                  'planner-current-time-indicator',
+                                ),
+                                top: resolvedIndicatorTop,
+                                left: 0,
+                                right: 0,
+                                child: SizedBox(
+                                  height: _currentTimeIndicatorHeight,
+                                  child: Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.center,
+                                    children: <Widget>[
+                                      SizedBox(
+                                        width: _timeColumnWidth,
+                                        child: Text(
+                                          formatPlannerCurrentTimeLabel(
+                                            currentNow,
+                                          ),
+                                          key: const Key(
+                                            'planner-current-time-label',
+                                          ),
+                                          textAlign: TextAlign.right,
+                                          maxLines: 1,
+                                          softWrap: false,
+                                          overflow: TextOverflow.visible,
+                                          style: const TextStyle(
+                                            color: AppTheme.rose,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w700,
+                                            height: 1.0,
+                                            letterSpacing: 0.2,
+                                          ),
+                                        ),
+                                      ),
+                                      Container(
+                                        key: const Key(
+                                          'planner-current-time-dot',
+                                        ),
+                                        width: 8,
+                                        height: 8,
+                                        margin: const EdgeInsets.only(
+                                          left: 6,
+                                          right: 6,
+                                        ),
+                                        decoration: const BoxDecoration(
+                                          color: AppTheme.rose,
+                                          shape: BoxShape.circle,
+                                        ),
+                                      ),
+                                      const Expanded(
+                                        child: SizedBox(
+                                          height: 2,
+                                          child: DecoratedBox(
+                                            decoration: BoxDecoration(
+                                              color: AppTheme.rose,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
                 ),
                 for (final placement in placements)
                   _positionedEvent(
@@ -2340,85 +2436,6 @@ String formatPlannerCurrentTimeLabel(DateTime now) {
       : hour24;
   final period = hour24 >= 12 ? 'PM' : 'AM';
   return '$displayHour:${minute.toString().padLeft(2, '0')} $period';
-}
-
-/// Renders the exact current-time indicator as one coherent
-/// horizontal row:
-///
-///     [time text] [circle] [horizontal line]
-///
-/// The time text occupies the left label/gutter region (visually
-/// adjacent to the hour labels rendered by the timeline), the
-/// circle marks the exact current-minute position, and the line
-/// extends from the circle to the right edge of the timeline. The
-/// indicator is wrapped in [IgnorePointer] so it never blocks
-/// empty-time taps, vertical scroll, pinch zoom, day-swipe, Event
-/// body taps, resize, or selection mode.
-final class _CurrentTimeIndicator extends StatelessWidget {
-  const _CurrentTimeIndicator({
-    required this.top,
-    required this.left,
-    required this.timeColumnWidth,
-    required this.label,
-  });
-
-  final double top;
-  final double left;
-  final double timeColumnWidth;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Positioned(
-      key: const Key('planner-current-time-indicator'),
-      top: top,
-      left: left,
-      right: 0,
-      child: IgnorePointer(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: <Widget>[
-            SizedBox(
-              width: timeColumnWidth,
-              child: Text(
-                label,
-                key: const Key('planner-current-time-label'),
-                textAlign: TextAlign.right,
-                maxLines: 1,
-                softWrap: false,
-                overflow: TextOverflow.visible,
-                style: const TextStyle(
-                  color: AppTheme.rose,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  height: 1.0,
-                  letterSpacing: 0.2,
-                ),
-              ),
-            ),
-            Container(
-              key: const Key('planner-current-time-dot'),
-              width: 8,
-              height: 8,
-              margin: const EdgeInsets.only(left: 6, right: 6),
-              decoration: const BoxDecoration(
-                color: AppTheme.rose,
-                shape: BoxShape.circle,
-              ),
-            ),
-            const Expanded(
-              child: SizedBox(
-                height: 2,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(color: AppTheme.rose),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 final class _TaskTile extends StatelessWidget {
