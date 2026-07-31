@@ -18,9 +18,18 @@ final class HomeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(homeIndicatorControllerProvider);
     final snapshot = state.snapshot;
+    // Phase 9 — Slice D removed the Home top-bar calendar and shield
+    // actions. The hamburger navigation and Home title remain. The
+    // Planner "Go to today" surface owns the consolidated calendar
+    // icon from this slice, and Privacy remains reachable through the
+    // global navigation drawer so the underlying domain/security
+    // logic is unchanged. The actions list is intentionally empty
+    // and contains no placeholders so the AppBar does not reserve
+    // space for removed controls.
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Home'),
+        key: const Key('home-app-bar'),
+        title: const Text('Home', key: Key('home-title')),
         leading: Builder(
           builder: (innerContext) => IconButton(
             key: const Key('home-hamburger'),
@@ -29,18 +38,7 @@ final class HomeScreen extends ConsumerWidget {
             icon: const Icon(Icons.menu),
           ),
         ),
-        actions: <Widget>[
-          IconButton(
-            tooltip: 'Open today in Planner',
-            onPressed: () => context.go(RoutePaths.planner),
-            icon: const Icon(Icons.today_outlined),
-          ),
-          IconButton(
-            tooltip: 'Privacy and Data',
-            onPressed: () => context.push(RoutePaths.privacyCenter),
-            icon: const Icon(Icons.shield_outlined),
-          ),
-        ],
+        actions: const <Widget>[],
       ),
       body: SafeArea(
         child: snapshot == null

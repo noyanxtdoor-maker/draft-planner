@@ -23,7 +23,9 @@ import 'package:rmplanner/features/planner/presentation/calendar_event_creation.
 import 'package:rmplanner/features/planner/presentation/calendar_event_detail_screen.dart';
 import 'package:rmplanner/features/planner/presentation/contextual_create_fab.dart';
 import 'package:rmplanner/features/planner/presentation/widgets/anchored_top_bar_popup.dart';
+import 'package:rmplanner/features/planner/presentation/widgets/planner_calendar_icon.dart';
 import 'package:rmplanner/features/planner/presentation/widgets/planner_event_block_layout_policy.dart';
+import 'package:rmplanner/features/planner/presentation/widgets/planner_slide_down_date_picker.dart';
 
 final class PlannerScreen extends ConsumerStatefulWidget {
   const PlannerScreen({super.key, this.currentTimeListenable});
@@ -50,6 +52,7 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
   final GlobalKey _filterButtonKey = GlobalKey();
   final GlobalKey _overflowButtonKey = GlobalKey();
   String? _initialScrollSignature;
+  bool _initialScrollPerformed = false;
   PlannerPresentation? _presentation;
   final Set<PlannerSelectionId> _selectedItems = <PlannerSelectionId>{};
   Future<List<PlannerDay>>? _rangeLoad;
@@ -239,34 +242,37 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
         ),
       ),
       titleSpacing: 0,
-      title: InkWell(
-        key: const Key('planner-date-label'),
-        borderRadius: BorderRadius.circular(8),
-        onTap: () => _openCalendar(context, controller, state),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-          child: Row(
-            key: const Key('planner-date-label-row'),
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Flexible(
-                child: Text(
-                  _dateLabel(state.selectedDate, _presentation!),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
+      title: KeyedSubtree(
+        key: const Key('planner-date-picker-trigger'),
+        child: InkWell(
+          key: const Key('planner-date-label'),
+          borderRadius: BorderRadius.circular(8),
+          onTap: () => _openCalendar(context, controller, state),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+            child: Row(
+              key: const Key('planner-date-label-row'),
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Flexible(
+                  child: Text(
+                    _dateLabel(state.selectedDate, _presentation!),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 2),
-              const Icon(
-                Icons.keyboard_arrow_down_rounded,
-                key: Key('planner-date-chevron'),
-                size: 18,
-                color: AppTheme.rose,
-              ),
-            ],
+                const SizedBox(width: 2),
+                const Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  key: Key('planner-date-chevron'),
+                  size: 18,
+                  color: AppTheme.rose,
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -275,8 +281,13 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
           label: 'Go to today',
           button: true,
           child: ExcludeSemantics(
-            child: InkWell(
-              key: const Key('planner-today-button'),
+            // Slice D reuses the same calendar icon that the Home
+            // top bar used to expose. The component encapsulates the
+            // glyph, size, and visual structure while the parent
+            // owns the tap callback, the focused key, and the
+            // Slice C color contract (pink when selected date is
+            // today; on-surface otherwise).
+            child: PlannerCalendarButtonSurface(
               onTap: () {
                 final today = ref.read(plannerDateSourceProvider).today();
                 unawaited(
@@ -285,16 +296,7 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                       .selectDate(today),
                 );
               },
-              child: Container(
-                key: const Key('planner-calendar-button'),
-                alignment: Alignment.center,
-                padding: const EdgeInsets.symmetric(horizontal: 6),
-                child: Icon(
-                  Icons.calendar_month,
-                  color: todayIconColor,
-                  size: 22,
-                ),
-              ),
+              color: todayIconColor,
             ),
           ),
         ),
@@ -982,6 +984,17 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     required PlannerSettings settings,
     required List<PlannerCalendarItem> timedEvents,
   }) {
+    // Phase 5 — Slice D removed automatic scroll-to-current-time
+    // triggered by date changes. The initial scroll only runs on
+    // first mount per session; subsequent date navigation
+    // (horizontal swipe, week-strip tap, Go to today, picker
+    // selection) preserves the existing vertical viewport.
+    //
+    // The signature dedup matches every input that would justify a
+    // re-scroll so we never compute the same target twice; the
+    // separate one-shot [_initialScrollPerformed] flag is the
+    // true gate and stays true for the lifetime of this state,
+    // so date changes can never re-fire the post-frame jumpTo.
     final signature =
         '${selectedDate.iso8601}:${settings.visibleStartHour}:'
         '${settings.visibleEndHour}:${settings.initialScrollBehavior.name}';
@@ -989,6 +1002,14 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
       return;
     }
     _initialScrollSignature = signature;
+    if (_initialScrollPerformed) {
+      // Subsequent calls debounce via the signature; the
+      // one-shot gate short-circuits before scheduling the
+      // post-frame jumpTo that would otherwise move the
+      // viewport to current-time on every date change.
+      return;
+    }
+    _initialScrollPerformed = true;
     final starts =
         timedEvents
             .map((event) => event.startLocal)
@@ -1003,6 +1024,18 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
       firstRelevantEventMinute: starts.firstOrNull,
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Slice D writes the explicit frame-deferred scroll only
+      // on the very first signature occurrence. The signature
+      // gate above catches every subsequent invocation, and the
+      // one-shot [_initialScrollPerformed] flag covers the case
+      // where the same date is re-selected later without a
+      // signature change. The additional mount-time guards
+      // keep the planner from jumping to current-time after
+      // date navigation even if the state is briefly torn down
+      // and rebuilt without a different signature.
+      if (!mounted || !_initialScrollPerformed) {
+        return;
+      }
       if (!mounted || !_dayScrollController.hasClients) {
         return;
       }
@@ -1022,13 +1055,11 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
         0.0,
         _dayScrollController.position.maxScrollExtent,
       );
-      unawaited(
-        _dayScrollController.animateTo(
-          desired,
-          duration: const Duration(milliseconds: 250),
-          curve: Curves.easeOutCubic,
-        ),
-      );
+      // jumpTo() is a synchronous scroll hint that does not block
+      // the gesture pipeline; call it directly. The earlier
+      // unawaited() wrapper was rejected by the analyzer because
+      // the bound signature returns void in this Flutter SDK.
+      _dayScrollController.jumpTo(desired);
     });
   }
 
@@ -1128,7 +1159,7 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     PlannerState state,
   ) async {
     final selected = state.selectedDate;
-    final result = await showDatePicker(
+    final result = await showPlannerSlideDownDatePicker(
       context: context,
       initialDate: selected.asLocalDate,
       firstDate: DateTime(1900),
@@ -1792,7 +1823,7 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
                         // recognizers are not in the rebuild path.
                         final minuteFromVisibleStart =
                             ((currentNow.hour - _firstHour) * 60) +
-                                currentNow.minute;
+                            currentNow.minute;
                         final pixelsPerMinute = _hourHeight / 60;
                         final resolvedMinuteY =
                             minuteFromVisibleStart * pixelsPerMinute;
@@ -1800,8 +1831,8 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
                             resolvedMinuteY - _currentTimeIndicatorHeight / 2;
                         final indicatorVisible =
                             widget.settings.showCurrentTime &&
-                                widget.selectedDate ==
-                                    PlannerDate.fromDateTime(currentNow);
+                            widget.selectedDate ==
+                                PlannerDate.fromDateTime(currentNow);
                         return Stack(
                           clipBehavior: Clip.none,
                           children: <Widget>[

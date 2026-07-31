@@ -39,7 +39,28 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byTooltip('Privacy and Data'));
+      // Open the global app drawer via the Home hamburger. Stage
+      // B3-R1 Slice D removed the Home top-bar shield action so
+      // the privacy surface is reached through the global drawer
+      // (matching the production navigation path).
+      await tester.tap(find.byKey(const Key('home-hamburger')));
+      await tester.pumpAndSettle();
+      // The drawer's inner ListView lazily builds its children,
+      // so the Privacy and Data entry is unmounted when scrolled
+      // out of the visible region. Use scrollUntilVisible (which
+      // keeps scrolling until the tile is on screen) with a
+      // generous scroll step so the whole list reveals the
+      // "Account and App" group in one pass.
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('drawer-account-privacy')),
+        300,
+        scrollable: find.descendant(
+          of: find.byKey(const Key('global-app-drawer-list')),
+          matching: find.byType(Scrollable),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('drawer-account-privacy')));
       await tester.pumpAndSettle();
       expect(find.text('Privacy controls'), findsOneWidget);
       expect(
@@ -75,7 +96,22 @@ void main() {
       expect(find.byKey(const Key('main-bottom-navigation')), findsOneWidget);
       expect(await privacy.gate.isUnlockRequired(), isFalse);
 
-      await tester.tap(find.byTooltip('Privacy and Data'));
+      // Open the global app drawer via the Home hamburger. Stage
+      // B3-R1 Slice D removed the Home top-bar shield action so
+      // the privacy surface is reached through the global drawer
+      // (matching the production navigation path).
+      await tester.tap(find.byKey(const Key('home-hamburger')));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('drawer-account-privacy')),
+        300,
+        scrollable: find.descendant(
+          of: find.byKey(const Key('global-app-drawer-list')),
+          matching: find.byType(Scrollable),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('drawer-account-privacy')));
       await tester.pumpAndSettle();
       await tester.scrollUntilVisible(
         find.text('Permissions'),
@@ -171,7 +207,23 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Privacy and Data'));
+
+    // Open the global app drawer via the Home hamburger. Stage
+    // B3-R1 Slice D removed the Home top-bar shield action so
+    // the privacy surface is reached through the global drawer
+    // (matching the production navigation path).
+    await tester.tap(find.byKey(const Key('home-hamburger')));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('drawer-account-privacy')),
+      300,
+      scrollable: find.descendant(
+        of: find.byKey(const Key('global-app-drawer-list')),
+        matching: find.byType(Scrollable),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('drawer-account-privacy')));
     await tester.pumpAndSettle();
 
     expect(find.text('Privacy controls'), findsOneWidget);
