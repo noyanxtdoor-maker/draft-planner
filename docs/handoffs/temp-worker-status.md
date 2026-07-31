@@ -546,8 +546,13 @@ the final commit by the .gitignore in build/.  No hermes-verify-*
 or verify-stage-* script is present anywhere in Temp.
 
 Final Stage B3 checkpoint SHA:
-Recorded in the "Final repository check" section of the Stage B3
-final report.
+364160a
+docs(handoff): record stage b3 device verification
+(Literal SHA recorded here so a downstream audit can verify it directly
+without re-running git. The commit is local on
+temp/vs08-shared-preview and is not present on any remote. The
+predecessor Stage B2 checkpoint dd939ef and the R3A checkpoint
+ab0b91b remain in history unchanged.)
 
 Final Git status:
 ?? .todo.md
