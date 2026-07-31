@@ -175,21 +175,37 @@ void main() {
         density: Density.veryShort,
         titleMaxLines: 1,
         showTime: false,
+        showTimeInline: false,
         showStatusIcons: false,
         showResizeHandle: false,
       );
       expect(content.titleMaxLines, 1);
       expect(content.showTime, isFalse);
+      expect(content.showTimeInline, isFalse);
       expect(content.showStatusIcons, isFalse);
       expect(content.showResizeHandle, isFalse);
     });
 
-    test('short suppresses time and status to avoid RenderFlex overflow', () {
+    test('short suppresses separate time row but inlines the time into the title to avoid RenderFlex overflow', () {
       final content = PlannerEventBlockContent.forHeight(40, interactive: true);
       expect(content.density, Density.short);
       expect(content.showTime, isFalse);
+      expect(content.showTimeInline, isTrue);
       expect(content.showStatusIcons, isFalse);
       expect(content.showResizeHandle, isFalse);
+    });
+
+    test('very short inlines the time into the title to show schedule info on 15-minute events', () {
+      final content = PlannerEventBlockContent.forHeight(20, interactive: true);
+      expect(content.density, Density.veryShort);
+      expect(content.showTime, isFalse);
+      expect(content.showTimeInline, isTrue);
+      expect(content.showStatusIcons, isFalse);
+      expect(content.showResizeHandle, isFalse);
+    });
+
+    test('resize hit area is at least 48 logical pixels per the owner-correction contract', () {
+      expect(PlannerEventBlockLayoutPolicy.resizeHitAreaHeight, greaterThanOrEqualTo(48));
     });
 
     test('medium shows time and status; resize only when interactive', () {

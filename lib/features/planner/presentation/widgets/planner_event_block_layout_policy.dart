@@ -65,10 +65,11 @@ abstract final class PlannerEventBlockLayoutPolicy {
 
   /// Whether the time row should render at [density].
   ///
-  /// The `short` regime renders title-only because the remaining
-  /// height after title + padding does not reliably accommodate
-  /// the time row without exceeding the available block height
-  /// (which would surface as a 1-pixel RenderFlex overflow on
+  /// The `short` regime keeps the time in the inline title (see
+  /// [showTimeInline]) rather than as a separate row, because the
+  /// remaining height after title + padding would not reliably
+  /// accommodate the time row without exceeding the available block
+  /// height (which would surface as a 1-pixel RenderFlex overflow on
   /// ~32 px blocks, e.g. after a minimum-duration resize).
   static bool showTime(Density density) {
     return switch (density) {
@@ -77,6 +78,19 @@ abstract final class PlannerEventBlockLayoutPolicy {
       Density.medium => true,
       Density.tall => true,
     };
+  }
+
+  /// Whether the time range should be inlined into the title text
+  /// for blocks that are too short to host a second text line.
+  ///
+  /// Owner-correction: short Events (15- and 30-minute) must still
+  /// show useful schedule information. The block renders the title
+  /// and the time range together on a single line, separated by a
+  /// thin gap, with ellipsis applied to the combined text. This
+  /// prevents the RenderFlex overflow that would occur if we tried
+  /// to host a separate time row inside these compact blocks.
+  static bool showTimeInline(Density density) {
+    return density == Density.veryShort || density == Density.short;
   }
 
   /// Whether the compact status icon row should render at [density].
@@ -100,7 +114,11 @@ abstract final class PlannerEventBlockLayoutPolicy {
   /// Height of the invisible resize hit area at the bottom of every
   /// interactive Event block. Clamped to the available height so very
   /// short blocks never expose a hit area larger than the block itself.
-  static const double resizeHitAreaHeight = 40;
+  ///
+  /// Sized to the practical minimum touch target (48 logical pixels
+  /// per the owner-correction contract) but constrained to the bottom
+  /// region so the Event tap area is preserved.
+  static const double resizeHitAreaHeight = 48;
 }
 
 enum Density { veryShort, short, medium, tall }
@@ -160,6 +178,7 @@ final class PlannerEventBlockContent {
     required this.density,
     required this.titleMaxLines,
     required this.showTime,
+    required this.showTimeInline,
     required this.showStatusIcons,
     required this.showResizeHandle,
   });
@@ -173,6 +192,7 @@ final class PlannerEventBlockContent {
       density: density,
       titleMaxLines: PlannerEventBlockLayoutPolicy.titleMaxLines(density),
       showTime: PlannerEventBlockLayoutPolicy.showTime(density),
+      showTimeInline: PlannerEventBlockLayoutPolicy.showTimeInline(density),
       showStatusIcons: PlannerEventBlockLayoutPolicy.showStatusIcons(density),
       showResizeHandle: PlannerEventBlockLayoutPolicy.showResizeHandle(
         density,
@@ -184,6 +204,7 @@ final class PlannerEventBlockContent {
   final Density density;
   final int titleMaxLines;
   final bool showTime;
+  final bool showTimeInline;
   final bool showStatusIcons;
   final bool showResizeHandle;
 }

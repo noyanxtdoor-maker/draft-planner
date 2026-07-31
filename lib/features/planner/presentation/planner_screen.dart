@@ -261,17 +261,28 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
       ),
       actions: <Widget>[
         Semantics(
-          label: 'Calendar view active',
-          button: false,
+          label: 'Go to today',
+          button: true,
           child: ExcludeSemantics(
-            child: Container(
-              key: const Key('planner-calendar-button'),
-              alignment: Alignment.center,
-              padding: const EdgeInsets.symmetric(horizontal: 6),
-              child: const Icon(
-                Icons.calendar_month,
-                color: AppTheme.rose,
-                size: 22,
+            child: InkWell(
+              key: const Key('planner-today-button'),
+              onTap: () {
+                final today = ref.read(plannerDateSourceProvider).today();
+                unawaited(
+                  ref
+                      .read(plannerControllerProvider.notifier)
+                      .selectDate(today),
+                );
+              },
+              child: Container(
+                key: const Key('planner-calendar-button'),
+                alignment: Alignment.center,
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                child: const Icon(
+                  Icons.calendar_month,
+                  color: AppTheme.rose,
+                  size: 22,
+                ),
               ),
             ),
           ),
@@ -2311,6 +2322,12 @@ final class _EventBlockContent extends StatelessWidget {
       fontSize: density == Density.tall ? 11 : 10,
       height: 1.1,
     );
+    final timeText = _formatRange(
+      displayStartMinute,
+      displayEndMinute,
+      use24HourTime,
+    );
+    final inlineText = '${event.title}  $timeText';
     return Padding(
       padding: const EdgeInsets.fromLTRB(6, 4, 6, 4),
       child: Column(
@@ -2319,21 +2336,19 @@ final class _EventBlockContent extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
           Text(
-            event.title,
+            content.showTimeInline ? inlineText : event.title,
             style: titleStyle,
             maxLines: content.titleMaxLines,
             overflow: TextOverflow.ellipsis,
             softWrap: false,
+            key: const Key('planner-event-block-title'),
           ),
-          if (content.showTime)
+          if (content.showTime && !content.showTimeInline)
             Padding(
               padding: EdgeInsets.only(top: density == Density.tall ? 2 : 1),
               child: Text(
-                _formatRange(
-                  displayStartMinute,
-                  displayEndMinute,
-                  use24HourTime,
-                ),
+                timeText,
+                key: const Key('planner-event-block-time'),
                 style: timeStyle,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
