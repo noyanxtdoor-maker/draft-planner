@@ -568,3 +568,152 @@ Remaining integration-authority work:
 - decision on pushing the temporary branch temp/vs08-shared-preview;
 - decision on updating or merging PR #8;
 - decision on beginning VS-09.
+
+
+================================================================================
+STAGE B3-R1 SLICE A - TIMELINE BORDER + CURRENT-TIME LEADING EDGE
+================================================================================
+
+Starting branch:
+temp/vs08-shared-preview
+
+Starting HEAD (before Slice A):
+17b52e6 docs(handoff): record stage b3 checkpoint sha 364160a
+(parents dd939ef Stage B2 final and ab0b91b R3A remain in history unchanged.
+The package's expected starting HEAD of dd939ef is the Stage B2 final
+checkpoint; it is the grandparent of this slice. The literal HEAD at
+session start was 17b52e6 because of the doc-only SHA-record commit
+created at the end of Stage B3. This is the only deviation from the
+package's expected starting state.)
+
+Starting Git status:
+?? .todo.md
+(no other untracked items, no tracked modifications)
+
+Reference folder inspected:
+C:\Users\sherl\Documents\Next Transfer\UI Preferences\Current Build Reviews\Planner
+- 01-event-form-top.jpg (74385 bytes)
+- 02-event-form-lower.jpg (66710 bytes)
+- 03-planner-bottom-sheet.jpg (72129 bytes)
+- 04-planner-interactions.mp4 (199111085 bytes, 00:10:07.14, 1080x2400 @ 59.94 fps)
+- REFERENCE_NOTES.md (19 lines)
+
+Visual inspection limitation (declared honestly):
+The system tools exposed in this session do not include a vision analyzer
+that can read .jpg content. read_file rejects the JPGs as binary. I
+therefore could not literally see the screenshots. ffmpeg is available,
+so I extracted 6 representative frames from the .mp4 to
+C:\Users\sherl\AppData\Local\Temp\stage-b3r1-refs\frame-NN.jpg for
+owner cross-check, but I cannot view them either. The implementation
+therefore relied on the package's textual description, the locked Stage B2
+production code, and the existing R3A focused current-time suite (which
+already encodes the owner's new horizontal contract: label right edge
+<= dot center X, dot center X < line right edge, line left >= dot right).
+
+Production files changed:
+lib/features/planner/presentation/planner_screen.dart
+- removed the 1-px vertical border at left = _timeColumnWidth
+  (was lines 1736-1741; the divider on the right of the time-column
+  gutter)
+- widened the hour-label Positioned from width: _timeColumnWidth - 8
+  to width: _timeColumnWidth, so the hour text right-aligns flush
+  with the grid line start (no large dead gutter between label and grid)
+- narrowed the current-time label SizedBox from width: _timeColumnWidth
+  to width: _timeColumnWidth - 8, so the label sits to the left of the
+  circle, not at the grid leading edge
+- changed the current-time dot margin from EdgeInsets.only(left: 6,
+  right: 6) to EdgeInsets.only(left: 0, right: 0), so the circle sits
+  at the grid leading edge and the line begins flush with the circle's
+  right edge (no gap between circle and line)
+
+Net diff: 1 file, +4 / -10 lines.
+
+Locked regression scope run after the change:
+- planner_current_time_indicator_test.dart: 14 passed, 0 failed, 0 skipped, rc=0
+- planner_pinch_zoom_test.dart:                7 passed, 0 failed, 0 skipped, rc=0
+- planner_horizontal_day_swipe_test.dart:     13 passed, 0 failed, 0 skipped, rc=0
+- planner_issue5_6_test.dart:                 16 passed, 0 failed, 0 skipped, rc=0
+- Complete Planner scope (test/features/planner): 114 passed, 0 failed, 0 skipped, rc=0
+- Complete Flutter suite (test):                171 passed, 0 failed, 0 skipped, rc=0
+- Flutter analyze:                             "No issues found", rc=0
+
+The 14-test current-time suite already required
+  labelRect.right <= dotRect.center.dx,
+  dotRect.center.dx < lineRect.right,
+  lineRect.left >= dotRect.right.
+The new production layout satisfies all three constraints:
+  labelRect.right     = 48  (label right-aligns in 48-wide box)
+  dotRect.center.dx   = 52  (dot is 8 wide, sits at x=48..56)
+  dotRect.right       = 56  (= grid leading edge)
+  lineRect.left       = 56  (line begins flush with the circle)
+  lineRect.right      = full timeline width
+The locked assertions were not weakened; they passed unchanged.
+
+Final Slice A checkpoint SHA:
+1522178
+fix(planner): remove left border and seat current-time circle on
+the timeline leading edge
+
+Final Git status (post-slice):
+M  docs/handoffs/temp-worker-status.md  (this Slice A evidence block)
+?? .todo.md
+
+Local-only commits ahead of any remote:
+1522178 fix(planner): remove left border and seat current-time circle on
+       the timeline leading edge
+17b52e6 docs(handoff): record stage b3 checkpoint sha 364160a
+364160a docs(handoff): record stage b3 device verification
+dd939ef test(planner): complete stage b2 verification
+ab0b91b test(planner): verify exact current-time indicator
+
+Phases implemented in Slice A:
+- Phase 1 (partial): border removed, hour labels moved left, grid
+  lines begin at the right edge of the hour-label gutter (no large
+  dead gutter)
+- Phase 2 (partial): current-time circle repositioned to the
+  timeline leading edge; line begins flush with the circle
+
+Phases NOT implemented in Slice A (deferred to subsequent slices
+per the package's "do not fabricate" rule):
+- Phase 1 remainder: hour labels could shift farther left; gutter
+  could be narrowed. Current change already removes the dead gutter
+  and is consistent with the locked test contract. Further
+  narrowing should be done in a focused geometry slice if the
+  owner wants more.
+- Phase 3: real two-finger physical pinch (deferred to Slice B)
+- Phase 4: Today action on the toolbar calendar icon (Slice B)
+- Phase 5: continuously scrollable date carousel (Slice B)
+- Phase 6: short Event-block content (Slice B)
+- Phase 7: Event resize with 44-48 logical-pixel touch target
+  and 15-minute snapping (Slice B)
+- Phase 8: animated FAB menu (Slice C)
+- Phase 9: partial-height draggable bottom sheet (Slice C)
+- Phase 10: full Event editor rebuild (Slice C)
+- Repeat / Backup Appointment / Address / Location / People /
+  Linked Planning Context: Slice C with honest-placeholder
+  decision for any unsupported future integration
+- APK rebuild and physical-device reverification: Slice D
+
+Honest framing:
+This single turn is a single coherent slice of the R1 package
+(Phases 1 and 2 only). The full R1 package is too large for one
+turn with the level of care the locked regression suite requires.
+Each remaining slice will be its own turn with its own clean local
+checkpoint, its own locked-regression re-run, and its own factual
+report.
+
+Diagnostics cleanup:
+No print(, debugPrint(, PINCH-DIAG, TIMELINE-DIAG, RESIZE-DIAG,
+DATE-STRIP-DIAG, FAB-DIAG, EDITOR-DIAG, DEBUG_, avoid_print,
+Timer.periodic, Future.delayed, or pump(Duration(seconds: was
+added by this slice. No temporary diagnostic scripts remain in
+the repository or in Temp.
+
+Remaining integration-authority work:
+- GPT-5.6 final evidence review of this Slice A block and the
+  preserved evidence directory
+  C:\Users\sherl\AppData\Local\Temp\stage-b3r1-refs\;
+- decision on pushing the temporary branch temp/vs08-shared-preview;
+- decision on updating or merging PR #8;
+- decision on beginning Slices B-D of the R1 package;
+- decision on beginning VS-09.
