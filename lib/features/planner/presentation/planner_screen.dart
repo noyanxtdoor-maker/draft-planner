@@ -194,6 +194,17 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     PlannerSettings settings,
     PlannerController controller,
   ) {
+    // Today icon visual state: pink only when the selected Planner
+    // date is the current local date. Date-only comparison via
+    // [PlannerDate] equality so hours/minutes/seconds do not affect
+    // the color. The clock source is the same deterministic
+    // [PlannerDateSource] used by the current-time indicator, so
+    // production and tests share the same anchor.
+    final today = ref.read(plannerDateSourceProvider).today();
+    final isViewingToday = state.selectedDate == today;
+    final todayIconColor = isViewingToday
+        ? AppTheme.rose
+        : Theme.of(context).colorScheme.onSurface;
     if (_selectionMode) {
       return AppBar(
         leading: IconButton(
@@ -278,9 +289,9 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                 key: const Key('planner-calendar-button'),
                 alignment: Alignment.center,
                 padding: const EdgeInsets.symmetric(horizontal: 6),
-                child: const Icon(
+                child: Icon(
                   Icons.calendar_month,
-                  color: AppTheme.rose,
+                  color: todayIconColor,
                   size: 22,
                 ),
               ),
@@ -631,83 +642,83 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
       timedEvents: day.timedEvents,
     );
 
-    return RefreshIndicator(
-      onRefresh: () => ref
-          .read(plannerControllerProvider.notifier)
-          .selectDate(state.selectedDate),
-      child: KeyedSubtree(
-        key: _dayScrollKey,
-        child: _DaySwipeDetector(
-          // Horizontal day-navigation Listener. The detector
-          // observes raw pointer events without consuming them
-          // so the existing single-finger vertical scroll and
-          // tap recognizers on the underlying SingleChildScrollView
-          // continue to win when the gesture is vertical. The
-          // single shared coordinator is also passed into the
-          // timeline so the pinch, long-press move, and vertical
-          // resize recognizers can cancel an in-progress swipe.
-          coordinator: _daySwipeCoordinator,
-          onDayChanged: (delta) async {
-            // Selection mode and overflow menus own their own
-            // gesture pipelines; day-swipe is a Day-view-only
-            // affordance and must not interfere with those
-            // interactions. The Day-view is the only context
-            // where this widget tree is built (the other
-            // presentations short-circuit above), so no extra
-            // presentation guard is required.
-            if (delta == 0) {
-              return;
-            }
-            await ref.read(plannerControllerProvider.notifier).moveDays(delta);
-          },
-          child: SingleChildScrollView(
-            key: const Key('planner-day-scroll'),
-            controller: _dayScrollController,
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(12, 14, 12, 96),
-            child: Column(
-              children: <Widget>[
-                if (state.message != null) ...<Widget>[
-                  _PlannerNotice(message: state.message!),
-                  const SizedBox(height: 12),
-                ],
-                Container(
-                  key: _timelineKey,
-                  child: KeyedSubtree(
-                    key: const Key('timed-events-section'),
-                    child: _TimedEventTimeline(
-                      events: _visibleEvents(day.timedEvents, settings)
-                          .where(
-                            (event) =>
-                                settings.showCancelledItems ||
-                                event.state != PlannerEventState.cancelled,
-                          )
-                          .toList(growable: false),
-                      selectedDate: state.selectedDate,
-                      settings: settings,
-                      scrollController: _dayScrollController,
-                      onCreate: (minute) => _createTimedEvent(
-                        context,
-                        ref,
-                        state.selectedDate,
-                        minute,
-                      ),
-                      onMove: (event, startMinute) =>
-                          _moveEvent(ref, event, startMinute),
-                      onResize: (event, endMinute) =>
-                          _resizeEvent(ref, event, endMinute),
-                      selectionMode: _selectionMode,
-                      selectedItems: _selectedItems,
-                      onToggleSelection: _toggleEventSelection,
-                      hourHeight: settings.timelineHourHeight,
-                      onZoomEnd: (value) => _persistZoom(ref, settings, value),
-                      daySwipeCoordinator: _daySwipeCoordinator,
-                      currentTimeListenable: _activeCurrentTimeListenable,
+    // Refresh-indicator removed: the Planner does not support
+    // pull-to-refresh. The previous RefreshIndicator intercepted
+    // downward drags in the gesture arena and competed with the
+    // two-finger pinch. Its onRefresh was a no-op
+    // (selectDate(state.selectedDate)) and is no longer needed.
+    return KeyedSubtree(
+      key: _dayScrollKey,
+      child: _DaySwipeDetector(
+        // Horizontal day-navigation Listener. The detector
+        // observes raw pointer events without consuming them
+        // so the existing single-finger vertical scroll and
+        // tap recognizers on the underlying SingleChildScrollView
+        // continue to win when the gesture is vertical. The
+        // single shared coordinator is also passed into the
+        // timeline so the pinch, long-press move, and vertical
+        // resize recognizers can cancel an in-progress swipe.
+        coordinator: _daySwipeCoordinator,
+        onDayChanged: (delta) async {
+          // Selection mode and overflow menus own their own
+          // gesture pipelines; day-swipe is a Day-view-only
+          // affordance and must not interfere with those
+          // interactions. The Day-view is the only context
+          // where this widget tree is built (the other
+          // presentations short-circuit above), so no extra
+          // presentation guard is required.
+          if (delta == 0) {
+            return;
+          }
+          await ref.read(plannerControllerProvider.notifier).moveDays(delta);
+        },
+        child: SingleChildScrollView(
+          key: const Key('planner-day-scroll'),
+          controller: _dayScrollController,
+          physics: const ClampingScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(12, 14, 12, 96),
+          child: Column(
+            children: <Widget>[
+              if (state.message != null) ...<Widget>[
+                _PlannerNotice(message: state.message!),
+                const SizedBox(height: 12),
+              ],
+              Container(
+                key: _timelineKey,
+                child: KeyedSubtree(
+                  key: const Key('timed-events-section'),
+                  child: _TimedEventTimeline(
+                    events: _visibleEvents(day.timedEvents, settings)
+                        .where(
+                          (event) =>
+                              settings.showCancelledItems ||
+                              event.state != PlannerEventState.cancelled,
+                        )
+                        .toList(growable: false),
+                    selectedDate: state.selectedDate,
+                    settings: settings,
+                    scrollController: _dayScrollController,
+                    onCreate: (minute) => _createTimedEvent(
+                      context,
+                      ref,
+                      state.selectedDate,
+                      minute,
                     ),
+                    onMove: (event, startMinute) =>
+                        _moveEvent(ref, event, startMinute),
+                    onResize: (event, endMinute) =>
+                        _resizeEvent(ref, event, endMinute),
+                    selectionMode: _selectionMode,
+                    selectedItems: _selectedItems,
+                    onToggleSelection: _toggleEventSelection,
+                    hourHeight: settings.timelineHourHeight,
+                    onZoomEnd: (value) => _persistZoom(ref, settings, value),
+                    daySwipeCoordinator: _daySwipeCoordinator,
+                    currentTimeListenable: _activeCurrentTimeListenable,
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -1665,7 +1676,9 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
             details.pointerCount < 2) {
           return;
         }
-        final newHourHeight = PlannerZoomPolicy.clamp(start * details.scale);
+        final newHourHeight = PlannerZoomPolicy.clamp(
+          start * PlannerZoomPolicy.applyDeadZone(details.scale),
+        );
         final newPixelsPerMinute = newHourHeight / 60;
         final controller = widget.scrollController;
         // Compute the scroll offset that keeps the captured focal
