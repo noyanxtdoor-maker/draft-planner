@@ -3,7 +3,7 @@
 Current worker: None
 
 Current stage:
-Stage B1 complete; waiting for Stage B2
+Stage B2A complete; waiting for Stage B2B
 
 Workspace:
 C:\Users\sherl\Documents\Next Transfer-Temp
@@ -11,8 +11,14 @@ C:\Users\sherl\Documents\Next Transfer-Temp
 Final Stage A checkpoint:
 00b5d4d
 
-Stage B1 checkpoint:
-Recorded in the final Stage B1 report
+Stage B1 implementation checkpoint:
+d09fef9
+
+Stage B1 handoff checkpoint:
+b8d807d
+
+Stage B2A checkpoint:
+Recorded in the final Stage B2A report
 
 Remote operations:
 None performed
@@ -40,31 +46,36 @@ Focused Issue 5–6:
 0 skipped
 
 All Planner tests:
-87 passed
+100 passed
 0 failed
 0 skipped
+(Stage A baseline 87; Stage B1 added 0; Stage B2A added 13 swipe tests)
 
 Pinch-to-zoom focused tests:
 7 passed
 0 failed
 0 skipped
 
+Horizontal day-swipe focused tests:
+13 passed
+0 failed
+0 skipped
+
 Full Flutter suite:
-Not run in Stage B1; Stage A baseline was 137 passed / 0 failed / 0 skipped
+Not run in Stage B2A; Stage A baseline was 137 passed / 0 failed / 0 skipped
 
 Pinch-to-zoom:
 Implemented and verified
 
 Horizontal day swipe:
-Not started
+Implemented and verified
 
 Exact current-time label:
 Not started
 
-Remaining Stage B2:
-- horizontal left/right day swipe;
+Remaining Stage B2B:
 - exact current-time label;
-- Planner regression tests;
+- Planner regression verification;
 - full Flutter suite;
 - Stage B2 checkpoint.
 
