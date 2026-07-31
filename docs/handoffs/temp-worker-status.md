@@ -1801,3 +1801,15 @@ un_flutter.bat build apk --debug`;
 - Integrated device walkthrough.
 - Final Slice D3 handoff.
 - Final Stage B3-R1 handoff.
+
+
+## Stage B3-R1 Slice D2 Owner Physical Acceptance
+
+- Date: 2026-07-31
+- Device: Infinix X6731
+- The verified D2 APK had already been update-installed.
+- The owner manually tested the two-finger pinch.
+- Owner statement: "tested it, it's finally working"
+- D2 physical pinch acceptance: PASSED
+- No detailed result was separately supplied for every sub-check.
+- D3 implementation is now authorized.
