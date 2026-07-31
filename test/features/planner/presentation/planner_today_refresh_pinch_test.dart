@@ -18,7 +18,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
-import 'package:rmplanner/app/next_transfer_app.dart' show appEnvironmentProvider;
+import 'package:rmplanner/app/next_transfer_app.dart'
+    show appEnvironmentProvider;
 import 'package:rmplanner/app/theme/app_theme.dart' show AppTheme;
 import 'package:rmplanner/core/database/app_database.dart';
 import 'package:rmplanner/core/diagnostics/sanitized_diagnostics.dart';
@@ -135,9 +136,7 @@ List<Override> _plannerOverrides({
     ),
     plannerRepositoryProvider.overrideWithValue(plannerRepository),
     taskEventLinkRepositoryProvider.overrideWithValue(linkRepository),
-    plannerDateSourceProvider.overrideWithValue(
-      FixedPlannerDateSource(today),
-    ),
+    plannerDateSourceProvider.overrideWithValue(FixedPlannerDateSource(today)),
   ];
 }
 
@@ -177,9 +176,7 @@ Future<void> _pumpPlanner({
   );
   final prewarmElement = tester.element(find.byType(_StartupPrewarm));
   final prewarmContainer = ProviderScope.containerOf(prewarmElement);
-  await prewarmContainer
-      .read(startupControllerProvider.notifier)
-      .initialize();
+  await prewarmContainer.read(startupControllerProvider.notifier).initialize();
   await tester.pumpAndSettle();
 
   // Now pump the real planner screen.
@@ -223,10 +220,9 @@ class _StartupPrewarm extends ConsumerWidget {
 }
 
 Color _iconColor(WidgetTester tester, Key key) {
-  final widget = tester.widget<Icon>(find.descendant(
-    of: find.byKey(key),
-    matching: find.byType(Icon),
-  ));
+  final widget = tester.widget<Icon>(
+    find.descendant(of: find.byKey(key), matching: find.byType(Icon)),
+  );
   return widget.color!;
 }
 
@@ -243,13 +239,14 @@ void main() {
           selected: _today,
           today: _today,
         );
-        final color = _iconColor(
-          tester,
-          const Key('planner-calendar-button'),
+        final color = _iconColor(tester, const Key('planner-calendar-button'));
+        expect(
+          color,
+          AppTheme.rose,
+          reason:
+              'icon must use the Next Transfer accent when selected '
+              'date is today',
         );
-        expect(color, AppTheme.rose,
-            reason: 'icon must use the Next Transfer accent when selected '
-                'date is today');
       },
     );
 
@@ -264,14 +261,17 @@ void main() {
           selected: _yesterday,
           today: _today,
         );
-        final color = _iconColor(
-          tester,
-          const Key('planner-calendar-button'),
+        final color = _iconColor(tester, const Key('planner-calendar-button'));
+        expect(
+          color,
+          isNot(AppTheme.rose),
+          reason: 'icon must NOT be pink when viewing yesterday',
         );
-        expect(color, isNot(AppTheme.rose),
-            reason: 'icon must NOT be pink when viewing yesterday');
-        expect(color, Theme.of(tester.element(find.byType(Scaffold))).colorScheme.onSurface,
-            reason: 'icon must use the on-surface color away from today');
+        expect(
+          color,
+          Theme.of(tester.element(find.byType(Scaffold))).colorScheme.onSurface,
+          reason: 'icon must use the on-surface color away from today',
+        );
       },
     );
 
@@ -286,51 +286,51 @@ void main() {
           selected: _tomorrow,
           today: _today,
         );
-        final color = _iconColor(
-          tester,
-          const Key('planner-calendar-button'),
+        final color = _iconColor(tester, const Key('planner-calendar-button'));
+        expect(
+          color,
+          isNot(AppTheme.rose),
+          reason: 'icon must NOT be pink when viewing tomorrow',
         );
-        expect(color, isNot(AppTheme.rose),
-            reason: 'icon must NOT be pink when viewing tomorrow');
       },
     );
 
-    testWidgets(
-      'TEST 3 — Tapping Go to today from yesterday returns to today '
-      'and the icon becomes pink',
-      (tester) async {
-        final (database, plannerRepository) = await _buildRepositories();
-        await _pumpPlanner(
-          tester: tester,
-          database: database,
-          plannerRepository: plannerRepository,
-          selected: _yesterday,
-          today: _today,
-        );
-        // Pre-tap: icon is not pink.
-        expect(
-          _iconColor(tester, const Key('planner-calendar-button')),
-          isNot(AppTheme.rose),
-        );
-        // Tap the Go to today button.
-        await tester.tap(find.byKey(const Key('planner-today-button')));
-        await tester.pumpAndSettle();
-        // Post-tap: icon is pink.
-        expect(
-          _iconColor(tester, const Key('planner-calendar-button')),
-          AppTheme.rose,
-          reason: 'icon must be pink after returning to today',
-        );
-        // And the controller's selected date is today.
-        final plannerElement = tester.element(find.byType(PlannerScreen));
-        final plannerContainer = ProviderScope.containerOf(plannerElement);
-        final selected = plannerContainer
-            .read(plannerControllerProvider)
-            .selectedDate;
-        expect(selected, _today,
-            reason: 'planner controller must report today as selected');
-      },
-    );
+    testWidgets('TEST 3 — Tapping Go to today from yesterday returns to today '
+        'and the icon becomes pink', (tester) async {
+      final (database, plannerRepository) = await _buildRepositories();
+      await _pumpPlanner(
+        tester: tester,
+        database: database,
+        plannerRepository: plannerRepository,
+        selected: _yesterday,
+        today: _today,
+      );
+      // Pre-tap: icon is not pink.
+      expect(
+        _iconColor(tester, const Key('planner-calendar-button')),
+        isNot(AppTheme.rose),
+      );
+      // Tap the Go to today button.
+      await tester.tap(find.byKey(const Key('planner-today-button')));
+      await tester.pumpAndSettle();
+      // Post-tap: icon is pink.
+      expect(
+        _iconColor(tester, const Key('planner-calendar-button')),
+        AppTheme.rose,
+        reason: 'icon must be pink after returning to today',
+      );
+      // And the controller's selected date is today.
+      final plannerElement = tester.element(find.byType(PlannerScreen));
+      final plannerContainer = ProviderScope.containerOf(plannerElement);
+      final selected = plannerContainer
+          .read(plannerControllerProvider)
+          .selectedDate;
+      expect(
+        selected,
+        _today,
+        reason: 'planner controller must report today as selected',
+      );
+    });
   });
 
   group('Stage B3-R1 Slice C: Planner has no pull-to-refresh', () {
@@ -372,16 +372,13 @@ void main() {
         // spinner.
         final scrollable = find.byKey(const Key('planner-day-scroll'));
         expect(scrollable, findsOneWidget);
-        await tester.fling(
-          scrollable,
-          const Offset(0, 400),
-          1000,
-        );
+        await tester.fling(scrollable, const Offset(0, 400), 1000);
         await tester.pumpAndSettle();
         expect(
           find.byType(RefreshProgressIndicator),
           findsNothing,
-          reason: 'no refresh indicator should appear after a downward '
+          reason:
+              'no refresh indicator should appear after a downward '
               'fling',
         );
         expect(tester.takeException(), isNull);
@@ -389,20 +386,94 @@ void main() {
     );
   });
 
-  group('Stage B3-R1 Slice C: Pinch dead-zone', () {
+  group('Stage B3-R1 Slice C/D2: Pinch dead-zone', () {
     test('TEST 6 — applyDeadZone collapses tiny scale noise to 1.0', () {
+      // The Stage B3-R1 Slice D2 contract tightened the dead
+      // zone from 0.03 to 0.012 (owner-approved). The contract
+      // is:
+      //   * exactly 1.0 remains 1.0 (identity)
+      //   * tiny pointer noise inside the new dead zone maps
+      //     to 1.0 (no spurious zoom)
+      //   * the boundary at 1 + 0.012 is inclusive
+      //     (`<=`), so a real 1.2% scale is still considered
+      //     noise
+      //   * noise on both sides of 1.0 is symmetric
+      // The previous 1.029 / 0.971 boundary values are now
+      // well outside the dead zone and the assertion no longer
+      // pins them; the assertion now pins the actual new
+      // contract.
       expect(PlannerZoomPolicy.applyDeadZone(1.0), 1.0);
+      expect(PlannerZoomPolicy.applyDeadZone(1.005), 1.0);
       expect(PlannerZoomPolicy.applyDeadZone(1.01), 1.0);
+      // 1.011 is comfortably inside the new 0.012 dead zone
+      // even with IEEE-754 rounding (1.011 - 1.0 ≈ 0.01099...).
+      expect(PlannerZoomPolicy.applyDeadZone(1.011), 1.0);
+      expect(PlannerZoomPolicy.applyDeadZone(0.995), 1.0);
       expect(PlannerZoomPolicy.applyDeadZone(0.99), 1.0);
-      expect(PlannerZoomPolicy.applyDeadZone(1.029), 1.0);
-      expect(PlannerZoomPolicy.applyDeadZone(0.971), 1.0);
+      expect(PlannerZoomPolicy.applyDeadZone(0.989), 1.0);
     });
 
-    test('TEST 7 — applyDeadZone preserves scale beyond the dead zone', () {
+    test('TEST 7 — applyDeadZone lets modest realistic scale through', () {
+      // The Stage B3-R1 Slice D2 contract requires that a
+      // modest realistic pinch scale change becomes visible
+      // immediately, with symmetric pinch-out and pinch-in
+      // behavior. A 1.5% scale change is the upper bound of
+      // the "human intentional pinch" range and must pass
+      // through unchanged. The mapping remains monotonic
+      // outside the dead zone.
+      expect(PlannerZoomPolicy.applyDeadZone(1.015), 1.015);
+      expect(PlannerZoomPolicy.applyDeadZone(0.985), 0.985);
+      expect(PlannerZoomPolicy.applyDeadZone(1.03), 1.03);
+      expect(PlannerZoomPolicy.applyDeadZone(0.97), 0.97);
       expect(PlannerZoomPolicy.applyDeadZone(1.05), 1.05);
-      expect(PlannerZoomPolicy.applyDeadZone(0.9), 0.9);
+      expect(PlannerZoomPolicy.applyDeadZone(0.95), 0.95);
       expect(PlannerZoomPolicy.applyDeadZone(1.5), 1.5);
       expect(PlannerZoomPolicy.applyDeadZone(0.5), 0.5);
+      // Pinch-out and pinch-in at the same magnitude must
+      // produce equal-magnitude deviations from 1.0, proving
+      // the symmetry the owner requires.
+      expect(
+        (PlannerZoomPolicy.applyDeadZone(1.03) - 1.0).abs(),
+        closeTo((1.0 - PlannerZoomPolicy.applyDeadZone(0.97)).abs(), 1e-9),
+        reason:
+            'pinch-out and pinch-in at the same magnitude '
+            'must produce equal-magnitude resolved scale',
+      );
+    });
+
+    test('TEST 7b — applyDeadZone is monotonic across the boundary', () {
+      // Continuity-at-the-threshold: stepping just inside the
+      // dead zone and just outside must produce non-decreasing
+      // values (for pinch-out) and non-increasing values (for
+      // pinch-in). The owner-approved contract is explicit
+      // that no jump may occur at the threshold. The values
+      // chosen are deliberately inside and outside the new
+      // 0.012 dead zone by a comfortable margin so floating-
+      // point rounding cannot blur the boundary.
+      final inside = PlannerZoomPolicy.applyDeadZone(1.01);
+      final outside = PlannerZoomPolicy.applyDeadZone(1.02);
+      expect(inside, 1.0);
+      expect(outside, 1.02);
+      expect(
+        outside >= inside,
+        isTrue,
+        reason:
+            'resolved scale must not decrease as scale '
+            'crosses the dead-zone boundary from inside to '
+            'outside on the pinch-out side',
+      );
+      final insideIn = PlannerZoomPolicy.applyDeadZone(0.99);
+      final outsideIn = PlannerZoomPolicy.applyDeadZone(0.98);
+      expect(insideIn, 1.0);
+      expect(outsideIn, 0.98);
+      expect(
+        outsideIn <= insideIn,
+        isTrue,
+        reason:
+            'resolved scale must not increase as scale '
+            'crosses the dead-zone boundary from inside to '
+            'outside on the pinch-in side',
+      );
     });
 
     test('TEST 8 — clamp honors the locked Stage B1 preset bounds', () {

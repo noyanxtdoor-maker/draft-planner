@@ -64,6 +64,16 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
   // subsequent gesture so each pointer-down starts from a known
   // clean state.
   final _DaySwipeCoordinator _daySwipeCoordinator = _DaySwipeCoordinator();
+  // Owns the pinch state for the Planner timeline. The
+  // timeline's pointer Listener updates the active pointer
+  // count; the parent reads the coordinator to decide whether
+  // to swap the SingleChildScrollView's physics to
+  // NeverScrollableScrollPhysics during a two-pointer pinch.
+  // The coordinator lives on the parent state so its lifetime
+  // spans the entire Planner route and its listeners (the
+  // physics swap and the gesture suppressions) can be wired
+  // up once on first build.
+  final _PinchCoordinator _pinchCoordinator = _PinchCoordinator();
   // Owns the current-time value for the planner's exact
   // current-time indicator. The timeline reads this via a
   // ValueListenableBuilder so only the indicator subtree rebuilds
@@ -107,6 +117,13 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
       currentTimeNotifier = ValueNotifier<DateTime>(DateTime.now());
       _scheduleCurrentTimeTicker();
     }
+    // Subscribe to pinch-state changes so the SingleChildScrollView
+    // can be rebuilt with the appropriate physics on the same
+    // frame a two-finger pinch begins or ends. The listener
+    // uses setState; the timeline guarantees the callback only
+    // fires on actual state transitions, so the rebuild cost is
+    // bounded to one rebuild per gesture boundary.
+    _pinchCoordinator.addListener(_onPinchCoordinatorChanged);
   }
 
   /// Schedule the next minute-boundary tick of [currentTimeNotifier].
@@ -153,8 +170,26 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     _currentTimeTicker = null;
     currentTimeNotifier?.dispose();
     currentTimeNotifier = null;
+    _pinchCoordinator.removeListener(_onPinchCoordinatorChanged);
     _dayScrollController.dispose();
     super.dispose();
+  }
+
+  /// Listener invoked by the [_PinchCoordinator] whenever the
+  /// pinch state changes. The parent uses the resulting
+  /// `isPinchActive` signal to decide whether the parent
+  /// SingleChildScrollView's `physics` should be
+  /// [NeverScrollableScrollPhysics] (during a two-finger
+  /// pinch) or the default [ClampingScrollPhysics] (one
+  /// finger or zero fingers). The setState is guarded by
+  /// `mounted` to avoid touching a disposed widget, and it
+  /// only fires on a real state transition, so the rebuild
+  /// cost is bounded.
+  void _onPinchCoordinatorChanged() {
+    if (!mounted) {
+      return;
+    }
+    setState(() {});
   }
 
   @override
@@ -677,7 +712,21 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
         child: SingleChildScrollView(
           key: const Key('planner-day-scroll'),
           controller: _dayScrollController,
-          physics: const ClampingScrollPhysics(),
+          // Two-pointer pinch owns the gesture; while a pinch
+          // is active the timeline must not accumulate a
+          // vertical scroll offset that would otherwise be
+          // driven by the SingleChildScrollView's
+          // VerticalDragGestureRecognizer. The dynamic swap
+          // from ClampingScrollPhysics to
+          // NeverScrollableScrollPhysics is driven by the
+          // [_pinchCoordinator] listener installed in
+          // [initState] and is the smallest coherent
+          // architecture that satisfies the "two-pointer
+          // pinch beats ordinary vertical scroll" contract
+          // without introducing a second timeline wrapper.
+          physics: _pinchCoordinator.isPinchActive
+              ? const NeverScrollableScrollPhysics()
+              : const ClampingScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(12, 14, 12, 96),
           child: Column(
             children: <Widget>[
@@ -716,6 +765,7 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                     hourHeight: settings.timelineHourHeight,
                     onZoomEnd: (value) => _persistZoom(ref, settings, value),
                     daySwipeCoordinator: _daySwipeCoordinator,
+                    pinchCoordinator: _pinchCoordinator,
                     currentTimeListenable: _activeCurrentTimeListenable,
                   ),
                 ),
@@ -1422,6 +1472,114 @@ class _DaySwipeCoordinator {
       _pointerCount == 0 && !_sawMultiPointer && !_verticalDominant;
 }
 
+/// Mutable coordinator that tracks the Planner timeline's
+/// pinch state. The timeline's pointer Listener increments /
+/// decrements the active pointer count; once the count reaches
+/// two, the timeline reports the gesture as a pinch and the
+/// parent state can use that signal to (a) swap the parent
+/// SingleChildScrollView to NeverScrollableScrollPhysics so
+/// ordinary vertical scrolling cannot accumulate, (b) suppress
+/// Event tap / move / resize and empty-time create handlers
+/// for the duration of the pinch and one settle pump, and
+/// (c) ensure the day-swipe detector has already been
+/// cancelled.
+///
+/// The coordinator is intentionally decoupled from the
+/// [_DaySwipeCoordinator]; the two share no state because
+/// their lifetimes and responsibilities differ. The
+/// coordinator is reset on the first pointer-down of each
+/// fresh gesture, so a previous two-pointer pinch cannot
+/// leave stale state behind that would suppress a future
+/// one-finger scroll.
+class _PinchCoordinator {
+  int _pointerCount = 0;
+  bool _externalCancel = false;
+  // Listeners are notified whenever the pinch state changes
+  // (pointer count transitions across 2, or cancel is
+  // invoked). The parent state subscribes to rebuild the
+  // SingleChildScrollView with the right physics; tests can
+  // also subscribe to read the live state.
+  final List<VoidCallback> _listeners = <VoidCallback>[];
+
+  void addListener(VoidCallback listener) {
+    _listeners.add(listener);
+  }
+
+  void removeListener(VoidCallback listener) {
+    _listeners.remove(listener);
+  }
+
+  void _notify() {
+    for (final listener in List<VoidCallback>.of(_listeners)) {
+      listener();
+    }
+  }
+
+  void begin() {
+    _pointerCount = 0;
+    _externalCancel = false;
+  }
+
+  /// Called by the timeline's pointer Listener on every
+  /// pointer-down. Returns true when the pointer-down caused
+  /// the gesture to transition into the pinch state, so the
+  /// caller can perform one-time side effects (e.g. cancel
+  /// the day-swipe, capture the pinch baseline) on the exact
+  /// frame the second finger lands.
+  bool onPointerDown() {
+    _pointerCount += 1;
+    if (_pointerCount == 2) {
+      _notify();
+      return true;
+    }
+    return false;
+  }
+
+  /// Called by the timeline's pointer Listener on every
+  /// pointer-up. Returns true when the pointer-up caused the
+  /// gesture to transition out of the pinch state (count
+  /// drops below 2), so the caller can finalize pinch state
+  /// and restore ordinary one-finger scrolling.
+  bool onPointerUp() {
+    if (_pointerCount > 0) {
+      _pointerCount -= 1;
+    }
+    if (_pointerCount < 2) {
+      _notify();
+      return true;
+    }
+    return false;
+  }
+
+  /// Called by the long-press move, vertical resize drag, and
+  /// pinch scale recognizers when one of them claims the
+  /// gesture. The pending pinch candidate is then dropped
+  /// without committing any further updates.
+  void cancel() {
+    if (_externalCancel) {
+      return;
+    }
+    _externalCancel = true;
+    _notify();
+  }
+
+  void clearCancel() {
+    if (!_externalCancel) {
+      return;
+    }
+    _externalCancel = false;
+    _notify();
+  }
+
+  /// True while two or more pointers are on the timeline and
+  /// no recognizer has claimed the gesture. The parent state
+  /// uses this to swap the SingleChildScrollView to
+  /// NeverScrollableScrollPhysics.
+  bool get isPinchActive => _pointerCount >= 2 && !_externalCancel;
+
+  int get pointerCount => _pointerCount;
+}
+
 /// Lightweight Listener-based day-swipe detector. The detector
 /// observes raw pointer events without competing in the gesture
 /// arena, so it can coexist with the timeline's existing tap,
@@ -1566,6 +1724,7 @@ final class _TimedEventTimeline extends StatefulWidget {
     required this.hourHeight,
     required this.onZoomEnd,
     required this.daySwipeCoordinator,
+    required this.pinchCoordinator,
     required this.currentTimeListenable,
   });
 
@@ -1592,6 +1751,15 @@ final class _TimedEventTimeline extends StatefulWidget {
   // the parent state, so the timeline only invokes its cancel()
   // hook without owning its lifecycle.
   final _DaySwipeCoordinator daySwipeCoordinator;
+  // Shared coordinator that lets the timeline surface report
+  // its active pointer count to the parent so the parent can
+  // swap the SingleChildScrollView to
+  // NeverScrollableScrollPhysics while a two-pointer pinch is
+  // in progress. The coordinator lives on the parent state so
+  // its lifetime spans the entire Planner route; the timeline
+  // only reports pointer-down / pointer-up events without
+  // owning its lifecycle.
+  final _PinchCoordinator pinchCoordinator;
   // Parent-owned current-time source. The indicator subtree
   // watches this listenable via ValueListenableBuilder so a minute
   // tick only rebuilds the indicator — not the pinch / long-press
@@ -1634,6 +1802,35 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
   double? _zoomFocalLocalY;
   double? _zoomFocalMinute;
 
+  // Pinch two-pointer priority (Stage B3-R1 Slice D2):
+  //
+  // The Planner timeline must give an authentic two-pointer
+  // pinch authoritative priority over a one-finger vertical
+  // scroll. This is achieved by tracking the active pointer
+  // count from the moment the first finger lands on the
+  // timeline. When the count reaches 2, the timeline switches
+  // its SingleChildScrollView child to a
+  // `NeverScrollableScrollPhysics()` so the vertical drag
+  // recognizer cannot accumulate a scroll offset, and the
+  // empty-time / Event-tap / Event-move / Event-resize
+  // gesture handlers short-circuit (they observe
+  // `_pinchActive` and return immediately). When the count
+  // falls below 2, ordinary vertical scrolling and Event
+  // interactions are restored, but only after a fresh
+  // one-finger gesture begins — stale pinch state cannot
+  // trigger a delayed tap or swipe.
+  bool _pinchActive = false;
+  // Settle-time buffer: after the second pointer lifts and
+  // the count returns to 0 or 1, the timeline keeps the
+  // suppressions active for a single pump cycle so the gesture
+  // arena can fully retire the scale recognizer before a fresh
+  // vertical drag or tap is honored. This prevents the
+  // observed race where lifting the second finger would allow
+  // the remaining finger to immediately commit a vertical
+  // scroll or a tap. The buffer is one pump, not a wall-clock
+  // delay, so it cannot be classified as an artificial timer.
+  bool _postPinchSuppress = false;
+
   @override
   void initState() {
     super.initState();
@@ -1651,6 +1848,14 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
   int get _firstHour => widget.settings.visibleStartHour;
   int get _lastHour => widget.settings.visibleEndHour;
 
+  /// True while the timeline must refuse to act on a one-finger
+  /// gesture because a two-finger pinch is in progress (or the
+  /// pinch just ended within the current pump cycle). Event
+  /// tap / move / resize and the empty-time create handler all
+  /// read this flag at the top of their callback and short-
+  /// circuit when it is true.
+  bool get _suppressOneFingerInteractions => _pinchActive || _postPinchSuppress;
+
   @override
   Widget build(BuildContext context) {
     final slotCount = _lastHour - _firstHour;
@@ -1661,264 +1866,361 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
     // label, and vertical position all refresh together on every
     // minute tick without rebuilding the pinch / long-press /
     // resize recognizers on this surface.
-    return GestureDetector(
-      key: const Key('planner-zoom-surface'),
+    return Listener(
+      // Pointer-level Listener wraps the entire timeline
+      // surface so the active pointer count is tracked from
+      // the very first finger-down, not only from the moment
+      // the gesture arena promotes a ScaleGestureRecognizer.
+      // The Listener does not consume the events; the inner
+      // GestureDetector still receives every pointer event for
+      // its scale / tap / long-press recognizers. The Listener
+      // only feeds [_PinchCoordinator] so the parent state can
+      // decide whether to swap the SingleChildScrollView
+      // physics to NeverScrollableScrollPhysics.
       behavior: HitTestBehavior.translucent,
-      onScaleStart: (details) {
-        // Pinch (two-pointer scale) owns the gesture; cancel any
-        // pending day-swipe so neither a horizontal pointer nor
-        // the final remaining finger can navigate the day.
-        if (details.pointerCount >= 2) {
+      onPointerDown: (event) {
+        final transitioned = widget.pinchCoordinator.onPointerDown();
+        if (transitioned) {
+          // The second pointer just landed; the pinch now owns
+          // the gesture. Cancel the day-swipe candidate (in
+          // case the second finger is moving horizontally) and
+          // arm the suppressions so a stale one-finger tap or
+          // drag cannot commit after the pinch ends. The
+          // _PinchCoordinator remains "active" (its
+          // _externalCancel flag stays false) so the parent
+          // state swaps the SingleChildScrollView physics to
+          // NeverScrollableScrollPhysics for the duration of
+          // the pinch; the explicit `clearCancel()` call
+          // ensures no prior cancel state is lingering.
           widget.daySwipeCoordinator.cancel();
-          _zoomStartHeight = _hourHeight;
-          // Capture focal-time anchors: the local Y from this
-          // GestureDetector's coordinate space and the scroll
-          // offset of the parent SingleChildScrollView. The
-          // local coordinate is the pointer's position inside
-          // the timeline surface (origin at the top of the
-          // SizedBox). The scroll offset is read defensively
-          // (the controller has clients while mounted inside
-          // the scroll view).
-          _zoomStartScrollOffset = widget.scrollController.hasClients
-              ? widget.scrollController.offset
-              : 0;
-          _zoomFocalLocalY = details.localFocalPoint.dy;
-          final focalContentY =
-              (_zoomStartScrollOffset ?? 0) + (_zoomFocalLocalY ?? 0);
-          // Convert the content-Y to a focal minute using the
-          // *effective* current pixelsPerMinute (the start hour
-          // height). This is the minute whose time label was
-          // sitting under the focal point when the pinch began
-          // and is the value preserved by scroll recomputation
-          // on every subsequent scale update.
-          final startPixelsPerMinute = _hourHeight / 60;
-          _zoomFocalMinute = startPixelsPerMinute > 0
-              ? focalContentY / startPixelsPerMinute
-              : 0;
+          widget.pinchCoordinator.clearCancel();
+          _pinchActive = true;
+          _postPinchSuppress = true;
         }
       },
-      onScaleUpdate: (details) {
-        final start = _zoomStartHeight;
-        final focalMinute = _zoomFocalMinute;
-        final focalLocalY = _zoomFocalLocalY;
-        if (start == null ||
-            focalMinute == null ||
-            focalLocalY == null ||
-            details.pointerCount < 2) {
-          return;
+      onPointerUp: (event) {
+        final transitioned = widget.pinchCoordinator.onPointerUp();
+        if (transitioned) {
+          _pinchActive = false;
+          // _postPinchSuppress stays true until the next pump
+          // cycle, so a stale single-pointer drag that was
+          // already in flight cannot commit a vertical scroll
+          // or an empty-time tap immediately after the second
+          // finger lifted. The flag is cleared by the post-frame
+          // callback scheduled in onScaleEnd.
         }
-        final newHourHeight = PlannerZoomPolicy.clamp(
-          start * PlannerZoomPolicy.applyDeadZone(details.scale),
-        );
-        final newPixelsPerMinute = newHourHeight / 60;
-        final controller = widget.scrollController;
-        // Compute the scroll offset that keeps the captured focal
-        // minute directly beneath the same local Y on the timeline
-        // surface. Clamp to the controller's valid extent so we
-        // cannot overshoot the start or end of the scrollable.
-        final desiredFocalContentY = focalMinute * newPixelsPerMinute;
-        final desiredOffset = (desiredFocalContentY - focalLocalY).toDouble();
-        final hasClients = controller.hasClients;
-        final maxExtent = hasClients
-            ? controller.position.maxScrollExtent
-            : double.infinity;
-        final minExtent = hasClients
-            ? controller.position.minScrollExtent
-            : 0.0;
-        final clampedOffset = desiredOffset
-            .clamp(minExtent, maxExtent)
-            .toDouble();
-        setState(() {
-          _hourHeight = newHourHeight;
-          if (hasClients) {
-            controller.jumpTo(clampedOffset);
+      },
+      onPointerCancel: (event) {
+        final transitioned = widget.pinchCoordinator.onPointerUp();
+        if (transitioned) {
+          _pinchActive = false;
+        }
+      },
+      child: GestureDetector(
+        key: const Key('planner-zoom-surface'),
+        behavior: HitTestBehavior.translucent,
+        onScaleStart: (details) {
+          // Pinch (two-pointer scale) owns the gesture. The
+          // pinch baseline is captured as soon as the
+          // recognizer fires with two pointers; Flutter's
+          // ScaleGestureRecognizer resets `details.scale` to
+          // 1.0 on the first onScaleStart of a multi-pointer
+          // gesture, so the captured start height is the
+          // pre-pinch effective hour height. The
+          // _PinchCoordinator has already ensured the parent
+          // SingleChildScrollView is in
+          // NeverScrollableScrollPhysics for the duration of
+          // the gesture.
+          if (details.pointerCount >= 2) {
+            widget.daySwipeCoordinator.cancel();
+            _zoomStartHeight = _hourHeight;
+            // Capture focal-time anchors: the local Y from this
+            // GestureDetector's coordinate space and the scroll
+            // offset of the parent SingleChildScrollView. The
+            // local coordinate is the pointer's position inside
+            // the timeline surface (origin at the top of the
+            // SizedBox). The scroll offset is read defensively
+            // (the controller has clients while mounted inside
+            // the scroll view).
+            _zoomStartScrollOffset = widget.scrollController.hasClients
+                ? widget.scrollController.offset
+                : 0;
+            _zoomFocalLocalY = details.localFocalPoint.dy;
+            final focalContentY =
+                (_zoomStartScrollOffset ?? 0) + (_zoomFocalLocalY ?? 0);
+            // Convert the content-Y to a focal minute using the
+            // *effective* current pixelsPerMinute (the start hour
+            // height). This is the minute whose time label was
+            // sitting under the focal point when the pinch began
+            // and is the value preserved by scroll recomputation
+            // on every subsequent scale update.
+            final startPixelsPerMinute = _hourHeight / 60;
+            _zoomFocalMinute = startPixelsPerMinute > 0
+                ? focalContentY / startPixelsPerMinute
+                : 0;
+            // Clear the one-pump settle flag from any previous
+            // pinch: a fresh two-pointer pinch has just begun
+            // and its suppressions are explicit (_pinchActive
+            // is now true), so the post-pinch buffer is no
+            // longer required.
+            _postPinchSuppress = false;
           }
-        });
-      },
-      onScaleEnd: (_) {
-        if (_zoomStartHeight != null) {
-          _zoomStartHeight = null;
-          _zoomStartScrollOffset = null;
-          _zoomFocalLocalY = null;
-          _zoomFocalMinute = null;
-          widget.onZoomEnd(_hourHeight);
-        }
-      },
-      child: SizedBox(
-        key: const Key('planner-time-grid'),
-        height: timelineHeight,
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return Stack(
-              clipBehavior: Clip.none,
-              children: <Widget>[
-                Positioned.fill(
-                  left: _timeColumnWidth,
-                  child: GestureDetector(
-                    key: const Key('planner-timeline-create-surface'),
-                    behavior: HitTestBehavior.opaque,
-                    onTapUp: (details) {
-                      final minute = snapPlannerMinute(
-                        _firstHour * 60 +
-                            (details.localPosition.dy / _hourHeight * 60)
-                                .round(),
-                        widget.settings.snapMinutes,
-                      ).clamp(_firstHour * 60, _lastHour * 60 - 15);
-                      widget.onCreate(minute);
-                    },
-                  ),
-                ),
-                for (var index = 0; index <= slotCount; index++) ...<Widget>[
-                  Positioned(
-                    top: index * _hourHeight - 7,
-                    left: 0,
-                    width: _timeColumnWidth,
-                    child: Text(
-                      _hourLabel(_firstHour + index),
-                      textAlign: TextAlign.right,
-                      style: Theme.of(
-                        context,
-                      ).textTheme.labelSmall?.copyWith(color: Colors.white54),
-                    ),
-                  ),
-                  Positioned(
-                    top: index * _hourHeight,
+        },
+        onScaleUpdate: (details) {
+          final start = _zoomStartHeight;
+          final focalMinute = _zoomFocalMinute;
+          final focalLocalY = _zoomFocalLocalY;
+          if (start == null ||
+              focalMinute == null ||
+              focalLocalY == null ||
+              details.pointerCount < 2) {
+            return;
+          }
+          // Apply the dead zone around 1.0 and re-anchor the
+          // scale baseline to the captured start hour height
+          // (not the current hour height) so the response is
+          // monotonic and stable across the gesture lifetime.
+          final adjustedScale = PlannerZoomPolicy.applyDeadZone(details.scale);
+          final newHourHeight = PlannerZoomPolicy.clamp(start * adjustedScale);
+          final newPixelsPerMinute = newHourHeight / 60;
+          final controller = widget.scrollController;
+          // Compute the scroll offset that keeps the captured focal
+          // minute directly beneath the same local Y on the timeline
+          // surface. Clamp to the controller's valid extent so we
+          // cannot overshoot the start or end of the scrollable.
+          final desiredFocalContentY = focalMinute * newPixelsPerMinute;
+          final desiredOffset = (desiredFocalContentY - focalLocalY).toDouble();
+          final hasClients = controller.hasClients;
+          final maxExtent = hasClients
+              ? controller.position.maxScrollExtent
+              : double.infinity;
+          final minExtent = hasClients
+              ? controller.position.minScrollExtent
+              : 0.0;
+          final clampedOffset = desiredOffset
+              .clamp(minExtent, maxExtent)
+              .toDouble();
+          setState(() {
+            _hourHeight = newHourHeight;
+            if (hasClients) {
+              controller.jumpTo(clampedOffset);
+            }
+          });
+        },
+        onScaleEnd: (_) {
+          if (_zoomStartHeight != null) {
+            _zoomStartHeight = null;
+            _zoomStartScrollOffset = null;
+            _zoomFocalLocalY = null;
+            _zoomFocalMinute = null;
+            widget.onZoomEnd(_hourHeight);
+          }
+          // Keep the one-pump settle suppression active until
+          // the next frame so a stale single-pointer drag that
+          // was already in flight cannot immediately commit a
+          // vertical scroll or a tap.
+          _postPinchSuppress = true;
+          _pinchActive = false;
+          // Clear the cancel flag so a subsequent fresh
+          // two-pointer pinch can claim the gesture again.
+          widget.pinchCoordinator.clearCancel();
+          // Schedule a single post-frame tick to clear the
+          // settle flag once the gesture arena has retired the
+          // scale recognizer. Using WidgetsBinding's transient
+          // callback keeps this off any wall-clock timer and
+          // avoids the artificial-delay anti-pattern.
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) {
+              return;
+            }
+            _postPinchSuppress = false;
+          });
+        },
+        child: SizedBox(
+          key: const Key('planner-time-grid'),
+          height: timelineHeight,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return Stack(
+                clipBehavior: Clip.none,
+                children: <Widget>[
+                  Positioned.fill(
                     left: _timeColumnWidth,
-                    right: 0,
-                    child: const Divider(height: 1, color: AppTheme.outline),
-                  ),
-                ],
-                if (widget.events.isEmpty)
-                  const Positioned(
-                    top: 18,
-                    left: _timeColumnWidth + 14,
-                    right: 8,
-                    child: _EmptySectionMessage(
-                      'No timed Calendar Events. Tap the timeline to add one.',
-                    ),
-                  ),
-                Positioned.fill(
-                  key: const Key('planner-current-time-overlay'),
-                  child: IgnorePointer(
-                    child: ValueListenableBuilder<DateTime>(
-                      valueListenable: widget.currentTimeListenable,
-                      builder: (context, currentNow, _) {
-                        // Current-time overlay: nested-Stack pattern so
-                        // both ParentData relationships remain valid.
-                        //
-                        // * Outer [Positioned.fill] is a direct child of
-                        //   the main timeline [Stack] (Positioned MUST
-                        //   be laid out by a Stack).
-                        // * Inner [Stack] is the builder's return value;
-                        //   the inner [Positioned] for the indicator Row
-                        //   is a direct child of that inner [Stack],
-                        //   keeping ParentData valid when the indicator
-                        //   is visible.
-                        // * When hidden, the inner [Stack] contains no
-                        //   Positioned and is therefore safe to render.
-                        //
-                        // The ValueListenableBuilder rebuilds only this
-                        // overlay subtree on minute ticks; the pinch,
-                        // long-press, resize, day-swipe, and event-tap
-                        // recognizers are not in the rebuild path.
-                        final minuteFromVisibleStart =
-                            ((currentNow.hour - _firstHour) * 60) +
-                            currentNow.minute;
-                        final pixelsPerMinute = _hourHeight / 60;
-                        final resolvedMinuteY =
-                            minuteFromVisibleStart * pixelsPerMinute;
-                        final resolvedIndicatorTop =
-                            resolvedMinuteY - _currentTimeIndicatorHeight / 2;
-                        final indicatorVisible =
-                            widget.settings.showCurrentTime &&
-                            widget.selectedDate ==
-                                PlannerDate.fromDateTime(currentNow);
-                        return Stack(
-                          clipBehavior: Clip.none,
-                          children: <Widget>[
-                            if (indicatorVisible)
-                              Positioned(
-                                key: const Key(
-                                  'planner-current-time-indicator',
-                                ),
-                                top: resolvedIndicatorTop,
-                                left: 0,
-                                right: 0,
-                                child: SizedBox(
-                                  height: _currentTimeIndicatorHeight,
-                                  child: Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.center,
-                                    children: <Widget>[
-                                      SizedBox(
-                                        width: _timeColumnWidth - 8,
-                                        child: Text(
-                                          formatPlannerCurrentTimeLabel(
-                                            currentNow,
-                                          ),
-                                          key: const Key(
-                                            'planner-current-time-label',
-                                          ),
-                                          textAlign: TextAlign.right,
-                                          maxLines: 1,
-                                          softWrap: false,
-                                          overflow: TextOverflow.visible,
-                                          style: const TextStyle(
-                                            color: AppTheme.rose,
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w700,
-                                            height: 1.0,
-                                            letterSpacing: 0.2,
-                                          ),
-                                        ),
-                                      ),
-                                      Container(
-                                        key: const Key(
-                                          'planner-current-time-dot',
-                                        ),
-                                        width: 8,
-                                        height: 8,
-                                        margin: const EdgeInsets.only(
-                                          left: 0,
-                                          right: 0,
-                                        ),
-                                        decoration: const BoxDecoration(
-                                          color: AppTheme.rose,
-                                          shape: BoxShape.circle,
-                                        ),
-                                      ),
-                                      Expanded(
-                                        child: SizedBox(
-                                          key: const Key(
-                                            'planner-current-time-line',
-                                          ),
-                                          height: 2,
-                                          child: const DecoratedBox(
-                                            decoration: BoxDecoration(
-                                              color: AppTheme.rose,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                          ],
-                        );
+                    child: GestureDetector(
+                      key: const Key('planner-timeline-create-surface'),
+                      behavior: HitTestBehavior.opaque,
+                      onTapUp: (details) {
+                        // Empty-time create: suppressed while a
+                        // pinch is in progress or during the
+                        // one-pump settle window so a stale
+                        // finger landing does not open the
+                        // Event Type picker after the pinch
+                        // ends.
+                        if (_suppressOneFingerInteractions) {
+                          return;
+                        }
+                        final minute = snapPlannerMinute(
+                          _firstHour * 60 +
+                              (details.localPosition.dy / _hourHeight * 60)
+                                  .round(),
+                          widget.settings.snapMinutes,
+                        ).clamp(_firstHour * 60, _lastHour * 60 - 15);
+                        widget.onCreate(minute);
                       },
                     ),
                   ),
-                ),
-                for (final placement in placements)
-                  _positionedEvent(
-                    placement,
-                    constraints.maxWidth,
-                    timelineHeight,
+                  for (var index = 0; index <= slotCount; index++) ...<Widget>[
+                    Positioned(
+                      top: index * _hourHeight - 7,
+                      left: 0,
+                      width: _timeColumnWidth,
+                      child: Text(
+                        _hourLabel(_firstHour + index),
+                        textAlign: TextAlign.right,
+                        style: Theme.of(
+                          context,
+                        ).textTheme.labelSmall?.copyWith(color: Colors.white54),
+                      ),
+                    ),
+                    Positioned(
+                      top: index * _hourHeight,
+                      left: _timeColumnWidth,
+                      right: 0,
+                      child: const Divider(height: 1, color: AppTheme.outline),
+                    ),
+                  ],
+                  if (widget.events.isEmpty)
+                    const Positioned(
+                      top: 18,
+                      left: _timeColumnWidth + 14,
+                      right: 8,
+                      child: _EmptySectionMessage(
+                        'No timed Calendar Events. Tap the timeline to add one.',
+                      ),
+                    ),
+                  Positioned.fill(
+                    key: const Key('planner-current-time-overlay'),
+                    child: IgnorePointer(
+                      child: ValueListenableBuilder<DateTime>(
+                        valueListenable: widget.currentTimeListenable,
+                        builder: (context, currentNow, _) {
+                          // Current-time overlay: nested-Stack pattern so
+                          // both ParentData relationships remain valid.
+                          //
+                          // * Outer [Positioned.fill] is a direct child of
+                          //   the main timeline [Stack] (Positioned MUST
+                          //   be laid out by a Stack).
+                          // * Inner [Stack] is the builder's return value;
+                          //   the inner [Positioned] for the indicator Row
+                          //   is a direct child of that inner [Stack],
+                          //   keeping ParentData valid when the indicator
+                          //   is visible.
+                          // * When hidden, the inner [Stack] contains no
+                          //   Positioned and is therefore safe to render.
+                          //
+                          // The ValueListenableBuilder rebuilds only this
+                          // overlay subtree on minute ticks; the pinch,
+                          // long-press, resize, day-swipe, and event-tap
+                          // recognizers are not in the rebuild path.
+                          final minuteFromVisibleStart =
+                              ((currentNow.hour - _firstHour) * 60) +
+                              currentNow.minute;
+                          final pixelsPerMinute = _hourHeight / 60;
+                          final resolvedMinuteY =
+                              minuteFromVisibleStart * pixelsPerMinute;
+                          final resolvedIndicatorTop =
+                              resolvedMinuteY - _currentTimeIndicatorHeight / 2;
+                          final indicatorVisible =
+                              widget.settings.showCurrentTime &&
+                              widget.selectedDate ==
+                                  PlannerDate.fromDateTime(currentNow);
+                          return Stack(
+                            clipBehavior: Clip.none,
+                            children: <Widget>[
+                              if (indicatorVisible)
+                                Positioned(
+                                  key: const Key(
+                                    'planner-current-time-indicator',
+                                  ),
+                                  top: resolvedIndicatorTop,
+                                  left: 0,
+                                  right: 0,
+                                  child: SizedBox(
+                                    height: _currentTimeIndicatorHeight,
+                                    child: Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.center,
+                                      children: <Widget>[
+                                        SizedBox(
+                                          width: _timeColumnWidth - 8,
+                                          child: Text(
+                                            formatPlannerCurrentTimeLabel(
+                                              currentNow,
+                                            ),
+                                            key: const Key(
+                                              'planner-current-time-label',
+                                            ),
+                                            textAlign: TextAlign.right,
+                                            maxLines: 1,
+                                            softWrap: false,
+                                            overflow: TextOverflow.visible,
+                                            style: const TextStyle(
+                                              color: AppTheme.rose,
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w700,
+                                              height: 1.0,
+                                              letterSpacing: 0.2,
+                                            ),
+                                          ),
+                                        ),
+                                        Container(
+                                          key: const Key(
+                                            'planner-current-time-dot',
+                                          ),
+                                          width: 8,
+                                          height: 8,
+                                          margin: const EdgeInsets.only(
+                                            left: 0,
+                                            right: 0,
+                                          ),
+                                          decoration: const BoxDecoration(
+                                            color: AppTheme.rose,
+                                            shape: BoxShape.circle,
+                                          ),
+                                        ),
+                                        Expanded(
+                                          child: SizedBox(
+                                            key: const Key(
+                                              'planner-current-time-line',
+                                            ),
+                                            height: 2,
+                                            child: const DecoratedBox(
+                                              decoration: BoxDecoration(
+                                                color: AppTheme.rose,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          );
+                        },
+                      ),
+                    ),
                   ),
-              ],
-            );
-          },
+                  for (final placement in placements)
+                    _positionedEvent(
+                      placement,
+                      constraints.maxWidth,
+                      timelineHeight,
+                    ),
+                ],
+              );
+            },
+          ),
         ),
       ),
     );
@@ -1975,6 +2277,13 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
           // Long-press move owns the gesture from its first move;
           // cancel any pending horizontal day-swipe so the two
           // recognizers never both claim a single-finger drag.
+          // Suppressed while a two-finger pinch is in progress
+          // (or in the one-pump settle window) so a stale
+          // single-pointer drag that overlapped the pinch cannot
+          // commit an Event move after the pinch ends.
+          if (_suppressOneFingerInteractions) {
+            return;
+          }
           widget.daySwipeCoordinator.cancel();
           final rawDelta = (deltaPixels / _hourHeight * 60).round();
           final deltaMinutes =
@@ -1990,12 +2299,24 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
             _previewEndMinutes[event.id] = nextStart + duration;
           });
         },
-        onMoveEnd: () => _finishMove(event, originalStartMinute),
+        onMoveEnd: () {
+          if (_suppressOneFingerInteractions) {
+            _clearPreview(event.id);
+            return;
+          }
+          unawaited(_finishMove(event, originalStartMinute));
+        },
         onMoveCancel: () => _clearPreview(event.id),
         onResizeStart: () {
           // Vertical resize owns the gesture; cancel any pending
           // horizontal day-swipe so a long-finger drag along the
-          // bottom edge never navigates between days.
+          // bottom edge never navigates between days. Suppressed
+          // during a two-finger pinch and its settle window so a
+          // stale single-pointer drag that overlapped the pinch
+          // cannot commit an Event resize after the pinch ends.
+          if (_suppressOneFingerInteractions) {
+            return;
+          }
           widget.daySwipeCoordinator.cancel();
           // Resize keeps the original start; ensure no stale start-preview
           // from a previous move leaks into the resize calculation. The
@@ -2007,6 +2328,9 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
         },
         onResizeUpdate: (deltaPixels) {
           // First vertical update also pins the gesture to resize.
+          if (_suppressOneFingerInteractions) {
+            return;
+          }
           widget.daySwipeCoordinator.cancel();
           final accumulated =
               (_resizeAccumulatedPixels[event.id] ?? 0) + (deltaPixels);
@@ -2021,7 +2345,13 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
           );
           setState(() => _previewEndMinutes[event.id] = nextEnd);
         },
-        onResizeEnd: () => _finishResize(event, originalEndMinute),
+        onResizeEnd: () {
+          if (_suppressOneFingerInteractions) {
+            _clearPreview(event.id);
+            return;
+          }
+          unawaited(_finishResize(event, originalEndMinute));
+        },
         onResizeCancel: () => _clearPreview(event.id),
       ),
     );
