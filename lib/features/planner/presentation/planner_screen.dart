@@ -25,6 +25,8 @@ import 'package:rmplanner/features/planner/presentation/contextual_create_fab.da
 import 'package:rmplanner/features/planner/presentation/widgets/anchored_top_bar_popup.dart';
 import 'package:rmplanner/features/planner/presentation/widgets/planner_calendar_icon.dart';
 import 'package:rmplanner/features/planner/presentation/widgets/planner_event_block_layout_policy.dart';
+import 'package:rmplanner/features/planner/presentation/widgets/planner_interactive_day_pager.dart'
+    show PlannerInteractiveDayPager, PlannerInteractiveDayPagerController;
 import 'package:rmplanner/features/planner/presentation/widgets/planner_slide_down_date_picker.dart';
 
 final class PlannerScreen extends ConsumerStatefulWidget {
@@ -51,12 +53,42 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
   final GlobalKey _timelineKey = GlobalKey();
   final GlobalKey _filterButtonKey = GlobalKey();
   final GlobalKey _overflowButtonKey = GlobalKey();
+  // External command surface owned by the screen for the
+  // lifetime of the Planner route. The interactive day pager
+  // attaches itself to this controller in its
+  // [State.initState] and detaches itself in
+  // [State.dispose]. The screen's `_DaySwipeCoordinator`
+  // cancel listener invokes
+  // [PlannerInteractiveDayPagerController.recenterFromExternalCancel]
+  // so a competing recognizer (long-press move, vertical
+  // drag, pinch scale) tears the pager back to the centered
+  // resting position. The previous `GlobalKey<State>` design
+  // is removed: this typed controller is the only public
+  // command surface, and the pager's private State class is
+  // not exposed across files.
+  final PlannerInteractiveDayPagerController _pagerController =
+      PlannerInteractiveDayPagerController();
   String? _initialScrollSignature;
   bool _initialScrollPerformed = false;
   PlannerPresentation? _presentation;
   final Set<PlannerSelectionId> _selectedItems = <PlannerSelectionId>{};
   Future<List<PlannerDay>>? _rangeLoad;
   String? _rangeSignature;
+  // Cached three-day read-only preview future for the
+  // interactive pager. The cached future is rebuilt only
+  // when the preview signature (selected date + day content
+  // signature) changes, so a selectedDate change triggers
+  // exactly one readDays call for the previous/next trio.
+  // The pager itself is the single consumer: a FutureBuilder
+  // below this field reads the future and threads the
+  // resolved days straight into the previous/next preview
+  // columns. There is no parallel state-adoption helper —
+  // stale generations are dropped naturally because the
+  // FutureBuilder is rebuilt against a new future when the
+  // signature changes, and the previous future has no
+  // listeners left to notify.
+  Future<List<PlannerDay>>? _previewLoad;
+  String? _previewSignature;
   bool _selectionActive = false;
   // Owns the day-swipe candidate lifetime across the Listener
   // wrapper and the timeline's pinch/long-press/resize recognizers.
@@ -124,6 +156,18 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     // fires on actual state transitions, so the rebuild cost is
     // bounded to one rebuild per gesture boundary.
     _pinchCoordinator.addListener(_onPinchCoordinatorChanged);
+    // Register the day-swipe coordinator cancel listener so a
+    // competing recognizer (long-press move, vertical drag,
+    // pinch scale) tears the interactive day pager back to
+    // the centered resting position. The listener is
+    // unregistered in [dispose] to keep the lifecycle
+    // symmetric; the typed controller exposed on
+    // [_pagerController] is the only public command surface
+    // used here, so there is no GlobalKey lookup or dynamic
+    // invocation crossing module boundaries.
+    _daySwipeCoordinator.addCancelListener(
+      _pagerController.recenterFromExternalCancel,
+    );
   }
 
   /// Schedule the next minute-boundary tick of [currentTimeNotifier].
@@ -171,6 +215,9 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     currentTimeNotifier?.dispose();
     currentTimeNotifier = null;
     _pinchCoordinator.removeListener(_onPinchCoordinatorChanged);
+    _daySwipeCoordinator.removeCancelListener(
+      _pagerController.recenterFromExternalCancel,
+    );
     _dayScrollController.dispose();
     super.dispose();
   }
@@ -679,6 +726,46 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
       timedEvents: day.timedEvents,
     );
 
+    // Three-day read-only preview state for the interactive
+    // day pager. The previous/next trio is loaded once per
+    // relevant signature change (selected-date change OR a
+    // relevant data refresh on the selected day) so a date
+    // navigation does not double-fetch. `state.day` keeps
+    // driving the centered current page; the preview columns
+    // only consume the previous/next slots from the resolved
+    // FutureBuilder snapshot for read-only painting. The
+    // selected-day slot is intentionally never read from the
+    // preview load: the centered current page continues to
+    // render the authoritative current Planner state. This
+    // avoids duplicate repository caches and bypasses any
+    // future drift between the preview store and the
+    // authoritative state. A single coherent pattern is used:
+    // the FutureBuilder below is the only consumer of
+    // `_previewLoad`; there is no parallel state-adoption
+    // helper, no setState writes inside build, and no other
+    // path that races for the resolved list. Stale
+    // generations are dropped naturally because the
+    // FutureBuilder is rebuilt against a new future when the
+    // signature changes — the previous future has no
+    // listeners left to notify.
+    final today = ref.read(plannerDateSourceProvider).today();
+    final previousDate = state.selectedDate.addDays(-1);
+    final nextDate = state.selectedDate.addDays(1);
+    final previewSignature =
+        'pager:${state.selectedDate.iso8601}:${_dayContentSignature(day)}';
+    if (_previewSignature != previewSignature) {
+      _previewSignature = previewSignature;
+      _previewLoad = ref.read(plannerControllerProvider.notifier).readDays(
+        <PlannerDate>[previousDate, state.selectedDate, nextDate],
+      );
+    }
+
+    final hourHeight = settings.timelineHourHeight;
+    final firstHour = settings.visibleStartHour;
+    final lastHour = settings.visibleEndHour;
+    final slotCount = lastHour - firstHour;
+    final timelineHeight = slotCount * hourHeight;
+
     // Refresh-indicator removed: the Planner does not support
     // pull-to-refresh. The previous RefreshIndicator intercepted
     // downward drags in the gesture arena and competed with the
@@ -686,92 +773,133 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     // (selectDate(state.selectedDate)) and is no longer needed.
     return KeyedSubtree(
       key: _dayScrollKey,
-      child: _DaySwipeDetector(
-        // Horizontal day-navigation Listener. The detector
-        // observes raw pointer events without consuming them
-        // so the existing single-finger vertical scroll and
-        // tap recognizers on the underlying SingleChildScrollView
-        // continue to win when the gesture is vertical. The
-        // single shared coordinator is also passed into the
-        // timeline so the pinch, long-press move, and vertical
-        // resize recognizers can cancel an in-progress swipe.
-        coordinator: _daySwipeCoordinator,
-        onDayChanged: (delta) async {
-          // Selection mode and overflow menus own their own
-          // gesture pipelines; day-swipe is a Day-view-only
-          // affordance and must not interfere with those
-          // interactions. The Day-view is the only context
-          // where this widget tree is built (the other
-          // presentations short-circuit above), so no extra
-          // presentation guard is required.
-          if (delta == 0) {
-            return;
-          }
-          await ref.read(plannerControllerProvider.notifier).moveDays(delta);
-        },
-        child: SingleChildScrollView(
-          key: const Key('planner-day-scroll'),
-          controller: _dayScrollController,
-          // Two-pointer pinch owns the gesture; while a pinch
-          // is active the timeline must not accumulate a
-          // vertical scroll offset that would otherwise be
-          // driven by the SingleChildScrollView's
-          // VerticalDragGestureRecognizer. The dynamic swap
-          // from ClampingScrollPhysics to
-          // NeverScrollableScrollPhysics is driven by the
-          // [_pinchCoordinator] listener installed in
-          // [initState] and is the smallest coherent
-          // architecture that satisfies the "two-pointer
-          // pinch beats ordinary vertical scroll" contract
-          // without introducing a second timeline wrapper.
-          physics: _pinchCoordinator.isPinchActive
-              ? const NeverScrollableScrollPhysics()
-              : const ClampingScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(12, 14, 12, 96),
-          child: Column(
-            children: <Widget>[
-              if (state.message != null) ...<Widget>[
-                _PlannerNotice(message: state.message!),
-                const SizedBox(height: 12),
-              ],
-              Container(
-                key: _timelineKey,
-                child: KeyedSubtree(
-                  key: const Key('timed-events-section'),
-                  child: _TimedEventTimeline(
-                    events: _visibleEvents(day.timedEvents, settings)
-                        .where(
-                          (event) =>
-                              settings.showCancelledItems ||
-                              event.state != PlannerEventState.cancelled,
-                        )
-                        .toList(growable: false),
-                    selectedDate: state.selectedDate,
-                    settings: settings,
-                    scrollController: _dayScrollController,
-                    onCreate: (minute) => _createTimedEvent(
-                      context,
-                      ref,
-                      state.selectedDate,
-                      minute,
-                    ),
-                    onMove: (event, startMinute) =>
-                        _moveEvent(ref, event, startMinute),
-                    onResize: (event, endMinute) =>
-                        _resizeEvent(ref, event, endMinute),
-                    selectionMode: _selectionMode,
-                    selectedItems: _selectedItems,
-                    onToggleSelection: _toggleEventSelection,
-                    hourHeight: settings.timelineHourHeight,
-                    onZoomEnd: (value) => _persistZoom(ref, settings, value),
-                    daySwipeCoordinator: _daySwipeCoordinator,
-                    pinchCoordinator: _pinchCoordinator,
-                    currentTimeListenable: _activeCurrentTimeListenable,
-                  ),
-                ),
-              ),
+      child: SingleChildScrollView(
+        key: const Key('planner-day-scroll'),
+        controller: _dayScrollController,
+        // Two-pointer pinch owns the gesture; while a pinch
+        // is active the timeline must not accumulate a
+        // vertical scroll offset that would otherwise be
+        // driven by the SingleChildScrollView's
+        // VerticalDragGestureRecognizer. The dynamic swap
+        // from ClampingScrollPhysics to
+        // NeverScrollableScrollPhysics is driven by the
+        // [_pinchCoordinator] listener installed in
+        // [initState] and is the smallest coherent
+        // architecture that satisfies the "two-pointer
+        // pinch beats ordinary vertical scroll" contract
+        // without introducing a second timeline wrapper.
+        physics: _pinchCoordinator.isPinchActive
+            ? const NeverScrollableScrollPhysics()
+            : const ClampingScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(12, 14, 12, 96),
+        child: Column(
+          children: <Widget>[
+            if (state.message != null) ...<Widget>[
+              _PlannerNotice(message: state.message!),
+              const SizedBox(height: 12),
             ],
-          ),
+            FutureBuilder<List<PlannerDay>>(
+              future: _previewLoad,
+              builder: (context, snapshot) {
+                // The FutureBuilder is the single consumer of
+                // the cached preview future. While the future
+                // is in-flight the preview columns render
+                // with `null` data (an empty read-only grid);
+                // the centered current page is unaffected
+                // because it is driven by `state.day`.
+                // When the future resolves, the resolved list
+                // is fed straight into the previous/next
+                // preview columns. Stale generations are
+                // dropped because the FutureBuilder was
+                // rebuilt against a new future when the
+                // signature changed; the previous future has
+                // no listeners left to notify.
+                final previewDays = snapshot.data;
+                final previousDay =
+                    (previewDays != null && previewDays.length >= 3)
+                    ? previewDays[0]
+                    : null;
+                final nextDay = (previewDays != null && previewDays.length >= 3)
+                    ? previewDays[2]
+                    : null;
+                return LayoutBuilder(
+                  builder: (context, constraints) {
+                    final viewportWidth = constraints.maxWidth;
+                    return PlannerInteractiveDayPager(
+                      key: const Key('planner-day-pager-viewport'),
+                      controller: _pagerController,
+                      selectedDate: state.selectedDate,
+                      previousDate: previousDate,
+                      nextDate: nextDate,
+                      previousDay: previousDay,
+                      currentDay: day,
+                      nextDay: nextDay,
+                      today: today,
+                      settings: settings,
+                      hourHeight: hourHeight,
+                      timelineHeight: timelineHeight,
+                      viewportWidth: viewportWidth,
+                      onSwipePointerDown: _daySwipeCoordinator.onPointerDown,
+                      onSwipePointerUp: _daySwipeCoordinator.onPointerUp,
+                      onSwipeCancel: _daySwipeCoordinator.claim,
+                      onPinchPointerCount: () => _pinchCoordinator.pointerCount,
+                      onPinchClearCancel: _pinchCoordinator.clearCancel,
+                      onDayChanged: (delta) async {
+                        // Selection mode and overflow menus own their own
+                        // gesture pipelines; day-swipe is a Day-view-only
+                        // affordance and must not interfere with those
+                        // interactions. The Day-view is the only context
+                        // where this widget tree is built (the other
+                        // presentations short-circuit above), so no extra
+                        // presentation guard is required.
+                        if (delta == 0) {
+                          return;
+                        }
+                        await ref
+                            .read(plannerControllerProvider.notifier)
+                            .moveDays(delta);
+                      },
+                      currentPage: KeyedSubtree(
+                        key: const Key('timed-events-section'),
+                        child: _TimedEventTimeline(
+                            events: _visibleEvents(day.timedEvents, settings)
+                                .where(
+                                  (event) =>
+                                      settings.showCancelledItems ||
+                                      event.state !=
+                                          PlannerEventState.cancelled,
+                                )
+                                .toList(growable: false),
+                            selectedDate: state.selectedDate,
+                            settings: settings,
+                            scrollController: _dayScrollController,
+                            onCreate: (minute) => _createTimedEvent(
+                              context,
+                              ref,
+                              state.selectedDate,
+                              minute,
+                            ),
+                            onMove: (event, startMinute) =>
+                                _moveEvent(ref, event, startMinute),
+                            onResize: (event, endMinute) =>
+                                _resizeEvent(ref, event, endMinute),
+                            selectionMode: _selectionMode,
+                            selectedItems: _selectedItems,
+                            onToggleSelection: _toggleEventSelection,
+                            hourHeight: settings.timelineHourHeight,
+                            onZoomEnd: (value) =>
+                                _persistZoom(ref, settings, value),
+                            daySwipeCoordinator: _daySwipeCoordinator,
+                            pinchCoordinator: _pinchCoordinator,
+                            currentTimeListenable: _activeCurrentTimeListenable,
+                          ),
+                        ),
+                    );
+                  },
+                );
+              },
+            ),
+          ],
         ),
       ),
     );
@@ -1386,27 +1514,18 @@ final class _DayButton extends StatelessWidget {
   }
 }
 
-/// Minimum logical-pixel horizontal displacement required to commit
-/// a day-navigation swipe. Chosen to be clearly above Flutter's
-/// kTouchSlop (~18 logical pixels) and wide enough to reject small
-/// horizontal jitter while a finger is tapping an Event or scrolling
-/// the timeline. Pairs with [_daySwipeVelocityThreshold] — a faster
-/// sweep below this distance still commits via the velocity rule.
-const double _daySwipeMinDistance = 64;
-
-/// Minimum horizontal velocity (logical pixels / millisecond) at
-/// pointer-up that allows a swipe shorter than the distance
-/// threshold to commit. The threshold is intentionally generous
-/// because the test harness and physical devices both report
-/// velocities in this range for a deliberate flick.
-const double _daySwipeVelocityThreshold = 0.35;
-
 /// Vertical-dominance ratio: a gesture whose |dy| exceeds
 /// |dx| * ratio is treated as a vertical drag (Event resize or
 /// timeline scroll) and is not eligible for day navigation. The
 /// 1.6 ratio is wide enough that a clean horizontal sweep
 /// (dy ≈ 0) commits, while an angled drag that drifts more than
-/// ~60% vertical is rejected.
+/// ~60% vertical is rejected. The horizontal/vertical
+/// arbitration is owned by the [_DaySwipeCoordinator]; the
+/// interactive day pager in [PlannerInteractiveDayPager]
+/// applies its own direction-lock + horizontal-dominance
+/// contract (see [kPlannerPagerDirectionLockDistance] and
+/// [kPlannerPagerHorizontalDominanceRatio] in
+/// planner_interactive_day_pager.dart).
 const double _daySwipeVerticalDominanceRatio = 1.6;
 
 /// Mutable coordinator shared between the swipe detector and the
@@ -1415,11 +1534,23 @@ const double _daySwipeVerticalDominanceRatio = 1.6;
 /// candidate before it commits a day change. The coordinator lives
 /// on the parent state so its lifetime spans a single swipe gesture
 /// and is reset on every pointer-down.
+///
+/// The [addCancelListener] / [removeCancelListener] hooks are an
+/// extension hook for the live day pager added in Stage B3-R1
+/// Slice D3-A: when a competing recognizer (long-press move,
+/// vertical resize, or pinch) calls [cancel], the pager receives
+/// a callback so it can drop its in-progress drag session and
+/// animate back to the centered resting position. The hook keeps
+/// the pager from competing with the existing recognizers in the
+/// gesture arena — the recognizer that calls [cancel] still owns
+/// the pointer, and the pager simply recenters without driving
+/// the live transform further.
 class _DaySwipeCoordinator {
   int _pointerCount = 0;
   bool _sawMultiPointer = false;
   bool _verticalDominant = false;
   bool _externalCancel = false;
+  final List<VoidCallback> _cancelListeners = <VoidCallback>[];
 
   void begin() {
     _pointerCount = 0;
@@ -1429,6 +1560,14 @@ class _DaySwipeCoordinator {
   }
 
   void onPointerDown() {
+    // Reset the gesture state on every fresh down so a
+    // sticky `_externalCancel` from a previous gesture (set
+    // by the previous gesture's last `cancel()` or `claim()`
+    // call) cannot suppress a new swipe candidate. The
+    // count itself is then incremented for this new pointer.
+    _sawMultiPointer = false;
+    _verticalDominant = false;
+    _externalCancel = false;
     _pointerCount += 1;
     if (_pointerCount >= 2) {
       _sawMultiPointer = true;
@@ -1464,8 +1603,38 @@ class _DaySwipeCoordinator {
   /// Called by the long-press move, vertical resize drag, and pinch
   /// scale recognizers when one of them claims the gesture. The
   /// pending swipe candidate is then dropped without committing.
+  /// Notifies every registered cancel listener so any live-finger
+  /// observer (the interactive day pager) can recenter.
   void cancel() {
+    if (_externalCancel) {
+      return;
+    }
     _externalCancel = true;
+    for (final listener in List<VoidCallback>.of(_cancelListeners)) {
+      listener();
+    }
+  }
+
+  /// Called by the interactive day pager once it has claimed
+  /// the gesture for horizontal paging. Sets the same
+  /// [_externalCancel] flag as [cancel] so the timeline's
+  /// long-press move, vertical resize drag, and pinch scale
+  /// recognizers back off, but does NOT notify the cancel
+  /// listener (the pager itself) so the self-trigger does
+  /// not feed back into the pager's own recenter.
+  void claim() {
+    _externalCancel = true;
+  }
+
+  /// Subscribe to [cancel] notifications. The listener fires once
+  /// per external-cancel transition. Subscription is intentionally
+  /// minimal so the coordinator remains dependency-free.
+  void addCancelListener(VoidCallback listener) {
+    _cancelListeners.add(listener);
+  }
+
+  void removeCancelListener(VoidCallback listener) {
+    _cancelListeners.remove(listener);
   }
 
   bool get isActive =>
@@ -1578,135 +1747,6 @@ class _PinchCoordinator {
   bool get isPinchActive => _pointerCount >= 2 && !_externalCancel;
 
   int get pointerCount => _pointerCount;
-}
-
-/// Lightweight Listener-based day-swipe detector. The detector
-/// observes raw pointer events without competing in the gesture
-/// arena, so it can coexist with the timeline's existing tap,
-/// long-press move, vertical resize, and scale recognizers. A
-/// swipe is committed only when:
-///   1. exactly one pointer was used throughout the gesture;
-///   2. horizontal displacement dominates vertical displacement;
-///   3. the gesture exceeds [_daySwipeMinDistance] or a velocity
-///      of [_daySwipeVelocityThreshold] logical pixels/ms;
-///   4. the gesture was not cancelled by a competing recognizer
-///      (long-press start, vertical drag start, or scale start).
-/// On commit the detector calls [onDayChanged] exactly once with
-/// +1 for a left swipe (next day) or -1 for a right swipe
-/// (previous day). The detector never mutates domain data — the
-/// caller decides what to do with the day delta.
-class _DaySwipeDetector extends StatefulWidget {
-  const _DaySwipeDetector({
-    required this.coordinator,
-    required this.onDayChanged,
-    required this.child,
-  });
-
-  final _DaySwipeCoordinator coordinator;
-  final ValueChanged<int> onDayChanged;
-  final Widget child;
-
-  @override
-  State<_DaySwipeDetector> createState() => _DaySwipeDetectorState();
-}
-
-class _DaySwipeDetectorState extends State<_DaySwipeDetector> {
-  Offset? _startPosition;
-  Duration? _startTime;
-  bool _committed = false;
-
-  @override
-  void initState() {
-    super.initState();
-    widget.coordinator.begin();
-  }
-
-  void _onPointerDown(PointerDownEvent event) {
-    widget.coordinator.onPointerDown();
-    _startPosition = event.position;
-    _startTime = event.timeStamp;
-    _committed = false;
-  }
-
-  void _onPointerMove(PointerMoveEvent event) {
-    final start = _startPosition;
-    final startTime = _startTime;
-    if (start == null || startTime == null || _committed) {
-      return;
-    }
-    final dx = event.position.dx - start.dx;
-    final dy = event.position.dy - start.dy;
-    final stillCandidate = widget.coordinator.onPointerMove(dx, dy);
-    if (!stillCandidate) {
-      return;
-    }
-  }
-
-  void _onPointerUp(PointerUpEvent event) {
-    final start = _startPosition;
-    final startTime = _startTime;
-    widget.coordinator.onPointerUp();
-    if (start == null || startTime == null || _committed) {
-      _resetTransient();
-      return;
-    }
-    final dx = event.position.dx - start.dx;
-    final dy = event.position.dy - start.dy;
-    final elapsed = event.timeStamp - startTime;
-    final velocityX = elapsed.inMicroseconds == 0
-        ? 0.0
-        : (dx.abs() / (elapsed.inMicroseconds / 1000.0));
-    final passesDistance = dx.abs() >= _daySwipeMinDistance;
-    final passesVelocity =
-        velocityX >= _daySwipeVelocityThreshold && dx.abs() > 0;
-    final horizontallyDominant =
-        dx.abs() > dy.abs() * _daySwipeVerticalDominanceRatio;
-    if (widget.coordinator.isActive &&
-        (passesDistance || passesVelocity) &&
-        horizontallyDominant) {
-      _committed = true;
-      // Left swipe (negative dx) advances the day; right swipe
-      // (positive dx) goes back. The Listener is read-only with
-      // respect to the gesture arena, so the existing recognizers
-      // can still claim this pointer independently.
-      widget.onDayChanged(dx < 0 ? 1 : -1);
-    }
-    _resetTransient();
-  }
-
-  void _onPointerCancel(PointerCancelEvent event) {
-    widget.coordinator.onPointerUp();
-    _resetTransient();
-  }
-
-  void _resetTransient() {
-    _startPosition = null;
-    _startTime = null;
-    _committed = false;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // The container is marked so accessibility services can
-    // group the swipe affordance under a single semantic node.
-    // The hint and onIncrease/onDecrease actions are exposed
-    // through the Semantics widget but the Listener remains
-    // the gesture carrier.
-    return Listener(
-      behavior: HitTestBehavior.translucent,
-      onPointerDown: _onPointerDown,
-      onPointerMove: _onPointerMove,
-      onPointerUp: _onPointerUp,
-      onPointerCancel: _onPointerCancel,
-      child: Semantics(
-        container: true,
-        hint: 'Swipe left for the next day, right for the previous day',
-        onIncrease: () => widget.onDayChanged(1),
-        onDecrease: () => widget.onDayChanged(-1),
-        child: widget.child,
-      ),
-    );
-  }
 }
 
 final class _TimedEventTimeline extends StatefulWidget {
