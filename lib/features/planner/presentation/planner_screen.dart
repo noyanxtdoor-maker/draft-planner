@@ -43,6 +43,12 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
   Future<List<PlannerDay>>? _rangeLoad;
   String? _rangeSignature;
   bool _selectionActive = false;
+  // Owns the day-swipe candidate lifetime across the Listener
+  // wrapper and the timeline's pinch/long-press/resize recognizers.
+  // The field is initialized on first build and reused for every
+  // subsequent gesture so each pointer-down starts from a known
+  // clean state.
+  final _DaySwipeCoordinator _daySwipeCoordinator = _DaySwipeCoordinator();
 
   bool get _selectionMode => _selectionActive;
 
@@ -524,51 +530,76 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
           .selectDate(state.selectedDate),
       child: KeyedSubtree(
         key: _dayScrollKey,
-        child: SingleChildScrollView(
-          key: const Key('planner-day-scroll'),
-          controller: _dayScrollController,
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(12, 14, 12, 96),
-          child: Column(
-            children: <Widget>[
-              if (state.message != null) ...<Widget>[
-                _PlannerNotice(message: state.message!),
-                const SizedBox(height: 12),
-              ],
-              Container(
-                key: _timelineKey,
-                child: KeyedSubtree(
-                  key: const Key('timed-events-section'),
-                  child: _TimedEventTimeline(
-                    events: _visibleEvents(day.timedEvents, settings)
-                        .where(
-                          (event) =>
-                              settings.showCancelledItems ||
-                              event.state != PlannerEventState.cancelled,
-                        )
-                        .toList(growable: false),
-                    selectedDate: state.selectedDate,
-                    settings: settings,
-                    scrollController: _dayScrollController,
-                    onCreate: (minute) => _createTimedEvent(
-                      context,
-                      ref,
-                      state.selectedDate,
-                      minute,
+        child: _DaySwipeDetector(
+          // Horizontal day-navigation Listener. The detector
+          // observes raw pointer events without consuming them
+          // so the existing single-finger vertical scroll and
+          // tap recognizers on the underlying SingleChildScrollView
+          // continue to win when the gesture is vertical. The
+          // single shared coordinator is also passed into the
+          // timeline so the pinch, long-press move, and vertical
+          // resize recognizers can cancel an in-progress swipe.
+          coordinator: _daySwipeCoordinator,
+          onDayChanged: (delta) async {
+            // Selection mode and overflow menus own their own
+            // gesture pipelines; day-swipe is a Day-view-only
+            // affordance and must not interfere with those
+            // interactions. The Day-view is the only context
+            // where this widget tree is built (the other
+            // presentations short-circuit above), so no extra
+            // presentation guard is required.
+            if (delta == 0) {
+              return;
+            }
+            await ref.read(plannerControllerProvider.notifier).moveDays(delta);
+          },
+          child: SingleChildScrollView(
+            key: const Key('planner-day-scroll'),
+            controller: _dayScrollController,
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(12, 14, 12, 96),
+            child: Column(
+              children: <Widget>[
+                if (state.message != null) ...<Widget>[
+                  _PlannerNotice(message: state.message!),
+                  const SizedBox(height: 12),
+                ],
+                Container(
+                  key: _timelineKey,
+                  child: KeyedSubtree(
+                    key: const Key('timed-events-section'),
+                    child: _TimedEventTimeline(
+                      events: _visibleEvents(day.timedEvents, settings)
+                          .where(
+                            (event) =>
+                                settings.showCancelledItems ||
+                                event.state != PlannerEventState.cancelled,
+                          )
+                          .toList(growable: false),
+                      selectedDate: state.selectedDate,
+                      settings: settings,
+                      scrollController: _dayScrollController,
+                      onCreate: (minute) => _createTimedEvent(
+                        context,
+                        ref,
+                        state.selectedDate,
+                        minute,
+                      ),
+                      onMove: (event, startMinute) =>
+                          _moveEvent(ref, event, startMinute),
+                      onResize: (event, endMinute) =>
+                          _resizeEvent(ref, event, endMinute),
+                      selectionMode: _selectionMode,
+                      selectedItems: _selectedItems,
+                      onToggleSelection: _toggleEventSelection,
+                      hourHeight: settings.timelineHourHeight,
+                      onZoomEnd: (value) => _persistZoom(ref, settings, value),
+                      daySwipeCoordinator: _daySwipeCoordinator,
                     ),
-                    onMove: (event, startMinute) =>
-                        _moveEvent(ref, event, startMinute),
-                    onResize: (event, endMinute) =>
-                        _resizeEvent(ref, event, endMinute),
-                    selectionMode: _selectionMode,
-                    selectedItems: _selectedItems,
-                    onToggleSelection: _toggleEventSelection,
-                    hourHeight: settings.timelineHourHeight,
-                    onZoomEnd: (value) => _persistZoom(ref, settings, value),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -1155,6 +1186,221 @@ final class _DayButton extends StatelessWidget {
   }
 }
 
+/// Minimum logical-pixel horizontal displacement required to commit
+/// a day-navigation swipe. Chosen to be clearly above Flutter's
+/// kTouchSlop (~18 logical pixels) and wide enough to reject small
+/// horizontal jitter while a finger is tapping an Event or scrolling
+/// the timeline. Pairs with [_daySwipeVelocityThreshold] — a faster
+/// sweep below this distance still commits via the velocity rule.
+const double _daySwipeMinDistance = 64;
+
+/// Minimum horizontal velocity (logical pixels / millisecond) at
+/// pointer-up that allows a swipe shorter than the distance
+/// threshold to commit. The threshold is intentionally generous
+/// because the test harness and physical devices both report
+/// velocities in this range for a deliberate flick.
+const double _daySwipeVelocityThreshold = 0.35;
+
+/// Vertical-dominance ratio: a gesture whose |dy| exceeds
+/// |dx| * ratio is treated as a vertical drag (Event resize or
+/// timeline scroll) and is not eligible for day navigation. The
+/// 1.6 ratio is wide enough that a clean horizontal sweep
+/// (dy ≈ 0) commits, while an angled drag that drifts more than
+/// ~60% vertical is rejected.
+const double _daySwipeVerticalDominanceRatio = 1.6;
+
+/// Mutable coordinator shared between the swipe detector and the
+/// other gesture sources (long-press move, vertical resize drag,
+/// pinch zoom) so any of them can cancel an in-progress swipe
+/// candidate before it commits a day change. The coordinator lives
+/// on the parent state so its lifetime spans a single swipe gesture
+/// and is reset on every pointer-down.
+class _DaySwipeCoordinator {
+  int _pointerCount = 0;
+  bool _sawMultiPointer = false;
+  bool _verticalDominant = false;
+  bool _externalCancel = false;
+
+  void begin() {
+    _pointerCount = 0;
+    _sawMultiPointer = false;
+    _verticalDominant = false;
+    _externalCancel = false;
+  }
+
+  void onPointerDown() {
+    _pointerCount += 1;
+    if (_pointerCount >= 2) {
+      _sawMultiPointer = true;
+    }
+  }
+
+  /// Returns true while the gesture is still eligible to commit a
+  /// day change after observing the given accumulated deltas.
+  /// `dx` and `dy` are the cumulative screen deltas for the active
+  /// pointer since the gesture began.
+  bool onPointerMove(double dx, double dy) {
+    if (_pointerCount != 1 || _externalCancel) {
+      return false;
+    }
+    if (dy.abs() > dx.abs() * _daySwipeVerticalDominanceRatio) {
+      // Vertical-dominant motion (scroll / resize / long-press
+      // move) means the swipe candidate has lost; remember the
+      // fact so the commit check at pointer-up also rejects
+      // the gesture even if the pointer comes back to a flat
+      // horizontal track.
+      _verticalDominant = true;
+      return false;
+    }
+    return true;
+  }
+
+  void onPointerUp() {
+    if (_pointerCount > 0) {
+      _pointerCount -= 1;
+    }
+  }
+
+  /// Called by the long-press move, vertical resize drag, and pinch
+  /// scale recognizers when one of them claims the gesture. The
+  /// pending swipe candidate is then dropped without committing.
+  void cancel() {
+    _externalCancel = true;
+  }
+
+  bool get isActive =>
+      _pointerCount == 0 && !_sawMultiPointer && !_verticalDominant;
+}
+
+/// Lightweight Listener-based day-swipe detector. The detector
+/// observes raw pointer events without competing in the gesture
+/// arena, so it can coexist with the timeline's existing tap,
+/// long-press move, vertical resize, and scale recognizers. A
+/// swipe is committed only when:
+///   1. exactly one pointer was used throughout the gesture;
+///   2. horizontal displacement dominates vertical displacement;
+///   3. the gesture exceeds [_daySwipeMinDistance] or a velocity
+///      of [_daySwipeVelocityThreshold] logical pixels/ms;
+///   4. the gesture was not cancelled by a competing recognizer
+///      (long-press start, vertical drag start, or scale start).
+/// On commit the detector calls [onDayChanged] exactly once with
+/// +1 for a left swipe (next day) or -1 for a right swipe
+/// (previous day). The detector never mutates domain data — the
+/// caller decides what to do with the day delta.
+class _DaySwipeDetector extends StatefulWidget {
+  const _DaySwipeDetector({
+    required this.coordinator,
+    required this.onDayChanged,
+    required this.child,
+  });
+
+  final _DaySwipeCoordinator coordinator;
+  final ValueChanged<int> onDayChanged;
+  final Widget child;
+
+  @override
+  State<_DaySwipeDetector> createState() => _DaySwipeDetectorState();
+}
+
+class _DaySwipeDetectorState extends State<_DaySwipeDetector> {
+  Offset? _startPosition;
+  Duration? _startTime;
+  bool _committed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.coordinator.begin();
+  }
+
+  void _onPointerDown(PointerDownEvent event) {
+    widget.coordinator.onPointerDown();
+    _startPosition = event.position;
+    _startTime = event.timeStamp;
+    _committed = false;
+  }
+
+  void _onPointerMove(PointerMoveEvent event) {
+    final start = _startPosition;
+    final startTime = _startTime;
+    if (start == null || startTime == null || _committed) {
+      return;
+    }
+    final dx = event.position.dx - start.dx;
+    final dy = event.position.dy - start.dy;
+    final stillCandidate = widget.coordinator.onPointerMove(dx, dy);
+    if (!stillCandidate) {
+      return;
+    }
+  }
+
+  void _onPointerUp(PointerUpEvent event) {
+    final start = _startPosition;
+    final startTime = _startTime;
+    widget.coordinator.onPointerUp();
+    if (start == null || startTime == null || _committed) {
+      _resetTransient();
+      return;
+    }
+    final dx = event.position.dx - start.dx;
+    final dy = event.position.dy - start.dy;
+    final elapsed = event.timeStamp - startTime;
+    final velocityX = elapsed.inMicroseconds == 0
+        ? 0.0
+        : (dx.abs() / (elapsed.inMicroseconds / 1000.0));
+    final passesDistance = dx.abs() >= _daySwipeMinDistance;
+    final passesVelocity =
+        velocityX >= _daySwipeVelocityThreshold && dx.abs() > 0;
+    final horizontallyDominant =
+        dx.abs() > dy.abs() * _daySwipeVerticalDominanceRatio;
+    if (widget.coordinator.isActive &&
+        (passesDistance || passesVelocity) &&
+        horizontallyDominant) {
+      _committed = true;
+      // Left swipe (negative dx) advances the day; right swipe
+      // (positive dx) goes back. The Listener is read-only with
+      // respect to the gesture arena, so the existing recognizers
+      // can still claim this pointer independently.
+      widget.onDayChanged(dx < 0 ? 1 : -1);
+    }
+    _resetTransient();
+  }
+
+  void _onPointerCancel(PointerCancelEvent event) {
+    widget.coordinator.onPointerUp();
+    _resetTransient();
+  }
+
+  void _resetTransient() {
+    _startPosition = null;
+    _startTime = null;
+    _committed = false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // The container is marked so accessibility services can
+    // group the swipe affordance under a single semantic node.
+    // The hint and onIncrease/onDecrease actions are exposed
+    // through the Semantics widget but the Listener remains
+    // the gesture carrier.
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: _onPointerDown,
+      onPointerMove: _onPointerMove,
+      onPointerUp: _onPointerUp,
+      onPointerCancel: _onPointerCancel,
+      child: Semantics(
+        container: true,
+        hint: 'Swipe left for the next day, right for the previous day',
+        onIncrease: () => widget.onDayChanged(1),
+        onDecrease: () => widget.onDayChanged(-1),
+        child: widget.child,
+      ),
+    );
+  }
+}
+
 final class _TimedEventTimeline extends StatefulWidget {
   const _TimedEventTimeline({
     required this.events,
@@ -1169,6 +1415,7 @@ final class _TimedEventTimeline extends StatefulWidget {
     required this.onToggleSelection,
     required this.hourHeight,
     required this.onZoomEnd,
+    required this.daySwipeCoordinator,
   });
 
   final List<PlannerCalendarItem> events;
@@ -1188,6 +1435,12 @@ final class _TimedEventTimeline extends StatefulWidget {
   final ValueChanged<PlannerCalendarItem> onToggleSelection;
   final double hourHeight;
   final ValueChanged<double> onZoomEnd;
+  // Shared coordinator that lets the timeline's pinch, long-press
+  // move, and vertical resize recognizers cancel an in-progress
+  // day-swipe candidate before it commits. The detector lives on
+  // the parent state, so the timeline only invokes its cancel()
+  // hook without owning its lifecycle.
+  final _DaySwipeCoordinator daySwipeCoordinator;
 
   @override
   State<_TimedEventTimeline> createState() => _TimedEventTimelineState();
@@ -1248,7 +1501,11 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
       key: const Key('planner-zoom-surface'),
       behavior: HitTestBehavior.translucent,
       onScaleStart: (details) {
+        // Pinch (two-pointer scale) owns the gesture; cancel any
+        // pending day-swipe so neither a horizontal pointer nor
+        // the final remaining finger can navigate the day.
         if (details.pointerCount >= 2) {
+          widget.daySwipeCoordinator.cancel();
           _zoomStartHeight = _hourHeight;
           // Capture focal-time anchors: the local Y from this
           // GestureDetector's coordinate space and the scroll
@@ -1286,8 +1543,7 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
             details.pointerCount < 2) {
           return;
         }
-        final newHourHeight =
-            PlannerZoomPolicy.clamp(start * details.scale);
+        final newHourHeight = PlannerZoomPolicy.clamp(start * details.scale);
         final newPixelsPerMinute = newHourHeight / 60;
         final controller = widget.scrollController;
         // Compute the scroll offset that keeps the captured focal
@@ -1303,7 +1559,9 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
         final minExtent = hasClients
             ? controller.position.minScrollExtent
             : 0.0;
-        final clampedOffset = desiredOffset.clamp(minExtent, maxExtent).toDouble();
+        final clampedOffset = desiredOffset
+            .clamp(minExtent, maxExtent)
+            .toDouble();
         setState(() {
           _hourHeight = newHourHeight;
           if (hasClients) {
@@ -1448,6 +1706,10 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
             widget.settings.quickEditEnabled &&
             !_persisting.contains(event.id),
         onMoveUpdate: (deltaPixels) {
+          // Long-press move owns the gesture from its first move;
+          // cancel any pending horizontal day-swipe so the two
+          // recognizers never both claim a single-finger drag.
+          widget.daySwipeCoordinator.cancel();
           final rawDelta = (deltaPixels / _hourHeight * 60).round();
           final deltaMinutes =
               (rawDelta / widget.settings.snapMinutes).round() *
@@ -1465,6 +1727,10 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
         onMoveEnd: () => _finishMove(event, originalStartMinute),
         onMoveCancel: () => _clearPreview(event.id),
         onResizeStart: () {
+          // Vertical resize owns the gesture; cancel any pending
+          // horizontal day-swipe so a long-finger drag along the
+          // bottom edge never navigates between days.
+          widget.daySwipeCoordinator.cancel();
           // Resize keeps the original start; ensure no stale start-preview
           // from a previous move leaks into the resize calculation. The
           // accumulator tracks the cumulative vertical drag distance from
@@ -1474,6 +1740,8 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
           _resizeAccumulatedPixels[event.id] = 0;
         },
         onResizeUpdate: (deltaPixels) {
+          // First vertical update also pins the gesture to resize.
+          widget.daySwipeCoordinator.cancel();
           final accumulated =
               (_resizeAccumulatedPixels[event.id] ?? 0) + (deltaPixels);
           _resizeAccumulatedPixels[event.id] = accumulated;
