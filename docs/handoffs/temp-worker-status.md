@@ -872,3 +872,140 @@ to avoid regressing the 7 locked tests without evidence.
   - lib/features/planner/presentation/planner_screen.dart
   - lib/features/planner/presentation/widgets/planner_event_block_layout_policy.dart
   - test/features/planner/presentation/planner_vs08_temp_preview_test.dart
+
+## Stage B3-R1 Slice C — Today icon state, refresh removal, pinch dead-zone
+
+### Starting state
+- branch: temp/vs08-shared-preview
+- HEAD at start: 1265633 docs(handoff): record stage b3-r1 slice b today action and short events
+- working tree at start: ?? .todo.md only
+
+### Owner-observed defects (this slice)
+- Today calendar icon stays pink even when viewing a past or future date.
+- Planner pull-to-refresh competes with two-finger pinch.
+- Pinch is difficult to activate and the timeline sometimes scrolls vertically instead of zooming.
+
+### Source of pull-to-refresh
+- `lib/features/planner/presentation/planner_screen.dart` line 645 (pre-slice): the Day view returned by `_buildContent` was wrapped in a `RefreshIndicator` whose `onRefresh` was a no-op call `selectDate(state.selectedDate)`.
+- No other production code path applies a refresh gesture to the Planner.
+- The Home tab (`lib/features/startup/presentation/home_screen.dart` line 48) keeps its own `RefreshIndicator` and is unaffected by this slice.
+- No Maps destination exists in the codebase (VS-09 is unstarted). The Maps-to-no-refresh requirement is therefore moot and is recorded as not applicable.
+
+### Phase 1 — Today icon visual state
+Implementation:
+- The AppBar's calendar icon now reads `todayIconColor` from the same deterministic `PlannerDateSource` used by the current-time indicator.
+- `state.selectedDate == today` -> `AppTheme.rose` (pink).
+- `state.selectedDate != today` -> `Theme.of(context).colorScheme.onSurface` (white).
+- Date-only comparison via `PlannerDate` equality; hours/minutes/seconds do not affect the color.
+- The existing `Key('planner-calendar-button')` and `Key('planner-today-button')` are preserved.
+- The previous Slice B tap handler (`ref.read(plannerDateSourceProvider).today()` + `selectDate(today)`) is unchanged.
+
+### Phase 2 — Planner pull-to-refresh removal
+Implementation:
+- The `RefreshIndicator` wrapper was removed from `_buildContent`.
+- The scroll view's physics changed from `AlwaysScrollableScrollPhysics` to `ClampingScrollPhysics` so the overscroll glow does not suggest a refresh affordance.
+- The previously attached `onRefresh` was a no-op (re-selected the same date); no domain operation was triggered, so no domain surface is affected.
+- The Home tab's `RefreshIndicator` is unaffected.
+- The vertical-scroll, single-finger gesture pipeline is unchanged.
+
+### Phase 3 — Maps pull-to-refresh
+- No Maps destination exists. The `/maps` route is not in `lib/app/router/app_router.dart` and the bottom-nav maps the "Pathways" and "Contacts" tabs to a snackbar stating they are not available in the current authorized build. There is no production code to modify for Maps.
+- The owner-correction requirement is honored by absence: Maps does not have pull-to-refresh because Maps does not exist.
+
+### Phase 4/5/6 — Pinch improvement
+Root cause analysis:
+- The `RefreshIndicator` (Phase 2) was the dominant gesture-arena competitor for the downward swipe the user performs with the first finger of a two-finger pinch. Removing it eliminates one of the two recognized issues.
+- The pinch `GestureDetector` already gates on `details.pointerCount >= 2` and cancels the day-swipe via `_DaySwipeCoordinator.cancel()` on scale start. After the RefreshIndicator removal, the only remaining recognizers competing for the gesture are the SingleChildScrollView's `VerticalDragGestureRecognizer` (the timeline scroll) and the ScaleGestureRecognizer itself. Flutter's arena resolves this in favor of Scale when 2+ pointers are present.
+- The zoom range was deliberately kept at the locked Stage B1 bounds (44 to 88). Extending it broke the locked pinch tests (TEST 2 expected >= 43, TEST 4 expected <= 88.5), which the R1 package forbids weakening. The locked bounds are the authoritative bounds.
+
+Implementation:
+- Added `PlannerZoomPolicy.applyDeadZone(double scale)` with a 0.03 threshold. Scales within `1.0 ± 0.03` collapse to 1.0 (no visible change) so finger jitter at the start of a pinch does not visibly bump the hour height. The pinch's `onScaleUpdate` now applies the dead-zone before the clamp.
+- The Stage B1 lock (TEST 2: clamped value >= 43; TEST 4: clamped value <= 88.5) is preserved because the clamp range is unchanged.
+- The new pinned constant `PlannerZoomPolicy.scaleStartDeadZone = 0.03` is documented with the rationale in the source.
+
+### New focused tests
+File: `test/features/planner/presentation/planner_today_refresh_pinch_test.dart`
+- TEST 1 — Today icon is pink/accent when selected date is today
+- TEST 2a — Today icon is white/on-surface when selected date is yesterday
+- TEST 2b — Today icon is white/on-surface when selected date is tomorrow
+- TEST 3 — Tapping Go to today from yesterday returns to today and the icon becomes pink
+- TEST 4 — RefreshProgressIndicator is not present in the Day view
+- TEST 5 — Downward overscroll on the timeline does not trigger a refresh callback
+- TEST 6 — applyDeadZone collapses tiny scale noise to 1.0
+- TEST 7 — applyDeadZone preserves scale beyond the dead zone
+- TEST 8 — clamp honors the locked Stage B1 preset bounds
+
+Total: 9 tests, all passing.
+
+### Locked regression verification
+
+Executed in the same turn as the production changes:
+
+```
+flutter test test/features/planner/presentation/planner_today_refresh_pinch_test.dart
+```
+Total: 9/0/0 (this slice).
+
+```
+flutter test test/features/planner/presentation/planner_current_time_indicator_test.dart                test/features/planner/presentation/planner_pinch_zoom_test.dart                test/features/planner/presentation/planner_horizontal_day_swipe_test.dart                test/features/planner/presentation/planner_issue5_6_test.dart
+```
+Total: 50/0/0 (14 current-time + 7 pinch + 13 swipe + 16 Issue 5-6) — pinned totals unchanged.
+
+```
+flutter test test/features/planner
+```
+Total: 125/0/0 (up from 116, gain of 9 new focused tests).
+
+```
+flutter test
+```
+Total: 182/0/0 (up from 173, gain of 9 new focused tests).
+
+```
+flutter analyze
+```
+No issues found.
+
+### Physical device verification
+
+Device: Infinix X6731, Android 14, API 34, serial
+adb-10620253B3004617-2m7ZVB._adb-tls-connect._tcp.
+
+APK build:
+- path: build/app/outputs/flutter-apk/app-debug.apk
+- size: 168,139,719 bytes (~168 MB)
+- SHA-256: 0bd30bfde40bdea88586d745a72b94c598e32abbe7b79507f0f2659964e96202
+- build rc: 0
+
+Update-install:
+- adb install -r: Performing Streamed Install / Success / rc=0
+- applicationId preserved: com.nexttransfer.rmplanner, versionName=0.1.0
+- firstInstallTime preserved: 2026-07-27 15:42:22
+- lastUpdateTime updated: 2026-07-31 15:07:57
+
+Walkthrough (UI dumps + screenshots captured at
+  C:/Users/sherl/AppData/Local/Temp/stage-b3r1-slice-c-evidence/):
+
+1. Launched app, navigated to Planner tab. AppBar showed "Go to today" semantic label.
+2. Selected date was Fri 2026-07-31 (today). Pixel-sampled the calendar icon area at (597, 192), (580, 180), (620, 180), (600, 175): 4 of 5 samples were pink (R=255, G=120, B=149) — matches the AppTheme.rose signature.
+3. Swipe-left on the timeline at y=1600: selected date moved to Sat 2026-08-01 (off-today). Pixel-sampled the same icon coordinates: 4 of 5 samples were white (R=244, G=241, B=242) — matches the on-surface color.
+4. Tapped "Go to today" at (597, 192): selected date returned to Fri 2026-07-31. Pixel-sampled: 4 of 5 samples were pink again.
+5. Pulled downward at y=800 for 700 logical pixels (well beyond a refresh trigger): no refresh indicator appeared in the UI dump, selected date unchanged, current-time indicator still visible ("3:10 PM").
+6. Logcat showed no FATAL/FlutterError/RenderFlex/ParentData/Drift/SQLite errors from the app process. Only OS-level package-update chatter is present.
+
+### Honest physical pinch framing
+
+The Phase 4/5/6 pinch improvements are split into two parts:
+
+- Refresh-indicator removal (Phase 2): this is physical and verifiable. The user no longer experiences a refresh spinner while initiating a pinch.
+
+- Scale dead-zone: this is a static code constant that the locked 7-test pinch suite passes through (the locked tests use scale values that are already outside the dead zone). The dead-zone applies to scenarios the existing tests do not exercise (real-device finger jitter inside the first few percent of scale). The locked tests cannot claim the dead-zone's effect on the physical device because the tests use deterministic pointer distances, not jitter.
+
+I cannot honestly claim "physical pinch is now easier" end-to-end on the Infinix X6731 because `adb shell input` does not support two-finger multi-touch gestures. The package acknowledges this in the device verification section: "When no device is available: record exact adb output; complete all non-device work; do not claim physical acceptance; provide the remaining owner walkthrough." The owner walkthrough for pinch is therefore deferred to the next physical inspection of the device.
+
+### Slice C checkpoints
+- 5f06183 fix(planner): color today icon by selected date, remove planner refresh, add pinch dead zone
+  - 3 files changed, +534/-77
+  - lib/features/planner/domain/planner_view.dart
+  - lib/features/planner/presentation/planner_screen.dart
+  - test/features/planner/presentation/planner_today_refresh_pinch_test.dart (new, 9 tests)
