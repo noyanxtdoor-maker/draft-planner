@@ -1717,7 +1717,7 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
                   Positioned(
                     top: index * _hourHeight - 7,
                     left: 0,
-                    width: _timeColumnWidth - 8,
+                    width: _timeColumnWidth,
                     child: Text(
                       _hourLabel(_firstHour + index),
                       textAlign: TextAlign.right,
@@ -1733,12 +1733,6 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
                     child: const Divider(height: 1, color: AppTheme.outline),
                   ),
                 ],
-                Positioned(
-                  top: 0,
-                  bottom: 0,
-                  left: _timeColumnWidth,
-                  child: Container(width: 1, color: AppTheme.outline),
-                ),
                 if (widget.events.isEmpty)
                   const Positioned(
                     top: 18,
@@ -1802,7 +1796,7 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
                                         CrossAxisAlignment.center,
                                     children: <Widget>[
                                       SizedBox(
-                                        width: _timeColumnWidth,
+                                        width: _timeColumnWidth - 8,
                                         child: Text(
                                           formatPlannerCurrentTimeLabel(
                                             currentNow,
@@ -1830,8 +1824,8 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
                                         width: 8,
                                         height: 8,
                                         margin: const EdgeInsets.only(
-                                          left: 6,
-                                          right: 6,
+                                          left: 0,
+                                          right: 0,
                                         ),
                                         decoration: const BoxDecoration(
                                           color: AppTheme.rose,
