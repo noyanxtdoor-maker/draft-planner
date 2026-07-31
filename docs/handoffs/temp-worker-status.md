@@ -717,3 +717,158 @@ Remaining integration-authority work:
 - decision on updating or merging PR #8;
 - decision on beginning Slices B-D of the R1 package;
 - decision on beginning VS-09.
+
+## Stage B3-R1 Slice B — Today action, short events, resize hit area
+
+### Starting state
+- branch: temp/vs08-shared-preview
+- HEAD at start: 5274881 docs(handoff): record stage b3-r1 slice a timeline + current-time leading edge
+- working tree at start: ?? .todo.md only
+
+### Scope of this slice
+Three owner-correction phases applied coherently. Each is small,
+production-only, and verified against the locked regression matrix.
+
+#### Phase 4 — Today action on the calendar icon
+- Wrapped the existing calendar icon (Container with key
+  `planner-calendar-button`) in an InkWell with key
+  `planner-today-button`.
+- Added semantic label "Go to today" (was "Calendar view active").
+- onTap calls
+  `ref.read(plannerControllerProvider.notifier).selectDate(ref.read(plannerDateSourceProvider).today())`.
+- Uses the same deterministic clock source as the current-time tests.
+- Preserves the existing `planner-calendar-button` key for legacy
+  finders (the InkWell is positioned outside the Container so both
+  nodes exist in the tree).
+- Both `planner_experience_refinement_test.dart` and
+  `planner_vs08_temp_preview_test.dart` continue to find the
+  `planner-calendar-button` node (verified by the locked regression
+  run below).
+
+#### Phase 6 — short Event-block content (15- and 30-minute)
+- Added `showTimeInline` flag to `PlannerEventBlockContent` and
+  `PlannerEventBlockLayoutPolicy`.
+- `showTimeInline` returns true for `Density.veryShort` and
+  `Density.short` (15- and 30-minute Events at default hour height).
+- The inline format is "Title  12:45-1:00 PM" on a single line, with
+  ellipsis applied to the combined text. The separate time row is
+  suppressed for these compact densities to avoid the RenderFlex
+  overflow that would otherwise occur on a 30-minute block.
+- Stable keys added: `planner-event-block-title` and
+  `planner-event-block-time` for finder-based tests.
+- The short-time assertion in the locked test
+  `planner_vs08_temp_preview_test.dart` was renamed from "short
+  suppresses time and status to avoid RenderFlex overflow" to
+  "short suppresses separate time row but inlines the time into the
+  title to avoid RenderFlex overflow" and extended to assert the
+  new `showTimeInline: true` for `Density.short`. Same coverage,
+  stronger guarantee.
+
+#### Phase 7 — Event resize hit area
+- `PlannerEventBlockLayoutPolicy.resizeHitAreaHeight` raised from 40
+  to 48 logical pixels, satisfying the owner-correction contract
+  ("approximately 44-48 logical pixels where possible").
+- The visible handle Geometry was not changed (still 14 logical
+  pixels tall, visible) so the touch target is now larger than the
+  visible handle, matching the spec.
+- The existing resize logic (15-minute snap, local preview, single
+  Drift write only on gesture completion, day-swipe coordinator
+  cancel) was preserved unchanged.
+
+### Locked regression verification
+
+Executed in the same turn as the production changes:
+
+```
+flutter test test/features/planner/presentation/planner_current_time_indicator_test.dart                test/features/planner/presentation/planner_pinch_zoom_test.dart                test/features/planner/presentation/planner_horizontal_day_swipe_test.dart                test/features/planner/presentation/planner_issue5_6_test.dart                test/features/planner/presentation/planner_vs08_temp_preview_test.dart
+```
+Total: 61/0/0 (14 current-time + 7 pinch + 13 swipe + 16 Issue 5-6
+                + 11 temp preview).
+
+```
+flutter test test/features/planner
+```
+Total: 116/0/0 (up from 114, gain of 2 new temp preview tests).
+
+```
+flutter test
+```
+Total: 173/0/0 (up from 171, gain of 2 new temp preview tests).
+
+```
+flutter analyze
+```
+No issues found.
+
+### New focused tests added
+- `planner_vs08_temp_preview_test.dart`:
+  - "short suppresses separate time row but inlines the time into the
+    title to avoid RenderFlex overflow" (renamed/extended existing).
+  - "very short inlines the time into the title to show schedule
+    info on 15-minute events" (new).
+  - "resize hit area is at least 48 logical pixels per the
+    owner-correction contract" (new).
+
+### Physical device verification
+
+Device: Infinix X6731, Android 14, API 34, serial
+adb-10620253B3004617-2m7ZVB._adb-tls-connect._tcp.
+
+APK build:
+- path: build/app/outputs/flutter-apk/app-debug.apk
+- size: 168,139,719 bytes (~168 MB)
+- SHA-256: 422690dadc43d60ce370c48a1e1dbe393207da9d062268b253cf73b759611940
+- build rc: 0
+
+Update-install:
+- adb install -r: Performing Streamed Install / Success / rc=0
+- applicationId preserved: com.nexttransfer.rmplanner, versionName=0.1.0
+- firstInstallTime preserved: 2026-07-27 15:42:22
+- lastUpdateTime updated: 2026-07-31 13:54:47
+
+Walkthrough (UI dumps + screenshots captured at
+  C:/Users/sherl/AppData/Local/Temp/stage-b3r1-slice-b-evidence/):
+
+1. Launched app, navigated to Planner tab.
+2. Confirmed "Go to today" semantic label is present in the AppBar
+   (was "Calendar view active" before the change).
+3. Swipe-left on the timeline at y=1600 (middle of the timeline,
+   safely below the date strip): selected date moved from Fri Jul 31
+   to Sat Aug 1 (off today).
+4. Tapped "Go to today" icon at (597, 192) (center of the
+   `[546,108][648,276]` bounds).
+5. Selected date returned to Fri Jul 31, header updated, current-time
+   indicator visible ("2:06 PM" at the time of the walkthrough).
+6. Logcat showed no FATAL/FlutterError/RenderFlex/ParentData/Drift/
+   SQLite errors from the app process. Only OS-level ANR detector
+   chatter from Facebook's ACRA on the OEM ROM (unrelated to our
+   app).
+
+### Honest framing
+
+This slice implements only three of the 19 remaining package phases
+(Phase 4 Today action, Phase 6 short Event content, Phase 7 resize
+hit area). The other phases (3 real pinch, 5 continuous date
+carousel, 8 animated FAB, 9 partial bottom sheet, 10 editor
+rebuild, 11-17 placeholders, 18 save/cancel safety, 19 gesture
+coexistence) are deferred to subsequent slices. I cannot honestly
+claim them complete in this turn.
+
+Phase 3 (real pinch) is the most uncertain: the existing pinch
+implementation is a working GestureDetector with onScaleStart/Update/End
+that does change _hourHeight via setState during the gesture. The
+7 locked pinch tests prove widget-level behavior. The owner reports
+the physical device does not visibly zoom. Without a physical device
+walkthrough that I can perform here (the Infinix X6731 is reachable
+but two-finger multi-touch via adb is not exposed without specialized
+tools), the only honest claim is "the production code is exercised
+by the locked tests; the physical defect, if real, is not yet
+isolated." This slice deliberately did not touch the pinch code
+to avoid regressing the 7 locked tests without evidence.
+
+### Slice B checkpoint
+- e8d8a1e fix(planner): restore date navigation and improve short events and resize
+- 3 files changed, +75/-23
+  - lib/features/planner/presentation/planner_screen.dart
+  - lib/features/planner/presentation/widgets/planner_event_block_layout_policy.dart
+  - test/features/planner/presentation/planner_vs08_temp_preview_test.dart
