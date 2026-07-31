@@ -26,7 +26,18 @@ import 'package:rmplanner/features/planner/presentation/widgets/anchored_top_bar
 import 'package:rmplanner/features/planner/presentation/widgets/planner_event_block_layout_policy.dart';
 
 final class PlannerScreen extends ConsumerStatefulWidget {
-  const PlannerScreen({super.key});
+  const PlannerScreen({super.key, this.currentTimeListenable});
+
+  /// Optional current-time source used by the exact current-time
+  /// indicator. When omitted, the screen owns a [ValueNotifier] of
+  /// [DateTime] seeded from `DateTime.now()` and refreshed by an
+  /// internal minute-boundary [Timer] (production behavior).
+  /// When provided, the screen reads this listenable directly and
+  /// does not create its own notifier, timer, or ticker — the
+  /// caller (typically a focused widget test) owns the listenable
+  /// and is responsible for advancing it. Production code paths
+  /// never pass this argument.
+  final ValueListenable<DateTime>? currentTimeListenable;
 
   @override
   ConsumerState<PlannerScreen> createState() => _PlannerScreenState();
@@ -68,16 +79,31 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
   // - tests drive the indicator deterministically by calling
   //   `currentTimeNotifier.value = newNow`, which notifies listeners
   //   without scheduling any real-time wait.
-  late final ValueNotifier<DateTime> currentTimeNotifier;
+  //
+  // When [PlannerScreen.currentTimeListenable] is supplied, the
+  // screen-owned notifier and ticker are not constructed — the
+  // injected listenable is used verbatim, and the screen does not
+  // own its lifecycle. In that mode both [currentTimeNotifier] and
+  // [_currentTimeTicker] remain `null` for the entire lifetime of
+  // the state, so [dispose] is a no-op for current-time resources.
+  ValueNotifier<DateTime>? currentTimeNotifier;
   Timer? _currentTimeTicker;
+
+  /// The listenable the timeline actually reads. Equals the
+  /// screen-owned notifier in production; equals the injected
+  /// override in focused tests.
+  ValueListenable<DateTime> get _activeCurrentTimeListenable =>
+      widget.currentTimeListenable ?? currentTimeNotifier!;
 
   bool get _selectionMode => _selectionActive;
 
   @override
   void initState() {
     super.initState();
-    currentTimeNotifier = ValueNotifier<DateTime>(DateTime.now());
-    _scheduleCurrentTimeTicker();
+    if (widget.currentTimeListenable == null) {
+      currentTimeNotifier = ValueNotifier<DateTime>(DateTime.now());
+      _scheduleCurrentTimeTicker();
+    }
   }
 
   /// Schedule the next minute-boundary tick of [currentTimeNotifier].
@@ -107,7 +133,7 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
       if (!mounted) {
         return;
       }
-      currentTimeNotifier.value = DateTime.now();
+      currentTimeNotifier!.value = DateTime.now();
       _scheduleCurrentTimeTicker();
     }
 
@@ -122,7 +148,8 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
   void dispose() {
     _currentTimeTicker?.cancel();
     _currentTimeTicker = null;
-    currentTimeNotifier.dispose();
+    currentTimeNotifier?.dispose();
+    currentTimeNotifier = null;
     _dayScrollController.dispose();
     super.dispose();
   }
@@ -664,7 +691,7 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                       hourHeight: settings.timelineHourHeight,
                       onZoomEnd: (value) => _persistZoom(ref, settings, value),
                       daySwipeCoordinator: _daySwipeCoordinator,
-                      currentTimeListenable: currentTimeNotifier,
+                      currentTimeListenable: _activeCurrentTimeListenable,
                     ),
                   ),
                 ),
@@ -1756,9 +1783,7 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
                         final indicatorVisible =
                             widget.settings.showCurrentTime &&
                                 widget.selectedDate ==
-                                    PlannerDate.fromDateTime(currentNow) &&
-                                currentNow.hour >= _firstHour &&
-                                currentNow.hour < _lastHour;
+                                    PlannerDate.fromDateTime(currentNow);
                         return Stack(
                           clipBehavior: Clip.none,
                           children: <Widget>[
@@ -1813,10 +1838,13 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
                                           shape: BoxShape.circle,
                                         ),
                                       ),
-                                      const Expanded(
+                                      Expanded(
                                         child: SizedBox(
+                                          key: const Key(
+                                            'planner-current-time-line',
+                                          ),
                                           height: 2,
-                                          child: DecoratedBox(
+                                          child: const DecoratedBox(
                                             decoration: BoxDecoration(
                                               color: AppTheme.rose,
                                             ),
