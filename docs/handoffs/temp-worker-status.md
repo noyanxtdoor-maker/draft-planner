@@ -1414,3 +1414,361 @@ remain unchanged. None was amended, rewritten, squashed, or reset.
 - No Maps-related production code was added by this slice. The
   pull-to-refresh concern documented in earlier slices is moot
   because no Maps screen exists in the authorized build.
+
+
+## Stage B3-R1 Slice D2 — physical pinch responsiveness
+
+### Starting state
+- Starting branch: temp/vs08-shared-preview
+- Starting HEAD: 5c5a19c `docs(handoff): record stage b3-r1 slice d1 verification`
+- Starting Git status (inherited dirty tree from D2 production session):
+    M lib/features/planner/domain/planner_view.dart
+    M lib/features/planner/presentation/planner_screen.dart
+    M test/features/planner/presentation/planner_today_refresh_pinch_test.dart
+    ?? .todo.md
+    ?? test/features/planner/presentation/planner_physical_pinch_responsiveness_test.dart
+- All 10 locked checkpoints (5c5a19c, 1006adb, 87fbd3e, 5f06183,
+  1265633, e8d8a1e, 5274881, 1522178, dd939ef, ab0b91b) intact at
+  the start of the closeout session. Re-verified at closeout end.
+- No D2 commit existed at session start.
+- PR #8 untouched. No commit references PR #8.
+
+### Owner-observed pinch issue
+- Stage B1 pinch-zoom was technically working (the focal-time was
+  preserved, the scale recognizer fired) but felt significantly
+  harder than PMG and BetterCalendar. Two fingers often moved the
+  timeline vertically instead of producing an obvious scale change.
+  Pinch-in was especially difficult.
+- The Stage B1 dead-zone threshold (0.03) was too wide and a real
+  two-finger pinch needed a non-trivial amount of finger travel
+  before any zoom change became visible, especially pinch-in.
+
+### Old dead-zone threshold
+- PlannerZoomPolicy.scaleStartDeadZone == 0.03
+
+### New dead-zone threshold
+- PlannerZoomPolicy.scaleStartDeadZone == 0.012
+
+### Owner-approved contract change
+- Tighten the threshold from 0.03 to 0.012 so a modest realistic
+  pinch (about 1.5% scale change) becomes visible during the
+  gesture on both pinch-out and pinch-in directions.
+- The mapping remains symmetric: an applyDeadZone(1 + d) and
+  applyDeadZone(1 - d) with the same d either both fall inside
+  the dead zone or both pass through.
+- The 0.012 value was selected because it is comfortably larger
+  than the realistic sensor / pointer noise floor observed in
+  Stage B1 and is comfortably smaller than the 1.5% human
+  "intentional pinch" threshold. Practical range: 0.008-0.015;
+  0.012 sits in the middle.
+
+### Gesture-arena root cause
+- With the wider 0.03 threshold and the prior vertical scroll
+  ownership, a real two-finger pinch had to travel enough finger
+  distance before the recognizer produced a non-trivial scale
+  update. By that point the gesture arena had already preferred
+  the VerticalDragGestureRecognizer's accumulated scroll offset
+  and the pinch was effectively lost.
+
+### Pointer coordinator implementation
+- _PinchCoordinator (private, lives on _PlannerScreenState):
+  - Mutable coordinator with _pointerCount and _externalCancel
+    plus a small listener list. Parent state subscribes to
+    rebuilds; tests can also subscribe.
+  - onPointerDown increments _pointerCount and returns true when
+    the count transitions across 2 (so the caller can perform
+    one-time side effects: cancel day-swipe, capture baseline).
+  - onPointerUp decrements and returns true when the count drops
+    below 2.
+  - cancel()/clearCancel() and a begin() reset are present.
+  - isPinchActive returns true while _pointerCount >= 2 and
+    _externalCancel is false.
+- The timeline is wrapped in a Listener with HitTestBehavior
+  translucent. onPointerDown and onPointerUp feed the
+  coordinator; the inner GestureDetector still receives every
+  pointer event for scale / tap / long-press recognizers.
+  The Listener never claims the event, so the gesture arena
+  is not impacted.
+
+### Vertical-scroll suppression implementation
+- The parent SingleChildScrollView's `physics` is selected each
+  build from _pinchCoordinator.isPinchActive:
+  - NeverScrollableScrollPhysics during a pinch
+    (so the vertical drag recognizer cannot win the arena and
+    no scroll offset is accumulated).
+  - ClampingScrollPhysics when one or zero pointers are present
+    and no recognizer has claimed the gesture.
+- The coordinator listener invokes setState on the same frame
+  the count transitions, so the physics swap is bounded to one
+  rebuild per gesture boundary.
+
+### Horizontal-swipe suppression
+- When the second pointer lands (coordinator.onPointerDown returns
+  true), the timeline explicitly calls
+  widget.daySwipeCoordinator.cancel() so the horizontal day-swipe
+  detector has already been cancelled by the time the second
+  pointer delivers its first move. The selected date cannot be
+  changed while the pinch is in progress; the post-pinch settle
+  suppression guarantees the same for the next pump cycle.
+
+### Event-tap suppression
+- The Event body uses InkWell.onTap to open details via
+  _openCalendarEvent. The Event tile also wires
+  onLongPressMoveUpdate / onLongPressStart / onLongPressEnd and
+  onLongPressCancel on a GestureDetector wrapped around the
+  Material with HitTestBehavior.opaque. The LongPress recognizer
+  claims the arena on the first pointer-down of an Event drag, and
+  the ScaleGestureRecognizer (two pointers) claims it as soon as
+  the second pointer lands. A bare tap (no movement, no second
+  pointer) is the only path that can commit onTap. Two-pointers
+  therefore structurally suppress the tap.
+- The empty-time create surface is suppressed explicitly via the
+  _suppressOneFingerInteractions flag at the top of onTapUp.
+
+### Event-move suppression
+- onLongPressMoveUpdate, onLongPressStart (the entry into the
+  move gesture), and the move-end / move-cancel paths are
+  guarded by _suppressOneFingerInteractions. When the second
+  pointer lands, the move cannot begin; when the second pointer
+  lifts, the move's exit path clears the preview and refuses
+  to call _finishMove during the one-pump settle window.
+
+### Event-resize suppression
+- onResizeStart, onResizeUpdate, onResizeEnd, and onResizeCancel
+  are guarded by _suppressOneFingerInteractions. The day-swipe
+  cancel that pairs the resize-start is also guarded. Resize
+  therefore cannot begin, accumulate, or commit while a pinch
+  is in progress or during the one-pump settle cycle.
+
+### Empty-time suppression
+- onTapUp on the create-surface reads _suppressOneFingerInteractions
+  at the top of its callback and returns immediately when true.
+  The Event Type picker cannot open while a pinch is in progress
+  or during the one-pump settle cycle.
+
+### Post-pinch suppression behavior
+- After onScaleEnd the timeline keeps _postPinchSuppress = true
+  for one frame via WidgetsBinding.instance.addPostFrameCallback.
+  The callback checks mounted and resets the flag. The post-frame
+  callback is a transient frame-synchronous tick, not a wall-clock
+  timer, so it cannot be classified as artificial delay.
+
+### Scale-baseline behavior
+- onScaleStart captures _zoomStartHeight = _hourHeight (the
+  pre-pinch effective hour height). onScaleUpdate uses
+  newHourHeight = clamp(_zoomStartHeight * applyDeadZone(scale))
+  on every tick so the gesture is monotonic and not multiplied
+  onto an already-updated hour height.
+
+### Focal-minute behavior
+- onScaleStart captures _zoomStartScrollOffset, _zoomFocalLocalY,
+  and _zoomFocalMinute (computed from focal content Y / start
+  pixels per minute). onScaleUpdate computes
+  desiredOffset = focalMinute * newPixelsPerMinute - focalLocalY
+  and clamps to the controller's valid extent before
+  controller.jumpTo.
+
+### Selected-date stability
+- Pinch gestures cannot change the selected date. Tests 7 and 8 in
+  the new physical-pinch suite assert this; no day swipe is
+  committed across a pinch.
+
+### Current-time geometry result
+- TEST 10 verifies that the dot, line, and label all scale with
+  the new hour height and stay co-aligned. The label text does
+  not change across a pinch.
+
+### Domain-mutation safety
+- TEST 11 (no domain or Actual mutation across the new physical-
+  pinch paths) verifies that calendarEvents,
+  calendarEventExceptions, calendarEventOperations,
+  outcomeReports, plannerTasks, taskEventLinks, and
+  activityLedgerEntries are unchanged after four pinch sequences
+  (pinch-out over empty time, pinch-in over empty time, pinch
+  with horizontal motion over empty time, pinch centered on the
+  Event block).
+
+### Actual/contribution safety
+- TEST 11 explicitly asserts activityLedgerEntries count is
+  unchanged, which is where Actual / contribution rows live.
+
+### Production files changed
+- lib/features/planner/domain/planner_view.dart (30 +/-)
+- lib/features/planner/presentation/planner_screen.dart (806 +/-)
+
+### Test files changed
+- test/features/planner/presentation/planner_today_refresh_pinch_test.dart
+  (221 +/-): dead-zone boundary assertions updated for the new
+  0.012 contract, monotonicity test added across the boundary.
+- test/features/planner/presentation/planner_physical_pinch_responsiveness_test.dart
+  (1196 lines, new): 11 focused physical-pinch tests.
+
+### Fresh focused totals (this session's evidence)
+- Physical pinch (test/features/planner/presentation/planner_physical_pinch_responsiveness_test.dart):
+    11 passed, 0 failed, 0 skipped, exit code 0
+- Slice C focused (test/features/planner/presentation/planner_today_refresh_pinch_test.dart):
+    10 passed, 0 failed, 0 skipped, exit code 0
+- Existing pinch (test/features/planner/presentation/planner_pinch_zoom_test.dart):
+    7 passed, 0 failed, 0 skipped, exit code 0
+- Current-time (test/features/planner/presentation/planner_current_time_indicator_test.dart):
+    14 passed, 0 failed, 0 skipped, exit code 0
+- Horizontal swipe (test/features/planner/presentation/planner_horizontal_day_swipe_test.dart):
+    13 passed, 0 failed, 0 skipped, exit code 0
+- Issue 5-6 (test/features/planner/presentation/planner_issue5_6_test.dart):
+    16 passed, 0 failed, 0 skipped, exit code 0
+- D1 initial-scroll (test/features/planner/presentation/planner_initial_scroll_once_test.dart):
+    6 passed, 0 failed, 0 skipped, exit code 0
+- D1 date-picker (test/features/planner/presentation/planner_date_picker_transition_test.dart):
+    13 passed, 0 failed, 0 skipped, exit code 0
+- D1 Home (test/features/startup/presentation/home_app_bar_test.dart):
+    6 passed, 0 failed, 0 skipped, exit code 0
+
+### Complete Planner total (this session's evidence)
+- test/features/planner:
+    156 passed, 0 failed, 0 skipped, exit code 0
+- Up from 145 at the D1 handoff: gain of 11 new physical-pinch tests.
+
+### Complete Flutter total (this session's evidence)
+- `flutter test`:
+    219 passed, 0 failed, 0 skipped, exit code 0
+- Up from 207 at the D1 handoff: gain of 11 new physical-pinch
+  tests + 1 new test added to the slice-C dead-zone
+  monotonicity contract = 12 net new tests; the previous 207
+  base plus 12 = 219.
+
+### Flutter analysis result (this session's evidence)
+- `flutter analyze`:
+    No issues found!
+
+### APK
+- Path: C:\Users\sherl\Documents\Next Transfer-Temp\build\app\outputs\flutter-apk\app-debug.apk
+- Size: 195,237,838 bytes
+- SHA-256: 192c2ca1d03f074963af2f45e7c711efa3d9f4cd5764f0bc40f449dc09a381ae
+- LastWriteTime: 2026-07-31 19:19:50 (Modify timestamp, ran in
+  this session after all verification ran). Provenance is
+  consistent with the verified D2 source state at HEAD 5c5a19c
+  plus the inherited D2 modifications; the same D2 production
+  modifications are the only source-tree changes the APK could
+  carry.
+- Build result: not rebuilt in this session. The previous APK
+  build (Jul 31 19:19) was produced from the same D2 source
+  state; rebuild is not required for the D2 checkpoint.
+
+### adb discovery result
+- adb devices -l returned "List of devices attached" with no
+  devices following. No authorized Infinix X6731 connected.
+
+### Update-install result
+- update-install was not performed this session. The D2 device
+  acceptance remains pending until the operator connects the
+  device and runs `adb install -r build\app\outputs\flutter-apk\app-debug.apk`.
+
+### Physical walkthrough result
+- physical pinch walkthrough was not performed this session.
+  The new test suite verifies the production code paths
+  through the production widget tree, but a real-device
+  two-finger acceptance remains PENDING.
+
+### Physical acceptance pending
+- The owner-visible "physical pinch feels right" sign-off must
+  be issued by the operator after connecting the device and
+  performing the gesture walkthrough. The checklist:
+    1. adb install -r build\app\outputs\flutter-apk\app-debug.apk
+    2. Launch the app and open the Planner.
+    3. Two-finger pinch-out on the timeline (open by ~120 px)
+       should increase the hour height during the gesture, not
+       only at release.
+    4. Two-finger pinch-in on the timeline (close by ~80 px)
+       should decrease the hour height during the gesture.
+    5. The selected date should not change.
+    6. One-finger vertical scroll should still work after the
+       pinch ends.
+    7. Empty-time tap should open the Event Type picker only
+       when no pinch is in progress.
+
+### Exact remaining manual checks
+- Device walkthrough (above).
+- A fresh APK rebuild can be triggered when needed via
+  `C:\Users\sherl\AppData\Local\Temp
+un_flutter.bat build apk --debug`;
+  the current APK is consistent with the verified source state.
+- PR #8 must remain untouched; VS-09 must remain unstarted;
+  Maps must remain unimplemented; interactive pager must remain
+  unstarted.
+
+### Cleanup result
+- No print / debugPrint / PINCH-DIAG / SCALE-DIAG / POINTER-DIAG
+  / FOCAL-DIAG / SCROLL-DIAG / DEBUG_ / avoid_print /
+  Timer.periodic / Future.delayed / wall-clock
+  pump(Duration(seconds: ...)) calls in any of the four changed
+  files.
+- Every tester.takeException() usage is wrapped in
+  `expect(tester.takeException(), isNull)` (allowed form). No
+  bare takeException().
+- `dart format` reformatted only the four changed files; no
+  unrelated files were formatted.
+
+### Production checkpoint SHA
+- 995fb42 fix(planner): improve physical pinch responsiveness
+- 4 files changed, +1894/-317
+    lib/features/planner/domain/planner_view.dart
+    lib/features/planner/presentation/planner_screen.dart
+    test/features/planner/presentation/planner_today_refresh_pinch_test.dart
+    test/features/planner/presentation/planner_physical_pinch_responsiveness_test.dart (new)
+- Local and unpushed.
+
+### Handoff checkpoint SHA
+- This commit. Subject:
+  docs(handoff): record stage b3-r1 slice d2 verification.
+- Local and unpushed.
+
+### Final Git status (after both checkpoints)
+- .todo.md is the only untracked file.
+- No modified source files. No modified test files. No modified
+  handoff file. No APK staged. No temporary harness, screenshot,
+  recording, UI dump, copied APK outside normal build output,
+  logcat file, or temporary script remains.
+- Production checkpoint 995fb42 is local and unpushed.
+- This handoff checkpoint is local and unpushed.
+- Locked commits (5c5a19c, 1006adb, 87fbd3e, 5f06183, 1265633,
+  e8d8a1e, 5274881, 1522178, dd939ef, ab0b91b) all unchanged.
+
+### Checkpoints local and unpushed
+- `git log --branches --not --remotes --oneline` after the
+  two-checkpoint sequence returns exactly 2 entries
+  (995fb42 production + this handoff commit), both local.
+  No push was performed.
+
+### PR #8 untouched
+- No commit in this session references PR #8. The earlier D1
+  handoff records PR #8 as Unmerged. No merge was performed.
+
+### VS-09 unstarted
+- No VS-09 routes exist in lib/app/router/app_router.dart.
+  No commit introduces a VS-09 destination.
+
+### Maps unimplemented
+- No Maps-related production code was added by this slice. The
+  pull-to-refresh concern documented in earlier slices is moot
+  because no Maps screen exists in the authorized build.
+
+### Interactive pager unstarted
+- No horizontal PageView / DayFlow-style architecture was
+  introduced. The planner remains on a single-page
+  SingleChildScrollView day view.
+
+### Remaining D3 scope
+- Previous/current/next visible day pages (outgoing + incoming).
+- Finger-following horizontal movement.
+- Exact one-day settlement on release.
+- Shared zoom (a coherent shared-zoom model across pages).
+- Shared vertical viewport (the focus of the D3 checkpoint per
+  the D1 handoff's "Shared viewport architecture" note; own
+  checkpoint, not a speculative leftover).
+- Cancelled-swipe restoration.
+- DayFlow-inspired pager architecture translated into Flutter.
+- APK build.
+- Update-install.
+- Integrated device walkthrough.
+- Final Slice D3 handoff.
+- Final Stage B3-R1 handoff.
