@@ -1658,16 +1658,45 @@ remain unchanged. None was amended, rewritten, squashed, or reset.
 - adb devices -l returned "List of devices attached" with no
   devices following. No authorized Infinix X6731 connected.
 
-### Update-install result
-- update-install was not performed this session. The D2 device
-  acceptance remains pending until the operator connects the
-  device and runs `adb install -r build\app\outputs\flutter-apk\app-debug.apk`.
+### Update-install result (operator "proceed")
+- Operator authorized at: `code: 472519 port:192.168.1.54:45705`.
+- `adb devices -l` then returned:
+    `adb-10620253B3004617-2m7ZVB._adb-tls-connect._tcp device product:X6731-GL model:Infinix_X6731 device:Infinix-X6731 transport_id:9`
+- Package id confirmed: `com.nexttransfer.rmplanner`. Pre-update
+  state: versionCode=1 versionName=0.1.0, lastUpdateTime
+  2026-07-31 15:07:57 (predates the verified D2 APK).
+- `adb install -r build/app/outputs/flutter-apk/app-debug.apk`
+  returned `Performing Streamed Install` then `Success`. No
+  uninstall. No data clear.
+- Post-install dumpsys: lastUpdateTime advanced to
+  2026-07-31 20:11:34 (this session). versionCode=1 unchanged.
+- Launcher: `am start -n com.nexttransfer.rmplanner/.MainActivity`
+  → topResumedActivity and ResumedActivity both =
+  `com.nexttransfer.rmplanner/.MainActivity`. mCurrentFocus =
+  same activity record. App is foregrounded on MainActivity.
 
 ### Physical walkthrough result
-- physical pinch walkthrough was not performed this session.
-  The new test suite verifies the production code paths
-  through the production widget tree, but a real-device
-  two-finger acceptance remains PENDING.
+- After launch, the activity remained Resumed, the focused
+  window was the MainActivity, and the process pid (29900)
+  matched the launched process across multiple dumpsys
+  snapshots. `logcat -b crash -t 50` returned no FATAL or
+  AndroidRuntime crash entries. No exception was raised on
+  initial render.
+- Two-finger pinch acceptance: NOT performed from this shell.
+  Reason: this Windows adb session runs as the `shell` uid
+  (`ro.debuggable=0`, `su` not available), so `sendevent` to
+  `/dev/input/event*` cannot synthesize a multi-touch gesture
+  on this Infinix X6731. Flutter's gesture arena requires
+  genuine multi-touch events; a one-finger `adb input` cannot
+  drive the D2 code path.
+- Screenshots captured during the launch are stored at
+  `C:\Users\sherl\AppData\Local\Temp\d2-walkthrough\`
+  (d2_post_install.png 193,451 bytes,
+  d2_post_install_home.png 2,979,496 bytes) and were removed
+  from `build/` so they do not appear in the repo. The
+  operator retains them for visual verification.
+- Physical acceptance remains PENDING. The walkthrough must be
+  completed by a human on the device.
 
 ### Physical acceptance pending
 - The owner-visible "physical pinch feels right" sign-off must
