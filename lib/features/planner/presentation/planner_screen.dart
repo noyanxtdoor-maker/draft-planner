@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/gestures.dart' show DragStartBehavior;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -49,11 +50,79 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
   // subsequent gesture so each pointer-down starts from a known
   // clean state.
   final _DaySwipeCoordinator _daySwipeCoordinator = _DaySwipeCoordinator();
+  // Owns the current-time value for the planner's exact
+  // current-time indicator. The timeline reads this via a
+  // ValueListenableBuilder so only the indicator subtree rebuilds
+  // when the minute changes — the pinch/long-press/resize
+  // recognizers and the surrounding widget tree remain untouched
+  // by minute ticks. Ownership semantics:
+  //
+  // - the notifier is constructed in [initState] (so its first
+  //   value matches `DateTime.now()` when the widget mounts, not
+  //   at field-init time);
+  // - a single narrowly-scoped Timer schedules itself to fire at
+  //   the next minute boundary and then continues once per minute,
+  //   updating the notifier with the latest wall-clock minute;
+  // - the timer is cancelled and the notifier is disposed in
+  //   [dispose];
+  // - tests drive the indicator deterministically by calling
+  //   `currentTimeNotifier.value = newNow`, which notifies listeners
+  //   without scheduling any real-time wait.
+  late final ValueNotifier<DateTime> currentTimeNotifier;
+  Timer? _currentTimeTicker;
 
   bool get _selectionMode => _selectionActive;
 
   @override
+  void initState() {
+    super.initState();
+    currentTimeNotifier = ValueNotifier<DateTime>(DateTime.now());
+    _scheduleCurrentTimeTicker();
+  }
+
+  /// Schedule the next minute-boundary tick of [currentTimeNotifier].
+  ///
+  /// The timer fires once for the next minute boundary then
+  /// reschedules itself every minute. Scheduling against the
+  /// next boundary (rather than an arbitrary 60-second interval
+  /// after construction) keeps the visible time text aligned
+  /// with the actual wall-clock minute that crossed during the
+  /// interval — a 60 s loop constructed at, say, 14:03:42 would
+  /// otherwise tick at 14:04:42 and disagree with the wall clock.
+  /// The scheduled duration is recomputed against the current
+  /// moment so the ticker stays accurate even if the device's
+  /// wall-clock changes mid-session.
+  void _scheduleCurrentTimeTicker() {
+    _currentTimeTicker?.cancel();
+    final now = DateTime.now();
+    final nextMinute = DateTime(
+      now.year,
+      now.month,
+      now.day,
+      now.hour,
+      now.minute,
+    ).add(const Duration(minutes: 1));
+    final initialDelay = nextMinute.difference(now);
+    void onTick() {
+      if (!mounted) {
+        return;
+      }
+      currentTimeNotifier.value = DateTime.now();
+      _scheduleCurrentTimeTicker();
+    }
+
+    if (initialDelay <= Duration.zero) {
+      onTick();
+      return;
+    }
+    _currentTimeTicker = Timer(initialDelay, onTick);
+  }
+
+  @override
   void dispose() {
+    _currentTimeTicker?.cancel();
+    _currentTimeTicker = null;
+    currentTimeNotifier.dispose();
     _dayScrollController.dispose();
     super.dispose();
   }
@@ -595,6 +664,7 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                       hourHeight: settings.timelineHourHeight,
                       onZoomEnd: (value) => _persistZoom(ref, settings, value),
                       daySwipeCoordinator: _daySwipeCoordinator,
+                      currentTimeListenable: currentTimeNotifier,
                     ),
                   ),
                 ),
@@ -1416,6 +1486,7 @@ final class _TimedEventTimeline extends StatefulWidget {
     required this.hourHeight,
     required this.onZoomEnd,
     required this.daySwipeCoordinator,
+    required this.currentTimeListenable,
   });
 
   final List<PlannerCalendarItem> events;
@@ -1441,6 +1512,13 @@ final class _TimedEventTimeline extends StatefulWidget {
   // the parent state, so the timeline only invokes its cancel()
   // hook without owning its lifecycle.
   final _DaySwipeCoordinator daySwipeCoordinator;
+  // Parent-owned current-time source. The indicator subtree
+  // watches this listenable via ValueListenableBuilder so a minute
+  // tick only rebuilds the indicator — not the pinch / long-press
+  // / resize recognizers or the surrounding gesture surface.
+  // The notifier is owned and disposed by [_PlannerScreenState];
+  // tests advance it by writing to it directly.
+  final ValueListenable<DateTime> currentTimeListenable;
 
   @override
   State<_TimedEventTimeline> createState() => _TimedEventTimelineState();
@@ -1491,12 +1569,11 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
     final slotCount = _lastHour - _firstHour;
     final timelineHeight = slotCount * _hourHeight;
     final placements = PlannerTimelineLayout.arrange(widget.events);
-    final now = DateTime.now();
-    final showNow =
-        widget.settings.showCurrentTime &&
-        widget.selectedDate == PlannerDate.fromDateTime(now) &&
-        now.hour >= _firstHour &&
-        now.hour < _lastHour;
+    // The current-time read happens inside the
+    // ValueListenableBuilder so the indicator's visibility,
+    // label, and vertical position all refresh together on every
+    // minute tick without rebuilding the pinch / long-press /
+    // resize recognizers on this surface.
     return GestureDetector(
       key: const Key('planner-zoom-surface'),
       behavior: HitTestBehavior.translucent,
@@ -1637,13 +1714,29 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
                       'No timed Calendar Events. Tap the timeline to add one.',
                     ),
                   ),
-                if (showNow)
-                  _CurrentTimeLine(
-                    top:
-                        ((now.hour - _firstHour) * 60 + now.minute) *
-                        (_hourHeight / 60),
-                    left: _timeColumnWidth,
-                  ),
+                ValueListenableBuilder<DateTime>(
+                  valueListenable: widget.currentTimeListenable,
+                  builder: (context, currentNow, _) {
+                    final indicatorVisible =
+                        widget.settings.showCurrentTime &&
+                        widget.selectedDate ==
+                            PlannerDate.fromDateTime(currentNow) &&
+                        currentNow.hour >= _firstHour &&
+                        currentNow.hour < _lastHour;
+                    if (!indicatorVisible) {
+                      return const SizedBox.shrink();
+                    }
+                    return _CurrentTimeIndicator(
+                      top:
+                          ((currentNow.hour - _firstHour) * 60 +
+                                  currentNow.minute) *
+                          (_hourHeight / 60),
+                      left: 0,
+                      timeColumnWidth: _timeColumnWidth,
+                      label: formatPlannerCurrentTimeLabel(currentNow),
+                    );
+                  },
+                ),
                 for (final placement in placements)
                   _positionedEvent(
                     placement,
@@ -2231,33 +2324,98 @@ final class _StatusRow extends StatelessWidget {
   }
 }
 
-final class _CurrentTimeLine extends StatelessWidget {
-  const _CurrentTimeLine({required this.top, required this.left});
+/// Format a [DateTime] (interpreted as a local wall-clock time) to
+/// the planner's required 12-hour current-time label: `h:mm a`,
+/// with no leading zero on the hour, two digits for minutes,
+/// uppercase AM/PM, and no seconds or timezone suffix. Centralised
+/// here so both the production widget and the focused current-time
+/// tests can pin the exact format without duplicating arithmetic.
+String formatPlannerCurrentTimeLabel(DateTime now) {
+  final hour24 = now.hour;
+  final minute = now.minute;
+  final displayHour = hour24 == 0
+      ? 12
+      : hour24 > 12
+      ? hour24 - 12
+      : hour24;
+  final period = hour24 >= 12 ? 'PM' : 'AM';
+  return '$displayHour:${minute.toString().padLeft(2, '0')} $period';
+}
+
+/// Renders the exact current-time indicator as one coherent
+/// horizontal row:
+///
+///     [time text] [circle] [horizontal line]
+///
+/// The time text occupies the left label/gutter region (visually
+/// adjacent to the hour labels rendered by the timeline), the
+/// circle marks the exact current-minute position, and the line
+/// extends from the circle to the right edge of the timeline. The
+/// indicator is wrapped in [IgnorePointer] so it never blocks
+/// empty-time taps, vertical scroll, pinch zoom, day-swipe, Event
+/// body taps, resize, or selection mode.
+final class _CurrentTimeIndicator extends StatelessWidget {
+  const _CurrentTimeIndicator({
+    required this.top,
+    required this.left,
+    required this.timeColumnWidth,
+    required this.label,
+  });
 
   final double top;
   final double left;
+  final double timeColumnWidth;
+  final String label;
 
   @override
   Widget build(BuildContext context) {
     return Positioned(
-      key: const Key('planner-current-time-line'),
+      key: const Key('planner-current-time-indicator'),
       top: top,
-      left: left - 4,
+      left: left,
       right: 0,
-      child: Row(
-        children: <Widget>[
-          Container(
-            width: 8,
-            height: 8,
-            decoration: const BoxDecoration(
-              color: AppTheme.rose,
-              shape: BoxShape.circle,
+      child: IgnorePointer(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: <Widget>[
+            SizedBox(
+              width: timeColumnWidth,
+              child: Text(
+                label,
+                key: const Key('planner-current-time-label'),
+                textAlign: TextAlign.right,
+                maxLines: 1,
+                softWrap: false,
+                overflow: TextOverflow.visible,
+                style: const TextStyle(
+                  color: AppTheme.rose,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  height: 1.0,
+                  letterSpacing: 0.2,
+                ),
+              ),
             ),
-          ),
-          const Expanded(
-            child: Divider(height: 1, thickness: 1, color: AppTheme.rose),
-          ),
-        ],
+            Container(
+              key: const Key('planner-current-time-dot'),
+              width: 8,
+              height: 8,
+              margin: const EdgeInsets.only(left: 6, right: 6),
+              decoration: const BoxDecoration(
+                color: AppTheme.rose,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const Expanded(
+              child: SizedBox(
+                height: 2,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(color: AppTheme.rose),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
