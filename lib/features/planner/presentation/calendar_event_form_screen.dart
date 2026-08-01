@@ -482,15 +482,11 @@ final class _CalendarEventFormScreenState
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
-                    key: widget.mode == CalendarEventFormMode.edit
-                        ? const Key('event-description-field')
-                        : const Key('event-notes-field'),
+                    key: const Key('event-notes-field'),
                     controller: _notesController,
                     focusNode: _notesFocusNode,
                     decoration: InputDecoration(
-                      labelText: widget.mode == CalendarEventFormMode.edit
-                          ? 'Description'
-                          : 'Notes',
+                      labelText: 'Notes',
                       hintText: _notesFocusNode.hasFocus
                           ? null
                           : 'What do you need to remember about this?',
@@ -752,15 +748,7 @@ final class _CalendarEventFormScreenState
                   onPressed: () => Navigator.of(context).pop(false),
                   icon: const Icon(Icons.close),
                 ),
-                Expanded(
-                  child: Text(
-                    _formHeading,
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
+                const Spacer(),
                 _buildSaveButton(),
               ],
             ),
@@ -966,15 +954,39 @@ final class _CalendarEventFormScreenState
             key: const Key('weekly-life-indicator-link-value'),
           ),
           trailing: linked == null
-              ? const Icon(Icons.chevron_right)
-              : IconButton(
-                  key: const Key('weekly-life-indicator-remove'),
-                  tooltip: 'Remove indicator link',
-                  onPressed: () => setState(() {
-                    _linkedIndicatorKey = null;
-                    _indicatorLinkTouched = true;
-                  }),
-                  icon: const Icon(Icons.link_off_outlined),
+              ? TextButton(
+                  key: const Key('weekly-life-indicator-link-button'),
+                  onPressed: _chooseIndicator,
+                  style: TextButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                  ),
+                  child: const Text('Link Indicator'),
+                )
+              : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    TextButton(
+                      key: const Key('weekly-life-indicator-change'),
+                      onPressed: _chooseIndicator,
+                      style: TextButton.styleFrom(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                      ),
+                      child: const Text('Change'),
+                    ),
+                    IconButton(
+                      key: const Key('weekly-life-indicator-remove'),
+                      tooltip: 'Remove indicator link',
+                      onPressed: () => setState(() {
+                        _linkedIndicatorKey = null;
+                        _indicatorLinkTouched = true;
+                      }),
+                      icon: const Icon(Icons.link_off_outlined),
+                    ),
+                  ],
                 ),
           onTap: _chooseIndicator,
         ),

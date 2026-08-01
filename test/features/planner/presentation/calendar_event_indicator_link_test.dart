@@ -70,14 +70,23 @@ void main() {
                   const Key('calendar-event-form-scroll');
         });
         final formState = tester.state<ScrollableState>(formScroll.at(0));
-        formState.position.jumpTo(formState.position.maxScrollExtent);
-        await tester.pumpAndSettle();
-        final offset = formState.position.maxScrollExtent - 350;
-        formState.position.jumpTo(offset < 0 ? 0 : offset);
-        await tester.pumpAndSettle();
-        await tester.ensureVisible(
-          find.byKey(const Key('weekly-life-indicator-link-section')),
+        final indicatorSection = find.byKey(
+          const Key('weekly-life-indicator-link-section'),
         );
+        for (var attempt = 0; attempt < 12; attempt++) {
+          if (indicatorSection.evaluate().isNotEmpty) {
+            await tester.ensureVisible(indicatorSection);
+            await tester.pumpAndSettle();
+            return;
+          }
+          formState.position.jumpTo(
+            (formState.position.pixels + 260)
+                .clamp(0, formState.position.maxScrollExtent)
+                .toDouble(),
+          );
+          await tester.pumpAndSettle();
+        }
+        expect(indicatorSection, findsOneWidget);
         await tester.pumpAndSettle();
       }
 
@@ -87,6 +96,7 @@ void main() {
         'Indicator Link Event',
       );
       await revealIndicatorLink();
+      expect(find.text('Link Indicator'), findsOneWidget);
       await tester.tap(
         find.byKey(const Key('weekly-life-indicator-link-section')),
       );

@@ -66,8 +66,8 @@ Future<T?> showCalendarEventFormSheet<T>({
     barrierColor: Colors.black.withValues(alpha: 0.38),
     builder: (sheetContext) => DraggableScrollableSheet(
       key: const Key('calendar-event-draggable-sheet'),
-      initialChildSize: 0.86,
-      minChildSize: 0.48,
+      initialChildSize: 0.40,
+      minChildSize: 0.36,
       maxChildSize: 0.94,
       expand: false,
       builder: (context, scrollController) => sourceTaskId == null

@@ -72,6 +72,13 @@ void main() {
         findsOneWidget,
       );
       expect(
+        tester
+            .getTopLeft(find.byKey(const Key('calendar-event-detail-sheet')))
+            .dy,
+        greaterThan(450),
+      );
+      expect(find.text('Create Temple Visit'), findsNothing);
+      expect(
         find.byKey(const Key('calendar-event-sheet-handle')),
         findsOneWidget,
       );
@@ -82,21 +89,31 @@ void main() {
         ),
         findsOneWidget,
       );
+      Future<void> scrollFormTo(Finder target) async {
+        for (var attempt = 0; attempt < 8; attempt++) {
+          if (target.evaluate().isNotEmpty) {
+            return;
+          }
+          await tester.drag(
+            find.byKey(const Key('calendar-event-form-scroll')),
+            const Offset(0, -220),
+          );
+          await tester.pumpAndSettle();
+        }
+      }
+
+      final dateField = find.byKey(const Key('event-date-field'));
+      await scrollFormTo(dateField);
+      expect(dateField, findsWidgets);
       expect(find.text(selected.iso8601), findsWidgets);
-      expect(
-        find.descendant(
-          of: find.byKey(const Key('event-start-time')),
-          matching: find.text('9:30 AM'),
-        ),
-        findsOneWidget,
-      );
-      expect(
-        find.descendant(
-          of: find.byKey(const Key('event-end-time')),
-          matching: find.text('11:30 AM'),
-        ),
-        findsOneWidget,
-      );
+      final startTime = find.byKey(const Key('event-start-time'));
+      await scrollFormTo(startTime);
+      expect(startTime, findsWidgets);
+      expect(find.text('9:30 AM'), findsOneWidget);
+      final endTime = find.byKey(const Key('event-end-time'));
+      await scrollFormTo(endTime);
+      expect(endTime, findsWidgets);
+      expect(find.text('11:30 AM'), findsOneWidget);
       expect(
         find.textContaining('saving never creates Actual'),
         findsOneWidget,

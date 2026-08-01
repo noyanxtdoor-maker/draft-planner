@@ -60,7 +60,19 @@ void main() {
         find.byKey(const Key('event-title-field')),
         'Offline Calendar Event',
       );
-      await tester.tap(find.byKey(const Key('event-all-day-switch')));
+      final allDaySwitch = find.byKey(const Key('event-all-day-switch'));
+      for (var attempt = 0; attempt < 8; attempt++) {
+        if (allDaySwitch.evaluate().isNotEmpty) {
+          break;
+        }
+        await tester.drag(
+          find.byKey(const Key('calendar-event-form-scroll')),
+          const Offset(0, -220),
+        );
+        await tester.pumpAndSettle();
+      }
+      expect(allDaySwitch, findsOneWidget);
+      await tester.tap(allDaySwitch);
       expect(tester.takeException(), isNull, reason: 'all-day selected');
       final formScrollable = find.byElementPredicate((element) {
         if (element.widget is! Scrollable || element is! StatefulElement) {
@@ -74,6 +86,21 @@ void main() {
       });
       final addLocation = find.byKey(const Key('add-location-button'));
       final formState = tester.state<ScrollableState>(formScrollable.at(0));
+      Future<void> reveal(Finder target) async {
+        for (var attempt = 0; attempt < 12; attempt++) {
+          if (target.evaluate().isNotEmpty) {
+            return;
+          }
+          formState.position.jumpTo(
+            (formState.position.pixels + 260)
+                .clamp(0, formState.position.maxScrollExtent)
+                .toDouble(),
+          );
+          await tester.pumpAndSettle();
+        }
+        expect(target, findsOneWidget);
+      }
+
       final backupOffset = formState.position.maxScrollExtent - 350;
       formState.position.jumpTo(backupOffset < 0 ? 0 : backupOffset);
       await tester.pumpAndSettle();
@@ -93,12 +120,20 @@ void main() {
       final backupSwitch = find.byKey(
         const Key('event-backup-appointment-switch'),
       );
+      formState.position.jumpTo(0);
+      await tester.pumpAndSettle();
+      await reveal(backupSwitch);
+      await tester.ensureVisible(backupSwitch);
+      await tester.pumpAndSettle();
       await tester.tap(backupSwitch);
       formState.position.jumpTo(formState.position.maxScrollExtent);
       await tester.pumpAndSettle();
       final reportSwitch = find.byKey(
         const Key('event-requires-report-switch'),
       );
+      await reveal(reportSwitch);
+      await tester.ensureVisible(reportSwitch);
+      await tester.pumpAndSettle();
       await tester.tap(reportSwitch);
       await tester.tap(find.byKey(const Key('save-event-button')));
       await tester.pumpAndSettle();
