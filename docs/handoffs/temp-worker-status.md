@@ -2716,3 +2716,88 @@ FAIL for every physical test.
 
 The handoff checkpoint commit is intentionally local and is recorded by the
 commit created for this section; its short SHA is reported after commit.
+
+## VS-08 Production-Route Reimplementation — Reverification and Targeted Correction
+
+### Starting state and route proof
+
+- Working repository: `C:\Users\sherl\Documents\Next Transfer-Temp`.
+- Starting branch: `temp/vs08-shared-preview`.
+- Starting HEAD: `e18b0a2` (`docs(handoff): record vs08 production-route reimplementation`).
+- The prompt expected `982bee7`, but the checkout already contained the valid
+  local VS-08 implementation and handoff commits through `e18b0a2`; no reset,
+  restore, clean, stash, rebase, amend, squash, push, PR change, uninstall,
+  data clear, application-ID change, signing change, Maps work, or VS-09 work
+  was performed.
+- Inherited working-tree state was `?? .todo.md` only; `.todo.md` remains
+  untracked and unstaged.
+- The active route was verified from source as:
+  `lib/main.dart` -> `NextTransferApp` -> `appRouterProvider` -> `ShellRoute`
+  and `MainShell` -> `/planner` -> `PlannerScreen`.
+- The same router mounts the Event Type chooser, shared Event form, Event
+  detail/edit/status/overflow paths, and the privacy lifecycle observer.
+
+### Temporary marker and device boundary
+
+- A `kDebugMode` `TEMP ACTIVE PLANNER` marker was added only to the mounted
+  `PlannerScreen`, then removed before the final test checkpoint.
+- Marker APK built from Temp:
+  `C:\Users\sherl\Documents\Next Transfer-Temp\build\app\outputs\flutter-apk\app-debug.apk`.
+- Marker APK SHA-256:
+  `96A76AF6D2CC170E7F6F1B55C559AC4ED5745801DE3A257D4B32829AE43C1E0C`.
+- Physical marker rendering, installed-marker hash comparison, update-install,
+  and screencap proof were not completed because the authorized Infinix was
+  not discoverable: `adb devices -l` was empty, `adb mdns services` returned no
+  services, and the previously authorized endpoint `192.168.1.54:34439` was
+  unreachable. No APK was installed in this run.
+- No `TEMP ACTIVE PLANNER` marker or temporary diagnostics remain in source.
+
+### Approved references and targeted production corrections
+
+- The required nested `Approved-Event-Flow-References` directory was absent.
+  The available read-only references were used from
+  `C:\Users\sherl\Documents\NextTransfer-Device-Evidence\Stage-B3-R1` and
+  `C:\Users\sherl\Documents\Next Transfer\UI Preferences\Current Build Reviews\Planner`.
+- The create Event sheet now opens at a partial `0.40` extent with a `0.36`
+  minimum, leaving the mounted Planner visible while retaining internal form
+  scrolling and the existing `0.94` maximum.
+- The sheet header now matches the approved X/Save layout without an extra
+  form title in the center.
+- Create and edit now expose the canonical `Notes` label and key; unrelated
+  draft persistence is unchanged.
+- The Weekly Life Indicator section now exposes an explicit trailing
+  `Link Indicator` action and `Change` action while retaining the existing
+  optional, reversible, save-only domain behavior.
+- People remains an honest placeholder: this checkout contains no Contacts or
+  person persistence model/table/repository, and the prompt explicitly forbids
+  inventing a schema. Therefore People cannot be truthfully marked as working
+  until an approved person-link architecture is supplied.
+
+### Verification
+
+- Targeted Event Type-first creation test: `5 passed, 0 failed, 0 skipped`.
+- Targeted Weekly Life Indicator link test: `1 passed, 0 failed, 0 skipped`.
+- Targeted Event journey test: `1 passed, 0 failed, 0 skipped`.
+- Complete Planner suite: `276 passed, 0 failed, 0 skipped`.
+- Complete Flutter suite: `340 passed, 0 failed, 0 skipped`.
+- Analyzer: `No issues found!`.
+- `git diff --check`: passed before checkpoint creation.
+- Production files changed in this run:
+  `lib/features/planner/presentation/calendar_event_creation.dart` and
+  `lib/features/planner/presentation/calendar_event_form_screen.dart`.
+- Test files changed in this run:
+  `test/features/planner/presentation/calendar_event_indicator_link_test.dart`,
+  `test/features/planner/presentation/calendar_event_journey_test.dart`, and
+  `test/features/planner/presentation/event_type_first_creation_test.dart`.
+- Implementation checkpoint: `83c3fa2`
+  (`fix(planner): reimplement final vs08 owner corrections`).
+
+### Acceptance boundary
+
+- Final APK build/hash/install/data-preservation evidence is pending the
+  authorized device becoming reachable.
+- Physical acceptance items 01–50 are pending explicit owner PASS/FAIL and are
+  not inferred from automated tests or prior reports.
+- Physical acceptance and final integration checkpoints were not created.
+- No push was made; PR #8 remains untouched; VS-09 remains unauthorized and
+  unstarted.
