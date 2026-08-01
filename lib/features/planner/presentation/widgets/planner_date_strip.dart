@@ -78,8 +78,8 @@ final class PlannerDateStrip extends StatefulWidget {
 
   /// Compact fixed cell width. The strip keeps the same cell geometry at all
   /// selection states and leaves the top-bar calendar control independent.
-  static const double itemExtent = 54;
-  static const double stripHeight = 60;
+  static const double itemExtent = 52;
+  static const double stripHeight = 45;
 
   @override
   State<PlannerDateStrip> createState() => _PlannerDateStripState();

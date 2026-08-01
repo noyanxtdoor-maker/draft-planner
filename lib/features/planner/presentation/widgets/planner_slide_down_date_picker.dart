@@ -58,8 +58,9 @@ Future<DateTime?> showPlannerSlideDownDatePicker({
 }) {
   return Navigator.of(context, rootNavigator: true).push<DateTime>(
     PageRouteBuilder<DateTime>(
+      settings: const RouteSettings(name: 'planner-date-picker-route'),
       opaque: false,
-      barrierColor: Colors.black.withValues(alpha: 0.32),
+      barrierColor: Colors.black.withValues(alpha: 0.18),
       barrierDismissible: true,
       barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
       transitionDuration: const Duration(milliseconds: 240),

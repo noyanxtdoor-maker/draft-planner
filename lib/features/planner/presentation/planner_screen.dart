@@ -29,6 +29,8 @@ import 'package:rmplanner/features/planner/presentation/widgets/planner_event_bl
 import 'package:rmplanner/features/planner/presentation/widgets/planner_event_block_layout_policy.dart';
 import 'package:rmplanner/features/planner/presentation/widgets/planner_interactive_day_pager.dart'
     show PlannerInteractiveDayPager, PlannerInteractiveDayPagerController;
+import 'package:rmplanner/features/planner/presentation/widgets/planner_shared_viewport.dart'
+    show kPlannerTimelineBottomBoundaryExtent;
 import 'package:rmplanner/features/planner/presentation/widgets/planner_slide_down_date_picker.dart';
 
 final class PlannerScreen extends ConsumerStatefulWidget {
@@ -988,6 +990,10 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                   },
                 );
               },
+            ),
+            const SizedBox(
+              key: Key('planner-timeline-bottom-boundary'),
+              height: kPlannerTimelineBottomBoundaryExtent,
             ),
           ],
         ),

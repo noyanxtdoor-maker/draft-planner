@@ -27,6 +27,11 @@ import 'package:flutter/widgets.dart';
 import 'package:rmplanner/features/planner/domain/planner_settings.dart';
 import 'package:rmplanner/features/planner/domain/planner_view.dart';
 
+/// Small visual allowance after the final configured time boundary. It keeps
+/// the last full-hour label and line reachable above the shell navigation and
+/// FAB without adding a synthetic hour to the timeline geometry.
+const double kPlannerTimelineBottomBoundaryExtent = 24;
+
 @immutable
 final class PlannerSharedViewport {
   const PlannerSharedViewport({

@@ -61,17 +61,23 @@ Future<T?> showCalendarEventFormSheet<T>({
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
+    enableDrag: true,
     backgroundColor: Colors.transparent,
     barrierColor: Colors.black.withValues(alpha: 0.62),
-    builder: (sheetContext) => FractionallySizedBox(
-      heightFactor: 0.94,
-      child: sourceTaskId == null
+    builder: (sheetContext) => DraggableScrollableSheet(
+      key: const Key('calendar-event-draggable-sheet'),
+      initialChildSize: 0.86,
+      minChildSize: 0.55,
+      maxChildSize: 0.90,
+      expand: false,
+      builder: (context, scrollController) => sourceTaskId == null
           ? CalendarEventFormScreen.create(
               initialDate: date,
               initialStartMinute: startMinute,
               initialIndicatorKey: indicatorKey,
               initialEventTypeId: eventType.id,
               sheetPresentation: true,
+              sheetScrollController: scrollController,
             )
           : CalendarEventFormScreen.createFromTask(
               sourceTaskId: sourceTaskId,
@@ -80,6 +86,7 @@ Future<T?> showCalendarEventFormSheet<T>({
               initialIndicatorKey: indicatorKey,
               initialEventTypeId: eventType.id,
               sheetPresentation: true,
+              sheetScrollController: scrollController,
             ),
     ),
   );

@@ -37,9 +37,18 @@ Future<EventType?> showEventTypePicker({
   return showDialog<EventType>(
     context: context,
     barrierDismissible: true,
-    builder: (dialogContext) => _EventTypePickerDialog(
-      eventTypes: types,
-      recommendedEventTypeId: recommendedId,
+    barrierColor: Colors.black.withValues(alpha: 0.62),
+    useSafeArea: false,
+    builder: (dialogContext) => Align(
+      alignment: Alignment.bottomCenter,
+      child: FractionallySizedBox(
+        widthFactor: 1,
+        heightFactor: 0.72,
+        child: _EventTypePickerSheet(
+          eventTypes: types,
+          recommendedEventTypeId: recommendedId,
+        ),
+      ),
     ),
   );
 }
@@ -81,8 +90,8 @@ List<EventType> _orderedPickerTypes(
   return ordered;
 }
 
-final class _EventTypePickerDialog extends StatelessWidget {
-  const _EventTypePickerDialog({
+final class _EventTypePickerSheet extends StatelessWidget {
+  const _EventTypePickerSheet({
     required this.eventTypes,
     required this.recommendedEventTypeId,
   });
@@ -92,138 +101,137 @@ final class _EventTypePickerDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final viewport = MediaQuery.sizeOf(context);
-    return Dialog(
-      key: const Key('event-type-picker'),
-      backgroundColor: AppTheme.surface,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: AppTheme.outline),
-      ),
-      child: SafeArea(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxWidth: 440,
-            maxHeight: viewport.height * 0.78,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
-                child: Text(
-                  'Select Event Type',
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              const Divider(height: 1, color: AppTheme.outline),
-              Flexible(
-                child: eventTypes.isEmpty
-                    ? const Padding(
-                        padding: EdgeInsets.all(20),
-                        child: Text('No active Event Types are available.'),
-                      )
-                    : ListView.separated(
-                        key: const Key('event-type-picker-list'),
-                        shrinkWrap: true,
-                        padding: const EdgeInsets.symmetric(vertical: 6),
-                        itemCount: eventTypes.length,
-                        separatorBuilder: (_, _) => const Divider(
-                          height: 1,
-                          indent: 58,
-                          color: AppTheme.outline,
-                        ),
-                        itemBuilder: (context, index) {
-                          final type = eventTypes[index];
-                          final recommended = type.id == recommendedEventTypeId;
-                          return Semantics(
-                            button: true,
-                            label:
-                                '${type.label} Event Type'
-                                '${recommended ? ', Recommended' : ''}',
-                            child: ListTile(
-                              key: Key('event-type-option-${type.stableKey}'),
-                              minTileHeight: 56,
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 20,
-                                vertical: 2,
-                              ),
-                              leading: Container(
-                                width: 20,
-                                height: 20,
-                                decoration: BoxDecoration(
-                                  color: Color(type.colorValue),
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: Colors.white.withValues(alpha: 0.35),
-                                  ),
-                                ),
-                              ),
-                              title: Text(
-                                type.label,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              trailing: recommended
-                                  ? Container(
-                                      key: Key(
-                                        'event-type-recommended-${type.stableKey}',
-                                      ),
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 9,
-                                        vertical: 5,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: AppTheme.rose.withValues(
-                                          alpha: 0.14,
-                                        ),
-                                        border: Border.all(
-                                          color: AppTheme.rose,
-                                        ),
-                                        borderRadius: BorderRadius.circular(20),
-                                      ),
-                                      child: const Text(
-                                        'Recommended',
-                                        style: TextStyle(
-                                          color: AppTheme.rose,
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                    )
-                                  : null,
-                              onTap: () => Navigator.of(context).pop(type),
-                            ),
-                          );
-                        },
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Material(
+          key: const Key('event-type-picker'),
+          color: AppTheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+          clipBehavior: Clip.antiAlias,
+          child: SafeArea(
+            top: false,
+            child: SizedBox(
+              height: constraints.maxHeight,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  const SizedBox(height: 8),
+                  Center(
+                    child: Container(
+                      width: 42,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.white30,
+                        borderRadius: BorderRadius.circular(4),
                       ),
-              ),
-              const Divider(height: 1, color: AppTheme.outline),
-              Align(
-                alignment: Alignment.centerRight,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 6, 12, 8),
-                  child: TextButton(
-                    key: const Key('event-type-picker-cancel'),
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text(
-                      'Cancel',
-                      style: TextStyle(color: AppTheme.rose),
                     ),
                   ),
-                ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+                    child: Text(
+                      'Select Event Type',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  Flexible(
+                    child: eventTypes.isEmpty
+                        ? const Padding(
+                            padding: EdgeInsets.fromLTRB(16, 8, 16, 12),
+                            child: Text('No active Event Types are available.'),
+                          )
+                        : ListView.builder(
+                            key: const Key('event-type-picker-list'),
+                            shrinkWrap: true,
+                            padding: const EdgeInsets.fromLTRB(12, 2, 12, 4),
+                            itemCount: eventTypes.length,
+                            itemBuilder: (context, index) {
+                              final type = eventTypes[index];
+                              final recommended =
+                                  type.id == recommendedEventTypeId;
+                              return Semantics(
+                                button: true,
+                                label:
+                                    '${type.label} Event Type'
+                                    '${recommended ? ', Recommended' : ''}',
+                                child: InkWell(
+                                  key: Key(
+                                    'event-type-option-${type.stableKey}',
+                                  ),
+                                  borderRadius: BorderRadius.circular(12),
+                                  onTap: () => Navigator.of(context).pop(type),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 8,
+                                    ),
+                                    child: Row(
+                                      children: <Widget>[
+                                        Container(
+                                          width: 18,
+                                          height: 18,
+                                          decoration: BoxDecoration(
+                                            color: Color(type.colorValue),
+                                            shape: BoxShape.circle,
+                                            border: Border.all(
+                                              color: Colors.white.withValues(
+                                                alpha: 0.35,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Text(
+                                            type.label,
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ),
+                                        if (recommended)
+                                          Text(
+                                            'Recommended',
+                                            key: Key(
+                                              'event-type-recommended-${type.stableKey}',
+                                            ),
+                                            style: const TextStyle(
+                                              color: AppTheme.rose,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 2, 12, 8),
+                      child: TextButton(
+                        key: const Key('event-type-picker-cancel'),
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const Text(
+                          'Cancel',
+                          style: TextStyle(color: AppTheme.rose),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }

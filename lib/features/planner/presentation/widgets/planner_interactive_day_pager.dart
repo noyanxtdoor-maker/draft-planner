@@ -103,8 +103,11 @@ const double kPlannerPagerDirectionLockDistance = 10;
 
 /// Horizontal-dominance ratio: once the gesture has moved
 /// further than the direction-lock distance, the pager only
-/// takes over when |dx| > |dy| * 1.10.
-const double kPlannerPagerHorizontalDominanceRatio = 1.10;
+/// takes over when |dx| > |dy| * 1.60. The ratio matches the
+/// Planner's vertical-scroll cancellation threshold so a
+/// diagonal one-finger drag cannot both page and move the
+/// timeline.
+const double kPlannerPagerHorizontalDominanceRatio = 1.60;
 
 /// Fraction of viewport width whose release past the threshold
 /// is sufficient to commit one day. Phase 8 default.

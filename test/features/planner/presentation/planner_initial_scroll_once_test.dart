@@ -56,7 +56,11 @@ import 'package:rmplanner/features/planner/data/drift_outcome_reporting_reposito
 import 'package:rmplanner/features/planner/data/drift_planner_repository.dart';
 import 'package:rmplanner/features/planner/data/drift_task_event_link_repository.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
+import 'package:rmplanner/features/planner/domain/planner_view.dart'
+    show PlannerZoomPolicy;
 import 'package:rmplanner/features/planner/presentation/planner_screen.dart';
+import 'package:rmplanner/features/planner/presentation/widgets/planner_shared_viewport.dart'
+    show kPlannerTimelineBottomBoundaryExtent;
 import 'package:rmplanner/features/privacy/application/privacy_providers.dart';
 import 'package:rmplanner/features/startup/application/startup_providers.dart';
 import 'package:rmplanner/features/startup/data/drift_startup_repository.dart';
@@ -624,5 +628,77 @@ void main() {
         );
       }
     });
+
+    testWidgets(
+      'TEST 7 - final configured boundary remains reachable at each zoom',
+      (tester) async {
+        final (database, plannerRepository) = await _buildRepositories();
+        await _pumpPlanner(
+          tester: tester,
+          database: database,
+          plannerRepository: plannerRepository,
+          selected: _today,
+          today: _today,
+        );
+
+        final plannerElement = tester.element(find.byType(PlannerScreen));
+        final container = ProviderScope.containerOf(plannerElement);
+        final controller = container.read(eventTypeControllerProvider.notifier);
+        final baseline = container.read(eventTypeControllerProvider).settings;
+        final scrollable = tester.state<ScrollableState>(
+          find.descendant(
+            of: find.byKey(const Key('planner-day-scroll')),
+            matching: find.byType(Scrollable),
+          ),
+        );
+        final scrollViewport = tester.getRect(
+          find.byKey(const Key('planner-day-scroll')),
+        );
+
+        for (final hourHeight in <double>[
+          PlannerZoomPolicy.minimumHourHeight,
+          PlannerZoomPolicy.normalHourHeight,
+          PlannerZoomPolicy.maximumHourHeight,
+        ]) {
+          await controller.saveSettings(
+            baseline.copyWith(
+              visibleEndHour: 24,
+              timelineHourHeight: hourHeight,
+            ),
+          );
+          await tester.pumpAndSettle();
+
+          expect(
+            find.byKey(const Key('planner-timeline-bottom-boundary')),
+            findsOneWidget,
+          );
+          expect(
+            tester
+                .getSize(
+                  find.byKey(const Key('planner-timeline-bottom-boundary')),
+                )
+                .height,
+            closeTo(kPlannerTimelineBottomBoundaryExtent, 0.01),
+          );
+          expect(
+            find.byKey(const Key('planner-full-hour-line-24')),
+            findsOneWidget,
+          );
+
+          scrollable.position.jumpTo(scrollable.position.maxScrollExtent);
+          await tester.pump();
+          final boundaryRect = tester.getRect(
+            find.byKey(const Key('planner-timeline-bottom-boundary')),
+          );
+          expect(
+            boundaryRect.bottom,
+            lessThanOrEqualTo(scrollViewport.bottom + 0.5),
+            reason:
+                'the blank boundary must be reachable at hour height '
+                '$hourHeight',
+          );
+        }
+      },
+    );
   });
 }

@@ -53,7 +53,7 @@ void main() {
       expect(find.text('New Calendar Event'), findsNothing);
       await tester.tap(find.byKey(const Key('event-type-option-general')));
       await tester.pumpAndSettle();
-      expect(find.text('New Calendar Event'), findsOneWidget);
+      expect(find.text('New Calendar Event'), findsNothing);
       expect(find.text('General'), findsOneWidget);
       expect(tester.takeException(), isNull, reason: 'form opened');
       await tester.enterText(
@@ -62,28 +62,44 @@ void main() {
       );
       await tester.tap(find.byKey(const Key('event-all-day-switch')));
       expect(tester.takeException(), isNull, reason: 'all-day selected');
-      await tester.dragUntilVisible(
-        find.byKey(const Key('event-location-field')),
-        find.byType(ListView).last,
-        const Offset(0, -250),
-      );
+      final formScrollable = find.byElementPredicate((element) {
+        if (element.widget is! Scrollable || element is! StatefulElement) {
+          return false;
+        }
+        final state = element.state;
+        return state is ScrollableState &&
+            state.position.viewportDimension > 100 &&
+            element.findAncestorWidgetOfExactType<ListView>()?.key ==
+                const Key('calendar-event-form-scroll');
+      });
+      final addLocation = find.byKey(const Key('add-location-button'));
+      final formState = tester.state<ScrollableState>(formScrollable.at(0));
+      final backupOffset = formState.position.maxScrollExtent - 350;
+      formState.position.jumpTo(backupOffset < 0 ? 0 : backupOffset);
+      await tester.pumpAndSettle();
+      await tester.tap(addLocation);
+      await tester.pumpAndSettle();
       expect(tester.takeException(), isNull, reason: 'location revealed');
       await tester.enterText(
         find.byKey(const Key('event-location-field')),
         'Typed location only',
       );
-      expect(tester.takeException(), isNull, reason: 'location entered');
-      await tester.dragUntilVisible(
-        find.byKey(const Key('save-event-button')),
-        find.byType(ListView).last,
-        const Offset(0, -250),
-      );
-      await tester.tap(
-        find.byKey(const Key('event-backup-appointment-switch')),
-      );
-      await tester.tap(find.byKey(const Key('event-requires-report-switch')));
-      await tester.drag(find.byType(ListView).last, const Offset(0, -100));
+      tester.testTextInput.hide();
       await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull, reason: 'location entered');
+      final reportOffset = formState.position.maxScrollExtent - 350;
+      formState.position.jumpTo(reportOffset < 0 ? 0 : reportOffset);
+      await tester.pumpAndSettle();
+      final backupSwitch = find.byKey(
+        const Key('event-backup-appointment-switch'),
+      );
+      await tester.tap(backupSwitch);
+      formState.position.jumpTo(formState.position.maxScrollExtent);
+      await tester.pumpAndSettle();
+      final reportSwitch = find.byKey(
+        const Key('event-requires-report-switch'),
+      );
+      await tester.tap(reportSwitch);
       await tester.tap(find.byKey(const Key('save-event-button')));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
@@ -93,11 +109,10 @@ void main() {
       // Event details. Verify persistence directly through the database so
       // the "Save persists one Event" and "All-day records remain preserved"
       // locked behaviors are still asserted.
-      final savedAllDay = await (database.select(database.calendarEvents)
-            ..where(
-              (row) => row.title.equals('Offline Calendar Event'),
-            ))
-          .getSingle();
+      final savedAllDay =
+          await (database.select(database.calendarEvents)
+                ..where((row) => row.title.equals('Offline Calendar Event')))
+              .getSingle();
       expect(savedAllDay.title, 'Offline Calendar Event');
       expect(savedAllDay.timing, 'allDay');
       expect(savedAllDay.locationText, 'Typed location only');

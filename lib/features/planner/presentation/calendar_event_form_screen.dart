@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rmplanner/features/indicators/domain/life_indicator.dart';
 import 'package:rmplanner/features/planner/application/calendar_event_providers.dart';
 import 'package:rmplanner/features/planner/application/event_type_providers.dart';
+import 'package:rmplanner/features/planner/application/outcome_reporting_providers.dart';
+import 'package:rmplanner/features/planner/application/outcome_reporting_repository.dart';
 import 'package:rmplanner/features/planner/application/planner_providers.dart';
 import 'package:rmplanner/features/planner/application/task_event_link_providers.dart';
 import 'package:rmplanner/features/planner/domain/calendar_event.dart';
@@ -22,6 +24,7 @@ final class CalendarEventFormScreen extends ConsumerStatefulWidget {
     this.initialIndicatorKey,
     this.initialEventTypeId,
     this.sheetPresentation = false,
+    this.sheetScrollController,
     super.key,
   }) : mode = CalendarEventFormMode.create,
        eventId = null,
@@ -36,6 +39,7 @@ final class CalendarEventFormScreen extends ConsumerStatefulWidget {
     this.initialIndicatorKey,
     this.initialEventTypeId,
     this.sheetPresentation = false,
+    this.sheetScrollController,
     super.key,
   }) : mode = CalendarEventFormMode.create,
        eventId = null,
@@ -47,6 +51,7 @@ final class CalendarEventFormScreen extends ConsumerStatefulWidget {
     required this.originalDate,
     required this.scope,
     this.sheetPresentation = false,
+    this.sheetScrollController,
     super.key,
   }) : mode = CalendarEventFormMode.edit,
        initialDate = null,
@@ -60,6 +65,7 @@ final class CalendarEventFormScreen extends ConsumerStatefulWidget {
     required this.originalDate,
     required this.scope,
     this.sheetPresentation = false,
+    this.sheetScrollController,
     super.key,
   }) : mode = CalendarEventFormMode.reschedule,
        initialDate = null,
@@ -78,6 +84,7 @@ final class CalendarEventFormScreen extends ConsumerStatefulWidget {
   final CalendarEventEditScope? scope;
   final String? sourceTaskId;
   final bool sheetPresentation;
+  final ScrollController? sheetScrollController;
 
   @override
   ConsumerState<CalendarEventFormScreen> createState() =>
@@ -111,6 +118,12 @@ final class _CalendarEventFormScreenState
   bool _configurationLoading = true;
   bool _durationWasEntered = false;
   EventType? _selectedEventType;
+  List<IndicatorOption> _indicatorOptions = const <IndicatorOption>[];
+  String? _linkedIndicatorKey;
+  bool _indicatorLinkTouched = false;
+  bool _locationExpanded = false;
+  bool _addressExpanded = false;
+  bool _peopleExpanded = false;
   TaskEventCanonicalSource _canonicalSource = TaskEventCanonicalSource.task;
 
   @override
@@ -153,22 +166,35 @@ final class _CalendarEventFormScreenState
     if (!mounted) {
       return;
     }
-    final state = ref.read(eventTypeControllerProvider);
+    final eventTypeState = ref.read(eventTypeControllerProvider);
+    List<IndicatorOption> indicatorOptions = const <IndicatorOption>[];
+    try {
+      indicatorOptions = await ref
+          .read(outcomeReportingControllerProvider.notifier)
+          .readIndicatorOptions();
+    } on Object {
+      // The link remains optional if the existing indicator repository cannot
+      // be read. The event form itself must still be usable.
+    }
+    if (!mounted) {
+      return;
+    }
+    CalendarEventDraft? existingDraft;
     EventType? selected;
     var preferTypeDuration = false;
     if (widget.mode != CalendarEventFormMode.create) {
-      final draft = await ref
+      existingDraft = await ref
           .read(calendarEventControllerProvider.notifier)
           .readEventDraft(widget.eventId!);
-      final eventTypeId = draft?.activityTypeId;
+      final eventTypeId = existingDraft?.activityTypeId;
       if (eventTypeId != null) {
-        selected = state.eventTypes
+        selected = eventTypeState.eventTypes
             .where((type) => type.id == eventTypeId)
             .firstOrNull;
       }
     } else if (widget.initialEventTypeId != null) {
       preferTypeDuration = true;
-      selected = state.eventTypes
+      selected = eventTypeState.eventTypes
           .where((type) => type.id == widget.initialEventTypeId)
           .firstOrNull;
     } else if (widget.initialIndicatorKey != null) {
@@ -176,24 +202,35 @@ final class _CalendarEventFormScreenState
       selected = await controller.exactTypeForIndicator(
         widget.initialIndicatorKey!,
       );
-    } else if (state.settings.defaultEventTypeId != null) {
-      selected = state.eventTypes
-          .where((type) => type.id == state.settings.defaultEventTypeId)
+    } else if (eventTypeState.settings.defaultEventTypeId != null) {
+      selected = eventTypeState.eventTypes
+          .where(
+            (type) => type.id == eventTypeState.settings.defaultEventTypeId,
+          )
           .firstOrNull;
     }
-    selected ??= state.eventTypes
+    selected ??= eventTypeState.eventTypes
         .where((type) => type.stableKey == SystemEventTypeKeys.general)
         .firstOrNull;
+    final existingRule = ScheduledPotentialRule.tryParse(
+      existingDraft?.contributionRuleKey,
+    );
+    final initialLink =
+        existingRule?.indicatorKey ??
+        widget.initialIndicatorKey ??
+        selected?.exactIndicatorKey;
     if (mounted) {
       setState(() {
         _configurationLoading = false;
         _selectedEventType = selected;
+        _indicatorOptions = indicatorOptions;
+        _linkedIndicatorKey = initialLink;
         if (widget.mode == CalendarEventFormMode.create && selected != null) {
           _applyEventTypeDefaults(
             selected,
             durationMinutes: preferTypeDuration
                 ? selected.defaultDurationMinutes
-                : state.settings.defaultDurationMinutes,
+                : eventTypeState.settings.defaultDurationMinutes,
           );
         }
       });
@@ -206,9 +243,10 @@ final class _CalendarEventFormScreenState
       return;
     }
     final startMinute = _start.hour * 60 + _start.minute;
+    final minimumEnd = (startMinute + 15).clamp(1, 1439);
     _end = _timeFromMinute(
       (startMinute + (durationMinutes ?? type.defaultDurationMinutes)).clamp(
-        1,
+        minimumEnd,
         1439,
       ),
     );
@@ -226,6 +264,9 @@ final class _CalendarEventFormScreenState
     }
     setState(() {
       _selectedEventType = selected;
+      if (!_indicatorLinkTouched) {
+        _linkedIndicatorKey = selected.exactIndicatorKey;
+      }
       if (widget.mode == CalendarEventFormMode.create) {
         _applyEventTypeDefaults(selected);
       }
@@ -265,6 +306,8 @@ final class _CalendarEventFormScreenState
     _titleController.text = draft.title;
     _notesController.text = draft.notes ?? '';
     _locationController.text = draft.locationText ?? '';
+    _locationExpanded = _locationController.text.trim().isNotEmpty;
+    _addressExpanded = _locationExpanded;
     _timeZoneController.text =
         draft.timeZoneId ??
         ref.read(calendarEventControllerProvider.notifier).displayTimeZoneId;
@@ -304,13 +347,10 @@ final class _CalendarEventFormScreenState
             child: Form(
               key: _formKey,
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 36),
+                key: const Key('calendar-event-form-scroll'),
+                controller: widget.sheetScrollController,
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
                 children: <Widget>[
-                  const _FormSectionLabel(
-                    icon: Icons.category_outlined,
-                    label: 'Event identity',
-                  ),
-                  const SizedBox(height: 8),
                   if (widget.scope != null) ...<Widget>[
                     _ScopeBanner(scope: widget.scope!),
                     const SizedBox(height: 14),
@@ -417,7 +457,9 @@ final class _CalendarEventFormScreenState
                     controller: _notesController,
                     decoration: const InputDecoration(
                       labelText: 'Notes',
+                      hintText: 'What do you need to remember about this?',
                       prefixIcon: Icon(Icons.notes),
+                      alignLabelWithHint: true,
                     ),
                     minLines: 2,
                     maxLines: 5,
@@ -425,7 +467,7 @@ final class _CalendarEventFormScreenState
                   const SizedBox(height: 18),
                   const _FormSectionLabel(
                     icon: Icons.schedule_outlined,
-                    label: 'Date and time',
+                    label: 'Scheduling Details',
                   ),
                   const SizedBox(height: 4),
                   SwitchListTile(
@@ -443,7 +485,8 @@ final class _CalendarEventFormScreenState
                     ),
                   ),
                   _DateTile(
-                    label: 'Event date',
+                    key: const Key('event-date-field'),
+                    label: 'Date',
                     date: _date,
                     onTap: () => _selectDate(
                       initial: _date,
@@ -457,12 +500,11 @@ final class _CalendarEventFormScreenState
                         Expanded(
                           child: _TimeTile(
                             key: const Key('event-start-time'),
-                            label: 'Start',
+                            label: 'From',
                             value: _start,
                             onTap: () => _selectTime(
                               initial: _start,
-                              onSelected: (value) =>
-                                  setState(() => _start = value),
+                              onSelected: _setStartTime,
                             ),
                           ),
                         ),
@@ -470,14 +512,11 @@ final class _CalendarEventFormScreenState
                         Expanded(
                           child: _TimeTile(
                             key: const Key('event-end-time'),
-                            label: 'End',
+                            label: 'To',
                             value: _end,
                             onTap: () => _selectTime(
                               initial: _end,
-                              onSelected: (value) => setState(() {
-                                _end = value;
-                                _durationWasEntered = true;
-                              }),
+                              onSelected: _setEndTime,
                             ),
                           ),
                         ),
@@ -498,28 +537,12 @@ final class _CalendarEventFormScreenState
                         setState(() => _isBackupAppointment = value),
                   ),
                   const SizedBox(height: 18),
-                  const _FormSectionLabel(
-                    icon: Icons.place_outlined,
-                    label: 'Location',
-                  ),
-                  const SizedBox(height: 8),
-                  TextFormField(
-                    key: const Key('event-location-field'),
-                    controller: _locationController,
-                    decoration: const InputDecoration(
-                      labelText: 'Typed location',
-                      prefixIcon: Icon(Icons.place_outlined),
-                    ),
-                    textInputAction: TextInputAction.next,
-                  ),
-                  const Padding(
-                    padding: EdgeInsets.only(top: 6),
-                    child: Text(
-                      'Choose on Map will appear in the authorized map '
-                      'slice. No location permission is requested here.',
-                      style: TextStyle(color: Colors.white54, fontSize: 12),
-                    ),
-                  ),
+                  _buildAddressLocationSection(),
+                  const SizedBox(height: 16),
+                  _buildPeopleSection(),
+                  const SizedBox(height: 16),
+                  _buildIndicatorLinkSection(),
+                  const SizedBox(height: 16),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<CalendarRecurrenceFrequency>(
                     key: const Key('event-recurrence-frequency'),
@@ -614,24 +637,28 @@ final class _CalendarEventFormScreenState
                         setState(() => _requiresReport = value),
                   ),
                   const SizedBox(height: 20),
-                  FilledButton.icon(
-                    key: const Key('save-event-button'),
-                    onPressed: _saving ? null : _save,
-                    icon: _saving
-                        ? const SizedBox.square(
-                            dimension: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.save_outlined),
-                    label: Text(_saving ? 'Saving…' : _saveLabel),
-                  ),
+                  if (!widget.sheetPresentation)
+                    FilledButton.icon(
+                      key: const Key('save-event-bottom-button'),
+                      onPressed: _saving ? null : _save,
+                      icon: _saving
+                          ? const SizedBox.square(
+                              dimension: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.save_outlined),
+                      label: Text(_saving ? 'Saving…' : _saveLabel),
+                    ),
                 ],
               ),
             ),
           );
     if (!widget.sheetPresentation) {
       return Scaffold(
-        appBar: AppBar(title: Text(_title)),
+        appBar: AppBar(
+          title: _title.isEmpty ? null : Text(_title),
+          actions: <Widget>[_buildSaveButton()],
+        ),
         body: content,
       );
     }
@@ -658,34 +685,279 @@ final class _CalendarEventFormScreenState
               children: <Widget>[
                 IconButton(
                   key: const Key('calendar-event-sheet-close'),
-                  tooltip: 'Cancel',
+                  tooltip: 'Close',
                   onPressed: () => Navigator.of(context).pop(false),
                   icon: const Icon(Icons.close),
                 ),
-                Expanded(
-                  child: Text(
-                    _title,
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w800,
+                if (_title.isNotEmpty)
+                  Expanded(
+                    child: Text(
+                      _title,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
-                  ),
-                ),
-                const SizedBox(width: 48),
+                  )
+                else
+                  const Spacer(),
+                _buildSaveButton(),
               ],
             ),
           ),
-          const Divider(height: 1),
           Expanded(child: content),
         ],
       ),
     );
   }
 
+  Widget _buildSaveButton() {
+    return Semantics(
+      button: true,
+      label: 'Save',
+      child: FilledButton(
+        key: const Key('save-event-button'),
+        onPressed: _saving || _loading || _configurationLoading ? null : _save,
+        style: FilledButton.styleFrom(
+          minimumSize: const Size(72, 42),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+        ),
+        child: _saving
+            ? const SizedBox.square(
+                dimension: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Text('Save'),
+      ),
+    );
+  }
+
+  Widget _buildAddressLocationSection() {
+    final expanded = _addressExpanded || _locationExpanded;
+    return Card(
+      key: const Key('event-address-location-section'),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            const _FormSectionLabel(
+              icon: Icons.place_outlined,
+              label: 'Address and Location',
+            ),
+            if (!expanded) ...<Widget>[
+              const SizedBox(height: 4),
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: TextButton.icon(
+                      key: const Key('add-address-button'),
+                      onPressed: () => setState(() {
+                        _addressExpanded = true;
+                        _locationExpanded = false;
+                      }),
+                      icon: const Icon(Icons.add),
+                      label: const Text('Add Address'),
+                    ),
+                  ),
+                  Expanded(
+                    child: TextButton.icon(
+                      key: const Key('add-location-button'),
+                      onPressed: () => setState(() {
+                        _locationExpanded = true;
+                        _addressExpanded = false;
+                      }),
+                      icon: const Icon(Icons.add),
+                      label: const Text('Add Location'),
+                    ),
+                  ),
+                ],
+              ),
+            ] else ...<Widget>[
+              const SizedBox(height: 8),
+              TextFormField(
+                key: const Key('event-location-field'),
+                controller: _locationController,
+                decoration: InputDecoration(
+                  labelText: _addressExpanded ? 'Address' : 'Location',
+                  prefixIcon: Icon(
+                    _addressExpanded
+                        ? Icons.home_outlined
+                        : Icons.place_outlined,
+                  ),
+                ),
+                textInputAction: TextInputAction.next,
+              ),
+              const Padding(
+                padding: EdgeInsets.only(top: 6),
+                child: Text(
+                  'Location is optional. No map or location permission is '
+                  'requested in this authorized slice.',
+                  style: TextStyle(color: Colors.white54, fontSize: 12),
+                ),
+              ),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  key: const Key('collapse-address-location-button'),
+                  onPressed: () => setState(() {
+                    _addressExpanded = false;
+                    _locationExpanded = false;
+                  }),
+                  child: const Text('Collapse'),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPeopleSection() {
+    return Card(
+      key: const Key('event-people-section'),
+      child: Column(
+        children: <Widget>[
+          ListTile(
+            key: const Key('people-section-header'),
+            leading: const Icon(Icons.people_outline),
+            title: const Text('People'),
+            subtitle: const Text('Optional people context'),
+            trailing: Icon(
+              _peopleExpanded ? Icons.expand_less : Icons.expand_more,
+            ),
+            onTap: () => setState(() => _peopleExpanded = !_peopleExpanded),
+          ),
+          if (_peopleExpanded)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: OutlinedButton.icon(
+                key: const Key('add-people-button'),
+                onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'People linking is not available in this authorized '
+                      'slice.',
+                    ),
+                  ),
+                ),
+                icon: const Icon(Icons.person_add_alt_1_outlined),
+                label: const Text('Add People'),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildIndicatorLinkSection() {
+    final linked = _indicatorOption(_linkedIndicatorKey);
+    return Semantics(
+      container: true,
+      label: 'Link to Weekly Life Indicator',
+      child: Card(
+        key: const Key('weekly-life-indicator-link-section'),
+        child: ListTile(
+          leading: const Icon(Icons.track_changes_outlined),
+          title: const Text('Link to Weekly Life Indicator'),
+          subtitle: Text(
+            linked?.label ?? 'Optional — no indicator linked',
+            key: const Key('weekly-life-indicator-link-value'),
+          ),
+          trailing: linked == null
+              ? const Icon(Icons.chevron_right)
+              : IconButton(
+                  key: const Key('weekly-life-indicator-remove'),
+                  tooltip: 'Remove indicator link',
+                  onPressed: () => setState(() {
+                    _linkedIndicatorKey = null;
+                    _indicatorLinkTouched = true;
+                  }),
+                  icon: const Icon(Icons.link_off_outlined),
+                ),
+          onTap: _chooseIndicator,
+        ),
+      ),
+    );
+  }
+
+  IndicatorOption? _indicatorOption(String? key) {
+    if (key == null) {
+      return null;
+    }
+    return _indicatorOptions.where((option) => option.key == key).firstOrNull;
+  }
+
+  Future<void> _chooseIndicator() async {
+    if (_indicatorOptions.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No Weekly Life Indicators are available.'),
+          ),
+        );
+      }
+      return;
+    }
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (sheetContext) => SafeArea(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 420),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              const Padding(
+                padding: EdgeInsets.fromLTRB(20, 16, 20, 8),
+                child: Text(
+                  'Link to Weekly Life Indicator',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                ),
+              ),
+              Flexible(
+                child: ListView.builder(
+                  key: const Key('weekly-indicator-picker'),
+                  shrinkWrap: true,
+                  itemCount: _indicatorOptions.length,
+                  itemBuilder: (context, index) {
+                    final option = _indicatorOptions[index];
+                    return ListTile(
+                      key: Key('weekly-indicator-option-${option.key}'),
+                      leading: const Icon(Icons.track_changes_outlined),
+                      title: Text(option.label),
+                      subtitle: Text(option.unit),
+                      onTap: () => Navigator.of(sheetContext).pop(option.key),
+                    );
+                  },
+                ),
+              ),
+              TextButton(
+                key: const Key('weekly-indicator-picker-cancel'),
+                onPressed: () => Navigator.of(sheetContext).pop(),
+                child: const Text('Cancel'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (!mounted || selected == null) {
+      return;
+    }
+    setState(() {
+      _linkedIndicatorKey = selected;
+      _indicatorLinkTouched = true;
+    });
+  }
+
   String get _title => switch (widget.mode) {
     CalendarEventFormMode.create when widget.sourceTaskId != null =>
       'Create Event from Task',
-    CalendarEventFormMode.create => 'New Calendar Event',
+    CalendarEventFormMode.create => '',
     CalendarEventFormMode.edit => 'Edit Calendar Event',
     CalendarEventFormMode.reschedule => 'Reschedule Calendar Event',
   };
@@ -698,14 +970,15 @@ final class _CalendarEventFormScreenState
       'Create replacement for ${calendarEventScopeLabel(widget.scope!)}',
   };
 
-  String? _scheduledPotentialRule(EventType? type) {
-    final indicatorKey = type?.exactIndicatorKey;
+  String? _scheduledPotentialRule() {
+    final indicatorKey = _linkedIndicatorKey;
     if (indicatorKey == null) {
       return null;
     }
+    final unit = _indicatorOption(indicatorKey)?.unit ?? 'count';
     return ScheduledPotentialRule(
       indicatorKey: indicatorKey,
-      value: const IndicatorAmount(scaledValue: 1, scale: 0, unit: 'count'),
+      value: IndicatorAmount(scaledValue: 1, scale: 0, unit: unit),
     ).encode();
   }
 
@@ -717,9 +990,11 @@ final class _CalendarEventFormScreenState
     }
     final startMinute = _start.hour * 60 + _start.minute;
     final endMinute = _end.hour * 60 + _end.minute;
-    if (_timing == CalendarEventTiming.timed && endMinute <= startMinute) {
+    if (_timing == CalendarEventTiming.timed && endMinute < startMinute + 15) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('End time must be after start time.')),
+        const SnackBar(
+          content: Text('End time must be at least 15 minutes after start.'),
+        ),
       );
       return;
     }
@@ -745,7 +1020,7 @@ final class _CalendarEventFormScreenState
       requiresReport: _requiresReport,
       activityTypeId: _selectedEventType?.id,
       activityTypeMappingVersion: _selectedEventType?.mappingVersion,
-      contributionRuleKey: _scheduledPotentialRule(_selectedEventType),
+      contributionRuleKey: _scheduledPotentialRule(),
       isBackupAppointment: _isBackupAppointment,
       backupForEventId: _isBackupAppointment ? _backupForEventId : null,
       backupRelationshipProvenance: _isBackupAppointment
@@ -853,8 +1128,35 @@ final class _CalendarEventFormScreenState
   }) async {
     final value = await showTimePicker(context: context, initialTime: initial);
     if (value != null) {
-      onSelected(value);
+      final minute = _snapMinute(value.hour * 60 + value.minute);
+      onSelected(_timeFromMinute(minute));
     }
+  }
+
+  void _setStartTime(TimeOfDay value) {
+    final startMinute = value.hour * 60 + value.minute;
+    final endMinute = _end.hour * 60 + _end.minute;
+    setState(() {
+      _start = value;
+      if (endMinute < startMinute + 15) {
+        _end = _timeFromMinute((startMinute + 15).clamp(1, 1439));
+      }
+    });
+  }
+
+  void _setEndTime(TimeOfDay value) {
+    final endMinute = value.hour * 60 + value.minute;
+    final startMinute = _start.hour * 60 + _start.minute;
+    setState(() {
+      _end = endMinute < startMinute + 15
+          ? _timeFromMinute((startMinute + 15).clamp(1, 1439))
+          : value;
+      _durationWasEntered = true;
+    });
+  }
+
+  static int _snapMinute(int minute) {
+    return ((minute / 15).round() * 15).clamp(0, 1439);
   }
 
   static TimeOfDay _timeFromMinute(int value) {
@@ -911,24 +1213,17 @@ final class _EventTypeMappingNotice extends StatelessWidget {
     return Semantics(
       key: const Key('event-type-mapping-preview'),
       label: '$mapping. Scheduling creates no Actual progress.',
-      child: Container(
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: Color(type.colorValue).withValues(alpha: 0.12),
-          border: Border.all(
-            color: Color(type.colorValue).withValues(alpha: 0.7),
-          ),
-          borderRadius: BorderRadius.circular(8),
-        ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2),
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: <Widget>[
-            Icon(Icons.link_outlined, color: Color(type.colorValue), size: 19),
-            const SizedBox(width: 8),
+            Icon(Icons.link_outlined, color: Color(type.colorValue), size: 16),
+            const SizedBox(width: 6),
             Expanded(
               child: Text(
-                '$mapping. This sets planning and reporting context only; '
-                'saving never creates Actual.',
+                '$mapping · saving never creates Actual.',
+                style: const TextStyle(color: Colors.white60, fontSize: 12),
               ),
             ),
           ],
@@ -997,6 +1292,7 @@ final class _DateTile extends StatelessWidget {
     required this.label,
     required this.date,
     required this.onTap,
+    super.key,
   });
 
   final String label;
