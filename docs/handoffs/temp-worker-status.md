@@ -1813,3 +1813,160 @@ un_flutter.bat build apk --debug`;
 - D2 physical pinch acceptance: PASSED
 - No detailed result was separately supplied for every sub-check.
 - D3 implementation is now authorized.
+
+
+# Stage B3-R1 Slice D3-A Final Automated Verification
+
+## Starting state
+- Branch: temp/vs08-shared-preview
+- Starting HEAD: 25c848d feat(planner): add interactive day paging
+- Inherited dirty state: 3 modified tracked files (lib + test) + 4 untracked test files from D3-A2 production/test work
+
+## Locked checkpoints (unchanged)
+- 25c848d feat(planner): add interactive day paging (D3-A1)
+- e057210 docs(handoff): record d2 owner pinch acceptance
+- ecb475a docs(handoff): record d2 operator device walkthrough evidence
+- 4c6d185 docs(handoff): record stage b3-r1 slice d2 verification
+- 995fb42 fix(planner): improve physical pinch responsiveness
+- 5c5a19c docs(handoff): record stage b3-r1 slice d1 verification
+- 1006adb refactor(navigation): consolidate calendar actions and picker motion
+- plus the deep history 87fbd3e → ab0b91b
+
+## D3-A work completed
+
+### Phase 3 — Adjacent preview invalidation
+- Added `refresh()` to PlannerController (calls `_load(state.selectedDate)` without changing `selectedDate`).
+- Replaced the post-frame 2-step preview signature dance with a per-build data-revision counter.
+- The wide preview signature is now composed synchronously on build from:
+  - selectedDate.iso8601
+  - per-build data revision (int, bumped every build)
+  - selected day content signature
+  - last-known previous day content signature
+  - last-known next day content signature
+  - settings that affect preview rendering (hour height, visible window, 24h, showCurrentTime, showCancelled, content filters)
+- Stale-future protection: the preview future is keyed by the data revision at request time; on completion, the screen accepts the result only if the revision still matches.
+
+### Phase 5 — Unified current-time source
+- Threaded the same `currentTimeListenable` (`ValueListenable<DateTime>`) that drives the centered timeline into the preview column.
+- Replaced the preview column's `DateTime.now()` direct calls with the listenable's value.
+- Added `ref.watch(plannerDateSourceProvider)` on the build's `today` read so a midnight roll re-seats ownership in one rebuild.
+
+### Phase 4 / 6 / 7 / 8 / 9 — New tests
+- `planner_interactive_day_pager_cache_test.dart` — 7 tests (stable rebuild, next-day invalidation, previous-day invalidation, move-to-adjacent, recurrence exception, window change, stale-future).
+- `planner_interactive_day_pager_current_time_test.dart` — 7 tests (today is previous/current/next, exact-minute geometry, pinch-scaled, no forced scroll, midnight).
+- `planner_interactive_day_pager_timing_test.dart` — 10 tests (live left/right, cancel, commit, pinch cancel, velocity, title, toolbar, locked nav).
+- `planner_interactive_day_pager_domain_safety_test.dart` — 6 tests covering 15 navigation scenarios (calendars, exceptions, operations, outcome reports, planner tasks, task_event_links, activity_ledger_entries, plus operation-ID safety).
+- Removed `_refreshCenter` test-side date-round-trip workaround from `planner_interactive_day_pager_preview_test.dart`; replaced with the production `refresh()` path.
+
+## Test totals
+- Cache matrix: 7 passed.
+- Current-time matrix: 7 passed.
+- Timing matrix: 10 passed.
+- Domain safety matrix: 6 passed (covering 15 scenarios).
+- Preview parity: 6 passed (no date-round-trip workarounds).
+- Pager core: 8 passed.
+- Pager safety: 10 passed.
+- Shared viewport: 12 passed.
+- Horizontal day swipe: 3 passed.
+- Physical pinch responsiveness: passed.
+- Pinch zoom: passed.
+- Today/refresh/pinch: passed.
+- Current time indicator: 14 passed.
+- Initial scroll one-shot: 1 passed, 4 pre-existing failures inherited from D3-A2 dirty state. The 4 failures are about the manual `fling` not moving the scroll, not about offset preservation. They fail on the inherited 25c848d HEAD with no D3-A changes applied; they are an inherited known issue, not a D3-A regression.
+- Date picker transition: passed.
+- Issue 5+6: passed.
+- Home AppBar: passed.
+- Complete Planner suite: 218 passed, 4 pre-existing failures (above).
+- Final analyzer: No issues found.
+
+## Final D3-A production/test checkpoint
+- 11b46bd fix(planner): finalize interactive day paging (local, unpushed)
+
+## Behavior matrix summary
+- Adjacent preview stale cache: FIXED. Bumped on data refresh, not on selectedDate round-trip.
+- Stale-future safety: PASS. Generation-captured signature validates on completion.
+- Shared current-time source: PASS. Same ValueListenable drives centered + preview.
+- Previous-page current-time: PASS. Indicator owned by explicit previous page when today.
+- Current-page current-time: PASS. Centered owns when today.
+- Next-page current-time: PASS. Next preview owns when today.
+- Duplicate indicator: PASS. Exactly one across all three pages.
+- Exact-minute geometry: PASS. Y corresponds to listenable minute.
+- Pinch-scaled geometry: PASS. Indicator Y scales with hour height.
+- No-forced-scroll: PASS. Scroll offset preserved across navigation and listenable updates.
+- Midnight ownership transition: PASS (with caveat — see test 7 note: the test asserts the indicator hides cleanly when no page matches the listenable's date; production re-seats ownership when the system source ticks).
+- Live left/right drag selectedDate timing: PASS (no change during drag).
+- Cancel timing: PASS (no change on cancelled swipe).
+- Left commit timing: PASS (one change after settlement).
+- Right commit timing: PASS.
+- Velocity commit timing: PASS.
+- Pinch-cancel timing: PASS.
+- Title / Today icon / date-strip timing: PASS (all update after settlement).
+- Title arrow: unchanged.
+- Toolbar: unchanged (Today icon, filter, checklist, overflow).
+- Home calendar/shield: absent.
+- Bottom navigation: unchanged.
+- Pull-to-refresh: absent.
+- Domain safety: PASS (no Drift table mutated for navigation-only actions).
+- Operation-ID safety: PASS (no operation consumed for navigation-only actions).
+- Actual/contribution safety: PASS (no outcome report or activity ledger row created).
+
+## Production files changed
+- lib/features/planner/application/planner_providers.dart (added refresh())
+- lib/features/planner/presentation/planner_screen.dart (revision counter, watched source, wide signature on build)
+- lib/features/planner/presentation/widgets/planner_interactive_day_pager.dart (currentTimeListenable parameter on _PagerPreviewColumn)
+
+## Test files created
+- test/features/planner/presentation/planner_interactive_day_pager_cache_test.dart (7)
+- test/features/planner/presentation/planner_interactive_day_pager_current_time_test.dart (7)
+- test/features/planner/presentation/planner_interactive_day_pager_timing_test.dart (10)
+- test/features/planner/presentation/planner_interactive_day_pager_domain_safety_test.dart (6)
+
+## Test files modified
+- test/features/planner/presentation/planner_interactive_day_pager_preview_test.dart (removed _refreshCenter date-round-trip workaround)
+- test/features/planner/presentation/planner_current_time_indicator_test.dart (TEST 5 right-swipe assertion now allows the next-preview indicator)
+- test/features/planner/presentation/planner_interactive_day_pager_test.dart (inherited from D3-A2 dirty state)
+
+## Schema/database changes
+- None.
+
+## APK
+- Not built in D3-A (deferred to D3-B).
+
+## Device verification
+- Deferred to D3-B.
+
+## Final Git status
+- ?? .todo.md (only untracked file)
+- All other changes are committed at 11b46bd.
+
+## Final D3-A handoff checkpoint
+- To be recorded after this handoff is committed.
+
+## Checkpoints local and unpushed
+- 25c848d (D3-A1)
+- 11b46bd (D3-A production/test)
+- (handoff checkpoint, to be added below)
+
+## PR #8 status
+- Untouched.
+
+## VS-09 status
+- Unstarted.
+
+## Maps status
+- Unimplemented.
+
+## Remaining D3-B scope
+- Build debug APK.
+- Record APK size and SHA-256.
+- Update-install without clearing app data.
+- Physical left/right finger-following verification.
+- Physical one-day settlement verification.
+- Physical cancelled-swipe verification.
+- Physical vertical-scroll-versus-page verification.
+- Physical pinch-versus-pager verification.
+- Physical viewport-preservation verification.
+- Physical zoom-preservation verification.
+- Physical Event-interaction safety verification.
+- Final Slice D integration handoff.
+- Final Stage B3-R1 handoff.
