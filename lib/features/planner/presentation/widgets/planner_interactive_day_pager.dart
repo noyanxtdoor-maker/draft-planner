@@ -871,7 +871,7 @@ class _PagerPreviewColumn extends StatelessWidget {
         children: <Widget>[
           for (var index = 0; index <= slotCount; index++) ...<Widget>[
             Positioned(
-              top: index * hourHeight - 7,
+              top: index == 0 ? 0 : index * hourHeight - 7,
               left: 0,
               width: kPlannerPagerTimeColumnWidth,
               child: Text(

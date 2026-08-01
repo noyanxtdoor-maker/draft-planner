@@ -12,6 +12,7 @@ import 'package:rmplanner/features/planner/domain/calendar_event.dart';
 import 'package:rmplanner/features/planner/domain/outcome_reporting.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 import 'package:rmplanner/features/planner/presentation/event_type_picker_dialog.dart';
+import 'package:rmplanner/features/planner/presentation/widgets/anchored_top_bar_popup.dart';
 
 enum _CalendarEventDetailAction { changeType, duplicate, delete }
 
@@ -37,6 +38,7 @@ final class _CalendarEventDetailScreenState
   late Future<CalendarEventOccurrence?> _load;
   String _detailHeading = 'Calendar Event';
   final GlobalKey _statusControlAnchorKey = GlobalKey();
+  final GlobalKey _overflowAnchorKey = GlobalKey();
 
   @override
   void initState() {
@@ -306,11 +308,14 @@ final class _CalendarEventDetailScreenState
               onPressed: _openTopEdit,
               icon: const Icon(Icons.edit_outlined),
             ),
-            IconButton(
-              key: const Key('event-detail-overflow-icon'),
-              tooltip: 'Event actions',
-              onPressed: _openTopOverflow,
-              icon: const Icon(Icons.more_vert),
+            KeyedSubtree(
+              key: _overflowAnchorKey,
+              child: IconButton(
+                key: const Key('event-detail-overflow-icon'),
+                tooltip: 'Event actions',
+                onPressed: _openTopOverflow,
+                icon: const Icon(Icons.more_vert),
+              ),
             ),
           ],
         ),
@@ -357,11 +362,14 @@ final class _CalendarEventDetailScreenState
                   onPressed: _openTopEdit,
                   icon: const Icon(Icons.edit_outlined),
                 ),
-                IconButton(
-                  key: const Key('event-detail-sheet-overflow-icon'),
-                  tooltip: 'Event actions',
-                  onPressed: _openTopOverflow,
-                  icon: const Icon(Icons.more_vert),
+                KeyedSubtree(
+                  key: _overflowAnchorKey,
+                  child: IconButton(
+                    key: const Key('event-detail-sheet-overflow-icon'),
+                    tooltip: 'Event actions',
+                    onPressed: _openTopOverflow,
+                    icon: const Icon(Icons.more_vert),
+                  ),
                 ),
               ],
             ),
@@ -395,45 +403,51 @@ final class _CalendarEventDetailScreenState
     if (!mounted || occurrence == null) {
       return;
     }
-    final action = await showModalBottomSheet<_CalendarEventDetailAction>(
+    _CalendarEventDetailAction? action;
+    await showAnchoredTopBarPopup(
       context: context,
-      showDragHandle: false,
-      builder: (sheetContext) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            ListTile(
-              key: const Key('event-overflow-change-type'),
-              leading: const Icon(Icons.swap_horiz_outlined),
-              title: const Text('Change to Teaching'),
-              onTap: () => Navigator.of(
-                sheetContext,
-              ).pop(_CalendarEventDetailAction.changeType),
-            ),
-            ListTile(
-              key: const Key('event-overflow-duplicate'),
-              leading: const Icon(Icons.copy_outlined),
-              title: const Text('Duplicate'),
-              onTap: () => Navigator.of(
-                sheetContext,
-              ).pop(_CalendarEventDetailAction.duplicate),
-            ),
-            ListTile(
-              key: const Key('event-overflow-delete'),
-              leading: const Icon(Icons.delete_outline),
-              title: const Text('Delete'),
-              onTap: () => Navigator.of(
-                sheetContext,
-              ).pop(_CalendarEventDetailAction.delete),
-            ),
-          ],
-        ),
+      triggerKey: _overflowAnchorKey,
+      width: 228,
+      maxHeight: 220,
+      builder: (popupContext) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          _DetailOverflowItem(
+            key: const Key('event-overflow-change-type'),
+            icon: Icons.swap_horiz_outlined,
+            label: 'Change to Teaching',
+            onTap: () {
+              action = _CalendarEventDetailAction.changeType;
+              anchoredTopBarPopupController.dismiss();
+            },
+          ),
+          _DetailOverflowItem(
+            key: const Key('event-overflow-duplicate'),
+            icon: Icons.copy_outlined,
+            label: 'Duplicate',
+            onTap: () {
+              action = _CalendarEventDetailAction.duplicate;
+              anchoredTopBarPopupController.dismiss();
+            },
+          ),
+          _DetailOverflowItem(
+            key: const Key('event-overflow-delete'),
+            icon: Icons.delete_outline,
+            label: 'Delete',
+            destructive: true,
+            onTap: () {
+              action = _CalendarEventDetailAction.delete;
+              anchoredTopBarPopupController.dismiss();
+            },
+          ),
+        ],
       ),
     );
-    if (!mounted || action == null) {
+    final selectedAction = action;
+    if (!mounted || selectedAction == null) {
       return;
     }
-    switch (action) {
+    switch (selectedAction) {
       case _CalendarEventDetailAction.changeType:
         await _changeType(occurrence);
       case _CalendarEventDetailAction.duplicate:
@@ -808,6 +822,46 @@ Future<T?> showCalendarEventDetailSheet<T>({
       ),
     ),
   );
+}
+
+final class _DetailOverflowItem extends StatelessWidget {
+  const _DetailOverflowItem({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.destructive = false,
+    super.key,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool destructive;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = destructive
+        ? Theme.of(context).colorScheme.error
+        : Theme.of(context).colorScheme.onSurface;
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          children: <Widget>[
+            Icon(icon, size: 20, color: color),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(color: color, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 final class _DetailRow extends StatelessWidget {

@@ -79,7 +79,9 @@ final class PlannerDateStrip extends StatefulWidget {
   /// Compact fixed cell width. The strip keeps the same cell geometry at all
   /// selection states and leaves the top-bar calendar control independent.
   static const double itemExtent = 52;
-  static const double stripHeight = 45;
+  // Keep the date cells fixed-width while reducing the vertical footprint so
+  // the first timeline hour has a clean, unobscured leading edge.
+  static const double stripHeight = 36;
 
   @override
   State<PlannerDateStrip> createState() => _PlannerDateStripState();
@@ -388,9 +390,9 @@ final class _PlannerDateStripState extends State<PlannerDateStrip>
             Positioned(
               key: const Key('planner-selected-date-indicator'),
               left: indicatorLeft,
-              top: 2,
+              top: 1,
               width: PlannerDateStrip.itemExtent - 4,
-              height: PlannerDateStrip.stripHeight - 4,
+              height: PlannerDateStrip.stripHeight - 2,
               child: IgnorePointer(
                 child: DecoratedBox(
                   decoration: BoxDecoration(
@@ -411,8 +413,8 @@ final class _PlannerDateStripState extends State<PlannerDateStrip>
   Widget build(BuildContext context) {
     return Container(
       key: const Key('planner-week-strip'),
-      margin: const EdgeInsets.fromLTRB(8, 4, 8, 0),
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      margin: const EdgeInsets.fromLTRB(8, 2, 8, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
       decoration: BoxDecoration(
         color: AppTheme.surface,
         border: Border.all(color: AppTheme.outline),

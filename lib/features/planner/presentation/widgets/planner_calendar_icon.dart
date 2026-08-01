@@ -16,6 +16,7 @@
 // Slice C contract.
 
 import 'package:flutter/material.dart';
+import 'package:rmplanner/app/theme/app_theme.dart';
 
 /// Resolve the calendar icon glyph and size used everywhere the
 /// application surfaces the "today" affordance.
@@ -50,7 +51,9 @@ final class PlannerCalendarButtonSurface extends StatelessWidget {
   Widget build(BuildContext context) {
     final resolved = resolvePlannerCalendarIcon();
     return Material(
-      color: Colors.transparent,
+      color: color == AppTheme.rose
+          ? AppTheme.rose.withValues(alpha: 0.14)
+          : Colors.transparent,
       shape: const CircleBorder(),
       child: InkWell(
         key: const Key('planner-today-button'),

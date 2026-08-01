@@ -358,7 +358,13 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
           key: const Key('planner-hamburger'),
           tooltip: 'Open global navigation',
           onPressed: () => GlobalDrawerScope.of(innerContext).open(),
-          icon: const Icon(Icons.menu, size: 25),
+          style: IconButton.styleFrom(
+            padding: EdgeInsets.zero,
+            minimumSize: const Size(48, 48),
+            shape: const CircleBorder(),
+            overlayColor: AppTheme.rose.withValues(alpha: 0.16),
+          ),
+          icon: const Icon(Icons.menu, size: 26),
         ),
       ),
       titleSpacing: 0,
@@ -426,14 +432,26 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
             key: _filterButtonKey,
             tooltip: 'Filter Planner content',
             onPressed: () => _showFilters(context, ref, settings),
-            icon: const Icon(Icons.filter_alt_outlined, size: 24),
+            style: IconButton.styleFrom(
+              padding: EdgeInsets.zero,
+              minimumSize: const Size(48, 48),
+              shape: const CircleBorder(),
+              overlayColor: AppTheme.rose.withValues(alpha: 0.16),
+            ),
+            icon: const Icon(Icons.filter_alt_outlined, size: 25),
           ),
         ),
         IconButton(
           key: const Key('planner-selection-button'),
           tooltip: 'Select Events or Tasks',
           onPressed: () => setState(() => _selectionActive = true),
-          icon: const Icon(Icons.checklist_outlined, size: 24),
+          style: IconButton.styleFrom(
+            padding: EdgeInsets.zero,
+            minimumSize: const Size(48, 48),
+            shape: const CircleBorder(),
+            overlayColor: AppTheme.rose.withValues(alpha: 0.16),
+          ),
+          icon: const Icon(Icons.checklist_outlined, size: 26),
         ),
         KeyedSubtree(
           key: const Key('planner-overflow-button'),
@@ -441,7 +459,13 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
             key: _overflowButtonKey,
             tooltip: 'Planner menu',
             onPressed: () => _showOverflowMenu(context, ref, state, settings),
-            icon: const Icon(Icons.more_vert, size: 25),
+            style: IconButton.styleFrom(
+              padding: EdgeInsets.zero,
+              minimumSize: const Size(48, 48),
+              shape: const CircleBorder(),
+              overlayColor: AppTheme.rose.withValues(alpha: 0.16),
+            ),
+            icon: const Icon(Icons.more_vert, size: 26),
           ),
         ),
       ],
@@ -2099,7 +2123,7 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
                   ),
                   for (var index = 0; index <= slotCount; index++) ...<Widget>[
                     Positioned(
-                      top: index * _hourHeight - 7,
+                      top: index == 0 ? 0 : index * _hourHeight - 7,
                       left: 0,
                       width: _timeColumnWidth,
                       child: Text(

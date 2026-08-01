@@ -63,12 +63,12 @@ Future<T?> showCalendarEventFormSheet<T>({
     useSafeArea: true,
     enableDrag: true,
     backgroundColor: Colors.transparent,
-    barrierColor: Colors.black.withValues(alpha: 0.62),
+    barrierColor: Colors.black.withValues(alpha: 0.38),
     builder: (sheetContext) => DraggableScrollableSheet(
       key: const Key('calendar-event-draggable-sheet'),
       initialChildSize: 0.86,
-      minChildSize: 0.55,
-      maxChildSize: 0.90,
+      minChildSize: 0.48,
+      maxChildSize: 0.94,
       expand: false,
       builder: (context, scrollController) => sourceTaskId == null
           ? CalendarEventFormScreen.create(

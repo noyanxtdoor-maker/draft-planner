@@ -75,6 +75,10 @@ void main() {
         final offset = formState.position.maxScrollExtent - 350;
         formState.position.jumpTo(offset < 0 ? 0 : offset);
         await tester.pumpAndSettle();
+        await tester.ensureVisible(
+          find.byKey(const Key('weekly-life-indicator-link-section')),
+        );
+        await tester.pumpAndSettle();
       }
 
       await openGeneralForm();

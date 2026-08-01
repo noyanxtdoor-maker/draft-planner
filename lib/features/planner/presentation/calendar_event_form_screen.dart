@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rmplanner/app/theme/app_theme.dart';
 import 'package:rmplanner/features/indicators/domain/life_indicator.dart';
 import 'package:rmplanner/features/planner/application/calendar_event_providers.dart';
 import 'package:rmplanner/features/planner/application/event_type_providers.dart';
@@ -411,41 +412,52 @@ final class _CalendarEventFormScreenState
                     _ErrorBanner(message: message),
                     const SizedBox(height: 14),
                   ],
-                  Card(
+                  Material(
                     key: const Key('event-type-field'),
-                    child: ListTile(
-                      leading: _selectedEventType == null
-                          ? const Icon(Icons.category_outlined)
-                          : Container(
-                              width: 20,
-                              height: 20,
-                              decoration: BoxDecoration(
-                                color: Color(_selectedEventType!.colorValue),
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: Colors.white.withValues(alpha: 0.35),
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: _changeEventType,
+                      child: InputDecorator(
+                        decoration: InputDecoration(
+                          labelText: _isContactEvent
+                              ? 'Contact Type'
+                              : 'Event Type',
+                          prefixIcon: _selectedEventType == null
+                              ? const Icon(Icons.category_outlined)
+                              : Padding(
+                                  padding: const EdgeInsets.all(16),
+                                  child: SizedBox.square(
+                                    dimension: 20,
+                                    child: DecoratedBox(
+                                      decoration: BoxDecoration(
+                                        color: Color(
+                                          _selectedEventType!.colorValue,
+                                        ),
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: Colors.white.withValues(
+                                            alpha: 0.35,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
                                 ),
-                              ),
-                            ),
-                      title: Text(
-                        _isContactEvent ? 'Contact Type' : 'Event Type',
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 12,
+                          suffixIcon: TextButton(
+                            key: const Key('change-event-type-button'),
+                            onPressed: _changeEventType,
+                            child: const Text('Change'),
+                          ),
                         ),
-                      ),
-                      subtitle: Text(
-                        _selectedEventType?.label ?? 'Not selected',
-                        key: const Key('selected-event-type-label'),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700,
+                        child: Text(
+                          _selectedEventType?.label ?? 'Not selected',
+                          key: const Key('selected-event-type-label'),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
-                      ),
-                      trailing: TextButton(
-                        key: const Key('change-event-type-button'),
-                        onPressed: _changeEventType,
-                        child: const Text('Change'),
                       ),
                     ),
                   ),
@@ -454,11 +466,7 @@ final class _CalendarEventFormScreenState
                     _EventTypeMappingNotice(type: _selectedEventType!),
                   ],
                   const SizedBox(height: 18),
-                  const _FormSectionLabel(
-                    icon: Icons.edit_note_outlined,
-                    label: 'Basic details',
-                  ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 4),
                   if (widget.mode != CalendarEventFormMode.create) ...<Widget>[
                     _buildCurrentStatusField(),
                     const SizedBox(height: 12),
@@ -509,11 +517,14 @@ final class _CalendarEventFormScreenState
                       'All-day dates never shift through time-zone conversion',
                     ),
                     value: _timing == CalendarEventTiming.allDay,
-                    onChanged: (value) => setState(
-                      () => _timing = value
-                          ? CalendarEventTiming.allDay
-                          : CalendarEventTiming.timed,
-                    ),
+                    onChanged: (value) {
+                      FocusScope.of(context).unfocus();
+                      setState(
+                        () => _timing = value
+                            ? CalendarEventTiming.allDay
+                            : CalendarEventTiming.timed,
+                      );
+                    },
                   ),
                   _DateTile(
                     key: const Key('event-date-field'),
@@ -524,17 +535,16 @@ final class _CalendarEventFormScreenState
                       onSelected: (value) => setState(() => _date = value),
                     ),
                   ),
-                  if (widget.mode != CalendarEventFormMode.create)
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: TextButton(
-                        key: const Key('event-set-time-now'),
-                        onPressed: _timing == CalendarEventTiming.timed
-                            ? _setTimeToNow
-                            : null,
-                        child: const Text('Set time to now'),
-                      ),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton(
+                      key: const Key('event-set-time-now'),
+                      onPressed: _timing == CalendarEventTiming.timed
+                          ? _setTimeToNow
+                          : null,
+                      child: const Text('Set time to now'),
                     ),
+                  ),
                   if (_timing == CalendarEventTiming.timed) ...<Widget>[
                     const SizedBox(height: 8),
                     Row(
@@ -565,35 +575,14 @@ final class _CalendarEventFormScreenState
                       ],
                     ),
                   ],
-                  if (widget.mode != CalendarEventFormMode.create)
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: TextButton(
-                        key: const Key('event-schedule-from-calendar'),
-                        onPressed: _scheduleFromCalendar,
-                        child: const Text('Schedule From Calendar'),
-                      ),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton(
+                      key: const Key('event-schedule-from-calendar'),
+                      onPressed: _scheduleFromCalendar,
+                      child: const Text('Schedule From Calendar'),
                     ),
-                  const SizedBox(height: 12),
-                  SwitchListTile(
-                    key: const Key('event-backup-appointment-switch'),
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Backup Appointment'),
-                    subtitle: const Text(
-                      'Keeps normal Event Type and report rules; scheduling '
-                      'still creates no Actual',
-                    ),
-                    value: _isBackupAppointment,
-                    onChanged: (value) =>
-                        setState(() => _isBackupAppointment = value),
                   ),
-                  const SizedBox(height: 18),
-                  _buildAddressLocationSection(),
-                  const SizedBox(height: 16),
-                  _buildPeopleSection(),
-                  const SizedBox(height: 16),
-                  _buildIndicatorLinkSection(),
-                  const SizedBox(height: 16),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<CalendarRecurrenceFrequency>(
                     key: const Key('event-recurrence-frequency'),
@@ -671,6 +660,27 @@ final class _CalendarEventFormScreenState
                         },
                       ),
                   ],
+                  const SizedBox(height: 12),
+                  SwitchListTile(
+                    key: const Key('event-backup-appointment-switch'),
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Backup Appointment'),
+                    subtitle: const Text(
+                      'Keeps normal Event Type and report rules; scheduling '
+                      'still creates no Actual',
+                    ),
+                    value: _isBackupAppointment,
+                    onChanged: (value) {
+                      FocusScope.of(context).unfocus();
+                      setState(() => _isBackupAppointment = value);
+                    },
+                  ),
+                  const SizedBox(height: 18),
+                  _buildAddressLocationSection(),
+                  const SizedBox(height: 16),
+                  _buildPeopleSection(),
+                  const SizedBox(height: 16),
+                  _buildIndicatorLinkSection(),
                   const SizedBox(height: 18),
                   const _FormSectionLabel(
                     icon: Icons.fact_check_outlined,
@@ -684,8 +694,10 @@ final class _CalendarEventFormScreenState
                       'Elapsed time creates attention, never an outcome',
                     ),
                     value: _requiresReport,
-                    onChanged: (value) =>
-                        setState(() => _requiresReport = value),
+                    onChanged: (value) {
+                      FocusScope.of(context).unfocus();
+                      setState(() => _requiresReport = value);
+                    },
                   ),
                   const SizedBox(height: 20),
                   if (!widget.sheetPresentation)
@@ -763,19 +775,26 @@ final class _CalendarEventFormScreenState
     return Semantics(
       button: true,
       label: 'Save',
-      child: FilledButton(
-        key: const Key('save-event-button'),
-        onPressed: _saving || _loading || _configurationLoading ? null : _save,
-        style: FilledButton.styleFrom(
-          minimumSize: const Size(72, 42),
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: SizedBox.square(
+        dimension: 48,
+        child: IconButton.filled(
+          key: const Key('save-event-button'),
+          tooltip: 'Save',
+          onPressed: _saving || _loading || _configurationLoading
+              ? null
+              : _save,
+          style: IconButton.styleFrom(
+            backgroundColor: AppTheme.rose,
+            foregroundColor: AppTheme.background,
+            disabledBackgroundColor: AppTheme.rose.withValues(alpha: 0.35),
+          ),
+          icon: _saving
+              ? const SizedBox.square(
+                  dimension: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.check_rounded),
         ),
-        child: _saving
-            ? const SizedBox.square(
-                dimension: 18,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            : const Text('Save'),
       ),
     );
   }
@@ -1044,7 +1063,10 @@ final class _CalendarEventFormScreenState
   String get _formHeading => switch (widget.mode) {
     CalendarEventFormMode.create when widget.sourceTaskId != null =>
       'Create Event from Task',
-    CalendarEventFormMode.create => '',
+    CalendarEventFormMode.create =>
+      _selectedEventType == null
+          ? 'Create Event'
+          : 'Create ${_selectedEventType!.label}',
     CalendarEventFormMode.edit =>
       _selectedEventType == null
           ? 'Edit Event'
@@ -1410,14 +1432,67 @@ final class _DateTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: const Icon(Icons.calendar_today_outlined),
-      title: Text(label),
-      subtitle: Text(date.iso8601),
-      trailing: const Icon(Icons.chevron_right),
+    return InkWell(
+      key: key,
+      borderRadius: BorderRadius.circular(12),
       onTap: onTap,
+      child: InputDecorator(
+        decoration: _outlinedFormDecoration(
+          labelText: label,
+          prefixIcon: const Icon(Icons.calendar_today_outlined),
+          suffixIcon: const Icon(Icons.chevron_right),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              _friendlyDate(date),
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              date.iso8601,
+              style: Theme.of(
+                context,
+              ).textTheme.labelSmall?.copyWith(color: Colors.white60),
+            ),
+          ],
+        ),
+      ),
     );
+  }
+
+  static String _friendlyDate(PlannerDate value) {
+    const months = <String>[
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
+    final local = value.asLocalDate;
+    return '${_weekday(local.weekday)}, ${months[local.month - 1]} '
+        '${local.day}, ${local.year}';
+  }
+
+  static String _weekday(int value) {
+    const weekdays = <String>[
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+      'Sunday',
+    ];
+    return weekdays[value - 1];
   }
 }
 
@@ -1435,12 +1510,34 @@ final class _TimeTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: const Icon(Icons.schedule),
-      title: Text(label),
-      subtitle: Text(value.format(context)),
+    return InkWell(
+      key: key,
+      borderRadius: BorderRadius.circular(12),
       onTap: onTap,
+      child: InputDecorator(
+        decoration: _outlinedFormDecoration(
+          labelText: label,
+          prefixIcon: const Icon(Icons.schedule),
+        ),
+        child: Text(
+          value.format(context),
+          style: const TextStyle(fontWeight: FontWeight.w700),
+        ),
+      ),
     );
   }
+}
+
+InputDecoration _outlinedFormDecoration({
+  required String labelText,
+  Widget? prefixIcon,
+  Widget? suffixIcon,
+}) {
+  return InputDecoration(
+    labelText: labelText,
+    prefixIcon: prefixIcon,
+    suffixIcon: suffixIcon,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+  );
 }

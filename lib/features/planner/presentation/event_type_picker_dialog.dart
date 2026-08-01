@@ -40,10 +40,10 @@ Future<EventType?> showEventTypePicker({
     barrierColor: Colors.black.withValues(alpha: 0.18),
     useSafeArea: false,
     builder: (dialogContext) => Align(
-      alignment: Alignment.bottomCenter,
+      alignment: Alignment.center,
       child: FractionallySizedBox(
-        widthFactor: 1,
-        heightFactor: 0.72,
+        widthFactor: 0.90,
+        heightFactor: 0.80,
         child: _EventTypePickerSheet(
           eventTypes: types,
           recommendedEventTypeId: recommendedId,
@@ -106,17 +106,18 @@ final class _EventTypePickerSheet extends StatelessWidget {
         return Material(
           key: const Key('event-type-picker'),
           color: AppTheme.surface,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+          borderRadius: BorderRadius.circular(22),
           clipBehavior: Clip.antiAlias,
           child: SafeArea(
-            top: false,
+            top: true,
+            bottom: true,
             child: SizedBox(
               height: constraints.maxHeight,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 6),
+                    padding: const EdgeInsets.fromLTRB(24, 22, 24, 8),
                     child: Text(
                       'Select Event Type',
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
@@ -134,7 +135,7 @@ final class _EventTypePickerSheet extends StatelessWidget {
                         : ListView.builder(
                             key: const Key('event-type-picker-list'),
                             shrinkWrap: true,
-                            padding: const EdgeInsets.fromLTRB(12, 2, 12, 4),
+                            padding: const EdgeInsets.fromLTRB(16, 2, 16, 4),
                             itemCount: eventTypes.length,
                             itemBuilder: (context, index) {
                               final type = eventTypes[index];
@@ -154,7 +155,7 @@ final class _EventTypePickerSheet extends StatelessWidget {
                                   child: Padding(
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 8,
-                                      vertical: 8,
+                                      vertical: 7,
                                     ),
                                     child: Row(
                                       children: <Widget>[
