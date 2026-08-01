@@ -69,6 +69,8 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
   // not exposed across files.
   final PlannerInteractiveDayPagerController _pagerController =
       PlannerInteractiveDayPagerController();
+  final PlannerDateStripController _dateStripController =
+      PlannerDateStripController();
   String? _initialScrollSignature;
   bool _initialScrollPerformed = false;
   PlannerPresentation? _presentation;
@@ -113,13 +115,12 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
   String? _previewSignature;
   String? _previousDayContentSignature;
   String? _nextDayContentSignature;
-  // Bumped on every build of the screen that holds a
-  // non-null `state.day`. Used as the data-revision
-  // component of the preview signature so any path that
-  // re-reads the selected day through the controller
-  // (date navigation, refresh, save) invalidates the
-  // cached preview future on the next build.
+  // Bumped only when the authoritative selected date/day identity changes.
+  // Unrelated parent rebuilds therefore keep the cached preview future
+  // stable.
   int _dataRevision = 0;
+  PlannerDate? _lastObservedSelectedDate;
+  PlannerDay? _lastObservedDay;
   bool _selectionActive = false;
   // Owns the day-swipe candidate lifetime across the Listener
   // wrapper and the timeline's pinch/long-press/resize recognizers.
@@ -250,6 +251,7 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
       _pagerController.recenterFromExternalCancel,
     );
     _dayScrollController.dispose();
+    _pagerController.dispose();
     super.dispose();
   }
 
@@ -281,11 +283,14 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
       appBar: _buildAppBar(context, ref, state, plannerSettings, controller),
       body: SafeArea(
         top: false,
+        bottom: false,
         child: Column(
           children: <Widget>[
             PlannerDateStrip(
               selectedDate: state.selectedDate,
               onSelected: controller.selectDate,
+              pagerProgress: _pagerController.progress,
+              controller: _dateStripController,
             ),
             Expanded(
               child: _buildContent(context, ref, state, plannerSettings),
@@ -756,13 +761,15 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
       timedEvents: day.timedEvents,
     );
 
-    // Bump the per-build data revision every time the planner
-    // state is rebuilt with a non-null day. The bump is the
-    // authoritative signal that the selected-day content
-    // signature may have changed (e.g. a controller refresh
-    // after a repository mutation on an adjacent day). The
-    // revision is composed into the preview signature below.
-    _dataRevision += 1;
+    // Invalidate the preview window only when the authoritative selected
+    // date/day changes. Unrelated Planner rebuilds retain the same Future
+    // instance and page keys.
+    if (_lastObservedSelectedDate != state.selectedDate ||
+        !identical(_lastObservedDay, day)) {
+      _dataRevision += 1;
+      _lastObservedSelectedDate = state.selectedDate;
+      _lastObservedDay = day;
+    }
 
     // Three-day read-only preview state for the interactive
     // day pager. The previous/next trio is loaded once per
@@ -792,7 +799,8 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     final nextDate = state.selectedDate.addDays(1);
     final previousSig = _previousDayContentSignature;
     final nextSig = _nextDayContentSignature;
-    final previewSignature = 'pager:'
+    final previewSignature =
+        'pager:'
         '${state.selectedDate.iso8601}:'
         'r$_dataRevision:'
         '${_dayContentSignature(day)}:'
@@ -861,7 +869,9 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
         physics: _pinchCoordinator.isPinchActive
             ? const NeverScrollableScrollPhysics()
             : const ClampingScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(12, 14, 12, 96),
+        // Preserve the established bottom range for manual viewport offsets
+        // across date commits, independent of the compact navigation rows.
+        padding: const EdgeInsets.fromLTRB(12, 14, 12, 160),
         child: Column(
           children: <Widget>[
             if (state.message != null) ...<Widget>[
@@ -921,6 +931,8 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                       onSwipeCancel: _daySwipeCoordinator.claim,
                       onPinchPointerCount: () => _pinchCoordinator.pointerCount,
                       onPinchClearCancel: _pinchCoordinator.clearCancel,
+                      onPagerCommitPrepared:
+                          _dateStripController.prepareForPagerCommit,
                       onDayChanged: (delta) async {
                         // Selection mode and overflow menus own their own
                         // gesture pipelines; day-swipe is a Day-view-only
@@ -944,8 +956,7 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                               .where(
                                 (event) =>
                                     settings.showCancelledItems ||
-                                      event.state !=
-                                          PlannerEventState.cancelled,
+                                    event.state != PlannerEventState.cancelled,
                               )
                               .toList(growable: false),
                           selectedDate: state.selectedDate,
@@ -2093,35 +2104,13 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
                       ),
                     ),
                     Positioned(
+                      key: Key('planner-full-hour-line-${_firstHour + index}'),
                       top: index * _hourHeight,
                       left: _timeColumnWidth,
                       right: 0,
                       child: const Divider(height: 1, color: AppTheme.outline),
                     ),
                   ],
-                  for (var hourIndex = 0; hourIndex < slotCount; hourIndex++)
-                    for (var quarter = 1; quarter < 4; quarter++)
-                      Positioned(
-                        key: Key(
-                          'planner-quarter-hour-line-'
-                          '${_firstHour + hourIndex}-${quarter * 15}',
-                        ),
-                        top:
-                            hourIndex * _hourHeight +
-                            quarter *
-                                PlannerTimelineGeometry.quarterHourHeight(
-                                  _hourHeight,
-                                ),
-                        left: _timeColumnWidth,
-                        right: 0,
-                        child: IgnorePointer(
-                          child: Divider(
-                            height: 1,
-                            thickness: 1,
-                            color: AppTheme.outline.withValues(alpha: 0.45),
-                          ),
-                        ),
-                      ),
                   if (widget.events.isEmpty)
                     const Positioned(
                       top: 18,
@@ -2549,7 +2538,9 @@ final class _TimelineEventBlock extends StatelessWidget {
                   child: Material(
                     color: fill,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(4),
+                      borderRadius: BorderRadius.circular(
+                        PlannerEventBlockLayoutPolicy.eventBorderRadius,
+                      ),
                       side: BorderSide(color: border),
                     ),
                     clipBehavior: Clip.antiAlias,
@@ -2564,7 +2555,11 @@ final class _TimelineEventBlock extends StatelessWidget {
                               color: event.isBackupAppointment
                                   ? Colors.black
                                   : border,
-                              width: event.isBackupAppointment ? 7 : 4,
+                              width: event.isBackupAppointment
+                                  ? PlannerEventBlockLayoutPolicy
+                                        .backupEventAccentWidth
+                                  : PlannerEventBlockLayoutPolicy
+                                        .eventAccentWidth,
                             ),
                           ),
                         ),

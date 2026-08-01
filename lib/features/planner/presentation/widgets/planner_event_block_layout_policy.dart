@@ -18,6 +18,13 @@ import 'package:flutter/material.dart';
 ///   * MEDIUM      (> 44 ≤ 70 px)   — title; time; one compact status.
 ///   * TALL        (> 70 px)        — title; time; status; resize handle.
 abstract final class PlannerEventBlockLayoutPolicy {
+  /// Compact silhouette constants for the rendered Event block. Keeping
+  /// these in the layout policy makes the reference shape testable without
+  /// coupling tests to Flutter's internal Material shape objects.
+  static const double eventBorderRadius = 4;
+  static const double eventAccentWidth = 4;
+  static const double backupEventAccentWidth = 7;
+
   /// Approximate line height for title text at the block's font size.
   static const double titleLineHeight = 18;
 

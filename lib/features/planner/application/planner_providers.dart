@@ -85,7 +85,37 @@ final class PlannerController extends Notifier<PlannerState> {
 
   Future<void> selectDate(PlannerDate date) => _load(date);
 
-  Future<void> moveDays(int days) => _load(state.selectedDate.addDays(days));
+  /// Loads the adjacent day before publishing the new selected-date state.
+  ///
+  /// The interactive pager keeps the destination page exposed until this
+  /// future completes. Publishing `selectedDate` first would pair the new
+  /// page key with the previous day's [PlannerDay] for one or more frames,
+  /// which is the stale-schedule flash this route must avoid.
+  Future<void> moveDays(int days) async {
+    final date = state.selectedDate.addDays(days);
+    try {
+      final day = await _repository.readDay(
+        profileId: _profileId,
+        selectedDate: date,
+        today: _dateSource.today(),
+      );
+      state = state.copyWith(
+        status: PlannerLoadStatus.ready,
+        selectedDate: date,
+        day: day,
+        clearMessage: true,
+      );
+    } on Object {
+      // Keep the current page/date pair intact when the adjacent read fails;
+      // the pager will remain settled on the current page and the existing
+      // data remains available for a safe retry.
+      state = state.copyWith(
+        status: PlannerLoadStatus.failure,
+        message: 'Planner data could not be opened. Retry without data loss.',
+      );
+      rethrow;
+    }
+  }
 
   /// Refresh the currently selected Planner day without changing
   /// [PlannerState.selectedDate]. The same repository read used by

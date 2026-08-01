@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:rmplanner/app/theme/app_theme.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
@@ -19,6 +20,35 @@ const PlannerDate kPlannerDateStripLastDate = PlannerDate(
   day: 31,
 );
 
+/// Command surface used by the day pager to prepare the strip's internal
+/// scroll position before the normalized pager progress is recentered.
+///
+/// The jump is intentionally one synchronous offset adjustment, not an
+/// animation. The pager calls it while the destination page is fully exposed;
+/// it then resets progress and commits the selected date in the same event
+/// turn. That keeps the strip's visual hand-off seamless without a second
+/// animation or a frame showing the old selection.
+final class PlannerDateStripController {
+  void Function(int)? _preparePagerCommit;
+
+  void prepareForPagerCommit(int delta) {
+    if (delta != -1 && delta != 1) {
+      return;
+    }
+    _preparePagerCommit?.call(delta);
+  }
+
+  void _attach(void Function(int) callback) {
+    _preparePagerCommit = callback;
+  }
+
+  void _detach(void Function(int) callback) {
+    if (identical(_preparePagerCommit, callback)) {
+      _preparePagerCommit = null;
+    }
+  }
+}
+
 final class PlannerDateStrip extends StatefulWidget {
   const PlannerDateStrip({
     super.key,
@@ -26,6 +56,8 @@ final class PlannerDateStrip extends StatefulWidget {
     required this.onSelected,
     this.firstDate = kPlannerDateStripFirstDate,
     this.lastDate = kPlannerDateStripLastDate,
+    this.pagerProgress,
+    this.controller,
   });
 
   final PlannerDate selectedDate;
@@ -33,15 +65,28 @@ final class PlannerDateStrip extends StatefulWidget {
   final PlannerDate firstDate;
   final PlannerDate lastDate;
 
-  /// Stable item width keeps index-to-offset calculations predictable while
-  /// the selected date moves by one day after a pager commit.
-  static const double itemExtent = 72;
+  /// One normalized pager progress value shared with the timeline pager:
+  /// `0` is centered, negative values expose the next date, and positive
+  /// values expose the previous date. The date items are transformed from
+  /// this value only; the ListView and its cached children are not rebuilt for
+  /// each pointer frame.
+  final ValueListenable<double>? pagerProgress;
+
+  /// Optional command surface used to preserve the strip's scroll position
+  /// across a successful one-day pager commit.
+  final PlannerDateStripController? controller;
+
+  /// Compact fixed cell width. The strip keeps the same cell geometry at all
+  /// selection states and leaves the top-bar calendar control independent.
+  static const double itemExtent = 54;
+  static const double stripHeight = 60;
 
   @override
   State<PlannerDateStrip> createState() => _PlannerDateStripState();
 }
 
-final class _PlannerDateStripState extends State<PlannerDateStrip> {
+final class _PlannerDateStripState extends State<PlannerDateStrip>
+    with SingleTickerProviderStateMixin {
   static const double _edgePadding = 2;
   static const Duration _selectionAnimationDuration = Duration(
     milliseconds: 220,
@@ -49,29 +94,116 @@ final class _PlannerDateStripState extends State<PlannerDateStrip> {
   static const Curve _selectionAnimationCurve = Curves.easeOutCubic;
 
   late final ScrollController _scrollController;
+  late final AnimationController _selectionController;
   bool _initialPositioned = false;
   bool _visibilityScheduled = false;
   bool _pendingAnimatedVisibility = false;
+  bool _pendingCenterVisibility = false;
+  bool _pagerCommitPrepared = false;
+  int? _selectionFromIndex;
+  int? _selectionToIndex;
+  bool _selectionStartScheduled = false;
 
   @override
   void initState() {
     super.initState();
     _scrollController = ScrollController();
-    _scheduleSelectedDateVisibility(animate: false);
+    _selectionController = AnimationController(
+      vsync: this,
+      duration: _selectionAnimationDuration,
+    )..addStatusListener(_onSelectionAnimationStatus);
+    widget.controller?._attach(_prepareForPagerCommit);
+    _scheduleSelectedDateVisibility(animate: false, center: true);
   }
 
   @override
   void didUpdateWidget(covariant PlannerDateStrip oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.controller, widget.controller)) {
+      oldWidget.controller?._detach(_prepareForPagerCommit);
+      widget.controller?._attach(_prepareForPagerCommit);
+    }
     if (oldWidget.selectedDate != widget.selectedDate) {
-      _scheduleSelectedDateVisibility(animate: true);
+      final pagerCommit = _pagerCommitPrepared;
+      _pagerCommitPrepared = false;
+      final oldIndex = _serialDay(
+        oldWidget.selectedDate,
+      ).clamp(0, _itemCount - 1).toInt();
+      final newIndex = _selectedIndex();
+      final tapAnimationOwnsTransition =
+          _selectionFromIndex != null && _selectionToIndex == newIndex;
+      if (pagerCommit) {
+        _stopSelectionAnimation();
+      } else if (!tapAnimationOwnsTransition && oldIndex != newIndex) {
+        _startSelectionAnimation(from: oldIndex, to: newIndex);
+      }
+      _scheduleSelectedDateVisibility(animate: !pagerCommit, center: false);
     }
   }
 
   @override
   void dispose() {
+    widget.controller?._detach(_prepareForPagerCommit);
+    _selectionController.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _onSelectionAnimationStatus(AnimationStatus status) {
+    if (!mounted || status != AnimationStatus.completed) {
+      return;
+    }
+    setState(() {
+      _selectionFromIndex = null;
+      _selectionToIndex = null;
+    });
+  }
+
+  void _stopSelectionAnimation() {
+    _selectionController.stop();
+    _selectionFromIndex = null;
+    _selectionToIndex = null;
+    _selectionStartScheduled = false;
+  }
+
+  void _startSelectionAnimation({required int from, required int to}) {
+    if (from == to) {
+      _stopSelectionAnimation();
+      return;
+    }
+    _selectionFromIndex = from;
+    _selectionToIndex = to;
+    if (_selectionStartScheduled) {
+      return;
+    }
+    _selectionStartScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _selectionStartScheduled = false;
+      if (!mounted || _selectionFromIndex != from || _selectionToIndex != to) {
+        return;
+      }
+      unawaited(_selectionController.forward(from: 0));
+    });
+  }
+
+  void _onDateSelected(PlannerDate date) {
+    final target = _serialDay(date).clamp(0, _itemCount - 1).toInt();
+    final from =
+        _selectionFromIndex != null &&
+            _selectionToIndex != null &&
+            _selectionController.isAnimating
+        ? (_selectionFromIndex! +
+              (_selectionToIndex! - _selectionFromIndex!) *
+                  _selectionController.value)
+        : _selectedIndex().toDouble();
+    _selectionFromIndex = from.round();
+    _selectionToIndex = target;
+    if (from.round() == target) {
+      _stopSelectionAnimation();
+    } else {
+      _startSelectionAnimation(from: from.round(), to: target);
+    }
+    widget.onSelected(date);
   }
 
   int get _itemCount =>
@@ -131,8 +263,29 @@ final class _PlannerDateStripState extends State<PlannerDateStrip> {
     return _clampOffset(trailing - viewport + _edgePadding);
   }
 
-  void _scheduleSelectedDateVisibility({required bool animate}) {
+  void _prepareForPagerCommit(int delta) {
+    if (!mounted) {
+      return;
+    }
+    _pagerCommitPrepared = true;
+    if (!_scrollController.hasClients) {
+      _scheduleSelectedDateVisibility(animate: false, center: true);
+      return;
+    }
+    final target = _clampOffset(
+      _scrollController.position.pixels + delta * PlannerDateStrip.itemExtent,
+    );
+    if ((target - _scrollController.position.pixels).abs() >= 0.5) {
+      _scrollController.jumpTo(target);
+    }
+  }
+
+  void _scheduleSelectedDateVisibility({
+    required bool animate,
+    required bool center,
+  }) {
     _pendingAnimatedVisibility = _pendingAnimatedVisibility || animate;
+    _pendingCenterVisibility = _pendingCenterVisibility || center;
     if (_visibilityScheduled) {
       return;
     }
@@ -143,18 +296,22 @@ final class _PlannerDateStripState extends State<PlannerDateStrip> {
         return;
       }
       if (!_scrollController.hasClients) {
-        _scheduleSelectedDateVisibility(animate: animate);
+        _scheduleSelectedDateVisibility(animate: animate, center: center);
         return;
       }
       final shouldAnimate = _pendingAnimatedVisibility;
+      final shouldCenter = _pendingCenterVisibility;
       _pendingAnimatedVisibility = false;
+      _pendingCenterVisibility = false;
       final index = _selectedIndex();
       if (!_initialPositioned) {
         _scrollController.jumpTo(_centeredOffset(index));
         _initialPositioned = true;
         return;
       }
-      final target = _visibilityOffset(index);
+      final target = shouldCenter
+          ? _centeredOffset(index)
+          : _visibilityOffset(index);
       if (target == null ||
           (target - _scrollController.position.pixels).abs() < 0.5) {
         return;
@@ -173,42 +330,101 @@ final class _PlannerDateStripState extends State<PlannerDateStrip> {
     });
   }
 
+  Widget _buildDateList(BuildContext context, double height) {
+    return ListView.builder(
+      key: const Key('planner-date-strip-scroll'),
+      controller: _scrollController,
+      scrollDirection: Axis.horizontal,
+      physics: const ClampingScrollPhysics(),
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      itemCount: _itemCount,
+      itemExtent: PlannerDateStrip.itemExtent,
+      itemBuilder: (context, index) {
+        final date = _dateAt(index);
+        return _PlannerDateStripDayButton(
+          date: date,
+          selected: date == widget.selectedDate,
+          onSelected: _onDateSelected,
+          height: height,
+        );
+      },
+    );
+  }
+
+  Widget _buildProgressDrivenDateList(BuildContext context, double height) {
+    final dateList = _buildDateList(context, height);
+    final progress = widget.pagerProgress;
+    final listenables = <Listenable>[_scrollController, _selectionController];
+    if (progress != null) {
+      listenables.add(progress);
+    }
+    return AnimatedBuilder(
+      animation: Listenable.merge(listenables),
+      child: dateList,
+      builder: (context, child) {
+        final pagerValue = progress?.value ?? 0;
+        final scrollOffset = _scrollController.hasClients
+            ? _scrollController.position.pixels
+            : 0.0;
+        final visualIndex =
+            _selectionFromIndex != null && _selectionToIndex != null
+            ? _selectionFromIndex! +
+                  (_selectionToIndex! - _selectionFromIndex!) *
+                      _selectionController.value
+            : _selectedIndex().toDouble();
+        final indicatorLeft =
+            _edgePadding +
+            visualIndex * PlannerDateStrip.itemExtent -
+            scrollOffset +
+            pagerValue * PlannerDateStrip.itemExtent;
+        return Stack(
+          clipBehavior: Clip.none,
+          children: <Widget>[
+            Transform.translate(
+              key: const Key('planner-date-strip-live-transform'),
+              offset: Offset(pagerValue * PlannerDateStrip.itemExtent, 0),
+              child: child,
+            ),
+            Positioned(
+              key: const Key('planner-selected-date-indicator'),
+              left: indicatorLeft,
+              top: 2,
+              width: PlannerDateStrip.itemExtent - 4,
+              height: PlannerDateStrip.stripHeight - 4,
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: AppTheme.rose.withValues(alpha: 0.12),
+                    border: Border.all(color: AppTheme.rose, width: 1.5),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final textScale = MediaQuery.textScalerOf(context).scale(1);
-    // The two stacked labels do not scale linearly under Flutter's
-    // nonlinear text scaler. Preserve the compact 54px strip at the
-    // default scale, then reserve extra cross-axis space for the
-    // combined label heights as accessibility text grows.
-    final stripContentHeight = (54.0 + (textScale - 1).clamp(0.0, 2.0) * 90)
-        .clamp(54.0, 150.0);
     return Container(
       key: const Key('planner-week-strip'),
       margin: const EdgeInsets.fromLTRB(8, 4, 8, 0),
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
       decoration: BoxDecoration(
         color: AppTheme.surface,
         border: Border.all(color: AppTheme.outline),
         borderRadius: BorderRadius.circular(14),
       ),
       child: SizedBox(
-        height: stripContentHeight,
-        child: ListView.builder(
-          key: const Key('planner-date-strip-scroll'),
-          controller: _scrollController,
-          scrollDirection: Axis.horizontal,
-          physics: const ClampingScrollPhysics(),
-          itemCount: _itemCount,
-          itemExtent: PlannerDateStrip.itemExtent,
-          itemBuilder: (context, index) {
-            final date = _dateAt(index);
-            return _PlannerDateStripDayButton(
-              date: date,
-              selected: date == widget.selectedDate,
-              onSelected: widget.onSelected,
-              height: stripContentHeight,
-            );
-          },
+        height: PlannerDateStrip.stripHeight,
+        child: ClipRect(
+          child: _buildProgressDrivenDateList(
+            context,
+            PlannerDateStrip.stripHeight,
+          ),
         ),
       ),
     );
@@ -240,7 +456,7 @@ final class _PlannerDateStripDayButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = selected ? AppTheme.rose : Theme.of(context).hintColor;
+    final color = selected ? AppTheme.rose : const Color(0xB8FFFFFF);
     return Semantics(
       key: selected ? const Key('planner-selected-date') : null,
       selected: selected,
@@ -252,31 +468,45 @@ final class _PlannerDateStripDayButton extends StatelessWidget {
         key: Key('planner-day-${date.iso8601}'),
         onTap: () => onSelected(date),
         borderRadius: BorderRadius.circular(8),
-        child: Container(
+        child: SizedBox(
+          width: PlannerDateStrip.itemExtent,
           height: height,
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          decoration: BoxDecoration(
-            border: selected
-                ? Border.all(color: AppTheme.rose, width: 1.5)
-                : null,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: <Widget>[
-              Text(
-                _labels[date.weekday - 1],
-                style: TextStyle(fontSize: 11, color: color),
-              ),
-              Text(
-                '${date.day}',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: selected ? FontWeight.w800 : FontWeight.w500,
-                  color: color,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              border: Border(
+                right: BorderSide(
+                  color: AppTheme.outline.withValues(alpha: 0.5),
+                  width: 1,
                 ),
               ),
-            ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 2),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: <Widget>[
+                    Text(
+                      _labels[date.weekday - 1],
+                      maxLines: 1,
+                      style: TextStyle(fontSize: 11, color: color),
+                    ),
+                    Text(
+                      '${date.day}',
+                      maxLines: 1,
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: selected
+                            ? FontWeight.w800
+                            : FontWeight.w500,
+                        color: color,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
         ),
       ),

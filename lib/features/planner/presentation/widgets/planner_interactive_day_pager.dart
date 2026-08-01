@@ -134,6 +134,19 @@ const Duration kPlannerPagerSettleDuration = Duration(milliseconds: 240);
 /// remain driven by the pager's own animation controller, so
 /// no external listener bookkeeping is required.
 class PlannerInteractiveDayPagerController {
+  final ValueNotifier<double> _progress = ValueNotifier<double>(0);
+
+  /// Normalized live pager progress shared with the Planner date strip.
+  ///
+  /// `0` is the centered current page, `-1` fully exposes the next page, and
+  /// `+1` fully exposes the previous page. The pager owns writes; consumers
+  /// such as the date strip only listen and transform from this value.
+  ValueListenable<double> get progress => _progress;
+
+  void _setProgress(double value) {
+    _progress.value = value.clamp(-1.0, 1.0).toDouble();
+  }
+
   /// The most recently attached recenter callback. The pager
   /// holds a private implementation in
   /// [_PlannerInteractiveDayPagerState]; the controller does
@@ -174,6 +187,14 @@ class PlannerInteractiveDayPagerController {
     if (identical(_recenter, callback)) {
       _recenter = null;
     }
+  }
+
+  /// Release the notifier owned by this controller. The Planner screen owns
+  /// the controller for the route lifetime; standalone pager tests may also
+  /// call this when they create a controller explicitly.
+  void dispose() {
+    _recenter = null;
+    _progress.dispose();
   }
 }
 
@@ -272,13 +293,20 @@ class _PlannerInteractiveDayPagerState extends State<PlannerInteractiveDayPager>
   /// the deactivated element tree is unsafe.
   AnimationController? _settle;
 
-  /// Live horizontal drag offset. Equals 0 at rest. The
-  /// rendered translation is
-  /// `-viewportWidth + _liveDragOffset`, so when idle the
-  /// Row is shifted left by exactly one viewport width and
-  /// the current page is centered. Exposed via
-  /// [liveDragOffset] for tests.
-  double _liveDragOffset = 0;
+  /// Pixel view of the controller's normalized progress. The controller is
+  /// the single authoritative value; this getter only converts it to the
+  /// current viewport's logical pixels for the existing settlement math and
+  /// compatibility accessors.
+  double get _liveDragOffset =>
+      widget.controller.progress.value * widget.viewportWidth;
+
+  void _setLiveDragOffset(double value) {
+    if (widget.viewportWidth <= 0) {
+      widget.controller._setProgress(0);
+      return;
+    }
+    widget.controller._setProgress(value / widget.viewportWidth);
+  }
 
   /// True while the settle animation is running. During this
   /// window a fresh pointer-down is rejected so a mid-settle
@@ -287,7 +315,8 @@ class _PlannerInteractiveDayPagerState extends State<PlannerInteractiveDayPager>
 
   /// Live drag-offset accessor for tests. Not part of the
   /// public production contract.
-  double get liveDragOffsetForTest => _liveDragOffset;
+  double get liveDragOffsetForTest =>
+      widget.controller.progress.value * widget.viewportWidth;
 
   /// External cancel entry point. The parent registers this
   /// with the shared `_DaySwipeCoordinator`'s cancel-listener
@@ -307,7 +336,7 @@ class _PlannerInteractiveDayPagerState extends State<PlannerInteractiveDayPager>
     if (_liveDragOffset.abs() < 0.5) {
       if (_liveDragOffset != 0) {
         setState(() {
-          _liveDragOffset = 0;
+          _setLiveDragOffset(0);
         });
       }
       return;
@@ -318,7 +347,7 @@ class _PlannerInteractiveDayPagerState extends State<PlannerInteractiveDayPager>
   @override
   void initState() {
     super.initState();
-    _liveDragOffset = 0;
+    widget.controller._setProgress(0);
     _settle = AnimationController(
       vsync: this,
       duration: kPlannerPagerSettleDuration,
@@ -339,7 +368,7 @@ class _PlannerInteractiveDayPagerState extends State<PlannerInteractiveDayPager>
       // the layout changes (rotation, resize). The pager only
       // needs to ensure the centered column stays centered.
       if (!_settling && _dragSession == null) {
-        _liveDragOffset = 0;
+        _setLiveDragOffset(0);
       }
     }
     if (oldWidget.selectedDate != widget.selectedDate) {
@@ -347,7 +376,7 @@ class _PlannerInteractiveDayPagerState extends State<PlannerInteractiveDayPager>
       // transform so the (now-different) currentPage is
       // recentered without a second visible slide.
       if (!_settling && _dragSession == null) {
-        _liveDragOffset = 0;
+        _setLiveDragOffset(0);
       }
     }
   }
@@ -436,7 +465,7 @@ class _PlannerInteractiveDayPagerState extends State<PlannerInteractiveDayPager>
     final clampedDx = dx.clamp(-maxOffset, maxOffset);
     session.sessionDx = clampedDx;
     setState(() {
-      _liveDragOffset = clampedDx;
+      _setLiveDragOffset(clampedDx);
     });
   }
 
@@ -450,7 +479,7 @@ class _PlannerInteractiveDayPagerState extends State<PlannerInteractiveDayPager>
     _dragSession = null;
     if (!session.horizontalIntentLocked) {
       setState(() {
-        _liveDragOffset = 0;
+        _setLiveDragOffset(0);
       });
       return;
     }
@@ -498,15 +527,14 @@ class _PlannerInteractiveDayPagerState extends State<PlannerInteractiveDayPager>
     _settling = true;
     final settle = _settle!;
     final tween = Tween<double>(begin: from, end: target);
-    final curved =
-        CurvedAnimation(parent: settle, curve: Curves.easeOutCubic);
+    final curved = CurvedAnimation(parent: settle, curve: Curves.easeOutCubic);
     final animation = tween.animate(curved);
     void listener() {
       if (!mounted) {
         return;
       }
       setState(() {
-        _liveDragOffset = animation.value;
+        _setLiveDragOffset(animation.value);
       });
     }
 
@@ -519,43 +547,59 @@ class _PlannerInteractiveDayPagerState extends State<PlannerInteractiveDayPager>
       rethrow;
     }
     animation.removeListener(listener);
-    _settling = false;
     if (!mounted) {
       return;
     }
-    // Recenter the internal window before notifying the parent. Both the
-    // pager state and the parent's selectedDate update are then scheduled in
-    // the same frame, so a new date is never painted with the old settled
-    // translation (or vice versa).
+    // Keep the destination page fully exposed until the parent has prepared
+    // the authoritative page data. The parent publishes selectedDate only
+    // after that read completes; this prevents a new page key from painting
+    // the previous day's schedule while the pager recenters.
+    final commit = widget.onDayChanged(delta);
+    try {
+      if (commit is Future<void>) {
+        await commit;
+      }
+    } on Object {
+      // A failed adjacent read leaves the current page authoritative. Return
+      // the settled translation to center without preparing the date strip
+      // or publishing a second callback.
+      if (mounted) {
+        await _animateRecenter();
+      }
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+    // The strip and pager now hand off in one event turn: adjust its cached
+    // scroll offset, recenter normalized progress, and expose the committed
+    // page together. There is no second catch-up animation.
+    widget.onPagerCommitPrepared?.call(delta);
     setState(() {
-      _liveDragOffset = 0;
+      _setLiveDragOffset(0);
     });
-    // Commit the date exactly once after the internal translation has been
-    // reset. The parent rebuild reassigns previous/current/next dates without
-    // exposing a second visible settlement.
-    widget.onDayChanged(delta);
+    _settling = false;
   }
 
   Future<void> _animateRecenter() async {
     final from = _liveDragOffset;
     if (from.abs() < 0.5) {
       setState(() {
-        _liveDragOffset = 0;
+        _setLiveDragOffset(0);
       });
       return;
     }
     _settling = true;
     final settle = _settle!;
     final tween = Tween<double>(begin: from, end: 0);
-    final curved =
-        CurvedAnimation(parent: settle, curve: Curves.easeOutCubic);
+    final curved = CurvedAnimation(parent: settle, curve: Curves.easeOutCubic);
     final animation = tween.animate(curved);
     void listener() {
       if (!mounted) {
         return;
       }
       setState(() {
-        _liveDragOffset = animation.value;
+        _setLiveDragOffset(animation.value);
       });
     }
 
@@ -573,7 +617,7 @@ class _PlannerInteractiveDayPagerState extends State<PlannerInteractiveDayPager>
       return;
     }
     setState(() {
-      _liveDragOffset = 0;
+      _setLiveDragOffset(0);
     });
   }
 
@@ -678,6 +722,7 @@ class PlannerInteractiveDayPager extends StatefulWidget {
     required this.onPinchPointerCount,
     required this.onPinchClearCancel,
     required this.onDayChanged,
+    this.onPagerCommitPrepared,
     required this.currentPage,
     required this.currentTimeListenable,
     PlannerInteractiveDayPagerController? controller,
@@ -730,7 +775,13 @@ class PlannerInteractiveDayPager extends StatefulWidget {
   /// left swipe (next day) and `-1` for a right swipe (previous
   /// day). The parent wires this to
   /// `PlannerController.moveDays(delta)`.
-  final ValueChanged<int> onDayChanged;
+  final FutureOr<void> Function(int) onDayChanged;
+
+  /// Called once after a successful settlement reaches its destination and
+  /// before progress is reset. The date strip uses this one synchronous hook
+  /// to advance its cached scroll offset by one cell; cancellation never calls
+  /// it.
+  final FutureOr<void> Function(int)? onPagerCommitPrepared;
 
   /// The interactive current page (typically the existing
   /// `_TimedEventTimeline` widget). Receives pointer events
@@ -827,31 +878,13 @@ class _PagerPreviewColumn extends StatelessWidget {
               ),
             ),
             Positioned(
+              key: Key('planner-pager-full-hour-line-${firstHour + index}'),
               top: index * hourHeight,
               left: kPlannerPagerTimeColumnWidth,
               right: 0,
               child: const Divider(height: 1, color: AppTheme.outline),
             ),
           ],
-          for (var hourIndex = 0; hourIndex < slotCount; hourIndex++)
-            for (var quarter = 1; quarter < 4; quarter++)
-              Positioned(
-                key: Key(
-                  'planner-pager-quarter-hour-line-'
-                  '${firstHour + hourIndex}-${quarter * 15}',
-                ),
-                top:
-                    hourIndex * hourHeight +
-                    quarter *
-                        PlannerTimelineGeometry.quarterHourHeight(hourHeight),
-                left: kPlannerPagerTimeColumnWidth,
-                right: 0,
-                child: Divider(
-                  height: 1,
-                  thickness: 1,
-                  color: AppTheme.outline.withValues(alpha: 0.45),
-                ),
-              ),
           for (final placement in placements)
             _positionedPreviewEvent(
               placement: placement,
