@@ -2147,7 +2147,8 @@ Local, unpushed. Single file in the commit:
 
 ### Checkpoints local and unpushed
 - 5de1a05 test(planner): correct manual scroll gesture direction
-- <corrected handoff SHA, recorded by the next commit>
+- 9c8d320 docs(handoff): correct stage b3-r1 slice d3a automated gate
+- 410d0a9 docs(handoff): record corrected handoff SHA in slice d3a section
 - All 10 locked checkpoints (5c5a19c, 1006adb, 87fbd3e,
   5f06183, 1265633, e8d8a1e, 5274881, 1522178, dd939ef, ab0b91b)
   unchanged.
