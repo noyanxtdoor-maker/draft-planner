@@ -2134,11 +2134,9 @@ Local, unpushed. Single file in the commit:
 `test/features/planner/presentation/planner_initial_scroll_once_test.dart`.
 
 ### Corrected handoff SHA
-This handoff section was authored under HEAD 5de1a05 and will be
-sealed by the `docs(handoff): correct stage b3-r1 slice d3a
-automated gate` checkpoint that follows. That handoff checkpoint
-SHA will be recorded below as `CORRECTION_HANDOFF_SHA_PLACEHOLDER`
-by the sealing commit.
+9c8d320 `docs(handoff): correct stage b3-r1 slice d3a automated gate`
+Local, unpushed. Single file in the commit:
+`docs/handoffs/temp-worker-status.md`.
 
 ### Final Git status (immediately before handoff checkpoint)
 - modified: docs/handoffs/temp-worker-status.md (this file)
