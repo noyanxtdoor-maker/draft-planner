@@ -2621,3 +2621,98 @@ Physical acceptance 01-40 remains pending. No physical PASS/FAIL result is
 inferred here. The final physical-acceptance and final VS-08 integration
 checkpoints must not be created until the owner supplies an explicit PASS or
 FAIL for every physical test.
+
+## VS-08 Production-Route Reimplementation
+
+### Starting state and authority
+
+- Branch: `temp/vs08-shared-preview`.
+- Starting HEAD: `982bee7e1ff5480932777df9f3bc6b2ec4dbd277` (`982bee7`).
+- Inherited state: only the owner-owned untracked `.todo.md`; it was preserved
+  and remains unstaged. The protected checkout at
+  `C:\Users\sherl\Documents\Next Transfer` was not changed.
+- No reset, restore, clean, stash, rebase, amend, squash, push, PR #8 change,
+  VS-09 work, Maps change, application ID/signing change, uninstall, data clear,
+  or schema migration was performed.
+
+### Production-route and marker proof
+
+- The mounted route was traced as `lib/main.dart` -> `NextTransferApp` ->
+  `appRouterProvider`/`ShellRoute` -> `MainShell` -> `/planner` ->
+  `PlannerScreen`.
+- Empty timeline/FAB and `/events/new` both reach the Event Type chooser before
+  the shared Event form; Event blocks reach the existing detail/edit route.
+- The temporary `TEMP ACTIVE PLANNER` marker was added only to the mounted
+  `PlannerScreen` in Temp, built, installed with `adb install -r`, and visibly
+  confirmed on the Planner tab. Marker APK SHA-256 was
+  `a18952b48703736fd81b227d4626948b60f4f75348696be7bb823caf55758bf2`, and the
+  installed package hash matched exactly.
+- Marker evidence was captured at
+  `C:\Users\sherl\AppData\Local\Temp\vs08-marker-planner.png`; the marker was
+  removed with no marker hits remaining in `lib` or `test`. No marker commit was
+  created.
+- Visual references used directly from
+  `C:\Users\sherl\Documents\NextTransfer-Device-Evidence\Stage-B3-R1`:
+  `01-select-event-type-floating-modal-reference.jpg`,
+  `02-event-detail-screen-reference.jpg`,
+  `03-event-outcome-status-menu-reference.jpg`,
+  `04-event-overflow-actions-reference.jpg`,
+  `05-edit-event-form-top-reference.jpg`,
+  `06-edit-event-form-lower-reference.jpg`, and
+  `Approved-Planner-UI-Reference.png`. The nested path named by the prompt was
+  absent; the available direct parent reference set was used.
+
+### Implemented production corrections
+
+- Planner title/date controls retain the shared route and now use larger,
+  circular touch surfaces with consistent top-bar icon sizing; the Today
+  calendar surface is rose-tinted only for the selected current date.
+- The date strip is 36 logical pixels high, keeps one shared moving selection
+  indicator, and the first `6 AM` label no longer begins clipped. The existing
+  bottom boundary keeps `10 PM`, `11 PM`, and midnight navigation reachable;
+  automated viewport, axis-lock, pinch, and indicator tests remain green.
+- Event Type is a centered floating modal with a light barrier, cohesive rounded
+  card, no drag handle, no row dividers, and no write before Save. The create
+  form remains a partial draggable sheet with the Planner visible behind it.
+- Create/edit use the shared form with contextual Event Type/Contact Type,
+  Current Status, Title/Description or Notes, outlined Date and From/To fields,
+  Set time to now, Schedule From Calendar, Repeat, Backup Appointment,
+  Address/Location, People, and Weekly Life Indicator in the approved order.
+  Save is a circular check action; Cancel and dismiss remain non-writing.
+- People remains an honest UI placeholder because the inherited schema contains
+  no approved people/contact persistence model. No fake duplicate store or
+  unauthorized migration was introduced; physical People acceptance remains an
+  explicit owner checkpoint.
+- Detail overflow actions are now an anchored compact popup with Change to
+  Teaching, Duplicate, and Delete. Status remains anchored and uses the locked
+  wording: Unreported, Contacted for Contact Events or Completed for other
+  reportable Events, Missed - Attempted, and Did Not Attempt. `Did Not Attend`
+  and `Did Not Happen` are absent from production UI.
+- Privacy Lock continues to use one monotonic, one-shot five-minute session;
+  exact boundary, repeated lifecycle, failed authentication, and quick-switch
+  behavior remain covered by the existing privacy tests.
+
+### Verification and commits
+
+- Focused lanes: 45 direct cases across Event Type-first creation, Event
+  persistence, indicator linking, Planner controls/design locks, interaction
+  safety, and privacy; all passed.
+- Complete Planner suite: 276 passed, 0 failed, 0 skipped.
+- Complete Flutter suite: 340 passed, 0 failed, 0 skipped.
+- Analyzer: `No issues found!`.
+- `git diff --check`: passed; no marker, temporary probe, or new diagnostic
+  hit remains.
+- Production files changed: `calendar_event_creation.dart`,
+  `calendar_event_detail_screen.dart`, `calendar_event_form_screen.dart`,
+  `event_type_picker_dialog.dart`, `planner_screen.dart`,
+  `planner_calendar_icon.dart`, `planner_date_strip.dart`, and
+  `planner_interactive_day_pager.dart`.
+- Test file changed: `calendar_event_indicator_link_test.dart`; its partial
+  sheet assertion now explicitly ensures the target is visible before tapping.
+- Implementation commit: `b71b1e5` —
+  `fix(planner): reimplement final vs08 owner corrections`.
+- Physical acceptance 01-50 is pending explicit owner PASS/FAIL for every item.
+- No push; PR #8 remains untouched. VS-09 is unauthorized and unstarted.
+
+The handoff checkpoint commit is intentionally local and is recorded by the
+commit created for this section; its short SHA is reported after commit.
