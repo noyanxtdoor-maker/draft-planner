@@ -2530,3 +2530,70 @@ owner PASS/FAIL checklist must be completed before VS-08 is called accepted.
 No push was made; PR #8 was not updated; VS-09, Maps, Contacts expansion,
 Pathways, Goals, Milestones, merge, and any other milestone remain
 unauthorized and unstarted.
+
+## VS-08 Final Event Flow and Owner-Correction Implementation
+
+Implementation checkpoint: `3a899ea` (`fix(planner): complete event flow and
+remaining owner corrections`). This checkpoint is local to
+`C:\Users\sherl\Documents\Next Transfer-Temp` on branch
+`temp/vs08-shared-preview`; it was not pushed and the protected
+`C:\Users\sherl\Documents\Next Transfer` checkout was not changed.
+
+Approved device references were found in
+`C:\Users\sherl\Documents\NextTransfer-Device-Evidence\Stage-B3-R1`:
+the six required JPG/PNG references are present. The exact walkthrough name
+requested by the brief was absent; the existing Stage B3-R1 walkthrough
+alternates remain read-only and were not substituted into the implementation.
+
+The final implementation records these scoped corrections:
+
+- Event Type selection remains zero-write until Save; the chooser is a light
+  barrier (`0.18`), has no drag handle, keeps cohesive rows without per-row
+  dividers, and preserves the Planner behind the form sheet.
+- Planner title/date controls, circular pressed surfaces, icon sizing, date
+  picker behavior, shared viewport geometry, timeline boundary, axis lock,
+  pinch priority, and pink indicator architecture remain on their approved
+  paths.
+- Privacy Lock uses a monotonic, one-shot five-minute background session. It is
+  idempotent across inactive/paused/hidden/detached/resumed notifications,
+  relocks at or beyond five minutes, preserves cold-start protection, and
+  prevents an in-flight authentication from unlocking after a background
+  relock.
+- Create and edit use the shared Event form. Edit includes contextual Event
+  Type/Contact Type, Current Status, Title, Description, Date, Set time to now,
+  From/To, Schedule From Calendar, Repeat, Backup Appointment, optional
+  Address/Location, People placeholder behavior without a fabricated people
+  store, and optional Link to Weekly Life Indicator. The notes helper appears
+  on focus with the exact approved wording.
+- Event detail now exposes contextual title, Title/Date/Time fields, status
+  control, Created/Updated metadata, available Event Type and Weekly Life
+  Indicator data, edit action, and the required overflow actions. No
+  unsupported Last Modified by actor is fabricated.
+- The anchored status menu uses Unreported, Contacted for Contact Events or
+  Completed for other reportable Events, Missed - Attempted, and Did Not
+  Attempt. Did Not Attend and Did Not Happen are absent from production UI.
+  Existing effective reports route through the correction path rather than
+  creating a duplicate outcome.
+- Change Event Type, Duplicate, and Delete use existing domain operations.
+  Duplicate receives a new UUID, starts scheduled, and does not copy outcomes,
+  Actuals, ledger entries, contributions, or the scheduled indicator rule.
+- Event metadata and status survive ordinary edits without schema changes or
+  an unauthorized migration; Weekly Life Indicator linking remains optional
+  and has no scheduling/editing progress side effects.
+
+Verification completed before this handoff:
+
+- complete Planner suite: 276 passed, 0 failed, 0 skipped;
+- complete Flutter suite: 340 passed, 0 failed, 0 skipped;
+- analyzer: `No issues found!`;
+- focused duplicate, canonical-label, status-popup, privacy-window, Event
+  journey, indicator-link, and interaction-safety tests: passed;
+- `git diff --check`: passed;
+- no dependency/toolchain/schema upgrade was introduced;
+- `.todo.md` remains untracked and unstaged; no APK, build output, reference
+  image, recording, temporary harness, or diagnostic artifact is staged.
+
+Build/update-install and physical acceptance 01-40 remain pending. No physical
+PASS/FAIL result is inferred here. The final physical-acceptance and final
+VS-08 integration checkpoints must not be created until the owner supplies an
+explicit PASS or FAIL for every physical test.
