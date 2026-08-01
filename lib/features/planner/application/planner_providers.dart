@@ -87,6 +87,16 @@ final class PlannerController extends Notifier<PlannerState> {
 
   Future<void> moveDays(int days) => _load(state.selectedDate.addDays(days));
 
+  /// Refresh the currently selected Planner day without changing
+  /// [PlannerState.selectedDate]. The same repository read used by
+  /// date navigation runs in place, so the screen receives a fresh
+  /// [PlannerState.day] and any signature derived from the
+  /// selected-day content bumps naturally. Adjacent preview
+  /// caches that compose their cache key from that signature will
+  /// then refetch on the next build without a manual
+  /// selected-date round trip.
+  Future<void> refresh() => _load(state.selectedDate);
+
   Future<List<PlannerDay>> readDays(Iterable<PlannerDate> dates) {
     return Future.wait(
       dates.map(

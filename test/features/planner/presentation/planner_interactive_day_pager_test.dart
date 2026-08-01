@@ -634,5 +634,186 @@ void main() {
         );
       },
     );
+
+    testWidgets(
+      'TEST 7 — left drag produces negative liveDragOffset and '
+      'physically shifts the current-day column leftward, '
+      'revealing the next-day column from the right edge of '
+      'the clip',
+      (tester) async {
+        final container = await pumpApp(tester);
+        await pumpSettleFrames(tester);
+
+        // Pre-drag: current page's left edge should be near
+        // the pager viewport's left edge (the column fills
+        // the visible width and is centered). Use a small
+        // tolerance to allow for one logical pixel of layout
+        // jitter. We won't assert strictly on the center
+        // because the mounted pager sits inside a padded
+        // SingleChildScrollView.
+        final viewportLeft = tester.getTopLeft(
+          find.byKey(const Key('planner-day-pager-viewport')),
+        ).dx;
+        final initialCurrentLeft = tester.getTopLeft(
+          find.byKey(Key('planner-day-page-${selected.iso8601}')),
+        ).dx;
+        expect(
+          (initialCurrentLeft - viewportLeft).abs() < 4,
+          isTrue,
+          reason:
+              'before a drag the current page must be flush '
+              'with the left edge of the pager viewport '
+              '(current left was $initialCurrentLeft vs '
+              'viewport left $viewportLeft)',
+        );
+
+        // Left drag: 80 px leftward, 4 steps at 16 ms each.
+        // Clears the direction lock, stays below the
+        // 22%-of-width distance threshold.
+        final release = await beginHorizontalDrag(
+          tester,
+          dx: -80,
+          steps: 4,
+        );
+        // Live offset: negative.
+        final liveDragOffset = readLiveDragOffset(tester);
+        expect(
+          liveDragOffset < 0,
+          isTrue,
+          reason:
+              'a live left drag must produce a negative '
+              'liveDragOffset (was $liveDragOffset)',
+        );
+        // The current-day column should now have a left edge
+        // left of the viewport left by an amount close to
+        // |liveDragOffset|.
+        final draggedCurrentLeft = tester.getTopLeft(
+          find.byKey(
+            Key('planner-day-page-${selected.iso8601}'),
+          ),
+        ).dx;
+        final shift = viewportLeft - draggedCurrentLeft;
+        expect(
+          shift > 30,
+          isTrue,
+          reason:
+              'a left drag must shift the current column '
+              'leftward (was $shift px left of the viewport '
+              'left edge)',
+        );
+        // The next-day column should now be visible — its
+        // rendered GlobalRect must overlap the clip rect.
+        final nextRect = tester.getRect(
+          find.byKey(Key('planner-day-page-${next.iso8601}')),
+        );
+        expect(
+          nextRect.left < viewportLeft + tester.getSize(
+            find.byKey(const Key('planner-day-pager-viewport')),
+          ).width,
+          isTrue,
+          reason:
+              'the next-day column must enter from the right '
+              'edge during a left drag (was '
+              '${nextRect.left})',
+        );
+        // The previous-day column must be sliding off-screen
+        // to the left.
+        final prevRect = tester.getRect(
+          find.byKey(Key('planner-day-page-${previous.iso8601}')),
+        );
+        expect(
+          prevRect.right < viewportLeft,
+          isTrue,
+          reason:
+              'the previous-day column must be off-screen '
+              'left during a left drag (right edge was '
+              '${prevRect.right})',
+        );
+        // No commit during a live drag.
+        expect(
+          container.read(plannerControllerProvider).selectedDate,
+          selected,
+          reason: 'live drag must not commit a date change',
+        );
+        await release();
+      },
+    );
+
+    testWidgets(
+      'TEST 8 — right drag produces positive liveDragOffset '
+      'and physically shifts the current-day column rightward, '
+      'revealing the previous-day column from the left edge of '
+      'the clip',
+      (tester) async {
+        final container = await pumpApp(tester);
+        await pumpSettleFrames(tester);
+
+        final viewportLeft = tester.getTopLeft(
+          find.byKey(const Key('planner-day-pager-viewport')),
+        ).dx;
+        final viewportWidth = tester.getSize(
+          find.byKey(const Key('planner-day-pager-viewport')),
+        ).width;
+        final release = await beginHorizontalDrag(
+          tester,
+          dx: 80,
+          steps: 4,
+        );
+        final liveDragOffset = readLiveDragOffset(tester);
+        expect(
+          liveDragOffset > 0,
+          isTrue,
+          reason:
+              'a live right drag must produce a positive '
+              'liveDragOffset (was $liveDragOffset)',
+        );
+        final draggedCurrentLeft = tester.getTopLeft(
+          find.byKey(
+            Key('planner-day-page-${selected.iso8601}'),
+          ),
+        ).dx;
+        final shift = draggedCurrentLeft - viewportLeft;
+        expect(
+          shift > 30,
+          isTrue,
+          reason:
+              'a right drag must shift the current column '
+              'rightward (was $shift px right of the viewport '
+              'left edge)',
+        );
+        // The previous-day column should now be visible.
+        final prevRect = tester.getRect(
+          find.byKey(Key('planner-day-page-${previous.iso8601}')),
+        );
+        expect(
+          prevRect.right > viewportLeft,
+          isTrue,
+          reason:
+              'the previous-day column must enter from the '
+              'left edge during a right drag (right edge '
+              '${prevRect.right} vs viewport left '
+              '$viewportLeft)',
+        );
+        // The next-day column should now be sliding off the
+        // right edge.
+        final nextRect = tester.getRect(
+          find.byKey(Key('planner-day-page-${next.iso8601}')),
+        );
+        expect(
+          nextRect.left > viewportLeft + viewportWidth,
+          isTrue,
+          reason:
+              'the next-day column must be partly off-screen '
+              'right during a right drag (left edge was '
+              '${nextRect.left})',
+        );
+        expect(
+          container.read(plannerControllerProvider).selectedDate,
+          selected,
+          reason: 'live drag must not commit a date change',
+        );
+        await release();
+      },
+    );
   });
 }

@@ -659,7 +659,10 @@ void main() {
         );
 
         // Drive a left swipe to advance one day (yesterday relative
-        // to the clock stays today-1 = 2026-07-30).
+        // to the clock stays today-1 = 2026-07-30). The
+        // centered page is now 2026-07-30 and the new
+        // previous preview is 2026-07-29; the new next
+        // preview is 2026-07-31, which IS today.
         final scrollFinder = find.byKey(const Key('planner-day-scroll'));
         final scrollRect = tester.getRect(scrollFinder);
         final center = scrollRect.center;
@@ -674,10 +677,19 @@ void main() {
         await gestureLeft.up();
         await tester.pumpAndSettle();
 
+        // The centered page is no longer today, so the
+        // centered current-time indicator is hidden. The
+        // next preview is today, so exactly one indicator
+        // remains — the preview-page one. The unified
+        // current-time source guarantees the preview and
+        // the centered page read from the same instant;
+        // the indicator is never duplicated.
         expect(
           find.byKey(const Key('planner-current-time-indicator')),
-          findsNothing,
-          reason: 'swiping left must hide the indicator on the new day',
+          findsOneWidget,
+          reason:
+              'after a left swipe, the next preview (today) must '
+              'own the single current-time indicator',
         );
 
         // Drive a right swipe to return to today.
@@ -694,7 +706,9 @@ void main() {
         expect(
           find.byKey(const Key('planner-current-time-indicator')),
           findsOneWidget,
-          reason: 'swiping back to today must re-show the indicator',
+          reason: 'swiping back to today must re-show the indicator '
+              'on the centered page (or, if the centered page is '
+              'off-today, on the relevant preview)',
         );
 
         // Zoom density: capture the timeline-grid height before and

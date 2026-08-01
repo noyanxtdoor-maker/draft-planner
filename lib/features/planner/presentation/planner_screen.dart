@@ -76,19 +76,49 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
   String? _rangeSignature;
   // Cached three-day read-only preview future for the
   // interactive pager. The cached future is rebuilt only
-  // when the preview signature (selected date + day content
-  // signature) changes, so a selectedDate change triggers
-  // exactly one readDays call for the previous/next trio.
-  // The pager itself is the single consumer: a FutureBuilder
-  // below this field reads the future and threads the
-  // resolved days straight into the previous/next preview
-  // columns. There is no parallel state-adoption helper —
-  // stale generations are dropped naturally because the
-  // FutureBuilder is rebuilt against a new future when the
-  // signature changes, and the previous future has no
-  // listeners left to notify.
+  // when the preview signature changes. The signature is
+  // composed of:
+  //   * the selected ISO date;
+  //   * a per-build data revision counter that bumps every
+  //     time the planner state is rebuilt (so any path that
+  //     re-reads `state.day` — including a normal
+  //     `refresh()` call after an adjacent-day mutation —
+  //     invalidates the cache);
+  //   * the resolved previous/next PlannerDay content
+  //     signatures, captured the most recent time the
+  //     preview trio completed (so a subsequent adjacent
+  //     mutation refetches the preview the very next build
+  //     after the data revision bumped);
+  //   * the relevant settings that affect preview
+  //     rendering (visible hour window, hour height,
+  //     use-24-hour time, show-current-time, show-cancelled,
+  //     content filters).
+  //
+  // The previous/next content signatures are captured at
+  // the moment the preview future STARTS (not just when it
+  // resolves) so a future started after a fresh data
+  // revision uses the most recent known previous/next
+  // signatures and refetches the trio on the next build.
+  //
+  // The generation captured at future-start is stored in
+  // [_previewGeneration]. When the future resolves, the
+  // result is adopted only if the generation still matches
+  // the most recent build's generation — so an older
+  // in-flight future cannot overwrite the active preview
+  // when a more recent data revision has already started a
+  // newer future.
   Future<List<PlannerDay>>? _previewLoad;
+  int? _previewGeneration;
   String? _previewSignature;
+  String? _previousDayContentSignature;
+  String? _nextDayContentSignature;
+  // Bumped on every build of the screen that holds a
+  // non-null `state.day`. Used as the data-revision
+  // component of the preview signature so any path that
+  // re-reads the selected day through the controller
+  // (date navigation, refresh, save) invalidates the
+  // cached preview future on the next build.
+  int _dataRevision = 0;
   bool _selectionActive = false;
   // Owns the day-swipe candidate lifetime across the Listener
   // wrapper and the timeline's pinch/long-press/resize recognizers.
@@ -726,6 +756,14 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
       timedEvents: day.timedEvents,
     );
 
+    // Bump the per-build data revision every time the planner
+    // state is rebuilt with a non-null day. The bump is the
+    // authoritative signal that the selected-day content
+    // signature may have changed (e.g. a controller refresh
+    // after a repository mutation on an adjacent day). The
+    // revision is composed into the preview signature below.
+    _dataRevision += 1;
+
     // Three-day read-only preview state for the interactive
     // day pager. The previous/next trio is loaded once per
     // relevant signature change (selected-date change OR a
@@ -739,25 +777,57 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     // render the authoritative current Planner state. This
     // avoids duplicate repository caches and bypasses any
     // future drift between the preview store and the
-    // authoritative state. A single coherent pattern is used:
-    // the FutureBuilder below is the only consumer of
-    // `_previewLoad`; there is no parallel state-adoption
-    // helper, no setState writes inside build, and no other
-    // path that races for the resolved list. Stale
-    // generations are dropped naturally because the
-    // FutureBuilder is rebuilt against a new future when the
-    // signature changes — the previous future has no
-    // listeners left to notify.
-    final today = ref.read(plannerDateSourceProvider).today();
+    // authoritative state.
+    //
+    // The `today` value is read once per build and is the
+    // authoritative "is this page today" anchor for the
+    // centered indicator and the preview columns. The
+    // source is watched (not just read) so a midnight roll
+    // — production's system source ticks at midnight,
+    // tests inject a mutable source — propagates a single
+    // rebuild that re-evaluates `today` and re-seats the
+    // indicator ownership across the three pages.
+    final today = ref.watch(plannerDateSourceProvider).today();
     final previousDate = state.selectedDate.addDays(-1);
     final nextDate = state.selectedDate.addDays(1);
-    final previewSignature =
-        'pager:${state.selectedDate.iso8601}:${_dayContentSignature(day)}';
+    final previousSig = _previousDayContentSignature;
+    final nextSig = _nextDayContentSignature;
+    final previewSignature = 'pager:'
+        '${state.selectedDate.iso8601}:'
+        'r$_dataRevision:'
+        '${_dayContentSignature(day)}:'
+        'p${previousSig ?? "_"}:'
+        'n${nextSig ?? "_"}:'
+        'h${settings.timelineHourHeight.toStringAsFixed(2)}:'
+        'v${settings.visibleStartHour}-${settings.visibleEndHour}:'
+        't${settings.use24HourTime ? 1 : 0}:'
+        'c${settings.showCurrentTime ? 1 : 0}:'
+        'x${settings.showCancelledItems ? 1 : 0}:'
+        'f${settings.contentFilters.hashCode}';
     if (_previewSignature != previewSignature) {
       _previewSignature = previewSignature;
-      _previewLoad = ref.read(plannerControllerProvider.notifier).readDays(
-        <PlannerDate>[previousDate, state.selectedDate, nextDate],
-      );
+      // Capture the generation that THIS future was started
+      // with. The FutureBuilder adopts the result only if the
+      // generation still matches the most recent build's
+      // generation at completion time. This is the
+      // stale-future protection: an older in-flight future
+      // cannot overwrite a newer window.
+      final startGeneration = _dataRevision;
+      _previewGeneration = startGeneration;
+      _previewLoad = ref
+          .read(plannerControllerProvider.notifier)
+          .readDays(<PlannerDate>[previousDate, state.selectedDate, nextDate])
+          .then((days) {
+        // Validate the result against the active generation
+        // before exposing it to the FutureBuilder. The capture
+        // is a synchronous microtask after the future
+        // resolves, so it never builds widget state mid-frame.
+        if (_previewGeneration == startGeneration) {
+          _previousDayContentSignature = _dayContentSignature(days[0]);
+          _nextDayContentSignature = _dayContentSignature(days[2]);
+        }
+        return days;
+      });
     }
 
     final hourHeight = settings.timelineHourHeight;
@@ -809,11 +879,18 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                 // because it is driven by `state.day`.
                 // When the future resolves, the resolved list
                 // is fed straight into the previous/next
-                // preview columns. Stale generations are
-                // dropped because the FutureBuilder was
-                // rebuilt against a new future when the
-                // signature changed; the previous future has
-                // no listeners left to notify.
+                // preview columns. Stale results are dropped
+                // by the generation guard inside the future
+                // pipeline above — the FutureBuilder adopts
+                // the latest in-flight future via the
+                // signature key, and the resolution callback
+                // only updates the captured previous/next
+                // signatures when the in-flight generation
+                // still matches the active build's
+                // generation. Therefore an older in-flight
+                // future cannot overwrite the active preview
+                // when a more recent data revision has
+                // already started a newer future.
                 final previewDays = snapshot.data;
                 final previousDay =
                     (previewDays != null && previewDays.length >= 3)
@@ -859,6 +936,7 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                             .read(plannerControllerProvider.notifier)
                             .moveDays(delta);
                       },
+                      currentTimeListenable: _activeCurrentTimeListenable,
                       currentPage: KeyedSubtree(
                         key: const Key('timed-events-section'),
                         child: _TimedEventTimeline(

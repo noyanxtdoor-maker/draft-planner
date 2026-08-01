@@ -21,13 +21,17 @@
 // puts the second Row child (the current-day page) in the
 // visible viewport without ever straddling the centerline.
 //
-// During a left drag the transform moves the Row rightward:
-// the current-day column slides off the left edge while the
-// next-day column enters from the right.
+// During a left drag liveDragOffset is negative so the
+// Transform translation becomes more negative than the rest
+// value of `-viewportWidth`; the entire Row shifts leftward,
+// the current-day column slides off the left edge of the
+// ClipRect, and the next-day column enters from the right.
 //
-// During a right drag the transform moves the Row leftward:
-// the current-day column slides off the right edge while the
-// previous-day column enters from the left.
+// During a right drag liveDragOffset is positive so the
+// translation becomes less negative than the rest value; the
+// Row shifts rightward, the current-day column slides off the
+// right edge, and the previous-day column enters from the
+// left.
 //
 // `liveDragOffset` is maintained as the live, finger-relative
 // delta and stored as `0` at rest. The visible translation is
@@ -59,6 +63,7 @@
 
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 
 import 'package:rmplanner/app/theme/app_theme.dart';
@@ -114,10 +119,11 @@ const Duration kPlannerPagerSettleDuration = Duration(milliseconds: 240);
 /// invoke the pager from outside its widget tree.
 ///
 /// The controller replaces the previous unsafe
-/// `GlobalKey<State> _pagerKey` design. The pager's
-/// [State] class is private; the controller exposes only a
-/// single recenter command so the parent does not need access
-/// to the private State type, dynamic invocation, or a
+/// `GlobalKey<State> _pagerKey` design. The pager's own
+/// [State] class is library-private
+/// (`_PlannerInteractiveDayPagerState`); the controller exposes
+/// only a single recenter command so the parent does not need
+/// any type from the private State, dynamic invocation, or a
 /// `BuildContext` lookup. Attach happens automatically via
 /// [PlannerInteractiveDayPager] when it mounts; the pager
 /// detaches itself when it disposes.
@@ -128,7 +134,11 @@ const Duration kPlannerPagerSettleDuration = Duration(milliseconds: 240);
 /// remain driven by the pager's own animation controller, so
 /// no external listener bookkeeping is required.
 class PlannerInteractiveDayPagerController {
-  PlannerInteractiveDayPagerState? _attached;
+  /// The most recently attached recenter callback. The pager
+  /// holds a private implementation in
+  /// [_PlannerInteractiveDayPagerState]; the controller does
+  /// not know about the State type.
+  VoidCallback? _recenter;
 
   /// The pager's [recenterFromExternalCancel] entry point.
   ///
@@ -141,34 +151,28 @@ class PlannerInteractiveDayPagerController {
   /// The method is a no-op when:
   ///   * the pager has not been attached yet (first build has
   ///     not happened);
-  ///   * the pager is mid-settle (the in-flight animation
-  ///     will already land at zero);
   ///   * the pager has been disposed (the attached reference
-  ///     is cleared in [State.dispose]).
+  ///     is cleared on disposal).
   void recenterFromExternalCancel() {
-    final state = _attached;
-    if (state == null) {
-      return;
-    }
-    state.recenterFromExternalCancel();
+    _recenter?.call();
   }
 
-  /// Wire the controller to the pager's [State]. Called from
-  /// [State.initState] and [State.didUpdateWidget] when the
-  /// same controller instance is provided; called from
+  /// Wire the controller's recenter callback. Called from the
+  /// pager's [State.initState] and [State.didUpdateWidget] when
+  /// the same controller instance is provided; called from
   /// [State.dispose] when the widget is torn down. The
-  /// controller does not own any timers or listeners, so
-  /// there is nothing to release in [dispose].
-  void attach(PlannerInteractiveDayPagerState state) {
-    _attached = state;
+  /// controller does not own any timers or listeners, so there
+  /// is nothing to release in [dispose].
+  void _attach(VoidCallback callback) {
+    _recenter = callback;
   }
 
-  /// Drop the pager reference. Called from [State.dispose].
+  /// Drop the recenter callback. Called from [State.dispose].
   /// Subsequent calls to [recenterFromExternalCancel] are
   /// silent no-ops until a new pager attaches.
-  void detach(PlannerInteractiveDayPagerState state) {
-    if (identical(_attached, state)) {
-      _attached = null;
+  void _detach(VoidCallback callback) {
+    if (identical(_recenter, callback)) {
+      _recenter = null;
     }
   }
 }
@@ -251,8 +255,12 @@ typedef PinchCoordinatorOnCount = int Function();
 typedef PinchCoordinatorClearCancel = void Function();
 
 /// State for the pager. Owns the settle animation and the
-/// per-gesture drag session.
-class PlannerInteractiveDayPagerState extends State<PlannerInteractiveDayPager>
+/// per-gesture drag session. Library-private: only the
+/// [PlannerInteractiveDayPager] widget and its in-file
+/// controller can reference this type. External callers
+/// communicate with the pager through
+/// [PlannerInteractiveDayPagerController.recenterFromExternalCancel].
+class _PlannerInteractiveDayPagerState extends State<PlannerInteractiveDayPager>
     with SingleTickerProviderStateMixin {
   _PageDragSession? _dragSession;
 
@@ -315,7 +323,7 @@ class PlannerInteractiveDayPagerState extends State<PlannerInteractiveDayPager>
       vsync: this,
       duration: kPlannerPagerSettleDuration,
     );
-    widget.controller.attach(this);
+    widget.controller._attach(recenterFromExternalCancel);
     widget.onPinchClearCancel();
   }
 
@@ -323,8 +331,8 @@ class PlannerInteractiveDayPagerState extends State<PlannerInteractiveDayPager>
   void didUpdateWidget(covariant PlannerInteractiveDayPager oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!identical(oldWidget.controller, widget.controller)) {
-      oldWidget.controller.detach(this);
-      widget.controller.attach(this);
+      oldWidget.controller._detach(recenterFromExternalCancel);
+      widget.controller._attach(recenterFromExternalCancel);
     }
     if (oldWidget.viewportWidth != widget.viewportWidth) {
       // Keep the transform aligned to the visible window when
@@ -346,7 +354,7 @@ class PlannerInteractiveDayPagerState extends State<PlannerInteractiveDayPager>
 
   @override
   void dispose() {
-    widget.controller.detach(this);
+    widget.controller._detach(recenterFromExternalCancel);
     _settle?.dispose();
     _settle = null;
     super.dispose();
@@ -605,6 +613,7 @@ class PlannerInteractiveDayPagerState extends State<PlannerInteractiveDayPager>
                             hourHeight: widget.hourHeight,
                             width: viewportWidth,
                             isToday: widget.today == widget.previousDate,
+                            currentTimeListenable: widget.currentTimeListenable,
                           ),
                           KeyedSubtree(
                             key: Key(
@@ -626,6 +635,7 @@ class PlannerInteractiveDayPagerState extends State<PlannerInteractiveDayPager>
                             hourHeight: widget.hourHeight,
                             width: viewportWidth,
                             isToday: widget.today == widget.nextDate,
+                            currentTimeListenable: widget.currentTimeListenable,
                           ),
                         ],
                       ),
@@ -665,6 +675,7 @@ class PlannerInteractiveDayPager extends StatefulWidget {
     required this.onPinchClearCancel,
     required this.onDayChanged,
     required this.currentPage,
+    required this.currentTimeListenable,
     PlannerInteractiveDayPagerController? controller,
   }) : controller = controller ?? PlannerInteractiveDayPagerController();
 
@@ -684,6 +695,16 @@ class PlannerInteractiveDayPager extends StatefulWidget {
   final double hourHeight;
   final double timelineHeight;
   final double viewportWidth;
+
+  /// Authoritative current-time source shared with the
+  /// centered timeline. The preview columns use this
+  /// listenable to render the current-time indicator so the
+  /// centered page and the preview pages read from the same
+  /// instant — production keeps a minute-boundary Timer; the
+  /// focused tests inject a deterministic
+  /// [ValueListenable] to drive ownership, geometry, and
+  /// midnight transition checks.
+  final ValueListenable<DateTime> currentTimeListenable;
 
   /// External command surface. The parent may either pass its
   /// own controller instance (so a long-lived
@@ -729,7 +750,7 @@ class PlannerInteractiveDayPager extends StatefulWidget {
 
   @override
   State<PlannerInteractiveDayPager> createState() =>
-      PlannerInteractiveDayPagerState();
+      _PlannerInteractiveDayPagerState();
 }
 
 /// Read-only preview column used for the previous and next day
@@ -746,6 +767,7 @@ class _PagerPreviewColumn extends StatelessWidget {
     required this.hourHeight,
     required this.width,
     required this.isToday,
+    required this.currentTimeListenable,
   });
 
   final PlannerDate pageDate;
@@ -754,6 +776,13 @@ class _PagerPreviewColumn extends StatelessWidget {
   final double hourHeight;
   final double width;
   final bool isToday;
+
+  /// Authoritative current-time source shared with the
+  /// centered timeline. The preview column uses this
+  /// listenable (not `DateTime.now()` directly) so the
+  /// centered indicator and the preview indicators render
+  /// from the same instant.
+  final ValueListenable<DateTime> currentTimeListenable;
 
   @override
   Widget build(BuildContext context) {
@@ -808,17 +837,35 @@ class _PagerPreviewColumn extends StatelessWidget {
               visibleStart: visibleStart,
               visibleEnd: visibleEnd,
             ),
-          // Preview columns are read-only: their entire
-          // surface is wrapped in IgnorePointer so tap /
-          // long-press / scale gestures cannot reach an Event
-          // block.
-          const Positioned.fill(child: IgnorePointer(child: SizedBox.expand())),
+          // Preview columns are read-only. The actual
+          // pointer suppression lives on each preview
+          // block (every `_positionedPreviewEvent` wraps
+          // its `DecoratedBox` in `IgnorePointer`) and on
+          // the current-time `Row`. A bare
+          // `Positioned.fill(child: IgnorePointer(child:
+          // SizedBox.expand()))` would only disable its
+          // own subtree — it does NOT block pointer events
+          // from reaching the Event blocks drawn behind
+          // it in this Stack, so it is intentionally not
+          // used as a structural guard.
+          //
+          // Current-time indicator: read from the same
+          // authoritative source as the centered timeline
+          // so a focused test can drive minute, hour, and
+          // date transitions deterministically. The
+          // ValueListenableBuilder rebuilds only this
+          // subtree on a minute tick.
           if (settings.showCurrentTime && isToday)
-            _positionedCurrentTime(
-              now: DateTime.now(),
-              pixelsPerMinute: pixelsPerMinute,
-              visibleStart: visibleStart,
-              visibleEnd: visibleEnd,
+            ValueListenableBuilder<DateTime>(
+              valueListenable: currentTimeListenable,
+              builder: (context, now, _) {
+                return _positionedCurrentTime(
+                  now: now,
+                  pixelsPerMinute: pixelsPerMinute,
+                  visibleStart: visibleStart,
+                  visibleEnd: visibleEnd,
+                );
+              },
             ),
         ],
       ),
