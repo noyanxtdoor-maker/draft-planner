@@ -2226,3 +2226,55 @@ The checkpoint is local and unpushed.
 No D3-B, VS-09, Maps, merge, push, PR, or integration-acceptance work was
 started. Physical-device acceptance is still pending; this checkpoint does
 not claim the physical retest or owner PASS.
+
+### 2026-08-01 - Stage B3-R1 Slice D3-C Owner-Feedback Correction
+
+The approved owner correction superseded the earlier toolbar-removal instruction.
+Repair checkpoint: `d3b7a12 fix(planner): restore toolbar and refine date transitions`.
+The checkpoint is local and unpushed.
+
+Correction record:
+
+- Restored the original Planner top bar: hamburger/menu, Planner title and
+  chevron, calendar/date control, filter, selection/checklist, and overflow.
+- Kept the compact fixed-cell date strip below the top bar, with no duplicate
+  calendar icon and no quarter-hour guide lines.
+- Added one shared liquid selection indicator with normalized live pager
+  progress, direct-tap animation, browse-only strip dragging, cancel restore,
+  and independent accessibility semantics.
+- Corrected pager settlement ordering: the adjacent day is loaded before the
+  selected date/day pair is published, then strip preparation and pager
+  recentering happen as one completed settlement. This removes the old-page
+  flash and avoids duplicate callbacks or delayed-work workarounds.
+- Kept stable pager page keys and cached preview futures so drag translation
+  does not trigger repository reads, Future recreation, or whole-layout work.
+- Refined Event blocks to use reduced radius, left accent, compact readable
+  content thresholds, status/recurrence content, transparent hit regions, and
+  exact real-time geometry. Exact 15-minute geometry is retained, including
+  9:45-10:00 ending at 10:00.
+
+Automated evidence:
+
+- New design-lock checks: 22 passed, 0 failed, 0 skipped.
+- New pager frame-stability check: passed.
+- Complete Planner suite: 272 passed, 0 failed, 0 skipped.
+- Complete Flutter suite: 335 passed, 0 failed, 0 skipped.
+- Flutter analyzer: `No issues found!`.
+- `git diff --check`: passed before checkpoint.
+
+Build and update-install evidence:
+
+- APK: `C:\Users\sherl\Documents\Next Transfer-Temp\build\app\outputs\flutter-apk\app-debug.apk`
+- Size: 195290295 bytes.
+- SHA-256: `1D373E79313FAF91AB14D7320E3245677E431671FD2B2BAD53947797CC194C39`.
+- Authorized Infinix X6731 update-install returned `Success` using `adb install -r`.
+- No uninstall or data clear was issued. `firstInstallTime=2026-07-27
+  15:42:22`, `dataDir=/data/user/0/com.nexttransfer.rmplanner`, and
+  `ceDataInode=1509267` were unchanged after installation and launch.
+
+Boundary:
+
+Physical owner acceptance remains pending. The owner must return explicit
+PASS or FAIL for the 20-item D3-C retest before D3-B or Stage B3-R1 is called
+complete. No next feature, merge, push, PR update, or final acceptance
+checkpoint was started.
