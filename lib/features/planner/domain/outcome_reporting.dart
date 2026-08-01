@@ -73,6 +73,8 @@ final class OutcomeReportSource {
     this.eventId,
     this.occurrenceId,
     this.originalDate,
+    this.eventTypeLabel,
+    this.isContactEvent = false,
   });
 
   final OutcomeSourceType type;
@@ -82,6 +84,8 @@ final class OutcomeReportSource {
   final String? eventId;
   final String? occurrenceId;
   final PlannerDate? originalDate;
+  final String? eventTypeLabel;
+  final bool isContactEvent;
 
   String get slotKey {
     return switch (type) {
@@ -114,6 +118,8 @@ final class OutcomeReportSource {
       eventId: _normalizeOptional(eventId),
       occurrenceId: _normalizeOptional(occurrenceId),
       originalDate: originalDate,
+      eventTypeLabel: _normalizeOptional(eventTypeLabel),
+      isContactEvent: isContactEvent,
     );
   }
 }
@@ -220,7 +226,7 @@ final class OutcomeReportDraft {
       if (selectedOutcome == OutcomeKind.didNotHappen &&
           normalizedContributions.isNotEmpty) {
         throw const OutcomeReportValidationException(
-          'Did Not Happen cannot create a contribution.',
+          'Did Not Attempt cannot create a contribution.',
         );
       }
     }

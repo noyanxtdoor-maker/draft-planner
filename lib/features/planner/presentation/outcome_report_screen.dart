@@ -14,11 +14,13 @@ final class OutcomeReportScreen extends ConsumerStatefulWidget {
       sourceId = taskId,
       originalDate = null,
       correctionReportId = null,
-      initialDate = null;
+      initialDate = null,
+      initialOutcome = null;
 
   const OutcomeReportScreen.event({
     required String eventId,
     required this.originalDate,
+    this.initialOutcome,
     super.key,
   }) : sourceType = OutcomeSourceType.event,
        sourceId = eventId,
@@ -29,7 +31,8 @@ final class OutcomeReportScreen extends ConsumerStatefulWidget {
     : sourceType = OutcomeSourceType.manual,
       sourceId = null,
       originalDate = null,
-      correctionReportId = null;
+      correctionReportId = null,
+      initialOutcome = null;
 
   const OutcomeReportScreen.correction({
     required this.correctionReportId,
@@ -37,12 +40,14 @@ final class OutcomeReportScreen extends ConsumerStatefulWidget {
   }) : sourceType = null,
        sourceId = null,
        originalDate = null,
-       initialDate = null;
+       initialDate = null,
+       initialOutcome = null;
 
   final OutcomeSourceType? sourceType;
   final String? sourceId;
   final PlannerDate? originalDate;
   final PlannerDate? initialDate;
+  final OutcomeKind? initialOutcome;
   final String? correctionReportId;
 
   @override
@@ -162,7 +167,7 @@ final class _OutcomeReportScreenState
       _indicatorOptions = options;
       _reportId =
           seed?.id ?? ref.read(plannerIdentifierSourceProvider).nextUuid();
-      _outcome = seed?.outcome ?? corrected?.outcome;
+      _outcome = seed?.outcome ?? corrected?.outcome ?? widget.initialOutcome;
       _activityDate =
           seed?.activityDate ?? corrected?.activityDate ?? source.activityDate;
       _privateNotes.text = seed?.privateNotes ?? corrected?.privateNotes ?? '';
@@ -570,7 +575,7 @@ final class _OutcomeReportScreenState
       }
       if (_outcome == OutcomeKind.didNotHappen && contributions.isNotEmpty) {
         throw const OutcomeReportValidationException(
-          'Did Not Happen cannot create a contribution.',
+          'Did Not Attempt cannot create a contribution.',
         );
       }
       final normalizedSource = OutcomeReportSource(
@@ -581,6 +586,8 @@ final class _OutcomeReportScreenState
         eventId: source.eventId,
         occurrenceId: source.occurrenceId,
         originalDate: source.originalDate,
+        eventTypeLabel: source.eventTypeLabel,
+        isContactEvent: source.isContactEvent,
       );
       return OutcomeReportDraft(
         id: reportId,
@@ -674,11 +681,12 @@ final class _OutcomeReportScreenState
     return value;
   }
 
-  static String _outcomeLabel(OutcomeKind outcome) {
+  String _outcomeLabel(OutcomeKind outcome) {
     return switch (outcome) {
-      OutcomeKind.completedHappened => 'Completed / Happened',
-      OutcomeKind.partiallyCompleted => 'Partially Completed',
-      OutcomeKind.didNotHappen => 'Did Not Happen',
+      OutcomeKind.completedHappened =>
+        (_source?.isContactEvent ?? false) ? 'Contacted' : 'Completed',
+      OutcomeKind.partiallyCompleted => 'Missed - Attempted',
+      OutcomeKind.didNotHappen => 'Did Not Attempt',
     };
   }
 }

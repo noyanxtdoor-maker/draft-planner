@@ -227,7 +227,7 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
               startDate: originalDate,
               recurrence: const CalendarRecurrenceRule(),
             ),
-            status: CalendarEventStatus.scheduled,
+            status: current.status,
             operationId: operationId,
           );
         case CalendarEventEditScope.thisAndFuture:
@@ -454,6 +454,76 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
     });
   }
 
+  @override
+  Future<CalendarEventMutationOutcome> duplicateEvent({
+    required String profileId,
+    required String eventId,
+    required PlannerDate originalDate,
+    required String duplicateId,
+    required String operationId,
+  }) async {
+    _validateOperationId(operationId);
+    if (!Uuid.isValidUUID(fromString: duplicateId) || duplicateId == eventId) {
+      throw const CalendarEventValidationException(
+        'Duplicate Calendar Events require a new stable UUID identifier.',
+      );
+    }
+    final reports = await reportSource.readSeriesReports(eventId);
+    return database.transaction(() async {
+      if (await _operationExists(operationId)) {
+        return CalendarEventMutationOutcome.unchanged;
+      }
+      final row = await _requireRow(profileId: profileId, eventId: eventId);
+      final current = await _requireOccurrence(
+        row: row,
+        originalDate: originalDate,
+        reports: reports,
+      );
+      final timed = current.timing == CalendarEventTiming.timed;
+      final draft = _validateDraft(
+        CalendarEventDraft(
+          id: duplicateId,
+          title: '${current.displayTitle} (Copy)',
+          notes: current.notes,
+          timing: current.timing,
+          startDate: current.displayDate,
+          startMinute: timed && current.startUtc != null
+              ? _originMinute(current.startUtc!, current.timeZoneId!)
+              : null,
+          endMinute: timed && current.endUtc != null
+              ? _originMinute(current.endUtc!, current.timeZoneId!)
+              : null,
+          timeZoneId: current.timeZoneId,
+          locationText: current.locationText,
+          requiresReport: current.requiresReport,
+          activityTypeId: current.activityTypeId,
+          activityTypeMappingVersion: current.activityTypeMappingVersion,
+          // A duplicate is a new scheduled record. It must not inherit a
+          // scheduled indicator contribution rule or any factual outcome.
+          contributionRuleKey: null,
+          isBackupAppointment: current.isBackupAppointment,
+          backupForEventId: current.backupForEventId,
+          backupRelationshipProvenance: current.backupRelationshipProvenance,
+        ),
+      );
+      await _writeEvent(
+        profileId: profileId,
+        eventId: duplicateId,
+        draft: draft,
+        existing: null,
+      );
+      await _insertOperation(
+        operationId: operationId,
+        profileId: profileId,
+        eventId: eventId,
+        occurrenceId: current.id,
+        command: 'duplicate',
+      );
+      await writeGuard.beforeCommit();
+      return CalendarEventMutationOutcome.changed;
+    });
+  }
+
   CalendarEventDraft _validateDraft(CalendarEventDraft draft) {
     final normalized = draft.normalized();
     final zone = normalized.timeZoneId;
@@ -525,7 +595,7 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
       recurrenceEndMode: Value<String>(draft.recurrence.endMode.name),
       recurrenceEndDate: Value<String?>(draft.recurrence.endDate?.iso8601),
       recurrenceCount: Value<int?>(draft.recurrence.occurrenceCount),
-      status: const Value<String>('scheduled'),
+      status: Value<String>(draft.status.name),
       parentEventId: Value<String?>(parentEventId ?? existing?.parentEventId),
       replacementEventId: const Value<String?>(null),
       updatedAtUtc: Value<DateTime>(now),
@@ -564,6 +634,7 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
                 draft.recurrence.endDate?.iso8601,
               ),
               recurrenceCount: Value<int?>(draft.recurrence.occurrenceCount),
+              status: Value<String>(draft.status.name),
               parentEventId: Value<String?>(parentEventId),
               createdAtUtc: now,
               updatedAtUtc: now,
@@ -583,6 +654,7 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
       notes: row.notes,
       timing: CalendarEventTiming.values.byName(row.timing),
       startDate: PlannerDate.parse(row.startDate),
+      status: CalendarEventStatus.values.byName(row.status),
       startMinute: row.startMinute,
       endMinute: row.endMinute,
       timeZoneId: row.timeZoneId,
@@ -745,6 +817,8 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
         eventId: row.id,
         occurrenceId: occurrenceId,
       ),
+      createdAtUtc: exception?.createdAtUtc ?? row.createdAtUtc,
+      updatedAtUtc: exception?.createdAtUtc ?? row.updatedAtUtc,
     );
   }
 

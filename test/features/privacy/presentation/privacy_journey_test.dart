@@ -78,6 +78,7 @@ void main() {
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
       await tester.pump();
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await tester.pump(const Duration(minutes: 5));
       await tester.pumpAndSettle();
       expect(
         container.read(privacyControllerProvider).status,

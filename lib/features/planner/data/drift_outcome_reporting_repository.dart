@@ -143,6 +143,20 @@ final class DriftOutcomeReportingRepository
         status == CalendarEventStatus.rescheduled.name) {
       return null;
     }
+    final activityTypeId = exception?.activityTypeId ?? row.activityTypeId;
+    final activityType = activityTypeId == null
+        ? null
+        : await (database.select(database.activityTypes)
+                ..where(
+                  (table) =>
+                      table.profileId.equals(profileId) &
+                      table.id.equals(activityTypeId),
+                )
+                ..limit(1))
+              .getSingleOrNull();
+    final isContactEvent =
+        _isContactEvent(activityType?.stableKey) ||
+        _isContactEvent(activityType?.label);
     return OutcomeReportSource(
       type: OutcomeSourceType.event,
       sourceId: occurrenceId,
@@ -153,6 +167,8 @@ final class DriftOutcomeReportingRepository
       eventId: eventId,
       occurrenceId: occurrenceId,
       originalDate: originalDate,
+      eventTypeLabel: activityType?.label,
+      isContactEvent: isContactEvent,
     );
   }
 
@@ -714,7 +730,7 @@ final class DriftOutcomeReportingRepository
   }) async {
     if (outcome == OutcomeKind.didNotHappen && contributions.isNotEmpty) {
       throw const OutcomeReportValidationException(
-        'Did Not Happen cannot create contributions.',
+        'Did Not Attempt cannot create contributions.',
       );
     }
     final definitions = <String, LifeIndicatorDefinitionRow>{
@@ -737,6 +753,11 @@ final class DriftOutcomeReportingRepository
       }
       IndicatorUnitPolicy.validate(contribution.value);
     }
+  }
+
+  static bool _isContactEvent(String? value) {
+    final normalized = value?.trim().toLowerCase();
+    return normalized != null && normalized.contains('contact');
   }
 
   Future<void> _applyRequiredTaskStatus({
@@ -905,20 +926,44 @@ final class DriftOutcomeReportingRepository
     final draftRows = await (database.select(
       database.outcomeReportContributionDrafts,
     )..where((table) => table.reportId.equals(row.id))).get();
+    final persistedSource = OutcomeReportSource(
+      type: OutcomeSourceType.values.byName(row.sourceType),
+      sourceId: row.sourceId,
+      label: row.sourceLabel,
+      activityDate: PlannerDate.parse(row.activityDate),
+      eventId: row.eventId,
+      occurrenceId: row.occurrenceId,
+      originalDate: row.originalDate == null
+          ? null
+          : PlannerDate.parse(row.originalDate!),
+    );
+    var source = persistedSource;
+    if (persistedSource.type == OutcomeSourceType.event &&
+        persistedSource.eventId != null &&
+        persistedSource.originalDate != null) {
+      final canonical = await readEventSource(
+        profileId: row.profileId,
+        eventId: persistedSource.eventId!,
+        originalDate: persistedSource.originalDate!,
+      );
+      if (canonical != null) {
+        source = OutcomeReportSource(
+          type: persistedSource.type,
+          sourceId: persistedSource.sourceId,
+          label: persistedSource.label,
+          activityDate: persistedSource.activityDate,
+          eventId: persistedSource.eventId,
+          occurrenceId: persistedSource.occurrenceId,
+          originalDate: persistedSource.originalDate,
+          eventTypeLabel: canonical.eventTypeLabel,
+          isContactEvent: canonical.isContactEvent,
+        );
+      }
+    }
     return OutcomeReport(
       id: row.id,
       profileId: row.profileId,
-      source: OutcomeReportSource(
-        type: OutcomeSourceType.values.byName(row.sourceType),
-        sourceId: row.sourceId,
-        label: row.sourceLabel,
-        activityDate: PlannerDate.parse(row.activityDate),
-        eventId: row.eventId,
-        occurrenceId: row.occurrenceId,
-        originalDate: row.originalDate == null
-            ? null
-            : PlannerDate.parse(row.originalDate!),
-      ),
+      source: source,
       status: OutcomeReportStatus.values.byName(row.status),
       outcome: row.outcome == null
           ? null

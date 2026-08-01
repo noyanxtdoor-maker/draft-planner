@@ -96,6 +96,7 @@ final class _CalendarEventFormScreenState
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _notesController = TextEditingController();
+  final _notesFocusNode = FocusNode();
   final _locationController = TextEditingController();
   final _timeZoneController = TextEditingController();
   final _countController = TextEditingController(text: '2');
@@ -104,6 +105,7 @@ final class _CalendarEventFormScreenState
   String? _linkId;
   late PlannerDate _date;
   CalendarEventTiming _timing = CalendarEventTiming.timed;
+  CalendarEventStatus _currentStatus = CalendarEventStatus.scheduled;
   TimeOfDay _start = const TimeOfDay(hour: 9, minute: 0);
   TimeOfDay _end = const TimeOfDay(hour: 10, minute: 0);
   bool _requiresReport = false;
@@ -129,6 +131,7 @@ final class _CalendarEventFormScreenState
   @override
   void initState() {
     super.initState();
+    _notesFocusNode.addListener(_notesFocusChanged);
     final ids = ref.read(plannerIdentifierSourceProvider);
     _operationId = ids.nextUuid();
     if (widget.sourceTaskId != null) {
@@ -286,16 +289,26 @@ final class _CalendarEventFormScreenState
   void dispose() {
     _titleController.dispose();
     _notesController.dispose();
+    _notesFocusNode.dispose();
     _locationController.dispose();
     _timeZoneController.dispose();
     _countController.dispose();
     super.dispose();
   }
 
+  void _notesFocusChanged() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
   Future<void> _loadExisting() async {
-    final draft = await ref
-        .read(calendarEventControllerProvider.notifier)
-        .readEventDraft(widget.eventId!);
+    final controller = ref.read(calendarEventControllerProvider.notifier);
+    final draft = await controller.readEventDraft(widget.eventId!);
+    final occurrence = await controller.readOccurrence(
+      eventId: widget.eventId!,
+      originalDate: widget.originalDate!,
+    );
     if (!mounted) {
       return;
     }
@@ -315,6 +328,7 @@ final class _CalendarEventFormScreenState
         ? widget.originalDate!
         : draft.startDate;
     _timing = draft.timing;
+    _currentStatus = occurrence?.status ?? draft.status;
     _start = _timeFromMinute(draft.startMinute ?? 9 * 60);
     _end = _timeFromMinute(draft.endMinute ?? 10 * 60);
     _durationWasEntered = true;
@@ -413,9 +427,12 @@ final class _CalendarEventFormScreenState
                                 ),
                               ),
                             ),
-                      title: const Text(
-                        'Event Type',
-                        style: TextStyle(color: Colors.white70, fontSize: 12),
+                      title: Text(
+                        _isContactEvent ? 'Contact Type' : 'Event Type',
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                        ),
                       ),
                       subtitle: Text(
                         _selectedEventType?.label ?? 'Not selected',
@@ -442,6 +459,10 @@ final class _CalendarEventFormScreenState
                     label: 'Basic details',
                   ),
                   const SizedBox(height: 8),
+                  if (widget.mode != CalendarEventFormMode.create) ...<Widget>[
+                    _buildCurrentStatusField(),
+                    const SizedBox(height: 12),
+                  ],
                   TextFormField(
                     key: const Key('event-title-field'),
                     controller: _titleController,
@@ -453,11 +474,21 @@ final class _CalendarEventFormScreenState
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
-                    key: const Key('event-notes-field'),
+                    key: widget.mode == CalendarEventFormMode.edit
+                        ? const Key('event-description-field')
+                        : const Key('event-notes-field'),
                     controller: _notesController,
-                    decoration: const InputDecoration(
-                      labelText: 'Notes',
-                      hintText: 'What do you need to remember about this?',
+                    focusNode: _notesFocusNode,
+                    decoration: InputDecoration(
+                      labelText: widget.mode == CalendarEventFormMode.edit
+                          ? 'Description'
+                          : 'Notes',
+                      hintText: _notesFocusNode.hasFocus
+                          ? null
+                          : 'What do you need to remember about this?',
+                      helperText: _notesFocusNode.hasFocus
+                          ? 'What do you need to remember about this?'
+                          : null,
                       prefixIcon: Icon(Icons.notes),
                       alignLabelWithHint: true,
                     ),
@@ -493,6 +524,17 @@ final class _CalendarEventFormScreenState
                       onSelected: (value) => setState(() => _date = value),
                     ),
                   ),
+                  if (widget.mode != CalendarEventFormMode.create)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton(
+                        key: const Key('event-set-time-now'),
+                        onPressed: _timing == CalendarEventTiming.timed
+                            ? _setTimeToNow
+                            : null,
+                        child: const Text('Set time to now'),
+                      ),
+                    ),
                   if (_timing == CalendarEventTiming.timed) ...<Widget>[
                     const SizedBox(height: 8),
                     Row(
@@ -523,6 +565,15 @@ final class _CalendarEventFormScreenState
                       ],
                     ),
                   ],
+                  if (widget.mode != CalendarEventFormMode.create)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton(
+                        key: const Key('event-schedule-from-calendar'),
+                        onPressed: _scheduleFromCalendar,
+                        child: const Text('Schedule From Calendar'),
+                      ),
+                    ),
                   const SizedBox(height: 12),
                   SwitchListTile(
                     key: const Key('event-backup-appointment-switch'),
@@ -548,7 +599,7 @@ final class _CalendarEventFormScreenState
                     key: const Key('event-recurrence-frequency'),
                     initialValue: _frequency,
                     decoration: const InputDecoration(
-                      labelText: 'Recurrence',
+                      labelText: 'Repeat',
                       prefixIcon: Icon(Icons.repeat),
                     ),
                     items: <DropdownMenuItem<CalendarRecurrenceFrequency>>[
@@ -656,7 +707,7 @@ final class _CalendarEventFormScreenState
     if (!widget.sheetPresentation) {
       return Scaffold(
         appBar: AppBar(
-          title: _title.isEmpty ? null : Text(_title),
+          title: Text(_formHeading),
           actions: <Widget>[_buildSaveButton()],
         ),
         body: content,
@@ -689,18 +740,15 @@ final class _CalendarEventFormScreenState
                   onPressed: () => Navigator.of(context).pop(false),
                   icon: const Icon(Icons.close),
                 ),
-                if (_title.isNotEmpty)
-                  Expanded(
-                    child: Text(
-                      _title,
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
+                Expanded(
+                  child: Text(
+                    _formHeading,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
                     ),
-                  )
-                else
-                  const Spacer(),
+                  ),
+                ),
                 _buildSaveButton(),
               ],
             ),
@@ -811,6 +859,39 @@ final class _CalendarEventFormScreenState
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildCurrentStatusField() {
+    const statuses = <CalendarEventStatus>[
+      CalendarEventStatus.scheduled,
+      CalendarEventStatus.completedHappened,
+      CalendarEventStatus.partiallyCompleted,
+      CalendarEventStatus.didNotHappen,
+    ];
+    return DropdownButtonFormField<CalendarEventStatus>(
+      key: const Key('event-current-status-field'),
+      initialValue: statuses.contains(_currentStatus)
+          ? _currentStatus
+          : CalendarEventStatus.scheduled,
+      decoration: const InputDecoration(
+        labelText: 'Current Status',
+        prefixIcon: Icon(Icons.flag_outlined),
+      ),
+      items: <DropdownMenuItem<CalendarEventStatus>>[
+        for (final status in statuses)
+          DropdownMenuItem<CalendarEventStatus>(
+            value: status,
+            child: Text(
+              calendarEventOutcomeLabel(
+                status: status,
+                isContactEvent: _isContactEvent,
+              ),
+            ),
+          ),
+      ],
+      onChanged: (value) =>
+          setState(() => _currentStatus = value ?? _currentStatus),
     );
   }
 
@@ -954,12 +1035,21 @@ final class _CalendarEventFormScreenState
     });
   }
 
-  String get _title => switch (widget.mode) {
+  bool get _isContactEvent {
+    final value = _selectedEventType?.stableKey ?? _selectedEventType?.label;
+    final normalized = value?.trim().toLowerCase();
+    return normalized != null && normalized.contains('contact');
+  }
+
+  String get _formHeading => switch (widget.mode) {
     CalendarEventFormMode.create when widget.sourceTaskId != null =>
       'Create Event from Task',
     CalendarEventFormMode.create => '',
-    CalendarEventFormMode.edit => 'Edit Calendar Event',
-    CalendarEventFormMode.reschedule => 'Reschedule Calendar Event',
+    CalendarEventFormMode.edit =>
+      _selectedEventType == null
+          ? 'Edit Event'
+          : 'Edit ${_selectedEventType!.label} Event',
+    CalendarEventFormMode.reschedule => 'Reschedule Event',
   };
 
   String get _saveLabel => switch (widget.mode) {
@@ -1011,6 +1101,7 @@ final class _CalendarEventFormScreenState
       notes: _notesController.text,
       timing: _timing,
       startDate: _date,
+      status: _currentStatus,
       startMinute: _timing == CalendarEventTiming.timed ? startMinute : null,
       endMinute: _timing == CalendarEventTiming.timed ? endMinute : null,
       timeZoneId: _timing == CalendarEventTiming.timed
@@ -1076,6 +1167,17 @@ final class _CalendarEventFormScreenState
     }
   }
 
+  void _setTimeToNow() {
+    final now = DateTime.now();
+    final snapped = _snapMinute(now.hour * 60 + now.minute).clamp(0, 1425);
+    final end = snapped + 15;
+    setState(() {
+      _start = _timeFromMinute(snapped);
+      _end = _timeFromMinute(end);
+      _durationWasEntered = true;
+    });
+  }
+
   Future<bool> _confirmMultipleMappings(EventType type) async {
     final labels =
         type.indicatorKeys
@@ -1120,6 +1222,13 @@ final class _CalendarEventFormScreenState
     if (value != null) {
       onSelected(PlannerDate.fromDateTime(value));
     }
+  }
+
+  Future<void> _scheduleFromCalendar() async {
+    await _selectDate(
+      initial: _date,
+      onSelected: (value) => setState(() => _date = value),
+    );
   }
 
   Future<void> _selectTime({

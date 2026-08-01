@@ -37,7 +37,7 @@ Future<EventType?> showEventTypePicker({
   return showDialog<EventType>(
     context: context,
     barrierDismissible: true,
-    barrierColor: Colors.black.withValues(alpha: 0.62),
+    barrierColor: Colors.black.withValues(alpha: 0.18),
     useSafeArea: false,
     builder: (dialogContext) => Align(
       alignment: Alignment.bottomCenter,
@@ -115,19 +115,8 @@ final class _EventTypePickerSheet extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
-                  const SizedBox(height: 8),
-                  Center(
-                    child: Container(
-                      width: 42,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: Colors.white30,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                    ),
-                  ),
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 6),
                     child: Text(
                       'Select Event Type',
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(

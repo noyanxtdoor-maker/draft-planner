@@ -253,9 +253,9 @@ final class _ReportHistoryCard extends StatelessWidget {
 
   static String _outcomeLabel(OutcomeKind? outcome) {
     return switch (outcome) {
-      OutcomeKind.completedHappened => 'Completed / Happened',
-      OutcomeKind.partiallyCompleted => 'Partially Completed',
-      OutcomeKind.didNotHappen => 'Did Not Happen',
+      OutcomeKind.completedHappened => 'Completed',
+      OutcomeKind.partiallyCompleted => 'Missed - Attempted',
+      OutcomeKind.didNotHappen => 'Did Not Attempt',
       null => 'Draft',
     };
   }

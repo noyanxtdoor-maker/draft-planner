@@ -49,14 +49,21 @@ final class PlannerCalendarButtonSurface extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final resolved = resolvePlannerCalendarIcon();
-    return InkWell(
-      key: const Key('planner-today-button'),
-      onTap: onTap,
-      child: Container(
-        key: const Key('planner-calendar-button'),
-        alignment: Alignment.center,
-        padding: const EdgeInsets.symmetric(horizontal: 6),
-        child: Icon(resolved.glyph, color: color, size: resolved.size),
+    return Material(
+      color: Colors.transparent,
+      shape: const CircleBorder(),
+      child: InkWell(
+        key: const Key('planner-today-button'),
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: SizedBox(
+          key: const Key('planner-calendar-button'),
+          width: 44,
+          height: 44,
+          child: Center(
+            child: Icon(resolved.glyph, color: color, size: resolved.size),
+          ),
+        ),
       ),
     );
   }

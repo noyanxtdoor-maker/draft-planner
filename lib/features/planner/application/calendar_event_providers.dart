@@ -125,6 +125,23 @@ final class CalendarEventController extends Notifier<String?> {
     );
   }
 
+  Future<bool> duplicateEvent({
+    required String eventId,
+    required PlannerDate originalDate,
+    required String duplicateId,
+    required String operationId,
+  }) async {
+    return _runMutation(
+      () => _repository.duplicateEvent(
+        profileId: _profileId,
+        eventId: eventId,
+        originalDate: originalDate,
+        duplicateId: duplicateId,
+        operationId: operationId,
+      ),
+    );
+  }
+
   void clearMessage() {
     state = null;
   }

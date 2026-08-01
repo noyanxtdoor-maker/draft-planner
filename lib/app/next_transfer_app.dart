@@ -6,6 +6,7 @@ import 'package:rmplanner/app/router/app_router.dart';
 import 'package:rmplanner/app/theme/app_theme.dart';
 import 'package:rmplanner/core/platform/app_environment.dart';
 import 'package:rmplanner/features/privacy/application/privacy_providers.dart';
+import 'package:rmplanner/features/privacy/application/privacy_services.dart';
 import 'package:rmplanner/features/startup/application/startup_providers.dart';
 
 final appEnvironmentProvider = Provider<AppEnvironment>((ref) {
@@ -21,26 +22,46 @@ final class NextTransferApp extends ConsumerStatefulWidget {
 
 final class _NextTransferAppState extends ConsumerState<NextTransferApp>
     with WidgetsBindingObserver {
+  late final PrivacyBackgroundSession _backgroundSession;
+
   @override
   void initState() {
     super.initState();
+    _backgroundSession = PrivacyBackgroundSession(
+      clock: ref.read(monotonicClockProvider),
+    );
     WidgetsBinding.instance.addObserver(this);
   }
 
   @override
   void dispose() {
+    _backgroundSession.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state != AppLifecycleState.paused) {
-      return;
+    final controller = ref.read(privacyControllerProvider.notifier);
+    switch (state) {
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.paused:
+      case AppLifecycleState.hidden:
+      case AppLifecycleState.detached:
+        if (ref.read(privacyControllerProvider).settings.lockEnabled) {
+          _backgroundSession.enterBackground(() {
+            _relockForBackground(controller);
+          });
+        }
+      case AppLifecycleState.resumed:
+        if (_backgroundSession.resume()) {
+          _relockForBackground(controller);
+        }
     }
-    final relocked = ref
-        .read(privacyControllerProvider.notifier)
-        .lockForBackground();
+  }
+
+  void _relockForBackground(PrivacyController controller) {
+    final relocked = controller.lockForBackground();
     if (relocked) {
       unawaited(ref.read(startupControllerProvider.notifier).initialize());
     }

@@ -1,4 +1,5 @@
 import 'package:rmplanner/features/planner/domain/calendar_event.dart';
+import 'package:rmplanner/features/planner/domain/outcome_reporting.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 
 abstract final class RouteNames {
@@ -94,8 +95,15 @@ abstract final class RoutePaths {
     return '$tasks/$taskId/report';
   }
 
-  static String calendarEventReport(String eventId, PlannerDate originalDate) {
-    return '${calendarEventDetail(eventId, originalDate)}/report';
+  static String calendarEventReport(
+    String eventId,
+    PlannerDate originalDate, {
+    OutcomeKind? initialOutcome,
+  }) {
+    final path = '${calendarEventDetail(eventId, originalDate)}/report';
+    return initialOutcome == null
+        ? path
+        : '$path?outcome=${initialOutcome.name}';
   }
 
   static String outcomeReportCorrection(String reportId) {

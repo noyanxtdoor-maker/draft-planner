@@ -179,6 +179,7 @@ final class CalendarEventDraft {
     required this.timing,
     required this.startDate,
     required this.requiresReport,
+    this.status = CalendarEventStatus.scheduled,
     this.notes,
     this.startMinute,
     this.endMinute,
@@ -198,6 +199,7 @@ final class CalendarEventDraft {
   final String? notes;
   final CalendarEventTiming timing;
   final PlannerDate startDate;
+  final CalendarEventStatus status;
   final int? startMinute;
   final int? endMinute;
   final String? timeZoneId;
@@ -230,6 +232,7 @@ final class CalendarEventDraft {
         timing: timing,
         startDate: startDate,
         requiresReport: requiresReport,
+        status: status,
         locationText: normalizedLocation,
         activityTypeId: activityTypeId,
         activityTypeMappingVersion: activityTypeMappingVersion,
@@ -276,6 +279,7 @@ final class CalendarEventDraft {
       activityTypeId: activityTypeId,
       activityTypeMappingVersion: activityTypeMappingVersion,
       requiresReport: requiresReport,
+      status: status,
       contributionRuleKey: normalizedContribution,
       isBackupAppointment: isBackupAppointment,
       backupForEventId: isBackupAppointment
@@ -294,6 +298,7 @@ final class CalendarEventDraft {
     String? notes,
     CalendarEventTiming? timing,
     PlannerDate? startDate,
+    CalendarEventStatus? status,
     int? startMinute,
     int? endMinute,
     String? timeZoneId,
@@ -313,6 +318,7 @@ final class CalendarEventDraft {
       notes: notes ?? this.notes,
       timing: timing ?? this.timing,
       startDate: startDate ?? this.startDate,
+      status: status ?? this.status,
       startMinute: startMinute ?? this.startMinute,
       endMinute: endMinute ?? this.endMinute,
       timeZoneId: timeZoneId ?? this.timeZoneId,
@@ -398,6 +404,8 @@ final class CalendarEventOccurrence {
     this.backupRelationshipProvenance,
     this.replacementEventId,
     this.linkedTaskIds = const <String>[],
+    this.createdAtUtc,
+    this.updatedAtUtc,
   });
 
   final String id;
@@ -428,6 +436,8 @@ final class CalendarEventOccurrence {
   final CalendarRecurrenceRule recurrence;
   final String? replacementEventId;
   final List<String> linkedTaskIds;
+  final DateTime? createdAtUtc;
+  final DateTime? updatedAtUtc;
 
   bool get isRecurring => recurrence.isRecurring;
 
@@ -503,10 +513,25 @@ abstract final class CalendarEventExceptionIdentity {
 
 String calendarEventStatusLabel(CalendarEventStatus status) {
   return switch (status) {
-    CalendarEventStatus.scheduled => 'Scheduled',
-    CalendarEventStatus.completedHappened => 'Completed / Happened',
-    CalendarEventStatus.partiallyCompleted => 'Partially Completed',
-    CalendarEventStatus.didNotHappen => 'Did Not Happen',
+    CalendarEventStatus.scheduled => 'Unreported',
+    CalendarEventStatus.completedHappened => 'Completed',
+    CalendarEventStatus.partiallyCompleted => 'Missed - Attempted',
+    CalendarEventStatus.didNotHappen => 'Did Not Attempt',
+    CalendarEventStatus.cancelled => 'Cancelled',
+    CalendarEventStatus.rescheduled => 'Rescheduled',
+  };
+}
+
+String calendarEventOutcomeLabel({
+  required CalendarEventStatus status,
+  required bool isContactEvent,
+}) {
+  return switch (status) {
+    CalendarEventStatus.scheduled => 'Unreported',
+    CalendarEventStatus.completedHappened =>
+      isContactEvent ? 'Contacted' : 'Completed',
+    CalendarEventStatus.partiallyCompleted => 'Missed - Attempted',
+    CalendarEventStatus.didNotHappen => 'Did Not Attempt',
     CalendarEventStatus.cancelled => 'Cancelled',
     CalendarEventStatus.rescheduled => 'Rescheduled',
   };

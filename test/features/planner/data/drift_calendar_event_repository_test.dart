@@ -14,6 +14,8 @@ const _eventId = '11111111-1111-4111-8111-111111111111';
 const _replacementId = '33333333-3333-4333-8333-333333333333';
 const _operationId = '22222222-2222-4222-8222-222222222222';
 const _secondOperationId = '44444444-4444-4444-8444-444444444444';
+const _duplicateId = '55555555-5555-4555-8555-555555555555';
+const _duplicateOperationId = '66666666-6666-4666-8666-666666666666';
 const _start = PlannerDate(year: 2026, month: 1, day: 31);
 
 void main() {
@@ -335,6 +337,49 @@ void main() {
           .normalized();
       expect(normalized.backupForEventId, isNull);
       expect(normalized.backupRelationshipProvenance, isNull);
+    },
+  );
+
+  test(
+    'VS08-OWNER: duplicate creates a new scheduled event without outcome state',
+    () async {
+      final repository = buildRepository();
+      await repository.saveEvent(
+        profileId: profileId,
+        draft: _allDayDraft().copyWith(
+          contributionRuleKey: 'weekly-life-indicator-rule',
+          status: CalendarEventStatus.completedHappened,
+        ),
+      );
+
+      final first = await repository.duplicateEvent(
+        profileId: profileId,
+        eventId: _eventId,
+        originalDate: _start,
+        duplicateId: _duplicateId,
+        operationId: _duplicateOperationId,
+      );
+      final retry = await repository.duplicateEvent(
+        profileId: profileId,
+        eventId: _eventId,
+        originalDate: _start,
+        duplicateId: _duplicateId,
+        operationId: _duplicateOperationId,
+      );
+
+      final duplicate = await repository.readEventDraft(
+        profileId: profileId,
+        eventId: _duplicateId,
+      );
+      final rows = await database.select(database.calendarEvents).get();
+
+      expect(first, CalendarEventMutationOutcome.changed);
+      expect(retry, CalendarEventMutationOutcome.unchanged);
+      expect(rows, hasLength(2));
+      expect(duplicate!.title, 'Month-end visit (Copy)');
+      expect(duplicate.status, CalendarEventStatus.scheduled);
+      expect(duplicate.contributionRuleKey, isNull);
+      expect(duplicate.recurrence.isRecurring, isFalse);
     },
   );
 }

@@ -115,4 +115,12 @@ abstract interface class CalendarEventRepository
     required CalendarEventDraft replacement,
     required String operationId,
   });
+
+  Future<CalendarEventMutationOutcome> duplicateEvent({
+    required String profileId,
+    required String eventId,
+    required PlannerDate originalDate,
+    required String duplicateId,
+    required String operationId,
+  });
 }

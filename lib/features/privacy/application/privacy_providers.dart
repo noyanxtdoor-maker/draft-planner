@@ -20,6 +20,10 @@ final deviceAuthenticatorProvider = Provider<DeviceAuthenticator>((ref) {
   throw StateError('DeviceAuthenticator must be overridden at the app root');
 });
 
+final monotonicClockProvider = Provider<MonotonicClock>((ref) {
+  return StopwatchMonotonicClock();
+});
+
 final permissionGatewayProvider = Provider<PermissionGateway>((ref) {
   throw StateError('PermissionGateway must be overridden at the app root');
 });
@@ -76,6 +80,9 @@ final privacyControllerProvider =
     NotifierProvider<PrivacyController, PrivacyState>(PrivacyController.new);
 
 final class PrivacyController extends Notifier<PrivacyState> {
+  Future<void>? _initialization;
+  int _lockGeneration = 0;
+
   PrivacyRepository get _repository => ref.read(privacyRepositoryProvider);
   PrivacyGate get _gate => ref.read(privacyGateProvider);
   DeviceAuthenticator get _authenticator =>
@@ -88,6 +95,17 @@ final class PrivacyController extends Notifier<PrivacyState> {
   }
 
   Future<void> initialize() async {
+    final existing = _initialization;
+    if (existing != null) {
+      await existing;
+      return;
+    }
+    final future = _initialize();
+    _initialization = future;
+    return future;
+  }
+
+  Future<void> _initialize() async {
     try {
       final settings = await _repository.readSettings();
       if (settings.lockEnabled) {
@@ -131,7 +149,11 @@ final class PrivacyController extends Notifier<PrivacyState> {
     if (state.settings.lockEnabled || state.isBusy) {
       return state.settings.lockEnabled;
     }
+    final generation = _lockGeneration;
     final availability = await _authenticator.availability();
+    if (generation != _lockGeneration) {
+      return false;
+    }
     if (availability == DeviceAuthenticationAvailability.unavailable) {
       state = state.copyWith(
         status: PrivacyLockStatus.unavailable,
@@ -140,8 +162,16 @@ final class PrivacyController extends Notifier<PrivacyState> {
       return false;
     }
     final authenticated = await _authenticateDevice();
-    if (!authenticated) {
+    if (!authenticated || generation != _lockGeneration) {
       if (state.status != PrivacyLockStatus.unavailable) {
+        if (generation != _lockGeneration) {
+          _gate.markLocked();
+          state = state.copyWith(
+            status: PrivacyLockStatus.locked,
+            clearMessage: true,
+          );
+          return false;
+        }
         state = state.copyWith(
           message:
               'Authentication did not complete. Privacy Lock was not '
@@ -173,8 +203,16 @@ final class PrivacyController extends Notifier<PrivacyState> {
     if (!state.settings.lockEnabled || state.isBusy) {
       return !state.settings.lockEnabled;
     }
+    final generation = _lockGeneration;
     final authenticated = await _authenticateDevice();
-    if (!authenticated) {
+    if (!authenticated || generation != _lockGeneration) {
+      if (generation != _lockGeneration) {
+        _gate.markLocked();
+        state = state.copyWith(
+          status: PrivacyLockStatus.locked,
+          clearMessage: true,
+        );
+      }
       return false;
     }
     try {
@@ -212,28 +250,31 @@ final class PrivacyController extends Notifier<PrivacyState> {
     if (!state.settings.lockEnabled) {
       return false;
     }
-    _gate.markLocked();
-    if (state.status != PrivacyLockStatus.authenticating) {
-      state = state.copyWith(
-        status: PrivacyLockStatus.locked,
-        clearMessage: true,
-      );
+    if (state.status == PrivacyLockStatus.locked) {
+      return false;
     }
+    _lockGeneration += 1;
+    _gate.markLocked();
+    state = state.copyWith(
+      status: PrivacyLockStatus.locked,
+      clearMessage: true,
+    );
     return true;
   }
 
   Future<bool> _runAuthentication() async {
+    final generation = _lockGeneration;
     final authenticated = await _authenticateDevice();
-    if (authenticated) {
+    if (authenticated && generation == _lockGeneration) {
       _gate.markUnlocked();
       state = state.copyWith(
         status: PrivacyLockStatus.unlocked,
         clearMessage: true,
       );
-    } else {
+    } else if (!authenticated) {
       _gate.markLocked();
     }
-    return authenticated;
+    return authenticated && generation == _lockGeneration;
   }
 
   Future<bool> _authenticateDevice() async {

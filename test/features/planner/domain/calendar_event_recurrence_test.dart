@@ -133,4 +133,42 @@ void main() {
       isFalse,
     );
   });
+
+  test('VS08-OWNER: report labels use the canonical status vocabulary', () {
+    expect(
+      calendarEventOutcomeLabel(
+        status: CalendarEventStatus.scheduled,
+        isContactEvent: true,
+      ),
+      'Unreported',
+    );
+    expect(
+      calendarEventOutcomeLabel(
+        status: CalendarEventStatus.completedHappened,
+        isContactEvent: true,
+      ),
+      'Contacted',
+    );
+    expect(
+      calendarEventOutcomeLabel(
+        status: CalendarEventStatus.completedHappened,
+        isContactEvent: false,
+      ),
+      'Completed',
+    );
+    expect(
+      calendarEventOutcomeLabel(
+        status: CalendarEventStatus.partiallyCompleted,
+        isContactEvent: true,
+      ),
+      'Missed - Attempted',
+    );
+    expect(
+      calendarEventOutcomeLabel(
+        status: CalendarEventStatus.didNotHappen,
+        isContactEvent: false,
+      ),
+      'Did Not Attempt',
+    );
+  });
 }

@@ -5,7 +5,40 @@ import 'package:rmplanner/features/privacy/domain/permission_summary.dart';
 
 import '../../../support/test_dependencies.dart';
 
+final class _FakeMonotonicClock implements MonotonicClock {
+  Duration now = Duration.zero;
+
+  @override
+  Duration get elapsed => now;
+}
+
 void main() {
+  test('AC-W-004: background lock uses one monotonic five-minute window', () {
+    final clock = _FakeMonotonicClock();
+    final session = PrivacyBackgroundSession(clock: clock);
+    var thresholdCalls = 0;
+
+    session.enterBackground(() => thresholdCalls += 1);
+    session.enterBackground(() => thresholdCalls += 1);
+    clock.now = const Duration(minutes: 4, seconds: 59);
+    expect(session.resume(), isFalse);
+    expect(thresholdCalls, 0);
+
+    session.enterBackground(() => thresholdCalls += 1);
+    clock.now = const Duration(minutes: 9, seconds: 58);
+    expect(session.resume(), isFalse);
+
+    session.enterBackground(() => thresholdCalls += 1);
+    clock.now = const Duration(minutes: 14, seconds: 58);
+    expect(session.resume(), isTrue);
+    expect(thresholdCalls, 0);
+
+    session.enterBackground(() => thresholdCalls += 1);
+    clock.now = const Duration(minutes: 19, seconds: 59);
+    expect(session.resume(), isTrue);
+    expect(thresholdCalls, 0);
+  });
+
   test(
     'AC-W-003..005: enable, relock, unlock, and disable use OS auth',
     () async {
