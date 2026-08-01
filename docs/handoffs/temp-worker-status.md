@@ -2278,3 +2278,123 @@ Physical owner acceptance remains pending. The owner must return explicit
 PASS or FAIL for the 20-item D3-C retest before D3-B or Stage B3-R1 is called
 complete. No next feature, merge, push, PR update, or final acceptance
 checkpoint was started.
+
+## 2026-08-01 - VS-08 Master Owner-Correction Completion
+
+This section records the completed automated and installed-preview work for
+the owner-corrected VS-08 Planner scope. Live workspace state was authoritative
+over the transferred note: branch `temp/vs08-shared-preview`, starting live
+HEAD `00db439`, and protected original checkout
+`C:\Users\sherl\Documents\Next Transfer` left untouched. The code/test
+checkpoint is local and unpushed: `0eeb3de fix(planner): complete vs08 owner
+corrections`.
+
+### Scope authority and superseded instruction
+
+- The earlier toolbar-removal, duplicate-calendar-icon, visible-quarter-hour-
+  guide, and auto-proceed instruction was superseded by the approved owner
+  correction. The original Planner top bar is restored: menu, Planner title and
+  chevron, top-bar date picker, Filter, selection/checklist, and overflow.
+- The compact fixed date strip remains below the top bar. It has no calendar
+  icon, no visible `:15`, `:30`, or `:45` grid guides, and one shared liquid
+  selection indicator driven by normalized pager progress. Direct strip drag
+  browses only; taps select once; Today and picker state stay synchronized.
+- The approved PNG was used only as the Event/calendar-block visual authority,
+  not as permission to copy the whole shell. No legacy journey was deleted,
+  weakened, skipped, or replaced with a VS-09 handoff.
+
+### Behavior and implementation record
+
+- Pager behavior covers one-day left/right commits, finger-following, cancel
+  recentering, flick threshold/no skipped dates, vertical-scroll arbitration,
+  pinch priority for a second pointer, stable page keys, and viewport/zoom
+  preservation. Successful settlement loads the adjacent day first, then
+  publishes the selected-date/day pair, prepares the date strip, and recenters
+  once without a delayed catch-up animation or stale-page flash.
+- Preview pages are read-only and use cached page futures/signatures. They do
+  not write navigation state, consume operation IDs, or create/synthesize
+  occurrences. The centered and adjacent Event blocks now share title, exact
+  formatted start/end, recurrence affordance, status priority, color, radius,
+  accent, clipping, and compact-density presentation content.
+- Short, narrow, and overlapping Events use title/time/recurrence/status
+  priority with ellipsis/clipping and no overflow or neighboring activation.
+  Quarter-hour functionality is retained invisibly: 15-minute snapping,
+  minimum/resizing behavior, and exact `pixelsPerMinute = hourHeight / 60`
+  geometry. The `09:45-10:00` block ends exactly at 10:00.
+- Picker presentation keeps the Planner readable behind a translucent dim
+  barrier, blocks background taps, and preserves safe Cancel/OK open/close
+  state. Current-time rendering remains today-only, exact in geometry, and
+  does not force scroll. Today, picker, strip, and navigation preserve the
+  current viewport and zoom.
+- Controllers, listeners, animation controllers, ticker/current-time timer,
+  notifiers, and pager/strip attachments are disposed. Mounted checks guard
+  callbacks. Preview completion uses a signature/data-revision guard, and the
+  Planner repository load path uses a generation guard so stale asynchronous
+  reads cannot overwrite a newer date/schedule or leave a mismatched preview.
+  No `Future.delayed`, `Timer.periodic`, debug print, temporary diagnostic, or
+  frame harness was added by this completion run.
+- Changed code/test files in the code checkpoint are exactly:
+  `lib/features/planner/application/planner_providers.dart`,
+  `lib/features/planner/presentation/planner_screen.dart`,
+  `lib/features/planner/presentation/widgets/planner_event_block_content.dart`,
+  `lib/features/planner/presentation/widgets/planner_interactive_day_pager.dart`,
+  and `test/features/planner/presentation/planner_interactive_day_pager_preview_test.dart`.
+  Inherited status-only files were not staged or reset.
+
+### Automated evidence
+
+- The nine requested legacy files were run individually and all passed:
+  journey 3, date-picker transition 13, temporary preview 11, design lock 22,
+  date-strip sync 14, horizontal swipe 13, pager timing 10, pager safety 10,
+  and initial-scroll 6. No failure or skip.
+- The updated preview-parity file passed 6 tests, including adjacent title,
+  `9:00 AM - 10:00 AM` content, recurrence, and compact-status assertions.
+- Full Planner suite: 272 passed, 0 failed, 0 skipped, exit 0.
+- Full Flutter suite: 335 passed, 0 failed, 0 skipped, exit 0.
+- Analyzer: `run_flutter.bat analyze` reported `No issues found!`.
+- `git diff --check` passed. The three inherited root diagnostic logs
+  `flutter_01.log`, `flutter_02.log`, and `flutter_03.log` were removed. No
+  APK, build output, approved evidence, or temporary audit copy was staged.
+
+### APK authority and data-preserving install
+
+- Build command: `run_flutter.bat build apk --debug` with the bundled Android
+  SDK supplied for the process because the wrapper does not export it.
+- Final APK: `C:\Users\sherl\Documents\Next Transfer-Temp\build\app\outputs\flutter-apk\app-debug.apk`.
+  Size 195,292,067 bytes (186.25 MiB); last write
+  `2026-08-01T17:09:33.6985211+08:00`; SHA-256
+  `359FB94472CFA6CFED4C1062D59845E881BF05C61E7F6750E6A46652F1FA265`.
+  The build completed successfully; the only warning was the existing
+  `flutter_timezone` Kotlin Gradle Plugin migration warning.
+- Authorized device: serial
+  `adb-10620253B3004617-2m7ZVB._adb-tls-connect._tcp`, Infinix X6731.
+  Package authority: `com.nexttransfer.rmplanner`, version `0.1.0`, code
+  `1`. The pre-install pulled base APK matched the existing Temp debug APK
+  (`1D373E79313FAF91AB14D7320E3245677E431671FD2B2BAD53947797CC194C39`) and
+  differed from the protected-repo APKs.
+- `adb install -r` returned `Success`; no uninstall, clear-data, package-ID,
+  or signing change was used. Before/after values were
+  `firstInstallTime=2026-07-27 15:42:22`,
+  `dataDir=/data/user/0/com.nexttransfer.rmplanner`, and
+  `ceDataInode=1509267`, all unchanged. `lastUpdateTime` advanced and the
+  code path changed as expected for an update. The installed post-update base
+  hash matched the final Temp APK exactly. The requested
+  `com.nexttransfer.rmplanner/.MainActivity` launch resolved to the resumed
+  activity.
+
+### Boundary and physical acceptance
+
+The owner still must explicitly return PASS or FAIL for physical tests 01-25,
+including top-bar controls, strip/indicator/pager motion, adjacent and
+recurring content, short/narrow/overlap behavior, read-only previews, exact
+15-minute geometry, picker overlay, gestures, viewport/zoom state preservation,
+and domain/data safety. This record does not claim physical PASS, D3-B, Slice D
+integration, or final acceptance. VS-09, Pathways, Goals, Milestones, Maps,
+Contacts, merge, push, and PR #8 changes remain unauthorized and untouched.
+
+At the handoff checkpoint, the preserved inherited working-tree state is the
+three status-only tracked files previously present
+(`planner_slide_down_date_picker.dart`,
+`planner_date_picker_transition_test.dart`, and
+`planner_initial_scroll_once_test.dart`) plus the pre-existing untracked
+`.todo.md`; none was reset, restored, staged, or deleted.
