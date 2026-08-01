@@ -2593,7 +2593,31 @@ Verification completed before this handoff:
 - `.todo.md` remains untracked and unstaged; no APK, build output, reference
   image, recording, temporary harness, or diagnostic artifact is staged.
 
-Build/update-install and physical acceptance 01-40 remain pending. No physical
-PASS/FAIL result is inferred here. The final physical-acceptance and final
-VS-08 integration checkpoints must not be created until the owner supplies an
-explicit PASS or FAIL for every physical test.
+### Device update-install evidence
+
+The debug APK was built from this Temp checkout at
+`C:\Users\sherl\Documents\Next Transfer-Temp\build\app\outputs\flutter-apk\app-debug.apk`
+using the existing bundled Flutter toolchain and Android SDK. The authorized
+Infinix X6731 was discovered at `192.168.1.54:34439` through ADB/mDNS and was
+updated in place with `adb install -r`. No uninstall, data clear, or migration
+was performed.
+
+Before install:
+
+- `firstInstallTime=2026-07-27 15:42:22`;
+- `lastUpdateTime=2026-08-01 19:53:24`;
+- `dataDir=/data/user/0/com.nexttransfer.rmplanner`;
+- `ceDataInode=1509267`.
+
+After install and launch:
+
+- `firstInstallTime=2026-07-27 15:42:22` unchanged;
+- `lastUpdateTime=2026-08-01 22:12:33` advanced;
+- `dataDir=/data/user/0/com.nexttransfer.rmplanner` unchanged;
+- `ceDataInode=1509267` unchanged;
+- package path resolved and `com.nexttransfer.rmplanner` launched successfully.
+
+Physical acceptance 01-40 remains pending. No physical PASS/FAIL result is
+inferred here. The final physical-acceptance and final VS-08 integration
+checkpoints must not be created until the owner supplies an explicit PASS or
+FAIL for every physical test.
