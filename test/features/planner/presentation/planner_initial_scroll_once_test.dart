@@ -267,21 +267,47 @@ double _viewportHeight(WidgetTester tester) {
   return size.height;
 }
 
-/// Scroll the day viewport by [delta] logical pixels. Positive
-/// delta moves the content downward, increasing the viewport's
-/// pixel offset. Returns the resulting offset.
-Future<double> _scrollBy(WidgetTester tester, double delta) async {
+/// Scroll the day viewport by [distance] logical pixels using a
+/// production-like one-finger drag. The drag direction is
+/// negative-Y (finger moves upward on the screen) so the
+/// scrollable's offset increases by approximately [distance]
+/// pixels. This is the direction a real user uses to look further
+/// into the day's schedule. Positive-Y drags at offset zero are
+/// clamped to zero by ClampingScrollPhysics and must not be used
+/// to prove the manual-scroll contract.
+Future<double> _scrollBy(WidgetTester tester, double distance) async {
   final scrollable = find.byKey(const Key('planner-day-scroll'));
   expect(scrollable, findsOneWidget);
-  final start = _scrollOffset(tester);
-  await tester.fling(scrollable, Offset(0, delta), 800);
-  await tester.pumpAndSettle();
-  final end = _scrollOffset(tester);
+  final scrollableState = tester.state<ScrollableState>(
+    find.byType(Scrollable).first,
+  );
+  // The timeline must be taller than the viewport by at least
+  // [distance] logical pixels, otherwise a scroll of that magnitude
+  // is impossible. Without this guard a positive-Y drag from
+  // offset zero would be silently clamped to zero and the helper
+  // would falsely report that manual scrolling is broken.
   expect(
-    (end - start).abs() > 0,
+    scrollableState.position.maxScrollExtent,
+    greaterThan(distance),
+    reason:
+        'Timeline must be taller than the viewport by at least '
+        '$distance px; got maxScrollExtent='
+        '${scrollableState.position.maxScrollExtent}',
+  );
+  final start = scrollableState.position.pixels;
+  // Use a real one-finger drag in the negative-Y direction
+  // (finger moves upward, content moves up, offset increases).
+  // tester.drag drives the actual SingleChildScrollView gesture
+  // recognizer, which is the same path a production user takes.
+  await tester.drag(scrollable, Offset(0, -distance));
+  await tester.pumpAndSettle();
+  final end = scrollableState.position.pixels;
+  expect(
+    end > start,
     isTrue,
     reason:
-        'manual scroll must actually move the viewport; start=$start, end=$end',
+        'manual one-finger upward drag must scroll the timeline '
+        'downward; start=$start, end=$end',
   );
   return end;
 }
@@ -354,7 +380,7 @@ void main() {
       );
       // Manually scroll the viewport so it does not sit at the
       // initial current-time position.
-      final manualOffset = await _scrollBy(tester, 300);
+      final manualOffset = await _scrollBy(tester, 200);
       // Tap yesterday's date cell in the existing date strip.
       final yesterdayKey = Key('planner-day-${_yesterday.iso8601}');
       expect(
@@ -404,7 +430,7 @@ void main() {
       // 9:30, the visible range typically starts at 6:00, so a
       // 300 logical-pixel upward scroll moves the viewport into
       // the early morning.
-      final manualOffset = await _scrollBy(tester, 300);
+      final manualOffset = await _scrollBy(tester, 200);
       final manualHeight = _viewportHeight(tester);
       // Tap "Go to today".
       await tester.tap(find.byKey(const Key('planner-today-button')));
@@ -448,7 +474,7 @@ void main() {
         selected: _today,
         today: _today,
       );
-      final manualOffset = await _scrollBy(tester, 300);
+      final manualOffset = await _scrollBy(tester, 200);
       final manualHeight = _viewportHeight(tester);
       // Open the slide-down date picker.
       await tester.tap(find.byKey(const Key('planner-date-label')));
@@ -510,7 +536,7 @@ void main() {
           today: _today,
           currentTimeListenable: clock,
         );
-        final manualOffset = await _scrollBy(tester, 300);
+        final manualOffset = await _scrollBy(tester, 200);
         // Advance the clock by one minute; the ValueListenable
         // notifies the current-time indicator, which rebuilds a
         // small subtree but must not move the scroll position.
