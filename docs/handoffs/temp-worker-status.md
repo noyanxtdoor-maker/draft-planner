@@ -2178,3 +2178,51 @@ expressed at a more comfortable 300+ pixel distance on a
 default 862x1824 / 2x viewport. That is a deliberate product
 decision and belongs in the D3-B scope, not the D3-A test
 correction.
+
+### 2026-08-01 — Stage B3-R1 Slice D3-C repair checkpoint
+
+The requested D3-C repair is complete through automated verification.
+Repair checkpoint: `fc485c0 fix(planner): repair quarter-hour geometry and date strip`.
+The checkpoint is local and unpushed.
+
+### Production repair
+
+- Added `PlannerTimelineGeometry` as the shared minute-to-pixel source for
+  the centered timeline and pager previews. A 15-minute Event now renders as
+  exactly one quarter of the active hour height; the prior 32px visual clamp
+  was removed from both paths.
+- Added subtle `:15`, `:30`, and `:45` guide lines to the centered timeline
+  and preview columns. Centered guides are `IgnorePointer` so they cannot
+  intercept an empty-time create tap.
+- Changed pager settlement ordering so the internal translation is recentered
+  before the parent selected-date callback. The callback remains one commit
+  per swipe.
+- Replaced the fixed seven-day row with `PlannerDateStrip`: horizontally
+  browsable, finite 1900-01-01 through 2200-12-31, stable 72px item width,
+  selected-date visibility adjustment, direct tap selection, and selected
+  semantics. Accessibility text scaling grows the strip height rather than
+  overflowing at 200% text.
+- Preserved the existing Planner day-scroll key and updated only affected
+  test finders where the new date strip introduced a second `ListView` or
+  `Scrollable`.
+
+### Automated evidence
+
+- `run_flutter.bat analyze`: `No issues found!`.
+- Complete Planner suite: 249 passed, 0 failed, 0 skipped.
+- Complete Flutter suite: 312 passed, 0 failed, 0 skipped.
+- New quarter-hour geometry tests: 7 passed.
+- New pager settlement tests: 6 passed.
+- New synchronized date-strip tests: 14 passed.
+- Pager preview parity: 6 passed, including exact 30px height for the
+  30-minute preview Event at 60px/hour.
+- Existing compact Event regression suite: 16 passed.
+- `git diff --check` passed before checkpoint. Temporary extracted video
+  frames were removed from `C:\Users\sherl\AppData\Local\Temp\d3c-video-inspection`
+  and the directory was verified absent.
+
+### Boundary
+
+No D3-B, VS-09, Maps, merge, push, PR, or integration-acceptance work was
+started. Physical-device acceptance is still pending; this checkpoint does
+not claim the physical retest or owner PASS.
