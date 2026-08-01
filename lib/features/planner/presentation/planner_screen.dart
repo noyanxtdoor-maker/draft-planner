@@ -25,6 +25,7 @@ import 'package:rmplanner/features/planner/presentation/contextual_create_fab.da
 import 'package:rmplanner/features/planner/presentation/widgets/anchored_top_bar_popup.dart';
 import 'package:rmplanner/features/planner/presentation/widgets/planner_calendar_icon.dart';
 import 'package:rmplanner/features/planner/presentation/widgets/planner_date_strip.dart';
+import 'package:rmplanner/features/planner/presentation/widgets/planner_event_block_content.dart';
 import 'package:rmplanner/features/planner/presentation/widgets/planner_event_block_layout_policy.dart';
 import 'package:rmplanner/features/planner/presentation/widgets/planner_interactive_day_pager.dart'
     show PlannerInteractiveDayPager, PlannerInteractiveDayPagerController;
@@ -2514,8 +2515,8 @@ final class _TimelineEventBlock extends StatelessWidget {
         return Semantics(
           button: true,
           label:
-              '${event.title}, ${event.activityTypeLabel ?? 'Calendar Event'}, '
-              '${_minuteRange(displayStartMinute, displayEndMinute, use24HourTime)}'
+              '${event.displayTitle}, ${event.activityTypeLabel ?? 'Calendar Event'}, '
+              '${formatPlannerEventRange(displayStartMinute, displayEndMinute, use24HourTime)}'
               '${event.isBackupAppointment ? ', Backup Appointment' : ''}'
               '${awaitingReport ? ', Awaiting Report' : ''}'
               '${event.linkedTaskIds.isEmpty ? '' : ', ${event.linkedTaskIds.length} linked Task(s)'}',
@@ -2563,13 +2564,21 @@ final class _TimelineEventBlock extends StatelessWidget {
                             ),
                           ),
                         ),
-                        child: _EventBlockContent(
+                        child: PlannerEventBlockContentView(
                           event: event,
                           use24HourTime: use24HourTime,
                           displayStartMinute: displayStartMinute,
                           displayEndMinute: displayEndMinute,
                           awaitingReport: awaitingReport,
                           content: content,
+                          titleKey: const Key('planner-event-block-title'),
+                          timeKey: const Key('planner-event-block-time'),
+                          recurrenceKey: Key(
+                            'planner-event-recurring-${event.id}',
+                          ),
+                          statusKey: Key(
+                            'planner-event-block-status-${event.id}',
+                          ),
                         ),
                       ),
                     ),
@@ -2657,204 +2666,6 @@ final class _TimelineEventBlock extends StatelessWidget {
           ),
         );
       },
-    );
-  }
-
-  static String _minuteRange(int start, int end, bool use24HourTime) {
-    return '${_minute(start, use24HourTime)} – '
-        '${_minute(end, use24HourTime)}';
-  }
-
-  static String _minute(int value, bool use24HourTime) {
-    final hour = value ~/ 60;
-    final minute = value % 60;
-    if (use24HourTime) {
-      return '${hour.toString().padLeft(2, '0')}:'
-          '${minute.toString().padLeft(2, '0')}';
-    }
-    final displayHour = hour == 0
-        ? 12
-        : hour > 12
-        ? hour - 12
-        : hour;
-    return '$displayHour:${minute.toString().padLeft(2, '0')} '
-        '${hour >= 12 ? 'PM' : 'AM'}';
-  }
-}
-
-/// Inner content of a Calendar Event timeline block.
-///
-/// Adapts to the available height by selecting how much of the title,
-/// time, and status rows to render. The widget never forces a minimum
-/// content height larger than the block, so it cannot produce a
-/// RenderFlex overflow on short blocks.
-final class _EventBlockContent extends StatelessWidget {
-  const _EventBlockContent({
-    required this.event,
-    required this.use24HourTime,
-    required this.displayStartMinute,
-    required this.displayEndMinute,
-    required this.awaitingReport,
-    required this.content,
-  });
-
-  final PlannerCalendarItem event;
-  final bool use24HourTime;
-  final int displayStartMinute;
-  final int displayEndMinute;
-  final bool awaitingReport;
-  final PlannerEventBlockContent content;
-
-  @override
-  Widget build(BuildContext context) {
-    final density = content.density;
-    final textColor = PlannerEventBlockColorPolicy.textColor(
-      Color(event.activityTypeColorValue ?? 0xFFE91E63),
-    );
-    final titleStyle = TextStyle(
-      color: textColor,
-      fontWeight: FontWeight.w700,
-      fontSize: density == Density.veryShort ? 9 : 12,
-      height: density == Density.veryShort ? 1.0 : 1.1,
-    );
-    final timeStyle = TextStyle(
-      color: textColor.withValues(alpha: 0.92),
-      fontWeight: FontWeight.w600,
-      fontSize: density == Density.tall ? 11 : 10,
-      height: 1.1,
-    );
-    final timeText = _formatRange(
-      displayStartMinute,
-      displayEndMinute,
-      use24HourTime,
-    );
-    final inlineText = '${event.title}  $timeText';
-    final verticalPadding = density == Density.veryShort ? 0.0 : 4.0;
-    return Padding(
-      padding: EdgeInsets.fromLTRB(6, verticalPadding, 6, verticalPadding),
-      child: Column(
-        key: const Key('planner-event-block-content'),
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: <Widget>[
-          Text(
-            content.showTimeInline ? inlineText : event.title,
-            style: titleStyle,
-            maxLines: content.titleMaxLines,
-            overflow: TextOverflow.ellipsis,
-            softWrap: false,
-            key: const Key('planner-event-block-title'),
-          ),
-          if (content.showTime && !content.showTimeInline)
-            Padding(
-              padding: EdgeInsets.only(top: density == Density.tall ? 2 : 1),
-              child: Text(
-                timeText,
-                key: const Key('planner-event-block-time'),
-                style: timeStyle,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                softWrap: false,
-              ),
-            ),
-          if (content.showStatusIcons)
-            Padding(
-              padding: const EdgeInsets.only(top: 2),
-              child: _StatusRow(
-                textColor: textColor,
-                isBackup: event.isBackupAppointment,
-                awaitingReport: awaitingReport,
-                isReported: event.hasOutcomeReport,
-                linkedTaskCount: event.linkedTaskIds.length,
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  static String _formatRange(int start, int end, bool use24HourTime) {
-    final startText = _minute(start, use24HourTime);
-    final endText = _minute(end, use24HourTime);
-    return '$startText - $endText';
-  }
-
-  static String _minute(int value, bool use24HourTime) {
-    final hour = value ~/ 60;
-    final minute = value % 60;
-    if (use24HourTime) {
-      return '${hour.toString().padLeft(2, '0')}:'
-          '${minute.toString().padLeft(2, '0')}';
-    }
-    final displayHour = hour == 0
-        ? 12
-        : hour > 12
-        ? hour - 12
-        : hour;
-    return '$displayHour:${minute.toString().padLeft(2, '0')} '
-        '${hour >= 12 ? 'PM' : 'AM'}';
-  }
-}
-
-/// Compact status row inside an Event block.
-///
-/// Renders at most one icon-and-text pair that summarises the Event's
-/// most relevant status. Order of preference: Awaiting Report > Backup >
-/// linked Task count.
-final class _StatusRow extends StatelessWidget {
-  const _StatusRow({
-    required this.textColor,
-    required this.isBackup,
-    required this.awaitingReport,
-    required this.isReported,
-    required this.linkedTaskCount,
-  });
-
-  final Color textColor;
-  final bool isBackup;
-  final bool awaitingReport;
-  final bool isReported;
-  final int linkedTaskCount;
-
-  @override
-  Widget build(BuildContext context) {
-    final IconData icon;
-    final String label;
-    if (awaitingReport) {
-      icon = Icons.assignment_late_outlined;
-      label = 'Awaiting Report';
-    } else if (isReported) {
-      icon = Icons.check_circle_outline;
-      label = 'Completed';
-    } else if (isBackup) {
-      icon = Icons.layers_outlined;
-      label = 'Backup';
-    } else if (linkedTaskCount > 0) {
-      icon = Icons.task_alt_outlined;
-      label = '$linkedTaskCount linked';
-    } else {
-      return const SizedBox.shrink();
-    }
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: <Widget>[
-        Icon(icon, size: 11, color: textColor),
-        const SizedBox(width: 4),
-        Flexible(
-          child: Text(
-            label,
-            style: TextStyle(
-              color: textColor,
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              height: 1.1,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            softWrap: false,
-          ),
-        ),
-      ],
     );
   }
 }

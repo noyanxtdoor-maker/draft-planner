@@ -61,6 +61,8 @@ final plannerControllerProvider =
     NotifierProvider<PlannerController, PlannerState>(PlannerController.new);
 
 final class PlannerController extends Notifier<PlannerState> {
+  int _loadGeneration = 0;
+
   PlannerRepository get _repository => ref.read(plannerRepositoryProvider);
   PlannerDateSource get _dateSource => ref.read(plannerDateSourceProvider);
 
@@ -74,6 +76,7 @@ final class PlannerController extends Notifier<PlannerState> {
 
   @override
   PlannerState build() {
+    ref.onDispose(() => _loadGeneration++);
     final today = _dateSource.today();
     unawaited(Future<void>.microtask(() => _load(today)));
     return PlannerState(
@@ -93,28 +96,7 @@ final class PlannerController extends Notifier<PlannerState> {
   /// which is the stale-schedule flash this route must avoid.
   Future<void> moveDays(int days) async {
     final date = state.selectedDate.addDays(days);
-    try {
-      final day = await _repository.readDay(
-        profileId: _profileId,
-        selectedDate: date,
-        today: _dateSource.today(),
-      );
-      state = state.copyWith(
-        status: PlannerLoadStatus.ready,
-        selectedDate: date,
-        day: day,
-        clearMessage: true,
-      );
-    } on Object {
-      // Keep the current page/date pair intact when the adjacent read fails;
-      // the pager will remain settled on the current page and the existing
-      // data remains available for a safe retry.
-      state = state.copyWith(
-        status: PlannerLoadStatus.failure,
-        message: 'Planner data could not be opened. Retry without data loss.',
-      );
-      rethrow;
-    }
+    await _load(date, rethrowOnFailure: true);
   }
 
   /// Refresh the currently selected Planner day without changing
@@ -208,10 +190,16 @@ final class PlannerController extends Notifier<PlannerState> {
     state = state.copyWith(clearMessage: true);
   }
 
-  Future<void> _load(PlannerDate date) async {
+  /// Read the requested day before publishing it as the selected page.
+  ///
+  /// Navigation can issue another read before this one completes. The
+  /// generation guard makes the newest request authoritative, so a slower
+  /// earlier result cannot restore an old date or schedule after a newer
+  /// selection has already completed.
+  Future<void> _load(PlannerDate date, {bool rethrowOnFailure = false}) async {
+    final generation = ++_loadGeneration;
     state = state.copyWith(
       status: PlannerLoadStatus.loading,
-      selectedDate: date,
       clearMessage: true,
     );
     try {
@@ -220,6 +208,9 @@ final class PlannerController extends Notifier<PlannerState> {
         selectedDate: date,
         today: _dateSource.today(),
       );
+      if (generation != _loadGeneration) {
+        return;
+      }
       state = state.copyWith(
         status: PlannerLoadStatus.ready,
         selectedDate: date,
@@ -227,11 +218,16 @@ final class PlannerController extends Notifier<PlannerState> {
         clearMessage: true,
       );
     } on Object {
+      if (generation != _loadGeneration) {
+        return;
+      }
       state = state.copyWith(
         status: PlannerLoadStatus.failure,
-        selectedDate: date,
         message: 'Planner data could not be opened. Retry without data loss.',
       );
+      if (rethrowOnFailure) {
+        rethrow;
+      }
     }
   }
 }

@@ -71,6 +71,8 @@ import 'package:rmplanner/features/planner/domain/planner_date.dart';
 import 'package:rmplanner/features/planner/domain/planner_day.dart';
 import 'package:rmplanner/features/planner/domain/planner_settings.dart';
 import 'package:rmplanner/features/planner/domain/planner_timeline_layout.dart';
+import 'package:rmplanner/features/planner/presentation/widgets/planner_event_block_content.dart';
+import 'package:rmplanner/features/planner/presentation/widgets/planner_event_block_layout_policy.dart';
 import 'package:rmplanner/features/planner/presentation/widgets/planner_shared_viewport.dart';
 
 /// Minimum logical-pixel travel before a horizontal gesture
@@ -947,6 +949,12 @@ class _PagerPreviewColumn extends StatelessWidget {
       visibleEndMinute: visibleEnd,
       hourHeight: hourHeight,
     );
+    final content = PlannerEventBlockContent.forHeight(
+      geometry.height,
+      interactive: false,
+    );
+    final base = Color(event.activityTypeColorValue ?? 0xFFE91E63);
+    final border = PlannerEventBlockColorPolicy.borderColor(base);
     final columnGap = (placement.columnCount > 1 ? 3.0 : 0.0);
     final blockWidth =
         (contentWidth - columnGap * (placement.columnCount - 1)) /
@@ -962,22 +970,41 @@ class _PagerPreviewColumn extends StatelessWidget {
       width: blockWidth,
       height: geometry.height,
       child: IgnorePointer(
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: Color(event.activityTypeColorValue ?? 0xFFE91E63),
-            borderRadius: BorderRadius.circular(4),
+        child: Material(
+          color: PlannerEventBlockColorPolicy.surfaceColor(base),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(
+              PlannerEventBlockLayoutPolicy.eventBorderRadius,
+            ),
+            side: BorderSide(color: border),
           ),
-          child: Padding(
-            padding: const EdgeInsets.all(4),
-            child: Text(
-              event.title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Color(0xFFFFFFFF),
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
+          clipBehavior: Clip.antiAlias,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              border: Border(
+                left: BorderSide(
+                  color: event.isBackupAppointment ? Colors.black : border,
+                  width: event.isBackupAppointment
+                      ? PlannerEventBlockLayoutPolicy.backupEventAccentWidth
+                      : PlannerEventBlockLayoutPolicy.eventAccentWidth,
+                ),
               ),
+            ),
+            child: PlannerEventBlockContentView(
+              event: event,
+              use24HourTime: settings.use24HourTime,
+              displayStartMinute: startMinute,
+              displayEndMinute: endMinute,
+              awaitingReport: event.isAwaitingReport(
+                currentTimeListenable.value,
+              ),
+              content: content,
+              titleKey: Key('planner-pager-preview-event-title-${event.id}'),
+              timeKey: Key('planner-pager-preview-event-time-${event.id}'),
+              recurrenceKey: Key(
+                'planner-pager-preview-event-recurrence-${event.id}',
+              ),
+              statusKey: Key('planner-pager-preview-event-status-${event.id}'),
             ),
           ),
         ),

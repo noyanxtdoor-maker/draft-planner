@@ -76,6 +76,7 @@ CalendarEventDraft _timedDraft({
   required int startMinute,
   required int endMinute,
   CalendarRecurrenceRule recurrence = const CalendarRecurrenceRule(),
+  bool requiresReport = false,
 }) {
   return CalendarEventDraft(
     id: id,
@@ -85,7 +86,7 @@ CalendarEventDraft _timedDraft({
     startMinute: startMinute,
     endMinute: endMinute,
     timeZoneId: _displayTimeZoneId,
-    requiresReport: false,
+    requiresReport: requiresReport,
     recurrence: recurrence,
   );
 }
@@ -108,10 +109,7 @@ Future<void> _pumpFrames(WidgetTester tester) async {
 /// refires. This is the production refresh path — the preview
 /// cache invalidation is driven by the per-build data revision
 /// counter, not by a manual selected-date round trip.
-Future<void> _refresh(
-  WidgetTester tester,
-  ProviderContainer container,
-) async {
+Future<void> _refresh(WidgetTester tester, ProviderContainer container) async {
   await container.read(plannerControllerProvider.notifier).refresh();
   await _pumpFrames(tester);
   await tester.pumpAndSettle();
@@ -288,765 +286,802 @@ Future<void> _seedThreeDayFixture(_Stack stack, String profileId) async {
 
 void main() {
   group('Stage B3-R1 D3-A2B2: pager preview content parity', () {
-    testWidgets(
-      'TEST 1 — Calendar Events appear only on the correct explicit '
-      'preview page; no Event leaks onto the wrong date page',
-      (tester) async {
-        final stack = await _buildStack(tester);
-        // Pump the Planner route first so `completeOnboarding`
-        // inserts the `localProfiles` row that the FK requires
-        // for the seeded Calendar Events below.
-        final app = await stack.pumpApp(tester);
-        await _seedThreeDayFixture(stack, app.profileId);
-        // Force a planner reload so the preview signature
-        // changes after the post-pump seed and the preview
-        // columns re-render the freshly written data.
-        await _refresh(tester, app.container);
+    testWidgets('TEST 1 — Calendar Events appear only on the correct explicit '
+        'preview page; no Event leaks onto the wrong date page', (
+      tester,
+    ) async {
+      final stack = await _buildStack(tester);
+      // Pump the Planner route first so `completeOnboarding`
+      // inserts the `localProfiles` row that the FK requires
+      // for the seeded Calendar Events below.
+      final app = await stack.pumpApp(tester);
+      await _seedThreeDayFixture(stack, app.profileId);
+      // Force a planner reload so the preview signature
+      // changes after the post-pump seed and the preview
+      // columns re-render the freshly written data.
+      await _refresh(tester, app.container);
 
-        // Resolve each Event to its deterministic `PlannerCalendarItem.id`
-        // via the same `readDay` path the preview consumes.
-        final previousOccurrenceId = await _occurrenceIdFor(
-          calendar: stack.calendarRepository,
-          profileId: app.profileId,
-          date: _previous,
-          seedEventId: _previousEventId,
-        );
-        final nextOccurrenceId = await _occurrenceIdFor(
-          calendar: stack.calendarRepository,
-          profileId: app.profileId,
-          date: _next,
-          seedEventId: _nextEventId,
-        );
-        final selectedOccurrenceId = await _occurrenceIdFor(
-          calendar: stack.calendarRepository,
-          profileId: app.profileId,
-          date: _today,
-          seedEventId: _selectedEventId,
-        );
+      // Resolve each Event to its deterministic `PlannerCalendarItem.id`
+      // via the same `readDay` path the preview consumes.
+      final previousOccurrenceId = await _occurrenceIdFor(
+        calendar: stack.calendarRepository,
+        profileId: app.profileId,
+        date: _previous,
+        seedEventId: _previousEventId,
+      );
+      final nextOccurrenceId = await _occurrenceIdFor(
+        calendar: stack.calendarRepository,
+        profileId: app.profileId,
+        date: _next,
+        seedEventId: _nextEventId,
+      );
+      final selectedOccurrenceId = await _occurrenceIdFor(
+        calendar: stack.calendarRepository,
+        profileId: app.profileId,
+        date: _today,
+        seedEventId: _selectedEventId,
+      );
 
-        // Previous Event: only on previous preview.
-        expect(
-          find.descendant(
-            of: find.byKey(_previewPageKey(_previous)),
-            matching: find.byKey(_previewEventKey(previousOccurrenceId)),
-          ),
-          findsOneWidget,
-          reason: 'previous Event must appear on the previous preview',
-        );
-        expect(
-          find.descendant(
-            of: find.byKey(_previewPageKey(_today)),
-            matching: find.byKey(_previewEventKey(previousOccurrenceId)),
-          ),
-          findsNothing,
-          reason: 'previous Event must not leak onto centered page',
-        );
-        expect(
-          find.descendant(
-            of: find.byKey(_previewPageKey(_next)),
-            matching: find.byKey(_previewEventKey(previousOccurrenceId)),
-          ),
-          findsNothing,
-          reason: 'previous Event must not leak onto next preview',
-        );
-
-        // Selected-day Event surfaces only via the centered
-        // page. The pager preview columns consume the per-page
-        // `PlannerDay.timedEvents` derived from `readDay(pageDate)`,
-        // so an Event scheduled on _today produces a
-        // `PlannerCalendarItem` only on `_today`'s list. The
-        // previous and next preview keys therefore never carry
-        // a placement keyed to its occurrence id.
-        expect(
-          find.descendant(
-            of: find.byKey(_previewPageKey(_previous)),
-            matching: find.byKey(_previewEventKey(selectedOccurrenceId)),
-          ),
-          findsNothing,
-          reason: 'selected-day Event must not appear on previous preview',
-        );
-        expect(
-          find.descendant(
-            of: find.byKey(_previewPageKey(_next)),
-            matching: find.byKey(_previewEventKey(selectedOccurrenceId)),
-          ),
-          findsNothing,
-          reason: 'selected-day Event must not appear on next preview',
-        );
-
-        // Next Event: only on next preview.
-        expect(
-          find.descendant(
-            of: find.byKey(_previewPageKey(_next)),
-            matching: find.byKey(_previewEventKey(nextOccurrenceId)),
-          ),
-          findsOneWidget,
-          reason: 'next Event must appear on next preview',
-        );
-        expect(
-          find.descendant(
-            of: find.byKey(_previewPageKey(_previous)),
-            matching: find.byKey(_previewEventKey(nextOccurrenceId)),
-          ),
-          findsNothing,
-          reason: 'next Event must not leak onto previous preview',
-        );
-
-        // Basic current-time preview parity: in this fixture
-        // the centered page is `today` and neither preview
-        // date is `today`, so the current-time indicator is
-        // absent from both preview pages. The next-phase
-        // ownership/midnight matrix is intentionally out of
-        // scope here.
-        expect(
-          find.descendant(
-            of: find.byKey(_previewPageKey(_previous)),
-            matching: find.byKey(const Key('planner-current-time-indicator')),
-          ),
-          findsNothing,
-          reason:
-              'previous preview is not today, so no current-time '
-              'indicator must render',
-        );
-        expect(
-          find.descendant(
-            of: find.byKey(_previewPageKey(_next)),
-            matching: find.byKey(const Key('planner-current-time-indicator')),
-          ),
-          findsNothing,
-          reason:
-              'next preview is not today, so no current-time '
-              'indicator must render',
-        );
-      },
-    );
-
-    testWidgets(
-      'TEST 2 — task parity: tasks are NOT part of the timed-day '
-      'canvas (documented); preview columns render timedEvents only',
-      (tester) async {
-        // Documented fact (from the production source): the
-        // authoritative `_TimedEventTimeline` receives only
-        // `events: day.timedEvents` and the pager preview
-        // columns also render `pageDay.timedEvents`. Planner
-        // tasks live in `PlannerDay.tasks` / `overdueTasks` /
-        // `completedTasks` and are surfaced through a separate
-        // surface, never the timed-day canvas.
-        //
-        // Therefore the preview columns never host a Planner
-        // task. We assert the documented behavior via
-        // find.byWidgetPredicate: zero widgets inside a preview
-        // are keyed by a Planner-task-only pattern.
-        final stack = await _buildStack(tester);
-        final app = await stack.pumpApp(tester);
-        await _seedThreeDayFixture(stack, app.profileId);
-        // Force a planner reload so the preview signature
-        // changes after the post-pump seed.
-        await _refresh(tester, app.container);
-
-        for (final date in <PlannerDate>[_previous, _today, _next]) {
-          expect(
-            find.descendant(
-              of: find.byKey(_previewPageKey(date)),
-              matching: find.byWidgetPredicate((w) {
-                final k = w.key;
-                return k is ValueKey<String> &&
-                    k.value.startsWith('planner-pager-preview-task-');
-              }),
-            ),
-            findsNothing,
-            reason:
-                'preview column for $date must not host any '
-                'task-derived timeline widget (documented)',
-          );
-        }
-
-        // Sanity: the planner is parked on _today.
-        expect(
-          app.container.read(plannerControllerProvider).selectedDate,
-          _today,
-        );
-      },
-    );
-
-    testWidgets(
-      'TEST 3 — recurring Event occurrences render on every '
-      'explicit preview page the recurrence reader fills; no '
-      'synthetic per-occurrence duplicate is invented by the '
-      'preview',
-      (tester) async {
-        final stack = await _buildStack(tester);
-        final app = await stack.pumpApp(tester);
-        // Seed a daily recurring Event anchored on _previous.
-        await stack.calendarRepository.saveEvent(
-          profileId: app.profileId,
-          draft: _timedDraft(
-            id: _recurringId,
-            title: 'Daily standup',
-            date: _previous,
-            startMinute: 9 * 60,
-            endMinute: 9 * 60 + 30,
-            recurrence: _dailyRecurrence,
-          ),
-        );
-        // Force a planner reload so the preview signature
-        // changes after the post-pump seed and the recurring
-        // occurrences render on the matching preview pages.
-        await _refresh(tester, app.container);
-
-        // The recurrence reader expands the series one day
-        // forward and one day back from each readDay pageDate.
-        // Therefore the seeded series should produce one
-        // occurrence visible on _previous, one on _today, and
-        // one on _next. The previous/next preview columns
-        // consume the same readDay produced
-        // `PlannerDay.timedEvents`; the centered current page
-        // is rendered by the production `_TimedEventTimeline`,
-        // which uses a different per-Event key. We assert
-        // page-correctness with the right key for each column.
-        for (final date in <PlannerDate>[_previous, _next]) {
-          final occurrenceId = await _occurrenceIdFor(
-            calendar: stack.calendarRepository,
-            profileId: app.profileId,
-            date: date,
-            seedEventId: _recurringId,
-          );
-          expect(occurrenceId, isNotEmpty,
-              reason:
-                  'recurring occurrence for $date must be returned by readDay');
-          expect(
-            find.descendant(
-              of: find.byKey(_previewPageKey(date)),
-              matching: find.byKey(_previewEventKey(occurrenceId)),
-            ),
-            findsOneWidget,
-            reason:
-                'recurring occurrence for $date must render on its '
-                'matching explicit preview page',
-          );
-        }
-        // The centered day is rendered by `_TimedEventTimeline`
-        // (different per-Event key path) and must carry exactly
-        // one placement for the recurring series.
-        final centeredOccurrenceId = await _occurrenceIdFor(
-          calendar: stack.calendarRepository,
-          profileId: app.profileId,
-          date: _today,
-          seedEventId: _recurringId,
-        );
-        expect(centeredOccurrenceId, isNotEmpty,
-            reason:
-                'recurring occurrence for $_today must be returned by readDay');
-        expect(
-          find.byKey(Key('planner-timed-event-$centeredOccurrenceId')),
-          findsOneWidget,
-          reason:
-              'recurring occurrence for $_today must render on the '
-              'centered current timeline exactly once',
-        );
-        // No duplicate occurrences on the same preview page:
-        // each preview page renders a single instance of the
-        // recurring series, mirroring the authoritative
-        // `readDay` fan-out rather than synthesizing extra
-        // events.
-        for (final date in <PlannerDate>[_previous, _next]) {
-          final occurrenceId = await _occurrenceIdFor(
-            calendar: stack.calendarRepository,
-            profileId: app.profileId,
-            date: date,
-            seedEventId: _recurringId,
-          );
-          expect(
-            find
-                .descendant(
-                  of: find.byKey(_previewPageKey(date)),
-                  matching: find.byKey(_previewEventKey(occurrenceId)),
-                )
-                .evaluate()
-                .length,
-            lessThanOrEqualTo(1),
-            reason:
-                'preview page $date must contain at most one occurrence '
-                'for the series',
-          );
-        }
-      },
-    );
-
-    testWidgets(
-      'TEST 4 — recurrence exception: an occurrence-scoped '
-      'reschedule of a recurring Event moves the placement '
-      'without leaving a duplicate on the original page',
-      (tester) async {
-        // Authoritative contract under test:
-        //   - `DriftPlannerRepository.readDay` only emits
-        //     `scheduled`, `completedHappened`, and
-        //     `partiallyCompleted` items into `timedEvents`;
-        //     cancelled / rescheduled / didNotHappen items
-        //     surface through the `changes` list, not the
-        //     timed canvas.
-        //   - `rescheduleEvent(scope: occurrence)` persists a
-        //     single exception row with `status = rescheduled`
-        //     on the original date, plus a brand-new replacement
-        //     Event row anchored on the new date.
-        //   - Therefore a real reschedule exception is the
-        //     only supported occurrence-scoped exception whose
-        //     effect is observable on the preview columns: the
-        //     original page must no longer render the original
-        //     occurrence (status = rescheduled is filtered out
-        //     of `timedEvents`), and the new date must render
-        //     exactly one replacement occurrence.
-        final stack = await _buildStack(tester);
-        // Pump the Planner route first so the FK row exists
-        // for the seeded series and the reschedule.
-        final app = await stack.pumpApp(tester);
-        // Seed a daily recurring series anchored on _previous.
-        await stack.calendarRepository.saveEvent(
-          profileId: app.profileId,
-          draft: _timedDraft(
-            id: _recurringId,
-            title: 'Daily standup',
-            date: _previous,
-            startMinute: 9 * 60,
-            endMinute: 9 * 60 + 30,
-            recurrence: _dailyRecurrence,
-          ),
-        );
-        // Force a planner reload so the preview signature
-        // changes after the post-pump seed and the _previous
-        // occurrence renders on the matching preview page.
-        await _refresh(tester, app.container);
-
-        // Sanity: the _previous occurrence is visible on the
-        // _previous preview BEFORE the reschedule. Use the
-        // readDay-resolved occurrence id; the seed row id never
-        // appears on the preview tree.
-        final originalPreviousOccurrenceId = await _occurrenceIdFor(
-          calendar: stack.calendarRepository,
-          profileId: app.profileId,
-          date: _previous,
-          seedEventId: _recurringId,
-        );
-        expect(originalPreviousOccurrenceId, isNotEmpty,
-            reason:
-                'series must have a deterministic occurrence id on _previous');
-        expect(
-          find.descendant(
-            of: find.byKey(_previewPageKey(_previous)),
-            matching: find.byKey(
-              _previewEventKey(originalPreviousOccurrenceId),
-            ),
-          ),
-          findsOneWidget,
-          reason:
-              'seeded occurrence must render on the _previous preview '
-              'before the reschedule',
-        );
-
-        // Apply an occurrence-scoped reschedule that moves the
-        // _previous occurrence to _today. The replacement Event
-        // gets a brand-new UUID identity so the repository can
-        // anchor the new row on _today without colliding with
-        // the original series row.
-        final outcome = await stack.calendarRepository.rescheduleEvent(
-          profileId: app.profileId,
-          eventId: _recurringId,
-          originalDate: _previous,
-          scope: CalendarEventEditScope.occurrence,
-          replacement: _timedDraft(
-            id: _rescheduleReplacementId,
-            title: 'Daily standup',
-            date: _today,
-            startMinute: 10 * 60,
-            endMinute: 10 * 60 + 30,
-          ),
-          operationId: _rescheduleOperationId,
-        );
-        expect(
-          outcome,
-          CalendarEventMutationOutcome.changed,
-          reason: 'reschedule must commit a new mutation',
-        );
-        // Force a planner reload so the preview signature
-        // changes after the reschedule and the preview
-        // columns reflect the post-mutation readDay result.
-        await _refresh(tester, app.container);
-
-        // The original _previous occurrence is now status =
-        // `rescheduled`, which the production
-        // `DriftPlannerRepository._isVisibleTimelineState`
-        // filters out of `timedEvents`. The preview column
-        // consumes only `pageDay.timedEvents`, so the original
-        // preview must no longer carry a placement for the
-        // original occurrence id.
-        expect(
-          find.descendant(
-            of: find.byKey(_previewPageKey(_previous)),
-            matching: find.byKey(
-              _previewEventKey(originalPreviousOccurrenceId),
-            ),
-          ),
-          findsNothing,
-          reason:
-              'original occurrence on _previous must be suppressed '
-              'from the preview after a reschedule exception',
-        );
-
-        // The replacement row lives on _today, which is the
-        // CENTERED page (not a preview column). The centered
-        // current page is rendered by the production
-        // `_TimedEventTimeline` and uses a different
-        // per-Event key path. We assert the replacement
-        // occurrence renders on the centered timeline exactly
-        // once and uses the readDay-resolved occurrence id
-        // (never the raw row id).
-        final replacementOccurrenceId = await _occurrenceIdFor(
-          calendar: stack.calendarRepository,
-          profileId: app.profileId,
-          date: _today,
-          seedEventId: _rescheduleReplacementId,
-        );
-        expect(replacementOccurrenceId, isNotEmpty,
-            reason:
-                'replacement must have a deterministic occurrence id on _today');
-        expect(
-          replacementOccurrenceId,
-          isNot(originalPreviousOccurrenceId),
-          reason:
-              'replacement and original must not share an occurrence id',
-        );
-        expect(
-          find.byKey(Key('planner-timed-event-$replacementOccurrenceId')),
-          findsOneWidget,
-          reason:
-              'replacement occurrence must render on the _today '
-              'centered timeline exactly once',
-        );
-        // The replacement must not also appear on the
-        // _previous or _next preview columns.
-        expect(
-          find.descendant(
-            of: find.byKey(_previewPageKey(_previous)),
-            matching: find.byKey(
-              _previewEventKey(replacementOccurrenceId),
-            ),
-          ),
-          findsNothing,
-          reason:
-              'replacement must not leak to the _previous preview page',
-        );
-
-        // The _next page (28) is one day past the original
-        // _previous (26) anchor; the daily series still
-        // produces a real occurrence there. The reschedule
-        // must not leak the replacement into _next.
-        final nextOccurrenceId = await _occurrenceIdFor(
-          calendar: stack.calendarRepository,
-          profileId: app.profileId,
-          date: _next,
-          seedEventId: _recurringId,
-        );
-        expect(nextOccurrenceId, isNotEmpty,
-            reason:
-                'unmodified series occurrence on _next must still exist');
-        expect(
-          nextOccurrenceId,
-          isNot(replacementOccurrenceId),
-          reason:
-              'unmodified _next occurrence must remain distinct from '
-              'the _today replacement',
-        );
-        expect(
-          find.descendant(
-            of: find.byKey(_previewPageKey(_next)),
-            matching: find.byKey(
-              _previewEventKey(replacementOccurrenceId),
-            ),
-          ),
-          findsNothing,
-          reason:
-              'replacement must not leak to the _next preview page',
-        );
-        // And the original _next occurrence is still rendered
-        // exactly once on the _next preview.
-        expect(
-          find.descendant(
-            of: find.byKey(_previewPageKey(_next)),
-            matching: find.byKey(_previewEventKey(nextOccurrenceId)),
-          ),
-          findsOneWidget,
-          reason:
-              'unmodified _next occurrence must render exactly once '
-              'after the reschedule',
-        );
-      },
-    );
-
-    testWidgets(
-      'TEST 5 — short and overlapping Events render on the preview '
-      'using the same production layout helper',
-      (tester) async {
-        final stack = await _buildStack(tester);
-        // Pump the Planner route first so the FK row exists
-        // for the seeded Calendar Events below.
-        final app = await stack.pumpApp(tester);
-        final calendar = stack.calendarRepository;
-        // Short Event (~30 minutes) on _previous.
-        await calendar.saveEvent(
-          profileId: app.profileId,
-          draft: _timedDraft(
-            id: _shortEventId,
-            title: 'Quick sync',
-            date: _previous,
-            startMinute: 8 * 60,
-            endMinute: 8 * 60 + 30,
-          ),
-        );
-        // Overlapping Events on _previous.
-        await calendar.saveEvent(
-          profileId: app.profileId,
-          draft: _timedDraft(
-            id: _overlapAId,
-            title: 'Overlap A',
-            date: _previous,
-            startMinute: 13 * 60,
-            endMinute: 14 * 60,
-          ),
-        );
-        await calendar.saveEvent(
-          profileId: app.profileId,
-          draft: _timedDraft(
-            id: _overlapBId,
-            title: 'Overlap B',
-            date: _previous,
-            startMinute: 13 * 60 + 30,
-            endMinute: 14 * 60 + 30,
-          ),
-        );
-        // Force a planner reload so the preview signature
-        // changes after the post-pump seed and the short and
-        // overlapping Events render on the _previous preview.
-        await _refresh(tester, app.container);
-
-        // Resolve each seed to its readDay occurrence id; the
-        // preview widget key is the occurrence id, never the
-        // raw row id.
-        final shortOccurrenceId = await _occurrenceIdFor(
-          calendar: calendar,
-          profileId: app.profileId,
-          date: _previous,
-          seedEventId: _shortEventId,
-        );
-        final overlapAOccurrenceId = await _occurrenceIdFor(
-          calendar: calendar,
-          profileId: app.profileId,
-          date: _previous,
-          seedEventId: _overlapAId,
-        );
-        final overlapBOccurrenceId = await _occurrenceIdFor(
-          calendar: calendar,
-          profileId: app.profileId,
-          date: _previous,
-          seedEventId: _overlapBId,
-        );
-
-        // Short Event: renders on the previous preview using
-        // the exact production minute-to-pixel geometry. At
-        // the preview's 60px/hour scale, a 30-minute Event is
-        // 30 logical pixels tall; no visual minimum inflates
-        // its duration.
-        final shortFinder = find.descendant(
+      // Previous Event: only on previous preview.
+      expect(
+        find.descendant(
           of: find.byKey(_previewPageKey(_previous)),
+          matching: find.byKey(_previewEventKey(previousOccurrenceId)),
+        ),
+        findsOneWidget,
+        reason: 'previous Event must appear on the previous preview',
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(_previewPageKey(_today)),
+          matching: find.byKey(_previewEventKey(previousOccurrenceId)),
+        ),
+        findsNothing,
+        reason: 'previous Event must not leak onto centered page',
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(_previewPageKey(_next)),
+          matching: find.byKey(_previewEventKey(previousOccurrenceId)),
+        ),
+        findsNothing,
+        reason: 'previous Event must not leak onto next preview',
+      );
+
+      // Selected-day Event surfaces only via the centered
+      // page. The pager preview columns consume the per-page
+      // `PlannerDay.timedEvents` derived from `readDay(pageDate)`,
+      // so an Event scheduled on _today produces a
+      // `PlannerCalendarItem` only on `_today`'s list. The
+      // previous and next preview keys therefore never carry
+      // a placement keyed to its occurrence id.
+      expect(
+        find.descendant(
+          of: find.byKey(_previewPageKey(_previous)),
+          matching: find.byKey(_previewEventKey(selectedOccurrenceId)),
+        ),
+        findsNothing,
+        reason: 'selected-day Event must not appear on previous preview',
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(_previewPageKey(_next)),
+          matching: find.byKey(_previewEventKey(selectedOccurrenceId)),
+        ),
+        findsNothing,
+        reason: 'selected-day Event must not appear on next preview',
+      );
+
+      // Next Event: only on next preview.
+      expect(
+        find.descendant(
+          of: find.byKey(_previewPageKey(_next)),
+          matching: find.byKey(_previewEventKey(nextOccurrenceId)),
+        ),
+        findsOneWidget,
+        reason: 'next Event must appear on next preview',
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(_previewPageKey(_previous)),
+          matching: find.byKey(_previewEventKey(nextOccurrenceId)),
+        ),
+        findsNothing,
+        reason: 'next Event must not leak onto previous preview',
+      );
+
+      // Basic current-time preview parity: in this fixture
+      // the centered page is `today` and neither preview
+      // date is `today`, so the current-time indicator is
+      // absent from both preview pages. The next-phase
+      // ownership/midnight matrix is intentionally out of
+      // scope here.
+      expect(
+        find.descendant(
+          of: find.byKey(_previewPageKey(_previous)),
+          matching: find.byKey(const Key('planner-current-time-indicator')),
+        ),
+        findsNothing,
+        reason:
+            'previous preview is not today, so no current-time '
+            'indicator must render',
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(_previewPageKey(_next)),
+          matching: find.byKey(const Key('planner-current-time-indicator')),
+        ),
+        findsNothing,
+        reason:
+            'next preview is not today, so no current-time '
+            'indicator must render',
+      );
+    });
+
+    testWidgets('TEST 2 — task parity: tasks are NOT part of the timed-day '
+        'canvas (documented); preview columns render timedEvents only', (
+      tester,
+    ) async {
+      // Documented fact (from the production source): the
+      // authoritative `_TimedEventTimeline` receives only
+      // `events: day.timedEvents` and the pager preview
+      // columns also render `pageDay.timedEvents`. Planner
+      // tasks live in `PlannerDay.tasks` / `overdueTasks` /
+      // `completedTasks` and are surfaced through a separate
+      // surface, never the timed-day canvas.
+      //
+      // Therefore the preview columns never host a Planner
+      // task. We assert the documented behavior via
+      // find.byWidgetPredicate: zero widgets inside a preview
+      // are keyed by a Planner-task-only pattern.
+      final stack = await _buildStack(tester);
+      final app = await stack.pumpApp(tester);
+      await _seedThreeDayFixture(stack, app.profileId);
+      // Force a planner reload so the preview signature
+      // changes after the post-pump seed.
+      await _refresh(tester, app.container);
+
+      for (final date in <PlannerDate>[_previous, _today, _next]) {
+        expect(
+          find.descendant(
+            of: find.byKey(_previewPageKey(date)),
+            matching: find.byWidgetPredicate((w) {
+              final k = w.key;
+              return k is ValueKey<String> &&
+                  k.value.startsWith('planner-pager-preview-task-');
+            }),
+          ),
+          findsNothing,
+          reason:
+              'preview column for $date must not host any '
+              'task-derived timeline widget (documented)',
+        );
+      }
+
+      // Sanity: the planner is parked on _today.
+      expect(
+        app.container.read(plannerControllerProvider).selectedDate,
+        _today,
+      );
+    });
+
+    testWidgets('TEST 3 — recurring Event occurrences render on every '
+        'explicit preview page the recurrence reader fills; no '
+        'synthetic per-occurrence duplicate is invented by the '
+        'preview', (tester) async {
+      final stack = await _buildStack(tester);
+      final app = await stack.pumpApp(tester);
+      // Seed a daily recurring Event anchored on _previous.
+      await stack.calendarRepository.saveEvent(
+        profileId: app.profileId,
+        draft: _timedDraft(
+          id: _recurringId,
+          title: 'Daily standup',
+          date: _previous,
+          startMinute: 9 * 60,
+          endMinute: 10 * 60,
+          recurrence: _dailyRecurrence,
+          requiresReport: true,
+        ),
+      );
+      // Force a planner reload so the preview signature
+      // changes after the post-pump seed and the recurring
+      // occurrences render on the matching preview pages.
+      await _refresh(tester, app.container);
+
+      // The recurrence reader expands the series one day
+      // forward and one day back from each readDay pageDate.
+      // Therefore the seeded series should produce one
+      // occurrence visible on _previous, one on _today, and
+      // one on _next. The previous/next preview columns
+      // consume the same readDay produced
+      // `PlannerDay.timedEvents`; the centered current page
+      // is rendered by the production `_TimedEventTimeline`,
+      // which uses a different per-Event key. We assert
+      // page-correctness with the right key for each column.
+      for (final date in <PlannerDate>[_previous, _next]) {
+        final occurrenceId = await _occurrenceIdFor(
+          calendar: stack.calendarRepository,
+          profileId: app.profileId,
+          date: date,
+          seedEventId: _recurringId,
+        );
+        expect(
+          occurrenceId,
+          isNotEmpty,
+          reason: 'recurring occurrence for $date must be returned by readDay',
+        );
+        expect(
+          find.descendant(
+            of: find.byKey(_previewPageKey(date)),
+            matching: find.byKey(_previewEventKey(occurrenceId)),
+          ),
+          findsOneWidget,
+          reason:
+              'recurring occurrence for $date must render on its '
+              'matching explicit preview page',
+        );
+        final previewEvent = find.descendant(
+          of: find.byKey(_previewPageKey(date)),
+          matching: find.byKey(_previewEventKey(occurrenceId)),
+        );
+        expect(
+          find.descendant(
+            of: previewEvent,
+            matching: find.text('Daily standup'),
+          ),
+          findsOneWidget,
+          reason: 'adjacent preview must retain the Event title',
+        );
+        expect(
+          find.descendant(
+            of: previewEvent,
+            matching: find.text('9:00 AM - 10:00 AM'),
+          ),
+          findsOneWidget,
+          reason: 'adjacent preview must retain the formatted time range',
+        );
+        expect(
+          find.descendant(
+            of: previewEvent,
+            matching: find.byKey(
+              Key('planner-pager-preview-event-recurrence-$occurrenceId'),
+            ),
+          ),
+          findsOneWidget,
+          reason: 'recurring adjacent preview must show the repeat icon',
+        );
+        expect(
+          find.descendant(
+            of: previewEvent,
+            matching: find.byKey(
+              Key('planner-pager-preview-event-status-$occurrenceId'),
+            ),
+          ),
+          findsOneWidget,
+          reason: 'adjacent preview must show compact status when it fits',
+        );
+      }
+      // The centered day is rendered by `_TimedEventTimeline`
+      // (different per-Event key path) and must carry exactly
+      // one placement for the recurring series.
+      final centeredOccurrenceId = await _occurrenceIdFor(
+        calendar: stack.calendarRepository,
+        profileId: app.profileId,
+        date: _today,
+        seedEventId: _recurringId,
+      );
+      expect(
+        centeredOccurrenceId,
+        isNotEmpty,
+        reason: 'recurring occurrence for $_today must be returned by readDay',
+      );
+      expect(
+        find.byKey(Key('planner-timed-event-$centeredOccurrenceId')),
+        findsOneWidget,
+        reason:
+            'recurring occurrence for $_today must render on the '
+            'centered current timeline exactly once',
+      );
+      // No duplicate occurrences on the same preview page:
+      // each preview page renders a single instance of the
+      // recurring series, mirroring the authoritative
+      // `readDay` fan-out rather than synthesizing extra
+      // events.
+      for (final date in <PlannerDate>[_previous, _next]) {
+        final occurrenceId = await _occurrenceIdFor(
+          calendar: stack.calendarRepository,
+          profileId: app.profileId,
+          date: date,
+          seedEventId: _recurringId,
+        );
+        expect(
+          find
+              .descendant(
+                of: find.byKey(_previewPageKey(date)),
+                matching: find.byKey(_previewEventKey(occurrenceId)),
+              )
+              .evaluate()
+              .length,
+          lessThanOrEqualTo(1),
+          reason:
+              'preview page $date must contain at most one occurrence '
+              'for the series',
+        );
+      }
+    });
+
+    testWidgets('TEST 4 — recurrence exception: an occurrence-scoped '
+        'reschedule of a recurring Event moves the placement '
+        'without leaving a duplicate on the original page', (tester) async {
+      // Authoritative contract under test:
+      //   - `DriftPlannerRepository.readDay` only emits
+      //     `scheduled`, `completedHappened`, and
+      //     `partiallyCompleted` items into `timedEvents`;
+      //     cancelled / rescheduled / didNotHappen items
+      //     surface through the `changes` list, not the
+      //     timed canvas.
+      //   - `rescheduleEvent(scope: occurrence)` persists a
+      //     single exception row with `status = rescheduled`
+      //     on the original date, plus a brand-new replacement
+      //     Event row anchored on the new date.
+      //   - Therefore a real reschedule exception is the
+      //     only supported occurrence-scoped exception whose
+      //     effect is observable on the preview columns: the
+      //     original page must no longer render the original
+      //     occurrence (status = rescheduled is filtered out
+      //     of `timedEvents`), and the new date must render
+      //     exactly one replacement occurrence.
+      final stack = await _buildStack(tester);
+      // Pump the Planner route first so the FK row exists
+      // for the seeded series and the reschedule.
+      final app = await stack.pumpApp(tester);
+      // Seed a daily recurring series anchored on _previous.
+      await stack.calendarRepository.saveEvent(
+        profileId: app.profileId,
+        draft: _timedDraft(
+          id: _recurringId,
+          title: 'Daily standup',
+          date: _previous,
+          startMinute: 9 * 60,
+          endMinute: 9 * 60 + 30,
+          recurrence: _dailyRecurrence,
+        ),
+      );
+      // Force a planner reload so the preview signature
+      // changes after the post-pump seed and the _previous
+      // occurrence renders on the matching preview page.
+      await _refresh(tester, app.container);
+
+      // Sanity: the _previous occurrence is visible on the
+      // _previous preview BEFORE the reschedule. Use the
+      // readDay-resolved occurrence id; the seed row id never
+      // appears on the preview tree.
+      final originalPreviousOccurrenceId = await _occurrenceIdFor(
+        calendar: stack.calendarRepository,
+        profileId: app.profileId,
+        date: _previous,
+        seedEventId: _recurringId,
+      );
+      expect(
+        originalPreviousOccurrenceId,
+        isNotEmpty,
+        reason: 'series must have a deterministic occurrence id on _previous',
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(_previewPageKey(_previous)),
+          matching: find.byKey(_previewEventKey(originalPreviousOccurrenceId)),
+        ),
+        findsOneWidget,
+        reason:
+            'seeded occurrence must render on the _previous preview '
+            'before the reschedule',
+      );
+
+      // Apply an occurrence-scoped reschedule that moves the
+      // _previous occurrence to _today. The replacement Event
+      // gets a brand-new UUID identity so the repository can
+      // anchor the new row on _today without colliding with
+      // the original series row.
+      final outcome = await stack.calendarRepository.rescheduleEvent(
+        profileId: app.profileId,
+        eventId: _recurringId,
+        originalDate: _previous,
+        scope: CalendarEventEditScope.occurrence,
+        replacement: _timedDraft(
+          id: _rescheduleReplacementId,
+          title: 'Daily standup',
+          date: _today,
+          startMinute: 10 * 60,
+          endMinute: 10 * 60 + 30,
+        ),
+        operationId: _rescheduleOperationId,
+      );
+      expect(
+        outcome,
+        CalendarEventMutationOutcome.changed,
+        reason: 'reschedule must commit a new mutation',
+      );
+      // Force a planner reload so the preview signature
+      // changes after the reschedule and the preview
+      // columns reflect the post-mutation readDay result.
+      await _refresh(tester, app.container);
+
+      // The original _previous occurrence is now status =
+      // `rescheduled`, which the production
+      // `DriftPlannerRepository._isVisibleTimelineState`
+      // filters out of `timedEvents`. The preview column
+      // consumes only `pageDay.timedEvents`, so the original
+      // preview must no longer carry a placement for the
+      // original occurrence id.
+      expect(
+        find.descendant(
+          of: find.byKey(_previewPageKey(_previous)),
+          matching: find.byKey(_previewEventKey(originalPreviousOccurrenceId)),
+        ),
+        findsNothing,
+        reason:
+            'original occurrence on _previous must be suppressed '
+            'from the preview after a reschedule exception',
+      );
+
+      // The replacement row lives on _today, which is the
+      // CENTERED page (not a preview column). The centered
+      // current page is rendered by the production
+      // `_TimedEventTimeline` and uses a different
+      // per-Event key path. We assert the replacement
+      // occurrence renders on the centered timeline exactly
+      // once and uses the readDay-resolved occurrence id
+      // (never the raw row id).
+      final replacementOccurrenceId = await _occurrenceIdFor(
+        calendar: stack.calendarRepository,
+        profileId: app.profileId,
+        date: _today,
+        seedEventId: _rescheduleReplacementId,
+      );
+      expect(
+        replacementOccurrenceId,
+        isNotEmpty,
+        reason: 'replacement must have a deterministic occurrence id on _today',
+      );
+      expect(
+        replacementOccurrenceId,
+        isNot(originalPreviousOccurrenceId),
+        reason: 'replacement and original must not share an occurrence id',
+      );
+      expect(
+        find.byKey(Key('planner-timed-event-$replacementOccurrenceId')),
+        findsOneWidget,
+        reason:
+            'replacement occurrence must render on the _today '
+            'centered timeline exactly once',
+      );
+      // The replacement must not also appear on the
+      // _previous or _next preview columns.
+      expect(
+        find.descendant(
+          of: find.byKey(_previewPageKey(_previous)),
+          matching: find.byKey(_previewEventKey(replacementOccurrenceId)),
+        ),
+        findsNothing,
+        reason: 'replacement must not leak to the _previous preview page',
+      );
+
+      // The _next page (28) is one day past the original
+      // _previous (26) anchor; the daily series still
+      // produces a real occurrence there. The reschedule
+      // must not leak the replacement into _next.
+      final nextOccurrenceId = await _occurrenceIdFor(
+        calendar: stack.calendarRepository,
+        profileId: app.profileId,
+        date: _next,
+        seedEventId: _recurringId,
+      );
+      expect(
+        nextOccurrenceId,
+        isNotEmpty,
+        reason: 'unmodified series occurrence on _next must still exist',
+      );
+      expect(
+        nextOccurrenceId,
+        isNot(replacementOccurrenceId),
+        reason:
+            'unmodified _next occurrence must remain distinct from '
+            'the _today replacement',
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(_previewPageKey(_next)),
+          matching: find.byKey(_previewEventKey(replacementOccurrenceId)),
+        ),
+        findsNothing,
+        reason: 'replacement must not leak to the _next preview page',
+      );
+      // And the original _next occurrence is still rendered
+      // exactly once on the _next preview.
+      expect(
+        find.descendant(
+          of: find.byKey(_previewPageKey(_next)),
+          matching: find.byKey(_previewEventKey(nextOccurrenceId)),
+        ),
+        findsOneWidget,
+        reason:
+            'unmodified _next occurrence must render exactly once '
+            'after the reschedule',
+      );
+    });
+
+    testWidgets('TEST 5 — short and overlapping Events render on the preview '
+        'using the same production layout helper', (tester) async {
+      final stack = await _buildStack(tester);
+      // Pump the Planner route first so the FK row exists
+      // for the seeded Calendar Events below.
+      final app = await stack.pumpApp(tester);
+      final calendar = stack.calendarRepository;
+      // Short Event (~30 minutes) on _previous.
+      await calendar.saveEvent(
+        profileId: app.profileId,
+        draft: _timedDraft(
+          id: _shortEventId,
+          title: 'Quick sync',
+          date: _previous,
+          startMinute: 8 * 60,
+          endMinute: 8 * 60 + 30,
+        ),
+      );
+      // Overlapping Events on _previous.
+      await calendar.saveEvent(
+        profileId: app.profileId,
+        draft: _timedDraft(
+          id: _overlapAId,
+          title: 'Overlap A',
+          date: _previous,
+          startMinute: 13 * 60,
+          endMinute: 14 * 60,
+        ),
+      );
+      await calendar.saveEvent(
+        profileId: app.profileId,
+        draft: _timedDraft(
+          id: _overlapBId,
+          title: 'Overlap B',
+          date: _previous,
+          startMinute: 13 * 60 + 30,
+          endMinute: 14 * 60 + 30,
+        ),
+      );
+      // Force a planner reload so the preview signature
+      // changes after the post-pump seed and the short and
+      // overlapping Events render on the _previous preview.
+      await _refresh(tester, app.container);
+
+      // Resolve each seed to its readDay occurrence id; the
+      // preview widget key is the occurrence id, never the
+      // raw row id.
+      final shortOccurrenceId = await _occurrenceIdFor(
+        calendar: calendar,
+        profileId: app.profileId,
+        date: _previous,
+        seedEventId: _shortEventId,
+      );
+      final overlapAOccurrenceId = await _occurrenceIdFor(
+        calendar: calendar,
+        profileId: app.profileId,
+        date: _previous,
+        seedEventId: _overlapAId,
+      );
+      final overlapBOccurrenceId = await _occurrenceIdFor(
+        calendar: calendar,
+        profileId: app.profileId,
+        date: _previous,
+        seedEventId: _overlapBId,
+      );
+
+      // Short Event: renders on the previous preview using
+      // the exact production minute-to-pixel geometry. At
+      // the preview's 60px/hour scale, a 30-minute Event is
+      // 30 logical pixels tall; no visual minimum inflates
+      // its duration.
+      final shortFinder = find.descendant(
+        of: find.byKey(_previewPageKey(_previous)),
+        matching: find.byKey(_previewEventKey(shortOccurrenceId)),
+      );
+      expect(
+        shortFinder,
+        findsOneWidget,
+        reason: 'short Event must render on the preview',
+      );
+      final shortSize = tester.getSize(shortFinder);
+      expect(shortSize.height, 30);
+
+      // Both overlapping Events render side-by-side on the
+      // same preview page because the production layout
+      // helper `PlannerTimelineLayout.arrange` produces a
+      // column-placement per overlapping Event. Verify each
+      // finds exactly one placement and that the two
+      // placements sit in different horizontal columns.
+      final overlapAFinder = find.descendant(
+        of: find.byKey(_previewPageKey(_previous)),
+        matching: find.byKey(_previewEventKey(overlapAOccurrenceId)),
+      );
+      final overlapBFinder = find.descendant(
+        of: find.byKey(_previewPageKey(_previous)),
+        matching: find.byKey(_previewEventKey(overlapBOccurrenceId)),
+      );
+      expect(
+        overlapAFinder,
+        findsOneWidget,
+        reason: 'overlap A must render on the preview',
+      );
+      expect(
+        overlapBFinder,
+        findsOneWidget,
+        reason: 'overlap B must also render on the preview',
+      );
+      final overlapARect = tester.getRect(overlapAFinder);
+      final overlapBRect = tester.getRect(overlapBFinder);
+      // Two columns for two overlapping Events means their
+      // horizontal left edges must differ; the production
+      // `arrange` helper never stacks them at the same x.
+      expect(
+        (overlapARect.left - overlapBRect.left).abs() > 1,
+        isTrue,
+        reason:
+            'overlapping Events must occupy distinct columns on '
+            'the preview (left A=${overlapARect.left}, '
+            'left B=${overlapBRect.left})',
+      );
+
+      // Page-scoped finders prevent false positives: the
+      // same occurrence ids must not be on any other
+      // preview page.
+      expect(
+        find.descendant(
+          of: find.byKey(_previewPageKey(_today)),
           matching: find.byKey(_previewEventKey(shortOccurrenceId)),
-        );
-        expect(shortFinder, findsOneWidget,
-            reason: 'short Event must render on the preview');
-        final shortSize = tester.getSize(shortFinder);
-        expect(shortSize.height, 30);
+        ),
+        findsNothing,
+        reason: 'short Event must not leak onto the _today preview',
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(_previewPageKey(_next)),
+          matching: find.byKey(_previewEventKey(shortOccurrenceId)),
+        ),
+        findsNothing,
+        reason: 'short Event must not leak onto the _next preview',
+      );
 
-        // Both overlapping Events render side-by-side on the
-        // same preview page because the production layout
-        // helper `PlannerTimelineLayout.arrange` produces a
-        // column-placement per overlapping Event. Verify each
-        // finds exactly one placement and that the two
-        // placements sit in different horizontal columns.
-        final overlapAFinder = find.descendant(
+      // Final shared-layout assertion: the two overlapping
+      // Events share the production `hourHeight` step.
+      // Overlap B starts exactly 30 minutes after overlap A
+      // so their top y positions must differ by a positive
+      // step. The page-scoped and column-distinct assertions
+      // above already cover the page-keying and column
+      // geometry contracts; the positive step closes the
+      // loop on the production `hourHeight` being shared
+      // (i.e. the gap is not zero and not noise).
+      final gap = (overlapBRect.top - overlapARect.top).abs();
+      expect(
+        gap > 0,
+        isTrue,
+        reason:
+            'overlap B must sit below overlap A by a positive '
+            'vertical step (was $gap)',
+      );
+    });
+
+    testWidgets('TEST 6 — basic current-time preview parity: the production '
+        'preview column respects the `isToday` flag and never '
+        'renders the current-time indicator on off-today pages', (
+      tester,
+    ) async {
+      // Contract under test (D3-A2 narrow scope):
+      //   - The production `_PagerPreviewColumn` renders the
+      //     current-time indicator only when
+      //     `settings.showCurrentTime && isToday`.
+      //   - `isToday` is `widget.today == widget.nextDate`
+      //     for the next preview and
+      //     `widget.today == widget.previousDate` for the
+      //     previous preview, where `widget.today` is the
+      //     `FixedPlannerDateSource` value (2026-07-27).
+      //   - The indicator is suppressed on off-today pages
+      //     regardless of the wall-clock minute or
+      //     `DateTime.now()`; this is the durable parity
+      //     claim the test can prove deterministically.
+      //
+      // The presence side (indicator actually rendering on
+      // a today page) depends on `DateTime.now()` falling
+      // inside the visible hour window AND on the
+      // wall-clock date being 2026-07-27, neither of
+      // which the focused test can guarantee without a
+      // production change to thread a
+      // `currentTimeListenable` into the preview column.
+      // The preview column's `_positionedCurrentTime` is
+      // still called from `DateTime.now()` directly, so
+      // the focused test proves only the negative side:
+      // off-today pages never render the indicator.
+      // The presence side is part of the remaining D3-A2
+      // current-time ownership matrix.
+      final stack = await _buildStack(tester);
+      final app = await stack.pumpApp(tester);
+      // Selected is _today (2026-07-27) by default. Both
+      // preview pages are off-today (26 and 28), so the
+      // `isToday` flag is false on both columns.
+      expect(
+        app.container.read(plannerControllerProvider).selectedDate,
+        _today,
+        reason: 'planner must start parked on _today',
+      );
+      await _pumpFrames(tester);
+      await tester.pumpAndSettle();
+
+      // Off-today previous preview: no indicator at all.
+      expect(
+        find.descendant(
           of: find.byKey(_previewPageKey(_previous)),
-          matching: find.byKey(_previewEventKey(overlapAOccurrenceId)),
-        );
-        final overlapBFinder = find.descendant(
-          of: find.byKey(_previewPageKey(_previous)),
-          matching: find.byKey(_previewEventKey(overlapBOccurrenceId)),
-        );
-        expect(overlapAFinder, findsOneWidget,
-            reason: 'overlap A must render on the preview');
-        expect(overlapBFinder, findsOneWidget,
-            reason: 'overlap B must also render on the preview');
-        final overlapARect = tester.getRect(overlapAFinder);
-        final overlapBRect = tester.getRect(overlapBFinder);
-        // Two columns for two overlapping Events means their
-        // horizontal left edges must differ; the production
-        // `arrange` helper never stacks them at the same x.
-        expect(
-          (overlapARect.left - overlapBRect.left).abs() > 1,
-          isTrue,
-          reason:
-              'overlapping Events must occupy distinct columns on '
-              'the preview (left A=${overlapARect.left}, '
-              'left B=${overlapBRect.left})',
-        );
+          matching: find.byKey(const Key('planner-current-time-indicator')),
+        ),
+        findsNothing,
+        reason:
+            'previous preview (off-today) must not render the '
+            'current-time indicator',
+      );
 
-        // Page-scoped finders prevent false positives: the
-        // same occurrence ids must not be on any other
-        // preview page.
-        expect(
-          find.descendant(
-            of: find.byKey(_previewPageKey(_today)),
-            matching: find.byKey(_previewEventKey(shortOccurrenceId)),
-          ),
-          findsNothing,
-          reason: 'short Event must not leak onto the _today preview',
-        );
-        expect(
-          find.descendant(
-            of: find.byKey(_previewPageKey(_next)),
-            matching: find.byKey(_previewEventKey(shortOccurrenceId)),
-          ),
-          findsNothing,
-          reason: 'short Event must not leak onto the _next preview',
-        );
+      // Off-today next preview: no indicator at all.
+      expect(
+        find.descendant(
+          of: find.byKey(_previewPageKey(_next)),
+          matching: find.byKey(const Key('planner-current-time-indicator')),
+        ),
+        findsNothing,
+        reason:
+            'next preview (off-today) must not render the '
+            'current-time indicator',
+      );
 
-        // Final shared-layout assertion: the two overlapping
-        // Events share the production `hourHeight` step.
-        // Overlap B starts exactly 30 minutes after overlap A
-        // so their top y positions must differ by a positive
-        // step. The page-scoped and column-distinct assertions
-        // above already cover the page-keying and column
-        // geometry contracts; the positive step closes the
-        // loop on the production `hourHeight` being shared
-        // (i.e. the gap is not zero and not noise).
-        final gap = (overlapBRect.top - overlapARect.top).abs();
-        expect(
-          gap > 0,
-          isTrue,
-          reason:
-              'overlap B must sit below overlap A by a positive '
-              'vertical step (was $gap)',
-        );
-      },
-    );
+      // Off-today centered page: the centered current
+      // page is also off-today only if the planner is not
+      // parked on today. In this fixture the planner is
+      // parked on _today (= 2026-07-27) so the centered
+      // page IS today; the centered current-time
+      // indicator (a different widget subtree owned by
+      // the production `_TimedEventTimeline`) is out of
+      // scope for the preview-parity test. We only assert
+      // the off-today preview parity here.
 
-    testWidgets(
-      'TEST 6 — basic current-time preview parity: the production '
-      'preview column respects the `isToday` flag and never '
-      'renders the current-time indicator on off-today pages',
-      (tester) async {
-        // Contract under test (D3-A2 narrow scope):
-        //   - The production `_PagerPreviewColumn` renders the
-        //     current-time indicator only when
-        //     `settings.showCurrentTime && isToday`.
-        //   - `isToday` is `widget.today == widget.nextDate`
-        //     for the next preview and
-        //     `widget.today == widget.previousDate` for the
-        //     previous preview, where `widget.today` is the
-        //     `FixedPlannerDateSource` value (2026-07-27).
-        //   - The indicator is suppressed on off-today pages
-        //     regardless of the wall-clock minute or
-        //     `DateTime.now()`; this is the durable parity
-        //     claim the test can prove deterministically.
-        //
-        // The presence side (indicator actually rendering on
-        // a today page) depends on `DateTime.now()` falling
-        // inside the visible hour window AND on the
-        // wall-clock date being 2026-07-27, neither of
-        // which the focused test can guarantee without a
-        // production change to thread a
-        // `currentTimeListenable` into the preview column.
-        // The preview column's `_positionedCurrentTime` is
-        // still called from `DateTime.now()` directly, so
-        // the focused test proves only the negative side:
-        // off-today pages never render the indicator.
-        // The presence side is part of the remaining D3-A2
-        // current-time ownership matrix.
-        final stack = await _buildStack(tester);
-        final app = await stack.pumpApp(tester);
-        // Selected is _today (2026-07-27) by default. Both
-        // preview pages are off-today (26 and 28), so the
-        // `isToday` flag is false on both columns.
-        expect(
-          app.container.read(plannerControllerProvider).selectedDate,
-          _today,
-          reason: 'planner must start parked on _today',
-        );
-        await _pumpFrames(tester);
-        await tester.pumpAndSettle();
-
-        // Off-today previous preview: no indicator at all.
+      // The indicator's structure (line + dot + label) is
+      // owned by the production tree and rendered inside
+      // the same Row. Off-today pages must contain zero
+      // of those keys, individually.
+      for (final key in const <String>[
+        'planner-current-time-indicator',
+        'planner-current-time-line',
+        'planner-current-time-dot',
+        'planner-current-time-label',
+      ]) {
         expect(
           find.descendant(
             of: find.byKey(_previewPageKey(_previous)),
-            matching: find.byKey(const Key('planner-current-time-indicator')),
+            matching: find.byKey(Key(key)),
           ),
           findsNothing,
           reason:
-              'previous preview (off-today) must not render the '
-              'current-time indicator',
+              'off-today previous preview must not render '
+              '$key (proves isToday gating)',
         );
-
-        // Off-today next preview: no indicator at all.
         expect(
           find.descendant(
             of: find.byKey(_previewPageKey(_next)),
-            matching: find.byKey(const Key('planner-current-time-indicator')),
+            matching: find.byKey(Key(key)),
           ),
           findsNothing,
           reason:
-              'next preview (off-today) must not render the '
-              'current-time indicator',
+              'off-today next preview must not render '
+              '$key (proves isToday gating)',
         );
-
-        // Off-today centered page: the centered current
-        // page is also off-today only if the planner is not
-        // parked on today. In this fixture the planner is
-        // parked on _today (= 2026-07-27) so the centered
-        // page IS today; the centered current-time
-        // indicator (a different widget subtree owned by
-        // the production `_TimedEventTimeline`) is out of
-        // scope for the preview-parity test. We only assert
-        // the off-today preview parity here.
-
-        // The indicator's structure (line + dot + label) is
-        // owned by the production tree and rendered inside
-        // the same Row. Off-today pages must contain zero
-        // of those keys, individually.
-        for (final key in const <String>[
-          'planner-current-time-indicator',
-          'planner-current-time-line',
-          'planner-current-time-dot',
-          'planner-current-time-label',
-        ]) {
-          expect(
-            find.descendant(
-              of: find.byKey(_previewPageKey(_previous)),
-              matching: find.byKey(Key(key)),
-            ),
-            findsNothing,
-            reason:
-                'off-today previous preview must not render '
-                '$key (proves isToday gating)',
-          );
-          expect(
-            find.descendant(
-              of: find.byKey(_previewPageKey(_next)),
-              matching: find.byKey(Key(key)),
-            ),
-            findsNothing,
-            reason:
-                'off-today next preview must not render '
-                '$key (proves isToday gating)',
-          );
-        }
-      },
-    );
+      }
+    });
   });
 }
