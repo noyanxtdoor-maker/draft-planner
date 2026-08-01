@@ -24,6 +24,7 @@ import 'package:rmplanner/features/planner/presentation/calendar_event_detail_sc
 import 'package:rmplanner/features/planner/presentation/contextual_create_fab.dart';
 import 'package:rmplanner/features/planner/presentation/widgets/anchored_top_bar_popup.dart';
 import 'package:rmplanner/features/planner/presentation/widgets/planner_calendar_icon.dart';
+import 'package:rmplanner/features/planner/presentation/widgets/planner_date_strip.dart';
 import 'package:rmplanner/features/planner/presentation/widgets/planner_event_block_layout_policy.dart';
 import 'package:rmplanner/features/planner/presentation/widgets/planner_interactive_day_pager.dart'
     show PlannerInteractiveDayPager, PlannerInteractiveDayPagerController;
@@ -282,9 +283,8 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
         top: false,
         child: Column(
           children: <Widget>[
-            _WeekStrip(
+            PlannerDateStrip(
               selectedDate: state.selectedDate,
-              weekStartDay: plannerSettings.weekStartDay,
               onSelected: controller.selectDate,
             ),
             Expanded(
@@ -818,16 +818,16 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
           .read(plannerControllerProvider.notifier)
           .readDays(<PlannerDate>[previousDate, state.selectedDate, nextDate])
           .then((days) {
-        // Validate the result against the active generation
-        // before exposing it to the FutureBuilder. The capture
-        // is a synchronous microtask after the future
-        // resolves, so it never builds widget state mid-frame.
-        if (_previewGeneration == startGeneration) {
-          _previousDayContentSignature = _dayContentSignature(days[0]);
-          _nextDayContentSignature = _dayContentSignature(days[2]);
-        }
-        return days;
-      });
+            // Validate the result against the active generation
+            // before exposing it to the FutureBuilder. The capture
+            // is a synchronous microtask after the future
+            // resolves, so it never builds widget state mid-frame.
+            if (_previewGeneration == startGeneration) {
+              _previousDayContentSignature = _dayContentSignature(days[0]);
+              _nextDayContentSignature = _dayContentSignature(days[2]);
+            }
+            return days;
+          });
     }
 
     final hourHeight = settings.timelineHourHeight;
@@ -940,38 +940,38 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                       currentPage: KeyedSubtree(
                         key: const Key('timed-events-section'),
                         child: _TimedEventTimeline(
-                            events: _visibleEvents(day.timedEvents, settings)
-                                .where(
-                                  (event) =>
-                                      settings.showCancelledItems ||
+                          events: _visibleEvents(day.timedEvents, settings)
+                              .where(
+                                (event) =>
+                                    settings.showCancelledItems ||
                                       event.state !=
                                           PlannerEventState.cancelled,
-                                )
-                                .toList(growable: false),
-                            selectedDate: state.selectedDate,
-                            settings: settings,
-                            scrollController: _dayScrollController,
-                            onCreate: (minute) => _createTimedEvent(
-                              context,
-                              ref,
-                              state.selectedDate,
-                              minute,
-                            ),
-                            onMove: (event, startMinute) =>
-                                _moveEvent(ref, event, startMinute),
-                            onResize: (event, endMinute) =>
-                                _resizeEvent(ref, event, endMinute),
-                            selectionMode: _selectionMode,
-                            selectedItems: _selectedItems,
-                            onToggleSelection: _toggleEventSelection,
-                            hourHeight: settings.timelineHourHeight,
-                            onZoomEnd: (value) =>
-                                _persistZoom(ref, settings, value),
-                            daySwipeCoordinator: _daySwipeCoordinator,
-                            pinchCoordinator: _pinchCoordinator,
-                            currentTimeListenable: _activeCurrentTimeListenable,
+                              )
+                              .toList(growable: false),
+                          selectedDate: state.selectedDate,
+                          settings: settings,
+                          scrollController: _dayScrollController,
+                          onCreate: (minute) => _createTimedEvent(
+                            context,
+                            ref,
+                            state.selectedDate,
+                            minute,
                           ),
+                          onMove: (event, startMinute) =>
+                              _moveEvent(ref, event, startMinute),
+                          onResize: (event, endMinute) =>
+                              _resizeEvent(ref, event, endMinute),
+                          selectionMode: _selectionMode,
+                          selectedItems: _selectedItems,
+                          onToggleSelection: _toggleEventSelection,
+                          hourHeight: settings.timelineHourHeight,
+                          onZoomEnd: (value) =>
+                              _persistZoom(ref, settings, value),
+                          daySwipeCoordinator: _daySwipeCoordinator,
+                          pinchCoordinator: _pinchCoordinator,
+                          currentTimeListenable: _activeCurrentTimeListenable,
                         ),
+                      ),
                     );
                   },
                 );
@@ -1478,114 +1478,6 @@ class _OverflowPopupRow extends StatelessWidget {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-final class _WeekStrip extends StatelessWidget {
-  const _WeekStrip({
-    required this.selectedDate,
-    required this.weekStartDay,
-    required this.onSelected,
-  });
-
-  final PlannerDate selectedDate;
-  final int weekStartDay;
-  final ValueChanged<PlannerDate> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    final offset = (selectedDate.weekday - weekStartDay + 7) % 7;
-    final weekStart = selectedDate.addDays(-offset);
-    return Container(
-      key: const Key('planner-week-strip'),
-      margin: const EdgeInsets.fromLTRB(8, 4, 8, 0),
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
-      decoration: BoxDecoration(
-        color: AppTheme.surface,
-        border: Border.all(color: AppTheme.outline),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Row(
-        key: const Key('planner-week-strip-row'),
-        children: <Widget>[
-          for (var index = 0; index < 7; index++)
-            Expanded(
-              child: _DayButton(
-                date: weekStart.addDays(index),
-                selected: weekStart.addDays(index) == selectedDate,
-                onSelected: onSelected,
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-final class _DayButton extends StatelessWidget {
-  const _DayButton({
-    required this.date,
-    required this.selected,
-    required this.onSelected,
-  });
-
-  final PlannerDate date;
-  final bool selected;
-  final ValueChanged<PlannerDate> onSelected;
-
-  static const _labels = <String>[
-    'Mon',
-    'Tue',
-    'Wed',
-    'Thu',
-    'Fri',
-    'Sat',
-    'Sun',
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    final color = selected ? AppTheme.rose : Theme.of(context).hintColor;
-    return Semantics(
-      key: selected ? const Key('planner-selected-date') : null,
-      selected: selected,
-      label:
-          '${_labels[date.weekday - 1]} ${date.iso8601}'
-          '${selected ? ', selected' : ''}',
-      button: true,
-      child: InkWell(
-        key: Key('planner-day-${date.iso8601}'),
-        onTap: () => onSelected(date),
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          constraints: const BoxConstraints(minHeight: 54),
-          padding: const EdgeInsets.symmetric(vertical: 5),
-          decoration: BoxDecoration(
-            border: selected
-                ? Border.all(color: AppTheme.rose, width: 1.5)
-                : null,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: <Widget>[
-              Text(
-                _labels[date.weekday - 1],
-                style: TextStyle(fontSize: 11, color: color),
-              ),
-              Text(
-                '${date.day}',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: selected ? FontWeight.w800 : FontWeight.w500,
-                  color: color,
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );
@@ -2207,6 +2099,29 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
                       child: const Divider(height: 1, color: AppTheme.outline),
                     ),
                   ],
+                  for (var hourIndex = 0; hourIndex < slotCount; hourIndex++)
+                    for (var quarter = 1; quarter < 4; quarter++)
+                      Positioned(
+                        key: Key(
+                          'planner-quarter-hour-line-'
+                          '${_firstHour + hourIndex}-${quarter * 15}',
+                        ),
+                        top:
+                            hourIndex * _hourHeight +
+                            quarter *
+                                PlannerTimelineGeometry.quarterHourHeight(
+                                  _hourHeight,
+                                ),
+                        left: _timeColumnWidth,
+                        right: 0,
+                        child: IgnorePointer(
+                          child: Divider(
+                            height: 1,
+                            thickness: 1,
+                            color: AppTheme.outline.withValues(alpha: 0.45),
+                          ),
+                        ),
+                      ),
                   if (widget.events.isEmpty)
                     const Positioned(
                       top: 18,
@@ -2243,7 +2158,10 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
                           final minuteFromVisibleStart =
                               ((currentNow.hour - _firstHour) * 60) +
                               currentNow.minute;
-                          final pixelsPerMinute = _hourHeight / 60;
+                          final pixelsPerMinute =
+                              PlannerTimelineGeometry.pixelsPerMinute(
+                                _hourHeight,
+                              );
                           final resolvedMinuteY =
                               minuteFromVisibleStart * pixelsPerMinute;
                           final resolvedIndicatorTop =
@@ -2330,11 +2248,7 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
                     ),
                   ),
                   for (final placement in placements)
-                    _positionedEvent(
-                      placement,
-                      constraints.maxWidth,
-                      timelineHeight,
-                    ),
+                    _positionedEvent(placement, constraints.maxWidth),
                 ],
               );
             },
@@ -2347,7 +2261,6 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
   Widget _positionedEvent(
     PlannerTimelinePlacement placement,
     double totalWidth,
-    double timelineHeight,
   ) {
     final event = placement.event;
     final originalStart = event.startLocal!;
@@ -2358,12 +2271,13 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
     final endMinute = _previewEndMinutes[event.id] ?? originalEndMinute;
     final visibleStart = _firstHour * 60;
     final visibleEnd = _lastHour * 60;
-    final clippedStart = startMinute.clamp(visibleStart, visibleEnd - 15);
-    final clippedEnd = endMinute.clamp(clippedStart + 15, visibleEnd);
-    final top = (clippedStart - visibleStart) * (_hourHeight / 60);
-    final height = ((clippedEnd - clippedStart) * (_hourHeight / 60))
-        .clamp(32, timelineHeight - top)
-        .toDouble();
+    final geometry = PlannerTimelineGeometry.event(
+      startMinute: startMinute,
+      endMinute: endMinute,
+      visibleStartMinute: visibleStart,
+      visibleEndMinute: visibleEnd,
+      hourHeight: _hourHeight,
+    );
     final availableWidth = totalWidth - _timeColumnWidth - 8;
     final columnWidth =
         (availableWidth - _eventGap * (placement.columnCount - 1)) /
@@ -2372,10 +2286,10 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
         _timeColumnWidth + 5 + placement.column * (columnWidth + _eventGap);
     return Positioned(
       key: Key('planner-timed-event-${event.id}'),
-      top: top,
+      top: geometry.top,
       left: left,
       width: columnWidth,
-      height: height,
+      height: geometry.height,
       child: _TimelineEventBlock(
         event: event,
         use24HourTime: widget.settings.use24HourTime,
@@ -2805,8 +2719,8 @@ final class _EventBlockContent extends StatelessWidget {
     final titleStyle = TextStyle(
       color: textColor,
       fontWeight: FontWeight.w700,
-      fontSize: density == Density.veryShort ? 11 : 12,
-      height: 1.1,
+      fontSize: density == Density.veryShort ? 9 : 12,
+      height: density == Density.veryShort ? 1.0 : 1.1,
     );
     final timeStyle = TextStyle(
       color: textColor.withValues(alpha: 0.92),
@@ -2820,8 +2734,9 @@ final class _EventBlockContent extends StatelessWidget {
       use24HourTime,
     );
     final inlineText = '${event.title}  $timeText';
+    final verticalPadding = density == Density.veryShort ? 0.0 : 4.0;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(6, 4, 6, 4),
+      padding: EdgeInsets.fromLTRB(6, verticalPadding, 6, verticalPadding),
       child: Column(
         key: const Key('planner-event-block-content'),
         mainAxisSize: MainAxisSize.min,

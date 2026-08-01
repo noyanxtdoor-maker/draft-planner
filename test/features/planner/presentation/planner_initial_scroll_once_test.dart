@@ -253,7 +253,10 @@ class _StartupPrewarm extends ConsumerWidget {
 /// right stateful anchor for reading the position).
 double _scrollOffset(WidgetTester tester) {
   final scrollable = tester.state<ScrollableState>(
-    find.byType(Scrollable).first,
+    find.descendant(
+      of: find.byKey(const Key('planner-day-scroll')),
+      matching: find.byType(Scrollable),
+    ),
   );
   return scrollable.position.pixels;
 }
@@ -279,7 +282,7 @@ Future<double> _scrollBy(WidgetTester tester, double distance) async {
   final scrollable = find.byKey(const Key('planner-day-scroll'));
   expect(scrollable, findsOneWidget);
   final scrollableState = tester.state<ScrollableState>(
-    find.byType(Scrollable).first,
+    find.descendant(of: scrollable, matching: find.byType(Scrollable)),
   );
   // The timeline must be taller than the viewport by at least
   // [distance] logical pixels, otherwise a scroll of that magnitude

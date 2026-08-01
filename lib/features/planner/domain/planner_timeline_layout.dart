@@ -14,6 +14,93 @@ final class PlannerTimelinePlacement {
   final int columnCount;
 }
 
+/// Pixel geometry shared by the centered timeline and the pager previews.
+///
+/// Keeping the minute-to-pixel conversion in one production helper prevents
+/// a visual minimum-height rule from silently changing the duration that an
+/// Event represents. A 15-minute Event therefore always occupies exactly
+/// one quarter of the active hour height.
+abstract final class PlannerTimelineGeometry {
+  static const int minutesPerHour = 60;
+  static const int quarterHourMinutes = 15;
+
+  static double pixelsPerMinute(double hourHeight) {
+    return hourHeight / minutesPerHour;
+  }
+
+  static double yForMinute({
+    required int minute,
+    required int visibleStartMinute,
+    required double hourHeight,
+  }) {
+    return (minute - visibleStartMinute) * pixelsPerMinute(hourHeight);
+  }
+
+  static double heightForDuration({
+    required int durationMinutes,
+    required double hourHeight,
+  }) {
+    return durationMinutes * pixelsPerMinute(hourHeight);
+  }
+
+  static double quarterHourHeight(double hourHeight) {
+    return heightForDuration(
+      durationMinutes: quarterHourMinutes,
+      hourHeight: hourHeight,
+    );
+  }
+
+  /// Resolve a visible Event rectangle without applying a minimum visual
+  /// height. Clipping keeps the rectangle inside the configured timeline;
+  /// the returned height still represents the clipped minute duration.
+  static PlannerTimelineEventGeometry event({
+    required int startMinute,
+    required int endMinute,
+    required int visibleStartMinute,
+    required int visibleEndMinute,
+    required double hourHeight,
+  }) {
+    final clippedStart = startMinute
+        .clamp(visibleStartMinute, visibleEndMinute - quarterHourMinutes)
+        .toInt();
+    final minimumEnd = (clippedStart + quarterHourMinutes).clamp(
+      visibleStartMinute,
+      visibleEndMinute,
+    );
+    final clippedEnd = endMinute.clamp(minimumEnd, visibleEndMinute).toInt();
+    final top = yForMinute(
+      minute: clippedStart,
+      visibleStartMinute: visibleStartMinute,
+      hourHeight: hourHeight,
+    );
+    return PlannerTimelineEventGeometry(
+      clippedStartMinute: clippedStart,
+      clippedEndMinute: clippedEnd,
+      top: top,
+      height: heightForDuration(
+        durationMinutes: clippedEnd - clippedStart,
+        hourHeight: hourHeight,
+      ),
+    );
+  }
+}
+
+final class PlannerTimelineEventGeometry {
+  const PlannerTimelineEventGeometry({
+    required this.clippedStartMinute,
+    required this.clippedEndMinute,
+    required this.top,
+    required this.height,
+  });
+
+  final int clippedStartMinute;
+  final int clippedEndMinute;
+  final double top;
+  final double height;
+
+  double get bottom => top + height;
+}
+
 abstract final class PlannerTimelineLayout {
   static List<PlannerTimelinePlacement> arrange(
     List<PlannerCalendarItem> events,

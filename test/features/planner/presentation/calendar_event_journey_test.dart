@@ -64,7 +64,7 @@ void main() {
       expect(tester.takeException(), isNull, reason: 'all-day selected');
       await tester.dragUntilVisible(
         find.byKey(const Key('event-location-field')),
-        find.byType(ListView),
+        find.byType(ListView).last,
         const Offset(0, -250),
       );
       expect(tester.takeException(), isNull, reason: 'location revealed');
@@ -75,14 +75,14 @@ void main() {
       expect(tester.takeException(), isNull, reason: 'location entered');
       await tester.dragUntilVisible(
         find.byKey(const Key('save-event-button')),
-        find.byType(ListView),
+        find.byType(ListView).last,
         const Offset(0, -250),
       );
       await tester.tap(
         find.byKey(const Key('event-backup-appointment-switch')),
       );
       await tester.tap(find.byKey(const Key('event-requires-report-switch')));
-      await tester.drag(find.byType(ListView), const Offset(0, -100));
+      await tester.drag(find.byType(ListView).last, const Offset(0, -100));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('save-event-button')));
       await tester.pumpAndSettle();

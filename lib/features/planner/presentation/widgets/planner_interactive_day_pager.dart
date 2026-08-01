@@ -523,13 +523,17 @@ class _PlannerInteractiveDayPagerState extends State<PlannerInteractiveDayPager>
     if (!mounted) {
       return;
     }
-    // Commit the date exactly once. The parent rebuild will
-    // reassign previous/current/next dates, so reset the
-    // transform to the centered position before the rebuild.
-    widget.onDayChanged(delta);
+    // Recenter the internal window before notifying the parent. Both the
+    // pager state and the parent's selectedDate update are then scheduled in
+    // the same frame, so a new date is never painted with the old settled
+    // translation (or vice versa).
     setState(() {
       _liveDragOffset = 0;
     });
+    // Commit the date exactly once after the internal translation has been
+    // reset. The parent rebuild reassigns previous/current/next dates without
+    // exposing a second visible settlement.
+    widget.onDayChanged(delta);
   }
 
   Future<void> _animateRecenter() async {
@@ -789,7 +793,7 @@ class _PagerPreviewColumn extends StatelessWidget {
     final firstHour = settings.visibleStartHour;
     final lastHour = settings.visibleEndHour;
     final slotCount = lastHour - firstHour;
-    final pixelsPerMinute = hourHeight / 60.0;
+    final pixelsPerMinute = PlannerTimelineGeometry.pixelsPerMinute(hourHeight);
     final visibleStart = firstHour * 60;
     final visibleEnd = lastHour * 60;
     final events = (pageDay?.timedEvents ?? const <PlannerCalendarItem>[])
@@ -829,6 +833,25 @@ class _PagerPreviewColumn extends StatelessWidget {
               child: const Divider(height: 1, color: AppTheme.outline),
             ),
           ],
+          for (var hourIndex = 0; hourIndex < slotCount; hourIndex++)
+            for (var quarter = 1; quarter < 4; quarter++)
+              Positioned(
+                key: Key(
+                  'planner-pager-quarter-hour-line-'
+                  '${firstHour + hourIndex}-${quarter * 15}',
+                ),
+                top:
+                    hourIndex * hourHeight +
+                    quarter *
+                        PlannerTimelineGeometry.quarterHourHeight(hourHeight),
+                left: kPlannerPagerTimeColumnWidth,
+                right: 0,
+                child: Divider(
+                  height: 1,
+                  thickness: 1,
+                  color: AppTheme.outline.withValues(alpha: 0.45),
+                ),
+              ),
           for (final placement in placements)
             _positionedPreviewEvent(
               placement: placement,
@@ -884,12 +907,13 @@ class _PagerPreviewColumn extends StatelessWidget {
     final end = event.endLocal!;
     final startMinute = start.hour * 60 + start.minute;
     final endMinute = end.hour * 60 + end.minute;
-    final clippedStart = startMinute.clamp(visibleStart, visibleEnd - 15);
-    final clippedEnd = endMinute.clamp(clippedStart + 15, visibleEnd);
-    final top = (clippedStart - visibleStart) * pixelsPerMinute;
-    final height = ((clippedEnd - clippedStart) * pixelsPerMinute)
-        .clamp(32, double.infinity)
-        .toDouble();
+    final geometry = PlannerTimelineGeometry.event(
+      startMinute: startMinute,
+      endMinute: endMinute,
+      visibleStartMinute: visibleStart,
+      visibleEndMinute: visibleEnd,
+      hourHeight: hourHeight,
+    );
     final columnGap = (placement.columnCount > 1 ? 3.0 : 0.0);
     final blockWidth =
         (contentWidth - columnGap * (placement.columnCount - 1)) /
@@ -900,10 +924,10 @@ class _PagerPreviewColumn extends StatelessWidget {
         placement.column * (blockWidth + columnGap);
     return Positioned(
       key: Key('planner-pager-preview-event-${event.id}'),
-      top: top,
+      top: geometry.top,
       left: left,
       width: blockWidth,
-      height: height,
+      height: geometry.height,
       child: IgnorePointer(
         child: DecoratedBox(
           decoration: BoxDecoration(

@@ -851,8 +851,10 @@ void main() {
         );
 
         // Short Event: renders on the previous preview using
-        // the production minimum-height clamp (32 logical
-        // pixels) regardless of the underlying 30-minute span.
+        // the exact production minute-to-pixel geometry. At
+        // the preview's 60px/hour scale, a 30-minute Event is
+        // 30 logical pixels tall; no visual minimum inflates
+        // its duration.
         final shortFinder = find.descendant(
           of: find.byKey(_previewPageKey(_previous)),
           matching: find.byKey(_previewEventKey(shortOccurrenceId)),
@@ -860,14 +862,7 @@ void main() {
         expect(shortFinder, findsOneWidget,
             reason: 'short Event must render on the preview');
         final shortSize = tester.getSize(shortFinder);
-        expect(
-          shortSize.height,
-          greaterThanOrEqualTo(32),
-          reason:
-              'short Event preview block must honor the production '
-              'minimum-height clamp of 32 logical pixels '
-              '(was ${shortSize.height})',
-        );
+        expect(shortSize.height, 30);
 
         // Both overlapping Events render side-by-side on the
         // same preview page because the production layout
