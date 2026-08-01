@@ -1970,3 +1970,212 @@ un_flutter.bat build apk --debug`;
 - Physical Event-interaction safety verification.
 - Final Slice D integration handoff.
 - Final Stage B3-R1 handoff.
+
+
+## Stage B3-R1 Slice D3-A Automated Gate Correction
+
+### Previous four failures
+The previous worker reported that four of the six tests in
+`planner_initial_scroll_once_test.dart` failed (TEST 2, 3, 4, 5 —
+all four tests that call the `_scrollBy` helper). The earlier
+worker attributed the failures to a "gesture arena conflict"
+between the day scroll view and the interactive day pager. That
+hypothesis was not proven: the visible test symptom (start=0,
+end=0) is exactly what you get when a positive-Y drag is issued
+at scroll offset zero under `ClampingScrollPhysics`.
+
+### Direct 5c5a19c baseline result
+The 5c5a19c handoff records "6 passed, 0 failed, 0 skipped, exit
+code 0" for `planner_initial_scroll_once_test.dart`. That claim
+is not reproducible with the current source tree. With the
+production timeline at default settings (visible 6→22, hour
+height 60) the test viewport's `maxScrollExtent` is ~295 logical
+pixels, so the original `tester.fling(..., Offset(0, 300), 800)`
+helper cannot have produced a 300-pixel scroll. The recorded
+"6 passed" was almost certainly a test-side false positive: a
+positive-Y fling from a non-zero starting offset clamped the
+position toward zero without ever actually scrolling the user's
+viewport forward, while the assertion `(end - start).abs() > 0`
+was satisfied by `|start - 0|`. The test was passing by accident.
+
+### Actual root cause
+The shared helper issued `tester.fling(scrollable, Offset(0, 300), 800)`.
+At scroll offset 0, a positive-Y fling moves the finger downward
+and asks the SingleChildScrollView to reduce its offset below
+zero. `ClampingScrollPhysics` correctly clamps to zero. End
+position equals start position equals zero. The helper's
+"manual scroll must move the viewport" assertion then failed for
+the four tests that called it.
+
+The "gesture arena" hypothesis is unproven and is not required
+to explain the observed symptoms.
+
+### Why the gesture-arena hypothesis was not proven
+- The tests do not exercise a multi-finger gesture; the helper
+  drives a single one-finger drag.
+- The four failing tests all use the same helper; tests that
+  do not call the helper (TEST 1, TEST 6) passed cleanly. A
+  gesture-arena conflict would not be so selective.
+- The single-finger vertical drag in question is the only
+  gesture that the `SingleChildScrollView` recognizes. The
+  pager is a horizontal PageView and the pinch is two-finger;
+  neither competes for a single-finger vertical drag.
+
+### Test helper correction
+`test/features/planner/presentation/planner_initial_scroll_once_test.dart`
+`_scrollBy` is replaced with a production-like one-finger drag
+in the negative-Y direction. The new helper:
+1. Asserts `maxScrollExtent > distance` so a scroll of the
+   requested magnitude is geometrically possible. This is the
+   same guard the brief requires; it surfaces the silent-clamp
+   failure mode instead of letting it slip through.
+2. Reads the start offset from the live `ScrollableState`
+   position.
+3. Issues `tester.drag(scrollable, Offset(0, -distance))` — a
+   single-finger drag that drives the actual
+   `VerticalDragGestureRecognizer` inside the
+   `SingleChildScrollView`. This is the same gesture a
+   production user performs to look further into the day.
+4. Asserts `end > start` (offset must strictly increase).
+
+The four call sites were updated from `_scrollBy(tester, 300)`
+to `_scrollBy(tester, 200)` to keep `distance` strictly under
+the timeline's real `maxScrollExtent` (~295) at default
+settings. 200 logical pixels is consistent with the codebase's
+manual-drag conventions (see `calendar_event_journey_test.dart`,
+`event_type_first_creation_test.dart`, all in the 100–250 range)
+and is large enough to be a meaningful manual-scroll signal.
+
+### Production code unchanged
+No production source file was modified. `git diff` against the
+inherited HEAD 58d9d0f shows only the test helper change.
+`lib/features/planner/presentation/planner_screen.dart`,
+`lib/features/planner/domain/planner_view.dart`, and the rest
+of the production tree are byte-identical to the inherited
+state.
+
+### Manual one-pointer gesture result (this session)
+`planner_initial_scroll_once_test.dart` after correction:
+- 6 passed
+- 0 failed
+- 0 skipped
+- exit code 0
+- wrapper: `run_flutter.bat` returned 0
+
+### Scrolling after date strip (TEST 2)
+Passed. Date-strip tap preserves the manual offset within 1.0
+px tolerance. The new helper's `maxScrollExtent > 200` guard
+succeeds (`maxScrollExtent=295`), the negative-Y drag moves
+the offset by ~200 px, and the subsequent date-strip tap does
+not move the scroll.
+
+### Scrolling after Today (TEST 3)
+Passed. "Go to today" preserves the manual offset and the zoom
+factor. New helper and guard both green.
+
+### Scrolling after picker (TEST 4)
+Passed. Slide-down date picker open + OK-confirm preserves
+the manual offset, the zoom factor, and the selected date.
+New helper and guard both green.
+
+### Scrolling after clock update (TEST 5)
+Passed. A 1-minute and a 2-minute controlled clock tick do not
+move the scroll offset. The new helper sets the baseline
+offset, the clock ticks do not perturb it.
+
+### One-shot initial scroll (TEST 1)
+Passed unchanged. The initial scroll positions the viewport
+once and is idempotent across harmless rebuilds and
+same-date re-selection. No manual `_scrollBy` involved; this
+test was already green before the correction.
+
+### Domain-safety across all interactions (TEST 6)
+Passed unchanged. The four user interactions (date-strip,
+Today, picker cancel, picker confirm, clock tick) write zero
+new rows to seven watched tables. No `_scrollBy` involved; this
+test was already green before the correction.
+
+### Initial-scroll total
+6 passed, 0 failed, 0 skipped, exit 0.
+
+### Every focused total (Phase 5 D3-A regressions)
+- planner_interactive_day_pager_cache_test: 7 passed, 0 failed, 0 skipped
+- planner_interactive_day_pager_current_time_test: 7 passed, 0 failed, 0 skipped
+- planner_interactive_day_pager_timing_test: 10 passed, 0 failed, 0 skipped
+- planner_interactive_day_pager_domain_safety_test: 6 passed, 0 failed, 0 skipped
+- planner_interactive_day_pager_preview_test: 6 passed, 0 failed, 0 skipped
+- planner_interactive_day_pager_test: 8 passed, 0 failed, 0 skipped
+- planner_interactive_day_pager_safety_test: 10 passed, 0 failed, 0 skipped
+- planner_shared_viewport_test: 12 passed, 0 failed, 0 skipped
+- planner_horizontal_day_swipe_test: 13 passed, 0 failed, 0 skipped
+- planner_physical_pinch_responsiveness_test: 11 passed, 0 failed, 0 skipped
+- planner_pinch_zoom_test: 7 passed, 0 failed, 0 skipped
+- planner_today_refresh_pinch_test: 10 passed, 0 failed, 0 skipped
+- planner_current_time_indicator_test: 14 passed, 0 failed, 0 skipped
+- planner_initial_scroll_once_test: 6 passed, 0 failed, 0 skipped
+- planner_date_picker_transition_test: 13 passed, 0 failed, 0 skipped
+- planner_issue5_6_test: 16 passed, 0 failed, 0 skipped
+- home_app_bar_test: 6 passed, 0 failed, 0 skipped
+Subtotal: 162 passed, 0 failed, 0 skipped.
+
+### Complete Planner total
+222 passed, 0 failed, 0 skipped, exit 0.
+
+### Complete Flutter total
+285 passed, 0 failed, 0 skipped, exit 0.
+
+### Final analyzer result
+`run_flutter.bat analyze`: "No issues found! (ran in 1.9s)".
+Exit 0.
+
+### Correction checkpoint SHA
+5de1a05 `test(planner): correct manual scroll gesture direction`
+Local, unpushed. Single file in the commit:
+`test/features/planner/presentation/planner_initial_scroll_once_test.dart`.
+
+### Corrected handoff SHA
+This handoff section was authored under HEAD 5de1a05 and will be
+sealed by the `docs(handoff): correct stage b3-r1 slice d3a
+automated gate` checkpoint that follows. That handoff checkpoint
+SHA will be recorded below as `CORRECTION_HANDOFF_SHA_PLACEHOLDER`
+by the sealing commit.
+
+### Final Git status (immediately before handoff checkpoint)
+- modified: docs/handoffs/temp-worker-status.md (this file)
+- untracked: .todo.md
+- no diagnostic file
+- no modified production file
+- no modified test file (after the 5de1a05 correction checkpoint)
+
+### Checkpoints local and unpushed
+- 5de1a05 test(planner): correct manual scroll gesture direction
+- <corrected handoff SHA, recorded by the next commit>
+- All 10 locked checkpoints (5c5a19c, 1006adb, 87fbd3e,
+  5f06183, 1265633, e8d8a1e, 5274881, 1522178, dd939ef, ab0b91b)
+  unchanged.
+- Inherited D3-A production checkpoints 11b46bd, 25c848d,
+  58d9d0f unchanged.
+
+### D3-A automated acceptance
+PASSED. Every required suite is green:
+- Initial-scroll total: 6/0/0
+- Every focused D3-A total: 162/0/0 across 17 files
+- Complete Planner: 222/0/0
+- Complete Flutter: 285/0/0
+- Analyzer: No issues found
+- Diagnostic residue removed
+- No production code modified
+- No assertion weakened (the helper now strictly demands
+  `end > start` and a geometric guard on `maxScrollExtent`)
+
+### Remaining D3-B scope
+Not started. D3-B was not part of this slice and is not in
+scope here. The single remaining open question for the D3-B
+work is whether the production timeline should be made more
+generously scrollable (e.g. by enlarging `visibleEndHour -
+visibleStartHour` or by tightening the bottom padding of the
+`SingleChildScrollView`) so the manual-scroll contract can be
+expressed at a more comfortable 300+ pixel distance on a
+default 862x1824 / 2x viewport. That is a deliberate product
+decision and belongs in the D3-B scope, not the D3-A test
+correction.
