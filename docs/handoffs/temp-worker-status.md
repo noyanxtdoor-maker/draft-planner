@@ -2398,3 +2398,135 @@ three status-only tracked files previously present
 `planner_date_picker_transition_test.dart`, and
 `planner_initial_scroll_once_test.dart`) plus the pre-existing untracked
 `.todo.md`; none was reset, restored, staged, or deleted.
+
+---
+
+## VS-08 Event Sheet and Final Owner-Correction Implementation
+
+Starting branch: `temp/vs08-shared-preview`.
+
+Starting HEAD: `b9599de8f0e7fb8ef5b054691ed4ec4c3d837e9b`
+(`b9599de docs(handoff): record vs08 owner correction completion`).
+
+The protected original repository at `C:\Users\sherl\Documents\Next Transfer`
+was not modified. The inherited working tree contained the status-only
+Planner/date-picker files and untracked `.todo.md`; the inherited work was
+preserved, `.todo.md` remains untracked, and no reset, restore, clean, stash,
+merge, rebase, or push was used.
+
+Approved read-only references:
+`C:\Users\sherl\Documents\Next Transfer\UI Preferences\Current Build Reviews\Planner`.
+The implementation used the approved Event-form top/lower and partial-sheet
+PNG references only for layout authority; the PNG files themselves were not
+modified or committed.
+
+### Owner-correction implementation
+
+- Picker overlay: the existing slide-down route remains non-opaque, now uses a
+  light `0.18` black barrier, retains the readable panel and Cancel/OK flow,
+  blocks Planner interaction behind it, and has an explicit route name for
+  focused verification. Planner, viewport, zoom, and date-strip state remain
+  mounted and preserved.
+- Date strip: fixed cell geometry remains equal for selected/unselected dates;
+  the strip height is reduced from 60 to 45 logical pixels and the cell extent
+  from 54 to 52, without shrinking text into an unusable target.
+- Timeline bottom: the configured timeline grid retains its exact
+  `visibleStartHour` to `visibleEndHour` geometry, including the final boundary
+  line but no synthetic hour. A separate keyed 24-pixel blank boundary is
+  appended to the shared scroll content, so the final configured boundary can
+  be reached at compact, normal, and expanded zoom without constraining the
+  live pinch-resized grid.
+- Horizontal axis lock: the pager requires a 1.60 horizontal-dominance ratio
+  after direction lock. Vertical movement is not claimed by a mostly horizontal
+  page gesture; vertical scrolling, cancellation, Event gestures, and pinch
+  priority remain on their existing recognizer paths.
+- Pinch: the existing two-pointer coordinator and approved dead zone remain
+  authoritative. The attempted outer drag recognizer was removed after focused
+  tests proved it suppressed pinch; no generic competing recognizer remains.
+  Pinch-in/out, focal-time anchoring, post-pinch scrolling, pager cancellation,
+  and zoom preservation pass.
+- Pink indicator: existing shared progress, direct strip browsing, cancel
+  restore, and one-commit settlement behavior were retained; no second
+  animation or delayed catch-up path was introduced.
+
+### Event Type chooser and Event detail sheet
+
+- The chooser is a compact bottom-aligned cohesive dark card using the approved
+  color dot and label, no per-option borders, and no divider after every item.
+  Common options fit in one panel when possible; internal scrolling remains
+  available and Cancel remains safe. Selecting a type alone writes no Event.
+- Selecting a type opens the approved Flutter-native draggable bottom sheet over
+  the still-mounted Planner. The sheet starts at 86%, can expand to 90%, can
+  collapse to 55%, keeps a handle, close action, and Save action visible, and
+  passes its scroll controller into the form. The Planner behind it is modal and
+  noninteractive.
+- The redundant `New Calendar Event` heading is absent for normal creation.
+  The form keeps the approved order and compact density: Event Type, Title,
+  Notes with the exact helper `What do you need to remember about this?`,
+  Scheduling Details, Date, From, To, Repeat, Backup Appointment, Add Address,
+  Add Location, People, and Link to Weekly Life Indicator.
+- Address and Location remain collapsed optional actions and reveal existing
+  text inputs only when requested. The People section remains present; because
+  this authorized slice has no confirmed writable person-link path, it does not
+  invent a relationship store or persist a fake People selection.
+- Save validates a 15-minute minimum, preserves the selected Event type,
+  entered fields, scheduling values, optional location data, and optional
+  indicator link, then creates one Event. Close, Cancel, back, and dismissal do
+  not create draft domain rows.
+
+### Weekly Life Indicator architecture
+
+The owner override replaces the PNG `Members Participating` area with the
+exact owner-facing section title `Link to Weekly Life Indicator`. The form
+reads existing indicator definitions through the outcome-reporting repository,
+allows selection, change, removal, and optional omission, and stores the link
+through the existing `CalendarEventDraft.contributionRuleKey` and
+`ScheduledPotentialRule` encoding. Scheduling or editing the link creates no
+Actual, outcome, ledger, operation, or contribution row. No new schema or
+parallel indicator system was added.
+
+### Automated verification
+
+Focused evidence passed with zero failures and zero skips:
+
+- horizontal day swipe: 13;
+- pinch zoom: 7;
+- physical pinch responsiveness: 11;
+- current-time indicator: 14;
+- pager current-time ownership: 7;
+- date-picker transition: 13;
+- date-strip synchronization: 14;
+- Event Type-first creation: 5;
+- Event journey: 1;
+- optional indicator link: 1;
+- initial-scroll and final-boundary coverage: 7;
+- shared viewport preservation: 12.
+
+The new final-boundary test sets the configured end hour to midnight and
+checks compact, normal, and expanded hour heights; the blank boundary remains
+reachable and the `24:00` boundary line is present without an artificial hour.
+
+Required gates:
+
+- complete Planner suite: 274 passed, 0 failed, 0 skipped;
+- complete Flutter suite: 337 passed, 0 failed, 0 skipped;
+- analyzer: `No issues found!`;
+- `git diff --check`: passed;
+- cleanup audit: no debug prints, diagnostic markers, delayed callbacks,
+  temporary frame harnesses, copied APKs, or test processes remained in scope.
+
+### Checkpoints and handoff boundary
+
+Production/test checkpoint:
+`b4a8daaf308cd867db697322e23d98bab5e81d6e`
+(`b4a8daa fix(planner): complete event sheet and remaining owner corrections`).
+
+The code checkpoint contains only the justified Planner production and test
+files. The handoff record is the separate required documentation checkpoint
+with commit message `docs(handoff): record vs08 event sheet owner correction`.
+
+Physical acceptance remains pending. Build/update-install and the explicit
+owner PASS/FAIL checklist must be completed before VS-08 is called accepted.
+No push was made; PR #8 was not updated; VS-09, Maps, Contacts expansion,
+Pathways, Goals, Milestones, merge, and any other milestone remain
+unauthorized and unstarted.
