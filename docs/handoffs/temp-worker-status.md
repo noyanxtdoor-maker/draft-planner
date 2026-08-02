@@ -2894,3 +2894,24 @@ commit created for this section; its short SHA is reported after commit.
 - Physical acceptance 01-24 remains pending explicit owner PASS/FAIL; no
   physical-acceptance or final VS-08 integration checkpoint was created.
 - No push; PR #8 remains untouched; VS-09 remains unauthorized and unstarted.
+
+### Targeted-correction APK update-install evidence
+
+- Final Temp artifact: `build\app\outputs\flutter-apk\app-debug.apk`,
+  195,334,908 bytes, SHA-256
+  `9B584D9F8B9E8C05AEE391E4A408631CA4C21572DCD7E16ACDCA8C0B8FC83B21`.
+- Authorized device serial:
+  `adb-10620253B3004617-2m7ZVB._adb-tls-connect._tcp`.
+- Baseline package metadata before install: package `0.1.0`,
+  `dataDir=/data/user/0/com.nexttransfer.rmplanner`,
+  `firstInstallTime=2026-07-27 15:42:22`, `ceDataInode=1509267`, and
+  `lastUpdateTime=2026-08-02 07:57:41`.
+- Ran `adb install -r` only; result was `Success`. No uninstall or data clear
+  was performed. The installed `base.apk` SHA-256 matched the local artifact
+  exactly.
+- Post-install metadata preserved the same `dataDir`, `firstInstallTime`, and
+  `ceDataInode`; `lastUpdateTime` advanced to `2026-08-02 12:42:05`.
+- `com.nexttransfer.rmplanner/.MainActivity` was force-stopped and started;
+  PID `14643` was running and the activity was resumed/visible.
+- Physical acceptance 01-24 still requires explicit owner PASS/FAIL; no
+  physical-acceptance or final VS-08 integration checkpoint was created.
