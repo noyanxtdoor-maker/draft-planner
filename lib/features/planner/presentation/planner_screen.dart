@@ -13,6 +13,7 @@ import 'package:rmplanner/features/planner/application/calendar_event_providers.
 import 'package:rmplanner/features/planner/application/event_type_providers.dart';
 import 'package:rmplanner/features/planner/application/planner_providers.dart';
 import 'package:rmplanner/features/planner/domain/calendar_event.dart';
+import 'package:rmplanner/features/planner/domain/event_color_preferences.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 import 'package:rmplanner/features/planner/domain/planner_day.dart';
 import 'package:rmplanner/features/planner/domain/planner_settings.dart';
@@ -27,6 +28,7 @@ import 'package:rmplanner/features/planner/presentation/widgets/planner_calendar
 import 'package:rmplanner/features/planner/presentation/widgets/planner_date_strip.dart';
 import 'package:rmplanner/features/planner/presentation/widgets/planner_event_block_content.dart';
 import 'package:rmplanner/features/planner/presentation/widgets/planner_event_block_layout_policy.dart';
+import 'package:rmplanner/features/planner/presentation/widgets/planner_event_color_resolver.dart';
 import 'package:rmplanner/features/planner/presentation/widgets/planner_interactive_day_pager.dart'
     show PlannerInteractiveDayPager, PlannerInteractiveDayPagerController;
 import 'package:rmplanner/features/planner/presentation/widgets/planner_shared_viewport.dart'
@@ -281,7 +283,9 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
   Widget build(BuildContext context) {
     final state = ref.watch(plannerControllerProvider);
     final controller = ref.read(plannerControllerProvider.notifier);
-    final plannerSettings = ref.watch(eventTypeControllerProvider).settings;
+    final eventTypeState = ref.watch(eventTypeControllerProvider);
+    final plannerSettings = eventTypeState.settings;
+    final eventColorsByTypeId = eventTypeState.resolvedEventColorsByTypeId;
     _presentation ??= plannerSettings.preferredPresentation;
 
     final scaffold = Scaffold(
@@ -298,7 +302,13 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
               controller: _dateStripController,
             ),
             Expanded(
-              child: _buildContent(context, ref, state, plannerSettings),
+              child: _buildContent(
+                context,
+                ref,
+                state,
+                plannerSettings,
+                eventColorsByTypeId,
+              ),
             ),
           ],
         ),
@@ -466,7 +476,7 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
             key: _overflowButtonKey,
             tooltip: 'Planner menu',
             onPressed: () => _showOverflowMenu(context, ref, state, settings),
-            icon: const Icon(Icons.more_vert, size: 26),
+            icon: const Icon(Icons.more_vert, size: 24),
           ),
         ),
       ],
@@ -753,6 +763,7 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     WidgetRef ref,
     PlannerState state,
     PlannerSettings settings,
+    Map<String, EventColorPreference> eventColorsByTypeId,
   ) {
     final day = state.day;
     if (state.status == PlannerLoadStatus.loading && day == null) {
@@ -940,6 +951,7 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                       nextDay: nextDay,
                       today: today,
                       settings: settings,
+                      eventColorsByTypeId: eventColorsByTypeId,
                       hourHeight: hourHeight,
                       timelineHeight: timelineHeight,
                       viewportWidth: viewportWidth,
@@ -978,6 +990,7 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                               .toList(growable: false),
                           selectedDate: state.selectedDate,
                           settings: settings,
+                          eventColorsByTypeId: eventColorsByTypeId,
                           scrollController: _dayScrollController,
                           onCreate: (minute) => _createTimedEvent(
                             context,
@@ -1765,6 +1778,7 @@ final class _TimedEventTimeline extends StatefulWidget {
     required this.events,
     required this.selectedDate,
     required this.settings,
+    required this.eventColorsByTypeId,
     required this.scrollController,
     required this.onCreate,
     required this.onMove,
@@ -1782,6 +1796,7 @@ final class _TimedEventTimeline extends StatefulWidget {
   final List<PlannerCalendarItem> events;
   final PlannerDate selectedDate;
   final PlannerSettings settings;
+  final Map<String, EventColorPreference> eventColorsByTypeId;
   // Parent-owned SingleChildScrollView controller used for focal-time
   // preservation while pinching. Held here by reference so pinch
   // updates can reposition the viewport without rebuilding the screen.
@@ -2315,6 +2330,7 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
       height: geometry.height,
       child: _TimelineEventBlock(
         event: event,
+        eventColorsByTypeId: widget.eventColorsByTypeId,
         use24HourTime: widget.settings.use24HourTime,
         displayStartMinute: startMinute,
         displayEndMinute: endMinute,
@@ -2513,6 +2529,7 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
 final class _TimelineEventBlock extends StatelessWidget {
   const _TimelineEventBlock({
     required this.event,
+    required this.eventColorsByTypeId,
     required this.use24HourTime,
     required this.displayStartMinute,
     required this.displayEndMinute,
@@ -2531,6 +2548,7 @@ final class _TimelineEventBlock extends StatelessWidget {
   });
 
   final PlannerCalendarItem event;
+  final Map<String, EventColorPreference> eventColorsByTypeId;
   final bool use24HourTime;
   final int displayStartMinute;
   final int displayEndMinute;
@@ -2550,9 +2568,15 @@ final class _TimelineEventBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final base = Color(event.activityTypeColorValue ?? 0xFFE91E63);
-    final fill = PlannerEventBlockColorPolicy.surfaceColor(base);
-    final border = PlannerEventBlockColorPolicy.borderColor(base);
+    final accent = PlannerEventColorResolver.accentColor(
+      event,
+      eventColorsByTypeId,
+    );
+    final fill = PlannerEventColorResolver.surfaceColor(
+      event,
+      eventColorsByTypeId,
+    );
+    final border = PlannerEventBlockColorPolicy.borderColor(accent);
     return LayoutBuilder(
       builder: (context, constraints) {
         final availableHeight = constraints.maxHeight.isFinite
@@ -2616,6 +2640,8 @@ final class _TimelineEventBlock extends StatelessWidget {
                         ),
                         child: PlannerEventBlockContentView(
                           event: event,
+                          accentColor: accent,
+                          surfaceColor: fill,
                           use24HourTime: use24HourTime,
                           displayStartMinute: displayStartMinute,
                           displayEndMinute: displayEndMinute,

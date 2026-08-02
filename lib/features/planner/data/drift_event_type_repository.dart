@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:rmplanner/core/database/app_database.dart';
 import 'package:rmplanner/core/time/app_clock.dart';
 import 'package:rmplanner/features/planner/application/event_type_repository.dart';
+import 'package:rmplanner/features/planner/domain/event_color_preferences.dart';
 import 'package:rmplanner/features/planner/domain/event_type.dart';
 import 'package:rmplanner/features/planner/domain/planner_settings.dart';
 import 'package:rmplanner/features/planner/domain/planner_view.dart';
@@ -275,6 +276,9 @@ final class DriftEventTypeRepository implements EventTypeRepository {
         throw StateError('Default Event Type must be active.');
       }
     }
+    final preferenceRow = await (database.select(
+      database.plannerPreferences,
+    )..where((table) => table.profileId.equals(profileId))).getSingleOrNull();
     await database
         .into(database.plannerPreferences)
         .insertOnConflictUpdate(
@@ -310,10 +314,92 @@ final class DriftEventTypeRepository implements EventTypeRepository {
               settings.contentFilters.completedTasks,
             ),
             timelineHourHeight: Value<int>(settings.timelineHourHeight.round()),
+            eventColorPreferencesJson: Value<String?>(
+              preferenceRow?.eventColorPreferencesJson,
+            ),
             updatedAtUtc: clock.nowUtc(),
           ),
         );
     return settings;
+  }
+
+  @override
+  Future<Map<String, EventColorPreference>> readEventColorPreferences({
+    required String profileId,
+  }) async {
+    final row = await (database.select(
+      database.plannerPreferences,
+    )..where((table) => table.profileId.equals(profileId))).getSingleOrNull();
+    return EventColorPreferenceCodec.decode(row?.eventColorPreferencesJson);
+  }
+
+  @override
+  Future<Map<String, EventColorPreference>> saveEventColorPreference({
+    required String profileId,
+    required String eventTypeStableKey,
+    required EventColorPreference preference,
+  }) async {
+    final stableKey = eventTypeStableKey.trim();
+    if (stableKey.isEmpty) {
+      throw ArgumentError.value(
+        eventTypeStableKey,
+        'eventTypeStableKey',
+        'Event Type stable key is required.',
+      );
+    }
+    final current = await readEventColorPreferences(profileId: profileId);
+    final updated = <String, EventColorPreference>{
+      ...current,
+      stableKey: preference,
+    };
+    await _writeEventColorPreferences(
+      profileId: profileId,
+      preferences: updated,
+    );
+    return Map<String, EventColorPreference>.unmodifiable(updated);
+  }
+
+  @override
+  Future<Map<String, EventColorPreference>> restoreEventColorDefaults({
+    required String profileId,
+  }) async {
+    await _writeEventColorPreferences(
+      profileId: profileId,
+      preferences: const <String, EventColorPreference>{},
+    );
+    return const <String, EventColorPreference>{};
+  }
+
+  Future<void> _writeEventColorPreferences({
+    required String profileId,
+    required Map<String, EventColorPreference> preferences,
+  }) async {
+    final encoded = EventColorPreferenceCodec.encode(preferences);
+    await database.transaction(() async {
+      final existing = await (database.select(
+        database.plannerPreferences,
+      )..where((table) => table.profileId.equals(profileId))).getSingleOrNull();
+      if (existing == null) {
+        await database
+            .into(database.plannerPreferences)
+            .insert(
+              PlannerPreferencesCompanion.insert(
+                profileId: profileId,
+                eventColorPreferencesJson: Value<String?>(encoded),
+                updatedAtUtc: clock.nowUtc(),
+              ),
+            );
+        return;
+      }
+      await (database.update(
+        database.plannerPreferences,
+      )..where((table) => table.profileId.equals(profileId))).write(
+        PlannerPreferencesCompanion(
+          eventColorPreferencesJson: Value<String?>(encoded),
+          updatedAtUtc: Value<DateTime>(clock.nowUtc()),
+        ),
+      );
+    });
   }
 
   Future<void> _ensureSystemTypes(String profileId) async {

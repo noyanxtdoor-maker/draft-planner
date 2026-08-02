@@ -28,6 +28,15 @@ final class SettingsScreen extends StatelessWidget {
                   ),
                   const Divider(height: 1),
                   ListTile(
+                    key: const Key('settings-colors'),
+                    leading: const Icon(Icons.palette_outlined),
+                    title: const Text('Colors'),
+                    subtitle: const Text('Planner Event color preferences'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => context.push(RoutePaths.colors),
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
                     key: const Key('settings-privacy-data'),
                     leading: const Icon(Icons.shield_outlined),
                     title: const Text('Privacy and Data'),

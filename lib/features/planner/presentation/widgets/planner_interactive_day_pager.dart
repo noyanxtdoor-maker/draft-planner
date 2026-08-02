@@ -67,12 +67,14 @@ import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 
 import 'package:rmplanner/app/theme/app_theme.dart';
+import 'package:rmplanner/features/planner/domain/event_color_preferences.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 import 'package:rmplanner/features/planner/domain/planner_day.dart';
 import 'package:rmplanner/features/planner/domain/planner_settings.dart';
 import 'package:rmplanner/features/planner/domain/planner_timeline_layout.dart';
 import 'package:rmplanner/features/planner/presentation/widgets/planner_event_block_content.dart';
 import 'package:rmplanner/features/planner/presentation/widgets/planner_event_block_layout_policy.dart';
+import 'package:rmplanner/features/planner/presentation/widgets/planner_event_color_resolver.dart';
 import 'package:rmplanner/features/planner/presentation/widgets/planner_shared_viewport.dart';
 
 /// Minimum logical-pixel travel before a horizontal gesture
@@ -663,6 +665,7 @@ class _PlannerInteractiveDayPagerState extends State<PlannerInteractiveDayPager>
                             pageDate: widget.previousDate,
                             pageDay: widget.previousDay,
                             settings: widget.settings,
+                            eventColorsByTypeId: widget.eventColorsByTypeId,
                             hourHeight: widget.hourHeight,
                             width: viewportWidth,
                             isToday: widget.today == widget.previousDate,
@@ -685,6 +688,7 @@ class _PlannerInteractiveDayPagerState extends State<PlannerInteractiveDayPager>
                             pageDate: widget.nextDate,
                             pageDay: widget.nextDay,
                             settings: widget.settings,
+                            eventColorsByTypeId: widget.eventColorsByTypeId,
                             hourHeight: widget.hourHeight,
                             width: viewportWidth,
                             isToday: widget.today == widget.nextDate,
@@ -718,6 +722,7 @@ class PlannerInteractiveDayPager extends StatefulWidget {
     required this.nextDay,
     required this.today,
     required this.settings,
+    this.eventColorsByTypeId = const <String, EventColorPreference>{},
     required this.hourHeight,
     required this.timelineHeight,
     required this.viewportWidth,
@@ -746,6 +751,7 @@ class PlannerInteractiveDayPager extends StatefulWidget {
   final PlannerDay? nextDay;
 
   final PlannerSettings settings;
+  final Map<String, EventColorPreference> eventColorsByTypeId;
   final double hourHeight;
   final double timelineHeight;
   final double viewportWidth;
@@ -824,6 +830,7 @@ class _PagerPreviewColumn extends StatelessWidget {
     required this.pageDate,
     required this.pageDay,
     required this.settings,
+    required this.eventColorsByTypeId,
     required this.hourHeight,
     required this.width,
     required this.isToday,
@@ -833,6 +840,7 @@ class _PagerPreviewColumn extends StatelessWidget {
   final PlannerDate pageDate;
   final PlannerDay? pageDay;
   final PlannerSettings settings;
+  final Map<String, EventColorPreference> eventColorsByTypeId;
   final double hourHeight;
   final double width;
   final bool isToday;
@@ -956,8 +964,15 @@ class _PagerPreviewColumn extends StatelessWidget {
       geometry.height,
       interactive: false,
     );
-    final base = Color(event.activityTypeColorValue ?? 0xFFE91E63);
-    final border = PlannerEventBlockColorPolicy.borderColor(base);
+    final accent = PlannerEventColorResolver.accentColor(
+      event,
+      eventColorsByTypeId,
+    );
+    final surface = PlannerEventColorResolver.surfaceColor(
+      event,
+      eventColorsByTypeId,
+    );
+    final border = PlannerEventBlockColorPolicy.borderColor(accent);
     final columnGap = (placement.columnCount > 1 ? 3.0 : 0.0);
     final blockWidth =
         (contentWidth - columnGap * (placement.columnCount - 1)) /
@@ -974,7 +989,7 @@ class _PagerPreviewColumn extends StatelessWidget {
       height: geometry.height,
       child: IgnorePointer(
         child: Material(
-          color: PlannerEventBlockColorPolicy.surfaceColor(base),
+          color: surface,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(
               PlannerEventBlockLayoutPolicy.eventBorderRadius,
@@ -995,6 +1010,8 @@ class _PagerPreviewColumn extends StatelessWidget {
             ),
             child: PlannerEventBlockContentView(
               event: event,
+              accentColor: accent,
+              surfaceColor: surface,
               use24HourTime: settings.use24HourTime,
               displayStartMinute: startMinute,
               displayEndMinute: endMinute,

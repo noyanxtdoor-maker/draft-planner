@@ -16119,6 +16119,17 @@ class $PlannerPreferencesTable extends PlannerPreferences
     requiredDuringInsert: false,
     defaultValue: const Constant(60),
   );
+  static const VerificationMeta _eventColorPreferencesJsonMeta =
+      const VerificationMeta('eventColorPreferencesJson');
+  @override
+  late final GeneratedColumn<String> eventColorPreferencesJson =
+      GeneratedColumn<String>(
+        'event_color_preferences_json',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _updatedAtUtcMeta = const VerificationMeta(
     'updatedAtUtc',
   );
@@ -16153,6 +16164,7 @@ class $PlannerPreferencesTable extends PlannerPreferences
     showTasks,
     showCompletedTasks,
     timelineHourHeight,
+    eventColorPreferencesJson,
     updatedAtUtc,
   ];
   @override
@@ -16349,6 +16361,15 @@ class $PlannerPreferencesTable extends PlannerPreferences
         ),
       );
     }
+    if (data.containsKey('event_color_preferences_json')) {
+      context.handle(
+        _eventColorPreferencesJsonMeta,
+        eventColorPreferencesJson.isAcceptableOrUnknown(
+          data['event_color_preferences_json']!,
+          _eventColorPreferencesJsonMeta,
+        ),
+      );
+    }
     if (data.containsKey('updated_at_utc')) {
       context.handle(
         _updatedAtUtcMeta,
@@ -16453,6 +16474,10 @@ class $PlannerPreferencesTable extends PlannerPreferences
         DriftSqlType.int,
         data['${effectivePrefix}timeline_hour_height'],
       )!,
+      eventColorPreferencesJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}event_color_preferences_json'],
+      ),
       updatedAtUtc: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}updated_at_utc'],
@@ -16489,6 +16514,7 @@ class PlannerPreferenceRow extends DataClass
   final bool showTasks;
   final bool showCompletedTasks;
   final int timelineHourHeight;
+  final String? eventColorPreferencesJson;
   final DateTime updatedAtUtc;
   const PlannerPreferenceRow({
     required this.profileId,
@@ -16512,6 +16538,7 @@ class PlannerPreferenceRow extends DataClass
     required this.showTasks,
     required this.showCompletedTasks,
     required this.timelineHourHeight,
+    this.eventColorPreferencesJson,
     required this.updatedAtUtc,
   });
   @override
@@ -16542,6 +16569,11 @@ class PlannerPreferenceRow extends DataClass
     map['show_tasks'] = Variable<bool>(showTasks);
     map['show_completed_tasks'] = Variable<bool>(showCompletedTasks);
     map['timeline_hour_height'] = Variable<int>(timelineHourHeight);
+    if (!nullToAbsent || eventColorPreferencesJson != null) {
+      map['event_color_preferences_json'] = Variable<String>(
+        eventColorPreferencesJson,
+      );
+    }
     map['updated_at_utc'] = Variable<DateTime>(updatedAtUtc);
     return map;
   }
@@ -16573,6 +16605,10 @@ class PlannerPreferenceRow extends DataClass
       showTasks: Value(showTasks),
       showCompletedTasks: Value(showCompletedTasks),
       timelineHourHeight: Value(timelineHourHeight),
+      eventColorPreferencesJson:
+          eventColorPreferencesJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(eventColorPreferencesJson),
       updatedAtUtc: Value(updatedAtUtc),
     );
   }
@@ -16616,6 +16652,9 @@ class PlannerPreferenceRow extends DataClass
       showTasks: serializer.fromJson<bool>(json['showTasks']),
       showCompletedTasks: serializer.fromJson<bool>(json['showCompletedTasks']),
       timelineHourHeight: serializer.fromJson<int>(json['timelineHourHeight']),
+      eventColorPreferencesJson: serializer.fromJson<String?>(
+        json['eventColorPreferencesJson'],
+      ),
       updatedAtUtc: serializer.fromJson<DateTime>(json['updatedAtUtc']),
     );
   }
@@ -16646,6 +16685,9 @@ class PlannerPreferenceRow extends DataClass
       'showTasks': serializer.toJson<bool>(showTasks),
       'showCompletedTasks': serializer.toJson<bool>(showCompletedTasks),
       'timelineHourHeight': serializer.toJson<int>(timelineHourHeight),
+      'eventColorPreferencesJson': serializer.toJson<String?>(
+        eventColorPreferencesJson,
+      ),
       'updatedAtUtc': serializer.toJson<DateTime>(updatedAtUtc),
     };
   }
@@ -16672,6 +16714,7 @@ class PlannerPreferenceRow extends DataClass
     bool? showTasks,
     bool? showCompletedTasks,
     int? timelineHourHeight,
+    Value<String?> eventColorPreferencesJson = const Value.absent(),
     DateTime? updatedAtUtc,
   }) => PlannerPreferenceRow(
     profileId: profileId ?? this.profileId,
@@ -16700,6 +16743,9 @@ class PlannerPreferenceRow extends DataClass
     showTasks: showTasks ?? this.showTasks,
     showCompletedTasks: showCompletedTasks ?? this.showCompletedTasks,
     timelineHourHeight: timelineHourHeight ?? this.timelineHourHeight,
+    eventColorPreferencesJson: eventColorPreferencesJson.present
+        ? eventColorPreferencesJson.value
+        : this.eventColorPreferencesJson,
     updatedAtUtc: updatedAtUtc ?? this.updatedAtUtc,
   );
   PlannerPreferenceRow copyWithCompanion(PlannerPreferencesCompanion data) {
@@ -16763,6 +16809,9 @@ class PlannerPreferenceRow extends DataClass
       timelineHourHeight: data.timelineHourHeight.present
           ? data.timelineHourHeight.value
           : this.timelineHourHeight,
+      eventColorPreferencesJson: data.eventColorPreferencesJson.present
+          ? data.eventColorPreferencesJson.value
+          : this.eventColorPreferencesJson,
       updatedAtUtc: data.updatedAtUtc.present
           ? data.updatedAtUtc.value
           : this.updatedAtUtc,
@@ -16793,6 +16842,7 @@ class PlannerPreferenceRow extends DataClass
           ..write('showTasks: $showTasks, ')
           ..write('showCompletedTasks: $showCompletedTasks, ')
           ..write('timelineHourHeight: $timelineHourHeight, ')
+          ..write('eventColorPreferencesJson: $eventColorPreferencesJson, ')
           ..write('updatedAtUtc: $updatedAtUtc')
           ..write(')'))
         .toString();
@@ -16821,6 +16871,7 @@ class PlannerPreferenceRow extends DataClass
     showTasks,
     showCompletedTasks,
     timelineHourHeight,
+    eventColorPreferencesJson,
     updatedAtUtc,
   ]);
   @override
@@ -16848,6 +16899,7 @@ class PlannerPreferenceRow extends DataClass
           other.showTasks == this.showTasks &&
           other.showCompletedTasks == this.showCompletedTasks &&
           other.timelineHourHeight == this.timelineHourHeight &&
+          other.eventColorPreferencesJson == this.eventColorPreferencesJson &&
           other.updatedAtUtc == this.updatedAtUtc);
 }
 
@@ -16874,6 +16926,7 @@ class PlannerPreferencesCompanion
   final Value<bool> showTasks;
   final Value<bool> showCompletedTasks;
   final Value<int> timelineHourHeight;
+  final Value<String?> eventColorPreferencesJson;
   final Value<DateTime> updatedAtUtc;
   final Value<int> rowid;
   const PlannerPreferencesCompanion({
@@ -16898,6 +16951,7 @@ class PlannerPreferencesCompanion
     this.showTasks = const Value.absent(),
     this.showCompletedTasks = const Value.absent(),
     this.timelineHourHeight = const Value.absent(),
+    this.eventColorPreferencesJson = const Value.absent(),
     this.updatedAtUtc = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -16923,6 +16977,7 @@ class PlannerPreferencesCompanion
     this.showTasks = const Value.absent(),
     this.showCompletedTasks = const Value.absent(),
     this.timelineHourHeight = const Value.absent(),
+    this.eventColorPreferencesJson = const Value.absent(),
     required DateTime updatedAtUtc,
     this.rowid = const Value.absent(),
   }) : profileId = Value(profileId),
@@ -16949,6 +17004,7 @@ class PlannerPreferencesCompanion
     Expression<bool>? showTasks,
     Expression<bool>? showCompletedTasks,
     Expression<int>? timelineHourHeight,
+    Expression<String>? eventColorPreferencesJson,
     Expression<DateTime>? updatedAtUtc,
     Expression<int>? rowid,
   }) {
@@ -16984,6 +17040,8 @@ class PlannerPreferencesCompanion
         'show_completed_tasks': showCompletedTasks,
       if (timelineHourHeight != null)
         'timeline_hour_height': timelineHourHeight,
+      if (eventColorPreferencesJson != null)
+        'event_color_preferences_json': eventColorPreferencesJson,
       if (updatedAtUtc != null) 'updated_at_utc': updatedAtUtc,
       if (rowid != null) 'rowid': rowid,
     });
@@ -17011,6 +17069,7 @@ class PlannerPreferencesCompanion
     Value<bool>? showTasks,
     Value<bool>? showCompletedTasks,
     Value<int>? timelineHourHeight,
+    Value<String?>? eventColorPreferencesJson,
     Value<DateTime>? updatedAtUtc,
     Value<int>? rowid,
   }) {
@@ -17041,6 +17100,8 @@ class PlannerPreferencesCompanion
       showTasks: showTasks ?? this.showTasks,
       showCompletedTasks: showCompletedTasks ?? this.showCompletedTasks,
       timelineHourHeight: timelineHourHeight ?? this.timelineHourHeight,
+      eventColorPreferencesJson:
+          eventColorPreferencesJson ?? this.eventColorPreferencesJson,
       updatedAtUtc: updatedAtUtc ?? this.updatedAtUtc,
       rowid: rowid ?? this.rowid,
     );
@@ -17124,6 +17185,11 @@ class PlannerPreferencesCompanion
     if (timelineHourHeight.present) {
       map['timeline_hour_height'] = Variable<int>(timelineHourHeight.value);
     }
+    if (eventColorPreferencesJson.present) {
+      map['event_color_preferences_json'] = Variable<String>(
+        eventColorPreferencesJson.value,
+      );
+    }
     if (updatedAtUtc.present) {
       map['updated_at_utc'] = Variable<DateTime>(updatedAtUtc.value);
     }
@@ -17157,6 +17223,7 @@ class PlannerPreferencesCompanion
           ..write('showTasks: $showTasks, ')
           ..write('showCompletedTasks: $showCompletedTasks, ')
           ..write('timelineHourHeight: $timelineHourHeight, ')
+          ..write('eventColorPreferencesJson: $eventColorPreferencesJson, ')
           ..write('updatedAtUtc: $updatedAtUtc, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -31502,6 +31569,7 @@ typedef $$PlannerPreferencesTableCreateCompanionBuilder =
       Value<bool> showTasks,
       Value<bool> showCompletedTasks,
       Value<int> timelineHourHeight,
+      Value<String?> eventColorPreferencesJson,
       required DateTime updatedAtUtc,
       Value<int> rowid,
     });
@@ -31528,6 +31596,7 @@ typedef $$PlannerPreferencesTableUpdateCompanionBuilder =
       Value<bool> showTasks,
       Value<bool> showCompletedTasks,
       Value<int> timelineHourHeight,
+      Value<String?> eventColorPreferencesJson,
       Value<DateTime> updatedAtUtc,
       Value<int> rowid,
     });
@@ -31673,6 +31742,11 @@ class $$PlannerPreferencesTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get eventColorPreferencesJson => $composableBuilder(
+    column: $table.eventColorPreferencesJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<DateTime> get updatedAtUtc => $composableBuilder(
     column: $table.updatedAtUtc,
     builder: (column) => ColumnFilters(column),
@@ -31808,6 +31882,11 @@ class $$PlannerPreferencesTableOrderingComposer
 
   ColumnOrderings<int> get timelineHourHeight => $composableBuilder(
     column: $table.timelineHourHeight,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get eventColorPreferencesJson => $composableBuilder(
+    column: $table.eventColorPreferencesJson,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -31947,6 +32026,11 @@ class $$PlannerPreferencesTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get eventColorPreferencesJson => $composableBuilder(
+    column: $table.eventColorPreferencesJson,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<DateTime> get updatedAtUtc => $composableBuilder(
     column: $table.updatedAtUtc,
     builder: (column) => column,
@@ -32030,6 +32114,7 @@ class $$PlannerPreferencesTableTableManager
                 Value<bool> showTasks = const Value.absent(),
                 Value<bool> showCompletedTasks = const Value.absent(),
                 Value<int> timelineHourHeight = const Value.absent(),
+                Value<String?> eventColorPreferencesJson = const Value.absent(),
                 Value<DateTime> updatedAtUtc = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PlannerPreferencesCompanion(
@@ -32054,6 +32139,7 @@ class $$PlannerPreferencesTableTableManager
                 showTasks: showTasks,
                 showCompletedTasks: showCompletedTasks,
                 timelineHourHeight: timelineHourHeight,
+                eventColorPreferencesJson: eventColorPreferencesJson,
                 updatedAtUtc: updatedAtUtc,
                 rowid: rowid,
               ),
@@ -32080,6 +32166,7 @@ class $$PlannerPreferencesTableTableManager
                 Value<bool> showTasks = const Value.absent(),
                 Value<bool> showCompletedTasks = const Value.absent(),
                 Value<int> timelineHourHeight = const Value.absent(),
+                Value<String?> eventColorPreferencesJson = const Value.absent(),
                 required DateTime updatedAtUtc,
                 Value<int> rowid = const Value.absent(),
               }) => PlannerPreferencesCompanion.insert(
@@ -32104,6 +32191,7 @@ class $$PlannerPreferencesTableTableManager
                 showTasks: showTasks,
                 showCompletedTasks: showCompletedTasks,
                 timelineHourHeight: timelineHourHeight,
+                eventColorPreferencesJson: eventColorPreferencesJson,
                 updatedAtUtc: updatedAtUtc,
                 rowid: rowid,
               ),

@@ -41,6 +41,8 @@ final class PlannerEventBlockContentView extends StatelessWidget {
     required this.displayEndMinute,
     required this.awaitingReport,
     required this.content,
+    this.accentColor,
+    this.surfaceColor,
     this.titleKey,
     this.timeKey,
     this.recurrenceKey,
@@ -53,6 +55,8 @@ final class PlannerEventBlockContentView extends StatelessWidget {
   final int displayEndMinute;
   final bool awaitingReport;
   final PlannerEventBlockContent content;
+  final Color? accentColor;
+  final Color? surfaceColor;
   final Key? titleKey;
   final Key? timeKey;
   final Key? recurrenceKey;
@@ -62,7 +66,10 @@ final class PlannerEventBlockContentView extends StatelessWidget {
   Widget build(BuildContext context) {
     final density = content.density;
     final base = Color(event.activityTypeColorValue ?? 0xFFE91E63);
-    final textColor = PlannerEventBlockColorPolicy.textColor(base);
+    final accent = accentColor ?? base;
+    final surface =
+        surfaceColor ?? PlannerEventBlockColorPolicy.surfaceColor(base);
+    final textColor = PlannerEventBlockColorPolicy.textColor(surface);
     final titleStyle = TextStyle(
       color: textColor,
       fontWeight: FontWeight.w700,
@@ -144,7 +151,7 @@ final class PlannerEventBlockContentView extends StatelessWidget {
             child: Icon(
               Icons.repeat,
               size: density == Density.veryShort ? 10 : 14,
-              color: textColor.withValues(alpha: 0.88),
+              color: accent.withValues(alpha: 0.92),
             ),
           ),
       ],

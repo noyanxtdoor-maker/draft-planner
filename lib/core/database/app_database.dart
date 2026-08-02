@@ -637,6 +637,7 @@ class PlannerPreferences extends Table {
       boolean().withDefault(const Constant(false))();
   IntColumn get timelineHourHeight =>
       integer().withDefault(const Constant(60))();
+  TextColumn get eventColorPreferencesJson => text().nullable()();
   DateTimeColumn get updatedAtUtc => dateTime()();
 
   @override
@@ -726,7 +727,7 @@ final class AppDatabase extends _$AppDatabase {
   final bool _injectPlannerExperienceMigrationFailure;
 
   @override
-  int get schemaVersion => _schemaVersionOverride ?? 10;
+  int get schemaVersion => _schemaVersionOverride ?? 11;
 
   @override
   MigrationStrategy get migration {
@@ -977,6 +978,17 @@ final class AppDatabase extends _$AppDatabase {
             }
             if (_injectPlannerExperienceMigrationFailure) {
               throw StateError('Injected Planner experience migration failure');
+            }
+          }
+          if (from < 11 && to >= 11) {
+            if (!await _columnExists(
+              'planner_preferences',
+              'event_color_preferences_json',
+            )) {
+              await migrator.addColumn(
+                plannerPreferences,
+                plannerPreferences.eventColorPreferencesJson,
+              );
             }
           }
         });

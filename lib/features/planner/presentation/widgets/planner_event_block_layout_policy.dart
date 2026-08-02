@@ -171,17 +171,30 @@ abstract final class PlannerEventBlockColorPolicy {
     return base.withValues(alpha: 0.95);
   }
 
-  /// Returns the readable text color for the block surface.
+  /// Returns the safer neutral text color for a fully opaque block surface.
   ///
-  /// On a dark background, the block surface derived from
-  /// [surfaceColor] is still in the mid-lightness range, so plain
-  /// white text remains legible.
-  static Color textColor(Color base) {
-    final luminance = base.computeLuminance();
-    if (luminance < 0.45) {
-      return Colors.white;
-    }
-    return const Color(0xFF1B1B1F);
+  /// Both candidates are measured rather than selected from a lightness
+  /// threshold, so custom bright surfaces switch to dark text without
+  /// changing the user's selected colors.
+  static Color textColor(Color surface) {
+    const darkText = Color(0xFF1B1B1F);
+    const lightText = Colors.white;
+    final lightContrast = contrastRatio(lightText, surface);
+    final darkContrast = contrastRatio(darkText, surface);
+    return lightContrast >= darkContrast ? lightText : darkText;
+  }
+
+  /// WCAG-style contrast ratio for two opaque colors.
+  static double contrastRatio(Color foreground, Color background) {
+    final foregroundLuminance = foreground.computeLuminance();
+    final backgroundLuminance = background.computeLuminance();
+    final lighter = foregroundLuminance > backgroundLuminance
+        ? foregroundLuminance
+        : backgroundLuminance;
+    final darker = foregroundLuminance > backgroundLuminance
+        ? backgroundLuminance
+        : foregroundLuminance;
+    return (lighter + 0.05) / (darker + 0.05);
   }
 }
 

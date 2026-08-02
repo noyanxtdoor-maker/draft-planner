@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rmplanner/core/database/app_database.dart';
 import 'package:rmplanner/features/planner/data/drift_event_type_repository.dart';
+import 'package:rmplanner/features/planner/domain/event_color_preferences.dart';
 import 'package:rmplanner/features/planner/domain/event_type.dart';
 import 'package:rmplanner/features/planner/domain/planner_settings.dart';
 import 'package:rmplanner/features/planner/domain/planner_view.dart';
@@ -202,6 +203,59 @@ void main() {
       expect(
         () => settings.copyWith(visibleEndHour: 4).validate(),
         throwsArgumentError,
+      );
+    },
+  );
+
+  test(
+    'Event color pairs persist in Planner Preferences without touching Events',
+    () async {
+      final types = await repository.readEventTypes(profileId: profileId);
+      final exercise = types.singleWhere(
+        (type) => type.stableKey == SystemEventTypeKeys.exercise,
+      );
+      const custom = EventColorPreference(
+        accentArgb: 0xFF123456,
+        surfaceArgb: 0xFF654321,
+      );
+
+      expect(
+        await repository.readEventColorPreferences(profileId: profileId),
+        isEmpty,
+      );
+      await repository.saveEventColorPreference(
+        profileId: profileId,
+        eventTypeStableKey: exercise.stableKey,
+        preference: custom,
+      );
+
+      final restored = await repository.readEventColorPreferences(
+        profileId: profileId,
+      );
+      expect(restored[exercise.stableKey], custom);
+
+      final eventRowsBefore = await database
+          .select(database.calendarEvents)
+          .get();
+      await repository.savePlannerSettings(
+        profileId: profileId,
+        settings: const PlannerSettings.defaults(),
+      );
+      expect(
+        (await repository.readEventColorPreferences(
+          profileId: profileId,
+        ))[exercise.stableKey],
+        custom,
+      );
+      expect(
+        await database.select(database.calendarEvents).get(),
+        eventRowsBefore,
+      );
+
+      await repository.restoreEventColorDefaults(profileId: profileId);
+      expect(
+        await repository.readEventColorPreferences(profileId: profileId),
+        isEmpty,
       );
     },
   );

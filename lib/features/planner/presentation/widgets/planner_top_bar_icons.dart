@@ -45,7 +45,7 @@ final class PlannerFilterIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return CustomPaint(
-      size: const Size.square(28),
+      size: const Size.square(24),
       painter: PlannerFunnelIconPainter(color),
     );
   }
@@ -59,7 +59,7 @@ final class PlannerSelectionIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return CustomPaint(
-      size: const Size.square(28),
+      size: const Size.square(24),
       painter: PlannerSelectionIconPainter(color),
     );
   }
@@ -96,7 +96,7 @@ final class PlannerFunnelIconPainter extends CustomPainter {
     final paint = Paint()
       ..color = color
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.4
+      ..strokeWidth = 2.4 * (size.shortestSide / 28)
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
     canvas.drawPath(pathFor(size), paint);
@@ -115,6 +115,9 @@ final class PlannerSelectionIconPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    final scale = size.shortestSide / 28;
+    canvas.save();
+    canvas.scale(scale, scale);
     final paint = Paint()
       ..color = color
       ..style = PaintingStyle.stroke
@@ -136,6 +139,7 @@ final class PlannerSelectionIconPainter extends CustomPainter {
       ..lineTo(14, 15)
       ..lineTo(20, 8);
     canvas.drawPath(check, paint);
+    canvas.restore();
   }
 
   @override

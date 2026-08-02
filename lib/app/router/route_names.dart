@@ -10,6 +10,8 @@ abstract final class RouteNames {
   static const String planner = 'planner';
   static const String more = 'more';
   static const String settings = 'settings';
+  static const String colors = 'colors';
+  static const String plannerEventColors = 'planner-event-colors';
   static const String taskCreate = 'task-create';
   static const String taskDetail = 'task-detail';
   static const String taskEdit = 'task-edit';
@@ -47,6 +49,9 @@ abstract final class RoutePaths {
   static const String planner = '/planner';
   static const String more = '/more';
   static const String settings = '/more/settings';
+  static const String colors = '/more/settings/colors';
+  static const String plannerEventColors =
+      '/more/settings/colors/planner-event-colors';
   static const String tasks = '/tasks';
   static const String taskCreate = '/tasks/new';
   static const String calendarEvents = '/events';

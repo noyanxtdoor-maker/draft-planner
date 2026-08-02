@@ -744,7 +744,7 @@ void main() {
   );
 
   test(
-    'VS08-OWNER / Q2: v9 upgrades to schema v10 with safe Planner defaults',
+    'VS08-OWNER / Q2: v9 upgrades through schema v11 with safe Planner defaults',
     () async {
       final sqliteDatabase = sqlite3.openInMemory();
       try {
@@ -779,10 +779,11 @@ void main() {
         expect(preference.showTasks, isTrue);
         expect(preference.showCompletedTasks, isFalse);
         expect(preference.timelineHourHeight, 60);
+        expect(preference.eventColorPreferencesJson, isNull);
         expect(
           (await versionTen.customSelect('PRAGMA user_version').getSingle())
               .read<int>('user_version'),
-          10,
+          11,
         );
         await versionTen.close();
       } finally {

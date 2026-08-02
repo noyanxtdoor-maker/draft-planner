@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rmplanner/features/planner/application/event_type_repository.dart';
+import 'package:rmplanner/features/planner/domain/event_color_preferences.dart';
 import 'package:rmplanner/features/planner/domain/event_type.dart';
 import 'package:rmplanner/features/planner/domain/planner_settings.dart';
 import 'package:rmplanner/features/startup/application/startup_providers.dart';
@@ -16,6 +17,7 @@ final class EventTypeState {
     required this.isLoading,
     required this.eventTypes,
     required this.settings,
+    required this.eventColors,
     this.message,
   });
 
@@ -23,17 +25,23 @@ final class EventTypeState {
     : isLoading = true,
       eventTypes = const <EventType>[],
       settings = const PlannerSettings.defaults(),
+      eventColors = const <String, EventColorPreference>{},
       message = null;
 
   final bool isLoading;
   final List<EventType> eventTypes;
   final PlannerSettings settings;
+
+  /// Explicit user choices keyed by Event Type stable key. Missing entries
+  /// resolve through [PlannerEventColorDefaults] at the presentation edge.
+  final Map<String, EventColorPreference> eventColors;
   final String? message;
 
   EventTypeState copyWith({
     bool? isLoading,
     List<EventType>? eventTypes,
     PlannerSettings? settings,
+    Map<String, EventColorPreference>? eventColors,
     String? message,
     bool clearMessage = false,
   }) {
@@ -41,8 +49,18 @@ final class EventTypeState {
       isLoading: isLoading ?? this.isLoading,
       eventTypes: eventTypes ?? this.eventTypes,
       settings: settings ?? this.settings,
+      eventColors: eventColors ?? this.eventColors,
       message: clearMessage ? null : message ?? this.message,
     );
+  }
+
+  Map<String, EventColorPreference> get resolvedEventColorsByTypeId {
+    return <String, EventColorPreference>{
+      for (final type in eventTypes)
+        type.id:
+            eventColors[type.stableKey] ??
+            PlannerEventColorDefaults.forEventType(type),
+    };
   }
 }
 
@@ -77,11 +95,13 @@ final class EventTypeController extends Notifier<EventTypeState> {
           includeArchived: includeArchived,
         ),
         _repository.readPlannerSettings(profileId: _profileId),
+        _repository.readEventColorPreferences(profileId: _profileId),
       ]);
       state = EventTypeState(
         isLoading: false,
         eventTypes: results[0] as List<EventType>,
         settings: results[1] as PlannerSettings,
+        eventColors: results[2] as Map<String, EventColorPreference>,
       );
     } on Object {
       state = state.copyWith(
@@ -158,6 +178,41 @@ final class EventTypeController extends Notifier<EventTypeState> {
     } on Object {
       state = state.copyWith(
         message: 'Planner settings were not changed. You can safely retry.',
+      );
+      return false;
+    }
+  }
+
+  Future<bool> saveEventColor(
+    EventType type,
+    EventColorPreference preference,
+  ) async {
+    try {
+      final saved = await _repository.saveEventColorPreference(
+        profileId: _profileId,
+        eventTypeStableKey: type.stableKey,
+        preference: preference,
+      );
+      state = state.copyWith(eventColors: saved, clearMessage: true);
+      return true;
+    } on Object {
+      state = state.copyWith(
+        message: 'Event color was not changed. You can safely retry.',
+      );
+      return false;
+    }
+  }
+
+  Future<bool> restoreEventColorDefaults() async {
+    try {
+      final restored = await _repository.restoreEventColorDefaults(
+        profileId: _profileId,
+      );
+      state = state.copyWith(eventColors: restored, clearMessage: true);
+      return true;
+    } on Object {
+      state = state.copyWith(
+        message: 'Event colors were not restored. You can safely retry.',
       );
       return false;
     }

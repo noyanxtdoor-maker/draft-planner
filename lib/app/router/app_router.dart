@@ -23,7 +23,9 @@ import 'package:rmplanner/features/planner/presentation/task_form_screen.dart';
 import 'package:rmplanner/features/privacy/presentation/diagnostic_preview_screen.dart';
 import 'package:rmplanner/features/privacy/presentation/permissions_screen.dart';
 import 'package:rmplanner/features/privacy/presentation/privacy_center_screen.dart';
+import 'package:rmplanner/features/settings/presentation/colors_screen.dart';
 import 'package:rmplanner/features/settings/presentation/more_screen.dart';
+import 'package:rmplanner/features/settings/presentation/planner_event_colors_screen.dart';
 import 'package:rmplanner/features/settings/presentation/settings_screen.dart';
 import 'package:rmplanner/features/startup/application/startup_providers.dart';
 import 'package:rmplanner/features/startup/presentation/home_screen.dart';
@@ -89,6 +91,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             name: RouteNames.settings,
             path: RoutePaths.settings,
             builder: (context, state) => const SettingsScreen(),
+          ),
+          GoRoute(
+            name: RouteNames.colors,
+            path: RoutePaths.colors,
+            builder: (context, state) => const ColorsScreen(),
+          ),
+          GoRoute(
+            name: RouteNames.plannerEventColors,
+            path: RoutePaths.plannerEventColors,
+            builder: (context, state) => const PlannerEventColorsScreen(),
           ),
           GoRoute(
             name: RouteNames.indicatorDetail,

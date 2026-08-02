@@ -1,3 +1,4 @@
+import 'package:rmplanner/features/planner/domain/event_color_preferences.dart';
 import 'package:rmplanner/features/planner/domain/event_type.dart';
 import 'package:rmplanner/features/planner/domain/planner_settings.dart';
 
@@ -35,5 +36,19 @@ abstract interface class EventTypeRepository {
   Future<PlannerSettings> savePlannerSettings({
     required String profileId,
     required PlannerSettings settings,
+  });
+
+  Future<Map<String, EventColorPreference>> readEventColorPreferences({
+    required String profileId,
+  });
+
+  Future<Map<String, EventColorPreference>> saveEventColorPreference({
+    required String profileId,
+    required String eventTypeStableKey,
+    required EventColorPreference preference,
+  });
+
+  Future<Map<String, EventColorPreference>> restoreEventColorDefaults({
+    required String profileId,
   });
 }
