@@ -12,25 +12,13 @@ final class OutcomeReportScreen extends ConsumerStatefulWidget {
   const OutcomeReportScreen.task({required String taskId, super.key})
     : sourceType = OutcomeSourceType.task,
       sourceId = taskId,
-      originalDate = null,
       correctionReportId = null,
       initialDate = null,
       initialOutcome = null;
 
-  const OutcomeReportScreen.event({
-    required String eventId,
-    required this.originalDate,
-    this.initialOutcome,
-    super.key,
-  }) : sourceType = OutcomeSourceType.event,
-       sourceId = eventId,
-       correctionReportId = null,
-       initialDate = null;
-
   const OutcomeReportScreen.manual({required this.initialDate, super.key})
     : sourceType = OutcomeSourceType.manual,
       sourceId = null,
-      originalDate = null,
       correctionReportId = null,
       initialOutcome = null;
 
@@ -39,13 +27,11 @@ final class OutcomeReportScreen extends ConsumerStatefulWidget {
     super.key,
   }) : sourceType = null,
        sourceId = null,
-       originalDate = null,
        initialDate = null,
        initialOutcome = null;
 
   final OutcomeSourceType? sourceType;
   final String? sourceId;
-  final PlannerDate? originalDate;
   final PlannerDate? initialDate;
   final OutcomeKind? initialOutcome;
   final String? correctionReportId;
@@ -124,9 +110,8 @@ final class _OutcomeReportScreenState
           OutcomeSourceType.task => await controller.readTaskSource(
             widget.sourceId!,
           ),
-          OutcomeSourceType.event => await controller.readEventSource(
-            eventId: widget.sourceId!,
-            originalDate: widget.originalDate!,
+          OutcomeSourceType.event => throw StateError(
+            'Calendar Event status is saved from Current Status.',
           ),
           OutcomeSourceType.manual => OutcomeReportSource(
             type: OutcomeSourceType.manual,

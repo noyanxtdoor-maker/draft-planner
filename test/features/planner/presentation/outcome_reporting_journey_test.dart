@@ -141,51 +141,13 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('activity-history-list')), findsOneWidget);
       expect(find.textContaining('Effective'), findsWidgets);
-
-      await tester.tap(find.text('Required reporting fixture').first);
-      await tester.pumpAndSettle();
-      final firstReport = await database
-          .select(database.outcomeReports)
-          .getSingle();
-      await tester.tap(find.byKey(Key('correct-report-${firstReport.id}')));
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.byKey(const Key('report-outcome-didNotHappen')));
-      await tester.scrollUntilVisible(
-        find.byKey(const Key('report-correction-reason')),
-        300,
-        scrollable: find
-            .descendant(
-              of: find.byKey(const Key('outcome-report-form')),
-              matching: find.byType(Scrollable),
-            )
-            .first,
-      );
-      await tester.enterText(
-        find.byKey(const Key('report-correction-reason')),
-        'The first report selected the wrong factual outcome.',
-      );
-      await tester.scrollUntilVisible(
-        find.byKey(const Key('submit-outcome-report')),
-        300,
-        scrollable: find
-            .descendant(
-              of: find.byKey(const Key('outcome-report-form')),
-              matching: find.byType(Scrollable),
-            )
-            .first,
-      );
-      await tester.tap(find.byKey(const Key('submit-outcome-report')));
-      await tester.pumpAndSettle();
-
-      expect(find.textContaining('Effective'), findsWidgets);
-      expect(find.textContaining('Superseded'), findsOneWidget);
+      expect(find.text('Correct Report'), findsNothing);
       final reports = await database.select(database.outcomeReports).get();
-      expect(reports, hasLength(2));
+      expect(reports, hasLength(1));
       final ledger = await database
           .select(database.activityLedgerEntries)
           .get();
-      expect(ledger, hasLength(2));
+      expect(ledger, hasLength(1));
 
       final outcomeRepository = DriftOutcomeReportingRepository(
         database: database,
@@ -197,7 +159,7 @@ void main() {
         startDate: selected,
         endDate: selected,
       );
-      expect(actual.value.scaledValue, 0);
+      expect(actual.value.scaledValue, 1);
       final audit = await outcomeRepository.auditProjection(profile.id);
       expect(audit.isConsistent, isTrue);
       expect(audit.issueCount, 0);

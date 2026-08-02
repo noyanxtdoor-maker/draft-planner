@@ -39,6 +39,7 @@ final class _CalendarEventDetailScreenState
   String _detailHeading = 'Calendar Event';
   final GlobalKey _statusControlAnchorKey = GlobalKey();
   final GlobalKey _overflowAnchorKey = GlobalKey();
+  bool _statusSaving = false;
 
   @override
   void initState() {
@@ -96,6 +97,9 @@ final class _CalendarEventDetailScreenState
           nowUtc: DateTime.now().toUtc(),
           displayToday: PlannerDate.fromDateTime(DateTime.now()),
         );
+        final hasRecordedOutcome = _hasRecordedOutcome(occurrence.status);
+        final showStatus =
+            occurrence.requiresReport && (awaitingReport || hasRecordedOutcome);
         final isContactEvent = _isContactEvent(occurrence.activityTypeLabel);
         return ListView(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
@@ -151,32 +155,35 @@ final class _CalendarEventDetailScreenState
                 if (awaitingReport)
                   const Chip(
                     key: Key('event-detail-awaiting-report'),
-                    avatar: Icon(Icons.assignment_late_outlined, size: 18),
-                    label: Text('Awaiting Report'),
+                    avatar: Icon(Icons.error_outline, size: 18),
+                    label: Text('Unreported'),
                   ),
               ],
             ),
             const SizedBox(height: 8),
-            KeyedSubtree(
-              key: _statusControlAnchorKey,
-              child: ListTile(
-                key: const Key('event-status-control'),
-                contentPadding: EdgeInsets.zero,
-                leading: Icon(
-                  _statusIcon(occurrence.status),
-                  color: _statusColor(occurrence.status),
-                ),
-                title: const Text('Current Status'),
-                subtitle: Text(
-                  calendarEventOutcomeLabel(
-                    status: occurrence.status,
-                    isContactEvent: isContactEvent,
+            if (showStatus)
+              KeyedSubtree(
+                key: _statusControlAnchorKey,
+                child: ListTile(
+                  key: const Key('event-status-control'),
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(
+                    _statusIcon(occurrence.status),
+                    color: _statusColor(occurrence.status),
                   ),
+                  title: const Text('Current Status'),
+                  subtitle: Text(
+                    calendarEventOutcomeLabel(
+                      status: occurrence.status,
+                      isContactEvent: isContactEvent,
+                    ),
+                  ),
+                  trailing: const Icon(Icons.expand_more),
+                  onTap: _statusSaving
+                      ? null
+                      : () => _showStatusMenu(occurrence),
                 ),
-                trailing: const Icon(Icons.expand_more),
-                onTap: () => _showStatusMenu(occurrence),
               ),
-            ),
             const SizedBox(height: 18),
             _DetailField(
               icon: Icons.calendar_today_outlined,
@@ -244,6 +251,16 @@ final class _CalendarEventDetailScreenState
                 icon: Icons.redo,
                 label: 'Replacement Event: ${occurrence.replacementEventId}',
               ),
+            const Divider(height: 28),
+            ListTile(
+              key: const Key('event-activity-history-button'),
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.history_outlined),
+              title: const Text('Activity History'),
+              subtitle: const Text('Read-only status and activity records'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => context.push(RoutePaths.activityHistory),
+            ),
             const SizedBox(height: 24),
           ],
         );
@@ -399,6 +416,9 @@ final class _CalendarEventDetailScreenState
   }
 
   Future<void> _showStatusMenu(CalendarEventOccurrence occurrence) async {
+    if (_statusSaving) {
+      return;
+    }
     final anchorContext = _statusControlAnchorKey.currentContext;
     final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
     final anchor = anchorContext?.findRenderObject() as RenderBox?;
@@ -465,34 +485,28 @@ final class _CalendarEventDetailScreenState
     if (outcome == null) {
       return;
     }
-    final reporting = ref.read(outcomeReportingControllerProvider.notifier);
-    final source = await reporting.readEventSource(
-      eventId: occurrence.eventId,
-      originalDate: occurrence.originalDate,
-    );
-    if (!mounted || source == null) {
+    if (_outcomeForStatus(occurrence.status) == outcome) {
       return;
     }
-    final currentReport = (await reporting.readHistory())
-        .where(
-          (report) =>
-              report.status == OutcomeReportStatus.submitted &&
-              report.source.slotKey == source.slotKey,
-        )
-        .firstOrNull;
-    if (!mounted) {
-      return;
-    }
-    if (currentReport != null) {
-      final changed = await context.push<bool>(
-        RoutePaths.outcomeReportCorrection(currentReport.id),
-      );
-      if (changed == true && mounted) {
+    setState(() => _statusSaving = true);
+    try {
+      final result = await ref
+          .read(outcomeReportingControllerProvider.notifier)
+          .submitEventStatus(
+            eventId: occurrence.eventId,
+            originalDate: occurrence.originalDate,
+            outcome: outcome,
+            operationId: ref.read(plannerIdentifierSourceProvider).nextUuid(),
+            contributionRuleKey: occurrence.contributionRuleKey,
+          );
+      if (mounted && result != null) {
         setState(_reload);
       }
-      return;
+    } finally {
+      if (mounted) {
+        setState(() => _statusSaving = false);
+      }
     }
-    await _openReport(occurrence, initialOutcome: outcome);
   }
 
   Future<void> _duplicate(CalendarEventOccurrence occurrence) async {
@@ -522,22 +536,6 @@ final class _CalendarEventDetailScreenState
       scope,
     );
     final changed = await context.push<bool>(path);
-    if (changed == true && mounted) {
-      setState(_reload);
-    }
-  }
-
-  Future<void> _openReport(
-    CalendarEventOccurrence occurrence, {
-    OutcomeKind? initialOutcome,
-  }) async {
-    final changed = await context.push<bool>(
-      RoutePaths.calendarEventReport(
-        occurrence.eventId,
-        occurrence.originalDate,
-        initialOutcome: initialOutcome,
-      ),
-    );
     if (changed == true && mounted) {
       setState(_reload);
     }
@@ -666,6 +664,19 @@ final class _CalendarEventDetailScreenState
   static bool _isContactEvent(String? label) {
     final normalized = label?.trim().toLowerCase();
     return normalized != null && normalized.contains('contact');
+  }
+
+  static bool _hasRecordedOutcome(CalendarEventStatus status) {
+    return _outcomeForStatus(status) != null;
+  }
+
+  static OutcomeKind? _outcomeForStatus(CalendarEventStatus status) {
+    return switch (status) {
+      CalendarEventStatus.completedHappened => OutcomeKind.completedHappened,
+      CalendarEventStatus.partiallyCompleted => OutcomeKind.partiallyCompleted,
+      CalendarEventStatus.didNotHappen => OutcomeKind.didNotHappen,
+      _ => null,
+    };
   }
 
   static IconData _statusIcon(CalendarEventStatus status) {

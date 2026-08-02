@@ -7,7 +7,6 @@ import 'package:rmplanner/features/indicators/presentation/indicator_detail_scre
 import 'package:rmplanner/features/indicators/presentation/weekly_target_prompt_screen.dart';
 import 'package:rmplanner/features/planner/application/planner_providers.dart';
 import 'package:rmplanner/features/planner/domain/calendar_event.dart';
-import 'package:rmplanner/features/planner/domain/outcome_reporting.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 import 'package:rmplanner/features/planner/presentation/activity_history_screen.dart';
 import 'package:rmplanner/features/planner/presentation/calendar_event_create_gate_screen.dart';
@@ -280,21 +279,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 originalDate: originalDate,
               );
             },
-          ),
-          GoRoute(
-            name: RouteNames.calendarEventReport,
-            path: 'report',
-            builder: (context, state) => OutcomeReportScreen.event(
-              eventId: state.pathParameters['eventId']!,
-              originalDate: PlannerDate.parse(
-                state.pathParameters['originalDate']!,
-              ),
-              initialOutcome: state.uri.queryParameters['outcome'] == null
-                  ? null
-                  : OutcomeKind.values.byName(
-                      state.uri.queryParameters['outcome']!,
-                    ),
-            ),
           ),
         ],
       ),

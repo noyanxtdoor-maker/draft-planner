@@ -186,27 +186,45 @@ void main() {
       expect(content.showResizeHandle, isFalse);
     });
 
-    test('short suppresses separate time row but inlines the time into the title to avoid RenderFlex overflow', () {
-      final content = PlannerEventBlockContent.forHeight(40, interactive: true);
-      expect(content.density, Density.short);
-      expect(content.showTime, isFalse);
-      expect(content.showTimeInline, isTrue);
-      expect(content.showStatusIcons, isFalse);
-      expect(content.showResizeHandle, isFalse);
-    });
+    test(
+      'short suppresses separate time row but inlines the time into the title to avoid RenderFlex overflow',
+      () {
+        final content = PlannerEventBlockContent.forHeight(
+          40,
+          interactive: true,
+        );
+        expect(content.density, Density.short);
+        expect(content.showTime, isFalse);
+        expect(content.showTimeInline, isTrue);
+        expect(content.showStatusIcons, isFalse);
+        expect(content.showResizeHandle, isFalse);
+      },
+    );
 
-    test('very short inlines the time into the title to show schedule info on 15-minute events', () {
-      final content = PlannerEventBlockContent.forHeight(20, interactive: true);
-      expect(content.density, Density.veryShort);
-      expect(content.showTime, isFalse);
-      expect(content.showTimeInline, isTrue);
-      expect(content.showStatusIcons, isFalse);
-      expect(content.showResizeHandle, isFalse);
-    });
+    test(
+      'very short inlines the time into the title to show schedule info on 15-minute events',
+      () {
+        final content = PlannerEventBlockContent.forHeight(
+          20,
+          interactive: true,
+        );
+        expect(content.density, Density.veryShort);
+        expect(content.showTime, isFalse);
+        expect(content.showTimeInline, isTrue);
+        expect(content.showStatusIcons, isFalse);
+        expect(content.showResizeHandle, isFalse);
+      },
+    );
 
-    test('resize hit area is at least 48 logical pixels per the owner-correction contract', () {
-      expect(PlannerEventBlockLayoutPolicy.resizeHitAreaHeight, greaterThanOrEqualTo(48));
-    });
+    test(
+      'resize hit area is at least 48 logical pixels per the owner-correction contract',
+      () {
+        expect(
+          PlannerEventBlockLayoutPolicy.resizeHitAreaHeight,
+          greaterThanOrEqualTo(48),
+        );
+      },
+    );
 
     test('medium shows time and status; resize only when interactive', () {
       final interactive = PlannerEventBlockContent.forHeight(
@@ -225,16 +243,19 @@ void main() {
       expect(nonInteractive.showResizeHandle, isFalse);
     });
 
-    test('tall shows time, status, and resize handle when interactive', () {
-      final interactive = PlannerEventBlockContent.forHeight(
-        120,
-        interactive: true,
-      );
-      expect(interactive.density, Density.tall);
-      expect(interactive.showTime, isTrue);
-      expect(interactive.showStatusIcons, isTrue);
-      expect(interactive.showResizeHandle, isTrue);
-    });
+    test(
+      'tall shows time and status while the resize grip stays invisible',
+      () {
+        final interactive = PlannerEventBlockContent.forHeight(
+          120,
+          interactive: true,
+        );
+        expect(interactive.density, Density.tall);
+        expect(interactive.showTime, isTrue);
+        expect(interactive.showStatusIcons, isTrue);
+        expect(interactive.showResizeHandle, isFalse);
+      },
+    );
 
     test('PlannerEventBlockColorPolicy produces fully-opaque surface', () {
       // Pure red base → derived surface must have alpha 255.

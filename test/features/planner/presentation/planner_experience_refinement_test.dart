@@ -63,27 +63,23 @@ void main() {
 
       await tester.tap(find.byKey(const Key('planner-create-button')));
       await tester.pumpAndSettle();
-      for (final label in <String>['Event', 'Task', '+ Person', 'Contact']) {
+      for (final label in <String>['Event', 'Task']) {
         expect(find.text(label), findsOneWidget);
       }
+      expect(find.text('+ Person'), findsNothing);
+      expect(find.text('Contact'), findsNothing);
       expect(
         tester.getTopLeft(find.text('Event')).dy,
-        lessThan(tester.getTopLeft(find.text('Task')).dy),
+        greaterThan(tester.getTopLeft(find.text('Task')).dy),
       );
-      expect(
-        tester.getTopLeft(find.text('Task')).dy,
-        lessThan(tester.getTopLeft(find.text('+ Person')).dy),
-      );
-      expect(
-        tester.getTopLeft(find.text('+ Person')).dy,
-        lessThan(tester.getTopLeft(find.text('Contact')).dy),
-      );
-      await tester.tap(find.byKey(const Key('create-person-action')));
+      await tester.tap(find.byKey(const Key('contextual-create-barrier')));
       await tester.pumpAndSettle();
-      expect(await database.select(database.calendarEvents).get(), isEmpty);
-      expect(await database.select(database.plannerTasks).get(), isEmpty);
-      await tester.pump(const Duration(seconds: 5));
+      expect(find.byKey(const Key('contextual-create-menu')), findsNothing);
+      await tester.tap(find.byKey(const Key('planner-create-button')));
       await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('contextual-create-close')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('contextual-create-menu')), findsNothing);
 
       await tester.tap(find.byKey(const Key('planner-filter-button')));
       await tester.pumpAndSettle();

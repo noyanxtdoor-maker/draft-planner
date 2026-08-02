@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:rmplanner/app/theme/app_theme.dart';
 import 'package:rmplanner/core/diagnostics/sanitized_diagnostics.dart';
 import 'package:rmplanner/core/platform/app_environment.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
@@ -56,6 +57,30 @@ void main() {
   testWidgets('DESIGN LOCK 5 — filter control is present', (tester) async {
     await _pumpPlanner(tester);
     expect(find.byKey(const Key('planner-filter-button')), findsOneWidget);
+  });
+
+  test('DESIGN LOCK 5A - filter uses the approved asymmetric silhouette', () {
+    final path = PlannerFunnelIconPainter.pathFor(const Size.square(28));
+    final bounds = path.getBounds();
+    expect(bounds.left, closeTo(3.0, 0.1));
+    expect(bounds.right, closeTo(25.0, 0.1));
+    expect(bounds.top, closeTo(4.5, 0.1));
+    expect(bounds.bottom, closeTo(22.9, 0.1));
+    expect(path.computeMetrics().single.isClosed, isTrue);
+  });
+
+  testWidgets('DESIGN LOCK 5B - top bar and date strip use approved surfaces', (
+    tester,
+  ) async {
+    await _pumpPlanner(tester);
+    final appBar = tester.widget<AppBar>(find.byType(AppBar).first);
+    expect(appBar.backgroundColor, Colors.black);
+    final strip = tester.widget<DecoratedBox>(
+      find.byKey(const Key('planner-date-strip-surface')),
+    );
+    final decoration = strip.decoration as BoxDecoration;
+    expect(decoration.color, AppTheme.surface);
+    expect(decoration.border?.bottom.width, 1);
   });
 
   testWidgets('DESIGN LOCK 6 — selection control is present', (tester) async {

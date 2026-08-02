@@ -237,7 +237,7 @@ void main() {
       await tester.tap(find.text('Day'));
       await tester.pumpAndSettle();
       expect(find.text('Awaiting fixture'), findsOneWidget);
-      expect(find.text('Awaiting Report'), findsWidgets);
+      expect(find.text('Unreported'), findsWidgets);
       expect(find.text('Cancelled fixture'), findsNothing);
 
       final taskRows = await database.select(database.plannerTasks).get();

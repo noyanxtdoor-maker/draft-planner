@@ -396,9 +396,9 @@ void main() {
         find.descendant(of: statusRow, matching: find.text('Completed')),
         findsOneWidget,
       );
-      // Awaiting Report must NOT render for a reported event.
+      // Unreported must NOT render for a reported event.
       expect(
-        find.descendant(of: statusRow, matching: find.text('Awaiting Report')),
+        find.descendant(of: statusRow, matching: find.text('Unreported')),
         findsNothing,
       );
     });
@@ -915,74 +915,79 @@ void main() {
       },
     );
 
-    testWidgets('resize hit area and visible handle exist on a tall '
-        '(120 min) interactive Event', (tester) async {
-      tester.view.physicalSize = const Size(862, 1824);
-      tester.view.devicePixelRatio = 2;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-      final database = openMemoryDatabase();
-      addTearDown(database.close);
-      final privacy = TestPrivacyDependencies(database: database);
-      final startup = buildTestRepository(
-        database: database,
-        privacyGate: privacy.gate,
-      );
-      final profile = await startup.completeOnboarding();
-      final (plannerRepository, calendarRepository) = await buildRepositories(
-        database,
-      );
-      await calendarRepository.saveEvent(
-        profileId: profile.id,
-        draft: timedDraft(
-          id: scheduledEventId,
-          title: 'Tall Event',
-          startMinute: 9 * 60,
-          endMinute: 11 * 60,
-        ),
-      );
-
-      await tester.pumpWidget(
-        privacy.buildApp(
-          environment: const AppEnvironment(
-            name: AppEnvironmentName.production,
-            label: 'PRODUCTION',
+    testWidgets(
+      'resize hit areas remain while visible handles stay hidden on a tall '
+      '(120 min) interactive Event',
+      (tester) async {
+        tester.view.physicalSize = const Size(862, 1824);
+        tester.view.devicePixelRatio = 2;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final database = openMemoryDatabase();
+        addTearDown(database.close);
+        final privacy = TestPrivacyDependencies(database: database);
+        final startup = buildTestRepository(
+          database: database,
+          privacyGate: privacy.gate,
+        );
+        final profile = await startup.completeOnboarding();
+        final (plannerRepository, calendarRepository) = await buildRepositories(
+          database,
+        );
+        await calendarRepository.saveEvent(
+          profileId: profile.id,
+          draft: timedDraft(
+            id: scheduledEventId,
+            title: 'Tall Event',
+            startMinute: 9 * 60,
+            endMinute: 11 * 60,
           ),
-          diagnostics: SanitizedDiagnostics(),
-          startupRepository: startup,
-          plannerRepository: plannerRepository,
-          plannerDateSource: const FixedPlannerDateSource(selected),
-        ),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Planner'));
-      await tester.pumpAndSettle();
+        );
 
-      expect(
-        find.byKey(
-          Key('planner-resize-hit-${occurrenceIdFor(scheduledEventId)}'),
-        ),
-        findsOneWidget,
-      );
-      expect(
-        find.byKey(
-          Key('planner-resize-handle-${occurrenceIdFor(scheduledEventId)}'),
-        ),
-        findsOneWidget,
-      );
-      expect(
-        find.byKey(
-          Key('planner-top-resize-hit-${occurrenceIdFor(scheduledEventId)}'),
-        ),
-        findsOneWidget,
-      );
-      expect(
-        find.byKey(
-          Key('planner-top-resize-handle-${occurrenceIdFor(scheduledEventId)}'),
-        ),
-        findsOneWidget,
-      );
-    });
+        await tester.pumpWidget(
+          privacy.buildApp(
+            environment: const AppEnvironment(
+              name: AppEnvironmentName.production,
+              label: 'PRODUCTION',
+            ),
+            diagnostics: SanitizedDiagnostics(),
+            startupRepository: startup,
+            plannerRepository: plannerRepository,
+            plannerDateSource: const FixedPlannerDateSource(selected),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Planner'));
+        await tester.pumpAndSettle();
+
+        expect(
+          find.byKey(
+            Key('planner-resize-hit-${occurrenceIdFor(scheduledEventId)}'),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(
+            Key('planner-resize-handle-${occurrenceIdFor(scheduledEventId)}'),
+          ),
+          findsNothing,
+        );
+        expect(
+          find.byKey(
+            Key('planner-top-resize-hit-${occurrenceIdFor(scheduledEventId)}'),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(
+            Key(
+              'planner-top-resize-handle-${occurrenceIdFor(scheduledEventId)}',
+            ),
+          ),
+          findsNothing,
+        );
+      },
+    );
 
     testWidgets('vertical drag on the bottom hit area changes the block '
         'height and the displayed end time, and releases exactly one '

@@ -415,8 +415,12 @@ final class _PlannerDateStripState extends State<PlannerDateStrip>
       key: const Key('planner-week-strip'),
       width: double.infinity,
       height: PlannerDateStrip.stripHeight + 2,
-      child: ColoredBox(
-        color: Theme.of(context).scaffoldBackgroundColor,
+      child: DecoratedBox(
+        key: const Key('planner-date-strip-surface'),
+        decoration: const BoxDecoration(
+          color: AppTheme.surface,
+          border: Border(bottom: BorderSide(color: AppTheme.outline, width: 1)),
+        ),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 1),
           child: SizedBox(

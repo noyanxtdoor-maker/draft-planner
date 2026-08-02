@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import 'package:rmplanner/app/router/route_names.dart';
 import 'package:rmplanner/features/planner/application/outcome_reporting_providers.dart';
 import 'package:rmplanner/features/planner/domain/outcome_reporting.dart';
 
@@ -100,9 +98,6 @@ final class _ActivityHistoryScreenState
                       entries: data.entries
                           .where((entry) => entry.sourceReportId == report.id)
                           .toList(growable: false),
-                      onCorrect: report.status == OutcomeReportStatus.submitted
-                          ? () => _correct(report.id)
-                          : null,
                     ),
                 ],
               ),
@@ -111,15 +106,6 @@ final class _ActivityHistoryScreenState
         ),
       ),
     );
-  }
-
-  Future<void> _correct(String reportId) async {
-    final changed = await context.push<bool>(
-      RoutePaths.outcomeReportCorrection(reportId),
-    );
-    if (changed == true && mounted) {
-      setState(_reload);
-    }
   }
 }
 
@@ -159,21 +145,16 @@ final class _HistoryNotice extends StatelessWidget {
 }
 
 final class _ReportHistoryCard extends StatelessWidget {
-  const _ReportHistoryCard({
-    required this.report,
-    required this.entries,
-    required this.onCorrect,
-  });
+  const _ReportHistoryCard({required this.report, required this.entries});
 
   final OutcomeReport report;
   final List<ActivityLedgerEntry> entries;
-  final VoidCallback? onCorrect;
 
   @override
   Widget build(BuildContext context) {
     final effective = report.status == OutcomeReportStatus.submitted;
     return Card(
-      key: Key('activity-report-${report.id}'),
+      key: Key('activity-history-entry-${report.id}'),
       margin: const EdgeInsets.only(bottom: 10),
       child: ExpansionTile(
         leading: Icon(
@@ -184,7 +165,8 @@ final class _ReportHistoryCard extends StatelessWidget {
         ),
         title: Text(report.source.label),
         subtitle: Text(
-          '${report.activityDate.iso8601} · ${_outcomeLabel(report.outcome)} · '
+          '${report.activityDate.iso8601} · '
+          '${_outcomeLabel(report.outcome, report.source.isContactEvent)} · '
           '${effective ? 'Effective' : 'Superseded'}',
         ),
         childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
@@ -236,24 +218,15 @@ final class _ReportHistoryCard extends StatelessWidget {
                       : 'Reversed contribution',
                 ),
               ),
-          if (onCorrect != null)
-            Align(
-              alignment: Alignment.centerRight,
-              child: OutlinedButton.icon(
-                key: Key('correct-report-${report.id}'),
-                onPressed: onCorrect,
-                icon: const Icon(Icons.edit_note_outlined),
-                label: const Text('Correct Report'),
-              ),
-            ),
         ],
       ),
     );
   }
 
-  static String _outcomeLabel(OutcomeKind? outcome) {
+  static String _outcomeLabel(OutcomeKind? outcome, bool isContactEvent) {
     return switch (outcome) {
-      OutcomeKind.completedHappened => 'Completed',
+      OutcomeKind.completedHappened =>
+        isContactEvent ? 'Contacted' : 'Completed',
       OutcomeKind.partiallyCompleted => 'Missed - Attempted',
       OutcomeKind.didNotHappen => 'Did Not Attempt',
       null => 'Draft',

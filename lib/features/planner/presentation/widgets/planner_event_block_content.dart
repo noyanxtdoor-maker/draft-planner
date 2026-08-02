@@ -170,7 +170,7 @@ final class _PlannerEventStatusRow extends StatelessWidget {
     final String label;
     if (awaitingReport) {
       icon = Icons.assignment_late_outlined;
-      label = 'Awaiting Report';
+      label = 'Unreported';
     } else if (event.hasOutcomeReport) {
       icon = Icons.check_circle_outline;
       label = 'Completed';

@@ -500,10 +500,6 @@ final class _CalendarEventFormScreenState
                   ),
                   const SizedBox(height: 18),
                   const SizedBox(height: 4),
-                  if (widget.mode != CalendarEventFormMode.create) ...<Widget>[
-                    _buildCurrentStatusField(),
-                    const SizedBox(height: 12),
-                  ],
                   TextFormField(
                     key: const Key('event-title-field'),
                     controller: _titleController,
@@ -871,39 +867,6 @@ final class _CalendarEventFormScreenState
           ),
         ],
       ],
-    );
-  }
-
-  Widget _buildCurrentStatusField() {
-    const statuses = <CalendarEventStatus>[
-      CalendarEventStatus.scheduled,
-      CalendarEventStatus.completedHappened,
-      CalendarEventStatus.partiallyCompleted,
-      CalendarEventStatus.didNotHappen,
-    ];
-    return DropdownButtonFormField<CalendarEventStatus>(
-      key: const Key('event-current-status-field'),
-      initialValue: statuses.contains(_currentStatus)
-          ? _currentStatus
-          : CalendarEventStatus.scheduled,
-      decoration: const InputDecoration(
-        labelText: 'Current Status',
-        prefixIcon: Icon(Icons.flag_outlined),
-      ),
-      items: <DropdownMenuItem<CalendarEventStatus>>[
-        for (final status in statuses)
-          DropdownMenuItem<CalendarEventStatus>(
-            value: status,
-            child: Text(
-              calendarEventOutcomeLabel(
-                status: status,
-                isContactEvent: _isContactEvent,
-              ),
-            ),
-          ),
-      ],
-      onChanged: (value) =>
-          setState(() => _currentStatus = value ?? _currentStatus),
     );
   }
 

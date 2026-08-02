@@ -70,21 +70,36 @@ final class PlannerFunnelIconPainter extends CustomPainter {
 
   final Color color;
 
+  /// The approved filter silhouette: a broad rounded mouth, strong diagonal
+  /// shoulders, and the asymmetric lower stem with its angled lower-right
+  /// exit. Keeping the path here (instead of using Material's filter glyph)
+  /// makes the proportions stable at the compact top-bar size.
+  static Path pathFor(Size size) {
+    final scaleX = size.width / 28;
+    final scaleY = size.height / 28;
+    double x(double value) => value * scaleX;
+    double y(double value) => value * scaleY;
+    return Path()
+      ..moveTo(x(4.2), y(4.5))
+      ..cubicTo(x(3.3), y(4.5), x(3.0), y(5.1), x(3.7), y(5.9))
+      ..lineTo(x(11.7), y(14.3))
+      ..lineTo(x(11.7), y(22.9))
+      ..lineTo(x(16.8), y(20.0))
+      ..lineTo(x(16.8), y(14.3))
+      ..lineTo(x(24.3), y(5.9))
+      ..cubicTo(x(25.0), y(5.1), x(24.7), y(4.5), x(23.8), y(4.5))
+      ..close();
+  }
+
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
       ..color = color
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.25
+      ..strokeWidth = 2.4
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
-    final path = Path()
-      ..moveTo(3, 4)
-      ..lineTo(25, 4)
-      ..lineTo(16, 13)
-      ..lineTo(16, 23)
-      ..lineTo(12, 20);
-    canvas.drawPath(path, paint);
+    canvas.drawPath(pathFor(size), paint);
   }
 
   @override

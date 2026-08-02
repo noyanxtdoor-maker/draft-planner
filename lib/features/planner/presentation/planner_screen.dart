@@ -331,6 +331,10 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
         : Theme.of(context).colorScheme.onSurface;
     if (_selectionMode) {
       return AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
         leading: IconButton(
           key: const Key('planner-selection-cancel'),
           tooltip: 'Cancel selection',
@@ -354,6 +358,10 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
       );
     }
     return AppBar(
+      backgroundColor: Colors.black,
+      foregroundColor: Colors.white,
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
       leading: Builder(
         builder: (innerContext) => PlannerTopBarIconButton(
           key: const Key('planner-hamburger'),
@@ -427,18 +435,14 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
             key: _filterButtonKey,
             tooltip: 'Filter Planner content',
             onPressed: () => _showFilters(context, ref, settings),
-            icon: PlannerFilterIcon(
-              color: Theme.of(context).colorScheme.onSurface,
-            ),
+            icon: const PlannerFilterIcon(color: Colors.white),
           ),
         ),
         PlannerTopBarIconButton(
           key: const Key('planner-selection-button'),
           tooltip: 'Select Events or Tasks',
           onPressed: () => setState(() => _selectionActive = true),
-          icon: PlannerSelectionIcon(
-            color: Theme.of(context).colorScheme.onSurface,
-          ),
+          icon: const PlannerSelectionIcon(color: Colors.white),
         ),
         KeyedSubtree(
           key: const Key('planner-overflow-button'),
@@ -699,17 +703,6 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
       case ContextualCreateAction.task:
         unawaited(
           context.push('${RoutePaths.taskCreate}?date=${selectedDate.iso8601}'),
-        );
-        return;
-      case ContextualCreateAction.person:
-      case ContextualCreateAction.contact:
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              '${action.label} remains distinct and will open when the '
-              'authorized Contacts slice is implemented.',
-            ),
-          ),
         );
         return;
     }
@@ -2286,12 +2279,12 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
       visibleEndMinute: visibleEnd,
       hourHeight: _hourHeight,
     );
-    final availableWidth = totalWidth - _timeColumnWidth - 8;
+    final availableWidth = totalWidth - _timeColumnWidth;
     final columnWidth =
         (availableWidth - _eventGap * (placement.columnCount - 1)) /
         placement.columnCount;
     final left =
-        _timeColumnWidth + 5 + placement.column * (columnWidth + _eventGap);
+        _timeColumnWidth + placement.column * (columnWidth + _eventGap);
     return Positioned(
       key: Key('planner-timed-event-${event.id}'),
       top: geometry.top,
@@ -2553,7 +2546,7 @@ final class _TimelineEventBlock extends StatelessWidget {
               '${event.displayTitle}, ${event.activityTypeLabel ?? 'Calendar Event'}, '
               '${formatPlannerEventRange(displayStartMinute, displayEndMinute, use24HourTime)}'
               '${event.isBackupAppointment ? ', Backup Appointment' : ''}'
-              '${awaitingReport ? ', Awaiting Report' : ''}'
+              '${awaitingReport ? ', Unreported' : ''}'
               '${event.linkedTaskIds.isEmpty ? '' : ', ${event.linkedTaskIds.length} linked Task(s)'}',
           hint: interactive
               ? 'Tap for details. Long-press and move to change time.'
@@ -2620,43 +2613,6 @@ final class _TimelineEventBlock extends StatelessWidget {
                   ),
                 ),
               ),
-              if (content.showResizeHandle)
-                Positioned(
-                  key: Key('planner-top-resize-handle-${event.id}'),
-                  left: 14,
-                  right: 14,
-                  top: 0,
-                  height: 14,
-                  child: GestureDetector(
-                    key: Key('planner-top-resize-drag-${event.id}'),
-                    behavior: HitTestBehavior.opaque,
-                    onVerticalDragStart: interactive
-                        ? (_) => onResizeStart(_TimelineResizeEdge.top)
-                        : null,
-                    onVerticalDragUpdate: interactive
-                        ? (details) => onResizeUpdate(
-                            _TimelineResizeEdge.top,
-                            details.primaryDelta ?? 0,
-                          )
-                        : null,
-                    onVerticalDragEnd: interactive
-                        ? (_) => onResizeEnd(_TimelineResizeEdge.top)
-                        : null,
-                    onVerticalDragCancel: interactive
-                        ? () => onResizeCancel(_TimelineResizeEdge.top)
-                        : null,
-                    child: Center(
-                      child: Container(
-                        width: 28,
-                        height: 3,
-                        decoration: BoxDecoration(
-                          color: Colors.white60,
-                          borderRadius: BorderRadius.circular(3),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
               if (interactive &&
                   availableHeight >=
                       PlannerEventBlockLayoutPolicy.topResizeMinimumHeight)
@@ -2680,43 +2636,6 @@ final class _TimelineEventBlock extends StatelessWidget {
                     onVerticalDragCancel: () =>
                         onResizeCancel(_TimelineResizeEdge.top),
                     child: const SizedBox.expand(),
-                  ),
-                ),
-              if (content.showResizeHandle)
-                Positioned(
-                  key: Key('planner-resize-handle-${event.id}'),
-                  left: 14,
-                  right: 14,
-                  bottom: 0,
-                  height: 14,
-                  child: GestureDetector(
-                    key: Key('planner-resize-drag-${event.id}'),
-                    behavior: HitTestBehavior.opaque,
-                    onVerticalDragStart: interactive
-                        ? (_) => onResizeStart(_TimelineResizeEdge.bottom)
-                        : null,
-                    onVerticalDragUpdate: interactive
-                        ? (details) => onResizeUpdate(
-                            _TimelineResizeEdge.bottom,
-                            details.primaryDelta ?? 0,
-                          )
-                        : null,
-                    onVerticalDragEnd: interactive
-                        ? (_) => onResizeEnd(_TimelineResizeEdge.bottom)
-                        : null,
-                    onVerticalDragCancel: interactive
-                        ? () => onResizeCancel(_TimelineResizeEdge.bottom)
-                        : null,
-                    child: Center(
-                      child: Container(
-                        width: 28,
-                        height: 3,
-                        decoration: BoxDecoration(
-                          color: Colors.white60,
-                          borderRadius: BorderRadius.circular(3),
-                        ),
-                      ),
-                    ),
                   ),
                 ),
               // Always-available resize hit area that overlaps the
@@ -2765,7 +2684,7 @@ final class _TimelineEventBlock extends StatelessWidget {
                   left: 8,
                   bottom: 2,
                   child: Text(
-                    'Awaiting Report',
+                    'Unreported',
                     style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700),
                   ),
                 ),
@@ -2861,7 +2780,7 @@ final class _EventTile extends StatelessWidget {
       if (event.locationText != null) event.locationText!,
       if (event.linkedTaskIds.isNotEmpty)
         '${event.linkedTaskIds.length} linked Task(s)',
-      if (awaitingReport) 'Awaiting Report',
+      if (awaitingReport) 'Unreported',
       if (event.isBackupAppointment) 'Backup Appointment',
     ].join(' · ');
     return Card(
@@ -3199,7 +3118,7 @@ final class _AwaitingPresentation extends StatelessWidget {
       key: const Key('planner-awaiting-reports-view'),
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 96),
       children: <Widget>[
-        const _ViewHeading('Awaiting Reports'),
+        const _ViewHeading('Unreported Events'),
         if (events.isEmpty)
           const _EmptySectionMessage('No qualifying reports are pending.')
         else

@@ -131,6 +131,32 @@ final class PlannerSettingsScreen extends ConsumerWidget {
                   _Section(
                     title: 'Timeline',
                     children: <Widget>[
+                      const Text(
+                        'Visible Planner Hours',
+                        key: Key('visible-planner-hours-heading'),
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Choose the one-hour start and end boundaries shown '
+                        'on the Day timeline.',
+                      ),
+                      const SizedBox(height: 10),
+                      OutlinedButton.icon(
+                        key: const Key('planner-full-day-preset'),
+                        onPressed: () => controller.saveSettings(
+                          settings.copyWith(
+                            visibleStartHour: 0,
+                            visibleEndHour: 24,
+                          ),
+                        ),
+                        icon: const Icon(Icons.view_day_outlined),
+                        label: const Text('Show full 24 hours'),
+                      ),
+                      const SizedBox(height: 12),
                       _HourSetting(
                         label: 'Visible start hour',
                         value: settings.visibleStartHour,
@@ -231,7 +257,7 @@ final class PlannerSettingsScreen extends ConsumerWidget {
                         contentPadding: EdgeInsets.zero,
                         title: const Text('Quick edit on timeline'),
                         subtitle: const Text(
-                          'Long-press to move; use the lower handle to resize',
+                          'Long-press to move; drag an Event edge to resize',
                         ),
                         value: settings.quickEditEnabled,
                         onChanged: (value) => controller.saveSettings(

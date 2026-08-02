@@ -77,16 +77,6 @@ final class MoreScreen extends ConsumerWidget {
           context.push('${RoutePaths.taskCreate}?date=${today.iso8601}'),
         );
         return;
-      case ContextualCreateAction.person:
-      case ContextualCreateAction.contact:
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              '${action.label} will open in the authorized Contacts slice.',
-            ),
-          ),
-        );
-        return;
     }
   }
 }

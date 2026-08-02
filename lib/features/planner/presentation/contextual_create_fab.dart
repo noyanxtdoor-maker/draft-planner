@@ -1,27 +1,29 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:rmplanner/app/theme/app_theme.dart';
 
 enum CreateActionDestination { home, planner, pathways, contacts, more }
 
-enum ContextualCreateAction { task, person, contact, event }
+enum ContextualCreateAction { task, event }
 
 extension ContextualCreateActionLabel on ContextualCreateAction {
   String get label => switch (this) {
     ContextualCreateAction.task => 'Task',
-    ContextualCreateAction.person => '+ Person',
-    ContextualCreateAction.contact => 'Contact',
     ContextualCreateAction.event => 'Event',
   };
 
   IconData get icon => switch (this) {
     ContextualCreateAction.task => Icons.task_alt_outlined,
-    ContextualCreateAction.person => Icons.person_add_alt_1_outlined,
-    ContextualCreateAction.contact => Icons.connect_without_contact_outlined,
     ContextualCreateAction.event => Icons.event_outlined,
   };
 }
 
-final class ContextualCreateFab extends StatelessWidget {
+/// The shared create control expands in place, leaving the current screen
+/// visible while a transparent barrier protects the rest of the app from
+/// accidental taps. Only the already-supported Event and Task flows are
+/// exposed here.
+final class ContextualCreateFab extends StatefulWidget {
   const ContextualCreateFab({
     required this.destination,
     required this.onSelected,
@@ -34,113 +36,323 @@ final class ContextualCreateFab extends StatelessWidget {
   final Key buttonKey;
 
   @override
-  Widget build(BuildContext context) {
-    return FloatingActionButton(
-      key: buttonKey,
-      tooltip: 'Create',
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      onPressed: () => _showMenu(context),
-      child: const Icon(Icons.add, size: 30),
-    );
+  State<ContextualCreateFab> createState() => _ContextualCreateFabState();
+}
+
+final class _ContextualCreateFabState extends State<ContextualCreateFab> {
+  OverlayEntry? _entry;
+  final GlobalKey<_ContextualCreateOverlayState> _overlayKey =
+      GlobalKey<_ContextualCreateOverlayState>();
+  final GlobalKey _fabRenderKey = GlobalKey();
+  bool _expanded = false;
+
+  @override
+  void dispose() {
+    _entry?.remove();
+    _entry = null;
+    super.dispose();
   }
 
-  Future<void> _showMenu(BuildContext context) async {
-    final order = _orderFor(destination);
-    final selected = await showModalBottomSheet<ContextualCreateAction>(
-      context: context,
-      showDragHandle: true,
-      backgroundColor: AppTheme.surface,
-      builder: (sheetContext) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
-          child: ListView(
-            key: const Key('contextual-create-menu'),
-            shrinkWrap: true,
-            children: <Widget>[
-              Text(
-                'Create',
-                style: Theme.of(
-                  sheetContext,
-                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
-              ),
-              const SizedBox(height: 10),
-              for (var index = 0; index < order.length; index++)
-                ListTile(
-                  key: _actionKey(order[index]),
-                  leading: Icon(
-                    order[index].icon,
-                    color: index == 0 ? AppTheme.rose : Colors.white70,
-                  ),
-                  title: Text(
-                    order[index].label,
-                    style: TextStyle(
-                      color: index == 0 ? AppTheme.rose : Colors.white,
-                      fontWeight: index == 0
-                          ? FontWeight.w800
-                          : FontWeight.w600,
-                    ),
-                  ),
-                  trailing: index == 0
-                      ? const Text(
-                          'Quick action',
-                          style: TextStyle(color: AppTheme.rose, fontSize: 12),
-                        )
-                      : null,
-                  onTap: () => Navigator.of(sheetContext).pop(order[index]),
-                ),
-            ],
+  @override
+  Widget build(BuildContext context) {
+    return KeyedSubtree(
+      key: widget.buttonKey,
+      child: Opacity(
+        opacity: _expanded ? 0 : 1,
+        child: FloatingActionButton(
+          key: _fabRenderKey,
+          tooltip: _expanded ? 'Close create actions' : 'Create',
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
           ),
+          onPressed: _expanded ? _dismissMenu : _openMenu,
+          child: Icon(_expanded ? Icons.close : Icons.add, size: 30),
         ),
       ),
     );
-    if (selected != null && context.mounted) {
-      onSelected(selected);
+  }
+
+  void _openMenu() {
+    if (_entry != null) {
+      return;
+    }
+    final renderBox =
+        _fabRenderKey.currentContext?.findRenderObject() as RenderBox?;
+    final overlay = Overlay.of(context, rootOverlay: true);
+    final overlayBox = overlay.context.findRenderObject() as RenderBox?;
+    if (renderBox == null || overlayBox == null) {
+      return;
+    }
+    final topLeft = renderBox.localToGlobal(Offset.zero, ancestor: overlayBox);
+    final anchorRect = topLeft & renderBox.size;
+    late OverlayEntry entry;
+    entry = OverlayEntry(
+      builder: (entryContext) => _ContextualCreateOverlay(
+        key: _overlayKey,
+        anchorRect: anchorRect,
+        actions: _orderFor(widget.destination),
+        onDismissed: () => _onOverlayDismissed(entry),
+        onSelected: widget.onSelected,
+      ),
+    );
+    setState(() => _expanded = true);
+    _entry = entry;
+    overlay.insert(entry);
+  }
+
+  void _dismissMenu() {
+    // The overlay owns its reverse animation. Calling its state through the
+    // key keeps outside taps, Back, the X, and the original FAB on one path.
+    _overlayKey.currentState?.dismiss();
+  }
+
+  void _onOverlayDismissed(OverlayEntry entry) {
+    if (!identical(_entry, entry)) {
+      return;
+    }
+    entry.remove();
+    _entry = null;
+    if (mounted) {
+      setState(() => _expanded = false);
     }
   }
 
   static List<ContextualCreateAction> _orderFor(
     CreateActionDestination destination,
   ) {
-    return switch (destination) {
-      CreateActionDestination.home => const <ContextualCreateAction>[
-        ContextualCreateAction.event,
-        ContextualCreateAction.task,
-        ContextualCreateAction.person,
-        ContextualCreateAction.contact,
-      ],
-      CreateActionDestination.planner => const <ContextualCreateAction>[
-        ContextualCreateAction.event,
-        ContextualCreateAction.task,
-        ContextualCreateAction.person,
-        ContextualCreateAction.contact,
-      ],
-      CreateActionDestination.pathways => const <ContextualCreateAction>[
-        ContextualCreateAction.task,
-        ContextualCreateAction.event,
-        ContextualCreateAction.contact,
-        ContextualCreateAction.person,
-      ],
-      CreateActionDestination.contacts => const <ContextualCreateAction>[
-        ContextualCreateAction.person,
-        ContextualCreateAction.contact,
-        ContextualCreateAction.task,
-        ContextualCreateAction.event,
-      ],
-      CreateActionDestination.more => const <ContextualCreateAction>[
-        ContextualCreateAction.event,
-        ContextualCreateAction.task,
-        ContextualCreateAction.person,
-        ContextualCreateAction.contact,
-      ],
-    };
+    return const <ContextualCreateAction>[
+      ContextualCreateAction.event,
+      ContextualCreateAction.task,
+    ];
+  }
+}
+
+final class _ContextualCreateOverlay extends StatefulWidget {
+  const _ContextualCreateOverlay({
+    required this.anchorRect,
+    required this.actions,
+    required this.onDismissed,
+    required this.onSelected,
+    super.key,
+  });
+
+  final Rect anchorRect;
+  final List<ContextualCreateAction> actions;
+  final VoidCallback onDismissed;
+  final ValueChanged<ContextualCreateAction> onSelected;
+
+  @override
+  State<_ContextualCreateOverlay> createState() =>
+      _ContextualCreateOverlayState();
+}
+
+final class _ContextualCreateOverlayState
+    extends State<_ContextualCreateOverlay>
+    with SingleTickerProviderStateMixin {
+  static const double _pillWidth = 176;
+  static const double _pillHeight = 52;
+  static const double _pillGap = 10;
+  static const double _closeSize = 56;
+  static const Duration _duration = Duration(milliseconds: 240);
+
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: _duration,
+    reverseDuration: const Duration(milliseconds: 180),
+  );
+  late final Animation<double> _animation = CurvedAnimation(
+    parent: _controller,
+    curve: Curves.easeOutCubic,
+    reverseCurve: Curves.easeInCubic,
+  );
+  bool _closing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_controller.forward());
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void dismiss() {
+    if (_closing) {
+      return;
+    }
+    _closing = true;
+    unawaited(
+      _controller.reverse().whenComplete(() {
+        if (mounted) {
+          widget.onDismissed();
+        }
+      }),
+    );
+  }
+
+  void _select(ContextualCreateAction action) {
+    if (_closing) {
+      return;
+    }
+    _closing = true;
+    unawaited(
+      _controller.reverse().whenComplete(() {
+        if (!mounted) {
+          return;
+        }
+        widget.onSelected(action);
+        widget.onDismissed();
+      }),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
+    final screenSize = media.size;
+    final right = (screenSize.width - widget.anchorRect.right)
+        .clamp(12.0, screenSize.width - _pillWidth - 12)
+        .toDouble();
+    final closeLeft = widget.anchorRect.left;
+    final closeTop = widget.anchorRect.top;
+
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) {
+          dismiss();
+        }
+      },
+      child: Material(
+        type: MaterialType.transparency,
+        child: Stack(
+          key: const Key('contextual-create-overlay'),
+          children: <Widget>[
+            Positioned.fill(
+              child: Semantics(
+                label: 'Dismiss create actions',
+                button: true,
+                child: GestureDetector(
+                  key: const Key('contextual-create-barrier'),
+                  behavior: HitTestBehavior.opaque,
+                  onTap: dismiss,
+                  child: const SizedBox.expand(),
+                ),
+              ),
+            ),
+            for (var index = 0; index < widget.actions.length; index++)
+              Positioned(
+                right: right,
+                bottom:
+                    screenSize.height -
+                    widget.anchorRect.top +
+                    10 +
+                    index * (_pillHeight + _pillGap),
+                child: _AnimatedActionPill(
+                  animation: _animation,
+                  action: widget.actions[index],
+                  onTap: () => _select(widget.actions[index]),
+                ),
+              ),
+            Positioned(
+              left: closeLeft,
+              top: closeTop,
+              width: _closeSize,
+              height: _closeSize,
+              child: AnimatedBuilder(
+                animation: _animation,
+                builder: (context, child) => Opacity(
+                  opacity: _animation.value,
+                  child: Transform.scale(
+                    scale: 0.86 + 0.14 * _animation.value,
+                    child: child,
+                  ),
+                ),
+                child: Material(
+                  color: AppTheme.rose,
+                  shape: const CircleBorder(),
+                  child: InkWell(
+                    key: const Key('contextual-create-close'),
+                    customBorder: const CircleBorder(),
+                    onTap: dismiss,
+                    child: const Icon(Icons.close, color: Colors.black),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+final class _AnimatedActionPill extends StatelessWidget {
+  const _AnimatedActionPill({
+    required this.animation,
+    required this.action,
+    required this.onTap,
+  });
+
+  final Animation<double> animation;
+  final ContextualCreateAction action;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: animation,
+      builder: (context, child) {
+        final value = animation.value;
+        return Opacity(
+          opacity: value,
+          child: Transform.translate(
+            offset: Offset(0, 16 * (1 - value)),
+            child: child,
+          ),
+        );
+      },
+      child: Material(
+        color: AppTheme.rose,
+        elevation: 8,
+        borderRadius: BorderRadius.circular(28),
+        child: InkWell(
+          key: _actionKey(action),
+          borderRadius: BorderRadius.circular(28),
+          onTap: onTap,
+          child: SizedBox(
+            width: _ContextualCreateOverlayState._pillWidth,
+            height: _ContextualCreateOverlayState._pillHeight,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 18),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: <Widget>[
+                  Icon(action.icon, color: Colors.black, size: 22),
+                  const SizedBox(width: 10),
+                  Text(
+                    action.label,
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   static Key _actionKey(ContextualCreateAction action) {
     return switch (action) {
       ContextualCreateAction.task => const Key('create-task-action'),
       ContextualCreateAction.event => const Key('create-calendar-event-action'),
-      ContextualCreateAction.person => const Key('create-person-action'),
-      ContextualCreateAction.contact => const Key('create-contact-action'),
     };
   }
 }

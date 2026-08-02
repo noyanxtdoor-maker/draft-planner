@@ -167,6 +167,7 @@ final class OutcomeReportDraft {
     this.correctsReportId,
     this.correctionReason,
     this.contributions = const <ContributionDraft>[],
+    this.allowUnstructuredPartial = false,
   });
 
   final String id;
@@ -178,6 +179,11 @@ final class OutcomeReportDraft {
   final String? correctsReportId;
   final String? correctionReason;
   final List<ContributionDraft> contributions;
+
+  /// Event Current Status writes intentionally do not open a factual-value
+  /// form. Task and manual reports keep the stricter structured partial
+  /// requirement by leaving this disabled.
+  final bool allowUnstructuredPartial;
 
   OutcomeReportDraft normalized({required bool forSubmission}) {
     if (!Uuid.isValidUUID(fromString: id)) {
@@ -214,7 +220,8 @@ final class OutcomeReportDraft {
           'Choose what factually happened before submitting.',
         );
       }
-      if (selectedOutcome == OutcomeKind.partiallyCompleted) {
+      if (selectedOutcome == OutcomeKind.partiallyCompleted &&
+          !allowUnstructuredPartial) {
         final value = factualValue;
         if (value == null) {
           throw const OutcomeReportValidationException(
@@ -241,6 +248,7 @@ final class OutcomeReportDraft {
       correctsReportId: normalizedCorrects,
       correctionReason: normalizedReason,
       contributions: normalizedContributions,
+      allowUnstructuredPartial: allowUnstructuredPartial,
     );
   }
 }

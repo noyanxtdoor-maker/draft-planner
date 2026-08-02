@@ -694,22 +694,8 @@ void main() {
         findsOneWidget,
         reason: 'centered Event detail must open after a cancelled swipe',
       );
-      await tester.tap(find.byKey(const Key('event-status-control')));
-      await tester.pumpAndSettle();
-      expect(
-        find.byKey(const Key('event-status-option-scheduled')),
-        findsOneWidget,
-      );
-      expect(
-        find.byKey(const Key('event-status-option-completedHappened')),
-        findsOneWidget,
-      );
-      expect(find.text('Completed'), findsOneWidget);
-      expect(find.text('Did Not Attempt'), findsOneWidget);
-      expect(find.text('Did Not Attend'), findsNothing);
-      expect(find.text('Did Not Happen'), findsNothing);
-      await tester.tap(find.byKey(const Key('event-status-option-scheduled')));
-      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('event-status-control')), findsNothing);
+      expect(find.text('Unreported'), findsNothing);
       expect(
         find.byKey(const Key('event-detail-sheet-edit-icon')),
         findsOneWidget,

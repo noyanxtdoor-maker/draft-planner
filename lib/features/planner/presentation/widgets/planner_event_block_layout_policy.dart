@@ -112,7 +112,9 @@ abstract final class PlannerEventBlockLayoutPolicy {
 
   /// Whether the resize handle should render at [density].
   static bool showResizeHandle(Density density, bool interactive) {
-    return interactive && density == Density.tall;
+    // Resize remains discoverable through the invisible edge hit zones below;
+    // the approved timeline surface does not render a visible grip.
+    return false;
   }
 
   /// Minimum height that still admits a meaningful resize affordance.
@@ -148,7 +150,7 @@ enum Density { veryShort, short, medium, tall }
 ///
 /// The policy intentionally avoids low-alpha backgrounds. Backup
 /// Events still receive their approved black/dark stripe on the
-/// leading edge, and Awaiting Report still receives its approved
+/// leading edge, and Unreported still receives its approved
 /// indicator — those status overlays do not reduce the opacity of
 /// the block body itself.
 abstract final class PlannerEventBlockColorPolicy {

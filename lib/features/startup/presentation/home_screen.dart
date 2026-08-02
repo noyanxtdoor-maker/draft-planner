@@ -139,17 +139,6 @@ final class HomeScreen extends ConsumerWidget {
           context.push('${RoutePaths.taskCreate}?date=${today.iso8601}'),
         );
         return;
-      case ContextualCreateAction.person:
-      case ContextualCreateAction.contact:
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              '${action.label} remains distinct and will open in the '
-              'authorized Contacts slice.',
-            ),
-          ),
-        );
-        return;
     }
   }
 }
@@ -256,7 +245,7 @@ final class _AttentionRow extends StatelessWidget {
           child: _AttentionCard(
             key: const Key('home-awaiting-report-count'),
             icon: Icons.fact_check_outlined,
-            label: 'Awaiting Report',
+            label: 'Unreported',
             count: snapshot.awaitingReportCount,
             onTap: () => context.go(RoutePaths.planner),
           ),

@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rmplanner/features/indicators/domain/life_indicator.dart';
 import 'package:rmplanner/features/planner/application/outcome_reporting_repository.dart';
 import 'package:rmplanner/features/planner/application/planner_providers.dart';
 import 'package:rmplanner/features/planner/domain/outcome_reporting.dart';
@@ -119,6 +120,93 @@ final class OutcomeReportingController extends Notifier<String?> {
       state =
           'Report was not submitted. No partial completion or contribution '
           'was saved.';
+      return null;
+    }
+  }
+
+  /// Persists an Event's selected Current Status without opening a report
+  /// form. The repository submission remains the single transactional write
+  /// path, so history, ledger contributions, and planner refresh stay coupled
+  /// and idempotent.
+  Future<ReportSubmissionResult?> submitEventStatus({
+    required String eventId,
+    required PlannerDate originalDate,
+    required OutcomeKind outcome,
+    required String operationId,
+    String? contributionRuleKey,
+  }) async {
+    try {
+      final source = await readEventSource(
+        eventId: eventId,
+        originalDate: originalDate,
+      );
+      if (source == null) {
+        state = 'This Calendar Event is no longer available.';
+        return null;
+      }
+
+      final current = (await readHistory())
+          .where(
+            (report) =>
+                report.status == OutcomeReportStatus.submitted &&
+                report.source.slotKey == source.slotKey,
+          )
+          .firstOrNull;
+      if (current?.outcome == outcome) {
+        final entries = (await readLedgerHistory(effectiveOnly: false))
+            .where((entry) => entry.sourceReportId == current!.id)
+            .toList(growable: false);
+        state = 'Status already saved locally.';
+        return ReportSubmissionResult(
+          report: current!,
+          entries: entries,
+          unchanged: true,
+        );
+      }
+
+      final draft = await readDraft(source.slotKey);
+      final rule = ScheduledPotentialRule.tryParse(contributionRuleKey);
+      final contributions = outcome == OutcomeKind.didNotHappen || rule == null
+          ? const <ContributionDraft>[]
+          : <ContributionDraft>[
+              ContributionDraft(
+                ruleKey: rule.encode(),
+                indicatorKey: rule.indicatorKey,
+                value: IndicatorValue(
+                  scaledValue: rule.value.scaledValue,
+                  scale: rule.value.scale,
+                  unit: rule.value.unit,
+                ),
+              ),
+            ];
+      final result = await submit(
+        draft: OutcomeReportDraft(
+          id: draft?.id ?? ref.read(plannerIdentifierSourceProvider).nextUuid(),
+          source: source,
+          activityDate: source.activityDate,
+          outcome: outcome,
+          correctsReportId: current?.id,
+          correctionReason: current == null
+              ? null
+              : 'Current Status corrected directly.',
+          contributions: contributions,
+          allowUnstructuredPartial: true,
+        ),
+        operationId: operationId,
+      );
+      if (result != null) {
+        state = result.unchanged
+            ? 'Status already saved locally.'
+            : 'Status saved locally.';
+      }
+      return result;
+    } on OutcomeReportValidationException catch (error) {
+      state = error.message;
+      return null;
+    } on Object {
+      state =
+          'Status was not saved. No partial completion or contribution '
+          'was recorded.';
       return null;
     }
   }
