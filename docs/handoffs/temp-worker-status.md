@@ -3199,3 +3199,106 @@ commit created for this section; its short SHA is reported after commit.
 - Physical acceptance remains pending the owner's explicit PASS or FAIL for
   the required walkthrough items; no physical PASS is inferred from the
   install. No push was made, PR #8 was not updated, and VS-09 was not started.
+
+## VS-08 Owner Correction — Event Blocks, Tasks, Reporting, and Date Picker
+
+- Starting state: Temp branch `temp/vs08-shared-preview`, HEAD
+  `c0e8232c18cf074b64467321aa05a7f1c9740c35` (`c0e8232`). The inherited
+  checkout contained the prior VS-08 working changes and the intentional
+  untracked `.todo.md`; it was not staged or committed. The protected original
+  checkout remained clean at `cd9f567d12071bfafaa6e0debf1fed05c2e55a95`.
+- Evidence reviewed: primary owner screenshots
+  `C:\Users\sherl\Downloads\Screenshot_20260802-204416.jpg`,
+  `Screenshot_20260802-204022.jpg`, `Screenshot_20260802-204344.jpg`, and
+  `Screenshot_20260802-204414.jpg`; supplemental screenshots
+  `Screenshot_20260802-155312.jpg`, `Screenshot_20260802-155212.jpg`, and
+  `Screenshot_20260802-155258.jpg`; and the supplied walkthrough recording
+  `C:\Users\sherl\Downloads\Untitled-2026-08-01 22 11 49(copy).mp4`.
+- Active production paths remain the Planner route and `PlannerScreen`, the
+  contextual create gate, `CalendarEventFormScreen`, `TaskFormScreen`, Event
+  details, Current Status, read-only Activity History, Planner Event Colors
+  settings, and the shared Planner date-picker overlay. Activity Report UI,
+  routes, buttons, and screen code were removed; the internal outcome/ledger
+  persistence needed by Current Status and Activity History remains intact.
+- Event blocks now use the PMG muted Surface fill with only the 4 dp left
+  Accent strip, 4 dp radius, 8 dp content/right padding, measured title/time
+  density, and 18 dp recurrence icon. Top/right/bottom Accent borders and the
+  visible resize line are absent; event geometry, hit zones, drag/resize,
+  viewport, zoom, and current-time behavior remain on the existing paths.
+- `PlannerEventColorResolver` is the shared production source for chooser,
+  settings preview, Planner rendering, and saved Event colors. Temple Visit is
+  resolved by its stable identity to the Baptism cyan pair
+  `#98CED8/#454B4B`; display-name changes do not rewrite Event rows.
+- Event-facing Meaningful Connection now displays as Contact while preserving
+  the stable persisted key/id and the WLI label Meaningful Connection. Service
+  remains distinct. Work has its own stable Event type and settings row and
+  defaults independently to the Service pair `#DEEDF2/#404447`; changing Work
+  preferences does not change Service.
+- Select Event Type includes Task once alongside Contact, Teaching, Finding,
+  Meeting, Study or Plan, Service, Work, Temple Visit, Travel, Meal, Other,
+  and the preserved additional approved types. Both Task entry points route to
+  the dedicated Task form and save `PlannerTasks`, never a fake Event row.
+- Task form hierarchy is drag handle, Close/Save, Title, Description, Set Due
+  Date, conditional Due Date/Time/Repeat/capability notices, and People.
+  Task Owner, Members Participating, Event-only fields, WLI, Address,
+  Location, Backup Appointment, and report UI are absent. Due-date OFF clears
+  due values and recurrence and hides all conditional content; ON restores the
+  existing Task date/time/recurrence flow. The notification warning is based
+  on actual notification capability; reminder warning follows it because this
+  checkout has no independent reminder scheduler. Settings return refreshes
+  capability state without polling.
+- People is a separate transparent plus-and-text action. Because the current
+  checkout has no Contacts slice, the scoped Task implementation uses a
+  task-local name chooser; selected names render below the action, deduplicate,
+  persist, and can be removed. WLI remains a separate right-aligned transparent
+  action with its Meaningful Connection wording.
+- Current Status completion now saves directly in one transaction, with the
+  existing operation-identity guard preventing duplicate status/history/ledger
+  writes. Activity History remains read-only. Missed - Attempted retains its
+  exact label and uses the red PMG-style `Icons.sync_disabled` icon in the
+  selector, details, and history.
+- Event form Date uses `showSharedPlannerDatePicker`, which reuses
+  `PlannerDatePickerOverlay` with a transparent barrier and the same calendar,
+  animation, SafeArea, Cancel/OK, and Android Back behavior without changing
+  Planner selection or viewport state.
+- Top-bar positions, actions, touch targets, Calendar authority, and the
+  approved custom Filter silhouette remain unchanged; Filter, Checklist, and
+  overflow visible glyph sizing remains aligned to Calendar.
+- Schema/migration: schema 13 adds guarded `planner_tasks.people_json` with a
+  `[]` default, preserving all existing rows; generated Drift code was rebuilt.
+  No broad data rewrite, dependency upgrade, uninstall, or data clear occurred.
+- Changed production files: `lib/app/router/app_router.dart`,
+  `lib/app/router/route_names.dart`, `lib/core/database/app_database.dart`,
+  `lib/core/database/app_database.g.dart`,
+  `lib/features/indicators/data/drift_indicator_repository.dart`, the Planner
+  Event Type/color/domain/data files, Planner Event form/detail/block/date-picker
+  widgets, `task_form_screen.dart`, `task_detail_screen.dart`,
+  `activity_history_screen.dart`, and
+  `lib/features/settings/presentation/planner_event_colors_screen.dart`.
+  The obsolete `outcome_report_screen.dart` was deleted.
+- Focused verification: Event Type-first creation `5 passed`; Planner Event
+  Colors journey `1 passed`; migration/repository/Planner journey run
+  `28 passed`; the two new owner Task checks cover due-date gating and People
+  persistence/removal. Planner suite: `294 passed, 0 failed, 0 skipped`.
+  Full Flutter suite: `359 passed, 0 failed, 0 skipped`. Analyzer: `No issues
+  found!`. `git diff --check` passed and no temporary diagnostics, debug
+  markers, polling loops, screenshots, recordings, APK pulls, or logs are in
+  the scoped commit.
+- Implementation commit: `137b10d53f29a9e89763ca5087cc5c303c10ac71`
+  (`fix(planner): align event blocks tasks reporting and date picker`).
+- Temp build: `C:\Users\sherl\Documents\Next Transfer-Temp\build\app\outputs\flutter-apk\app-debug.apk`,
+  `195400422` bytes, write time `2026-08-02T14:12:32.6309357Z`, SHA-256
+  `3B612278AA22069E49424EA7D8C81D050D4A72BB67E8108B56DD2D1D7D9A6600`.
+- Authorized install: Infinix X6731 serial
+  `adb-10620253B3004617-2m7ZVB._adb-tls-connect._tcp`; `adb install -r`
+  returned `Success`. The pulled installed base APK hash matched the Temp APK
+  exactly. `com.nexttransfer.rmplanner/.MainActivity` was force-stopped and
+  launched successfully; PID and resumed Activity were present.
+- Data preservation evidence: package `com.nexttransfer.rmplanner` remains
+  version `0.1.0`, `dataDir=/data/user/0/com.nexttransfer.rmplanner`,
+  `firstInstallTime=2026-07-27 15:42:22`, and the app-owned
+  `app_flutter/next_transfer.sqlite` remains present. No uninstall or clear
+  data command was used. Physical walkthrough acceptance is still pending the
+  owner's explicit PASS or FAIL for items 01–67; no physical PASS is inferred
+  from installation or automated tests.
+- No push was made; PR #8 remains untouched; VS-09 was not started.
