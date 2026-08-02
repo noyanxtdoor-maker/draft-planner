@@ -1,22 +1,21 @@
-// Stage B3-R1 Slice D — focused tests for the slide-down Planner
-// date picker route.
+// Stage B3-R1 Slice D — focused tests for the in-place Planner
+// date picker overlay.
 //
 // Slice D replaced the abrupt centered `showDatePicker` dialog with
-// a slide-down route. The tests in this file assert:
-//   * the route is reachable from the Planner date label;
-//   * the route renders a panel whose key is the agreed
+// an in-place slide-down overlay. The tests in this file assert:
+//   * the overlay is reachable from the Planner date label;
+//   * the overlay renders a panel whose key is the agreed
 //     `planner-date-picker-panel`;
 //   * the entry animation runs over a non-zero duration and the
 //     panel animates downward (rather than appearing instantly);
 //   * the dismissal animation reverses upward;
-//   * Cancel and OK semantics remain functional through the route;
-//   * dismissing the route removes the panel and restores focus to
+//   * Cancel and OK semantics remain functional through the overlay;
+//   * dismissing the overlay removes the panel and restores focus to
 //     the Planner date trigger without leaving a stale barrier;
 //   * only one picker may be open at a time.
 //
-// Mechanical assertions on the route lifecycle (e.g. that the
-// ModalRoute is open or that the barrierColor is non-null) come
-// from the navigable Navigator's history.
+// Mechanical assertions on the overlay lifecycle ensure no route is
+// pushed and that the barrier remains transparent.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' show ProviderScope;
@@ -53,7 +52,7 @@ const String _displayTimeZoneId = 'Asia/Manila';
 
 void main() {
   group('Stage B3-R1 Slice D: Planner slide-down date picker', () {
-    testWidgets('TEST 1 — Panel exists on the route stack after tap', (
+    testWidgets('TEST 1 — Panel exists in the Planner Stack after tap', (
       tester,
     ) async {
       final (database, plannerRepository) = await _buildRepositories();
@@ -325,7 +324,7 @@ void main() {
       final midPos = tester.getTopLeft(offstageFinder).dy;
       expect(
         midPos,
-        lessThanOrEqualTo(earlyPos + 0.5),
+        greaterThanOrEqualTo(earlyPos - 0.5),
         reason:
             'mid-entry position must not be above the first sample '
             '(the panel is sliding downward)',
@@ -352,36 +351,19 @@ void main() {
       );
       await tester.tap(find.byKey(const Key('planner-date-label')));
       await tester.pumpAndSettle();
-      // The route uses a non-null transparent barrier so the
-      // surrounding Planner remains fully visible while the
-      // modal route still blocks input. The Navigator.pages list
-      // may be empty because MaterialApp uses an imperative
-      // Navigator; the route is reachable through modal lookup.
-      final modalRoute = ModalRoute.of(
-        tester.element(find.byKey(const Key('planner-date-picker-panel'))),
+      // The transparent ModalBarrier is local to the Planner Stack. The
+      // picker must not add a route or a black replacement layer.
+      final barrier = tester.widget<ModalBarrier>(
+        find.byKey(const Key('planner-date-picker-barrier')),
       );
-      expect(modalRoute, isNotNull);
-      expect(modalRoute!.opaque, isFalse);
+      expect(barrier.color, Colors.transparent);
+      expect(barrier.dismissible, isTrue);
+      expect(find.byKey(const Key('planner-date-picker-route')), findsNothing);
       expect(
-        modalRoute.barrierColor,
-        isNotNull,
-        reason: 'route must declare a non-null barrier color',
-      );
-      expect(modalRoute.barrierColor, Colors.transparent);
-      expect(
-        tester
-            .widget<Material>(
-              find.byKey(const Key('planner-date-picker-route')),
-            )
-            .type,
-        MaterialType.transparency,
+        find.byKey(const Key('planner-date-picker-overlay')),
+        findsOneWidget,
       );
       expect(find.byType(PlannerScreen), findsOneWidget);
-      expect(modalRoute.transitionDuration, const Duration(milliseconds: 240));
-      expect(
-        modalRoute.reverseTransitionDuration,
-        const Duration(milliseconds: 200),
-      );
     });
 
     testWidgets('TEST 9 — Panel and barrier are gone after dismiss', (
@@ -402,14 +384,9 @@ void main() {
       // While open, the panel's enclosing ModalRoute must be the
       // slide-down picker (not the home MaterialPageRoute), so
       // its barrierColor is non-null.
-      final openRoute = ModalRoute.of(
-        tester.element(find.byKey(const Key('planner-date-picker-panel'))),
-      );
-      expect(openRoute, isNotNull);
       expect(
-        openRoute!.barrierColor,
-        isNotNull,
-        reason: 'open picker must declare a non-null barrier color',
+        find.byKey(const Key('planner-date-picker-barrier')),
+        findsOneWidget,
       );
       await tester.tap(find.text('CANCEL'));
       await tester.pumpAndSettle();
@@ -423,24 +400,9 @@ void main() {
       // picker's PageRoute, which carries a non-null barrier
       // color. We assert the active route is the home route by
       // checking that it is opaque (the picker's route is not).
-      final activeRoute = ModalRoute.of(
-        tester.element(find.byKey(const Key('planner-date-label'))),
-      );
-      expect(activeRoute, isNotNull);
       expect(
-        activeRoute!.opaque,
-        isTrue,
-        reason:
-            'planner must be the active route again; the opaque '
-            'home MaterialPageRoute is the only one that may be '
-            'enclosing the planner subtree after dismissal',
-      );
-      expect(
-        activeRoute.barrierColor,
-        isNull,
-        reason:
-            'the enclosing route after dismissal must not carry a '
-            'barrier color (the picker route has been popped)',
+        find.byKey(const Key('planner-date-picker-barrier')),
+        findsNothing,
       );
     });
 
@@ -615,6 +577,31 @@ void main() {
         }
       },
     );
+
+    testWidgets('TEST 14 — Back closes the local date overlay', (tester) async {
+      final (database, plannerRepository) = await _buildRepositories();
+      await _pumpPlanner(
+        tester: tester,
+        database: database,
+        plannerRepository: plannerRepository,
+      );
+      await tester.tap(find.byKey(const Key('planner-date-label')));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('planner-date-picker-panel')),
+        findsOneWidget,
+      );
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('planner-date-picker-panel')), findsNothing);
+      expect(
+        find.byKey(const Key('planner-date-picker-barrier')),
+        findsNothing,
+      );
+      expect(tester.takeException(), isNull);
+    });
   });
 }
 

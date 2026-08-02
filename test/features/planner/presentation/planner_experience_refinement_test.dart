@@ -66,6 +66,18 @@ void main() {
       for (final label in <String>['Event', 'Task']) {
         expect(find.text(label), findsOneWidget);
       }
+      final eventPill = tester.getRect(
+        find.byKey(const Key('create-calendar-event-action')),
+      );
+      final taskPill = tester.getRect(
+        find.byKey(const Key('create-task-action')),
+      );
+      expect(eventPill.height, closeTo(56, 1));
+      expect(taskPill.height, closeTo(56, 1));
+      expect(eventPill.width, inInclusiveRange(108, 232));
+      expect(taskPill.width, inInclusiveRange(108, 232));
+      expect(eventPill.top - taskPill.bottom, closeTo(8, 1));
+      expect(tester.view.physicalSize.width - eventPill.right, closeTo(16, 1));
       expect(find.text('+ Person'), findsNothing);
       expect(find.text('Contact'), findsNothing);
       expect(

@@ -1,169 +1,217 @@
-// Slice D — slide-down Planner Date Picker route.
+// In-place Planner Date picker presentation.
 //
-// Replaces the abrupt centered `showDatePicker` dialog with a
-// smooth top-down slide-down / slide-up dismissal animation.
-// The picker content is unchanged; only the presentation is
-// refreshed so the panel originates above its final resting
-// position beneath the Planner top bar and slides downward into
-// view, then reverses upward on dismiss.
-//
-// Acceptance contract:
-//
-//   * opening: begins above final position; moves downward;
-//     finishes at the rest position.
-//   * closing: reverses upward; barrier fades out; no stale
-//     overlay remains.
-//   * content: month navigation, day select, Cancel, OK, current
-//     selected date highlight, allowed date range — all
-//     preserved.
-//   * animation timing: 180–300 ms opening, 150–250 ms closing,
-//     easeOutCubic / easeInCubic curves via
-//     emphasizedDecelerate / emphasizedAccelerate is acceptable.
-//   * focus: traps the date picker panel on open and releases on
-//     close; `ModalRoute.barrierLabel` exposes the standard
-//     dismiss label so screen readers recognise the barrier.
-//   * keys: `planner-date-picker-trigger`,
-//     `planner-date-picker-route`, `planner-date-picker-panel`,
-//     `planner-date-picker-cancel`, `planner-date-picker-confirm`.
+// The Planner owns this overlay in its existing Stack. It is intentionally
+// not a Navigator route: the Planner, date strip, viewport, zoom, and scroll
+// state remain mounted and visually unchanged while the transparent barrier
+// owns input.
+
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-/// Animation envelope for the slide-down presentation. Picker
-/// content uses these to render the panel at the current
-/// animation offset so the bar can produce a clean fade in lock-
-/// step with the slide.
-typedef PlannerDatePickerRouteAnimation =
-    Widget Function(
-      BuildContext context,
-      Animation<double> animation,
-      Animation<double> secondaryAnimation,
-      Widget child,
-    );
-
-/// Open the Planner slide-down date picker and return the chosen
-/// date (or `null` when dismissed).
-///
-/// Shows a reusable [showDatePicker] dialog with the same content
-/// as production already exposes, but the dialog is rendered
-/// inside a custom [PageRouteBuilder] that slides the panel
-/// downward on entry and upward on exit. The barrier is
-/// transparent so the surrounding Planner remains fully visible
-/// but cannot accept input while the picker is open.
-Future<DateTime?> showPlannerSlideDownDatePicker({
-  required BuildContext context,
-  required DateTime initialDate,
-  required DateTime firstDate,
-  required DateTime lastDate,
-  String helpText = 'Select Planner date',
-}) {
-  return Navigator.of(context, rootNavigator: true).push<DateTime>(
-    PageRouteBuilder<DateTime>(
-      settings: const RouteSettings(name: 'planner-date-picker-route'),
-      opaque: false,
-      // The Planner must remain fully visible while the picker owns modal
-      // input. A transparent barrier blocks taps without introducing the
-      // rejected black or dim replacement layer.
-      barrierColor: Colors.transparent,
-      barrierDismissible: true,
-      barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
-      transitionDuration: const Duration(milliseconds: 240),
-      reverseTransitionDuration: const Duration(milliseconds: 200),
-      pageBuilder: (routeContext, animation, secondaryAnimation) {
-        // Re-render the existing production DatePickerDialog
-        // content. The dialog widget builds its own CalendarDatePicker
-        // so the day / month / year grid and the Cancel / OK
-        // actions remain identical to the legacy `showDatePicker`
-        // call site that previously powered this entry point.
-        return Material(
-          key: const Key('planner-date-picker-route'),
-          type: MaterialType.transparency,
-          child: _PlannerSlideDownPanel(
-            animation: animation,
-            initialDate: initialDate,
-            firstDate: firstDate,
-            lastDate: lastDate,
-            helpText: helpText,
-          ),
-        );
-      },
-      transitionsBuilder: (context, animation, secondaryAnimation, child) {
-        // Slide the panel from above (-1.0) into its rest position
-        // (0.0). CurveOutCubic on entry; curveInCubic on exit. The
-        // animation value is read directly from the builder so the
-        // panel can also fade synchronously.
-        final curved = CurvedAnimation(
-          parent: animation,
-          curve: Curves.easeOutCubic,
-          reverseCurve: Curves.easeInCubic,
-        );
-        return SlideTransition(
-          position: Tween<Offset>(
-            begin: const Offset(0, -1),
-            end: Offset.zero,
-          ).animate(curved),
-          child: FadeTransition(opacity: curved, child: child),
-        );
-      },
-    ),
-  );
-}
-
-/// Internal presentation shell. Composes the existing Material
-/// [DatePickerDialog] so the day/month/year selectors and the
-/// Cancel / OK row are unchanged from the legacy behavior, but
-/// frames them inside the slide-down animation panel that the
-/// route builder animates.
-final class _PlannerSlideDownPanel extends StatelessWidget {
-  const _PlannerSlideDownPanel({
-    required this.animation,
+final class PlannerDatePickerOverlay extends StatefulWidget {
+  const PlannerDatePickerOverlay({
     required this.initialDate,
     required this.firstDate,
     required this.lastDate,
-    required this.helpText,
+    required this.onCancel,
+    required this.onConfirm,
+    this.helpText = 'Select Planner date',
+    super.key,
   });
 
-  final Animation<double> animation;
   final DateTime initialDate;
   final DateTime firstDate;
   final DateTime lastDate;
+  final VoidCallback onCancel;
+  final ValueChanged<DateTime> onConfirm;
   final String helpText;
 
   @override
+  State<PlannerDatePickerOverlay> createState() =>
+      _PlannerDatePickerOverlayState();
+}
+
+final class _PlannerDatePickerOverlayState
+    extends State<PlannerDatePickerOverlay>
+    with SingleTickerProviderStateMixin {
+  static const Duration _duration = Duration(milliseconds: 240);
+
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: _duration,
+    reverseDuration: const Duration(milliseconds: 200),
+  );
+  late final Animation<double> _animation = CurvedAnimation(
+    parent: _controller,
+    curve: Curves.easeOutCubic,
+    reverseCurve: Curves.easeInCubic,
+  );
+  late DateTime _selectedDate = widget.initialDate;
+  bool _closing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_controller.forward());
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _dismiss() {
+    if (_closing) {
+      return;
+    }
+    _closing = true;
+    unawaited(
+      _controller.reverse().whenComplete(() {
+        if (mounted) {
+          widget.onCancel();
+        }
+      }),
+    );
+  }
+
+  void _confirm() {
+    if (_closing) {
+      return;
+    }
+    _closing = true;
+    unawaited(
+      _controller.reverse().whenComplete(() {
+        if (mounted) {
+          widget.onConfirm(_selectedDate);
+        }
+      }),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    // Anchor the panel beneath the Planner top bar so it visually
-    // "drops down" from the bar instead of floating in the middle
-    // of the screen. SafeArea keeps the picker away from the
-    // system status bar; the panel itself is full-width and uses
-    // SafeArea + the device's media query padding to determine its
-    // top offset.
     final media = MediaQuery.of(context);
-    return Align(
-      alignment: Alignment.topCenter,
-      child: Padding(
-        padding: EdgeInsets.only(top: media.padding.top + kToolbarHeight),
-        child: Material(
-          key: const Key('planner-date-picker-panel'),
-          color: Theme.of(context).colorScheme.surface,
-          elevation: 8,
-          borderRadius: const BorderRadius.vertical(
-            bottom: Radius.circular(20),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: DatePickerDialog(
-            initialDate: initialDate,
-            firstDate: firstDate,
-            lastDate: lastDate,
-            helpText: helpText,
-            cancelText: 'CANCEL',
-            confirmText: 'OK',
-          ),
+    final topOffset = media.padding.top + kToolbarHeight;
+    final maxHeight = (media.size.height - topOffset - 16).clamp(0.0, 640.0);
+
+    return Positioned.fill(
+      child: PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) {
+            _dismiss();
+          }
+        },
+        child: Stack(
+          children: <Widget>[
+            ModalBarrier(
+              key: const Key('planner-date-picker-barrier'),
+              color: Colors.transparent,
+              dismissible: true,
+              onDismiss: _dismiss,
+              semanticsLabel: MaterialLocalizations.of(
+                context,
+              ).modalBarrierDismissLabel,
+            ),
+            Align(
+              alignment: Alignment.topCenter,
+              child: Padding(
+                padding: EdgeInsets.only(top: topOffset),
+                child: SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(0, -1),
+                    end: Offset.zero,
+                  ).animate(_animation),
+                  child: FadeTransition(
+                    opacity: _animation,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(maxHeight: maxHeight),
+                      child: _PlannerDatePickerPanel(
+                        initialDate: widget.initialDate,
+                        selectedDate: _selectedDate,
+                        firstDate: widget.firstDate,
+                        lastDate: widget.lastDate,
+                        helpText: widget.helpText,
+                        onDateChanged: (value) => setState(() {
+                          _selectedDate = value;
+                        }),
+                        onCancel: _dismiss,
+                        onConfirm: _confirm,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-/// Resolves the stable keys asserted by the focused tests so the
-/// suite and the production widget agree on a single source of
-/// truth for the picker panel identity.
+final class _PlannerDatePickerPanel extends StatelessWidget {
+  const _PlannerDatePickerPanel({
+    required this.initialDate,
+    required this.selectedDate,
+    required this.firstDate,
+    required this.lastDate,
+    required this.helpText,
+    required this.onDateChanged,
+    required this.onCancel,
+    required this.onConfirm,
+  });
+
+  final DateTime initialDate;
+  final DateTime selectedDate;
+  final DateTime firstDate;
+  final DateTime lastDate;
+  final String helpText;
+  final ValueChanged<DateTime> onDateChanged;
+  final VoidCallback onCancel;
+  final VoidCallback onConfirm;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      key: const Key('planner-date-picker-panel'),
+      color: Theme.of(context).colorScheme.surface,
+      elevation: 0,
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          CalendarDatePicker(
+            initialDate: initialDate,
+            currentDate: selectedDate,
+            firstDate: firstDate,
+            lastDate: lastDate,
+            onDateChanged: onDateChanged,
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: <Widget>[
+                TextButton(
+                  key: const Key('planner-date-picker-cancel'),
+                  onPressed: onCancel,
+                  child: const Text('CANCEL'),
+                ),
+                TextButton(
+                  key: const Key('planner-date-picker-confirm'),
+                  onPressed: onConfirm,
+                  child: const Text('OK'),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 const Key plannerDatePickerPanelKey = Key('planner-date-picker-panel');

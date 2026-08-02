@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:rmplanner/app/theme/app_theme.dart';
@@ -149,9 +150,10 @@ final class _ContextualCreateOverlay extends StatefulWidget {
 final class _ContextualCreateOverlayState
     extends State<_ContextualCreateOverlay>
     with SingleTickerProviderStateMixin {
-  static const double _pillWidth = 176;
-  static const double _pillHeight = 52;
-  static const double _pillGap = 10;
+  static const double _pillMinWidth = 108;
+  static const double _pillMaxWidth = 232;
+  static const double _pillHeight = 56;
+  static const double _pillGap = 8;
   static const double _closeSize = 56;
   static const Duration _duration = Duration(milliseconds: 240);
 
@@ -214,7 +216,7 @@ final class _ContextualCreateOverlayState
     final media = MediaQuery.of(context);
     final screenSize = media.size;
     final right = (screenSize.width - widget.anchorRect.right)
-        .clamp(12.0, screenSize.width - _pillWidth - 12)
+        .clamp(16.0, math.max(16.0, screenSize.width - _pillMaxWidth - 16))
         .toDouble();
     final closeLeft = widget.anchorRect.left;
     final closeTop = widget.anchorRect.top;
@@ -278,7 +280,11 @@ final class _ContextualCreateOverlayState
                     key: const Key('contextual-create-close'),
                     customBorder: const CircleBorder(),
                     onTap: dismiss,
-                    child: const Icon(Icons.close, color: Colors.black),
+                    child: const Icon(
+                      Icons.close,
+                      color: Colors.black,
+                      size: 26,
+                    ),
                   ),
                 ),
               ),
@@ -317,30 +323,40 @@ final class _AnimatedActionPill extends StatelessWidget {
       },
       child: Material(
         color: AppTheme.rose,
-        elevation: 8,
+        elevation: 0,
         borderRadius: BorderRadius.circular(28),
         child: InkWell(
           key: _actionKey(action),
           borderRadius: BorderRadius.circular(28),
           onTap: onTap,
-          child: SizedBox(
-            width: _ContextualCreateOverlayState._pillWidth,
-            height: _ContextualCreateOverlayState._pillHeight,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 18),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: <Widget>[
-                  Icon(action.icon, color: Colors.black, size: 22),
-                  const SizedBox(width: 10),
-                  Text(
-                    action.label,
-                    style: const TextStyle(
-                      color: Colors.black,
-                      fontWeight: FontWeight.w800,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              minWidth: _ContextualCreateOverlayState._pillMinWidth,
+              maxWidth: _ContextualCreateOverlayState._pillMaxWidth,
+              minHeight: _ContextualCreateOverlayState._pillHeight,
+              maxHeight: _ContextualCreateOverlayState._pillHeight,
+            ),
+            child: SizedBox(
+              height: _ContextualCreateOverlayState._pillHeight,
+              child: Padding(
+                padding: const EdgeInsets.only(left: 18, right: 22),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Icon(action.icon, color: Colors.black, size: 24),
+                    const SizedBox(width: 12),
+                    Text(
+                      action.label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.black,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

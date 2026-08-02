@@ -18,7 +18,7 @@ void main() {
   testWidgets(
     'VS-08: one timeline tap selects a type before a prefilled form',
     (tester) async {
-      tester.view.physicalSize = const Size(431, 912);
+      tester.view.physicalSize = const Size(393, 874);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       final database = openMemoryDatabase();
@@ -68,9 +68,6 @@ void main() {
       final pickerRect = tester.getRect(
         find.byKey(const Key('event-type-picker')),
       );
-      final stripRect = tester.getRect(
-        find.byKey(const Key('planner-week-strip')),
-      );
       expect(
         pickerRect.center.dx,
         closeTo(tester.view.physicalSize.width / 2, 1),
@@ -78,9 +75,11 @@ void main() {
       );
       expect(
         pickerRect.top,
-        greaterThan(stripRect.bottom),
-        reason: 'Option A picker must sit below the approved date strip',
+        closeTo(kToolbarHeight + 13, 1),
+        reason: 'measured picker top must remain anchored to the top bar',
       );
+      expect(pickerRect.width, closeTo(347, 1));
+      expect(pickerRect.height, closeTo(672, 1));
       expect(
         pickerRect.center.dy,
         lessThan(tester.view.physicalSize.height / 2),
@@ -98,7 +97,11 @@ void main() {
       );
       expect(
         tester.getSize(find.byKey(const Key('event-type-icon-general'))).width,
-        closeTo(21, 0.1),
+        closeTo(22, 0.1),
+      );
+      expect(
+        tester.getTopLeft(find.byKey(const Key('event-type-icon-general'))).dx,
+        closeTo(49, 1),
       );
       expect(find.byType(DraggableScrollableSheet), findsNothing);
       expect(find.byKey(const Key('event-type-picker-scroll')), findsOneWidget);
@@ -152,6 +155,18 @@ void main() {
         find.byKey(const Key('calendar-event-sheet-handle')),
         findsOneWidget,
       );
+      expect(
+        tester.getSize(find.byKey(const Key('calendar-event-sheet-handle'))),
+        const Size(32, 4),
+      );
+      expect(
+        tester.getSize(find.byKey(const Key('event-type-field'))),
+        const Size(357, 60),
+      );
+      expect(
+        tester.getSize(find.byKey(const Key('save-event-button'))).height,
+        greaterThanOrEqualTo(44),
+      );
       final sheet = find.byKey(const Key('calendar-event-detail-sheet'));
       final initialSheetTop = tester.getTopLeft(sheet).dy;
       await tester.drag(
@@ -196,6 +211,29 @@ void main() {
         ),
         findsOneWidget,
       );
+      await tester.tap(find.byKey(const Key('event-type-field')));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('event-type-dropdown-option-general')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('event-type-icon-general')), findsNothing);
+      final dropdownOption = tester.getRect(
+        find.byKey(const Key('event-type-dropdown-option-general')),
+      );
+      expect(dropdownOption.width, closeTo(357, 1));
+      expect(dropdownOption.height, closeTo(48, 1));
+      await tester.tap(
+        find.byKey(const Key('event-type-dropdown-option-general')),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('event-type-field')),
+          matching: find.text('General'),
+        ),
+        findsOneWidget,
+      );
       Future<void> scrollFormTo(Finder target) async {
         for (var attempt = 0; attempt < 8; attempt++) {
           if (target.evaluate().isNotEmpty) {
@@ -213,10 +251,17 @@ void main() {
       await scrollFormTo(dateField);
       expect(dateField, findsWidgets);
       expect(find.text('Scheduling Details'), findsOneWidget);
-      expect(find.text(selected.iso8601), findsWidgets);
+      expect(find.text('Monday, July 27, 2026'), findsWidgets);
       final startTime = find.byKey(const Key('event-start-time'));
       await scrollFormTo(startTime);
       expect(startTime, findsWidgets);
+      final startRect = tester.getRect(startTime.first);
+      final endRect = tester.getRect(
+        find.byKey(const Key('event-end-time')).first,
+      );
+      expect(startRect.width, closeTo(162.5, 1));
+      expect(endRect.width, closeTo(162.5, 1));
+      expect(endRect.left - startRect.right, closeTo(32, 1));
       expect(find.text('9:30 AM'), findsOneWidget);
       final endTime = find.byKey(const Key('event-end-time'));
       await scrollFormTo(endTime);
@@ -233,9 +278,19 @@ void main() {
             .first,
       );
       expect(find.byKey(const Key('people-section-header')), findsOneWidget);
-      expect(find.text('+ People'), findsOneWidget);
-      expect(find.text('+ Address'), findsOneWidget);
-      expect(find.text('+ Location'), findsOneWidget);
+      expect(find.text('People'), findsWidgets);
+      expect(find.text('Address'), findsOneWidget);
+      expect(find.text('Location'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('weekly-life-indicator-link-section')),
+        220,
+        scrollable: find
+            .descendant(
+              of: find.byKey(const Key('calendar-event-form-scroll')),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
       expect(
         find.byKey(const Key('weekly-life-indicator-link-section')),
         findsOneWidget,

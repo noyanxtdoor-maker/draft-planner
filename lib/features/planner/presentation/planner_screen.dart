@@ -126,6 +126,7 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
   PlannerDate? _lastObservedSelectedDate;
   PlannerDay? _lastObservedDay;
   bool _selectionActive = false;
+  bool _datePickerOpen = false;
   // Owns the day-swipe candidate lifetime across the Listener
   // wrapper and the timeline's pinch/long-press/resize recognizers.
   // The field is initialized on first build and reused for every
@@ -283,7 +284,7 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     final plannerSettings = ref.watch(eventTypeControllerProvider).settings;
     _presentation ??= plannerSettings.preferredPresentation;
 
-    return Scaffold(
+    final scaffold = Scaffold(
       appBar: _buildAppBar(context, ref, state, plannerSettings, controller),
       body: SafeArea(
         top: false,
@@ -308,6 +309,21 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
         onSelected: (action) =>
             _handleCreateAction(context, ref, state.selectedDate, action),
       ),
+    );
+    return Stack(
+      children: <Widget>[
+        scaffold,
+        if (_datePickerOpen)
+          PlannerDatePickerOverlay(
+            key: const Key('planner-date-picker-overlay'),
+            initialDate: state.selectedDate.asLocalDate,
+            firstDate: DateTime(1900),
+            lastDate: DateTime(2200, 12, 31),
+            helpText: 'Select Planner date',
+            onCancel: _closeDatePicker,
+            onConfirm: (date) => _confirmDatePicker(controller, date),
+          ),
+      ],
     );
   }
 
@@ -376,7 +392,7 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
         child: InkWell(
           key: const Key('planner-date-label'),
           borderRadius: BorderRadius.circular(8),
-          onTap: () => _openCalendar(context, controller, state),
+          onTap: _openCalendar,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
             child: Row(
@@ -1426,22 +1442,28 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     );
   }
 
-  Future<void> _openCalendar(
-    BuildContext context,
-    PlannerController controller,
-    PlannerState state,
-  ) async {
-    final selected = state.selectedDate;
-    final result = await showPlannerSlideDownDatePicker(
-      context: context,
-      initialDate: selected.asLocalDate,
-      firstDate: DateTime(1900),
-      lastDate: DateTime(2200, 12, 31),
-      helpText: 'Select Planner date',
-    );
-    if (result != null) {
-      await controller.selectDate(PlannerDate.fromDateTime(result));
+  void _openCalendar() {
+    if (_datePickerOpen) {
+      return;
     }
+    setState(() => _datePickerOpen = true);
+  }
+
+  void _closeDatePicker() {
+    if (mounted && _datePickerOpen) {
+      setState(() => _datePickerOpen = false);
+    }
+  }
+
+  Future<void> _confirmDatePicker(
+    PlannerController controller,
+    DateTime date,
+  ) async {
+    if (!_datePickerOpen) {
+      return;
+    }
+    setState(() => _datePickerOpen = false);
+    await controller.selectDate(PlannerDate.fromDateTime(date));
   }
 }
 
