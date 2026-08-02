@@ -10,6 +10,7 @@ import 'package:rmplanner/features/planner/application/outcome_reporting_provide
 import 'package:rmplanner/features/planner/application/outcome_reporting_repository.dart';
 import 'package:rmplanner/features/planner/application/planner_providers.dart';
 import 'package:rmplanner/features/planner/application/task_event_link_providers.dart';
+import 'package:rmplanner/features/planner/data/calendar_event_time_zones.dart';
 import 'package:rmplanner/features/planner/domain/calendar_event.dart';
 import 'package:rmplanner/features/planner/domain/event_type.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
@@ -377,12 +378,7 @@ final class _CalendarEventFormScreenState
               key: const Key('selected-event-type-label'),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 17,
-                height: 24 / 17,
-                fontWeight: FontWeight.w400,
-              ),
+              style: AppTypography.body.copyWith(color: Colors.white),
             ),
           ),
         ),
@@ -407,10 +403,7 @@ final class _CalendarEventFormScreenState
         for (final value in CalendarRecurrenceFrequency.values)
           DropdownMenuItem<CalendarRecurrenceFrequency>(
             value: value,
-            child: Text(
-              _frequencyLabel(value),
-              style: const TextStyle(fontSize: 18, height: 24 / 18),
-            ),
+            child: Text(_frequencyLabel(value), style: AppTypography.body),
           ),
       ],
       onChanged: (value) => setState(() {
@@ -442,15 +435,33 @@ final class _CalendarEventFormScreenState
     _locationExpanded = _locationController.text.trim().isNotEmpty;
     _addressExpanded = _locationExpanded;
     _timeZoneController.text =
+        occurrence?.timeZoneId ??
         draft.timeZoneId ??
         ref.read(calendarEventControllerProvider.notifier).displayTimeZoneId;
-    _date = widget.mode == CalendarEventFormMode.reschedule
-        ? widget.originalDate!
-        : draft.startDate;
+    // Editing must round-trip the event's source-zone wall time. The
+    // occurrence display values are intentionally converted for the planner
+    // viewer and can represent a different local date/time when the device
+    // zone differs from the event zone.
+    final occurrenceStart = _sourceWallTime(occurrence, occurrence?.startUtc);
+    final occurrenceEnd = _sourceWallTime(occurrence, occurrence?.endUtc);
+    final occurrenceDate = occurrenceStart == null
+        ? occurrence?.displayDate
+        : PlannerDate.fromDateTime(occurrenceStart);
+    _date =
+        occurrenceDate ??
+        (widget.mode == CalendarEventFormMode.reschedule
+            ? widget.originalDate!
+            : draft.startDate);
     _timing = draft.timing;
     _currentStatus = occurrence?.status ?? draft.status;
-    _start = _timeFromMinute(draft.startMinute ?? 9 * 60);
-    _end = _timeFromMinute(draft.endMinute ?? 10 * 60);
+    final startWall = occurrenceStart ?? occurrence?.startDisplay;
+    final endWall = occurrenceEnd ?? occurrence?.endDisplay;
+    _start = startWall == null
+        ? _timeFromMinute(draft.startMinute ?? 9 * 60)
+        : TimeOfDay.fromDateTime(startWall);
+    _end = endWall == null
+        ? _timeFromMinute(draft.endMinute ?? 10 * 60)
+        : TimeOfDay.fromDateTime(endWall);
     _durationWasEntered = true;
     _requiresReport = draft.requiresReport;
     _isBackupAppointment = draft.isBackupAppointment;
@@ -467,6 +478,23 @@ final class _CalendarEventFormScreenState
     _recurrenceEndDate = draft.recurrence.endDate;
     _countController.text = (draft.recurrence.occurrenceCount ?? 2).toString();
     setState(() => _loading = false);
+  }
+
+  DateTime? _sourceWallTime(
+    CalendarEventOccurrence? occurrence,
+    DateTime? instant,
+  ) {
+    final timeZoneId = occurrence?.timeZoneId;
+    if (instant == null || timeZoneId == null) {
+      return null;
+    }
+    try {
+      return IanaCalendarEventTimeZones(
+        displayTimeZoneId: timeZoneId,
+      ).utcToWall(value: instant, timeZoneId: timeZoneId);
+    } on Object {
+      return null;
+    }
   }
 
   @override
@@ -1125,7 +1153,7 @@ final class _CalendarEventFormScreenState
       padding: EdgeInsets.zero,
       alignment: Alignment.centerLeft,
       foregroundColor: AppTheme.rose,
-      textStyle: const TextStyle(fontSize: 17, fontWeight: FontWeight.w500),
+      textStyle: AppTypography.button,
     );
   }
 
@@ -1135,7 +1163,7 @@ final class _CalendarEventFormScreenState
       padding: EdgeInsets.zero,
       alignment: Alignment.centerRight,
       foregroundColor: AppTheme.rose,
-      textStyle: const TextStyle(fontSize: 17, fontWeight: FontWeight.w500),
+      textStyle: AppTypography.button,
     );
   }
 
@@ -1382,14 +1410,7 @@ final class _MeasuredFormSectionHeader extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 18,
-            height: 26 / 18,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
+        Text(label, style: AppTypography.sectionTitle),
         const SizedBox(height: 6),
         const Divider(height: 1, thickness: 1),
       ],
@@ -1412,9 +1433,9 @@ final class _FormSectionLabel extends StatelessWidget {
         Expanded(
           child: Text(
             label,
-            style: Theme.of(
-              context,
-            ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+            style: AppTypography.sectionTitle.copyWith(
+              color: Theme.of(context).colorScheme.primary,
+            ),
           ),
         ),
       ],
@@ -1493,11 +1514,7 @@ final class _DateTile extends StatelessWidget {
             _friendlyDate(date),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 17,
-              height: 24 / 17,
-              fontWeight: FontWeight.w400,
-            ),
+            style: AppTypography.body,
           ),
         ),
       ),
@@ -1563,11 +1580,7 @@ final class _TimeTile extends StatelessWidget {
           child: Text(
             value.format(context),
             maxLines: 1,
-            style: const TextStyle(
-              fontSize: 17,
-              height: 24 / 17,
-              fontWeight: FontWeight.w400,
-            ),
+            style: AppTypography.body,
           ),
         ),
       ),
@@ -1607,8 +1620,8 @@ InputDecoration _measuredInputDecoration({
     filled: true,
     fillColor: Colors.transparent,
     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-    labelStyle: const TextStyle(fontSize: 14, height: 20 / 14),
-    floatingLabelStyle: const TextStyle(fontSize: 14, height: 20 / 14),
+    labelStyle: AppTypography.micro,
+    floatingLabelStyle: AppTypography.micro,
     border: border,
     enabledBorder: border,
     focusedBorder: border,

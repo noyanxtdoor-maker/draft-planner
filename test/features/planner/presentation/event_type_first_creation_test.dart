@@ -359,8 +359,11 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(
-        find.byKey(const Key('home-indicator-job_applications')),
+      final homeContext = tester.element(
+        find.byKey(const Key('main-bottom-navigation')),
+      );
+      GoRouter.of(homeContext).go(
+        RoutePaths.indicatorDetail('job_applications', selected),
       );
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('indicator-schedule-activity')));
@@ -423,15 +426,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(
-      find.byKey(const Key('weekly-targets-button')),
-      250,
-      scrollable: find.descendant(
-        of: find.byKey(const Key('home-indicator-list')),
-        matching: find.byType(Scrollable),
-      ),
-    );
-    await tester.tap(find.byKey(const Key('weekly-targets-button')));
+    await tester.tap(find.text('Start Weekly Planning'));
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
       find.byKey(const Key('weekly-plan-create-event')),

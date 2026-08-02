@@ -44,26 +44,20 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.scrollUntilVisible(
-        find.byKey(const Key('weekly-targets-button')),
-        300,
-        scrollable: find.descendant(
-          of: find.byKey(const Key('home-indicator-list')),
-          matching: find.byType(Scrollable),
-        ),
-      );
-      await tester.tap(find.byKey(const Key('weekly-targets-button')));
+      await tester.tap(find.text('Start Weekly Planning'));
       await tester.pumpAndSettle();
 
       expect(find.text('Weekly Planning'), findsOneWidget);
-      expect(find.text('2026-07-27 — 2026-08-02'), findsOneWidget);
-      expect(find.textContaining('Asia/Manila'), findsOneWidget);
-      expect(find.byKey(const Key('weekly-plan-identity')), findsOneWidget);
-      expect(find.textContaining('Actual is factual'), findsOneWidget);
+      expect(find.textContaining('Jul 27'), findsOneWidget);
+      expect(find.textContaining('Jul 27'), findsOneWidget);
+      expect(find.textContaining('Asia/Manila'), findsNothing);
+      expect(find.byKey(const Key('weekly-plan-identity')), findsNothing);
+      expect(find.textContaining('Actual is factual'), findsNothing);
       expect(
         find.byKey(const Key('weekly-plan-indicator-job_applications')),
         findsOneWidget,
       );
+      expect(find.text('Set Goal'), findsNWidgets(6));
 
       await tester.scrollUntilVisible(
         find.byKey(const Key('weekly-plan-add-commitment')),
@@ -128,19 +122,11 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.scrollUntilVisible(
-        find.byKey(const Key('weekly-targets-button')),
-        300,
-        scrollable: find.descendant(
-          of: find.byKey(const Key('home-indicator-list')),
-          matching: find.byType(Scrollable),
-        ),
-      );
-      await tester.tap(find.byKey(const Key('weekly-targets-button')));
+      await tester.tap(find.text('Start Weekly Planning'));
       await tester.pumpAndSettle();
       expect(find.text('Weekly Planning'), findsOneWidget);
       await tester.scrollUntilVisible(
-        find.byKey(const Key('weekly-plan-targets-button')),
+        find.byKey(const Key('weekly-plan-indicator-meaningful_connections')),
         250,
         scrollable: find.descendant(
           of: find.byKey(const Key('weekly-plan-list')),
@@ -148,7 +134,7 @@ void main() {
         ),
       );
       expect(
-        find.byKey(const Key('weekly-plan-targets-button')),
+        find.byKey(const Key('weekly-plan-indicator-meaningful_connections')),
         findsOneWidget,
       );
       expect(tester.takeException(), isNull);
@@ -212,15 +198,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.scrollUntilVisible(
-        find.byKey(const Key('weekly-targets-button')),
-        300,
-        scrollable: find.descendant(
-          of: find.byKey(const Key('home-indicator-list')),
-          matching: find.byType(Scrollable),
-        ),
-      );
-      await tester.tap(find.byKey(const Key('weekly-targets-button')));
+      await tester.tap(find.text('Start Weekly Planning'));
       await tester.pumpAndSettle();
       await tester.scrollUntilVisible(
         find.byKey(const Key('weekly-plan-review-button')),

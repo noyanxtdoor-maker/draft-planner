@@ -8,7 +8,7 @@ import '../../../support/test_dependencies.dart';
 
 void main() {
   testWidgets(
-    'VS-08 Home shows six factual WLI cards and the planning entry point',
+    'VS-08 Home shows the unplanned current week and canonical planning entry',
     (tester) async {
       const monday = PlannerDate(year: 2026, month: 7, day: 27);
       tester.view.physicalSize = const Size(941, 1672);
@@ -35,55 +35,31 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Weekly Life Indicators'), findsOneWidget);
-      for (final key in <String>[
-        'job_applications',
-        'scripture_study',
-        'exercise',
-        'meaningful_connections',
-        'budget_review',
-        'temple_visit',
-      ]) {
-        expect(find.byKey(Key('home-indicator-$key')), findsOneWidget);
-      }
-      expect(find.text('Actual / Target'), findsNWidgets(6));
+      expect(find.text('Start Weekly Planning'), findsOneWidget);
+      expect(
+        find.byKey(const Key('home-start-weekly-planning')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('home-indicator-job_applications')), findsNothing);
       expect(find.text('Scheduled'), findsNothing);
-      expect(find.textContaining('Not set'), findsWidgets);
       expect(find.textContaining('worthiness'), findsNothing);
+      expect(find.byKey(const Key('home-pathway-employment')), findsOneWidget);
 
-      await tester.tap(
-        find.byKey(const Key('home-indicator-job_applications')),
-      );
-      await tester.pumpAndSettle();
-      expect(find.text('Indicator Detail'), findsOneWidget);
-      expect(find.textContaining('2026-07-27'), findsOneWidget);
-      expect(find.text('Contribution History'), findsOneWidget);
-      await tester.pageBack();
-      await tester.pumpAndSettle();
-
-      await tester.scrollUntilVisible(
-        find.byKey(const Key('weekly-targets-button')),
-        250,
-        scrollable: find.descendant(
-          of: find.byKey(const Key('home-indicator-list')),
-          matching: find.byType(Scrollable),
-        ),
-      );
-      await tester.tap(find.byKey(const Key('weekly-targets-button')));
+      await tester.tap(find.text('Start Weekly Planning'));
       await tester.pumpAndSettle();
       expect(find.text('Weekly Planning'), findsOneWidget);
-      expect(find.byKey(const Key('weekly-plan-identity')), findsOneWidget);
-      await tester.scrollUntilVisible(
-        find.byKey(const Key('weekly-plan-targets-button')),
-        250,
-        scrollable: find.descendant(
-          of: find.byKey(const Key('weekly-plan-list')),
-          matching: find.byType(Scrollable),
-        ),
+      expect(
+        find.byKey(const Key('weekly-plan-indicator-job_applications')),
+        findsOneWidget,
       );
-      await tester.tap(find.byKey(const Key('weekly-plan-targets-button')));
+      expect(find.text('Set Goal'), findsNWidgets(6));
+      await tester.tap(
+        find.byKey(const Key('weekly-plan-indicator-job_applications')),
+      );
       await tester.pumpAndSettle();
-      expect(find.text('Weekly Targets'), findsOneWidget);
-      expect(find.textContaining('Actual is read-only'), findsOneWidget);
+      expect(find.text('Edit Goal'), findsOneWidget);
+      expect(find.text('Weekly'), findsOneWidget);
+      expect(find.text('Save'), findsOneWidget);
 
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(milliseconds: 1));
@@ -119,7 +95,7 @@ void main() {
 
     expect(find.text('Weekly Life Indicators'), findsOneWidget);
     await tester.scrollUntilVisible(
-      find.byKey(const Key('home-indicator-meaningful_connections')),
+      find.byKey(const Key('home-pathway-documents')),
       220,
       scrollable: find.descendant(
         of: find.byKey(const Key('home-indicator-list')),
@@ -127,7 +103,7 @@ void main() {
       ),
     );
     expect(
-      find.byKey(const Key('home-indicator-meaningful_connections')),
+      find.byKey(const Key('home-pathway-documents')),
       findsOneWidget,
     );
     expect(tester.takeException(), isNull);

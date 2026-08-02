@@ -22,6 +22,26 @@ abstract interface class IndicatorRepository {
     required IndicatorTargetRevisionDraft draft,
   });
 
+  Future<void> saveGoal({
+    required String profileId,
+    required IndicatorGoalRevisionDraft draft,
+  });
+
+  Future<IndicatorGoalSnapshot> readGoal({
+    required String profileId,
+    required String indicatorKey,
+    required IndicatorGoalPeriod period,
+    required PlannerDate today,
+  });
+
+  Future<List<IndicatorGoalSnapshot>> readGoalHistory({
+    required String profileId,
+    required String indicatorKey,
+    required IndicatorGoalPeriodType periodType,
+    required PlannerDate anchor,
+    required PlannerDate today,
+  });
+
   Future<void> renameIndicator({
     required String profileId,
     required String indicatorKey,

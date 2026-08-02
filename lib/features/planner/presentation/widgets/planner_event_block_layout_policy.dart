@@ -24,6 +24,8 @@ abstract final class PlannerEventBlockLayoutPolicy {
   static const double eventBorderRadius = 4;
   static const double eventAccentWidth = 4;
   static const double backupEventAccentWidth = 7;
+  static const Color backupEventSurface = Color(0xFF45484A);
+  static const Color backupEventAccent = Color(0xFF7A7E81);
   static const double contentHorizontalPadding = 8;
   static const double recurrenceRightInset = 8;
   static const double recurrenceIconSize = 18;
@@ -32,16 +34,19 @@ abstract final class PlannerEventBlockLayoutPolicy {
 
   static double titleFontSize(Density density) {
     return switch (density) {
-      Density.veryShort => 11,
-      Density.short => 13,
-      Density.medium || Density.tall => 15,
+      Density.veryShort ||
+      Density.short ||
+      Density.medium ||
+      Density.tall => 14,
     };
   }
 
   static double timeFontSize(Density density) {
     return switch (density) {
-      Density.veryShort || Density.short => 13,
-      Density.medium || Density.tall => 14,
+      Density.veryShort ||
+      Density.short ||
+      Density.medium ||
+      Density.tall => 13,
     };
   }
 
@@ -148,14 +153,13 @@ abstract final class PlannerEventBlockLayoutPolicy {
   /// interactive Event block. Clamped to the available height so very
   /// short blocks never expose a hit area larger than the block itself.
   ///
-  /// Sized to the practical minimum touch target (48 logical pixels
-  /// per the owner-correction contract) but constrained to the bottom
-  /// region so the Event tap area is preserved.
-  static const double resizeHitAreaHeight = 48;
+  /// Sized to the approved 10–12 logical-pixel edge zone so the surrounding
+  /// Event body remains the primary tap and long-press move target.
+  static const double resizeHitAreaHeight = 12;
 
   /// A compact top-edge target that leaves the Event body available for its
   /// existing tap and long-press move behavior.
-  static const double topResizeHitAreaHeight = 24;
+  static const double topResizeHitAreaHeight = 12;
 
   /// Top and bottom targets remain distinct once a block is tall enough to
   /// expose both edges without making short blocks gesture-ambiguous.
@@ -173,8 +177,8 @@ enum Density { veryShort, short, medium, tall }
 /// regardless of which base color the user picked.
 ///
 /// The policy intentionally avoids low-alpha backgrounds. Backup
-/// Events still receive their approved black/dark stripe on the
-/// leading edge, and Unreported still receives its approved
+/// Backup Events receive their approved grayscale surface and neutral
+/// leading strip, and Unreported still receives its approved
 /// indicator — those status overlays do not reduce the opacity of
 /// the block body itself.
 abstract final class PlannerEventBlockColorPolicy {

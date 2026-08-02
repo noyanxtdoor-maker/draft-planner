@@ -71,10 +71,14 @@ void main() {
       expect(find.byKey(const Key('main-bottom-navigation')), findsOneWidget);
       expect(find.text('Weekly Life Indicators'), findsOneWidget);
       expect(
-        find.byKey(const Key('home-indicator-job_applications')),
+        find.byKey(const Key('home-start-weekly-planning')),
         findsOneWidget,
       );
-      expect(find.text('Actual / Target'), findsWidgets);
+      expect(find.text('Start Weekly Planning'), findsOneWidget);
+      expect(
+        find.byKey(const Key('home-indicator-job_applications')),
+        findsNothing,
+      );
       expect(tester.takeException(), isNull);
 
       final homeContext = tester.element(

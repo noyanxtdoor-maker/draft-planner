@@ -306,7 +306,7 @@ final class _TaskFormScreenState extends ConsumerState<TaskFormScreen>
         key: const Key('save-task-button'),
         onPressed: _saving ? null : _save,
         style: FilledButton.styleFrom(
-          minimumSize: const Size(64, 44),
+          minimumSize: const Size(64, 48),
           padding: const EdgeInsets.symmetric(horizontal: 18),
           backgroundColor: AppTheme.rose,
           foregroundColor: AppTheme.background,
@@ -319,7 +319,7 @@ final class _TaskFormScreenState extends ConsumerState<TaskFormScreen>
                 dimension: 18,
                 child: CircularProgressIndicator(strokeWidth: 2),
               )
-            : const Text('Save'),
+            : Text('Save', style: AppTypography.button),
       ),
     );
   }
@@ -327,6 +327,9 @@ final class _TaskFormScreenState extends ConsumerState<TaskFormScreen>
   InputDecoration _inputDecoration(String label) {
     return InputDecoration(
       labelText: label,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      labelStyle: AppTypography.micro,
+      floatingLabelStyle: AppTypography.micro,
       enabledBorder: OutlineInputBorder(
         borderSide: const BorderSide(color: Colors.white54),
         borderRadius: BorderRadius.circular(4),
@@ -344,7 +347,7 @@ final class _TaskFormScreenState extends ConsumerState<TaskFormScreen>
       padding: EdgeInsets.zero,
       alignment: Alignment.centerRight,
       foregroundColor: AppTheme.rose,
-      textStyle: const TextStyle(fontSize: 17, fontWeight: FontWeight.w500),
+      textStyle: AppTypography.button,
     );
   }
 
@@ -579,21 +582,30 @@ final class _TaskValueField extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(4),
-      child: InputDecorator(
-        isFocused: false,
-        decoration: InputDecoration(
-          labelText: label,
-          suffixIcon: icon == null ? null : Icon(icon, size: 30),
-          enabledBorder: OutlineInputBorder(
-            borderSide: const BorderSide(color: Colors.white54),
-            borderRadius: BorderRadius.circular(4),
+      child: SizedBox(
+        height: 60,
+        child: InputDecorator(
+          isFocused: false,
+          decoration: InputDecoration(
+            labelText: label,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 12,
+            ),
+            labelStyle: AppTypography.micro,
+            floatingLabelStyle: AppTypography.micro,
+            suffixIcon: icon == null ? null : Icon(icon, size: 24),
+            enabledBorder: OutlineInputBorder(
+              borderSide: const BorderSide(color: Colors.white54),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderSide: const BorderSide(color: AppTheme.rose, width: 2),
+              borderRadius: BorderRadius.circular(4),
+            ),
           ),
-          focusedBorder: OutlineInputBorder(
-            borderSide: const BorderSide(color: AppTheme.rose, width: 2),
-            borderRadius: BorderRadius.circular(4),
-          ),
+          child: Text(value, style: AppTypography.body),
         ),
-        child: Text(value, style: const TextStyle(fontSize: 17)),
       ),
     );
   }
@@ -618,11 +630,11 @@ final class _TaskRepeatField extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  const Text('Repeat', style: TextStyle(fontSize: 15)),
+                  const Text('Repeat', style: AppTypography.micro),
                   const SizedBox(height: 4),
                   Text(
                     _TaskFormScreenState._recurrenceLabel(value),
-                    style: const TextStyle(fontSize: 18),
+                    style: AppTypography.body,
                   ),
                 ],
               ),
@@ -647,7 +659,7 @@ final class _TaskSectionHeader extends StatelessWidget {
       children: <Widget>[
         Text(
           label,
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+          style: AppTypography.sectionTitle,
         ),
         const SizedBox(height: 8),
         const Divider(height: 1, color: Colors.white38),
@@ -677,20 +689,20 @@ final class _CapabilityNotice extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: <Widget>[
             const CircleAvatar(
-              radius: 18,
+              radius: 16,
               backgroundColor: Color(0xFFFFB915),
               child: Text(
                 'i',
                 style: TextStyle(
                   color: Colors.black,
-                  fontSize: 25,
+                  fontSize: 22,
                   fontWeight: FontWeight.w800,
                 ),
               ),
             ),
             const SizedBox(width: 16),
             Expanded(
-              child: Text(message, style: const TextStyle(fontSize: 16)),
+              child: Text(message, style: AppTypography.body),
             ),
             TextButton(
               key: Key(
@@ -704,10 +716,7 @@ final class _CapabilityNotice extends StatelessWidget {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(24),
                 ),
-                textStyle: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
+                textStyle: AppTypography.button,
               ),
               child: const Text('Enable'),
             ),
@@ -715,7 +724,7 @@ final class _CapabilityNotice extends StatelessWidget {
         ),
         if (supportingText != null) ...<Widget>[
           const SizedBox(height: 10),
-          Text(supportingText!, style: const TextStyle(fontSize: 15)),
+          Text(supportingText!, style: AppTypography.secondary),
         ],
       ],
     );

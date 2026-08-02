@@ -11552,6 +11552,812 @@ class WeeklyIndicatorTargetRevisionsCompanion
   }
 }
 
+class $IndicatorGoalRevisionsTable extends IndicatorGoalRevisions
+    with TableInfo<$IndicatorGoalRevisionsTable, IndicatorGoalRevisionRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $IndicatorGoalRevisionsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _profileIdMeta = const VerificationMeta(
+    'profileId',
+  );
+  @override
+  late final GeneratedColumn<String> profileId = GeneratedColumn<String>(
+    'profile_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES local_profiles (id) ON DELETE RESTRICT',
+    ),
+  );
+  static const VerificationMeta _indicatorKeyMeta = const VerificationMeta(
+    'indicatorKey',
+  );
+  @override
+  late final GeneratedColumn<String> indicatorKey = GeneratedColumn<String>(
+    'indicator_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _periodTypeMeta = const VerificationMeta(
+    'periodType',
+  );
+  @override
+  late final GeneratedColumn<String> periodType = GeneratedColumn<String>(
+    'period_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _periodStartDateMeta = const VerificationMeta(
+    'periodStartDate',
+  );
+  @override
+  late final GeneratedColumn<String> periodStartDate = GeneratedColumn<String>(
+    'period_start_date',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _periodEndDateMeta = const VerificationMeta(
+    'periodEndDate',
+  );
+  @override
+  late final GeneratedColumn<String> periodEndDate = GeneratedColumn<String>(
+    'period_end_date',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _stateMeta = const VerificationMeta('state');
+  @override
+  late final GeneratedColumn<String> state = GeneratedColumn<String>(
+    'state',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _valueScaledMeta = const VerificationMeta(
+    'valueScaled',
+  );
+  @override
+  late final GeneratedColumn<int> valueScaled = GeneratedColumn<int>(
+    'value_scaled',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _valueScaleMeta = const VerificationMeta(
+    'valueScale',
+  );
+  @override
+  late final GeneratedColumn<int> valueScale = GeneratedColumn<int>(
+    'value_scale',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _unitMeta = const VerificationMeta('unit');
+  @override
+  late final GeneratedColumn<String> unit = GeneratedColumn<String>(
+    'unit',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _supersedesRevisionIdMeta =
+      const VerificationMeta('supersedesRevisionId');
+  @override
+  late final GeneratedColumn<String> supersedesRevisionId =
+      GeneratedColumn<String>(
+        'supersedes_revision_id',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _operationIdMeta = const VerificationMeta(
+    'operationId',
+  );
+  @override
+  late final GeneratedColumn<String> operationId = GeneratedColumn<String>(
+    'operation_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtUtcMeta = const VerificationMeta(
+    'createdAtUtc',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAtUtc = GeneratedColumn<DateTime>(
+    'created_at_utc',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    profileId,
+    indicatorKey,
+    periodType,
+    periodStartDate,
+    periodEndDate,
+    state,
+    valueScaled,
+    valueScale,
+    unit,
+    supersedesRevisionId,
+    operationId,
+    createdAtUtc,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'indicator_goal_revisions';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<IndicatorGoalRevisionRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('profile_id')) {
+      context.handle(
+        _profileIdMeta,
+        profileId.isAcceptableOrUnknown(data['profile_id']!, _profileIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_profileIdMeta);
+    }
+    if (data.containsKey('indicator_key')) {
+      context.handle(
+        _indicatorKeyMeta,
+        indicatorKey.isAcceptableOrUnknown(
+          data['indicator_key']!,
+          _indicatorKeyMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_indicatorKeyMeta);
+    }
+    if (data.containsKey('period_type')) {
+      context.handle(
+        _periodTypeMeta,
+        periodType.isAcceptableOrUnknown(data['period_type']!, _periodTypeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_periodTypeMeta);
+    }
+    if (data.containsKey('period_start_date')) {
+      context.handle(
+        _periodStartDateMeta,
+        periodStartDate.isAcceptableOrUnknown(
+          data['period_start_date']!,
+          _periodStartDateMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_periodStartDateMeta);
+    }
+    if (data.containsKey('period_end_date')) {
+      context.handle(
+        _periodEndDateMeta,
+        periodEndDate.isAcceptableOrUnknown(
+          data['period_end_date']!,
+          _periodEndDateMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_periodEndDateMeta);
+    }
+    if (data.containsKey('state')) {
+      context.handle(
+        _stateMeta,
+        state.isAcceptableOrUnknown(data['state']!, _stateMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_stateMeta);
+    }
+    if (data.containsKey('value_scaled')) {
+      context.handle(
+        _valueScaledMeta,
+        valueScaled.isAcceptableOrUnknown(
+          data['value_scaled']!,
+          _valueScaledMeta,
+        ),
+      );
+    }
+    if (data.containsKey('value_scale')) {
+      context.handle(
+        _valueScaleMeta,
+        valueScale.isAcceptableOrUnknown(data['value_scale']!, _valueScaleMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_valueScaleMeta);
+    }
+    if (data.containsKey('unit')) {
+      context.handle(
+        _unitMeta,
+        unit.isAcceptableOrUnknown(data['unit']!, _unitMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_unitMeta);
+    }
+    if (data.containsKey('supersedes_revision_id')) {
+      context.handle(
+        _supersedesRevisionIdMeta,
+        supersedesRevisionId.isAcceptableOrUnknown(
+          data['supersedes_revision_id']!,
+          _supersedesRevisionIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('operation_id')) {
+      context.handle(
+        _operationIdMeta,
+        operationId.isAcceptableOrUnknown(
+          data['operation_id']!,
+          _operationIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_operationIdMeta);
+    }
+    if (data.containsKey('created_at_utc')) {
+      context.handle(
+        _createdAtUtcMeta,
+        createdAtUtc.isAcceptableOrUnknown(
+          data['created_at_utc']!,
+          _createdAtUtcMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtUtcMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  IndicatorGoalRevisionRow map(
+    Map<String, dynamic> data, {
+    String? tablePrefix,
+  }) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return IndicatorGoalRevisionRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      profileId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}profile_id'],
+      )!,
+      indicatorKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}indicator_key'],
+      )!,
+      periodType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}period_type'],
+      )!,
+      periodStartDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}period_start_date'],
+      )!,
+      periodEndDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}period_end_date'],
+      )!,
+      state: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}state'],
+      )!,
+      valueScaled: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}value_scaled'],
+      ),
+      valueScale: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}value_scale'],
+      )!,
+      unit: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}unit'],
+      )!,
+      supersedesRevisionId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}supersedes_revision_id'],
+      ),
+      operationId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}operation_id'],
+      )!,
+      createdAtUtc: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at_utc'],
+      )!,
+    );
+  }
+
+  @override
+  $IndicatorGoalRevisionsTable createAlias(String alias) {
+    return $IndicatorGoalRevisionsTable(attachedDatabase, alias);
+  }
+}
+
+class IndicatorGoalRevisionRow extends DataClass
+    implements Insertable<IndicatorGoalRevisionRow> {
+  final String id;
+  final String profileId;
+  final String indicatorKey;
+  final String periodType;
+  final String periodStartDate;
+  final String periodEndDate;
+  final String state;
+  final int? valueScaled;
+  final int valueScale;
+  final String unit;
+  final String? supersedesRevisionId;
+  final String operationId;
+  final DateTime createdAtUtc;
+  const IndicatorGoalRevisionRow({
+    required this.id,
+    required this.profileId,
+    required this.indicatorKey,
+    required this.periodType,
+    required this.periodStartDate,
+    required this.periodEndDate,
+    required this.state,
+    this.valueScaled,
+    required this.valueScale,
+    required this.unit,
+    this.supersedesRevisionId,
+    required this.operationId,
+    required this.createdAtUtc,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['profile_id'] = Variable<String>(profileId);
+    map['indicator_key'] = Variable<String>(indicatorKey);
+    map['period_type'] = Variable<String>(periodType);
+    map['period_start_date'] = Variable<String>(periodStartDate);
+    map['period_end_date'] = Variable<String>(periodEndDate);
+    map['state'] = Variable<String>(state);
+    if (!nullToAbsent || valueScaled != null) {
+      map['value_scaled'] = Variable<int>(valueScaled);
+    }
+    map['value_scale'] = Variable<int>(valueScale);
+    map['unit'] = Variable<String>(unit);
+    if (!nullToAbsent || supersedesRevisionId != null) {
+      map['supersedes_revision_id'] = Variable<String>(supersedesRevisionId);
+    }
+    map['operation_id'] = Variable<String>(operationId);
+    map['created_at_utc'] = Variable<DateTime>(createdAtUtc);
+    return map;
+  }
+
+  IndicatorGoalRevisionsCompanion toCompanion(bool nullToAbsent) {
+    return IndicatorGoalRevisionsCompanion(
+      id: Value(id),
+      profileId: Value(profileId),
+      indicatorKey: Value(indicatorKey),
+      periodType: Value(periodType),
+      periodStartDate: Value(periodStartDate),
+      periodEndDate: Value(periodEndDate),
+      state: Value(state),
+      valueScaled: valueScaled == null && nullToAbsent
+          ? const Value.absent()
+          : Value(valueScaled),
+      valueScale: Value(valueScale),
+      unit: Value(unit),
+      supersedesRevisionId: supersedesRevisionId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(supersedesRevisionId),
+      operationId: Value(operationId),
+      createdAtUtc: Value(createdAtUtc),
+    );
+  }
+
+  factory IndicatorGoalRevisionRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return IndicatorGoalRevisionRow(
+      id: serializer.fromJson<String>(json['id']),
+      profileId: serializer.fromJson<String>(json['profileId']),
+      indicatorKey: serializer.fromJson<String>(json['indicatorKey']),
+      periodType: serializer.fromJson<String>(json['periodType']),
+      periodStartDate: serializer.fromJson<String>(json['periodStartDate']),
+      periodEndDate: serializer.fromJson<String>(json['periodEndDate']),
+      state: serializer.fromJson<String>(json['state']),
+      valueScaled: serializer.fromJson<int?>(json['valueScaled']),
+      valueScale: serializer.fromJson<int>(json['valueScale']),
+      unit: serializer.fromJson<String>(json['unit']),
+      supersedesRevisionId: serializer.fromJson<String?>(
+        json['supersedesRevisionId'],
+      ),
+      operationId: serializer.fromJson<String>(json['operationId']),
+      createdAtUtc: serializer.fromJson<DateTime>(json['createdAtUtc']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'profileId': serializer.toJson<String>(profileId),
+      'indicatorKey': serializer.toJson<String>(indicatorKey),
+      'periodType': serializer.toJson<String>(periodType),
+      'periodStartDate': serializer.toJson<String>(periodStartDate),
+      'periodEndDate': serializer.toJson<String>(periodEndDate),
+      'state': serializer.toJson<String>(state),
+      'valueScaled': serializer.toJson<int?>(valueScaled),
+      'valueScale': serializer.toJson<int>(valueScale),
+      'unit': serializer.toJson<String>(unit),
+      'supersedesRevisionId': serializer.toJson<String?>(supersedesRevisionId),
+      'operationId': serializer.toJson<String>(operationId),
+      'createdAtUtc': serializer.toJson<DateTime>(createdAtUtc),
+    };
+  }
+
+  IndicatorGoalRevisionRow copyWith({
+    String? id,
+    String? profileId,
+    String? indicatorKey,
+    String? periodType,
+    String? periodStartDate,
+    String? periodEndDate,
+    String? state,
+    Value<int?> valueScaled = const Value.absent(),
+    int? valueScale,
+    String? unit,
+    Value<String?> supersedesRevisionId = const Value.absent(),
+    String? operationId,
+    DateTime? createdAtUtc,
+  }) => IndicatorGoalRevisionRow(
+    id: id ?? this.id,
+    profileId: profileId ?? this.profileId,
+    indicatorKey: indicatorKey ?? this.indicatorKey,
+    periodType: periodType ?? this.periodType,
+    periodStartDate: periodStartDate ?? this.periodStartDate,
+    periodEndDate: periodEndDate ?? this.periodEndDate,
+    state: state ?? this.state,
+    valueScaled: valueScaled.present ? valueScaled.value : this.valueScaled,
+    valueScale: valueScale ?? this.valueScale,
+    unit: unit ?? this.unit,
+    supersedesRevisionId: supersedesRevisionId.present
+        ? supersedesRevisionId.value
+        : this.supersedesRevisionId,
+    operationId: operationId ?? this.operationId,
+    createdAtUtc: createdAtUtc ?? this.createdAtUtc,
+  );
+  IndicatorGoalRevisionRow copyWithCompanion(
+    IndicatorGoalRevisionsCompanion data,
+  ) {
+    return IndicatorGoalRevisionRow(
+      id: data.id.present ? data.id.value : this.id,
+      profileId: data.profileId.present ? data.profileId.value : this.profileId,
+      indicatorKey: data.indicatorKey.present
+          ? data.indicatorKey.value
+          : this.indicatorKey,
+      periodType: data.periodType.present
+          ? data.periodType.value
+          : this.periodType,
+      periodStartDate: data.periodStartDate.present
+          ? data.periodStartDate.value
+          : this.periodStartDate,
+      periodEndDate: data.periodEndDate.present
+          ? data.periodEndDate.value
+          : this.periodEndDate,
+      state: data.state.present ? data.state.value : this.state,
+      valueScaled: data.valueScaled.present
+          ? data.valueScaled.value
+          : this.valueScaled,
+      valueScale: data.valueScale.present
+          ? data.valueScale.value
+          : this.valueScale,
+      unit: data.unit.present ? data.unit.value : this.unit,
+      supersedesRevisionId: data.supersedesRevisionId.present
+          ? data.supersedesRevisionId.value
+          : this.supersedesRevisionId,
+      operationId: data.operationId.present
+          ? data.operationId.value
+          : this.operationId,
+      createdAtUtc: data.createdAtUtc.present
+          ? data.createdAtUtc.value
+          : this.createdAtUtc,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('IndicatorGoalRevisionRow(')
+          ..write('id: $id, ')
+          ..write('profileId: $profileId, ')
+          ..write('indicatorKey: $indicatorKey, ')
+          ..write('periodType: $periodType, ')
+          ..write('periodStartDate: $periodStartDate, ')
+          ..write('periodEndDate: $periodEndDate, ')
+          ..write('state: $state, ')
+          ..write('valueScaled: $valueScaled, ')
+          ..write('valueScale: $valueScale, ')
+          ..write('unit: $unit, ')
+          ..write('supersedesRevisionId: $supersedesRevisionId, ')
+          ..write('operationId: $operationId, ')
+          ..write('createdAtUtc: $createdAtUtc')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    profileId,
+    indicatorKey,
+    periodType,
+    periodStartDate,
+    periodEndDate,
+    state,
+    valueScaled,
+    valueScale,
+    unit,
+    supersedesRevisionId,
+    operationId,
+    createdAtUtc,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is IndicatorGoalRevisionRow &&
+          other.id == this.id &&
+          other.profileId == this.profileId &&
+          other.indicatorKey == this.indicatorKey &&
+          other.periodType == this.periodType &&
+          other.periodStartDate == this.periodStartDate &&
+          other.periodEndDate == this.periodEndDate &&
+          other.state == this.state &&
+          other.valueScaled == this.valueScaled &&
+          other.valueScale == this.valueScale &&
+          other.unit == this.unit &&
+          other.supersedesRevisionId == this.supersedesRevisionId &&
+          other.operationId == this.operationId &&
+          other.createdAtUtc == this.createdAtUtc);
+}
+
+class IndicatorGoalRevisionsCompanion
+    extends UpdateCompanion<IndicatorGoalRevisionRow> {
+  final Value<String> id;
+  final Value<String> profileId;
+  final Value<String> indicatorKey;
+  final Value<String> periodType;
+  final Value<String> periodStartDate;
+  final Value<String> periodEndDate;
+  final Value<String> state;
+  final Value<int?> valueScaled;
+  final Value<int> valueScale;
+  final Value<String> unit;
+  final Value<String?> supersedesRevisionId;
+  final Value<String> operationId;
+  final Value<DateTime> createdAtUtc;
+  final Value<int> rowid;
+  const IndicatorGoalRevisionsCompanion({
+    this.id = const Value.absent(),
+    this.profileId = const Value.absent(),
+    this.indicatorKey = const Value.absent(),
+    this.periodType = const Value.absent(),
+    this.periodStartDate = const Value.absent(),
+    this.periodEndDate = const Value.absent(),
+    this.state = const Value.absent(),
+    this.valueScaled = const Value.absent(),
+    this.valueScale = const Value.absent(),
+    this.unit = const Value.absent(),
+    this.supersedesRevisionId = const Value.absent(),
+    this.operationId = const Value.absent(),
+    this.createdAtUtc = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  IndicatorGoalRevisionsCompanion.insert({
+    required String id,
+    required String profileId,
+    required String indicatorKey,
+    required String periodType,
+    required String periodStartDate,
+    required String periodEndDate,
+    required String state,
+    this.valueScaled = const Value.absent(),
+    required int valueScale,
+    required String unit,
+    this.supersedesRevisionId = const Value.absent(),
+    required String operationId,
+    required DateTime createdAtUtc,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       profileId = Value(profileId),
+       indicatorKey = Value(indicatorKey),
+       periodType = Value(periodType),
+       periodStartDate = Value(periodStartDate),
+       periodEndDate = Value(periodEndDate),
+       state = Value(state),
+       valueScale = Value(valueScale),
+       unit = Value(unit),
+       operationId = Value(operationId),
+       createdAtUtc = Value(createdAtUtc);
+  static Insertable<IndicatorGoalRevisionRow> custom({
+    Expression<String>? id,
+    Expression<String>? profileId,
+    Expression<String>? indicatorKey,
+    Expression<String>? periodType,
+    Expression<String>? periodStartDate,
+    Expression<String>? periodEndDate,
+    Expression<String>? state,
+    Expression<int>? valueScaled,
+    Expression<int>? valueScale,
+    Expression<String>? unit,
+    Expression<String>? supersedesRevisionId,
+    Expression<String>? operationId,
+    Expression<DateTime>? createdAtUtc,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (profileId != null) 'profile_id': profileId,
+      if (indicatorKey != null) 'indicator_key': indicatorKey,
+      if (periodType != null) 'period_type': periodType,
+      if (periodStartDate != null) 'period_start_date': periodStartDate,
+      if (periodEndDate != null) 'period_end_date': periodEndDate,
+      if (state != null) 'state': state,
+      if (valueScaled != null) 'value_scaled': valueScaled,
+      if (valueScale != null) 'value_scale': valueScale,
+      if (unit != null) 'unit': unit,
+      if (supersedesRevisionId != null)
+        'supersedes_revision_id': supersedesRevisionId,
+      if (operationId != null) 'operation_id': operationId,
+      if (createdAtUtc != null) 'created_at_utc': createdAtUtc,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  IndicatorGoalRevisionsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? profileId,
+    Value<String>? indicatorKey,
+    Value<String>? periodType,
+    Value<String>? periodStartDate,
+    Value<String>? periodEndDate,
+    Value<String>? state,
+    Value<int?>? valueScaled,
+    Value<int>? valueScale,
+    Value<String>? unit,
+    Value<String?>? supersedesRevisionId,
+    Value<String>? operationId,
+    Value<DateTime>? createdAtUtc,
+    Value<int>? rowid,
+  }) {
+    return IndicatorGoalRevisionsCompanion(
+      id: id ?? this.id,
+      profileId: profileId ?? this.profileId,
+      indicatorKey: indicatorKey ?? this.indicatorKey,
+      periodType: periodType ?? this.periodType,
+      periodStartDate: periodStartDate ?? this.periodStartDate,
+      periodEndDate: periodEndDate ?? this.periodEndDate,
+      state: state ?? this.state,
+      valueScaled: valueScaled ?? this.valueScaled,
+      valueScale: valueScale ?? this.valueScale,
+      unit: unit ?? this.unit,
+      supersedesRevisionId: supersedesRevisionId ?? this.supersedesRevisionId,
+      operationId: operationId ?? this.operationId,
+      createdAtUtc: createdAtUtc ?? this.createdAtUtc,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (profileId.present) {
+      map['profile_id'] = Variable<String>(profileId.value);
+    }
+    if (indicatorKey.present) {
+      map['indicator_key'] = Variable<String>(indicatorKey.value);
+    }
+    if (periodType.present) {
+      map['period_type'] = Variable<String>(periodType.value);
+    }
+    if (periodStartDate.present) {
+      map['period_start_date'] = Variable<String>(periodStartDate.value);
+    }
+    if (periodEndDate.present) {
+      map['period_end_date'] = Variable<String>(periodEndDate.value);
+    }
+    if (state.present) {
+      map['state'] = Variable<String>(state.value);
+    }
+    if (valueScaled.present) {
+      map['value_scaled'] = Variable<int>(valueScaled.value);
+    }
+    if (valueScale.present) {
+      map['value_scale'] = Variable<int>(valueScale.value);
+    }
+    if (unit.present) {
+      map['unit'] = Variable<String>(unit.value);
+    }
+    if (supersedesRevisionId.present) {
+      map['supersedes_revision_id'] = Variable<String>(
+        supersedesRevisionId.value,
+      );
+    }
+    if (operationId.present) {
+      map['operation_id'] = Variable<String>(operationId.value);
+    }
+    if (createdAtUtc.present) {
+      map['created_at_utc'] = Variable<DateTime>(createdAtUtc.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('IndicatorGoalRevisionsCompanion(')
+          ..write('id: $id, ')
+          ..write('profileId: $profileId, ')
+          ..write('indicatorKey: $indicatorKey, ')
+          ..write('periodType: $periodType, ')
+          ..write('periodStartDate: $periodStartDate, ')
+          ..write('periodEndDate: $periodEndDate, ')
+          ..write('state: $state, ')
+          ..write('valueScaled: $valueScaled, ')
+          ..write('valueScale: $valueScale, ')
+          ..write('unit: $unit, ')
+          ..write('supersedesRevisionId: $supersedesRevisionId, ')
+          ..write('operationId: $operationId, ')
+          ..write('createdAtUtc: $createdAtUtc, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $WeeklyPlansTable extends WeeklyPlans
     with TableInfo<$WeeklyPlansTable, WeeklyPlanRow> {
   @override
@@ -17413,6 +18219,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       $ActivityLedgerEntriesTable(this);
   late final $WeeklyIndicatorTargetRevisionsTable
   weeklyIndicatorTargetRevisions = $WeeklyIndicatorTargetRevisionsTable(this);
+  late final $IndicatorGoalRevisionsTable indicatorGoalRevisions =
+      $IndicatorGoalRevisionsTable(this);
   late final $WeeklyPlansTable weeklyPlans = $WeeklyPlansTable(this);
   late final $WeeklyPlanCommitmentsTable weeklyPlanCommitments =
       $WeeklyPlanCommitmentsTable(this);
@@ -17515,6 +18323,14 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     'weekly_indicator_target_period_history',
     'CREATE INDEX weekly_indicator_target_period_history ON weekly_indicator_target_revisions (profile_id, indicator_key, period_start_date, created_at_utc)',
   );
+  late final Index indicatorGoalOperationUnique = Index(
+    'indicator_goal_operation_unique',
+    'CREATE UNIQUE INDEX indicator_goal_operation_unique ON indicator_goal_revisions (operation_id)',
+  );
+  late final Index indicatorGoalPeriodHistory = Index(
+    'indicator_goal_period_history',
+    'CREATE INDEX indicator_goal_period_history ON indicator_goal_revisions (profile_id, indicator_key, period_type, period_start_date, created_at_utc)',
+  );
   late final Index weeklyPlanProfilePeriodUnique = Index(
     'weekly_plan_profile_period_unique',
     'CREATE UNIQUE INDEX weekly_plan_profile_period_unique ON weekly_plans (profile_id, period_start_date)',
@@ -17576,6 +18392,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     outcomeReportContributionDrafts,
     activityLedgerEntries,
     weeklyIndicatorTargetRevisions,
+    indicatorGoalRevisions,
     weeklyPlans,
     weeklyPlanCommitments,
     weeklyPlanReviews,
@@ -17605,6 +18422,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     ledgerEntryReportRule,
     weeklyIndicatorTargetOperationUnique,
     weeklyIndicatorTargetPeriodHistory,
+    indicatorGoalOperationUnique,
+    indicatorGoalPeriodHistory,
     weeklyPlanProfilePeriodUnique,
     weeklyPlanCommitmentUnique,
     weeklyPlanReviewPlanUnique,
@@ -17903,6 +18722,31 @@ final class $$LocalProfilesTableReferences
 
     final cache = $_typedResult.readTableOrNull(
       _weeklyIndicatorTargetRevisionsRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<
+    $IndicatorGoalRevisionsTable,
+    List<IndicatorGoalRevisionRow>
+  >
+  _indicatorGoalRevisionsRefsTable(_$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.indicatorGoalRevisions,
+        aliasName: 'local_profiles__id__indicator_goal_revisions__profile_id',
+      );
+
+  $$IndicatorGoalRevisionsTableProcessedTableManager
+  get indicatorGoalRevisionsRefs {
+    final manager = $$IndicatorGoalRevisionsTableTableManager(
+      $_db,
+      $_db.indicatorGoalRevisions,
+    ).filter((f) => f.profileId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _indicatorGoalRevisionsRefsTable($_db),
     );
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: cache),
@@ -18415,6 +19259,32 @@ class $$LocalProfilesTableFilterComposer
               }) => $$WeeklyIndicatorTargetRevisionsTableFilterComposer(
                 $db: $db,
                 $table: $db.weeklyIndicatorTargetRevisions,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
+
+  Expression<bool> indicatorGoalRevisionsRefs(
+    Expression<bool> Function($$IndicatorGoalRevisionsTableFilterComposer f) f,
+  ) {
+    final $$IndicatorGoalRevisionsTableFilterComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.indicatorGoalRevisions,
+          getReferencedColumn: (t) => t.profileId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$IndicatorGoalRevisionsTableFilterComposer(
+                $db: $db,
+                $table: $db.indicatorGoalRevisions,
                 $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
                 joinBuilder: joinBuilder,
                 $removeJoinBuilderFromRootComposer:
@@ -19009,6 +19879,32 @@ class $$LocalProfilesTableAnnotationComposer
     return f(composer);
   }
 
+  Expression<T> indicatorGoalRevisionsRefs<T extends Object>(
+    Expression<T> Function($$IndicatorGoalRevisionsTableAnnotationComposer a) f,
+  ) {
+    final $$IndicatorGoalRevisionsTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.indicatorGoalRevisions,
+          getReferencedColumn: (t) => t.profileId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$IndicatorGoalRevisionsTableAnnotationComposer(
+                $db: $db,
+                $table: $db.indicatorGoalRevisions,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
+
   Expression<T> weeklyPlansRefs<T extends Object>(
     Expression<T> Function($$WeeklyPlansTableAnnotationComposer a) f,
   ) {
@@ -19250,6 +20146,7 @@ class $$LocalProfilesTableTableManager
             bool outcomeReportsRefs,
             bool activityLedgerEntriesRefs,
             bool weeklyIndicatorTargetRevisionsRefs,
+            bool indicatorGoalRevisionsRefs,
             bool weeklyPlansRefs,
             bool weeklyPlanCommitmentsRefs,
             bool weeklyPlanReviewsRefs,
@@ -19332,6 +20229,7 @@ class $$LocalProfilesTableTableManager
                 outcomeReportsRefs = false,
                 activityLedgerEntriesRefs = false,
                 weeklyIndicatorTargetRevisionsRefs = false,
+                indicatorGoalRevisionsRefs = false,
                 weeklyPlansRefs = false,
                 weeklyPlanCommitmentsRefs = false,
                 weeklyPlanReviewsRefs = false,
@@ -19357,6 +20255,7 @@ class $$LocalProfilesTableTableManager
                     if (activityLedgerEntriesRefs) db.activityLedgerEntries,
                     if (weeklyIndicatorTargetRevisionsRefs)
                       db.weeklyIndicatorTargetRevisions,
+                    if (indicatorGoalRevisionsRefs) db.indicatorGoalRevisions,
                     if (weeklyPlansRefs) db.weeklyPlans,
                     if (weeklyPlanCommitmentsRefs) db.weeklyPlanCommitments,
                     if (weeklyPlanReviewsRefs) db.weeklyPlanReviews,
@@ -19603,6 +20502,27 @@ class $$LocalProfilesTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (indicatorGoalRevisionsRefs)
+                        await $_getPrefetchedData<
+                          LocalProfileRow,
+                          $LocalProfilesTable,
+                          IndicatorGoalRevisionRow
+                        >(
+                          currentTable: table,
+                          referencedTable: $$LocalProfilesTableReferences
+                              ._indicatorGoalRevisionsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$LocalProfilesTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).indicatorGoalRevisionsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.profileId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                       if (weeklyPlansRefs)
                         await $_getPrefetchedData<
                           LocalProfileRow,
@@ -19803,6 +20723,7 @@ typedef $$LocalProfilesTableProcessedTableManager =
         bool outcomeReportsRefs,
         bool activityLedgerEntriesRefs,
         bool weeklyIndicatorTargetRevisionsRefs,
+        bool indicatorGoalRevisionsRefs,
         bool weeklyPlansRefs,
         bool weeklyPlanCommitmentsRefs,
         bool weeklyPlanReviewsRefs,
@@ -27397,6 +28318,516 @@ typedef $$WeeklyIndicatorTargetRevisionsTableProcessedTableManager =
       WeeklyIndicatorTargetRevisionRow,
       PrefetchHooks Function({bool profileId})
     >;
+typedef $$IndicatorGoalRevisionsTableCreateCompanionBuilder =
+    IndicatorGoalRevisionsCompanion Function({
+      required String id,
+      required String profileId,
+      required String indicatorKey,
+      required String periodType,
+      required String periodStartDate,
+      required String periodEndDate,
+      required String state,
+      Value<int?> valueScaled,
+      required int valueScale,
+      required String unit,
+      Value<String?> supersedesRevisionId,
+      required String operationId,
+      required DateTime createdAtUtc,
+      Value<int> rowid,
+    });
+typedef $$IndicatorGoalRevisionsTableUpdateCompanionBuilder =
+    IndicatorGoalRevisionsCompanion Function({
+      Value<String> id,
+      Value<String> profileId,
+      Value<String> indicatorKey,
+      Value<String> periodType,
+      Value<String> periodStartDate,
+      Value<String> periodEndDate,
+      Value<String> state,
+      Value<int?> valueScaled,
+      Value<int> valueScale,
+      Value<String> unit,
+      Value<String?> supersedesRevisionId,
+      Value<String> operationId,
+      Value<DateTime> createdAtUtc,
+      Value<int> rowid,
+    });
+
+final class $$IndicatorGoalRevisionsTableReferences
+    extends
+        BaseReferences<
+          _$AppDatabase,
+          $IndicatorGoalRevisionsTable,
+          IndicatorGoalRevisionRow
+        > {
+  $$IndicatorGoalRevisionsTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $LocalProfilesTable _profileIdTable(_$AppDatabase db) => db
+      .localProfiles
+      .createAlias('indicator_goal_revisions__profile_id__local_profiles__id');
+
+  $$LocalProfilesTableProcessedTableManager get profileId {
+    final $_column = $_itemColumn<String>('profile_id')!;
+
+    final manager = $$LocalProfilesTableTableManager(
+      $_db,
+      $_db.localProfiles,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_profileIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$IndicatorGoalRevisionsTableFilterComposer
+    extends Composer<_$AppDatabase, $IndicatorGoalRevisionsTable> {
+  $$IndicatorGoalRevisionsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get indicatorKey => $composableBuilder(
+    column: $table.indicatorKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get periodType => $composableBuilder(
+    column: $table.periodType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get periodStartDate => $composableBuilder(
+    column: $table.periodStartDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get periodEndDate => $composableBuilder(
+    column: $table.periodEndDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get state => $composableBuilder(
+    column: $table.state,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get valueScaled => $composableBuilder(
+    column: $table.valueScaled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get valueScale => $composableBuilder(
+    column: $table.valueScale,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get unit => $composableBuilder(
+    column: $table.unit,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get supersedesRevisionId => $composableBuilder(
+    column: $table.supersedesRevisionId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get operationId => $composableBuilder(
+    column: $table.operationId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAtUtc => $composableBuilder(
+    column: $table.createdAtUtc,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$LocalProfilesTableFilterComposer get profileId {
+    final $$LocalProfilesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.profileId,
+      referencedTable: $db.localProfiles,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LocalProfilesTableFilterComposer(
+            $db: $db,
+            $table: $db.localProfiles,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$IndicatorGoalRevisionsTableOrderingComposer
+    extends Composer<_$AppDatabase, $IndicatorGoalRevisionsTable> {
+  $$IndicatorGoalRevisionsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get indicatorKey => $composableBuilder(
+    column: $table.indicatorKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get periodType => $composableBuilder(
+    column: $table.periodType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get periodStartDate => $composableBuilder(
+    column: $table.periodStartDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get periodEndDate => $composableBuilder(
+    column: $table.periodEndDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get state => $composableBuilder(
+    column: $table.state,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get valueScaled => $composableBuilder(
+    column: $table.valueScaled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get valueScale => $composableBuilder(
+    column: $table.valueScale,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get unit => $composableBuilder(
+    column: $table.unit,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get supersedesRevisionId => $composableBuilder(
+    column: $table.supersedesRevisionId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get operationId => $composableBuilder(
+    column: $table.operationId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAtUtc => $composableBuilder(
+    column: $table.createdAtUtc,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$LocalProfilesTableOrderingComposer get profileId {
+    final $$LocalProfilesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.profileId,
+      referencedTable: $db.localProfiles,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LocalProfilesTableOrderingComposer(
+            $db: $db,
+            $table: $db.localProfiles,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$IndicatorGoalRevisionsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $IndicatorGoalRevisionsTable> {
+  $$IndicatorGoalRevisionsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get indicatorKey => $composableBuilder(
+    column: $table.indicatorKey,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get periodType => $composableBuilder(
+    column: $table.periodType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get periodStartDate => $composableBuilder(
+    column: $table.periodStartDate,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get periodEndDate => $composableBuilder(
+    column: $table.periodEndDate,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get state =>
+      $composableBuilder(column: $table.state, builder: (column) => column);
+
+  GeneratedColumn<int> get valueScaled => $composableBuilder(
+    column: $table.valueScaled,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get valueScale => $composableBuilder(
+    column: $table.valueScale,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get unit =>
+      $composableBuilder(column: $table.unit, builder: (column) => column);
+
+  GeneratedColumn<String> get supersedesRevisionId => $composableBuilder(
+    column: $table.supersedesRevisionId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get operationId => $composableBuilder(
+    column: $table.operationId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAtUtc => $composableBuilder(
+    column: $table.createdAtUtc,
+    builder: (column) => column,
+  );
+
+  $$LocalProfilesTableAnnotationComposer get profileId {
+    final $$LocalProfilesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.profileId,
+      referencedTable: $db.localProfiles,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LocalProfilesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.localProfiles,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$IndicatorGoalRevisionsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $IndicatorGoalRevisionsTable,
+          IndicatorGoalRevisionRow,
+          $$IndicatorGoalRevisionsTableFilterComposer,
+          $$IndicatorGoalRevisionsTableOrderingComposer,
+          $$IndicatorGoalRevisionsTableAnnotationComposer,
+          $$IndicatorGoalRevisionsTableCreateCompanionBuilder,
+          $$IndicatorGoalRevisionsTableUpdateCompanionBuilder,
+          (IndicatorGoalRevisionRow, $$IndicatorGoalRevisionsTableReferences),
+          IndicatorGoalRevisionRow,
+          PrefetchHooks Function({bool profileId})
+        > {
+  $$IndicatorGoalRevisionsTableTableManager(
+    _$AppDatabase db,
+    $IndicatorGoalRevisionsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$IndicatorGoalRevisionsTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$IndicatorGoalRevisionsTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$IndicatorGoalRevisionsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> profileId = const Value.absent(),
+                Value<String> indicatorKey = const Value.absent(),
+                Value<String> periodType = const Value.absent(),
+                Value<String> periodStartDate = const Value.absent(),
+                Value<String> periodEndDate = const Value.absent(),
+                Value<String> state = const Value.absent(),
+                Value<int?> valueScaled = const Value.absent(),
+                Value<int> valueScale = const Value.absent(),
+                Value<String> unit = const Value.absent(),
+                Value<String?> supersedesRevisionId = const Value.absent(),
+                Value<String> operationId = const Value.absent(),
+                Value<DateTime> createdAtUtc = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => IndicatorGoalRevisionsCompanion(
+                id: id,
+                profileId: profileId,
+                indicatorKey: indicatorKey,
+                periodType: periodType,
+                periodStartDate: periodStartDate,
+                periodEndDate: periodEndDate,
+                state: state,
+                valueScaled: valueScaled,
+                valueScale: valueScale,
+                unit: unit,
+                supersedesRevisionId: supersedesRevisionId,
+                operationId: operationId,
+                createdAtUtc: createdAtUtc,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String profileId,
+                required String indicatorKey,
+                required String periodType,
+                required String periodStartDate,
+                required String periodEndDate,
+                required String state,
+                Value<int?> valueScaled = const Value.absent(),
+                required int valueScale,
+                required String unit,
+                Value<String?> supersedesRevisionId = const Value.absent(),
+                required String operationId,
+                required DateTime createdAtUtc,
+                Value<int> rowid = const Value.absent(),
+              }) => IndicatorGoalRevisionsCompanion.insert(
+                id: id,
+                profileId: profileId,
+                indicatorKey: indicatorKey,
+                periodType: periodType,
+                periodStartDate: periodStartDate,
+                periodEndDate: periodEndDate,
+                state: state,
+                valueScaled: valueScaled,
+                valueScale: valueScale,
+                unit: unit,
+                supersedesRevisionId: supersedesRevisionId,
+                operationId: operationId,
+                createdAtUtc: createdAtUtc,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$IndicatorGoalRevisionsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({profileId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (profileId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.profileId,
+                                referencedTable:
+                                    $$IndicatorGoalRevisionsTableReferences
+                                        ._profileIdTable(db),
+                                referencedColumn:
+                                    $$IndicatorGoalRevisionsTableReferences
+                                        ._profileIdTable(db)
+                                        .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$IndicatorGoalRevisionsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $IndicatorGoalRevisionsTable,
+      IndicatorGoalRevisionRow,
+      $$IndicatorGoalRevisionsTableFilterComposer,
+      $$IndicatorGoalRevisionsTableOrderingComposer,
+      $$IndicatorGoalRevisionsTableAnnotationComposer,
+      $$IndicatorGoalRevisionsTableCreateCompanionBuilder,
+      $$IndicatorGoalRevisionsTableUpdateCompanionBuilder,
+      (IndicatorGoalRevisionRow, $$IndicatorGoalRevisionsTableReferences),
+      IndicatorGoalRevisionRow,
+      PrefetchHooks Function({bool profileId})
+    >;
 typedef $$WeeklyPlansTableCreateCompanionBuilder =
     WeeklyPlansCompanion Function({
       required String id,
@@ -32528,6 +33959,11 @@ class $AppDatabaseManager {
       $$WeeklyIndicatorTargetRevisionsTableTableManager(
         _db,
         _db.weeklyIndicatorTargetRevisions,
+      );
+  $$IndicatorGoalRevisionsTableTableManager get indicatorGoalRevisions =>
+      $$IndicatorGoalRevisionsTableTableManager(
+        _db,
+        _db.indicatorGoalRevisions,
       );
   $$WeeklyPlansTableTableManager get weeklyPlans =>
       $$WeeklyPlansTableTableManager(_db, _db.weeklyPlans);

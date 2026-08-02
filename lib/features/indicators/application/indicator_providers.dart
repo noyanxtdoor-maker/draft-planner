@@ -59,6 +59,7 @@ final homeIndicatorControllerProvider =
 
 final class HomeIndicatorController extends Notifier<HomeIndicatorState> {
   StreamSubscription<void>? _subscription;
+  bool _disposed = false;
 
   IndicatorRepository get _repository => ref.read(indicatorRepositoryProvider);
 
@@ -75,16 +76,25 @@ final class HomeIndicatorController extends Notifier<HomeIndicatorState> {
 
   @override
   HomeIndicatorState build() {
+    _disposed = false;
     final profileId = _profileId;
     _subscription = _repository.watchChanges(profileId).listen((_) {
-      unawaited(refresh());
+      if (!_disposed) {
+        unawaited(refresh());
+      }
     });
-    ref.onDispose(() => unawaited(_subscription?.cancel()));
+    ref.onDispose(() {
+      _disposed = true;
+      unawaited(_subscription?.cancel());
+    });
     unawaited(Future<void>.microtask(refresh));
     return const HomeIndicatorState(status: HomeIndicatorLoadStatus.loading);
   }
 
   Future<void> refresh() async {
+    if (_disposed) {
+      return;
+    }
     final previous = state.snapshot;
     state = HomeIndicatorState(
       status: previous == null
@@ -99,11 +109,17 @@ final class HomeIndicatorController extends Notifier<HomeIndicatorState> {
         period: IndicatorPeriod.currentWeek(today),
         today: today,
       );
+      if (_disposed) {
+        return;
+      }
       state = HomeIndicatorState(
         status: HomeIndicatorLoadStatus.ready,
         snapshot: snapshot,
       );
     } on Object {
+      if (_disposed) {
+        return;
+      }
       state = HomeIndicatorState(
         status: HomeIndicatorLoadStatus.failure,
         snapshot: previous,
@@ -142,7 +158,56 @@ final class HomeIndicatorController extends Notifier<HomeIndicatorState> {
         value: value,
       ),
     );
-    await refresh();
+    if (!_disposed) {
+      await refresh();
+    }
+  }
+
+  Future<void> saveGoal({
+    required String indicatorKey,
+    required IndicatorGoalPeriod period,
+    required IndicatorAmount? value,
+  }) async {
+    final ids = ref.read(indicatorIdentifierSourceProvider);
+    await _repository.saveGoal(
+      profileId: _profileId,
+      draft: IndicatorGoalRevisionDraft(
+        id: ids.nextUuid(),
+        operationId: ids.nextUuid(),
+        indicatorKey: indicatorKey,
+        period: period,
+        value: value,
+      ),
+    );
+    if (!_disposed) {
+      await refresh();
+    }
+  }
+
+  Future<IndicatorGoalSnapshot> readGoal({
+    required String indicatorKey,
+    required IndicatorGoalPeriod period,
+  }) {
+    return _repository.readGoal(
+      profileId: _profileId,
+      indicatorKey: indicatorKey,
+      period: period,
+      today: ref.read(plannerDateSourceProvider).today(),
+    );
+  }
+
+  Future<List<IndicatorGoalSnapshot>> readGoalHistory({
+    required String indicatorKey,
+    required IndicatorGoalPeriodType periodType,
+    required PlannerDate anchor,
+  }) {
+    return _repository.readGoalHistory(
+      profileId: _profileId,
+      indicatorKey: indicatorKey,
+      periodType: periodType,
+      anchor: anchor,
+      today: ref.read(plannerDateSourceProvider).today(),
+    );
   }
 
   Future<void> renameIndicator({
@@ -154,7 +219,9 @@ final class HomeIndicatorController extends Notifier<HomeIndicatorState> {
       indicatorKey: indicatorKey,
       label: label,
     );
-    await refresh();
+    if (!_disposed) {
+      await refresh();
+    }
   }
 
   Future<List<IndicatorTargetRevision>> readTargetHistory({

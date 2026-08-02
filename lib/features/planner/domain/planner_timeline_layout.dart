@@ -7,11 +7,18 @@ final class PlannerTimelinePlacement {
     required this.event,
     required this.column,
     required this.columnCount,
+    this.widthFactor,
+    this.offsetFactor,
   });
 
   final PlannerCalendarItem event;
   final int column;
   final int columnCount;
+
+  /// Optional normalized width/offset for the approved primary/backup split.
+  /// Generic overlaps continue to use [column] and [columnCount].
+  final double? widthFactor;
+  final double? offsetFactor;
 }
 
 /// Pixel geometry shared by the centered timeline and the pager previews.
@@ -122,7 +129,16 @@ abstract final class PlannerTimelineLayout {
       final active = <_ActiveColumn>[];
       final assigned = <PlannerCalendarItem, int>{};
       var columnCount = 1;
-      for (final event in group) {
+      final backupSplit =
+          group.length == 2 &&
+          group.where((event) => event.isBackupAppointment).length == 1;
+      final orderedGroup = backupSplit
+          ? <PlannerCalendarItem>[
+              ...group.where((event) => !event.isBackupAppointment),
+              ...group.where((event) => event.isBackupAppointment),
+            ]
+          : group;
+      for (final event in orderedGroup) {
         active.removeWhere((entry) => !entry.end.isAfter(event.startLocal!));
         var column = 0;
         final occupied = active.map((entry) => entry.column).toSet();
@@ -141,6 +157,12 @@ abstract final class PlannerTimelineLayout {
             event: event,
             column: assigned[event]!,
             columnCount: columnCount,
+            widthFactor: backupSplit
+                ? (event.isBackupAppointment ? 0.45 : 0.55)
+                : null,
+            offsetFactor: backupSplit
+                ? (event.isBackupAppointment ? 0.55 : 0.0)
+                : null,
           ),
         );
       }

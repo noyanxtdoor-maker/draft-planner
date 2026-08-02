@@ -217,11 +217,15 @@ void main() {
     );
 
     test(
-      'resize hit area is at least 48 logical pixels per the owner-correction contract',
+      'resize edge zone stays within the approved 10-12 logical pixel range',
       () {
         expect(
           PlannerEventBlockLayoutPolicy.resizeHitAreaHeight,
-          greaterThanOrEqualTo(48),
+          allOf(greaterThanOrEqualTo(10), lessThanOrEqualTo(12)),
+        );
+        expect(
+          PlannerEventBlockLayoutPolicy.topResizeHitAreaHeight,
+          allOf(greaterThanOrEqualTo(10), lessThanOrEqualTo(12)),
         );
       },
     );

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rmplanner/app/router/route_names.dart';
+import 'package:rmplanner/app/theme/app_theme.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 import 'package:rmplanner/features/planner/domain/planner_task.dart';
 import 'package:rmplanner/features/planner/presentation/calendar_event_creation.dart';
@@ -17,8 +18,9 @@ final class WeeklyPlanningScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final resolvedStart =
-        periodStart ?? ref.watch(weeklyPlanningTodayProvider).asData?.value;
+    final resolvedStart = periodStart == null
+        ? ref.watch(weeklyPlanningTodayProvider).asData?.value
+        : _mondayOf(periodStart!);
     if (resolvedStart == null) {
       return Scaffold(
         appBar: AppBar(title: const Text('Weekly Planning')),
@@ -64,59 +66,40 @@ final class _PlanBody extends ConsumerWidget {
     final state = plan.effectiveState(today ?? plan.period.start);
     final editable =
         state == WeeklyPlanState.draft || state == WeeklyPlanState.active;
+    final currentWeek = today == null ? plan.period.start : _mondayOf(today);
+    final canGoForward = plan.period.start.compareTo(currentWeek) < 0;
     return ListView(
       key: const Key('weekly-plan-list'),
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+      padding: const EdgeInsets.fromLTRB(18, 0, 18, 24),
       children: <Widget>[
-        Text(
-          '${plan.period.start.iso8601} — ${plan.period.end.iso8601}',
-          style: Theme.of(context).textTheme.titleLarge,
+        _WeekNavigation(
+          period: plan.period,
+          canGoForward: canGoForward,
+          onPrevious: () => _openWeek(context, plan.period.start.addDays(-7)),
+          onNext: canGoForward
+              ? () => _openWeek(context, plan.period.start.addDays(7))
+              : null,
         ),
-        const SizedBox(height: 4),
-        Text(
-          '${_stateLabel(state)} · ${plan.timeZoneId}',
-          key: const Key('weekly-plan-identity'),
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
-        const SizedBox(height: 12),
-        const Text(
-          'Actual is factual and read-only. Target is your choice for this '
-          'week.',
-        ),
-        const SizedBox(height: 16),
-        Text('Life Indicators', style: Theme.of(context).textTheme.titleMedium),
+        const Divider(height: 1),
         const SizedBox(height: 8),
         for (final indicator in plan.indicators)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Card(
-              child: ListTile(
-                key: Key('weekly-plan-indicator-${indicator.indicatorKey}'),
-                title: Text(indicator.label),
-                subtitle: Text(
-                  'Actual ${indicator.actual.display} · '
-                  'Target ${indicator.target.display}',
-                ),
-              ),
-            ),
+          _WeeklyGoalRow(
+            key: Key('weekly-plan-indicator-${indicator.indicatorKey}'),
+            indicator: indicator,
+            onTap: editable
+                ? () => context.push(
+                    RoutePaths.weeklyPlanningTargets(
+                      plan.period.start,
+                      indicatorKey: indicator.indicatorKey,
+                    ),
+                  )
+                : null,
           ),
-        if (editable)
-          OutlinedButton.icon(
-            key: const Key('weekly-plan-targets-button'),
-            onPressed: () => context.push(
-              RoutePaths.weeklyPlanningTargets(plan.period.start),
-            ),
-            icon: const Icon(Icons.tune),
-            label: const Text('Set weekly targets'),
-          ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 24),
         Row(
           children: <Widget>[
-            Expanded(
-              child: Text(
-                'Commitments',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
+            const Expanded(
+              child: Text('Commitments', style: AppTypography.sectionTitle),
             ),
             if (editable)
               PopupMenuButton<WeeklyCommitmentType>(
@@ -160,10 +143,11 @@ final class _PlanBody extends ConsumerWidget {
                         ? Icons.check_box_outlined
                         : Icons.event_outlined,
                   ),
-                  title: Text(commitment.label),
+                  title: Text(commitment.label, style: AppTypography.cardTitle),
                   subtitle: Text(
                     _commitmentStatus(commitment),
                     key: Key('commitment-status-${commitment.id}'),
+                    style: AppTypography.secondary,
                   ),
                 ),
               ),
@@ -176,8 +160,7 @@ final class _PlanBody extends ConsumerWidget {
                 child: OutlinedButton.icon(
                   key: const Key('weekly-plan-create-task'),
                   onPressed: () => context.push(
-                    '${RoutePaths.taskCreate}'
-                    '?date=${plan.period.start.iso8601}',
+                    '${RoutePaths.taskCreate}?date=${plan.period.start.iso8601}',
                   ),
                   icon: const Icon(Icons.add_task),
                   label: const Text('New Task'),
@@ -238,6 +221,10 @@ final class _PlanBody extends ConsumerWidget {
         ],
       ],
     );
+  }
+
+  void _openWeek(BuildContext context, PlannerDate start) {
+    unawaited(context.push(RoutePaths.weeklyPlanningFor(_mondayOf(start))));
   }
 
   Future<void> _selectCommitment(
@@ -386,16 +373,6 @@ final class _PlanBody extends ConsumerWidget {
     }
   }
 
-  String _stateLabel(WeeklyPlanState state) {
-    return switch (state) {
-      WeeklyPlanState.draft => 'Draft',
-      WeeklyPlanState.active => 'Active',
-      WeeklyPlanState.reviewDue => 'Review Due',
-      WeeklyPlanState.reviewed => 'Reviewed',
-      WeeklyPlanState.historical => 'Historical',
-    };
-  }
-
   String _commitmentStatus(WeeklyPlanCommitment item) {
     if (item.hasUnresolvedReport) {
       return 'Outcome report outstanding';
@@ -410,6 +387,108 @@ final class _PlanBody extends ConsumerWidget {
     }
     return 'Calendar Event';
   }
+}
+
+final class _WeekNavigation extends StatelessWidget {
+  const _WeekNavigation({
+    required this.period,
+    required this.canGoForward,
+    required this.onPrevious,
+    required this.onNext,
+  });
+
+  final WeeklyPeriod period;
+  final bool canGoForward;
+  final VoidCallback onPrevious;
+  final VoidCallback? onNext;
+
+  @override
+  Widget build(BuildContext context) {
+    final start = MaterialLocalizations.of(context).formatShortMonthDay(
+      period.start.asLocalDate,
+    );
+    final end = MaterialLocalizations.of(context).formatShortMonthDay(
+      period.end.asLocalDate,
+    );
+    final label = period.start.year == period.end.year
+        ? '$start – $end, ${period.end.year}'
+        : '$start, ${period.start.year} – $end, ${period.end.year}';
+    return SizedBox(
+      height: 64,
+      child: Row(
+        children: <Widget>[
+          const Icon(Icons.calendar_month_outlined, color: AppTheme.rose, size: 24),
+          const SizedBox(width: 16),
+          Expanded(child: Text(label, style: AppTypography.body)),
+          IconButton(
+            tooltip: 'Previous week',
+            onPressed: onPrevious,
+            constraints: const BoxConstraints.tightFor(width: 48, height: 48),
+            padding: EdgeInsets.zero,
+            icon: const Icon(Icons.chevron_left, size: 28),
+          ),
+          IconButton(
+            tooltip: 'Next week',
+            onPressed: onNext,
+            constraints: const BoxConstraints.tightFor(width: 48, height: 48),
+            padding: EdgeInsets.zero,
+            icon: Icon(
+              Icons.chevron_right,
+              size: 28,
+              color: onNext == null ? Colors.white24 : null,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+final class _WeeklyGoalRow extends StatelessWidget {
+  const _WeeklyGoalRow({required this.indicator, required this.onTap, super.key});
+
+  final WeeklyIndicatorReview indicator;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final value = indicator.target.isSet
+        ? '${indicator.actual.display}/${indicator.target.display}'
+        : 'Set Goal';
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 80),
+        decoration: const BoxDecoration(
+          border: Border(bottom: BorderSide(color: AppTheme.outline)),
+        ),
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        child: Row(
+          children: <Widget>[
+            Expanded(
+              child: Text(
+                indicator.label,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: AppTypography.cardTitle,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Text(
+              value,
+              style: indicator.target.isSet
+                  ? AppTypography.metricCompact
+                  : AppTypography.button.copyWith(color: AppTheme.rose),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+PlannerDate _mondayOf(PlannerDate date) {
+  return date.addDays(-(date.asLocalDate.weekday - DateTime.monday));
 }
 
 final class _Failure extends StatelessWidget {

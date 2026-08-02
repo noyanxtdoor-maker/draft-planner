@@ -418,6 +418,46 @@ class WeeklyIndicatorTargetRevisions extends Table {
   Set<Column<Object>> get primaryKey => <Column<Object>>{id};
 }
 
+/// Goal revisions whose period is not necessarily weekly.  Weekly targets
+/// remain in [WeeklyIndicatorTargetRevisions] for backwards compatibility;
+/// this table carries the daily and monthly slots and gives every period type
+/// the same idempotent, append-only semantics.
+@TableIndex(
+  name: 'indicator_goal_operation_unique',
+  columns: <Symbol>{#operationId},
+  unique: true,
+)
+@TableIndex(
+  name: 'indicator_goal_period_history',
+  columns: <Symbol>{
+    #profileId,
+    #indicatorKey,
+    #periodType,
+    #periodStartDate,
+    #createdAtUtc,
+  },
+)
+@DataClassName('IndicatorGoalRevisionRow')
+class IndicatorGoalRevisions extends Table {
+  TextColumn get id => text()();
+  TextColumn get profileId =>
+      text().references(LocalProfiles, #id, onDelete: KeyAction.restrict)();
+  TextColumn get indicatorKey => text()();
+  TextColumn get periodType => text()();
+  TextColumn get periodStartDate => text()();
+  TextColumn get periodEndDate => text()();
+  TextColumn get state => text()();
+  IntColumn get valueScaled => integer().nullable()();
+  IntColumn get valueScale => integer()();
+  TextColumn get unit => text()();
+  TextColumn get supersedesRevisionId => text().nullable()();
+  TextColumn get operationId => text()();
+  DateTimeColumn get createdAtUtc => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => <Column<Object>>{id};
+}
+
 @TableIndex(
   name: 'weekly_plan_profile_period_unique',
   columns: <Symbol>{#profileId, #periodStartDate},
@@ -666,6 +706,7 @@ class PlannerPreferences extends Table {
     OutcomeReportContributionDrafts,
     ActivityLedgerEntries,
     WeeklyIndicatorTargetRevisions,
+    IndicatorGoalRevisions,
     WeeklyPlans,
     WeeklyPlanCommitments,
     WeeklyPlanReviews,
@@ -731,7 +772,7 @@ final class AppDatabase extends _$AppDatabase {
   final bool _injectPlannerExperienceMigrationFailure;
 
   @override
-  int get schemaVersion => _schemaVersionOverride ?? 13;
+  int get schemaVersion => _schemaVersionOverride ?? 14;
 
   @override
   MigrationStrategy get migration {
@@ -776,6 +817,9 @@ final class AppDatabase extends _$AppDatabase {
           await migrator.createTable(activityTypes);
           await migrator.createTable(activityTypeIndicatorMappings);
           await migrator.createTable(plannerPreferences);
+        }
+        if (schemaVersion >= 14) {
+          await migrator.createTable(indicatorGoalRevisions);
         }
       },
       onUpgrade: (migrator, from, to) async {
@@ -1010,6 +1054,9 @@ final class AppDatabase extends _$AppDatabase {
             if (!await _columnExists('planner_tasks', 'people_json')) {
               await migrator.addColumn(plannerTasks, plannerTasks.peopleJson);
             }
+          }
+          if (from < 14 && to >= 14) {
+            await migrator.createTable(indicatorGoalRevisions);
           }
         });
       },

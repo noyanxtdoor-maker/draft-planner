@@ -964,22 +964,36 @@ class _PagerPreviewColumn extends StatelessWidget {
       geometry.height,
       interactive: false,
     );
-    final accent = PlannerEventColorResolver.accentColor(
+    final resolvedAccent = PlannerEventColorResolver.accentColor(
       event,
       eventColorsByTypeId,
     );
-    final surface = PlannerEventColorResolver.surfaceColor(
+    final resolvedSurface = PlannerEventColorResolver.surfaceColor(
       event,
       eventColorsByTypeId,
     );
+    final accent = event.isBackupAppointment
+        ? PlannerEventBlockLayoutPolicy.backupEventAccent
+        : resolvedAccent;
+    final surface = event.isBackupAppointment
+        ? PlannerEventBlockLayoutPolicy.backupEventSurface
+        : resolvedSurface;
     final columnGap = (placement.columnCount > 1 ? 3.0 : 0.0);
-    final blockWidth =
-        (contentWidth - columnGap * (placement.columnCount - 1)) /
-        placement.columnCount;
-    final left =
-        kPlannerPagerTimeColumnWidth +
-        5 +
-        placement.column * (blockWidth + columnGap);
+    final splitWidth = placement.widthFactor != null;
+    final widthBasis = splitWidth
+        ? contentWidth - columnGap
+        : contentWidth - columnGap * (placement.columnCount - 1);
+    final blockWidth = splitWidth
+        ? widthBasis * placement.widthFactor!
+        : widthBasis / placement.columnCount;
+    final left = splitWidth
+        ? kPlannerPagerTimeColumnWidth +
+              5 +
+              (widthBasis * placement.offsetFactor!) +
+              (placement.column > 0 ? columnGap : 0)
+        : kPlannerPagerTimeColumnWidth +
+              5 +
+              placement.column * (blockWidth + columnGap);
     return Positioned(
       key: Key('planner-pager-preview-event-${event.id}'),
       top: geometry.top,
@@ -999,7 +1013,7 @@ class _PagerPreviewColumn extends StatelessWidget {
             decoration: BoxDecoration(
               border: Border(
                 left: BorderSide(
-                  color: event.isBackupAppointment ? Colors.black : accent,
+                  color: accent,
                   width: event.isBackupAppointment
                       ? PlannerEventBlockLayoutPolicy.backupEventAccentWidth
                       : PlannerEventBlockLayoutPolicy.eventAccentWidth,

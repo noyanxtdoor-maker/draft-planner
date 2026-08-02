@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart' show ValueListenable;
-import 'package:flutter/gestures.dart' show DragStartBehavior;
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -871,6 +871,9 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     final lastHour = settings.visibleEndHour;
     final slotCount = lastHour - firstHour;
     final timelineHeight = slotCount * hourHeight;
+    final systemBottomInset = MediaQuery.viewPaddingOf(context).bottom;
+    final plannerBottomInset =
+        (72.0 + systemBottomInset + 56.0 + 24.0).clamp(120.0, 200.0);
 
     // Refresh-indicator removed: the Planner does not support
     // pull-to-refresh. The previous RefreshIndicator intercepted
@@ -899,7 +902,7 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
             : const ClampingScrollPhysics(),
         // Preserve the established bottom range for manual viewport offsets
         // across date commits, independent of the compact navigation rows.
-        padding: const EdgeInsets.fromLTRB(12, 14, 12, 160),
+        padding: EdgeInsets.fromLTRB(12, 14, 12, plannerBottomInset),
         child: Column(
           children: <Widget>[
             if (state.message != null) ...<Widget>[
@@ -2317,11 +2320,18 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
       hourHeight: _hourHeight,
     );
     final availableWidth = totalWidth - _timeColumnWidth;
-    final columnWidth =
-        (availableWidth - _eventGap * (placement.columnCount - 1)) /
-        placement.columnCount;
-    final left =
-        _timeColumnWidth + placement.column * (columnWidth + _eventGap);
+    final splitWidth = placement.widthFactor != null;
+    final widthBasis = splitWidth
+        ? availableWidth - _eventGap
+        : availableWidth - _eventGap * (placement.columnCount - 1);
+    final columnWidth = splitWidth
+        ? widthBasis * placement.widthFactor!
+        : widthBasis / placement.columnCount;
+    final left = splitWidth
+        ? _timeColumnWidth +
+              (widthBasis * placement.offsetFactor!) +
+              (placement.column > 0 ? _eventGap : 0)
+        : _timeColumnWidth + placement.column * (columnWidth + _eventGap);
     return Positioned(
       key: Key('planner-timed-event-${event.id}'),
       top: geometry.top,
@@ -2568,14 +2578,20 @@ final class _TimelineEventBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = PlannerEventColorResolver.accentColor(
+    final resolvedAccent = PlannerEventColorResolver.accentColor(
       event,
       eventColorsByTypeId,
     );
-    final fill = PlannerEventColorResolver.surfaceColor(
+    final resolvedFill = PlannerEventColorResolver.surfaceColor(
       event,
       eventColorsByTypeId,
     );
+    final accent = event.isBackupAppointment
+        ? PlannerEventBlockLayoutPolicy.backupEventAccent
+        : resolvedAccent;
+    final fill = event.isBackupAppointment
+        ? PlannerEventBlockLayoutPolicy.backupEventSurface
+        : resolvedFill;
     return LayoutBuilder(
       builder: (context, constraints) {
         final availableHeight = constraints.maxHeight.isFinite
@@ -2599,16 +2615,32 @@ final class _TimelineEventBlock extends StatelessWidget {
           child: Stack(
             children: <Widget>[
               Positioned.fill(
-                child: GestureDetector(
+                child: RawGestureDetector(
                   behavior: HitTestBehavior.opaque,
-                  onLongPressMoveUpdate: interactive
-                      ? (details) => onMoveUpdate(details.offsetFromOrigin.dy)
-                      : null,
-                  onLongPressStart: interactive
-                      ? (_) => unawaited(HapticFeedback.mediumImpact())
-                      : null,
-                  onLongPressEnd: interactive ? (_) => onMoveEnd() : null,
-                  onLongPressCancel: interactive ? onMoveCancel : null,
+                  gestures: interactive
+                      ? <Type, GestureRecognizerFactory>{
+                          LongPressGestureRecognizer:
+                              GestureRecognizerFactoryWithHandlers<
+                                LongPressGestureRecognizer
+                              >(
+                                () => LongPressGestureRecognizer(
+                                  duration: const Duration(milliseconds: 300),
+                                ),
+                                (recognizer) {
+                                  recognizer.onLongPressMoveUpdate =
+                                      (details) => onMoveUpdate(
+                                        details.offsetFromOrigin.dy,
+                                      );
+                                  recognizer.onLongPressStart = (_) =>
+                                      unawaited(
+                                        HapticFeedback.mediumImpact(),
+                                      );
+                                  recognizer.onLongPressEnd = (_) => onMoveEnd();
+                                  recognizer.onLongPressCancel = onMoveCancel;
+                                },
+                              ),
+                        }
+                      : const <Type, GestureRecognizerFactory>{},
                   child: Material(
                     color: fill,
                     shape: RoundedRectangleBorder(
@@ -2625,9 +2657,7 @@ final class _TimelineEventBlock extends StatelessWidget {
                         decoration: BoxDecoration(
                           border: Border(
                             left: BorderSide(
-                              color: event.isBackupAppointment
-                                  ? Colors.black
-                                  : accent,
+                              color: accent,
                               width: event.isBackupAppointment
                                   ? PlannerEventBlockLayoutPolicy
                                         .backupEventAccentWidth

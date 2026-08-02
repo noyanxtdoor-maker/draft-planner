@@ -28,6 +28,70 @@ final class IndicatorPeriod {
   int get hashCode => Object.hash(start, end);
 }
 
+enum IndicatorGoalPeriodType { daily, weekly, monthly }
+
+/// A local-calendar goal period.  The serialized key is deliberately based
+/// on the period type and start date so midnight/month transitions never
+/// overwrite another period.
+final class IndicatorGoalPeriod {
+  const IndicatorGoalPeriod({
+    required this.type,
+    required this.start,
+    required this.end,
+  });
+
+  final IndicatorGoalPeriodType type;
+  final PlannerDate start;
+  final PlannerDate end;
+
+  factory IndicatorGoalPeriod.daily(PlannerDate date) {
+    return IndicatorGoalPeriod(
+      type: IndicatorGoalPeriodType.daily,
+      start: date,
+      end: date,
+    );
+  }
+
+  factory IndicatorGoalPeriod.weekly(PlannerDate date) {
+    final mondayOffset = date.asLocalDate.weekday - DateTime.monday;
+    final start = date.addDays(-mondayOffset);
+    return IndicatorGoalPeriod(
+      type: IndicatorGoalPeriodType.weekly,
+      start: start,
+      end: start.addDays(6),
+    );
+  }
+
+  factory IndicatorGoalPeriod.monthly(PlannerDate date) {
+    final start = PlannerDate(year: date.year, month: date.month, day: 1);
+    final nextMonth = DateTime(date.year, date.month + 1, 1);
+    final end = PlannerDate.fromDateTime(
+      nextMonth.subtract(const Duration(days: 1)),
+    );
+    return IndicatorGoalPeriod(
+      type: IndicatorGoalPeriodType.monthly,
+      start: start,
+      end: end,
+    );
+  }
+
+  IndicatorPeriod get indicatorPeriod =>
+      IndicatorPeriod(start: start, end: end);
+
+  String get key => '${type.name}:${start.iso8601}';
+
+  @override
+  bool operator ==(Object other) {
+    return other is IndicatorGoalPeriod &&
+        type == other.type &&
+        start == other.start &&
+        end == other.end;
+  }
+
+  @override
+  int get hashCode => Object.hash(type, start, end);
+}
+
 final class IndicatorAmount {
   const IndicatorAmount({
     required this.scaledValue,
@@ -131,6 +195,9 @@ final class HomeIndicatorSnapshot {
     required this.overdueTaskCount,
     required this.awaitingReportCount,
     this.nextTempleVisit,
+    this.currentWeekPlanned = false,
+    this.monthlyTempleActual,
+    this.monthlyTempleTarget,
   });
 
   final IndicatorPeriod period;
@@ -138,10 +205,43 @@ final class HomeIndicatorSnapshot {
   final int overdueTaskCount;
   final int awaitingReportCount;
   final PlannerDate? nextTempleVisit;
+  final bool currentWeekPlanned;
+  final IndicatorAmount? monthlyTempleActual;
+  final IndicatorTarget? monthlyTempleTarget;
 
   bool get hasPartialFailure => indicators.any(
     (indicator) => indicator.projectionState == IndicatorProjectionState.failed,
   );
+}
+
+final class IndicatorGoalSnapshot {
+  const IndicatorGoalSnapshot({
+    required this.indicatorKey,
+    required this.period,
+    required this.actual,
+    required this.target,
+  });
+
+  final String indicatorKey;
+  final IndicatorGoalPeriod period;
+  final IndicatorAmount actual;
+  final IndicatorTarget target;
+}
+
+final class IndicatorGoalRevisionDraft {
+  const IndicatorGoalRevisionDraft({
+    required this.id,
+    required this.operationId,
+    required this.indicatorKey,
+    required this.period,
+    required this.value,
+  });
+
+  final String id;
+  final String operationId;
+  final String indicatorKey;
+  final IndicatorGoalPeriod period;
+  final IndicatorAmount? value;
 }
 
 final class IndicatorDetail {

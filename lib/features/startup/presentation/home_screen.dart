@@ -8,7 +8,6 @@ import 'package:rmplanner/app/shell/global_drawer_controller.dart';
 import 'package:rmplanner/app/theme/app_theme.dart';
 import 'package:rmplanner/features/indicators/application/indicator_providers.dart';
 import 'package:rmplanner/features/indicators/domain/life_indicator.dart';
-import 'package:rmplanner/features/planner/domain/event_type.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 import 'package:rmplanner/features/planner/presentation/calendar_event_creation.dart';
 import 'package:rmplanner/features/planner/presentation/contextual_create_fab.dart';
@@ -42,136 +41,89 @@ final class HomeScreen extends ConsumerWidget {
         ],
       ),
       body: SafeArea(
-        child: snapshot == null
-            ? _InitialState(state: state)
-            : RefreshIndicator(
-                onRefresh: () => ref
-                    .read(homeIndicatorControllerProvider.notifier)
-                    .refresh(),
-                child: ListView(
+        child: MediaQuery.withClampedTextScaling(
+          maxScaleFactor: 1.3,
+          child: snapshot == null
+              ? _InitialState(state: state)
+              : RefreshIndicator(
+                  onRefresh: () => ref
+                      .read(homeIndicatorControllerProvider.notifier)
+                      .refresh(),
+                  child: ListView(
                   key: const Key('home-indicator-list'),
-                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 120),
+                  padding: const EdgeInsets.fromLTRB(18, 24, 18, 120),
                   children: <Widget>[
                     _SectionHeader(
                       title: 'Weekly Life Indicators',
-                      onViewAll: () => context.push(RoutePaths.progress),
+                      onViewAll: () => _openWeeklyPlanning(
+                        context,
+                        snapshot.period.start,
+                      ),
                       viewAllKey: const Key('home-wli-view-all'),
                     ),
-                    const SizedBox(height: 14),
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        final twoColumns = constraints.maxWidth >= 360;
-                        return Wrap(
-                          spacing: 12,
-                          runSpacing: 12,
-                          children: <Widget>[
-                            for (
-                              var index = 0;
-                              index < snapshot.indicators.length;
-                              index += 1
-                            )
-                              SizedBox(
-                                width:
-                                    twoColumns &&
-                                        index != 0 &&
-                                        index != snapshot.indicators.length - 1
-                                    ? (constraints.maxWidth - 12) / 2
-                                    : constraints.maxWidth,
-                                child: _IndicatorCard(
-                                  indicator: snapshot.indicators[index],
-                                  period: snapshot.period,
-                                  nextTempleVisit: snapshot.nextTempleVisit,
-                                  wide:
-                                      index == 0 ||
-                                      index == snapshot.indicators.length - 1,
-                                  onScheduleTemple:
-                                      snapshot.indicators[index].key ==
-                                              'temple_visit' &&
-                                          snapshot.nextTempleVisit == null
-                                      ? () => unawaited(
-                                          launchCalendarEventCreation<void>(
-                                            context,
-                                            ref,
-                                            CalendarEventCreationContext(
-                                              source: 'home-temple-visit',
-                                              destinationPath: RoutePaths
-                                                  .calendarEventCreate,
-                                              date: snapshot.period.start,
-                                              recommendedEventTypeId:
-                                                  SystemEventTypeIds
-                                                      .templeVisit,
-                                            ),
-                                          ),
-                                        )
-                                      : null,
-                                ),
-                              ),
-                          ],
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 20),
-                    Center(
-                      child: OutlinedButton.icon(
-                        key: const Key('weekly-targets-button'),
-                        onPressed: () => context.push(
-                          RoutePaths.weeklyPlanningFor(snapshot.period.start),
+                    const SizedBox(height: 16),
+                    if (!snapshot.currentWeekPlanned)
+                      _StartPlanningButton(
+                        onPressed: () => _openWeeklyPlanning(
+                          context,
+                          snapshot.period.start,
                         ),
-                        icon: const Icon(Icons.calendar_view_week_outlined),
-                        label: const Text('Weekly Planning'),
+                      )
+                    else ...<Widget>[
+                      _IndicatorGrid(
+                        snapshot: snapshot,
+                        onOpenPlanning: () => _openWeeklyPlanning(
+                          context,
+                          snapshot.period.start,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 28),
+                      const SizedBox(height: 16),
+                      Center(
+                        child: OutlinedButton(
+                          key: const Key('weekly-targets-button'),
+                          onPressed: () => _openWeeklyPlanning(
+                            context,
+                            snapshot.period.start,
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size(228, 48),
+                            textStyle: AppTypography.button,
+                            side: const BorderSide(color: AppTheme.outline),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: const Text('Weekly Planning'),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 24),
                     _SectionHeader(
                       title: 'Active Pathways',
                       onViewAll: () => _showPathwayMessage(context),
                       viewAllKey: const Key('home-pathways-view-all'),
                     ),
-                    const SizedBox(height: 4),
-                    Card(
-                      clipBehavior: Clip.antiAlias,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        side: BorderSide(
-                          color: Theme.of(context).colorScheme.outline,
-                        ),
-                      ),
-                      child: const Column(
-                        children: <Widget>[
-                          _PathwayRow(
-                            key: Key('home-pathway-employment'),
-                            icon: Icons.work_outline,
-                            label: 'Employment',
-                          ),
-                          Divider(height: 1),
-                          _PathwayRow(
-                            key: Key('home-pathway-education'),
-                            icon: Icons.school_outlined,
-                            label: 'Education',
-                          ),
-                          Divider(height: 1),
-                          _PathwayRow(
-                            key: Key('home-pathway-documents'),
-                            icon: Icons.description_outlined,
-                            label: 'Documents',
-                          ),
-                        ],
-                      ),
-                    ),
+                    const SizedBox(height: 16),
+                    const _PathwaysCard(),
                     if (state.status == HomeIndicatorLoadStatus.rebuilding)
                       const Padding(
                         padding: EdgeInsets.only(top: 12),
                         child: LinearProgressIndicator(),
                       ),
                   ],
+                  ),
                 ),
-              ),
+        ),
       ),
       floatingActionButton: ContextualCreateFab(
         destination: CreateActionDestination.home,
         onSelected: (action) => _handleCreate(context, ref, action),
       ),
     );
+  }
+
+  static void _openWeeklyPlanning(BuildContext context, PlannerDate start) {
+    unawaited(context.push(RoutePaths.weeklyPlanningFor(start)));
   }
 
   static void _showPathwayMessage(BuildContext context) {
@@ -199,12 +151,10 @@ final class HomeScreen extends ConsumerWidget {
             ),
           ),
         );
-        return;
       case ContextualCreateAction.task:
         unawaited(
           context.push('${RoutePaths.taskCreate}?date=${today.iso8601}'),
         );
-        return;
     }
   }
 }
@@ -241,30 +191,109 @@ final class _SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        Row(
-          children: <Widget>[
-            Expanded(
-              child: Text(
-                title,
-                style: textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w500,
+        SizedBox(
+          height: 32,
+          child: Row(
+            children: <Widget>[
+              Expanded(child: Text(title, style: AppTypography.sectionTitle)),
+              TextButton(
+                key: viewAllKey,
+                onPressed: onViewAll,
+                style: TextButton.styleFrom(
+                  minimumSize: const Size(48, 32),
+                  padding: EdgeInsets.zero,
+                  textStyle: AppTypography.button,
+                  foregroundColor: AppTheme.rose,
                 ),
+                child: const Text('View All'),
               ),
-            ),
-            TextButton(
-              key: viewAllKey,
-              onPressed: onViewAll,
-              child: const Text('View All'),
-            ),
-          ],
+            ],
+          ),
         ),
+        const SizedBox(height: 12),
         const Divider(height: 1),
       ],
     );
+  }
+}
+
+final class _StartPlanningButton extends StatelessWidget {
+  const _StartPlanningButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      key: const Key('home-start-weekly-planning'),
+      height: 56,
+      width: double.infinity,
+      child: FilledButton(
+        key: const Key('weekly-targets-button'),
+        onPressed: onPressed,
+        style: FilledButton.styleFrom(
+          backgroundColor: AppTheme.rose,
+          foregroundColor: const Color(0xFF400018),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(28),
+          ),
+          textStyle: AppTypography.button,
+        ),
+        child: const Text('Start Weekly Planning'),
+      ),
+    );
+  }
+}
+
+final class _IndicatorGrid extends StatelessWidget {
+  const _IndicatorGrid({required this.snapshot, required this.onOpenPlanning});
+
+  final HomeIndicatorSnapshot snapshot;
+  final VoidCallback onOpenPlanning;
+
+  @override
+  Widget build(BuildContext context) {
+    final indicators = snapshot.indicators;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final halfWidth = (width - 12) / 2;
+        return Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: <Widget>[
+            for (var index = 0; index < indicators.length; index += 1)
+              SizedBox(
+                width: index == 0 || index == indicators.length - 1
+                    ? width
+                    : halfWidth,
+                height: index == 0 || index == indicators.length - 1 ? 92 : 112,
+                child: _IndicatorCard(
+                  indicator: indicators[index],
+                  period: snapshot.period,
+                  wide: index == 0 || index == indicators.length - 1,
+                  asideLabel: index == indicators.length - 1
+                      ? 'Month Goal'
+                      : "Today's Goal",
+                  asideValue: index == indicators.length - 1
+                      ? _monthlyTempleRatio(snapshot)
+                      : '${indicators[index].actual.display}/${indicators[index].target.display}',
+                  onTap: onOpenPlanning,
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  String _monthlyTempleRatio(HomeIndicatorSnapshot snapshot) {
+    final actual = snapshot.monthlyTempleActual?.display ?? '0';
+    final target = snapshot.monthlyTempleTarget?.value?.display ?? '0';
+    return '$actual/$target';
   }
 }
 
@@ -272,51 +301,46 @@ final class _IndicatorCard extends StatelessWidget {
   const _IndicatorCard({
     required this.indicator,
     required this.period,
-    required this.nextTempleVisit,
     required this.wide,
-    this.onScheduleTemple,
+    required this.asideLabel,
+    required this.asideValue,
+    required this.onTap,
   });
 
   final LifeIndicatorSummary indicator;
   final IndicatorPeriod period;
-  final PlannerDate? nextTempleVisit;
   final bool wide;
-  final VoidCallback? onScheduleTemple;
+  final String asideLabel;
+  final String asideValue;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    final card = Card(
+    return Card(
       key: Key('home-indicator-${indicator.key}'),
+      margin: EdgeInsets.zero,
+      color: Colors.transparent,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: colors.outline),
+        borderRadius: BorderRadius.circular(10),
+        side: const BorderSide(color: Color(0xFF414649)),
       ),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: () => context.push(
-          RoutePaths.indicatorDetail(indicator.key, period.start),
-        ),
-        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: wide
-              ? _buildWide(context, colors)
-              : _buildCompact(context, colors),
+          padding: EdgeInsets.all(wide ? 14 : 12),
+          child: wide ? _wide(context) : _compact(context),
         ),
       ),
     );
-    return card;
   }
 
-  Widget _buildCompact(BuildContext context, ColorScheme colors) {
+  Widget _compact(BuildContext context) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        Padding(
-          padding: const EdgeInsets.only(top: 2),
-          child: Icon(_iconFor(indicator.key), color: AppTheme.rose, size: 34),
-        ),
-        const SizedBox(width: 14),
+        Icon(_iconFor(indicator.key), color: AppTheme.rose, size: 38),
+        const SizedBox(width: 12),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -325,12 +349,15 @@ final class _IndicatorCard extends StatelessWidget {
                 indicator.label,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w500),
+                style: AppTypography.cardTitle,
               ),
-              const SizedBox(height: 8),
-              _Metric(indicator: indicator, color: colors.primary),
+              const Spacer(),
+              Text(
+                '${indicator.actual.display}/${indicator.target.display}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppTypography.metricCompact.copyWith(color: AppTheme.rose),
+              ),
             ],
           ),
         ),
@@ -338,133 +365,114 @@ final class _IndicatorCard extends StatelessWidget {
     );
   }
 
-  Widget _buildWide(BuildContext context, ColorScheme colors) {
-    final isTemple = indicator.key == 'temple_visit';
+  Widget _wide(BuildContext context) {
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
       children: <Widget>[
-        Icon(_iconFor(indicator.key), color: AppTheme.rose, size: 42),
-        const SizedBox(width: 14),
+        SizedBox(
+          width: 52,
+          child: Icon(_iconFor(indicator.key), color: AppTheme.rose, size: 40),
+        ),
+        const SizedBox(width: 12),
         Expanded(
           child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               Text(
                 indicator.label,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w500),
+                style: AppTypography.cardTitle,
               ),
-              const SizedBox(height: 6),
-              _Metric(indicator: indicator, color: colors.primary),
+              const SizedBox(height: 2),
+              Text(
+                '${indicator.actual.display}/${indicator.target.display}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppTypography.metricLarge.copyWith(color: AppTheme.rose),
+              ),
             ],
           ),
         ),
         const SizedBox(width: 10),
-        _WideAside(
-          label: isTemple ? 'Next Visit' : "Today's Goal",
-          value: isTemple
-              ? _templeAsideValue(context)
-              : indicator.target.display,
-          isTemple: isTemple,
-          onTap: onScheduleTemple,
-        ),
-      ],
-    );
-  }
-
-  String _templeAsideValue(BuildContext context) {
-    final next = nextTempleVisit;
-    if (next == null) {
-      return 'Set Schedule';
-    }
-    return MaterialLocalizations.of(context).formatShortDate(next.asLocalDate);
-  }
-}
-
-final class _Metric extends StatelessWidget {
-  const _Metric({required this.indicator, required this.color});
-
-  final LifeIndicatorSummary indicator;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Text(
-          'Actual / Target',
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          '${indicator.actual.display} / ${indicator.target.display}',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-            color: color,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
+        _WideAside(label: asideLabel, value: asideValue),
       ],
     );
   }
 }
 
 final class _WideAside extends StatelessWidget {
-  const _WideAside({
-    required this.label,
-    required this.value,
-    required this.isTemple,
-    this.onTap,
-  });
+  const _WideAside({required this.label, required this.value});
 
   final String label;
   final String value;
-  final bool isTemple;
-  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      constraints: const BoxConstraints(minWidth: 120, maxWidth: 145),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(14),
+    return SizedBox(
+      width: 120,
+      height: 66,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: const Color(0xFF2A2A2B),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(label, style: AppTypography.secondary, maxLines: 1),
+              const Spacer(),
+              Text(
+                value,
+                style: AppTypography.metricCompact.copyWith(color: AppTheme.rose),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    );
+  }
+}
+
+final class _PathwaysCard extends StatelessWidget {
+  const _PathwaysCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: EdgeInsets.zero,
+      color: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: const BorderSide(color: Color(0xFF414649)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: const Column(
         children: <Widget>[
-          Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
-          const SizedBox(height: 4),
-          if (isTemple && onTap != null)
-            TextButton(
-              key: const Key('home-temple-set-schedule'),
-              onPressed: onTap,
-              style: TextButton.styleFrom(
-                minimumSize: Size.zero,
-                padding: EdgeInsets.zero,
-                alignment: Alignment.centerLeft,
-              ),
-              child: Text(value, maxLines: 2, overflow: TextOverflow.ellipsis),
-            )
-          else
-            Text(
-              value,
-              key: isTemple ? const Key('home-temple-next-visit') : null,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: AppTheme.rose,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
+          _PathwayRow(
+            key: Key('home-pathway-employment'),
+            icon: Icons.work_outline,
+            label: 'Employment',
+            milestone: '3 of 7 milestones',
+          ),
+          Divider(height: 1),
+          _PathwayRow(
+            key: Key('home-pathway-education'),
+            icon: Icons.school_outlined,
+            label: 'Education',
+            milestone: '2 of 6 milestones',
+          ),
+          Divider(height: 1),
+          _PathwayRow(
+            key: Key('home-pathway-documents'),
+            icon: Icons.description_outlined,
+            label: 'Documents',
+            milestone: '4 of 8 milestones',
+          ),
         ],
       ),
     );
@@ -472,31 +480,88 @@ final class _WideAside extends StatelessWidget {
 }
 
 final class _PathwayRow extends StatelessWidget {
-  const _PathwayRow({required this.icon, required this.label, super.key});
+  const _PathwayRow({
+    required this.icon,
+    required this.label,
+    required this.milestone,
+    super.key,
+  });
 
   final IconData icon;
   final String label;
+  final String milestone;
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-      minVerticalPadding: 12,
-      leading: SizedBox.square(
-        dimension: 48,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(color: AppTheme.rose),
-          ),
-          child: Icon(icon, color: AppTheme.rose),
+    return SizedBox(
+      height: 76,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: Row(
+          children: <Widget>[
+            SizedBox.square(
+              dimension: 44,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppTheme.rose),
+                ),
+                child: Icon(icon, color: AppTheme.rose, size: 22),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTypography.cardTitle,
+                  ),
+                  const Text(
+                    'On Track',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTypography.secondary,
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(
+              width: 118,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    milestone,
+                    maxLines: 1,
+                    softWrap: false,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTypography.micro,
+                  ),
+                  const SizedBox(height: 5),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(3),
+                    child: const SizedBox(
+                      height: 5,
+                      child: LinearProgressIndicator(
+                        value: .45,
+                        backgroundColor: Color(0xFF343638),
+                        valueColor: AlwaysStoppedAnimation<Color>(AppTheme.rose),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Icon(Icons.chevron_right, size: 20),
+          ],
         ),
-      ),
-      title: Text(label),
-      subtitle: const Text('Not configured'),
-      trailing: const Icon(Icons.chevron_right),
-      onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Pathways are not configured yet.')),
       ),
     );
   }
