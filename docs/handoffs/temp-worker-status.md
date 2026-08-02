@@ -3121,3 +3121,81 @@ commit created for this section; its short SHA is reported after commit.
   current foreground window, so no physical UI PASS/FAIL is inferred.
 - Physical walkthrough acceptance remains pending explicit owner PASS/FAIL;
   no physical or final VS-08 integration checkpoint was created.
+
+## VS-08 Planner Event Colors and Top-Bar Icon Sizing
+
+- Starting state: Temp branch `temp/vs08-shared-preview`, starting HEAD
+  `7af52bbfa4b9640fc6aabc979b5c3d38eee4d571`. The protected checkout remained
+  on `codex/vs-08-weekly-planning-lifecycle` at `cd9f567d12071bfafaa6e0debf1fed05c2e55a95`.
+- Scope: implemented only Planner Event Colors settings and the requested
+  Filter, Checklist, and overflow glyph sizing. Locked VS-08 items 1-8,
+  Current Status reporting, read-only Activity History, and all other working
+  Planner behavior were preserved. Person Status customization was not added.
+- Settings route: `Settings -> Colors -> Planner Event Colors`. The screen
+  renders the active Event Types from the existing `EventTypeRepository`; no
+  parallel Event Type list was introduced.
+- Persistence: colors are stored as JSON in the existing profile-scoped
+  `PlannerPreferences.eventColorPreferencesJson` field, keyed by Event Type
+  stable key. Schema 11 adds only this nullable field through a guarded
+  migration. Event rows are not changed. Save, restore-defaults, and existing
+  Planner settings writes preserve the color JSON.
+- Approved PMG defaults:
+  `Teaching #EBC766/#4C4942`, `Finding #DE9EDA/#4C464A`,
+  `Service #DEEDF2/#404447`, `Other #868A8D/#494949`,
+  `Meeting #E27386/#463D40`, `Study or Plan #A272C8/#47444B`,
+  `Contact #76B181/#494E48`, `Baptism #98CED8/#454B4B`,
+  `Travel #ECC7D8/#4F4D4E`, `Meal #E1CFB9/#4B4744`, and
+  `Task #F2E9E0/#494844` (accent/surface). Optional Church Activity/Referral
+  uses the approved Other pair; Sacrament uses `#EAA15D/#474141`.
+- Current Next Transfer system types use deterministic muted defaults without
+  changing their labels: General -> Other, Temple Visit -> Baptism, Scripture
+  Study -> Study or Plan, Exercise -> Contact, Budget Review -> Meal, Job
+  Application -> Finding, Meaningful Connection -> Contact, Appointment ->
+  Meeting, Work -> Service, and Personal -> Travel.
+- Preview and renderer: `PlannerEventColorPreview` reuses
+  `PlannerEventBlockContentView` and the production block policy. Accent is
+  used for the left strip, recurrence icon, and border; Surface is the block
+  fill. Text chooses the higher-contrast white or dark-neutral candidate from
+  the measured surface contrast. A saved preference updates the existing
+  Event Type provider map and repaints the current timeline and pager without
+  reloading Events, changing data, or resetting the viewport.
+- Picker: native PMG-style saturation/value and hue controls with live
+  preview, Cancel/Back with no write, one Save write, and an accent/surface
+  similarity warning. Restore Defaults is confirmed and clears only the Event
+  color map.
+- Top bar: Calendar authority remains `resolvePlannerCalendarIcon()` with
+  `Icons.today_outlined`, glyph size 22, and its 44dp button. Filter and
+  Checklist retain their existing custom silhouettes/actions and now render at
+  24dp; overflow is 24dp. Their positions and minimum 48dp touch surfaces are
+  unchanged.
+- Visual references: the stored authority used was
+  `C:\Users\sherl\Documents\NextTransfer-Device-Evidence\Stage-B3-R1\Approved-Contextual-Action-and-Reporting-References\01-planner-topbar-strip-and-event-block-reference.jpg`.
+  No separate Event Colors reference image was present in the approved stored
+  reference directory.
+- Backup/restore: no approved settings backup/export path exists in this
+  checkout, so no new export flow was added. Reporting was not touched.
+- Production files added/changed include the Event color domain/codec,
+  repository/provider persistence, schema 11 migration, shared Planner block
+  resolver/preview, settings routes/screens/picker, and top-bar sizing. Tests
+  cover PMG defaults and malformed JSON, contrast, persistence without Event
+  row mutation, settings navigation/picker/restore flow, responsive layout,
+  and glyph bounds.
+- Verification: Planner suite `292 passed, 0 failed, 0 skipped`; full Flutter
+  suite `357 passed, 0 failed, 0 skipped`; analyzer `No issues found!`;
+  `git diff --check` passed; no new diagnostic/debug prints were found.
+- Implementation commit: `3a12e229e5f280b70f2e9e4c0684d9b48f468a57`
+  (`feat(settings): add planner event color customization`).
+- Build/install evidence: Temp APK
+  `C:\Users\sherl\Documents\Next Transfer-Temp\build\app\outputs\flutter-apk\app-debug.apk`,
+  195396556 bytes, SHA-256
+  `F53B2119318F154A5315CC83A97EFF88ADF7B9A65C67DFC5115AAC277853EE26`.
+  Built with `C:\Users\sherl\AppData\Local\Temp\run_flutter.bat build apk --debug`
+  using the bundled Android SDK path. Installed on authorized Infinix X6731
+  serial `adb-10620253B3004617-2m7ZVB._adb-tls-connect._tcp` with `adb install
+  -r`; result `Success`. Installed base APK SHA-256 matched exactly. Package
+  `com.nexttransfer.rmplanner` is running; `dataDir` remains
+  `/data/user/0/com.nexttransfer.rmplanner`, `ceDataInode` remains `1509267`,
+  and `firstInstallTime=2026-07-27 15:42:22` remains unchanged.
+- Physical acceptance remains pending the owner's explicit PASS or FAIL for
+  the required walkthrough items; no physical PASS is inferred from the
+  install. No push was made, PR #8 was not updated, and VS-09 was not started.
