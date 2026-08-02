@@ -77,21 +77,19 @@ void main() {
       );
     });
 
-    testWidgets('TEST 4 — AppBar has no top-bar actions', (tester) async {
+    testWidgets('TEST 4 — AppBar exposes notifications', (tester) async {
       await _pumpHome(tester);
       final appBarFinder = find.byKey(const Key('home-app-bar'));
       final appBar = tester.widget<AppBar>(appBarFinder);
       expect(
         appBar.actions,
-        isEmpty,
-        reason: 'no top-bar actions remain on the Home AppBar',
+        hasLength(1),
+        reason: 'Home exposes the approved notifications action',
       );
-      // The hamburger remains the only IconButton inside the
-      // AppBar; no other tap targets survive the cleanup.
       expect(
-        find.descendant(of: appBarFinder, matching: find.byType(IconButton)),
+        find.byKey(const Key('home-notifications')),
         findsOneWidget,
-        reason: 'only the hamburger IconButton remains',
+        reason: 'the notifications action remains available on Home',
       );
       expect(tester.takeException(), isNull);
     });

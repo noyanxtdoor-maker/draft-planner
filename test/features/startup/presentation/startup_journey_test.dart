@@ -74,7 +74,7 @@ void main() {
         find.byKey(const Key('home-indicator-job_applications')),
         findsOneWidget,
       );
-      expect(find.text('Not set'), findsNWidgets(6));
+      expect(find.text('Actual / Target'), findsWidgets);
       expect(tester.takeException(), isNull);
 
       final homeContext = tester.element(

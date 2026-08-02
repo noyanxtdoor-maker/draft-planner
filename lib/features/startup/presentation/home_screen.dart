@@ -5,8 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rmplanner/app/router/route_names.dart';
 import 'package:rmplanner/app/shell/global_drawer_controller.dart';
+import 'package:rmplanner/app/theme/app_theme.dart';
 import 'package:rmplanner/features/indicators/application/indicator_providers.dart';
 import 'package:rmplanner/features/indicators/domain/life_indicator.dart';
+import 'package:rmplanner/features/planner/domain/event_type.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 import 'package:rmplanner/features/planner/presentation/calendar_event_creation.dart';
 import 'package:rmplanner/features/planner/presentation/contextual_create_fab.dart';
@@ -18,14 +20,6 @@ final class HomeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(homeIndicatorControllerProvider);
     final snapshot = state.snapshot;
-    // Phase 9 — Slice D removed the Home top-bar calendar and shield
-    // actions. The hamburger navigation and Home title remain. The
-    // Planner "Go to today" surface owns the consolidated calendar
-    // icon from this slice, and Privacy remains reachable through the
-    // global navigation drawer so the underlying domain/security
-    // logic is unchanged. The actions list is intentionally empty
-    // and contains no placeholders so the AppBar does not reserve
-    // space for removed controls.
     return Scaffold(
       appBar: AppBar(
         key: const Key('home-app-bar'),
@@ -38,7 +32,14 @@ final class HomeScreen extends ConsumerWidget {
             icon: const Icon(Icons.menu),
           ),
         ),
-        actions: const <Widget>[],
+        actions: <Widget>[
+          IconButton(
+            key: const Key('home-notifications'),
+            tooltip: 'Notifications',
+            onPressed: () => context.push(RoutePaths.permissions),
+            icon: const Icon(Icons.notifications_none_outlined),
+          ),
+        ],
       ),
       body: SafeArea(
         child: snapshot == null
@@ -49,12 +50,14 @@ final class HomeScreen extends ConsumerWidget {
                     .refresh(),
                 child: ListView(
                   key: const Key('home-indicator-list'),
-                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 120),
                   children: <Widget>[
-                    _PeriodHeader(snapshot: snapshot, status: state.status),
-                    const SizedBox(height: 16),
-                    _AttentionRow(snapshot: snapshot),
-                    const SizedBox(height: 20),
+                    _SectionHeader(
+                      title: 'Weekly Life Indicators',
+                      onViewAll: () => context.push(RoutePaths.progress),
+                      viewAllKey: const Key('home-wli-view-all'),
+                    ),
+                    const SizedBox(height: 14),
                     LayoutBuilder(
                       builder: (context, constraints) {
                         final twoColumns = constraints.maxWidth >= 360;
@@ -77,13 +80,37 @@ final class HomeScreen extends ConsumerWidget {
                                 child: _IndicatorCard(
                                   indicator: snapshot.indicators[index],
                                   period: snapshot.period,
+                                  nextTempleVisit: snapshot.nextTempleVisit,
+                                  wide:
+                                      index == 0 ||
+                                      index == snapshot.indicators.length - 1,
+                                  onScheduleTemple:
+                                      snapshot.indicators[index].key ==
+                                              'temple_visit' &&
+                                          snapshot.nextTempleVisit == null
+                                      ? () => unawaited(
+                                          launchCalendarEventCreation<void>(
+                                            context,
+                                            ref,
+                                            CalendarEventCreationContext(
+                                              source: 'home-temple-visit',
+                                              destinationPath: RoutePaths
+                                                  .calendarEventCreate,
+                                              date: snapshot.period.start,
+                                              recommendedEventTypeId:
+                                                  SystemEventTypeIds
+                                                      .templeVisit,
+                                            ),
+                                          ),
+                                        )
+                                      : null,
                                 ),
                               ),
                           ],
                         );
                       },
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 20),
                     Center(
                       child: OutlinedButton.icon(
                         key: const Key('weekly-targets-button'),
@@ -94,15 +121,48 @@ final class HomeScreen extends ConsumerWidget {
                         label: const Text('Weekly Planning'),
                       ),
                     ),
-                    const SizedBox(height: 18),
-                    Text(
-                      'Targets begin as Not set. Suggested values are optional '
-                      'and never applied without your choice.',
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    const SizedBox(height: 28),
+                    _SectionHeader(
+                      title: 'Active Pathways',
+                      onViewAll: () => _showPathwayMessage(context),
+                      viewAllKey: const Key('home-pathways-view-all'),
+                    ),
+                    const SizedBox(height: 4),
+                    Card(
+                      clipBehavior: Clip.antiAlias,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: BorderSide(
+                          color: Theme.of(context).colorScheme.outline,
+                        ),
+                      ),
+                      child: const Column(
+                        children: <Widget>[
+                          _PathwayRow(
+                            key: Key('home-pathway-employment'),
+                            icon: Icons.work_outline,
+                            label: 'Employment',
+                          ),
+                          Divider(height: 1),
+                          _PathwayRow(
+                            key: Key('home-pathway-education'),
+                            icon: Icons.school_outlined,
+                            label: 'Education',
+                          ),
+                          Divider(height: 1),
+                          _PathwayRow(
+                            key: Key('home-pathway-documents'),
+                            icon: Icons.description_outlined,
+                            label: 'Documents',
+                          ),
+                        ],
                       ),
                     ),
+                    if (state.status == HomeIndicatorLoadStatus.rebuilding)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 12),
+                        child: LinearProgressIndicator(),
+                      ),
                   ],
                 ),
               ),
@@ -111,6 +171,12 @@ final class HomeScreen extends ConsumerWidget {
         destination: CreateActionDestination.home,
         onSelected: (action) => _handleCreate(context, ref, action),
       ),
+    );
+  }
+
+  static void _showPathwayMessage(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Pathways are not configured yet.')),
     );
   }
 
@@ -162,156 +228,70 @@ final class _InitialState extends StatelessWidget {
   }
 }
 
-final class _PeriodHeader extends StatelessWidget {
-  const _PeriodHeader({required this.snapshot, required this.status});
-
-  final HomeIndicatorSnapshot snapshot;
-  final HomeIndicatorLoadStatus status;
-
-  @override
-  Widget build(BuildContext context) {
-    final header = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Text(
-          'Weekly Life Indicators',
-          style: Theme.of(
-            context,
-          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          '${snapshot.period.start.iso8601} — ${snapshot.period.end.iso8601}',
-          key: const Key('home-active-period'),
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-        ),
-      ],
-    );
-    final statusWidget = switch (status) {
-      HomeIndicatorLoadStatus.ready => const Chip(
-        key: Key('home-offline-ready-state'),
-        avatar: Icon(Icons.offline_bolt_outlined, size: 16),
-        label: Text('Ready offline'),
-      ),
-      HomeIndicatorLoadStatus.rebuilding => const Chip(
-        key: Key('home-rebuilding-state'),
-        avatar: SizedBox.square(
-          dimension: 14,
-          child: CircularProgressIndicator(strokeWidth: 2),
-        ),
-        label: Text('Updating'),
-      ),
-      HomeIndicatorLoadStatus.loading ||
-      HomeIndicatorLoadStatus.failure => const SizedBox.shrink(),
-    };
-    if (MediaQuery.textScalerOf(context).scale(1) >= 1.5) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[header, const SizedBox(height: 8), statusWidget],
-      );
-    }
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: <Widget>[
-        Expanded(child: header),
-        statusWidget,
-      ],
-    );
-  }
-}
-
-final class _AttentionRow extends StatelessWidget {
-  const _AttentionRow({required this.snapshot});
-
-  final HomeIndicatorSnapshot snapshot;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: <Widget>[
-        Expanded(
-          child: _AttentionCard(
-            key: const Key('home-overdue-count'),
-            icon: Icons.warning_amber_rounded,
-            label: 'Overdue Tasks',
-            count: snapshot.overdueTaskCount,
-            onTap: () => context.go(RoutePaths.planner),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _AttentionCard(
-            key: const Key('home-awaiting-report-count'),
-            icon: Icons.fact_check_outlined,
-            label: 'Unreported',
-            count: snapshot.awaitingReportCount,
-            onTap: () => context.go(RoutePaths.planner),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-final class _AttentionCard extends StatelessWidget {
-  const _AttentionCard({
-    required this.icon,
-    required this.label,
-    required this.count,
-    required this.onTap,
-    super.key,
+final class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({
+    required this.title,
+    required this.onViewAll,
+    required this.viewAllKey,
   });
 
-  final IconData icon;
-  final String label;
-  final int count;
-  final VoidCallback onTap;
+  final String title;
+  final VoidCallback onViewAll;
+  final Key viewAllKey;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Row(
-            children: <Widget>[
-              Icon(icon, color: Theme.of(context).colorScheme.primary),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(
-                      '$count',
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                    Text(label, style: Theme.of(context).textTheme.labelSmall),
-                  ],
+    final textTheme = Theme.of(context).textTheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        Row(
+          children: <Widget>[
+            Expanded(
+              child: Text(
+                title,
+                style: textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w500,
                 ),
               ),
-            ],
-          ),
+            ),
+            TextButton(
+              key: viewAllKey,
+              onPressed: onViewAll,
+              child: const Text('View All'),
+            ),
+          ],
         ),
-      ),
+        const Divider(height: 1),
+      ],
     );
   }
 }
 
 final class _IndicatorCard extends StatelessWidget {
-  const _IndicatorCard({required this.indicator, required this.period});
+  const _IndicatorCard({
+    required this.indicator,
+    required this.period,
+    required this.nextTempleVisit,
+    required this.wide,
+    this.onScheduleTemple,
+  });
 
   final LifeIndicatorSummary indicator;
   final IndicatorPeriod period;
+  final PlannerDate? nextTempleVisit;
+  final bool wide;
+  final VoidCallback? onScheduleTemple;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    return Card(
+    final card = Card(
       key: Key('home-indicator-${indicator.key}'),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: colors.outline),
+      ),
       child: InkWell(
         onTap: () => context.push(
           RoutePaths.indicatorDetail(indicator.key, period.start),
@@ -319,115 +299,205 @@ final class _IndicatorCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         child: Padding(
           padding: const EdgeInsets.all(16),
+          child: wide
+              ? _buildWide(context, colors)
+              : _buildCompact(context, colors),
+        ),
+      ),
+    );
+    return card;
+  }
+
+  Widget _buildCompact(BuildContext context, ColorScheme colors) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Padding(
+          padding: const EdgeInsets.only(top: 2),
+          child: Icon(_iconFor(indicator.key), color: AppTheme.rose, size: 34),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              Row(
-                children: <Widget>[
-                  Icon(
-                    _iconFor(indicator.key),
-                    color: colors.primary,
-                    size: 30,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      indicator.label,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  const Icon(Icons.chevron_right),
-                ],
+              Text(
+                indicator.label,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w500),
               ),
-              const SizedBox(height: 16),
-              Row(
-                children: <Widget>[
-                  Expanded(
-                    child: _Value(
-                      label: 'Actual',
-                      value: indicator.actual.display,
-                      emphasized: true,
-                    ),
-                  ),
-                  Expanded(
-                    child: _Value(
-                      label: 'Target',
-                      value: indicator.target.display,
-                    ),
-                  ),
-                  Expanded(
-                    child: _Value(
-                      label: 'Scheduled',
-                      value: indicator.scheduledPotential.display,
-                      muted: true,
-                    ),
-                  ),
-                ],
-              ),
-              if (indicator.projectionState !=
-                  IndicatorProjectionState.current) ...<Widget>[
-                const SizedBox(height: 12),
-                Text(
-                  switch (indicator.projectionState) {
-                    IndicatorProjectionState.stale =>
-                      'Projection needs verification',
-                    IndicatorProjectionState.rebuilding =>
-                      'Projection is rebuilding',
-                    IndicatorProjectionState.failed =>
-                      indicator.failureMessage ?? 'Projection unavailable',
-                    IndicatorProjectionState.current => '',
-                  },
-                  key: Key('indicator-state-${indicator.key}'),
-                  style: Theme.of(
-                    context,
-                  ).textTheme.labelSmall?.copyWith(color: colors.error),
-                ),
-              ],
+              const SizedBox(height: 8),
+              _Metric(indicator: indicator, color: colors.primary),
             ],
           ),
         ),
+      ],
+    );
+  }
+
+  Widget _buildWide(BuildContext context, ColorScheme colors) {
+    final isTemple = indicator.key == 'temple_visit';
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: <Widget>[
+        Icon(_iconFor(indicator.key), color: AppTheme.rose, size: 42),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(
+                indicator.label,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w500),
+              ),
+              const SizedBox(height: 6),
+              _Metric(indicator: indicator, color: colors.primary),
+            ],
+          ),
+        ),
+        const SizedBox(width: 10),
+        _WideAside(
+          label: isTemple ? 'Next Visit' : "Today's Goal",
+          value: isTemple
+              ? _templeAsideValue(context)
+              : indicator.target.display,
+          isTemple: isTemple,
+          onTap: onScheduleTemple,
+        ),
+      ],
+    );
+  }
+
+  String _templeAsideValue(BuildContext context) {
+    final next = nextTempleVisit;
+    if (next == null) {
+      return 'Set Schedule';
+    }
+    return MaterialLocalizations.of(context).formatShortDate(next.asLocalDate);
+  }
+}
+
+final class _Metric extends StatelessWidget {
+  const _Metric({required this.indicator, required this.color});
+
+  final LifeIndicatorSummary indicator;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Text(
+          'Actual / Target',
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          '${indicator.actual.display} / ${indicator.target.display}',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+            color: color,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+final class _WideAside extends StatelessWidget {
+  const _WideAside({
+    required this.label,
+    required this.value,
+    required this.isTemple,
+    this.onTap,
+  });
+
+  final String label;
+  final String value;
+  final bool isTemple;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(minWidth: 120, maxWidth: 145),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+          const SizedBox(height: 4),
+          if (isTemple && onTap != null)
+            TextButton(
+              key: const Key('home-temple-set-schedule'),
+              onPressed: onTap,
+              style: TextButton.styleFrom(
+                minimumSize: Size.zero,
+                padding: EdgeInsets.zero,
+                alignment: Alignment.centerLeft,
+              ),
+              child: Text(value, maxLines: 2, overflow: TextOverflow.ellipsis),
+            )
+          else
+            Text(
+              value,
+              key: isTemple ? const Key('home-temple-next-visit') : null,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: AppTheme.rose,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+        ],
       ),
     );
   }
 }
 
-final class _Value extends StatelessWidget {
-  const _Value({
-    required this.label,
-    required this.value,
-    this.emphasized = false,
-    this.muted = false,
-  });
+final class _PathwayRow extends StatelessWidget {
+  const _PathwayRow({required this.icon, required this.label, super.key});
 
+  final IconData icon;
   final String label;
-  final String value;
-  final bool emphasized;
-  final bool muted;
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Text(label, style: Theme.of(context).textTheme.labelSmall),
-        const SizedBox(height: 3),
-        Text(
-          value,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            color: emphasized
-                ? colors.primary
-                : muted
-                ? colors.onSurfaceVariant
-                : colors.onSurface,
-            fontWeight: FontWeight.w800,
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+      minVerticalPadding: 12,
+      leading: SizedBox.square(
+        dimension: 48,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: AppTheme.rose),
           ),
+          child: Icon(icon, color: AppTheme.rose),
         ),
-      ],
+      ),
+      title: Text(label),
+      subtitle: const Text('Not configured'),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () => ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Pathways are not configured yet.')),
+      ),
     );
   }
 }
@@ -438,6 +508,6 @@ IconData _iconFor(String key) => switch (key) {
   'exercise' => Icons.fitness_center,
   'meaningful_connections' => Icons.people_outline,
   'budget_review' => Icons.pie_chart_outline,
-  'temple_visit' => Icons.church_outlined,
+  'temple_visit' => Icons.account_balance_outlined,
   _ => Icons.insights_outlined,
 };

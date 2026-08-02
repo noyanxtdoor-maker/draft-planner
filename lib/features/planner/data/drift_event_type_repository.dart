@@ -114,6 +114,11 @@ final class DriftEventTypeRepository implements EventTypeRepository {
       if (existing?.isSystem ?? false) {
         throw StateError('System Event Type identity is protected.');
       }
+      await _ensureUniqueActiveLabel(
+        profileId: profileId,
+        label: label,
+        excludingEventTypeId: draft.id,
+      );
       final now = clock.nowUtc();
       final nextPosition =
           existing?.position ??
@@ -167,6 +172,44 @@ final class DriftEventTypeRepository implements EventTypeRepository {
         eventTypeId: draft.id,
       ))!;
     });
+  }
+
+  @override
+  Future<void> renameSystemType({
+    required String profileId,
+    required String eventTypeId,
+    required String label,
+  }) async {
+    final normalizedLabel = label.trim();
+    if (normalizedLabel.isEmpty) {
+      throw ArgumentError.value(label, 'label', 'Label is required.');
+    }
+    await _ensureSystemTypes(profileId);
+    final type = await readEventType(
+      profileId: profileId,
+      eventTypeId: eventTypeId,
+    );
+    if (type == null) {
+      throw StateError('Event Type not found.');
+    }
+    if (!type.isLockedWliType) {
+      throw StateError('Only locked WLI Event Types can be renamed here.');
+    }
+    await _ensureUniqueActiveLabel(
+      profileId: profileId,
+      label: normalizedLabel,
+      excludingEventTypeId: eventTypeId,
+    );
+    await (database.update(database.activityTypes)..where(
+          (table) =>
+              table.profileId.equals(profileId) & table.id.equals(eventTypeId),
+        ))
+        .write(
+          ActivityTypesCompanion(
+            label: Value<String>(normalizedLabel),
+            updatedAtUtc: Value<DateTime>(clock.nowUtc()),
+          ),
+        );
   }
 
   @override
@@ -405,21 +448,30 @@ final class DriftEventTypeRepository implements EventTypeRepository {
   Future<void> _ensureSystemTypes(String profileId) async {
     await database.transaction(() async {
       await _insertSystemTypes(profileId);
-      await (database.update(database.activityTypes)..where(
-            (table) =>
-                table.profileId.equals(profileId) &
-                table.isSystem.equals(true) &
-                table.stableKey.equals(
-                  SystemEventTypeKeys.meaningfulConnection,
-                ),
-          ))
-          .write(
-            ActivityTypesCompanion(
-              label: const Value<String>('Contact'),
-              updatedAtUtc: Value<DateTime>(clock.nowUtc()),
-            ),
-          );
     });
+  }
+
+  Future<void> _ensureUniqueActiveLabel({
+    required String profileId,
+    required String label,
+    String? excludingEventTypeId,
+  }) async {
+    final normalized = label.trim().toLowerCase();
+    final rows =
+        await (database.select(database.activityTypes)..where(
+              (table) =>
+                  table.profileId.equals(profileId) &
+                  table.isArchived.equals(false),
+            ))
+            .get();
+    final duplicate = rows.any(
+      (row) =>
+          row.id != excludingEventTypeId &&
+          row.label.trim().toLowerCase() == normalized,
+    );
+    if (duplicate) {
+      throw StateError('Active Event Type names must be unique.');
+    }
   }
 
   Future<void> _insertSystemTypes(String profileId) async {

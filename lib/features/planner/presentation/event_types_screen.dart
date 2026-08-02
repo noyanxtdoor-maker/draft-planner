@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:rmplanner/app/router/route_names.dart';
 import 'package:rmplanner/features/planner/application/event_type_providers.dart';
 import 'package:rmplanner/features/planner/domain/event_type.dart';
+import 'package:rmplanner/features/planner/domain/planner_date.dart';
 import 'package:rmplanner/features/planner/presentation/widgets/planner_event_color_resolver.dart';
 
 final class EventTypesScreen extends ConsumerStatefulWidget {
@@ -65,51 +66,19 @@ final class _EventTypesScreenState extends ConsumerState<EventTypesScreen> {
                         ),
                       ],
                     ),
-                  for (final type in state.eventTypes)
-                    Builder(
-                      builder: (context) {
-                        final accent =
-                            PlannerEventColorResolver.accentColorForType(
-                              type,
-                              state.resolvedEventColorsByTypeId,
-                            );
-                        return Card(
-                          child: ListTile(
-                            key: Key('event-type-${type.stableKey}'),
-                            leading: CircleAvatar(
-                              backgroundColor: accent.withValues(alpha: 0.2),
-                              child: Icon(_icon(type.icon), color: accent),
-                            ),
-                            title: Text(type.label),
-                            subtitle: Text(_subtitle(type)),
-                            trailing: type.isSystem
-                                ? const Tooltip(
-                                    message: 'Protected system type',
-                                    child: Icon(Icons.lock_outline, size: 19),
-                                  )
-                                : IconButton(
-                                    tooltip: type.isArchived
-                                        ? 'Restore Event Type'
-                                        : 'Archive Event Type',
-                                    onPressed: () => controller.setArchived(
-                                      type,
-                                      !type.isArchived,
-                                    ),
-                                    icon: Icon(
-                                      type.isArchived
-                                          ? Icons.unarchive_outlined
-                                          : Icons.archive_outlined,
-                                    ),
-                                  ),
-                            onTap: type.isSystem
-                                ? null
-                                : () => context.push(
-                                    '${RoutePaths.eventTypes}/${type.id}/edit',
-                                  ),
-                          ),
-                        );
-                      },
+                  const _TypeSectionTitle(title: 'Active Event Types'),
+                  for (final type in state.eventTypes.where(
+                    (type) => type.isCreationVisible,
+                  ))
+                    _buildTypeCard(context, controller, state, type),
+                  if (state.eventTypes.any((type) => !type.isCreationVisible))
+                    const _TypeSectionTitle(
+                      title: 'Legacy / historical Event Types',
                     ),
+                  for (final type in state.eventTypes.where(
+                    (type) => !type.isCreationVisible,
+                  ))
+                    _buildTypeCard(context, controller, state, type),
                 ],
               ),
       ),
@@ -156,6 +125,59 @@ final class _EventTypesScreenState extends ConsumerState<EventTypesScreen> {
         '${type.defaultDurationMinutes} min default';
   }
 
+  Widget _buildTypeCard(
+    BuildContext context,
+    EventTypeController controller,
+    EventTypeState state,
+    EventType type,
+  ) {
+    final accent = PlannerEventColorResolver.accentColorForType(
+      type,
+      state.resolvedEventColorsByTypeId,
+    );
+    return Card(
+      child: ListTile(
+        key: Key('event-type-${type.stableKey}'),
+        leading: CircleAvatar(
+          backgroundColor: accent.withValues(alpha: 0.2),
+          child: Icon(_icon(type.icon), color: accent),
+        ),
+        title: Text(type.label),
+        subtitle: Text(_subtitle(type)),
+        trailing: type.isLockedWliType
+            ? IconButton(
+                tooltip: 'Edit WLI display names',
+                onPressed: () => context.push(
+                  RoutePaths.indicatorEdit(
+                    type.exactIndicatorKey!,
+                    PlannerDate.fromDateTime(DateTime.now()),
+                  ),
+                ),
+                icon: const Icon(Icons.edit_outlined),
+              )
+            : type.isSystem
+            ? const Tooltip(
+                message: 'Protected system type',
+                child: Icon(Icons.lock_outline, size: 19),
+              )
+            : IconButton(
+                tooltip: type.isArchived
+                    ? 'Restore Event Type'
+                    : 'Archive Event Type',
+                onPressed: () => controller.setArchived(type, !type.isArchived),
+                icon: Icon(
+                  type.isArchived
+                      ? Icons.unarchive_outlined
+                      : Icons.archive_outlined,
+                ),
+              ),
+        onTap: type.isSystem
+            ? null
+            : () => context.push('${RoutePaths.eventTypes}/${type.id}/edit'),
+      ),
+    );
+  }
+
   static IconData _icon(EventTypeIcon icon) {
     return switch (icon) {
       EventTypeIcon.calendar => Icons.event_outlined,
@@ -169,5 +191,19 @@ final class _EventTypesScreenState extends ConsumerState<EventTypesScreen> {
       EventTypeIcon.work => Icons.business_center_outlined,
       EventTypeIcon.personal => Icons.person_outline,
     };
+  }
+}
+
+final class _TypeSectionTitle extends StatelessWidget {
+  const _TypeSectionTitle({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 14, 4, 6),
+      child: Text(title, style: Theme.of(context).textTheme.titleMedium),
+    );
   }
 }

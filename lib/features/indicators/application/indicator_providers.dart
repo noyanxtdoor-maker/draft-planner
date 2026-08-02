@@ -145,6 +145,18 @@ final class HomeIndicatorController extends Notifier<HomeIndicatorState> {
     await refresh();
   }
 
+  Future<void> renameIndicator({
+    required String indicatorKey,
+    required String label,
+  }) async {
+    await _repository.renameIndicator(
+      profileId: _profileId,
+      indicatorKey: indicatorKey,
+      label: label,
+    );
+    await refresh();
+  }
+
   Future<List<IndicatorTargetRevision>> readTargetHistory({
     required String indicatorKey,
     required PlannerDate periodStart,

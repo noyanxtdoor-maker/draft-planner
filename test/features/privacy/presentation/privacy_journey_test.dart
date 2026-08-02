@@ -121,7 +121,13 @@ void main() {
       );
       await tester.tap(find.text('Permissions'));
       await tester.pumpAndSettle();
-      expect(find.text('Not requested'), findsNWidgets(4));
+      expect(find.text('Not requested'), findsWidgets);
+      await tester.scrollUntilVisible(
+        find.text('Device calendar'),
+        240,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.text('Device calendar'), findsOneWidget);
       expect(
         find.textContaining('No permission is requested from this page'),
         findsNothing,

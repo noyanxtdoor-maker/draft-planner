@@ -92,30 +92,33 @@ void main() {
       expect(pickerSize.width, lessThan(390));
       expect(pickerSize.height, lessThan(730));
       expect(
-        tester.getSize(find.byKey(const Key('event-type-icon-general'))).width,
+        tester.getSize(find.byKey(const Key('event-type-icon-other'))).width,
         greaterThan(18),
       );
       expect(
-        tester.getSize(find.byKey(const Key('event-type-icon-general'))).width,
+        tester.getSize(find.byKey(const Key('event-type-icon-other'))).width,
         closeTo(22, 0.1),
       );
       expect(
-        tester.getTopLeft(find.byKey(const Key('event-type-icon-general'))).dx,
+        tester.getTopLeft(find.byKey(const Key('event-type-icon-other'))).dx,
         closeTo(49, 1),
       );
       expect(find.byType(DraggableScrollableSheet), findsNothing);
       expect(find.byKey(const Key('event-type-picker-scroll')), findsOneWidget);
       for (final stableKey in <String>[
-        'general',
-        'temple_visit',
+        'job_application',
         'scripture_study',
         'exercise',
-        'budget_review',
-        'job_application',
         'meaningful_connection',
-        'appointment',
+        'budget_review',
+        'temple_visit',
+        'meeting',
+        'study_or_plan',
+        'service',
         'work',
-        'personal',
+        'travel',
+        'meal',
+        'other',
       ]) {
         expect(
           find.byKey(Key('event-type-option-$stableKey')),
@@ -214,23 +217,27 @@ void main() {
       await tester.tap(find.byKey(const Key('event-type-field')));
       await tester.pumpAndSettle();
       expect(
-        find.byKey(const Key('event-type-dropdown-option-general')),
+        find.byKey(const Key('event-type-dropdown-option-other')),
         findsOneWidget,
       );
-      expect(find.byKey(const Key('event-type-icon-general')), findsNothing);
+      expect(find.byKey(const Key('event-type-icon-other')), findsNothing);
       final dropdownOption = tester.getRect(
-        find.byKey(const Key('event-type-dropdown-option-general')),
+        find.byKey(const Key('event-type-dropdown-option-other')),
       );
       expect(dropdownOption.width, closeTo(357, 1));
       expect(dropdownOption.height, closeTo(48, 1));
+      await tester.ensureVisible(
+        find.byKey(const Key('event-type-dropdown-option-other')),
+      );
+      await tester.pumpAndSettle();
       await tester.tap(
-        find.byKey(const Key('event-type-dropdown-option-general')),
+        find.byKey(const Key('event-type-dropdown-option-other')),
       );
       await tester.pumpAndSettle();
       expect(
         find.descendant(
           of: find.byKey(const Key('event-type-field')),
-          matching: find.text('General'),
+          matching: find.text('Other'),
         ),
         findsOneWidget,
       );
@@ -266,7 +273,7 @@ void main() {
       final endTime = find.byKey(const Key('event-end-time'));
       await scrollFormTo(endTime);
       expect(endTime, findsWidgets);
-      expect(find.text('11:30 AM'), findsOneWidget);
+      expect(find.text('10:30 AM'), findsOneWidget);
       await tester.scrollUntilVisible(
         find.byKey(const Key('event-people-section')),
         220,
@@ -367,10 +374,10 @@ void main() {
       final recommendedTop = tester.getTopLeft(
         find.byKey(const Key('event-type-option-job_application')),
       );
-      final generalTop = tester.getTopLeft(
-        find.byKey(const Key('event-type-option-general')),
+      final otherTop = tester.getTopLeft(
+        find.byKey(const Key('event-type-option-other')),
       );
-      expect(recommendedTop.dy, lessThan(generalTop.dy));
+      expect(recommendedTop.dy, lessThan(otherTop.dy));
 
       await tester.tap(find.byKey(const Key('event-type-picker-cancel')));
       await tester.pumpAndSettle();

@@ -130,12 +130,14 @@ final class HomeIndicatorSnapshot {
     required this.indicators,
     required this.overdueTaskCount,
     required this.awaitingReportCount,
+    this.nextTempleVisit,
   });
 
   final IndicatorPeriod period;
   final List<LifeIndicatorSummary> indicators;
   final int overdueTaskCount;
   final int awaitingReportCount;
+  final PlannerDate? nextTempleVisit;
 
   bool get hasPartialFailure => indicators.any(
     (indicator) => indicator.projectionState == IndicatorProjectionState.failed,

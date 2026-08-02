@@ -72,7 +72,7 @@ void main() {
       profileId: profileId,
       draft: const EventTypeDraft(
         id: '11111111-1111-4111-8111-111111111111',
-        label: 'Temple Visit',
+        label: 'Temple Visit custom',
         icon: EventTypeIcon.calendar,
         colorValue: 0xFFE91E63,
         reportRequiredDefault: false,

@@ -22,6 +22,12 @@ abstract interface class IndicatorRepository {
     required IndicatorTargetRevisionDraft draft,
   });
 
+  Future<void> renameIndicator({
+    required String profileId,
+    required String indicatorKey,
+    required String label,
+  });
+
   Future<List<IndicatorTargetRevision>> readTargetHistory({
     required String profileId,
     required String indicatorKey,

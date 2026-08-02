@@ -159,12 +159,12 @@ void main() {
       ledger = await database.select(database.activityLedgerEntries).get();
       expect(ledger, hasLength(3));
 
-      await tester.scrollUntilVisible(
-        find.byKey(const Key('event-activity-history-button')),
-        300,
-        scrollable: find.byType(Scrollable).last,
+      final activityHistory = find.byKey(
+        const Key('event-activity-history-button'),
       );
-      await tester.tap(find.byKey(const Key('event-activity-history-button')));
+      await tester.ensureVisible(activityHistory);
+      await tester.pumpAndSettle();
+      await tester.tap(activityHistory);
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('activity-history-list')), findsOneWidget);
       expect(find.text('Correct Report'), findsNothing);

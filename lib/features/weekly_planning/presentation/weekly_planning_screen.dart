@@ -80,8 +80,8 @@ final class _PlanBody extends ConsumerWidget {
         ),
         const SizedBox(height: 12),
         const Text(
-          'Actual is factual and read-only. Target is your choice. Scheduled '
-          'Potential comes only from qualified planned activities.',
+          'Actual is factual and read-only. Target is your choice for this '
+          'week.',
         ),
         const SizedBox(height: 16),
         Text('Life Indicators', style: Theme.of(context).textTheme.titleMedium),
@@ -95,8 +95,7 @@ final class _PlanBody extends ConsumerWidget {
                 title: Text(indicator.label),
                 subtitle: Text(
                   'Actual ${indicator.actual.display} · '
-                  'Target ${indicator.target.display} · '
-                  'Scheduled ${indicator.scheduled.display}',
+                  'Target ${indicator.target.display}',
                 ),
               ),
             ),

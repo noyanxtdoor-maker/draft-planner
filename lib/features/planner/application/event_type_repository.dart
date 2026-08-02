@@ -23,6 +23,12 @@ abstract interface class EventTypeRepository {
     required EventTypeDraft draft,
   });
 
+  Future<void> renameSystemType({
+    required String profileId,
+    required String eventTypeId,
+    required String label,
+  });
+
   Future<void> setCustomTypeArchived({
     required String profileId,
     required String eventTypeId,

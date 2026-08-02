@@ -101,9 +101,7 @@ final class _CalendarEventDetailScreenState
           nowUtc: DateTime.now().toUtc(),
           displayToday: PlannerDate.fromDateTime(DateTime.now()),
         );
-        final hasRecordedOutcome = _hasRecordedOutcome(occurrence.status);
-        final showStatus =
-            occurrence.requiresReport && (awaitingReport || hasRecordedOutcome);
+        final showStatus = occurrence.requiresReport;
         final eventType = occurrence.activityTypeId == null
             ? null
             : eventTypeState.eventTypes
@@ -682,10 +680,6 @@ final class _CalendarEventDetailScreenState
     }
     final normalized = label?.trim().toLowerCase();
     return normalized != null && normalized.contains('contact');
-  }
-
-  static bool _hasRecordedOutcome(CalendarEventStatus status) {
-    return _outcomeForStatus(status) != null;
   }
 
   static OutcomeKind? _outcomeForStatus(CalendarEventStatus status) {

@@ -139,6 +139,27 @@ final class EventTypeController extends Notifier<EventTypeState> {
     }
   }
 
+  Future<bool> renameSystemType({
+    required String eventTypeId,
+    required String label,
+  }) async {
+    try {
+      await _repository.renameSystemType(
+        profileId: _profileId,
+        eventTypeId: eventTypeId,
+        label: label,
+      );
+      await load(includeArchived: true);
+      return true;
+    } on Object {
+      state = state.copyWith(
+        message:
+            'Event Type name was not changed. Your input is still available.',
+      );
+      return false;
+    }
+  }
+
   Future<bool> setArchived(EventType type, bool archived) async {
     try {
       await _repository.setCustomTypeArchived(

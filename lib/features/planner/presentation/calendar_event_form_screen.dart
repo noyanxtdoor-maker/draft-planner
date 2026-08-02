@@ -157,8 +157,9 @@ final class _CalendarEventFormScreenState
     if (widget.mode == CalendarEventFormMode.create &&
         initialEventType != null) {
       _selectedEventType = initialEventType;
-      _linkedIndicatorKey =
-          widget.initialIndicatorKey ?? initialEventType.exactIndicatorKey;
+      _linkedIndicatorKey = initialEventType.isLockedWliType
+          ? initialEventType.exactIndicatorKey
+          : widget.initialIndicatorKey ?? initialEventType.exactIndicatorKey;
       _configurationLoading = false;
     }
     _notesFocusNode.addListener(_notesFocusChanged);
@@ -252,21 +253,26 @@ final class _CalendarEventFormScreenState
           .firstOrNull;
     }
     selected ??= eventTypeState.eventTypes
-        .where((type) => type.stableKey == SystemEventTypeKeys.general)
+        .where((type) => type.stableKey == SystemEventTypeKeys.other)
         .firstOrNull;
     final existingRule = ScheduledPotentialRule.tryParse(
       existingDraft?.contributionRuleKey,
     );
-    final initialLink =
-        existingRule?.indicatorKey ??
-        widget.initialIndicatorKey ??
-        selected?.exactIndicatorKey;
+    final initialLink = selected?.isLockedWliType == true
+        ? selected?.exactIndicatorKey
+        : existingRule?.indicatorKey ??
+              widget.initialIndicatorKey ??
+              selected?.exactIndicatorKey;
     if (mounted) {
       setState(() {
         _configurationLoading = false;
         _selectedEventType = selected;
         _indicatorOptions = indicatorOptions;
         _linkedIndicatorKey = initialLink;
+        if (selected?.isLockedWliType == true) {
+          _requiresReport = true;
+          _linkedIndicatorKey = selected!.exactIndicatorKey;
+        }
         if (widget.mode == CalendarEventFormMode.create &&
             selected != null &&
             widget.initialEventType == null) {
@@ -282,7 +288,11 @@ final class _CalendarEventFormScreenState
   }
 
   void _applyEventTypeDefaults(EventType type, {int? durationMinutes}) {
-    _requiresReport = type.reportRequiredDefault;
+    _requiresReport = type.isLockedWliType ? true : type.reportRequiredDefault;
+    if (type.isLockedWliType) {
+      _linkedIndicatorKey = type.exactIndicatorKey;
+      _indicatorLinkTouched = false;
+    }
     if (_durationWasEntered) {
       return;
     }
@@ -309,7 +319,10 @@ final class _CalendarEventFormScreenState
     }
     setState(() {
       _selectedEventType = selected;
-      if (!_indicatorLinkTouched) {
+      _applyEventTypeDefaults(selected);
+      if (selected.isLockedWliType) {
+        _linkedIndicatorKey = selected.exactIndicatorKey;
+      } else if (!_indicatorLinkTouched) {
         _linkedIndicatorKey = selected.exactIndicatorKey;
       }
     });
@@ -702,11 +715,16 @@ final class _CalendarEventFormScreenState
                     key: const Key('event-requires-report-switch'),
                     contentPadding: EdgeInsets.zero,
                     title: const Text('Report required'),
+                    subtitle: _selectedEventType?.isLockedWliType == true
+                        ? const Text('Locked for WLI reporting')
+                        : null,
                     value: _requiresReport,
-                    onChanged: (value) {
-                      FocusScope.of(context).unfocus();
-                      setState(() => _requiresReport = value);
-                    },
+                    onChanged: _selectedEventType?.isLockedWliType == true
+                        ? null
+                        : (value) {
+                            FocusScope.of(context).unfocus();
+                            setState(() => _requiresReport = value);
+                          },
                   ),
                   const SizedBox(height: 20),
                 ],
@@ -921,6 +939,7 @@ final class _CalendarEventFormScreenState
 
   Widget _buildIndicatorLinkSection() {
     final linked = _indicatorOption(_linkedIndicatorKey);
+    final locked = _selectedEventType?.isLockedWliType == true;
     return Semantics(
       container: true,
       label: 'Link to Weekly Life Indicator',
@@ -928,7 +947,7 @@ final class _CalendarEventFormScreenState
         color: Colors.transparent,
         child: InkWell(
           key: const Key('weekly-life-indicator-link-section'),
-          onTap: _chooseIndicator,
+          onTap: locked ? null : _chooseIndicator,
           borderRadius: BorderRadius.circular(4),
           child: Padding(
             padding: EdgeInsets.zero,
@@ -939,7 +958,23 @@ final class _CalendarEventFormScreenState
                   label: 'Link to Weekly Life Indicator',
                 ),
                 const SizedBox(height: 24),
-                if (linked == null)
+                if (locked)
+                  Row(
+                    children: <Widget>[
+                      const Icon(Icons.lock_outline, size: 22),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          linked?.label ??
+                              _selectedEventType?.label ??
+                              'Automatically linked',
+                          key: const Key('weekly-life-indicator-link-value'),
+                          style: const TextStyle(fontWeight: FontWeight.w500),
+                        ),
+                      ),
+                    ],
+                  )
+                else if (linked == null)
                   Align(
                     alignment: Alignment.centerRight,
                     child: TextButton.icon(
@@ -993,6 +1028,9 @@ final class _CalendarEventFormScreenState
   }
 
   Future<void> _chooseIndicator() async {
+    if (_selectedEventType?.isLockedWliType == true) {
+      return;
+    }
     if (_indicatorOptions.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1058,7 +1096,11 @@ final class _CalendarEventFormScreenState
   }
 
   bool get _isContactEvent {
-    final value = _selectedEventType?.stableKey ?? _selectedEventType?.label;
+    if (_selectedEventType?.stableKey ==
+        SystemEventTypeKeys.meaningfulConnection) {
+      return true;
+    }
+    final value = _selectedEventType?.label;
     final normalized = value?.trim().toLowerCase();
     return normalized != null && normalized.contains('contact');
   }
@@ -1126,6 +1168,10 @@ final class _CalendarEventFormScreenState
       return;
     }
     final selectedType = _selectedEventType;
+    if (selectedType?.isLockedWliType == true) {
+      _requiresReport = true;
+      _linkedIndicatorKey = selectedType!.exactIndicatorKey;
+    }
     if (selectedType != null &&
         selectedType.indicatorKeys.length > 1 &&
         !await _confirmMultipleMappings(selectedType)) {

@@ -46,6 +46,24 @@ final class EventType {
 
   String? get exactIndicatorKey =>
       hasExactIndicatorMapping ? indicatorKeys.single : null;
+
+  /// The first six Event Types are the only ones whose WLI relationship and
+  /// reporting requirement are system-owned. Their stable IDs and mappings
+  /// must remain intact when their display labels are renamed.
+  bool get isLockedWliType =>
+      isSystem &&
+      exactIndicatorKey != null &&
+      SystemEventTypeKeys.lockedWliTypeKeys.contains(stableKey);
+
+  /// Event Types shown by the new-event picker and the default-type setting.
+  /// Legacy system rows remain in storage for existing events and history.
+  bool get isCreationVisible =>
+      !isArchived &&
+      (!isSystem ||
+          SystemEventTypeKeys.approvedCreationKeys.contains(stableKey));
+
+  bool get isLegacySystemType =>
+      isSystem && !SystemEventTypeKeys.approvedCreationKeys.contains(stableKey);
 }
 
 final class EventTypeDraft {
@@ -89,6 +107,35 @@ abstract final class SystemEventTypeKeys {
   static const String travel = 'travel';
   static const String meal = 'meal';
   static const String personal = 'personal';
+
+  static const Set<String> lockedWliTypeKeys = <String>{
+    jobApplication,
+    scriptureStudy,
+    exercise,
+    meaningfulConnection,
+    budgetReview,
+    templeVisit,
+  };
+
+  static const List<String> approvedCreationOrder = <String>[
+    jobApplication,
+    scriptureStudy,
+    exercise,
+    meaningfulConnection,
+    budgetReview,
+    templeVisit,
+    meeting,
+    studyOrPlan,
+    service,
+    work,
+    travel,
+    meal,
+    other,
+  ];
+
+  static const Set<String> approvedCreationKeys = <String>{
+    ...approvedCreationOrder,
+  };
 }
 
 abstract final class SystemEventTypeIds {

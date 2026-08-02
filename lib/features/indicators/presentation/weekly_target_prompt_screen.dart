@@ -56,10 +56,7 @@ final class WeeklyTargetPromptScreen extends ConsumerWidget {
                   child: ListTile(
                     key: Key('target-${indicator.key}'),
                     title: Text(indicator.label),
-                    subtitle: Text(
-                      'Target: ${indicator.target.display} · '
-                      'Scheduled: ${indicator.scheduledPotential.display}',
-                    ),
+                    subtitle: Text('Target: ${indicator.target.display}'),
                     trailing: Wrap(
                       spacing: 4,
                       children: <Widget>[
@@ -108,16 +105,6 @@ final class WeeklyTargetPromptScreen extends ConsumerWidget {
                 labelText: 'Target (${indicator.unit})',
               ),
             ),
-            if (indicator.scheduledPotential.scaledValue > 0)
-              TextButton(
-                onPressed: () {
-                  controller.text = indicator.scheduledPotential.display;
-                },
-                child: Text(
-                  'Use scheduled potential '
-                  '(${indicator.scheduledPotential.display})',
-                ),
-              ),
           ],
         ),
         actions: <Widget>[

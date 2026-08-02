@@ -25,8 +25,28 @@ abstract final class AppTheme {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
+      fontFamily: 'Roboto',
       colorScheme: colorScheme,
       scaffoldBackgroundColor: background,
+      appBarTheme: const AppBarTheme(
+        titleTextStyle: TextStyle(
+          fontFamily: 'Roboto',
+          fontSize: 28,
+          fontWeight: FontWeight.w400,
+        ),
+      ),
+      textTheme: const TextTheme(
+        displayLarge: TextStyle(fontSize: 32, fontWeight: FontWeight.w400),
+        headlineSmall: TextStyle(fontSize: 28, fontWeight: FontWeight.w400),
+        titleLarge: TextStyle(fontSize: 22, fontWeight: FontWeight.w500),
+        titleMedium: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+        bodyLarge: TextStyle(fontSize: 17, fontWeight: FontWeight.w400),
+        bodyMedium: TextStyle(fontSize: 16, fontWeight: FontWeight.w400),
+        bodySmall: TextStyle(fontSize: 14, fontWeight: FontWeight.w400),
+        labelLarge: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+        labelMedium: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+        labelSmall: TextStyle(fontSize: 13, fontWeight: FontWeight.w400),
+      ),
       cardTheme: CardThemeData(
         color: surface,
         margin: EdgeInsets.zero,

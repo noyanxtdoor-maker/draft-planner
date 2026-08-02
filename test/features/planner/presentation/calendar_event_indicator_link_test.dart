@@ -54,7 +54,10 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const Key('create-calendar-event-action')));
         await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const Key('event-type-option-other')));
+        final other = find.byKey(const Key('event-type-option-other'));
+        await tester.ensureVisible(other);
+        await tester.pumpAndSettle();
+        await tester.tap(other);
         await tester.pumpAndSettle();
       }
 

@@ -4,6 +4,8 @@ import 'package:rmplanner/app/router/route_names.dart';
 import 'package:rmplanner/app/router/startup_route_guard.dart';
 import 'package:rmplanner/app/shell/main_shell.dart';
 import 'package:rmplanner/features/indicators/presentation/indicator_detail_screen.dart';
+import 'package:rmplanner/features/indicators/presentation/indicator_edit_screen.dart';
+import 'package:rmplanner/features/indicators/presentation/indicator_list_screen.dart';
 import 'package:rmplanner/features/indicators/presentation/weekly_target_prompt_screen.dart';
 import 'package:rmplanner/features/planner/application/planner_providers.dart';
 import 'package:rmplanner/features/planner/domain/calendar_event.dart';
@@ -100,6 +102,24 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             name: RouteNames.plannerEventColors,
             path: RoutePaths.plannerEventColors,
             builder: (context, state) => const PlannerEventColorsScreen(),
+          ),
+          GoRoute(
+            name: RouteNames.indicatorList,
+            path: RoutePaths.progress,
+            builder: (context, state) => const IndicatorListScreen(),
+          ),
+          GoRoute(
+            name: RouteNames.indicatorEdit,
+            path: '${RoutePaths.progress}/metric/:indicatorKey/edit',
+            builder: (context, state) {
+              return IndicatorEditScreen(
+                indicatorKey: state.pathParameters['indicatorKey']!,
+                periodStart: _periodStart(
+                  state.uri.queryParameters['week'],
+                  ref.read(plannerDateSourceProvider).today(),
+                ),
+              );
+            },
           ),
           GoRoute(
             name: RouteNames.indicatorDetail,

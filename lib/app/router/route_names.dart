@@ -28,6 +28,8 @@ abstract final class RouteNames {
   static const String eventTypeCreate = 'event-type-create';
   static const String eventTypeEdit = 'event-type-edit';
   static const String indicatorDetail = 'indicator-detail';
+  static const String indicatorList = 'indicator-list';
+  static const String indicatorEdit = 'indicator-edit';
   static const String weeklyPlanning = 'weekly-planning';
   static const String weeklyPlanningTargets = 'weekly-planning-targets';
   static const String weeklyPlanningReview = 'weekly-planning-review';
@@ -91,6 +93,10 @@ abstract final class RoutePaths {
 
   static String indicatorDetail(String indicatorKey, PlannerDate periodStart) {
     return '$progress/metric/$indicatorKey?week=${periodStart.iso8601}';
+  }
+
+  static String indicatorEdit(String indicatorKey, PlannerDate periodStart) {
+    return '$progress/metric/$indicatorKey/edit?week=${periodStart.iso8601}';
   }
 
   static String weeklyPlanningTargets(

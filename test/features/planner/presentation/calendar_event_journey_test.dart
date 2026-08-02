@@ -51,7 +51,10 @@ void main() {
 
       expect(find.text('Select Event Type'), findsOneWidget);
       expect(find.text('New Calendar Event'), findsNothing);
-      await tester.tap(find.byKey(const Key('event-type-option-other')));
+      final other = find.byKey(const Key('event-type-option-other'));
+      await tester.ensureVisible(other);
+      await tester.pumpAndSettle();
+      await tester.tap(other);
       await tester.pumpAndSettle();
       expect(find.text('New Calendar Event'), findsNothing);
       expect(find.text('Other'), findsOneWidget);

@@ -189,29 +189,15 @@ List<EventType> _orderedPickerTypes(
   String? recommendedId, {
   bool targetOrder = true,
 }) {
-  const targetMappedOrder = <String, int>{
-    SystemEventTypeKeys.meaningfulConnection: 0,
-    SystemEventTypeKeys.teaching: 1,
-    SystemEventTypeKeys.finding: 2,
-    SystemEventTypeKeys.meeting: 3,
-    SystemEventTypeKeys.studyOrPlan: 4,
-    SystemEventTypeKeys.service: 5,
-    SystemEventTypeKeys.work: 6,
-    SystemEventTypeKeys.templeVisit: 7,
-    SystemEventTypeKeys.travel: 8,
-    SystemEventTypeKeys.meal: 9,
-    SystemEventTypeKeys.other: 10,
+  final mappedOrder = <String, int>{
+    for (
+      var index = 0;
+      index < SystemEventTypeKeys.approvedCreationOrder.length;
+      index += 1
+    )
+      SystemEventTypeKeys.approvedCreationOrder[index]: index,
   };
-  const legacyMappedOrder = <String, int>{
-    SystemEventTypeKeys.templeVisit: 0,
-    SystemEventTypeKeys.scriptureStudy: 1,
-    SystemEventTypeKeys.exercise: 2,
-    SystemEventTypeKeys.budgetReview: 3,
-    SystemEventTypeKeys.jobApplication: 4,
-    SystemEventTypeKeys.meaningfulConnection: 5,
-  };
-  final mappedOrder = targetOrder ? targetMappedOrder : legacyMappedOrder;
-  final ordered = types.where((type) => !type.isArchived).toList()
+  final ordered = types.where((type) => type.isCreationVisible).toList()
     ..sort((left, right) {
       if (left.id == recommendedId && right.id != recommendedId) {
         return -1;

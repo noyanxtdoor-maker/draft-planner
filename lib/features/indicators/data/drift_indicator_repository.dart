@@ -5,6 +5,7 @@ import 'package:rmplanner/features/indicators/application/indicator_repository.d
 import 'package:rmplanner/features/indicators/domain/life_indicator.dart';
 import 'package:rmplanner/features/planner/application/calendar_event_repository.dart';
 import 'package:rmplanner/features/planner/domain/calendar_event.dart';
+import 'package:rmplanner/features/planner/domain/event_type.dart';
 import 'package:rmplanner/features/planner/domain/outcome_reporting.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 import 'package:rmplanner/features/planner/domain/planner_task.dart';
@@ -60,6 +61,10 @@ final class DriftIndicatorRepository implements IndicatorRepository {
       today: today,
     );
     final staleKeys = await _staleIndicatorKeys(profileId);
+    final nextTempleVisit = await _readNextTempleVisit(
+      profileId: profileId,
+      today: today,
+    );
     final indicators = <LifeIndicatorSummary>[];
     for (final definition in definitions) {
       try {
@@ -116,6 +121,7 @@ final class DriftIndicatorRepository implements IndicatorRepository {
       indicators: indicators,
       overdueTaskCount: scheduled.overdueTaskCount,
       awaitingReportCount: scheduled.awaitingReportCount,
+      nextTempleVisit: nextTempleVisit,
     );
   }
 
@@ -259,6 +265,47 @@ final class DriftIndicatorRepository implements IndicatorRepository {
               supersedesRevisionId: Value<String?>(prior?.id),
               operationId: draft.operationId,
               createdAtUtc: clock.nowUtc(),
+            ),
+          );
+    });
+  }
+
+  @override
+  Future<void> renameIndicator({
+    required String profileId,
+    required String indicatorKey,
+    required String label,
+  }) async {
+    final normalizedLabel = label.trim();
+    if (normalizedLabel.isEmpty) {
+      throw ArgumentError.value(label, 'label', 'Label is required.');
+    }
+    await database.transaction(() async {
+      final definitions = await (database.select(
+        database.lifeIndicatorDefinitions,
+      )..where((table) => table.profileId.equals(profileId))).get();
+      final definition = definitions
+          .where((row) => row.indicatorKey == indicatorKey)
+          .firstOrNull;
+      if (definition == null) {
+        throw StateError('Life Indicator not found.');
+      }
+      final duplicate = definitions.any(
+        (row) =>
+            row.indicatorKey != indicatorKey &&
+            row.label.trim().toLowerCase() == normalizedLabel.toLowerCase(),
+      );
+      if (duplicate) {
+        throw StateError('Life Indicator names must be unique.');
+      }
+      await (database.update(database.lifeIndicatorDefinitions)..where(
+            (table) =>
+                table.profileId.equals(profileId) &
+                table.indicatorKey.equals(indicatorKey),
+          ))
+          .write(
+            LifeIndicatorDefinitionsCompanion(
+              label: Value<String>(normalizedLabel),
             ),
           );
     });
@@ -548,6 +595,89 @@ final class DriftIndicatorRepository implements IndicatorRepository {
       overdueTaskCount: overdueTasks,
       awaitingReportCount: awaitingReports,
     );
+  }
+
+  Future<PlannerDate?> _readNextTempleVisit({
+    required String profileId,
+    required PlannerDate today,
+  }) async {
+    final rows =
+        await (database.select(database.calendarEvents)..where(
+              (table) =>
+                  table.profileId.equals(profileId) &
+                  table.activityTypeId.equals(SystemEventTypeIds.templeVisit),
+            ))
+            .get();
+    final horizon = today.addDays(366);
+    PlannerDate? earliest;
+    for (final row in rows) {
+      final start = PlannerDate.parse(row.startDate);
+      final recurrence = CalendarRecurrenceRule(
+        frequency: CalendarRecurrenceFrequency.values.byName(
+          row.recurrenceFrequency,
+        ),
+        endMode: CalendarRecurrenceEndMode.values.byName(row.recurrenceEndMode),
+        endDate: row.recurrenceEndDate == null
+            ? null
+            : PlannerDate.parse(row.recurrenceEndDate!),
+        occurrenceCount: row.recurrenceCount,
+      );
+      final firstDate = recurrence.isRecurring
+          ? (start.compareTo(today) > 0 ? start : today)
+          : start;
+      if (firstDate.compareTo(today) < 0 || firstDate.compareTo(horizon) > 0) {
+        continue;
+      }
+      if (recurrence.isRecurring) {
+        for (
+          var date = firstDate;
+          date.compareTo(horizon) <= 0;
+          date = date.addDays(1)
+        ) {
+          if (recurrence.occurrenceIndexOn(
+                startDate: start,
+                targetDate: date,
+              ) ==
+              null) {
+            continue;
+          }
+          final occurrence = await calendarEvents.readOccurrence(
+            profileId: profileId,
+            eventId: row.id,
+            originalDate: date,
+          );
+          if (occurrence == null ||
+              occurrence.status != CalendarEventStatus.scheduled ||
+              occurrence.replacementEventId != null ||
+              occurrence.displayDate.compareTo(today) < 0 ||
+              occurrence.displayDate.compareTo(horizon) > 0) {
+            continue;
+          }
+          final currentEarliest = earliest;
+          if (currentEarliest == null ||
+              occurrence.displayDate.compareTo(currentEarliest) < 0) {
+            earliest = occurrence.displayDate;
+          }
+        }
+        continue;
+      }
+      final occurrence = await calendarEvents.readOccurrence(
+        profileId: profileId,
+        eventId: row.id,
+        originalDate: firstDate,
+      );
+      final currentEarliest = earliest;
+      if (occurrence != null &&
+          occurrence.status == CalendarEventStatus.scheduled &&
+          occurrence.replacementEventId == null &&
+          occurrence.displayDate.compareTo(today) >= 0 &&
+          occurrence.displayDate.compareTo(horizon) <= 0 &&
+          (currentEarliest == null ||
+              occurrence.displayDate.compareTo(currentEarliest) < 0)) {
+        earliest = occurrence.displayDate;
+      }
+    }
+    return earliest;
   }
 
   Future<Set<String>> _staleIndicatorKeys(String profileId) async {

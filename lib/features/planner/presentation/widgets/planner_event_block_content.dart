@@ -72,13 +72,13 @@ final class PlannerEventBlockContentView extends StatelessWidget {
     final textColor = PlannerEventBlockColorPolicy.textColor(surface);
     final titleStyle = TextStyle(
       color: textColor,
-      fontWeight: FontWeight.w700,
+      fontWeight: FontWeight.w500,
       fontSize: PlannerEventBlockLayoutPolicy.titleFontSize(density),
       height: density == Density.veryShort ? 1.0 : 1.1,
     );
     final timeStyle = TextStyle(
       color: textColor.withValues(alpha: 0.92),
-      fontWeight: FontWeight.w600,
+      fontWeight: FontWeight.w400,
       fontSize: PlannerEventBlockLayoutPolicy.timeFontSize(density),
       height: 1.1,
     );

@@ -14,6 +14,13 @@ final class PlannerSettingsScreen extends ConsumerWidget {
     final state = ref.watch(eventTypeControllerProvider);
     final controller = ref.read(eventTypeControllerProvider.notifier);
     final settings = state.settings;
+    final visibleDefaultEventTypeId = state.eventTypes
+        .where(
+          (type) =>
+              type.isCreationVisible && type.id == settings.defaultEventTypeId,
+        )
+        .firstOrNull
+        ?.id;
     return Scaffold(
       appBar: AppBar(title: const Text('Planner and Calendar')),
       body: SafeArea(
@@ -50,15 +57,17 @@ final class PlannerSettingsScreen extends ConsumerWidget {
                       ),
                       DropdownButtonFormField<String?>(
                         key: const Key('default-event-type-setting'),
-                        initialValue: settings.defaultEventTypeId,
+                        initialValue: visibleDefaultEventTypeId,
                         decoration: const InputDecoration(
                           labelText: 'Default Event Type',
                         ),
                         items: <DropdownMenuItem<String?>>[
                           const DropdownMenuItem<String?>(
-                            child: Text('General / ask each time'),
+                            child: Text('Other / ask each time'),
                           ),
-                          for (final type in state.eventTypes)
+                          for (final type in state.eventTypes.where(
+                            (type) => type.isCreationVisible,
+                          ))
                             DropdownMenuItem<String?>(
                               value: type.id,
                               child: Text(type.label),
