@@ -2817,3 +2817,80 @@ commit created for this section; its short SHA is reported after commit.
 - Physical acceptance and final integration checkpoints were not created.
 - No push was made; PR #8 remains untouched; VS-09 remains unauthorized and
   unstarted.
+
+## VS-08 Targeted Walkthrough Corrections
+
+### Starting state and active production route
+
+- Working repository: `C:\Users\sherl\Documents\Next Transfer-Temp`.
+- Starting branch: `temp/vs08-shared-preview`.
+- Starting HEAD: `3b4f406` (`docs(handoff): record vs08 final install evidence`).
+- Inherited state was `?? .todo.md` only; `.todo.md` remained untracked and
+  unstaged. Existing local VS-08 commits were preserved.
+- The mounted route was traced as `lib/main.dart` -> `NextTransferApp` ->
+  `appRouterProvider` -> `ShellRoute` -> `MainShell` -> `/planner` ->
+  `PlannerScreen`.
+- The live Planner route mounts `PlannerDateStrip`,
+  `PlannerCalendarButtonSurface`, `showEventTypePicker`,
+  `showCalendarEventFormSheet`, `CalendarEventFormScreen`, and
+  `showPlannerSlideDownDatePicker`.
+
+### Six approved corrections
+
+- Date strip: removed its outer horizontal margins, card padding, border,
+  radius, and surface-card treatment. It now fills the available Planner width
+  edge-to-edge while preserving cell geometry, horizontal browsing, the pink
+  indicator, and the existing height/timeline relationship.
+- Calendar icon: removed the persistent today-date background. The icon keeps
+  its existing color semantics, while the circular interaction feedback is
+  white and transient through the existing Material press surface.
+- Event Type modal: replaced the fixed `0.90` by `0.80` shell with a bounded,
+  content-driven compact card. The ten existing Event Types, order, names,
+  colors, Cancel action, barrier, and selection flow remain unchanged; the
+  internal scroll activates only when the bounded viewport requires it.
+- Event form sheet: the outer modal drag recognizer is disabled so one
+  `DraggableScrollableController` owns the sheet extent. The visible handle,
+  blank header, and surrounding header space now forward vertical drags to the
+  same controller; the form continues to use the controller-provided inner
+  scroll position.
+- Save action: replaced the shared top-right check icon with the exact visible
+  word `Save` in a compact rounded button, preserving validation, loading,
+  duplicate-save protection, callback, semantics, and Close. The redundant
+  non-sheet bottom Save action was removed so the form does not show Save twice.
+- Planner Date picker: added an explicit `MaterialType.transparency` route
+  root while retaining the non-opaque route and light `0.18` barrier. The
+  Planner remains mounted and blocked behind the readable DatePickerDialog;
+  Cancel/OK, date synchronization, viewport, zoom, and transitions remain
+  unchanged.
+
+### Verification and regression boundary
+
+- Focused correction tests: Planner design lock `24 passed`, Event Type-first
+  creation `5 passed`, and Planner Date picker transition `13 passed`.
+- Focused regression spot checks: date-strip synchronization `14 passed`, Event
+  journey `1 passed`, and Weekly Life Indicator link `1 passed`.
+- Complete Planner suite: `278 passed, 0 failed, 0 skipped`.
+- Complete Flutter suite: `342 passed, 0 failed, 0 skipped`.
+- Analyzer: `No issues found!`.
+- No domain schema, migration, data, biometric behavior, status wording,
+  Event-card design, timeline zoom/paging, bottom navigation, FAB, or unrelated
+  Planner behavior was changed.
+- Production files changed:
+  `lib/features/planner/presentation/calendar_event_creation.dart`,
+  `lib/features/planner/presentation/calendar_event_form_screen.dart`,
+  `lib/features/planner/presentation/event_type_picker_dialog.dart`,
+  `lib/features/planner/presentation/widgets/planner_calendar_icon.dart`,
+  `lib/features/planner/presentation/widgets/planner_date_strip.dart`, and
+  `lib/features/planner/presentation/widgets/planner_slide_down_date_picker.dart`.
+- Test files changed:
+  `test/features/planner/presentation/event_type_first_creation_test.dart`,
+  `test/features/planner/presentation/planner_date_picker_transition_test.dart`,
+  and `test/features/planner/presentation/planner_design_lock_test.dart`.
+- Diagnostics review found no temporary production markers or debug probes.
+  The existing `expect(tester.takeException(), isNull)` assertions remain
+  intentional test assertions, not bare diagnostics.
+- Implementation checkpoint: `662e417`
+  (`fix(planner): refine strip modal sheet and picker interactions`).
+- Physical acceptance 01-24 remains pending explicit owner PASS/FAIL; no
+  physical-acceptance or final VS-08 integration checkpoint was created.
+- No push; PR #8 remains untouched; VS-09 remains unauthorized and unstarted.
