@@ -2915,3 +2915,120 @@ commit created for this section; its short SHA is reported after commit.
   PID `14643` was running and the activity was resumed/visible.
 - Physical acceptance 01-24 still requires explicit owner PASS/FAIL; no
   physical-acceptance or final VS-08 integration checkpoint was created.
+
+## VS-08 Targeted Event Flow and Picker Corrections
+
+### Starting state and active production route
+
+- Working repository: `C:\Users\sherl\Documents\Next Transfer-Temp`.
+- Starting branch: `temp/vs08-shared-preview`.
+- Starting HEAD: `6e03bfad9aa0d83131cd37241c3348a408c131ba` (`6e03bfa`).
+- Inherited state was `?? .todo.md` only; `.todo.md` remains untracked and
+  unstaged. Existing local VS-08 commits were preserved.
+- The mounted route was traced as `lib/main.dart` -> `NextTransferApp` ->
+  `appRouterProvider` -> `ShellRoute` -> `MainShell` -> `/planner` ->
+  `PlannerScreen`, with the active Event Type, Event form, Event detail,
+  date-picker, and timeline resize call sites verified in production widgets.
+- The prompt's nested `Approved-Event-Flow-References` directory was absent.
+  Available read-only references were used from
+  `C:\Users\sherl\Documents\NextTransfer-Device-Evidence\Stage-B3-R1` and
+  `C:\Users\sherl\Documents\Next Transfer\UI Preferences\Current Build Reviews\Planner`.
+
+### Approved corrections implemented
+
+- Picker black-layer root cause: the active Planner date-picker route was
+  already non-opaque with a transparent root, but its `barrierColor` still
+  applied a visible black alpha layer. The barrier is now
+  `Colors.transparent`; Planner mounting, input blocking, Cancel/OK, date
+  synchronization, viewport, zoom, and transitions remain intact.
+- Event Type modal result: the former vertical `Center` placement is now an
+  adaptive SafeArea upper-center layout below the existing toolbar/date-strip
+  geometry with a small gap, compact bounds, unchanged ten-type order/colors,
+  and unchanged selection/cancel behavior.
+- Event Type icon result: colored leading dots increased from 18 to 21 logical
+  pixels without changing modal width or row behavior.
+- Form entrance architecture: the form sheet uses one
+  `AnimationStyle` route (260 ms forward, 220 ms reverse, easeOutCubic/easeInCubic)
+  with one route-bound subtle fade. The selected Event Type is passed into the
+  form before the route begins, so the form mounts immediately while its one
+  controller, partial `0.40` extent, `0.36` minimum, `0.94` maximum, drag
+  behavior, keyboard behavior, and internal scrolling remain preserved.
+- Top-edge resize architecture: `_TimelineResizeEdge` flows through the
+  existing timeline gesture path. Top hit/handle zones modify only the start
+  minute, bottom zones modify only the end minute, both use the existing
+  15-minute snap/minimum rules, and persistence remains one write on release.
+- Event detail result: Link/manage Tasks, bottom Edit, Reschedule, Cancel,
+  report/action blocks, and Activity History were removed from the normal
+  information-first detail surface. Top Back/title/Edit/overflow, status
+  popup/outcome behavior, and retained information remain.
+- Overflow result: the detail overflow now contains exactly Duplicate and
+  Delete. Change Event Type was removed; duplicate/delete domain safeguards and
+  delete confirmation remain.
+- Filter icon result: replaced the generic icon with an open funnel
+  `CustomPainter`, retaining the existing key, semantics, action, and touch
+  target.
+- Selection icon result: replaced the generic icon with a check-in-square and
+  lower-left L-offset `CustomPainter`, retaining the existing key, semantics,
+  action, and touch target.
+- White press-feedback result: hamburger, calendar, filter, selection, and
+  overflow rest as icon-only controls and use transient white circular press
+  feedback with no persistent pink or rectangular state.
+- Form layout result: reduced nested cards and helper prose while preserving
+  the approved Event Type/Title/Notes/Scheduling Details/Date/From/To/Repeat/
+  Backup/Address/Location/People/Indicator/Reporting order and save wiring.
+- Removed controls: `Set time to now` and `Schedule From Calendar` are absent,
+  with no leftover visible spacing or compatibility widgets.
+- Address/Location result: compact independent `+ Address` and `+ Location`
+  actions remain optional and clearable, with no Maps or geocoding added.
+- People result: the heading/divider/`+ People` action is present. This
+  checkout contains no Contacts/person persistence architecture, so no fake
+  people database or relationship schema was introduced; the honest action
+  remains non-destructive until that approved architecture exists.
+- Weekly Life Indicator result: the section uses the same compact heading,
+  divider, link/change/unlink structure and preserves the existing optional,
+  reversible, save-only contribution rules.
+- Optional reporting result: the exact title `Optional — Reporting & progress
+  context` and `Report required` control remain.
+- Removed helper notes: visible implementation/domain explanations about
+  Actual creation, backup semantics, elapsed time, people availability, and
+  indicator absence were removed from the normal form; domain rules remain in
+  code and tests.
+- Domain safety: no schema, migration, user-data, ledger, contribution,
+  status-wording, viewport/zoom, paging, bottom-navigation, FAB, Event-card,
+  or unrelated VS-08 behavior was changed.
+
+### Verification and checkpoint
+
+- Production files changed:
+  `lib/features/planner/presentation/calendar_event_creation.dart`,
+  `lib/features/planner/presentation/calendar_event_detail_screen.dart`,
+  `lib/features/planner/presentation/calendar_event_form_screen.dart`,
+  `lib/features/planner/presentation/event_type_picker_dialog.dart`,
+  `lib/features/planner/presentation/planner_screen.dart`,
+  `lib/features/planner/presentation/widgets/planner_event_block_layout_policy.dart`,
+  `lib/features/planner/presentation/widgets/planner_slide_down_date_picker.dart`,
+  and `lib/features/planner/presentation/widgets/planner_top_bar_icons.dart`.
+- Test files changed:
+  `test/features/planner/presentation/calendar_event_indicator_link_test.dart`,
+  `test/features/planner/presentation/event_type_first_creation_test.dart`,
+  `test/features/planner/presentation/planner_date_picker_transition_test.dart`,
+  `test/features/planner/presentation/planner_design_lock_test.dart`,
+  `test/features/planner/presentation/planner_interactive_day_pager_safety_test.dart`,
+  and `test/features/planner/presentation/planner_issue5_6_test.dart`.
+- Focused totals: Date picker `13 passed`; Event Type-first creation `5`;
+  resize/filter/detail safety `17 + 25 + 10`; Weekly Life Indicator `1`;
+  Event journey `1`; zero failures and zero skips.
+- Complete Planner suite: `280 passed, 0 failed, 0 skipped`.
+- Complete Flutter suite: `344 passed, 0 failed, 0 skipped`.
+- Analyzer: `No issues found!`.
+- Diagnostics and hygiene review: no temporary diagnostic markers, debug
+  probes, temporary scripts, screenshots, APK pulls, or logs in the scoped
+  diff; `git diff --check` passed.
+- Implementation checkpoint: `cf82f4c`
+  (`fix(planner): refine picker event flow and detail interactions`).
+- Build/update-install follows this documentation checkpoint and is restricted
+  to the Temp checkout; no push is authorized.
+- Physical acceptance remains pending explicit owner PASS/FAIL. No physical or
+  final acceptance checkpoint was created; the People item additionally awaits
+  the missing approved person-link architecture.
+- No push; PR #8 remains untouched; VS-09 remains unauthorized and unstarted.
