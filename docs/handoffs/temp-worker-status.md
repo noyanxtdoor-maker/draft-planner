@@ -2895,6 +2895,73 @@ commit created for this section; its short SHA is reported after commit.
   physical-acceptance or final VS-08 integration checkpoint was created.
 - No push; PR #8 remains untouched; VS-09 remains unauthorized and unstarted.
 
+## VS-08 Pixel-Measured Event Flow Layout Correction
+
+### Starting state and scope
+
+- Working repository: `C:\Users\sherl\Documents\Next Transfer-Temp`.
+- Working branch: `temp/vs08-shared-preview`.
+- Starting HEAD: `f7dcab8` (`docs(handoff): record reporting timeline and contextual action corrections`).
+- The protected checkout `C:\Users\sherl\Documents\Next Transfer` remained unchanged.
+- Inherited working-tree state was `?? .todo.md` only; `.todo.md` remains
+  untracked and unstaged.
+- Visual authority included the supplied screenshots:
+  `C:\Users\sherl\Downloads\Screenshot_20260802-155212.jpg`,
+  `C:\Users\sherl\Downloads\Screenshot_20260802-155258.jpg`, and
+  `C:\Users\sherl\Downloads\Screenshot_20260802-155312.jpg`.
+- No push, PR #8 update, VS-09 work, schema change, migration, Maps work, or
+  data-clearing operation was performed.
+
+### Approved measured corrections
+
+- Select Planner Date is now a Planner-owned in-place overlay. It uses a
+  transparent `ModalBarrier`, keeps the Planner/date strip/timeline mounted,
+  blocks background input, supports Back/Cancel/OK, prevents duplicate
+  instances, and commits the selected date once only on OK. No date-picker
+  route or black replacement layer remains.
+- Contextual Event/Task actions now use content-width pills constrained to
+  108-232dp, 56dp height, 28dp radius, 18/22dp horizontal padding, 24dp
+  icons, 12dp icon gap, 18sp labels, 8dp vertical gap, and a 16dp right inset.
+  The existing Event/Task action scope and dismissal behavior remain.
+- Select Event Type now uses the measured upper card: 347dp by 672dp at the
+  393dp reference width, 12dp radius, 20dp content inset, 20sp title, 44dp
+  rows, 22dp dots, reference dot/label insets, and bottom-right Cancel.
+  It continues to use the repository Event Type source of truth; no PMG-only
+  types or duplicate constants were introduced.
+- The shared create/edit form now follows the approved hierarchy and measured
+  spacing: Event Type, Title, Notes, Scheduling Details, Date, From/To,
+  Repeat, Backup Appointment, Address, Location, People, and Link to Weekly
+  Life Indicator. Standard fields use 60dp outlines; the date/time row uses
+  equal fields with a 32dp gap; major separators span the sheet width.
+- The in-form Event Type control is now a plain-text anchored dropdown with
+  48dp rows, a 336dp maximum menu height, no colored dots/cards, and no
+  visible Recommended label. Changing type preserves entered title, notes,
+  date, and timing values.
+- Activity Report remains absent from the Event form/detail flow. Current
+  Status remains the Event reporting mechanism and Activity History remains
+  accessible/read-only. Existing optional Report required and Weekly Life
+  Indicator persistence behavior were preserved.
+- The current production form has no event notification/alarm capability
+  surface to conditionally render. No unsupported permission/reminder UI or
+  blank reservation was added.
+
+### Verification and checkpoint
+
+- Focused date-picker tests: `14 passed, 0 failed, 0 skipped`.
+- Focused Event Type-first, Event journey, indicator-link, and contextual
+  action coverage passed, including the 393x874 measured layout assertions.
+- Complete Planner suite: `284 passed, 0 failed, 0 skipped`.
+- Complete Flutter suite: `348 passed, 0 failed, 0 skipped`.
+- Analyzer: `No issues found!`.
+- `git diff --check`: passed before the implementation commit.
+- Implementation checkpoint: `6e20945`
+  (`fix(planner): match measured pmg event flow layouts`).
+- APK build/update-install and device walkthrough remain the next bounded
+  steps; physical acceptance must still be recorded only from explicit owner
+  PASS/FAIL results.
+- No physical-acceptance or final VS-08 integration checkpoint was created.
+- No push; PR #8 remains untouched; VS-09 remains unauthorized and unstarted.
+
 ### Targeted-correction APK update-install evidence
 
 - Final Temp artifact: `build\app\outputs\flutter-apk\app-debug.apk`,
