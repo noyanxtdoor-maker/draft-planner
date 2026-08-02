@@ -57,18 +57,22 @@ Future<T?> showCalendarEventFormSheet<T>({
   String? indicatorKey,
   String? sourceTaskId,
 }) {
+  final sheetController = DraggableScrollableController();
+  const minChildSize = 0.36;
+  const maxChildSize = 0.94;
   return showModalBottomSheet<T>(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
-    enableDrag: true,
+    enableDrag: false,
     backgroundColor: Colors.transparent,
     barrierColor: Colors.black.withValues(alpha: 0.38),
     builder: (sheetContext) => DraggableScrollableSheet(
       key: const Key('calendar-event-draggable-sheet'),
+      controller: sheetController,
       initialChildSize: 0.40,
-      minChildSize: 0.36,
-      maxChildSize: 0.94,
+      minChildSize: minChildSize,
+      maxChildSize: maxChildSize,
       expand: false,
       builder: (context, scrollController) => sourceTaskId == null
           ? CalendarEventFormScreen.create(
@@ -78,6 +82,9 @@ Future<T?> showCalendarEventFormSheet<T>({
               initialEventTypeId: eventType.id,
               sheetPresentation: true,
               sheetScrollController: scrollController,
+              sheetController: sheetController,
+              sheetMinChildSize: minChildSize,
+              sheetMaxChildSize: maxChildSize,
             )
           : CalendarEventFormScreen.createFromTask(
               sourceTaskId: sourceTaskId,
@@ -87,7 +94,10 @@ Future<T?> showCalendarEventFormSheet<T>({
               initialEventTypeId: eventType.id,
               sheetPresentation: true,
               sheetScrollController: scrollController,
+              sheetController: sheetController,
+              sheetMinChildSize: minChildSize,
+              sheetMaxChildSize: maxChildSize,
             ),
     ),
-  );
+  ).whenComplete(sheetController.dispose);
 }

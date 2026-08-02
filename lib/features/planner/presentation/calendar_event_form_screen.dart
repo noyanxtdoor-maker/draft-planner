@@ -26,6 +26,9 @@ final class CalendarEventFormScreen extends ConsumerStatefulWidget {
     this.initialEventTypeId,
     this.sheetPresentation = false,
     this.sheetScrollController,
+    this.sheetController,
+    this.sheetMinChildSize = 0.36,
+    this.sheetMaxChildSize = 0.94,
     super.key,
   }) : mode = CalendarEventFormMode.create,
        eventId = null,
@@ -41,6 +44,9 @@ final class CalendarEventFormScreen extends ConsumerStatefulWidget {
     this.initialEventTypeId,
     this.sheetPresentation = false,
     this.sheetScrollController,
+    this.sheetController,
+    this.sheetMinChildSize = 0.36,
+    this.sheetMaxChildSize = 0.94,
     super.key,
   }) : mode = CalendarEventFormMode.create,
        eventId = null,
@@ -53,6 +59,9 @@ final class CalendarEventFormScreen extends ConsumerStatefulWidget {
     required this.scope,
     this.sheetPresentation = false,
     this.sheetScrollController,
+    this.sheetController,
+    this.sheetMinChildSize = 0.36,
+    this.sheetMaxChildSize = 0.94,
     super.key,
   }) : mode = CalendarEventFormMode.edit,
        initialDate = null,
@@ -67,6 +76,9 @@ final class CalendarEventFormScreen extends ConsumerStatefulWidget {
     required this.scope,
     this.sheetPresentation = false,
     this.sheetScrollController,
+    this.sheetController,
+    this.sheetMinChildSize = 0.36,
+    this.sheetMaxChildSize = 0.94,
     super.key,
   }) : mode = CalendarEventFormMode.reschedule,
        initialDate = null,
@@ -86,6 +98,9 @@ final class CalendarEventFormScreen extends ConsumerStatefulWidget {
   final String? sourceTaskId;
   final bool sheetPresentation;
   final ScrollController? sheetScrollController;
+  final DraggableScrollableController? sheetController;
+  final double sheetMinChildSize;
+  final double sheetMaxChildSize;
 
   @override
   ConsumerState<CalendarEventFormScreen> createState() =>
@@ -696,18 +711,6 @@ final class _CalendarEventFormScreenState
                     },
                   ),
                   const SizedBox(height: 20),
-                  if (!widget.sheetPresentation)
-                    FilledButton.icon(
-                      key: const Key('save-event-bottom-button'),
-                      onPressed: _saving ? null : _save,
-                      icon: _saving
-                          ? const SizedBox.square(
-                              dimension: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.save_outlined),
-                      label: Text(_saving ? 'Saving…' : _saveLabel),
-                    ),
                 ],
               ),
             ),
@@ -728,28 +731,37 @@ final class _CalendarEventFormScreenState
       clipBehavior: Clip.antiAlias,
       child: Column(
         children: <Widget>[
-          const SizedBox(height: 8),
-          Container(
-            key: const Key('calendar-event-sheet-handle'),
-            width: 42,
-            height: 4,
-            decoration: BoxDecoration(
-              color: Colors.white30,
-              borderRadius: BorderRadius.circular(4),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(8, 4, 8, 2),
-            child: Row(
+          GestureDetector(
+            key: const Key('calendar-event-sheet-header'),
+            behavior: HitTestBehavior.opaque,
+            onVerticalDragUpdate: _handleSheetDragUpdate,
+            child: Column(
               children: <Widget>[
-                IconButton(
-                  key: const Key('calendar-event-sheet-close'),
-                  tooltip: 'Close',
-                  onPressed: () => Navigator.of(context).pop(false),
-                  icon: const Icon(Icons.close),
+                const SizedBox(height: 8),
+                Container(
+                  key: const Key('calendar-event-sheet-handle'),
+                  width: 42,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.white30,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
                 ),
-                const Spacer(),
-                _buildSaveButton(),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(8, 4, 8, 2),
+                  child: Row(
+                    children: <Widget>[
+                      IconButton(
+                        key: const Key('calendar-event-sheet-close'),
+                        tooltip: 'Close',
+                        onPressed: () => Navigator.of(context).pop(false),
+                        icon: const Icon(Icons.close),
+                      ),
+                      const Spacer(),
+                      _buildSaveButton(),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
@@ -759,30 +771,47 @@ final class _CalendarEventFormScreenState
     );
   }
 
+  void _handleSheetDragUpdate(DragUpdateDetails details) {
+    final controller = widget.sheetController;
+    if (controller == null || !controller.isAttached) {
+      return;
+    }
+    final delta = details.primaryDelta;
+    if (delta == null) {
+      return;
+    }
+    final viewportHeight = MediaQuery.sizeOf(context).height;
+    final nextSize = (controller.size - delta / viewportHeight)
+        .clamp(widget.sheetMinChildSize, widget.sheetMaxChildSize)
+        .toDouble();
+    if ((nextSize - controller.size).abs() > 0.0001) {
+      controller.jumpTo(nextSize);
+    }
+  }
+
   Widget _buildSaveButton() {
     return Semantics(
       button: true,
       label: 'Save',
-      child: SizedBox.square(
-        dimension: 48,
-        child: IconButton.filled(
-          key: const Key('save-event-button'),
-          tooltip: 'Save',
-          onPressed: _saving || _loading || _configurationLoading
-              ? null
-              : _save,
-          style: IconButton.styleFrom(
-            backgroundColor: AppTheme.rose,
-            foregroundColor: AppTheme.background,
-            disabledBackgroundColor: AppTheme.rose.withValues(alpha: 0.35),
+      child: FilledButton(
+        key: const Key('save-event-button'),
+        onPressed: _saving || _loading || _configurationLoading ? null : _save,
+        style: FilledButton.styleFrom(
+          minimumSize: const Size(64, 40),
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
           ),
-          icon: _saving
-              ? const SizedBox.square(
-                  dimension: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.check_rounded),
+          backgroundColor: AppTheme.rose,
+          foregroundColor: AppTheme.background,
+          disabledBackgroundColor: AppTheme.rose.withValues(alpha: 0.35),
         ),
+        child: _saving
+            ? const SizedBox.square(
+                dimension: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Text('Save'),
       ),
     );
   }
@@ -1084,14 +1113,6 @@ final class _CalendarEventFormScreenState
           ? 'Edit Event'
           : 'Edit ${_selectedEventType!.label} Event',
     CalendarEventFormMode.reschedule => 'Reschedule Event',
-  };
-
-  String get _saveLabel => switch (widget.mode) {
-    CalendarEventFormMode.create => 'Save Event',
-    CalendarEventFormMode.edit =>
-      'Save ${calendarEventScopeLabel(widget.scope!)}',
-    CalendarEventFormMode.reschedule =>
-      'Create replacement for ${calendarEventScopeLabel(widget.scope!)}',
   };
 
   String? _scheduledPotentialRule() {

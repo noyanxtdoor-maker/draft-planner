@@ -62,6 +62,30 @@ void main() {
       expect(find.text('Select Event Type'), findsOneWidget);
       expect(find.text('New Calendar Event'), findsNothing);
       expect(await database.select(database.calendarEvents).get(), isEmpty);
+      final pickerSize = tester.getSize(
+        find.byKey(const Key('event-type-picker')),
+      );
+      expect(pickerSize.width, lessThan(390));
+      expect(pickerSize.height, lessThan(730));
+      expect(find.byKey(const Key('event-type-picker-scroll')), findsOneWidget);
+      for (final stableKey in <String>[
+        'general',
+        'temple_visit',
+        'scripture_study',
+        'exercise',
+        'budget_review',
+        'job_application',
+        'meaningful_connection',
+        'appointment',
+        'work',
+        'personal',
+      ]) {
+        expect(
+          find.byKey(Key('event-type-option-$stableKey')),
+          findsOneWidget,
+          reason: 'Event Type $stableKey must remain reachable',
+        );
+      }
 
       await tester.tap(find.byKey(const Key('event-type-option-temple_visit')));
       await tester.pumpAndSettle();
@@ -82,6 +106,38 @@ void main() {
         find.byKey(const Key('calendar-event-sheet-handle')),
         findsOneWidget,
       );
+      final sheet = find.byKey(const Key('calendar-event-detail-sheet'));
+      final initialSheetTop = tester.getTopLeft(sheet).dy;
+      await tester.drag(
+        find.byKey(const Key('calendar-event-sheet-handle')),
+        const Offset(0, -180),
+      );
+      await tester.pumpAndSettle();
+      final handleExpandedTop = tester.getTopLeft(sheet).dy;
+      expect(handleExpandedTop, lessThan(initialSheetTop));
+      await tester.drag(
+        find.byKey(const Key('calendar-event-sheet-handle')),
+        const Offset(0, 180),
+      );
+      await tester.pumpAndSettle();
+      final handleCollapsedTop = tester.getTopLeft(sheet).dy;
+      expect(handleCollapsedTop, greaterThan(handleExpandedTop));
+      await tester.drag(
+        find.byKey(const Key('calendar-event-sheet-header')),
+        const Offset(0, -180),
+      );
+      await tester.pumpAndSettle();
+      final headerExpandedTop = tester.getTopLeft(sheet).dy;
+      expect(headerExpandedTop, lessThan(handleCollapsedTop));
+      await tester.drag(
+        find.byKey(const Key('calendar-event-sheet-header')),
+        const Offset(0, 180),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.getTopLeft(sheet).dy, greaterThan(headerExpandedTop));
+      expect(find.text('Save'), findsOneWidget);
+      expect(find.byIcon(Icons.check_rounded), findsNothing);
+      expect(find.byKey(const Key('save-event-bottom-button')), findsNothing);
       expect(
         find.descendant(
           of: find.byKey(const Key('event-type-field')),

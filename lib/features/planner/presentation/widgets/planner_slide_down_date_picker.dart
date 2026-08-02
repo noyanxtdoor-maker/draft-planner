@@ -71,12 +71,16 @@ Future<DateTime?> showPlannerSlideDownDatePicker({
         // so the day / month / year grid and the Cancel / OK
         // actions remain identical to the legacy `showDatePicker`
         // call site that previously powered this entry point.
-        return _PlannerSlideDownPanel(
-          animation: animation,
-          initialDate: initialDate,
-          firstDate: firstDate,
-          lastDate: lastDate,
-          helpText: helpText,
+        return Material(
+          key: const Key('planner-date-picker-route'),
+          type: MaterialType.transparency,
+          child: _PlannerSlideDownPanel(
+            animation: animation,
+            initialDate: initialDate,
+            firstDate: firstDate,
+            lastDate: lastDate,
+            helpText: helpText,
+          ),
         );
       },
       transitionsBuilder: (context, animation, secondaryAnimation, child) {

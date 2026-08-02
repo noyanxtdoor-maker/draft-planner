@@ -362,11 +362,22 @@ void main() {
         tester.element(find.byKey(const Key('planner-date-picker-panel'))),
       );
       expect(modalRoute, isNotNull);
+      expect(modalRoute!.opaque, isFalse);
       expect(
-        modalRoute!.barrierColor,
+        modalRoute.barrierColor,
         isNotNull,
         reason: 'route must declare a non-null barrier color',
       );
+      expect(modalRoute.barrierColor!.a, inInclusiveRange(0.12, 0.25));
+      expect(
+        tester
+            .widget<Material>(
+              find.byKey(const Key('planner-date-picker-route')),
+            )
+            .type,
+        MaterialType.transparency,
+      );
+      expect(find.byType(PlannerScreen), findsOneWidget);
       expect(modalRoute.transitionDuration, const Duration(milliseconds: 240));
       expect(
         modalRoute.reverseTransitionDuration,

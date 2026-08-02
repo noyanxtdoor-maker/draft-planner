@@ -411,21 +411,22 @@ final class _PlannerDateStripState extends State<PlannerDateStrip>
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       key: const Key('planner-week-strip'),
-      margin: const EdgeInsets.fromLTRB(8, 2, 8, 0),
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-      decoration: BoxDecoration(
-        color: AppTheme.surface,
-        border: Border.all(color: AppTheme.outline),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: SizedBox(
-        height: PlannerDateStrip.stripHeight,
-        child: ClipRect(
-          child: _buildProgressDrivenDateList(
-            context,
-            PlannerDateStrip.stripHeight,
+      width: double.infinity,
+      height: PlannerDateStrip.stripHeight + 2,
+      child: ColoredBox(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 1),
+          child: SizedBox(
+            height: PlannerDateStrip.stripHeight,
+            child: ClipRect(
+              child: _buildProgressDrivenDateList(
+                context,
+                PlannerDateStrip.stripHeight,
+              ),
+            ),
           ),
         ),
       ),

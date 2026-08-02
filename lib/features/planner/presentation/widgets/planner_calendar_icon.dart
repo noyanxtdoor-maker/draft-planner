@@ -16,7 +16,6 @@
 // Slice C contract.
 
 import 'package:flutter/material.dart';
-import 'package:rmplanner/app/theme/app_theme.dart';
 
 /// Resolve the calendar icon glyph and size used everywhere the
 /// application surfaces the "today" affordance.
@@ -34,9 +33,10 @@ import 'package:rmplanner/app/theme/app_theme.dart';
 /// Shared widget that renders the calendar icon inside the slice
 /// established by [SurfaceTint.iconPadding]. The widget is the
 /// painter; the parent supplies the semantic label, the tap
-/// callback, the focused [Key], and the accent color that the
-/// Slice C contract drives (pink when the selected date is today,
-/// on-surface otherwise).
+/// callback, the focused [Key], and the icon color that the Planner supplies
+/// (pink when the selected date is today, on-surface otherwise). The control
+/// itself never carries a persistent selected-state background; its white
+/// circular feedback is interaction-only.
 final class PlannerCalendarButtonSurface extends StatelessWidget {
   const PlannerCalendarButtonSurface({
     required this.onTap,
@@ -51,14 +51,15 @@ final class PlannerCalendarButtonSurface extends StatelessWidget {
   Widget build(BuildContext context) {
     final resolved = resolvePlannerCalendarIcon();
     return Material(
-      color: color == AppTheme.rose
-          ? AppTheme.rose.withValues(alpha: 0.14)
-          : Colors.transparent,
+      key: const Key('planner-calendar-button-surface'),
+      color: Colors.transparent,
       shape: const CircleBorder(),
       child: InkWell(
         key: const Key('planner-today-button'),
         onTap: onTap,
         customBorder: const CircleBorder(),
+        highlightColor: Colors.white.withValues(alpha: 0.12),
+        splashColor: Colors.white.withValues(alpha: 0.16),
         child: SizedBox(
           key: const Key('planner-calendar-button'),
           width: 44,

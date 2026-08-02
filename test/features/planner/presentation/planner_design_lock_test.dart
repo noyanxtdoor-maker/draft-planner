@@ -281,6 +281,45 @@ void main() {
     expect(find.text('Planner'), findsOneWidget);
     expect(find.byKey(const Key('planner-create-button')), findsOneWidget);
   });
+
+  testWidgets('WALKTHROUGH 1 — date strip is edge-to-edge without a card', (
+    tester,
+  ) async {
+    await _pumpStrip(tester);
+    final strip = find.byKey(const Key('planner-week-strip'));
+    final scaffold = find.byType(Scaffold);
+    expect(
+      tester.getTopLeft(strip).dx,
+      closeTo(tester.getTopLeft(scaffold).dx, 0.1),
+    );
+    expect(
+      tester.getSize(strip).width,
+      closeTo(tester.getSize(scaffold).width, 0.1),
+    );
+    expect(tester.widget(strip), isA<SizedBox>());
+    expect(
+      find.descendant(of: strip, matching: find.byType(Container)),
+      findsNothing,
+    );
+  });
+
+  testWidgets(
+    'WALKTHROUGH 2 — calendar rest state has only transient feedback',
+    (tester) async {
+      await _pumpPlanner(tester);
+      final surface = tester.widget<Material>(
+        find.byKey(const Key('planner-calendar-button-surface')),
+      );
+      expect(surface.color, Colors.transparent);
+      final button = tester.widget<InkWell>(
+        find.byKey(const Key('planner-today-button')),
+      );
+      expect(button.customBorder, isA<CircleBorder>());
+      expect(button.highlightColor, Colors.white.withValues(alpha: 0.12));
+      expect(button.splashColor, Colors.white.withValues(alpha: 0.16));
+      expect(find.bySemanticsLabel('Go to today'), findsOneWidget);
+    },
+  );
 }
 
 Future<void> _pumpPlanner(WidgetTester tester) async {

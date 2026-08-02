@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rmplanner/app/theme/app_theme.dart';
@@ -39,17 +41,21 @@ Future<EventType?> showEventTypePicker({
     barrierDismissible: true,
     barrierColor: Colors.black.withValues(alpha: 0.18),
     useSafeArea: false,
-    builder: (dialogContext) => Align(
-      alignment: Alignment.center,
-      child: FractionallySizedBox(
-        widthFactor: 0.90,
-        heightFactor: 0.80,
-        child: _EventTypePickerSheet(
-          eventTypes: types,
-          recommendedEventTypeId: recommendedId,
+    builder: (dialogContext) {
+      final media = MediaQuery.sizeOf(dialogContext);
+      return Center(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: math.min(360, media.width - 32),
+            maxHeight: media.height * 0.76,
+          ),
+          child: _EventTypePickerSheet(
+            eventTypes: types,
+            recommendedEventTypeId: recommendedId,
+          ),
         ),
-      ),
-    ),
+      );
+    },
   );
 }
 
@@ -111,13 +117,16 @@ final class _EventTypePickerSheet extends StatelessWidget {
           child: SafeArea(
             top: true,
             bottom: true,
-            child: SizedBox(
-              height: constraints.maxHeight,
+            minimum: const EdgeInsets.symmetric(vertical: 8),
+            child: SingleChildScrollView(
+              key: const Key('event-type-picker-scroll'),
+              padding: const EdgeInsets.only(bottom: 4),
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 22, 24, 8),
+                    padding: const EdgeInsets.fromLTRB(20, 14, 20, 6),
                     child: Text(
                       'Select Event Type',
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
@@ -126,86 +135,83 @@ final class _EventTypePickerSheet extends StatelessWidget {
                       ),
                     ),
                   ),
-                  Flexible(
-                    child: eventTypes.isEmpty
-                        ? const Padding(
-                            padding: EdgeInsets.fromLTRB(16, 8, 16, 12),
-                            child: Text('No active Event Types are available.'),
-                          )
-                        : ListView.builder(
-                            key: const Key('event-type-picker-list'),
-                            shrinkWrap: true,
-                            padding: const EdgeInsets.fromLTRB(16, 2, 16, 4),
-                            itemCount: eventTypes.length,
-                            itemBuilder: (context, index) {
-                              final type = eventTypes[index];
-                              final recommended =
-                                  type.id == recommendedEventTypeId;
-                              return Semantics(
-                                button: true,
-                                label:
-                                    '${type.label} Event Type'
-                                    '${recommended ? ', Recommended' : ''}',
-                                child: InkWell(
-                                  key: Key(
-                                    'event-type-option-${type.stableKey}',
-                                  ),
-                                  borderRadius: BorderRadius.circular(12),
-                                  onTap: () => Navigator.of(context).pop(type),
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 7,
-                                    ),
-                                    child: Row(
-                                      children: <Widget>[
-                                        Container(
-                                          width: 18,
-                                          height: 18,
-                                          decoration: BoxDecoration(
-                                            color: Color(type.colorValue),
-                                            shape: BoxShape.circle,
-                                            border: Border.all(
-                                              color: Colors.white.withValues(
-                                                alpha: 0.35,
-                                              ),
-                                            ),
-                                          ),
+                  if (eventTypes.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.fromLTRB(16, 8, 16, 12),
+                      child: Text('No active Event Types are available.'),
+                    )
+                  else
+                    ListView.builder(
+                      key: const Key('event-type-picker-list'),
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      itemCount: eventTypes.length,
+                      itemBuilder: (context, index) {
+                        final type = eventTypes[index];
+                        final recommended = type.id == recommendedEventTypeId;
+                        return Semantics(
+                          button: true,
+                          label:
+                              '${type.label} Event Type'
+                              '${recommended ? ', Recommended' : ''}',
+                          child: InkWell(
+                            key: Key('event-type-option-${type.stableKey}'),
+                            borderRadius: BorderRadius.circular(12),
+                            onTap: () => Navigator.of(context).pop(type),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 7,
+                              ),
+                              child: Row(
+                                children: <Widget>[
+                                  Container(
+                                    width: 18,
+                                    height: 18,
+                                    decoration: BoxDecoration(
+                                      color: Color(type.colorValue),
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: Colors.white.withValues(
+                                          alpha: 0.35,
                                         ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: Text(
-                                            type.label,
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ),
-                                        if (recommended)
-                                          Text(
-                                            'Recommended',
-                                            key: Key(
-                                              'event-type-recommended-${type.stableKey}',
-                                            ),
-                                            style: const TextStyle(
-                                              color: AppTheme.rose,
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                          ),
-                                      ],
+                                      ),
                                     ),
                                   ),
-                                ),
-                              );
-                            },
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      type.label,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                  if (recommended)
+                                    Text(
+                                      'Recommended',
+                                      key: Key(
+                                        'event-type-recommended-${type.stableKey}',
+                                      ),
+                                      style: const TextStyle(
+                                        color: AppTheme.rose,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
                           ),
-                  ),
+                        );
+                      },
+                    ),
                   Align(
                     alignment: Alignment.centerRight,
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(12, 2, 12, 8),
+                      padding: const EdgeInsets.fromLTRB(12, 2, 12, 0),
                       child: TextButton(
                         key: const Key('event-type-picker-cancel'),
                         onPressed: () => Navigator.of(context).pop(),
