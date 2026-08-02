@@ -2956,8 +2956,8 @@ commit created for this section; its short SHA is reported after commit.
 - `git diff --check`: passed before the implementation commit.
 - Implementation checkpoint: `6e20945`
   (`fix(planner): match measured pmg event flow layouts`).
-- APK build/update-install and device walkthrough remain the next bounded
-  steps; physical acceptance must still be recorded only from explicit owner
+- APK build/update-install evidence is recorded in the final section below;
+  physical acceptance must still be recorded only from explicit owner
   PASS/FAIL results.
 - No physical-acceptance or final VS-08 integration checkpoint was created.
 - No push; PR #8 remains untouched; VS-09 remains unauthorized and unstarted.
@@ -3099,3 +3099,25 @@ commit created for this section; its short SHA is reported after commit.
   final acceptance checkpoint was created; the People item additionally awaits
   the missing approved person-link architecture.
 - No push; PR #8 remains untouched; VS-09 remains unauthorized and unstarted.
+
+## VS-08 Pixel-Measured APK Update-Install Evidence
+
+- Temp APK: `C:\Users\sherl\Documents\Next Transfer-Temp\build\app\outputs\flutter-apk\app-debug.apk`.
+- APK size: `195351240` bytes.
+- Local APK SHA-256: `B0ED5E73C0122492EB691CB9FD35EC1F62BE8D6AFCF396D8FCF3ADD5F1791495`.
+- Build command: `C:\Users\sherl\AppData\Local\Temp\run_flutter.bat build apk --debug` with the bundled Android SDK exported only for the command.
+- Authorized device: Infinix X6731, serial
+  `adb-10620253B3004617-2m7ZVB._adb-tls-connect._tcp`.
+- Install command: `adb install -r` against the Temp APK. Result: `Success`.
+- Installed base APK SHA-256 matched the local APK exactly:
+  `b0ed5e73c0122492eb691cb9fd35ec1f62be8d6afcf396d8fcf3add5f1791495`.
+- Package `com.nexttransfer.rmplanner` remained version `0.1.0`,
+  `dataDir=/data/user/0/com.nexttransfer.rmplanner`, and
+  `ceDataInode=1509267`. `firstInstallTime=2026-07-27 15:42:22` was
+  preserved; `lastUpdateTime` advanced to `2026-08-02 16:57:05`.
+- The package was force-stopped and launched with
+  `com.nexttransfer.rmplanner/.MainActivity`; the process was running and
+  the ActivityRecord was focused. The device notification shade remained the
+  current foreground window, so no physical UI PASS/FAIL is inferred.
+- Physical walkthrough acceptance remains pending explicit owner PASS/FAIL;
+  no physical or final VS-08 integration checkpoint was created.
