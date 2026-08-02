@@ -744,7 +744,7 @@ void main() {
   );
 
   test(
-    'VS08-OWNER / Q2: v9 upgrades through schema v11 with safe Planner defaults',
+    'VS08-OWNER / Q2: v9 upgrades through schema v13 with safe Planner defaults',
     () async {
       final sqliteDatabase = sqlite3.openInMemory();
       try {
@@ -783,7 +783,14 @@ void main() {
         expect(
           (await versionTen.customSelect('PRAGMA user_version').getSingle())
               .read<int>('user_version'),
-          11,
+          13,
+        );
+        final taskColumns = await versionTen
+            .customSelect('PRAGMA table_info(planner_tasks)')
+            .get();
+        expect(
+          taskColumns.map((row) => row.read<String>('name')),
+          contains('people_json'),
         );
         await versionTen.close();
       } finally {

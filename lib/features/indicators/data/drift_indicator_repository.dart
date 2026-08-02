@@ -171,7 +171,7 @@ final class DriftIndicatorRepository implements IndicatorRepository {
           IndicatorContributionHistoryItem(
             entryId: row.id,
             reportId: row.sourceReportId,
-            sourceLabel: labels[row.sourceReportId] ?? 'Activity Report',
+            sourceLabel: labels[row.sourceReportId] ?? 'Current Status',
             activityDate: PlannerDate.parse(row.activityDate),
             value: IndicatorAmount(
               scaledValue: row.valueScaled,

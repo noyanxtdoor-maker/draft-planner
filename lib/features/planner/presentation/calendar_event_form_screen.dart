@@ -15,6 +15,7 @@ import 'package:rmplanner/features/planner/domain/event_type.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 import 'package:rmplanner/features/planner/domain/task_event_link.dart';
 import 'package:rmplanner/features/planner/presentation/event_type_picker_dialog.dart';
+import 'package:rmplanner/features/planner/presentation/widgets/planner_slide_down_date_picker.dart';
 
 enum CalendarEventFormMode { create, edit, reschedule }
 
@@ -902,15 +903,15 @@ final class _CalendarEventFormScreenState
         const SizedBox(height: 24),
         Align(
           alignment: Alignment.centerRight,
-          child: FilledButton.icon(
+          child: TextButton.icon(
             key: const Key('add-people-button'),
             onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 content: Text('People can be added from Contacts.'),
               ),
             ),
-            style: _sectionActionStyle(minWidth: 96),
-            icon: const Icon(Icons.person_add_alt_1, size: 24),
+            style: _rightAlignedFormActionStyle(),
+            icon: const Icon(Icons.add, size: 24),
             label: const Text('People'),
           ),
         ),
@@ -941,12 +942,12 @@ final class _CalendarEventFormScreenState
                 if (linked == null)
                   Align(
                     alignment: Alignment.centerRight,
-                    child: FilledButton.icon(
+                    child: TextButton.icon(
                       key: const Key('weekly-life-indicator-link-button'),
                       onPressed: _chooseIndicator,
-                      style: _sectionActionStyle(minWidth: 132),
+                      style: _rightAlignedFormActionStyle(),
                       icon: const Icon(Icons.add, size: 24),
-                      label: const Text('Link Indicator'),
+                      label: const Text('Link to Weekly Life Indicator'),
                     ),
                   )
                 else
@@ -962,7 +963,7 @@ final class _CalendarEventFormScreenState
                       TextButton(
                         key: const Key('weekly-life-indicator-change'),
                         onPressed: _chooseIndicator,
-                        style: _sectionActionStyle(minWidth: 88),
+                        style: _rightAlignedFormActionStyle(),
                         child: const Text('Change'),
                       ),
                       IconButton(
@@ -1086,13 +1087,12 @@ final class _CalendarEventFormScreenState
     );
   }
 
-  ButtonStyle _sectionActionStyle({required double minWidth}) {
-    return FilledButton.styleFrom(
-      minimumSize: Size(minWidth, 48),
-      padding: const EdgeInsets.symmetric(horizontal: 18),
-      backgroundColor: AppTheme.rose.withValues(alpha: 0.48),
-      foregroundColor: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+  ButtonStyle _rightAlignedFormActionStyle() {
+    return TextButton.styleFrom(
+      minimumSize: const Size(0, 48),
+      padding: EdgeInsets.zero,
+      alignment: Alignment.centerRight,
+      foregroundColor: AppTheme.rose,
       textStyle: const TextStyle(fontSize: 17, fontWeight: FontWeight.w500),
     );
   }
@@ -1234,7 +1234,7 @@ final class _CalendarEventFormScreenState
     required PlannerDate initial,
     required ValueChanged<PlannerDate> onSelected,
   }) async {
-    final value = await showDatePicker(
+    final value = await showSharedPlannerDatePicker(
       context: context,
       initialDate: initial.asLocalDate,
       firstDate: DateTime(1900),

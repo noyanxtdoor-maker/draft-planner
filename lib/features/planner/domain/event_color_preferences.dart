@@ -145,6 +145,7 @@ abstract final class PlannerEventColorDefaults {
         'teaching': teaching,
         'finding': finding,
         'service': service,
+        'work': service,
         'other': other,
         'meeting': meeting,
         'study or plan': studyOrPlan,

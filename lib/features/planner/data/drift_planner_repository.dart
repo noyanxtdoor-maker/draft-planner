@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:drift/drift.dart';
 import 'package:rmplanner/core/database/app_database.dart';
 import 'package:rmplanner/core/time/app_clock.dart';
@@ -231,6 +233,9 @@ final class DriftPlannerRepository implements PlannerRepository {
                 title: normalized.title,
                 notes: Value<String?>(normalized.notes),
                 dueDate: Value<String?>(normalized.dueDate?.iso8601),
+                dueMinute: Value<int?>(normalized.dueMinute),
+                recurrenceFrequency: Value<String>(normalized.recurrence.name),
+                peopleJson: Value<String>(jsonEncode(normalized.people)),
                 requiresReport: Value<bool>(normalized.requiresReport),
                 contributionRuleKey: Value<String?>(
                   normalized.contributionRuleKey,
@@ -250,6 +255,9 @@ final class DriftPlannerRepository implements PlannerRepository {
                 title: Value<String>(normalized.title),
                 notes: Value<String?>(normalized.notes),
                 dueDate: Value<String?>(normalized.dueDate?.iso8601),
+                dueMinute: Value<int?>(normalized.dueMinute),
+                recurrenceFrequency: Value<String>(normalized.recurrence.name),
+                peopleJson: Value<String>(jsonEncode(normalized.people)),
                 requiresReport: Value<bool>(normalized.requiresReport),
                 contributionRuleKey: Value<String?>(
                   normalized.contributionRuleKey,
@@ -276,6 +284,9 @@ final class DriftPlannerRepository implements PlannerRepository {
       title: row.title,
       notes: row.notes,
       dueDate: row.dueDate == null ? null : PlannerDate.parse(row.dueDate!),
+      dueMinute: row.dueMinute,
+      recurrence: PlannerTaskRecurrence.values.byName(row.recurrenceFrequency),
+      people: _decodePeople(row.peopleJson),
       status: PlannerTaskStatus.values.byName(row.status),
       requiresReport: row.requiresReport,
       contributionRuleKey: row.contributionRuleKey,
@@ -289,6 +300,23 @@ final class DriftPlannerRepository implements PlannerRepository {
   static String? _normalizeOptional(String? value) {
     final normalized = value?.trim();
     return normalized == null || normalized.isEmpty ? null : normalized;
+  }
+
+  static List<String> _decodePeople(String raw) {
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is List<Object?>) {
+        return List<String>.unmodifiable(
+          decoded
+              .whereType<String>()
+              .map((person) => person.trim())
+              .where((person) => person.isNotEmpty),
+        );
+      }
+    } on FormatException {
+      // Older or manually edited local rows remain readable without people.
+    }
+    return const <String>[];
   }
 
   static String _taskStatusLabel(PlannerTaskStatus status) {

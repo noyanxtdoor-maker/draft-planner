@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:rmplanner/features/planner/domain/event_color_preferences.dart';
+import 'package:rmplanner/features/planner/domain/event_type.dart';
 import 'package:rmplanner/features/planner/domain/planner_day.dart';
 import 'package:rmplanner/features/planner/presentation/widgets/planner_event_block_layout_policy.dart';
 
@@ -7,6 +8,34 @@ import 'package:rmplanner/features/planner/presentation/widgets/planner_event_bl
 /// the item or rereading the Event table. The map is supplied by the existing
 /// Event Type controller and changes atomically when a settings write lands.
 abstract final class PlannerEventColorResolver {
+  static EventColorPreference preferenceForType(
+    EventType type,
+    Map<String, EventColorPreference> preferencesByStableKey,
+  ) {
+    return preferencesByStableKey[type.stableKey] ??
+        PlannerEventColorDefaults.forEventType(type);
+  }
+
+  static Color accentColorForType(
+    EventType type,
+    Map<String, EventColorPreference> preferencesByTypeId,
+  ) {
+    return Color(
+      preferencesByTypeId[type.id]?.accentArgb ??
+          PlannerEventColorDefaults.forEventType(type).accentArgb,
+    );
+  }
+
+  static Color surfaceColorForType(
+    EventType type,
+    Map<String, EventColorPreference> preferencesByTypeId,
+  ) {
+    return Color(
+      preferencesByTypeId[type.id]?.surfaceArgb ??
+          PlannerEventColorDefaults.forEventType(type).surfaceArgb,
+    );
+  }
+
   static EventColorPreference? preferenceFor(
     PlannerCalendarItem event,
     Map<String, EventColorPreference> preferencesByTypeId,

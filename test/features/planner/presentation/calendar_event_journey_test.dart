@@ -51,10 +51,10 @@ void main() {
 
       expect(find.text('Select Event Type'), findsOneWidget);
       expect(find.text('New Calendar Event'), findsNothing);
-      await tester.tap(find.byKey(const Key('event-type-option-general')));
+      await tester.tap(find.byKey(const Key('event-type-option-other')));
       await tester.pumpAndSettle();
       expect(find.text('New Calendar Event'), findsNothing);
-      expect(find.text('General'), findsOneWidget);
+      expect(find.text('Other'), findsOneWidget);
       expect(tester.takeException(), isNull, reason: 'form opened');
       await tester.enterText(
         find.byKey(const Key('event-title-field')),
@@ -157,7 +157,7 @@ void main() {
       // No all-day fixture renders on the Day timeline any more.
       expect(find.text('Offline Calendar Event'), findsNothing);
       expect(find.byKey(const Key('all-day-section')), findsNothing);
-      // The 'General' activity-type chip is still surfaced through the new
+      // The 'Other' activity-type chip is still surfaced through the new
       // selected-type indicator on the create form, so make sure no stale
       // Day-view fixture text remains.
       expect(tester.takeException(), isNull);

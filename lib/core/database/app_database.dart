@@ -89,6 +89,10 @@ class PlannerTasks extends Table {
   TextColumn get title => text()();
   TextColumn get notes => text().nullable()();
   TextColumn get dueDate => text().nullable()();
+  IntColumn get dueMinute => integer().nullable()();
+  TextColumn get recurrenceFrequency =>
+      text().withDefault(const Constant('none'))();
+  TextColumn get peopleJson => text().withDefault(const Constant('[]'))();
   TextColumn get status => text().withDefault(const Constant('incomplete'))();
   BoolColumn get requiresReport =>
       boolean().withDefault(const Constant(false))();
@@ -727,7 +731,7 @@ final class AppDatabase extends _$AppDatabase {
   final bool _injectPlannerExperienceMigrationFailure;
 
   @override
-  int get schemaVersion => _schemaVersionOverride ?? 11;
+  int get schemaVersion => _schemaVersionOverride ?? 13;
 
   @override
   MigrationStrategy get migration {
@@ -989,6 +993,22 @@ final class AppDatabase extends _$AppDatabase {
                 plannerPreferences,
                 plannerPreferences.eventColorPreferencesJson,
               );
+            }
+          }
+          if (from < 12 && to >= 12) {
+            if (!await _columnExists('planner_tasks', 'due_minute')) {
+              await migrator.addColumn(plannerTasks, plannerTasks.dueMinute);
+            }
+            if (!await _columnExists('planner_tasks', 'recurrence_frequency')) {
+              await migrator.addColumn(
+                plannerTasks,
+                plannerTasks.recurrenceFrequency,
+              );
+            }
+          }
+          if (from < 13 && to >= 13) {
+            if (!await _columnExists('planner_tasks', 'people_json')) {
+              await migrator.addColumn(plannerTasks, plannerTasks.peopleJson);
             }
           }
         });

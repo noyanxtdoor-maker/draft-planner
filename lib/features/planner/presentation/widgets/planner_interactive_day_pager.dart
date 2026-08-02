@@ -972,7 +972,6 @@ class _PagerPreviewColumn extends StatelessWidget {
       event,
       eventColorsByTypeId,
     );
-    final border = PlannerEventBlockColorPolicy.borderColor(accent);
     final columnGap = (placement.columnCount > 1 ? 3.0 : 0.0);
     final blockWidth =
         (contentWidth - columnGap * (placement.columnCount - 1)) /
@@ -994,14 +993,13 @@ class _PagerPreviewColumn extends StatelessWidget {
             borderRadius: BorderRadius.circular(
               PlannerEventBlockLayoutPolicy.eventBorderRadius,
             ),
-            side: BorderSide(color: border),
           ),
           clipBehavior: Clip.antiAlias,
           child: DecoratedBox(
             decoration: BoxDecoration(
               border: Border(
                 left: BorderSide(
-                  color: event.isBackupAppointment ? Colors.black : border,
+                  color: event.isBackupAppointment ? Colors.black : accent,
                   width: event.isBackupAppointment
                       ? PlannerEventBlockLayoutPolicy.backupEventAccentWidth
                       : PlannerEventBlockLayoutPolicy.eventAccentWidth,

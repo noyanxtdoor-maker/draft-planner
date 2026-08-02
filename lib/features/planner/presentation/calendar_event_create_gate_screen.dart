@@ -70,14 +70,21 @@ final class _CalendarEventCreateGateScreenState
       }
       return;
     }
-    final saved = await showCalendarEventFormSheet<bool>(
-      context: context,
-      eventType: selected,
-      date: widget.initialDate,
-      startMinute: widget.initialStartMinute,
-      indicatorKey: widget.initialIndicatorKey,
-      sourceTaskId: widget.sourceTaskId,
-    );
+    final router = GoRouter.of(context);
+    final saved = switch (selected) {
+      EventTypePickerEvent(:final eventType) =>
+        await showCalendarEventFormSheet<bool>(
+          context: context,
+          eventType: eventType,
+          date: widget.initialDate,
+          startMinute: widget.initialStartMinute,
+          indicatorKey: widget.initialIndicatorKey,
+          sourceTaskId: widget.sourceTaskId,
+        ),
+      EventTypePickerTask() => await router.push<bool>(
+        '${RoutePaths.taskCreate}?date=${widget.initialDate.iso8601}',
+      ),
+    };
     if (!mounted) {
       return;
     }

@@ -6,12 +6,15 @@ import 'package:go_router/go_router.dart';
 import 'package:rmplanner/app/router/route_names.dart';
 import 'package:rmplanner/app/theme/app_theme.dart';
 import 'package:rmplanner/features/planner/application/calendar_event_providers.dart';
+import 'package:rmplanner/features/planner/application/event_type_providers.dart';
 import 'package:rmplanner/features/planner/application/outcome_reporting_providers.dart';
 import 'package:rmplanner/features/planner/application/planner_providers.dart';
 import 'package:rmplanner/features/planner/domain/calendar_event.dart';
+import 'package:rmplanner/features/planner/domain/event_type.dart';
 import 'package:rmplanner/features/planner/domain/outcome_reporting.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 import 'package:rmplanner/features/planner/presentation/widgets/anchored_top_bar_popup.dart';
+import 'package:rmplanner/features/planner/presentation/widgets/planner_event_color_resolver.dart';
 import 'package:rmplanner/features/planner/presentation/widgets/planner_top_bar_icons.dart';
 
 enum _CalendarEventDetailAction { duplicate, delete }
@@ -74,6 +77,7 @@ final class _CalendarEventDetailScreenState
   @override
   Widget build(BuildContext context) {
     final message = ref.watch(calendarEventControllerProvider);
+    final eventTypeState = ref.watch(eventTypeControllerProvider);
     final content = FutureBuilder<CalendarEventOccurrence?>(
       future: _load,
       builder: (context, snapshot) {
@@ -100,7 +104,19 @@ final class _CalendarEventDetailScreenState
         final hasRecordedOutcome = _hasRecordedOutcome(occurrence.status);
         final showStatus =
             occurrence.requiresReport && (awaitingReport || hasRecordedOutcome);
-        final isContactEvent = _isContactEvent(occurrence.activityTypeLabel);
+        final eventType = occurrence.activityTypeId == null
+            ? null
+            : eventTypeState.eventTypes
+                  .where((type) => type.id == occurrence.activityTypeId)
+                  .firstOrNull;
+        final eventTypeLabel = eventType?.label ?? occurrence.activityTypeLabel;
+        final eventTypeAccent = eventType == null
+            ? Color(occurrence.activityTypeColorValue ?? 0xFFE91E63)
+            : PlannerEventColorResolver.accentColorForType(
+                eventType,
+                eventTypeState.resolvedEventColorsByTypeId,
+              );
+        final isContactEvent = _isContactEvent(eventType, eventTypeLabel);
         return ListView(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
           children: <Widget>[
@@ -127,17 +143,15 @@ final class _CalendarEventDetailScreenState
               spacing: 8,
               runSpacing: 8,
               children: <Widget>[
-                if (occurrence.activityTypeLabel != null)
+                if (eventTypeLabel != null)
                   Chip(
                     key: const Key('event-detail-event-type'),
                     avatar: Icon(
                       Icons.category_outlined,
                       size: 18,
-                      color: Color(
-                        occurrence.activityTypeColorValue ?? 0xFFE91E63,
-                      ),
+                      color: eventTypeAccent,
                     ),
-                    label: Text(occurrence.activityTypeLabel!),
+                    label: Text(eventTypeLabel),
                   ),
                 if (occurrence.isRecurring)
                   const Chip(
@@ -198,11 +212,11 @@ final class _CalendarEventDetailScreenState
                     '${_time(occurrence.startDisplay)} – '
                     '${_time(occurrence.endDisplay)}',
               ),
-            if (occurrence.activityTypeLabel != null)
+            if (eventTypeLabel != null)
               _DetailField(
                 icon: Icons.category_outlined,
                 label: isContactEvent ? 'Contact Type' : 'Event Type',
-                value: occurrence.activityTypeLabel!,
+                value: eventTypeLabel,
               ),
             if (occurrence.timing == CalendarEventTiming.allDay)
               const _DetailRow(icon: Icons.today_outlined, label: 'All day'),
@@ -460,6 +474,7 @@ final class _CalendarEventDetailScreenState
                     calendarEventOutcomeLabel(
                       status: status,
                       isContactEvent: _isContactEvent(
+                        null,
                         occurrence.activityTypeLabel,
                       ),
                     ),
@@ -661,7 +676,10 @@ final class _CalendarEventDetailScreenState
         '${_time(local)}';
   }
 
-  static bool _isContactEvent(String? label) {
+  static bool _isContactEvent(EventType? type, String? label) {
+    if (type?.stableKey == SystemEventTypeKeys.meaningfulConnection) {
+      return true;
+    }
     final normalized = label?.trim().toLowerCase();
     return normalized != null && normalized.contains('contact');
   }
@@ -683,7 +701,7 @@ final class _CalendarEventDetailScreenState
     return switch (status) {
       CalendarEventStatus.scheduled => Icons.error_outline,
       CalendarEventStatus.completedHappened => Icons.check_circle_outline,
-      CalendarEventStatus.partiallyCompleted => Icons.phone_callback_outlined,
+      CalendarEventStatus.partiallyCompleted => Icons.sync_disabled,
       CalendarEventStatus.didNotHappen => Icons.remove_circle_outline,
       _ => Icons.flag_outlined,
     };
@@ -693,7 +711,7 @@ final class _CalendarEventDetailScreenState
     return switch (status) {
       CalendarEventStatus.scheduled => Colors.amber,
       CalendarEventStatus.completedHappened => Colors.lightGreen,
-      CalendarEventStatus.partiallyCompleted => Colors.pinkAccent,
+      CalendarEventStatus.partiallyCompleted => const Color(0xFFE27386),
       CalendarEventStatus.didNotHappen => Colors.white70,
       _ => Colors.white70,
     };

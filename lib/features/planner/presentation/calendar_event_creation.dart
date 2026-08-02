@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:rmplanner/app/router/route_names.dart';
 import 'package:rmplanner/features/planner/domain/event_type.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 import 'package:rmplanner/features/planner/presentation/calendar_event_form_screen.dart';
@@ -39,14 +41,19 @@ Future<T?> launchCalendarEventCreation<T>(
   if (selected == null || !context.mounted) {
     return null;
   }
-  return showCalendarEventFormSheet<T>(
-    context: context,
-    eventType: selected,
-    date: creationContext.date,
-    startMinute: creationContext.startMinute,
-    indicatorKey: creationContext.indicatorKey,
-    sourceTaskId: creationContext.sourceTaskId,
-  );
+  return switch (selected) {
+    EventTypePickerEvent(:final eventType) => showCalendarEventFormSheet<T>(
+      context: context,
+      eventType: eventType,
+      date: creationContext.date,
+      startMinute: creationContext.startMinute,
+      indicatorKey: creationContext.indicatorKey,
+      sourceTaskId: creationContext.sourceTaskId,
+    ),
+    EventTypePickerTask() => context.push<T>(
+      '${RoutePaths.taskCreate}?date=${creationContext.date.iso8601}',
+    ),
+  };
 }
 
 Future<T?> showCalendarEventFormSheet<T>({

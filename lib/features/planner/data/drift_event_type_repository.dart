@@ -403,18 +403,23 @@ final class DriftEventTypeRepository implements EventTypeRepository {
   }
 
   Future<void> _ensureSystemTypes(String profileId) async {
-    final existing =
-        await (database.select(database.activityTypes)
-              ..where(
-                (table) =>
-                    table.profileId.equals(profileId) &
-                    table.isSystem.equals(true),
-              )
-              ..limit(1))
-            .getSingleOrNull();
-    if (existing == null) {
-      await database.transaction(() => _insertSystemTypes(profileId));
-    }
+    await database.transaction(() async {
+      await _insertSystemTypes(profileId);
+      await (database.update(database.activityTypes)..where(
+            (table) =>
+                table.profileId.equals(profileId) &
+                table.isSystem.equals(true) &
+                table.stableKey.equals(
+                  SystemEventTypeKeys.meaningfulConnection,
+                ),
+          ))
+          .write(
+            ActivityTypesCompanion(
+              label: const Value<String>('Contact'),
+              updatedAtUtc: Value<DateTime>(clock.nowUtc()),
+            ),
+          );
+    });
   }
 
   Future<void> _insertSystemTypes(String profileId) async {
@@ -529,12 +534,60 @@ const _systemSeeds = <_SystemEventTypeSeed>[
     position: 0,
   ),
   _SystemEventTypeSeed(
+    id: SystemEventTypeIds.other,
+    key: SystemEventTypeKeys.other,
+    label: 'Other',
+    icon: EventTypeIcon.calendar,
+    colorValue: 0xFF868A8D,
+    position: 1,
+  ),
+  _SystemEventTypeSeed(
+    id: SystemEventTypeIds.teaching,
+    key: SystemEventTypeKeys.teaching,
+    label: 'Teaching',
+    icon: EventTypeIcon.exercise,
+    colorValue: 0xFFEBC766,
+    position: 2,
+  ),
+  _SystemEventTypeSeed(
+    id: SystemEventTypeIds.finding,
+    key: SystemEventTypeKeys.finding,
+    label: 'Finding',
+    icon: EventTypeIcon.job,
+    colorValue: 0xFFDE9EDA,
+    position: 3,
+  ),
+  _SystemEventTypeSeed(
+    id: SystemEventTypeIds.meeting,
+    key: SystemEventTypeKeys.meeting,
+    label: 'Meeting',
+    icon: EventTypeIcon.appointment,
+    colorValue: 0xFFE27386,
+    position: 4,
+  ),
+  _SystemEventTypeSeed(
+    id: SystemEventTypeIds.studyOrPlan,
+    key: SystemEventTypeKeys.studyOrPlan,
+    label: 'Study or Plan',
+    icon: EventTypeIcon.scripture,
+    colorValue: 0xFFA272C8,
+    position: 5,
+  ),
+  _SystemEventTypeSeed(
+    id: SystemEventTypeIds.service,
+    key: SystemEventTypeKeys.service,
+    label: 'Service',
+    icon: EventTypeIcon.work,
+    colorValue: 0xFFDEEDF2,
+    position: 6,
+  ),
+  _SystemEventTypeSeed(
     id: SystemEventTypeIds.templeVisit,
     key: SystemEventTypeKeys.templeVisit,
     label: 'Temple Visit',
     icon: EventTypeIcon.temple,
     colorValue: 0xFFB39DDB,
-    position: 1,
+    position: 7,
     indicatorKey: 'temple_visit',
     reportRequired: true,
     durationMinutes: 120,
@@ -545,7 +598,7 @@ const _systemSeeds = <_SystemEventTypeSeed>[
     label: 'Scripture Study',
     icon: EventTypeIcon.scripture,
     colorValue: 0xFF7CB342,
-    position: 2,
+    position: 8,
     indicatorKey: 'scripture_study',
     reportRequired: true,
     durationMinutes: 30,
@@ -556,7 +609,7 @@ const _systemSeeds = <_SystemEventTypeSeed>[
     label: 'Exercise',
     icon: EventTypeIcon.exercise,
     colorValue: 0xFFFF7043,
-    position: 3,
+    position: 9,
     indicatorKey: 'exercise',
     reportRequired: true,
   ),
@@ -566,7 +619,7 @@ const _systemSeeds = <_SystemEventTypeSeed>[
     label: 'Budget Review',
     icon: EventTypeIcon.budget,
     colorValue: 0xFF42A5F5,
-    position: 4,
+    position: 10,
     indicatorKey: 'budget_review',
     reportRequired: true,
   ),
@@ -576,17 +629,17 @@ const _systemSeeds = <_SystemEventTypeSeed>[
     label: 'Job Application',
     icon: EventTypeIcon.job,
     colorValue: 0xFFAB47BC,
-    position: 5,
+    position: 11,
     indicatorKey: 'job_applications',
     reportRequired: true,
   ),
   _SystemEventTypeSeed(
     id: SystemEventTypeIds.meaningfulConnection,
     key: SystemEventTypeKeys.meaningfulConnection,
-    label: 'Meaningful Connection',
+    label: 'Contact',
     icon: EventTypeIcon.connection,
     colorValue: 0xFFEC407A,
-    position: 6,
+    position: 12,
     indicatorKey: 'meaningful_connections',
     reportRequired: true,
   ),
@@ -596,7 +649,7 @@ const _systemSeeds = <_SystemEventTypeSeed>[
     label: 'Appointment',
     icon: EventTypeIcon.appointment,
     colorValue: 0xFF26A69A,
-    position: 7,
+    position: 13,
   ),
   _SystemEventTypeSeed(
     id: SystemEventTypeIds.work,
@@ -604,7 +657,23 @@ const _systemSeeds = <_SystemEventTypeSeed>[
     label: 'Work',
     icon: EventTypeIcon.work,
     colorValue: 0xFF78909C,
-    position: 8,
+    position: 14,
+  ),
+  _SystemEventTypeSeed(
+    id: SystemEventTypeIds.travel,
+    key: SystemEventTypeKeys.travel,
+    label: 'Travel',
+    icon: EventTypeIcon.personal,
+    colorValue: 0xFFECC7D8,
+    position: 15,
+  ),
+  _SystemEventTypeSeed(
+    id: SystemEventTypeIds.meal,
+    key: SystemEventTypeKeys.meal,
+    label: 'Meal',
+    icon: EventTypeIcon.budget,
+    colorValue: 0xFFE1CFB9,
+    position: 16,
   ),
   _SystemEventTypeSeed(
     id: SystemEventTypeIds.personal,
@@ -612,6 +681,6 @@ const _systemSeeds = <_SystemEventTypeSeed>[
     label: 'Personal',
     icon: EventTypeIcon.personal,
     colorValue: 0xFFFFA726,
-    position: 9,
+    position: 17,
   ),
 ];

@@ -24,6 +24,30 @@ abstract final class PlannerEventBlockLayoutPolicy {
   static const double eventBorderRadius = 4;
   static const double eventAccentWidth = 4;
   static const double backupEventAccentWidth = 7;
+  static const double contentHorizontalPadding = 8;
+  static const double recurrenceRightInset = 8;
+  static const double recurrenceIconSize = 18;
+  static const double recurringContentRightPadding =
+      recurrenceRightInset + recurrenceIconSize + 4;
+
+  static double titleFontSize(Density density) {
+    return switch (density) {
+      Density.veryShort => 11,
+      Density.short => 13,
+      Density.medium || Density.tall => 15,
+    };
+  }
+
+  static double timeFontSize(Density density) {
+    return switch (density) {
+      Density.veryShort || Density.short => 13,
+      Density.medium || Density.tall => 14,
+    };
+  }
+
+  static double recurrenceIconSizeFor(Density density) {
+    return density == Density.veryShort ? 14 : recurrenceIconSize;
+  }
 
   /// Approximate line height for title text at the block's font size.
   static const double titleLineHeight = 18;

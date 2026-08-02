@@ -2576,7 +2576,6 @@ final class _TimelineEventBlock extends StatelessWidget {
       event,
       eventColorsByTypeId,
     );
-    final border = PlannerEventBlockColorPolicy.borderColor(accent);
     return LayoutBuilder(
       builder: (context, constraints) {
         final availableHeight = constraints.maxHeight.isFinite
@@ -2616,7 +2615,6 @@ final class _TimelineEventBlock extends StatelessWidget {
                       borderRadius: BorderRadius.circular(
                         PlannerEventBlockLayoutPolicy.eventBorderRadius,
                       ),
-                      side: BorderSide(color: border),
                     ),
                     clipBehavior: Clip.antiAlias,
                     child: InkWell(
@@ -2629,7 +2627,7 @@ final class _TimelineEventBlock extends StatelessWidget {
                             left: BorderSide(
                               color: event.isBackupAppointment
                                   ? Colors.black
-                                  : border,
+                                  : accent,
                               width: event.isBackupAppointment
                                   ? PlannerEventBlockLayoutPolicy
                                         .backupEventAccentWidth

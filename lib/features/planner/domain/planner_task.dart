@@ -2,6 +2,8 @@ import 'package:rmplanner/features/planner/domain/planner_date.dart';
 
 enum PlannerTaskStatus { incomplete, completed, skipped, cancelled }
 
+enum PlannerTaskRecurrence { none, daily, weekly, monthly, yearly }
+
 final class PlannerTaskContext {
   const PlannerTaskContext({
     this.linkedEventIds = const <String>[],
@@ -20,6 +22,9 @@ final class PlannerTaskDraft {
     required this.requiresReport,
     this.notes,
     this.contributionRuleKey,
+    this.dueMinute,
+    this.recurrence = PlannerTaskRecurrence.none,
+    this.people = const <String>[],
   });
 
   final String id;
@@ -28,6 +33,9 @@ final class PlannerTaskDraft {
   final PlannerDate? dueDate;
   final bool requiresReport;
   final String? contributionRuleKey;
+  final int? dueMinute;
+  final PlannerTaskRecurrence recurrence;
+  final List<String> people;
 
   PlannerTaskDraft normalized() {
     final normalizedTitle = title.trim();
@@ -36,6 +44,23 @@ final class PlannerTaskDraft {
         'A Task title cannot be blank.',
       );
     }
+    if (dueMinute != null && (dueMinute! < 0 || dueMinute! > 1439)) {
+      throw const PlannerTaskValidationException(
+        'A Task due time must be a valid time of day.',
+      );
+    }
+    final normalizedDueMinute = dueDate == null ? null : dueMinute;
+    final normalizedRecurrence = dueDate == null
+        ? PlannerTaskRecurrence.none
+        : recurrence;
+    final normalizedPeople = <String>[];
+    for (final person in people) {
+      final normalizedPerson = person.trim();
+      if (normalizedPerson.isNotEmpty &&
+          !normalizedPeople.contains(normalizedPerson)) {
+        normalizedPeople.add(normalizedPerson);
+      }
+    }
     return PlannerTaskDraft(
       id: id,
       title: normalizedTitle,
@@ -43,6 +68,9 @@ final class PlannerTaskDraft {
       dueDate: dueDate,
       requiresReport: requiresReport,
       contributionRuleKey: _normalizeOptional(contributionRuleKey),
+      dueMinute: normalizedDueMinute,
+      recurrence: normalizedRecurrence,
+      people: List<String>.unmodifiable(normalizedPeople),
     );
   }
 
@@ -64,6 +92,9 @@ final class PlannerTask {
     required this.updatedAtUtc,
     this.notes,
     this.contributionRuleKey,
+    this.dueMinute,
+    this.recurrence = PlannerTaskRecurrence.none,
+    this.people = const <String>[],
     this.linkedEventIds = const <String>[],
     this.pathwayContextLabels = const <String>[],
   });
@@ -76,6 +107,9 @@ final class PlannerTask {
   final PlannerTaskStatus status;
   final bool requiresReport;
   final String? contributionRuleKey;
+  final int? dueMinute;
+  final PlannerTaskRecurrence recurrence;
+  final List<String> people;
   final DateTime createdAtUtc;
   final DateTime updatedAtUtc;
   final List<String> linkedEventIds;
@@ -126,11 +160,6 @@ abstract final class TaskStatusPolicy {
   }) {
     if (task.status == target) {
       return TaskStatusChangeOutcome.unchanged;
-    }
-    if (target == PlannerTaskStatus.completed &&
-        task.status == PlannerTaskStatus.incomplete &&
-        task.requiresReport) {
-      return TaskStatusChangeOutcome.reportRequired;
     }
     if (target == PlannerTaskStatus.incomplete &&
         task.status != PlannerTaskStatus.incomplete &&

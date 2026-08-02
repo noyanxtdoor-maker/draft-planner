@@ -2157,6 +2157,41 @@ class $PlannerTasksTable extends PlannerTasks
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _dueMinuteMeta = const VerificationMeta(
+    'dueMinute',
+  );
+  @override
+  late final GeneratedColumn<int> dueMinute = GeneratedColumn<int>(
+    'due_minute',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _recurrenceFrequencyMeta =
+      const VerificationMeta('recurrenceFrequency');
+  @override
+  late final GeneratedColumn<String> recurrenceFrequency =
+      GeneratedColumn<String>(
+        'recurrence_frequency',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant('none'),
+      );
+  static const VerificationMeta _peopleJsonMeta = const VerificationMeta(
+    'peopleJson',
+  );
+  @override
+  late final GeneratedColumn<String> peopleJson = GeneratedColumn<String>(
+    'people_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('[]'),
+  );
   static const VerificationMeta _statusMeta = const VerificationMeta('status');
   @override
   late final GeneratedColumn<String> status = GeneratedColumn<String>(
@@ -2222,6 +2257,9 @@ class $PlannerTasksTable extends PlannerTasks
     title,
     notes,
     dueDate,
+    dueMinute,
+    recurrenceFrequency,
+    peopleJson,
     status,
     requiresReport,
     contributionRuleKey,
@@ -2271,6 +2309,27 @@ class $PlannerTasksTable extends PlannerTasks
       context.handle(
         _dueDateMeta,
         dueDate.isAcceptableOrUnknown(data['due_date']!, _dueDateMeta),
+      );
+    }
+    if (data.containsKey('due_minute')) {
+      context.handle(
+        _dueMinuteMeta,
+        dueMinute.isAcceptableOrUnknown(data['due_minute']!, _dueMinuteMeta),
+      );
+    }
+    if (data.containsKey('recurrence_frequency')) {
+      context.handle(
+        _recurrenceFrequencyMeta,
+        recurrenceFrequency.isAcceptableOrUnknown(
+          data['recurrence_frequency']!,
+          _recurrenceFrequencyMeta,
+        ),
+      );
+    }
+    if (data.containsKey('people_json')) {
+      context.handle(
+        _peopleJsonMeta,
+        peopleJson.isAcceptableOrUnknown(data['people_json']!, _peopleJsonMeta),
       );
     }
     if (data.containsKey('status')) {
@@ -2348,6 +2407,18 @@ class $PlannerTasksTable extends PlannerTasks
         DriftSqlType.string,
         data['${effectivePrefix}due_date'],
       ),
+      dueMinute: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}due_minute'],
+      ),
+      recurrenceFrequency: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}recurrence_frequency'],
+      )!,
+      peopleJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}people_json'],
+      )!,
       status: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}status'],
@@ -2383,6 +2454,9 @@ class PlannerTaskRow extends DataClass implements Insertable<PlannerTaskRow> {
   final String title;
   final String? notes;
   final String? dueDate;
+  final int? dueMinute;
+  final String recurrenceFrequency;
+  final String peopleJson;
   final String status;
   final bool requiresReport;
   final String? contributionRuleKey;
@@ -2394,6 +2468,9 @@ class PlannerTaskRow extends DataClass implements Insertable<PlannerTaskRow> {
     required this.title,
     this.notes,
     this.dueDate,
+    this.dueMinute,
+    required this.recurrenceFrequency,
+    required this.peopleJson,
     required this.status,
     required this.requiresReport,
     this.contributionRuleKey,
@@ -2412,6 +2489,11 @@ class PlannerTaskRow extends DataClass implements Insertable<PlannerTaskRow> {
     if (!nullToAbsent || dueDate != null) {
       map['due_date'] = Variable<String>(dueDate);
     }
+    if (!nullToAbsent || dueMinute != null) {
+      map['due_minute'] = Variable<int>(dueMinute);
+    }
+    map['recurrence_frequency'] = Variable<String>(recurrenceFrequency);
+    map['people_json'] = Variable<String>(peopleJson);
     map['status'] = Variable<String>(status);
     map['requires_report'] = Variable<bool>(requiresReport);
     if (!nullToAbsent || contributionRuleKey != null) {
@@ -2433,6 +2515,11 @@ class PlannerTaskRow extends DataClass implements Insertable<PlannerTaskRow> {
       dueDate: dueDate == null && nullToAbsent
           ? const Value.absent()
           : Value(dueDate),
+      dueMinute: dueMinute == null && nullToAbsent
+          ? const Value.absent()
+          : Value(dueMinute),
+      recurrenceFrequency: Value(recurrenceFrequency),
+      peopleJson: Value(peopleJson),
       status: Value(status),
       requiresReport: Value(requiresReport),
       contributionRuleKey: contributionRuleKey == null && nullToAbsent
@@ -2454,6 +2541,11 @@ class PlannerTaskRow extends DataClass implements Insertable<PlannerTaskRow> {
       title: serializer.fromJson<String>(json['title']),
       notes: serializer.fromJson<String?>(json['notes']),
       dueDate: serializer.fromJson<String?>(json['dueDate']),
+      dueMinute: serializer.fromJson<int?>(json['dueMinute']),
+      recurrenceFrequency: serializer.fromJson<String>(
+        json['recurrenceFrequency'],
+      ),
+      peopleJson: serializer.fromJson<String>(json['peopleJson']),
       status: serializer.fromJson<String>(json['status']),
       requiresReport: serializer.fromJson<bool>(json['requiresReport']),
       contributionRuleKey: serializer.fromJson<String?>(
@@ -2472,6 +2564,9 @@ class PlannerTaskRow extends DataClass implements Insertable<PlannerTaskRow> {
       'title': serializer.toJson<String>(title),
       'notes': serializer.toJson<String?>(notes),
       'dueDate': serializer.toJson<String?>(dueDate),
+      'dueMinute': serializer.toJson<int?>(dueMinute),
+      'recurrenceFrequency': serializer.toJson<String>(recurrenceFrequency),
+      'peopleJson': serializer.toJson<String>(peopleJson),
       'status': serializer.toJson<String>(status),
       'requiresReport': serializer.toJson<bool>(requiresReport),
       'contributionRuleKey': serializer.toJson<String?>(contributionRuleKey),
@@ -2486,6 +2581,9 @@ class PlannerTaskRow extends DataClass implements Insertable<PlannerTaskRow> {
     String? title,
     Value<String?> notes = const Value.absent(),
     Value<String?> dueDate = const Value.absent(),
+    Value<int?> dueMinute = const Value.absent(),
+    String? recurrenceFrequency,
+    String? peopleJson,
     String? status,
     bool? requiresReport,
     Value<String?> contributionRuleKey = const Value.absent(),
@@ -2497,6 +2595,9 @@ class PlannerTaskRow extends DataClass implements Insertable<PlannerTaskRow> {
     title: title ?? this.title,
     notes: notes.present ? notes.value : this.notes,
     dueDate: dueDate.present ? dueDate.value : this.dueDate,
+    dueMinute: dueMinute.present ? dueMinute.value : this.dueMinute,
+    recurrenceFrequency: recurrenceFrequency ?? this.recurrenceFrequency,
+    peopleJson: peopleJson ?? this.peopleJson,
     status: status ?? this.status,
     requiresReport: requiresReport ?? this.requiresReport,
     contributionRuleKey: contributionRuleKey.present
@@ -2512,6 +2613,13 @@ class PlannerTaskRow extends DataClass implements Insertable<PlannerTaskRow> {
       title: data.title.present ? data.title.value : this.title,
       notes: data.notes.present ? data.notes.value : this.notes,
       dueDate: data.dueDate.present ? data.dueDate.value : this.dueDate,
+      dueMinute: data.dueMinute.present ? data.dueMinute.value : this.dueMinute,
+      recurrenceFrequency: data.recurrenceFrequency.present
+          ? data.recurrenceFrequency.value
+          : this.recurrenceFrequency,
+      peopleJson: data.peopleJson.present
+          ? data.peopleJson.value
+          : this.peopleJson,
       status: data.status.present ? data.status.value : this.status,
       requiresReport: data.requiresReport.present
           ? data.requiresReport.value
@@ -2536,6 +2644,9 @@ class PlannerTaskRow extends DataClass implements Insertable<PlannerTaskRow> {
           ..write('title: $title, ')
           ..write('notes: $notes, ')
           ..write('dueDate: $dueDate, ')
+          ..write('dueMinute: $dueMinute, ')
+          ..write('recurrenceFrequency: $recurrenceFrequency, ')
+          ..write('peopleJson: $peopleJson, ')
           ..write('status: $status, ')
           ..write('requiresReport: $requiresReport, ')
           ..write('contributionRuleKey: $contributionRuleKey, ')
@@ -2552,6 +2663,9 @@ class PlannerTaskRow extends DataClass implements Insertable<PlannerTaskRow> {
     title,
     notes,
     dueDate,
+    dueMinute,
+    recurrenceFrequency,
+    peopleJson,
     status,
     requiresReport,
     contributionRuleKey,
@@ -2567,6 +2681,9 @@ class PlannerTaskRow extends DataClass implements Insertable<PlannerTaskRow> {
           other.title == this.title &&
           other.notes == this.notes &&
           other.dueDate == this.dueDate &&
+          other.dueMinute == this.dueMinute &&
+          other.recurrenceFrequency == this.recurrenceFrequency &&
+          other.peopleJson == this.peopleJson &&
           other.status == this.status &&
           other.requiresReport == this.requiresReport &&
           other.contributionRuleKey == this.contributionRuleKey &&
@@ -2580,6 +2697,9 @@ class PlannerTasksCompanion extends UpdateCompanion<PlannerTaskRow> {
   final Value<String> title;
   final Value<String?> notes;
   final Value<String?> dueDate;
+  final Value<int?> dueMinute;
+  final Value<String> recurrenceFrequency;
+  final Value<String> peopleJson;
   final Value<String> status;
   final Value<bool> requiresReport;
   final Value<String?> contributionRuleKey;
@@ -2592,6 +2712,9 @@ class PlannerTasksCompanion extends UpdateCompanion<PlannerTaskRow> {
     this.title = const Value.absent(),
     this.notes = const Value.absent(),
     this.dueDate = const Value.absent(),
+    this.dueMinute = const Value.absent(),
+    this.recurrenceFrequency = const Value.absent(),
+    this.peopleJson = const Value.absent(),
     this.status = const Value.absent(),
     this.requiresReport = const Value.absent(),
     this.contributionRuleKey = const Value.absent(),
@@ -2605,6 +2728,9 @@ class PlannerTasksCompanion extends UpdateCompanion<PlannerTaskRow> {
     required String title,
     this.notes = const Value.absent(),
     this.dueDate = const Value.absent(),
+    this.dueMinute = const Value.absent(),
+    this.recurrenceFrequency = const Value.absent(),
+    this.peopleJson = const Value.absent(),
     this.status = const Value.absent(),
     this.requiresReport = const Value.absent(),
     this.contributionRuleKey = const Value.absent(),
@@ -2622,6 +2748,9 @@ class PlannerTasksCompanion extends UpdateCompanion<PlannerTaskRow> {
     Expression<String>? title,
     Expression<String>? notes,
     Expression<String>? dueDate,
+    Expression<int>? dueMinute,
+    Expression<String>? recurrenceFrequency,
+    Expression<String>? peopleJson,
     Expression<String>? status,
     Expression<bool>? requiresReport,
     Expression<String>? contributionRuleKey,
@@ -2635,6 +2764,10 @@ class PlannerTasksCompanion extends UpdateCompanion<PlannerTaskRow> {
       if (title != null) 'title': title,
       if (notes != null) 'notes': notes,
       if (dueDate != null) 'due_date': dueDate,
+      if (dueMinute != null) 'due_minute': dueMinute,
+      if (recurrenceFrequency != null)
+        'recurrence_frequency': recurrenceFrequency,
+      if (peopleJson != null) 'people_json': peopleJson,
       if (status != null) 'status': status,
       if (requiresReport != null) 'requires_report': requiresReport,
       if (contributionRuleKey != null)
@@ -2651,6 +2784,9 @@ class PlannerTasksCompanion extends UpdateCompanion<PlannerTaskRow> {
     Value<String>? title,
     Value<String?>? notes,
     Value<String?>? dueDate,
+    Value<int?>? dueMinute,
+    Value<String>? recurrenceFrequency,
+    Value<String>? peopleJson,
     Value<String>? status,
     Value<bool>? requiresReport,
     Value<String?>? contributionRuleKey,
@@ -2664,6 +2800,9 @@ class PlannerTasksCompanion extends UpdateCompanion<PlannerTaskRow> {
       title: title ?? this.title,
       notes: notes ?? this.notes,
       dueDate: dueDate ?? this.dueDate,
+      dueMinute: dueMinute ?? this.dueMinute,
+      recurrenceFrequency: recurrenceFrequency ?? this.recurrenceFrequency,
+      peopleJson: peopleJson ?? this.peopleJson,
       status: status ?? this.status,
       requiresReport: requiresReport ?? this.requiresReport,
       contributionRuleKey: contributionRuleKey ?? this.contributionRuleKey,
@@ -2690,6 +2829,15 @@ class PlannerTasksCompanion extends UpdateCompanion<PlannerTaskRow> {
     }
     if (dueDate.present) {
       map['due_date'] = Variable<String>(dueDate.value);
+    }
+    if (dueMinute.present) {
+      map['due_minute'] = Variable<int>(dueMinute.value);
+    }
+    if (recurrenceFrequency.present) {
+      map['recurrence_frequency'] = Variable<String>(recurrenceFrequency.value);
+    }
+    if (peopleJson.present) {
+      map['people_json'] = Variable<String>(peopleJson.value);
     }
     if (status.present) {
       map['status'] = Variable<String>(status.value);
@@ -2722,6 +2870,9 @@ class PlannerTasksCompanion extends UpdateCompanion<PlannerTaskRow> {
           ..write('title: $title, ')
           ..write('notes: $notes, ')
           ..write('dueDate: $dueDate, ')
+          ..write('dueMinute: $dueMinute, ')
+          ..write('recurrenceFrequency: $recurrenceFrequency, ')
+          ..write('peopleJson: $peopleJson, ')
           ..write('status: $status, ')
           ..write('requiresReport: $requiresReport, ')
           ..write('contributionRuleKey: $contributionRuleKey, ')
@@ -20700,6 +20851,9 @@ typedef $$PlannerTasksTableCreateCompanionBuilder =
       required String title,
       Value<String?> notes,
       Value<String?> dueDate,
+      Value<int?> dueMinute,
+      Value<String> recurrenceFrequency,
+      Value<String> peopleJson,
       Value<String> status,
       Value<bool> requiresReport,
       Value<String?> contributionRuleKey,
@@ -20714,6 +20868,9 @@ typedef $$PlannerTasksTableUpdateCompanionBuilder =
       Value<String> title,
       Value<String?> notes,
       Value<String?> dueDate,
+      Value<int?> dueMinute,
+      Value<String> recurrenceFrequency,
+      Value<String> peopleJson,
       Value<String> status,
       Value<bool> requiresReport,
       Value<String?> contributionRuleKey,
@@ -20818,6 +20975,21 @@ class $$PlannerTasksTableFilterComposer
 
   ColumnFilters<String> get dueDate => $composableBuilder(
     column: $table.dueDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get dueMinute => $composableBuilder(
+    column: $table.dueMinute,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get recurrenceFrequency => $composableBuilder(
+    column: $table.recurrenceFrequency,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get peopleJson => $composableBuilder(
+    column: $table.peopleJson,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -20953,6 +21125,21 @@ class $$PlannerTasksTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get dueMinute => $composableBuilder(
+    column: $table.dueMinute,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get recurrenceFrequency => $composableBuilder(
+    column: $table.recurrenceFrequency,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get peopleJson => $composableBuilder(
+    column: $table.peopleJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get status => $composableBuilder(
     column: $table.status,
     builder: (column) => ColumnOrderings(column),
@@ -21022,6 +21209,19 @@ class $$PlannerTasksTableAnnotationComposer
 
   GeneratedColumn<String> get dueDate =>
       $composableBuilder(column: $table.dueDate, builder: (column) => column);
+
+  GeneratedColumn<int> get dueMinute =>
+      $composableBuilder(column: $table.dueMinute, builder: (column) => column);
+
+  GeneratedColumn<String> get recurrenceFrequency => $composableBuilder(
+    column: $table.recurrenceFrequency,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get peopleJson => $composableBuilder(
+    column: $table.peopleJson,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<String> get status =>
       $composableBuilder(column: $table.status, builder: (column) => column);
@@ -21162,6 +21362,9 @@ class $$PlannerTasksTableTableManager
                 Value<String> title = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
                 Value<String?> dueDate = const Value.absent(),
+                Value<int?> dueMinute = const Value.absent(),
+                Value<String> recurrenceFrequency = const Value.absent(),
+                Value<String> peopleJson = const Value.absent(),
                 Value<String> status = const Value.absent(),
                 Value<bool> requiresReport = const Value.absent(),
                 Value<String?> contributionRuleKey = const Value.absent(),
@@ -21174,6 +21377,9 @@ class $$PlannerTasksTableTableManager
                 title: title,
                 notes: notes,
                 dueDate: dueDate,
+                dueMinute: dueMinute,
+                recurrenceFrequency: recurrenceFrequency,
+                peopleJson: peopleJson,
                 status: status,
                 requiresReport: requiresReport,
                 contributionRuleKey: contributionRuleKey,
@@ -21188,6 +21394,9 @@ class $$PlannerTasksTableTableManager
                 required String title,
                 Value<String?> notes = const Value.absent(),
                 Value<String?> dueDate = const Value.absent(),
+                Value<int?> dueMinute = const Value.absent(),
+                Value<String> recurrenceFrequency = const Value.absent(),
+                Value<String> peopleJson = const Value.absent(),
                 Value<String> status = const Value.absent(),
                 Value<bool> requiresReport = const Value.absent(),
                 Value<String?> contributionRuleKey = const Value.absent(),
@@ -21200,6 +21409,9 @@ class $$PlannerTasksTableTableManager
                 title: title,
                 notes: notes,
                 dueDate: dueDate,
+                dueMinute: dueMinute,
+                recurrenceFrequency: recurrenceFrequency,
+                peopleJson: peopleJson,
                 status: status,
                 requiresReport: requiresReport,
                 contributionRuleKey: contributionRuleKey,

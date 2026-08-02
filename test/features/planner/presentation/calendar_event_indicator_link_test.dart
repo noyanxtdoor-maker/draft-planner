@@ -47,14 +47,14 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      Future<void> openGeneralForm() async {
+      Future<void> openOtherForm() async {
         await tester.tap(find.text('Planner'));
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const Key('planner-create-button')));
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const Key('create-calendar-event-action')));
         await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const Key('event-type-option-general')));
+        await tester.tap(find.byKey(const Key('event-type-option-other')));
         await tester.pumpAndSettle();
       }
 
@@ -90,13 +90,16 @@ void main() {
         await tester.pumpAndSettle();
       }
 
-      await openGeneralForm();
+      await openOtherForm();
       await tester.enterText(
         find.byKey(const Key('event-title-field')),
         'Indicator Link Event',
       );
       await revealIndicatorLink();
-      expect(find.text('Link Indicator'), findsOneWidget);
+      expect(
+        find.byKey(const Key('weekly-life-indicator-link-button')),
+        findsOneWidget,
+      );
       await tester.tap(
         find.byKey(const Key('weekly-life-indicator-link-section')),
       );
@@ -110,12 +113,15 @@ void main() {
       await tester.tap(find.byKey(const Key('weekly-life-indicator-remove')));
       await tester.pumpAndSettle();
       expect(find.text('Optional — no indicator linked'), findsNothing);
-      expect(find.text('Link Indicator'), findsOneWidget);
+      expect(
+        find.byKey(const Key('weekly-life-indicator-link-button')),
+        findsOneWidget,
+      );
       await tester.tap(find.byKey(const Key('calendar-event-sheet-close')));
       await tester.pumpAndSettle();
       expect(await database.select(database.calendarEvents).get(), isEmpty);
 
-      await openGeneralForm();
+      await openOtherForm();
       await tester.enterText(
         find.byKey(const Key('event-title-field')),
         'Indicator Link Event',

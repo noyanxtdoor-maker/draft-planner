@@ -41,8 +41,8 @@ void main() {
     );
   });
 
-  test('AC-D-005,006,010,011,018,019: statuses remain factual and required '
-      'reporting cannot be bypassed', () {
+  test('AC-D-005,006,010,011,018,019: statuses remain factual and direct '
+      'completion remains idempotent', () {
     final task = _task(
       status: PlannerTaskStatus.incomplete,
       requiresReport: true,
@@ -56,7 +56,7 @@ void main() {
         target: PlannerTaskStatus.completed,
         hasReportOrLedgerEffect: false,
       ),
-      TaskStatusChangeOutcome.reportRequired,
+      TaskStatusChangeOutcome.changed,
     );
     expect(
       TaskStatusPolicy.evaluate(

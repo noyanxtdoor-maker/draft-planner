@@ -73,13 +73,13 @@ final class PlannerEventBlockContentView extends StatelessWidget {
     final titleStyle = TextStyle(
       color: textColor,
       fontWeight: FontWeight.w700,
-      fontSize: density == Density.veryShort ? 9 : 12,
+      fontSize: PlannerEventBlockLayoutPolicy.titleFontSize(density),
       height: density == Density.veryShort ? 1.0 : 1.1,
     );
     final timeStyle = TextStyle(
       color: textColor.withValues(alpha: 0.92),
       fontWeight: FontWeight.w600,
-      fontSize: density == Density.tall ? 11 : 10,
+      fontSize: PlannerEventBlockLayoutPolicy.timeFontSize(density),
       height: 1.1,
     );
     final timeText = formatPlannerEventRange(
@@ -89,7 +89,9 @@ final class PlannerEventBlockContentView extends StatelessWidget {
     );
     final inlineText = '${event.displayTitle}  $timeText';
     final verticalPadding = density == Density.veryShort ? 0.0 : 4.0;
-    final rightPadding = event.isRecurring ? 22.0 : 6.0;
+    final rightPadding = event.isRecurring
+        ? PlannerEventBlockLayoutPolicy.recurringContentRightPadding
+        : PlannerEventBlockLayoutPolicy.contentHorizontalPadding;
 
     return Stack(
       clipBehavior: Clip.hardEdge,
@@ -97,7 +99,7 @@ final class PlannerEventBlockContentView extends StatelessWidget {
         Positioned.fill(
           child: Padding(
             padding: EdgeInsets.fromLTRB(
-              6,
+              PlannerEventBlockLayoutPolicy.contentHorizontalPadding,
               verticalPadding,
               rightPadding,
               verticalPadding,
@@ -147,10 +149,12 @@ final class PlannerEventBlockContentView extends StatelessWidget {
           Positioned(
             key: recurrenceKey,
             top: density == Density.veryShort ? 1 : 3,
-            right: 4,
+            right: PlannerEventBlockLayoutPolicy.recurrenceRightInset,
             child: Icon(
               Icons.repeat,
-              size: density == Density.veryShort ? 10 : 14,
+              size: PlannerEventBlockLayoutPolicy.recurrenceIconSizeFor(
+                density,
+              ),
               color: accent.withValues(alpha: 0.92),
             ),
           ),

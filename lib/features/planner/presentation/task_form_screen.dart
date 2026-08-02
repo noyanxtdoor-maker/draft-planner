@@ -2,9 +2,14 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rmplanner/app/theme/app_theme.dart';
+import 'package:rmplanner/features/planner/application/event_type_providers.dart';
 import 'package:rmplanner/features/planner/application/planner_providers.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 import 'package:rmplanner/features/planner/domain/planner_task.dart';
+import 'package:rmplanner/features/planner/presentation/widgets/planner_slide_down_date_picker.dart';
+import 'package:rmplanner/features/privacy/application/privacy_providers.dart';
+import 'package:rmplanner/features/privacy/domain/permission_summary.dart';
 
 final class TaskFormScreen extends ConsumerStatefulWidget {
   const TaskFormScreen.create({required this.initialDueDate, super.key})
@@ -20,13 +25,20 @@ final class TaskFormScreen extends ConsumerStatefulWidget {
   ConsumerState<TaskFormScreen> createState() => _TaskFormScreenState();
 }
 
-final class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
+final class _TaskFormScreenState extends ConsumerState<TaskFormScreen>
+    with WidgetsBindingObserver {
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
-  final _notesController = TextEditingController();
+  final _descriptionController = TextEditingController();
   late final String _stableTaskId;
   PlannerDate? _dueDate;
+  int? _dueMinute;
+  PlannerTaskRecurrence _recurrence = PlannerTaskRecurrence.none;
+  List<String> _people = <String>[];
   bool _requiresReport = false;
+  bool _setDueDate = false;
+  bool _notificationsUnavailable = false;
+  bool _remindersUnavailable = false;
   bool _loading = false;
   bool _saving = false;
   String? _error;
@@ -34,9 +46,13 @@ final class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _stableTaskId =
         widget.taskId ?? ref.read(plannerIdentifierSourceProvider).nextUuid();
     _dueDate = widget.initialDueDate;
+    _setDueDate = widget.initialDueDate != null;
+    _dueMinute = widget.initialDueDate == null ? null : 18 * 60;
+    unawaited(_refreshCapabilities());
     if (widget.taskId != null) {
       _loading = true;
       unawaited(_loadExisting());
@@ -44,10 +60,34 @@ final class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted && _setDueDate) {
+      unawaited(_refreshCapabilities());
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _titleController.dispose();
-    _notesController.dispose();
+    _descriptionController.dispose();
     super.dispose();
+  }
+
+  Future<void> _refreshCapabilities() async {
+    final status = await ref
+        .read(permissionGatewayProvider)
+        .status(OptionalPermission.notifications);
+    if (!mounted) {
+      return;
+    }
+    final unavailable = status != OperatingSystemPermissionState.granted;
+    setState(() {
+      _notificationsUnavailable = unavailable;
+      // The current release has no independent reminder scheduler. Until one
+      // is introduced, reminder capability follows notification capability.
+      _remindersUnavailable = unavailable;
+    });
   }
 
   Future<void> _loadExisting() async {
@@ -65,117 +105,376 @@ final class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
       return;
     }
     _titleController.text = task.title;
-    _notesController.text = task.notes ?? '';
+    _descriptionController.text = task.notes ?? '';
     setState(() {
       _dueDate = task.dueDate;
+      _dueMinute = task.dueMinute ?? (task.dueDate == null ? null : 18 * 60);
+      _recurrence = task.recurrence;
+      _people = List<String>.unmodifiable(task.people);
+      _setDueDate = task.dueDate != null;
       _requiresReport = task.requiresReport;
       _loading = false;
     });
+    if (_setDueDate) {
+      await _refreshCapabilities();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final use24HourTime = ref
+        .watch(eventTypeControllerProvider)
+        .settings
+        .use24HourTime;
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.taskId == null ? 'New Task' : 'Edit Task'),
-      ),
       body: SafeArea(
         child: _loading
             ? const Center(child: CircularProgressIndicator())
-            : Form(
-                key: _formKey,
-                child: ListView(
-                  padding: const EdgeInsets.all(20),
-                  children: <Widget>[
-                    if (_error != null) ...<Widget>[
-                      Text(
-                        _error!,
-                        key: const Key('task-form-error'),
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.error,
+            : Column(
+                children: <Widget>[
+                  const SizedBox(height: 14),
+                  Container(
+                    key: const Key('task-form-drag-handle'),
+                    width: 32,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.white70,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(18, 20, 18, 12),
+                    child: Row(
+                      children: <Widget>[
+                        IconButton(
+                          key: const Key('task-form-close'),
+                          tooltip: 'Close',
+                          onPressed: () => Navigator.of(context).maybePop(),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(
+                            minWidth: 48,
+                            minHeight: 48,
+                          ),
+                          icon: const Icon(Icons.close, size: 30),
                         ),
-                      ),
-                      const SizedBox(height: 12),
-                    ],
-                    TextFormField(
-                      key: const Key('task-title-field'),
-                      controller: _titleController,
-                      autofocus: widget.taskId == null,
-                      textInputAction: TextInputAction.next,
-                      decoration: const InputDecoration(
-                        labelText: 'Task title',
-                        hintText: 'What needs to be done?',
-                      ),
-                      validator: (value) {
-                        return value == null || value.trim().isEmpty
-                            ? 'Enter a Task title.'
-                            : null;
-                      },
+                        const Spacer(),
+                        _buildSaveButton(),
+                      ],
                     ),
-                    const SizedBox(height: 14),
-                    TextFormField(
-                      key: const Key('task-notes-field'),
-                      controller: _notesController,
-                      minLines: 3,
-                      maxLines: 6,
-                      decoration: const InputDecoration(
-                        labelText: 'Notes (optional)',
+                  ),
+                  Expanded(
+                    child: Form(
+                      key: _formKey,
+                      child: ListView(
+                        key: const Key('task-form-scroll'),
+                        padding: EdgeInsets.fromLTRB(
+                          18,
+                          8,
+                          18,
+                          28 + MediaQuery.of(context).viewInsets.bottom,
+                        ),
+                        children: <Widget>[
+                          if (_error != null) ...<Widget>[
+                            Text(
+                              _error!,
+                              key: const Key('task-form-error'),
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.error,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                          ],
+                          TextFormField(
+                            key: const Key('task-title-field'),
+                            controller: _titleController,
+                            autofocus: widget.taskId == null,
+                            textInputAction: TextInputAction.next,
+                            maxLines: 1,
+                            decoration: _inputDecoration('Title'),
+                            validator: (value) {
+                              return value == null || value.trim().isEmpty
+                                  ? 'Enter a Task title.'
+                                  : null;
+                            },
+                          ),
+                          const SizedBox(height: 18),
+                          TextFormField(
+                            key: const Key('task-notes-field'),
+                            controller: _descriptionController,
+                            minLines: 3,
+                            maxLines: 5,
+                            keyboardType: TextInputType.multiline,
+                            decoration: _inputDecoration('Description'),
+                          ),
+                          const SizedBox(height: 18),
+                          SwitchListTile(
+                            key: const Key('task-set-due-date-switch'),
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text('Set Due Date'),
+                            value: _setDueDate,
+                            onChanged: _toggleDueDate,
+                          ),
+                          if (_setDueDate) ...<Widget>[
+                            const SizedBox(height: 12),
+                            _TaskValueField(
+                              key: const Key('task-due-date-field'),
+                              label: 'Due Date',
+                              value: _dueDate?.iso8601 ?? 'Choose date',
+                              icon: Icons.calendar_month_outlined,
+                              onTap: _pickDueDate,
+                            ),
+                            const SizedBox(height: 16),
+                            _TaskValueField(
+                              key: const Key('task-due-time-field'),
+                              label: 'Time',
+                              value: _formatTime(context, use24HourTime),
+                              onTap: _pickDueTime,
+                            ),
+                            const SizedBox(height: 12),
+                            _TaskRepeatField(
+                              key: const Key('task-repeat-field'),
+                              value: _recurrence,
+                              onTap: _pickRecurrence,
+                            ),
+                            if (_notificationsUnavailable) ...<Widget>[
+                              const SizedBox(height: 18),
+                              _CapabilityNotice(
+                                key: const Key('task-notifications-notice'),
+                                message: 'Notifications are disabled',
+                                supportingText:
+                                    'Enabling notifications in the app will allow you to be notified of new referrals, upcoming events, tasks due, and other important notifications',
+                                onEnable: _openSettings,
+                              ),
+                            ],
+                            if (_remindersUnavailable) ...<Widget>[
+                              const SizedBox(height: 18),
+                              _CapabilityNotice(
+                                key: const Key('task-reminders-notice'),
+                                message:
+                                    'Cannot show reminders: Alarms & reminders is disabled',
+                                onEnable: _openSettings,
+                              ),
+                            ],
+                          ],
+                          const SizedBox(height: 26),
+                          const _TaskSectionHeader(label: 'People'),
+                          const SizedBox(height: 18),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton.icon(
+                              key: const Key('task-add-people-button'),
+                              onPressed: _addPerson,
+                              style: _rightAlignedActionStyle(),
+                              icon: const Icon(Icons.add, size: 24),
+                              label: const Text('People'),
+                            ),
+                          ),
+                          if (_people.isNotEmpty) ...<Widget>[
+                            const SizedBox(height: 8),
+                            for (final person in _people)
+                              Padding(
+                                key: Key('task-person-row-$person'),
+                                padding: const EdgeInsets.only(bottom: 4),
+                                child: Row(
+                                  children: <Widget>[
+                                    Expanded(child: Text(person)),
+                                    IconButton(
+                                      key: Key('task-remove-person-$person'),
+                                      tooltip: 'Remove $person',
+                                      onPressed: () => _removePerson(person),
+                                      icon: const Icon(Icons.close, size: 20),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                          ],
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 14),
-                    OutlinedButton.icon(
-                      key: const Key('task-due-date-button'),
-                      onPressed: _pickDueDate,
-                      icon: const Icon(Icons.event_outlined),
-                      label: Text(
-                        _dueDate == null
-                            ? 'No due date'
-                            : 'Due ${_dueDate!.iso8601}',
-                      ),
-                    ),
-                    if (_dueDate != null)
-                      TextButton(
-                        onPressed: () => setState(() => _dueDate = null),
-                        child: const Text('Remove due date'),
-                      ),
-                    const SizedBox(height: 8),
-                    SwitchListTile(
-                      key: const Key('task-report-required-switch'),
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Structured report required'),
-                      subtitle: const Text(
-                        'Completion stays Incomplete until the report and '
-                        'completion can save together.',
-                      ),
-                      value: _requiresReport,
-                      onChanged: (value) {
-                        setState(() => _requiresReport = value);
-                      },
-                    ),
-                    const SizedBox(height: 20),
-                    FilledButton(
-                      key: const Key('save-task-button'),
-                      onPressed: _saving ? null : _save,
-                      child: Text(_saving ? 'Saving…' : 'Save Task'),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
       ),
     );
   }
 
+  Widget _buildSaveButton() {
+    return Semantics(
+      button: true,
+      label: 'Save',
+      child: FilledButton(
+        key: const Key('save-task-button'),
+        onPressed: _saving ? null : _save,
+        style: FilledButton.styleFrom(
+          minimumSize: const Size(64, 44),
+          padding: const EdgeInsets.symmetric(horizontal: 18),
+          backgroundColor: AppTheme.rose,
+          foregroundColor: AppTheme.background,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
+          ),
+        ),
+        child: _saving
+            ? const SizedBox.square(
+                dimension: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Text('Save'),
+      ),
+    );
+  }
+
+  InputDecoration _inputDecoration(String label) {
+    return InputDecoration(
+      labelText: label,
+      enabledBorder: OutlineInputBorder(
+        borderSide: const BorderSide(color: Colors.white54),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderSide: const BorderSide(color: AppTheme.rose, width: 2),
+        borderRadius: BorderRadius.circular(4),
+      ),
+    );
+  }
+
+  ButtonStyle _rightAlignedActionStyle() {
+    return TextButton.styleFrom(
+      minimumSize: const Size(0, 48),
+      padding: EdgeInsets.zero,
+      alignment: Alignment.centerRight,
+      foregroundColor: AppTheme.rose,
+      textStyle: const TextStyle(fontSize: 17, fontWeight: FontWeight.w500),
+    );
+  }
+
+  void _toggleDueDate(bool value) {
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _setDueDate = value;
+      if (value) {
+        _dueDate ??= ref.read(plannerControllerProvider).selectedDate;
+        _dueDate ??= PlannerDate.fromDateTime(DateTime.now());
+        _dueMinute ??= 18 * 60;
+      } else {
+        _dueDate = null;
+        _dueMinute = null;
+        _recurrence = PlannerTaskRecurrence.none;
+      }
+    });
+    if (value) {
+      unawaited(_refreshCapabilities());
+    }
+  }
+
   Future<void> _pickDueDate() async {
     final initial = _dueDate?.asLocalDate ?? DateTime.now();
-    final value = await showDatePicker(
+    final value = await showSharedPlannerDatePicker(
       context: context,
       initialDate: initial,
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
+      firstDate: DateTime(1900),
+      lastDate: DateTime(2200, 12, 31),
+      helpText: 'Select Task due date',
     );
     if (value != null && mounted) {
       setState(() => _dueDate = PlannerDate.fromDateTime(value));
     }
+  }
+
+  Future<void> _pickDueTime() async {
+    final initial = _timeFromMinute(_dueMinute ?? 18 * 60);
+    final value = await showTimePicker(context: context, initialTime: initial);
+    if (value != null && mounted) {
+      setState(() => _dueMinute = value.hour * 60 + value.minute);
+    }
+  }
+
+  Future<void> _pickRecurrence() async {
+    final value = await showModalBottomSheet<PlannerTaskRecurrence>(
+      context: context,
+      useSafeArea: true,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            for (final recurrence in PlannerTaskRecurrence.values)
+              ListTile(
+                key: Key('task-repeat-option-${recurrence.name}'),
+                title: Text(_recurrenceLabel(recurrence)),
+                onTap: () => Navigator.of(sheetContext).pop(recurrence),
+              ),
+            TextButton(
+              key: const Key('task-repeat-cancel'),
+              onPressed: () => Navigator.of(sheetContext).pop(),
+              child: const Text('Cancel'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (value != null && mounted) {
+      setState(() => _recurrence = value);
+    }
+  }
+
+  Future<void> _openSettings() async {
+    await ref.read(permissionGatewayProvider).openSystemSettings();
+    if (mounted) {
+      await _refreshCapabilities();
+    }
+  }
+
+  Future<void> _addPerson() async {
+    final name = await showDialog<String>(
+      context: context,
+      builder: (_) => const _TaskPersonDialog(),
+    );
+    if (!mounted) {
+      return;
+    }
+    final normalized = name?.trim();
+    if (normalized == null || normalized.isEmpty) {
+      return;
+    }
+    if (_people.contains(normalized)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('That person is already selected.')),
+      );
+      return;
+    }
+    setState(() {
+      _people = List<String>.unmodifiable(<String>[..._people, normalized]);
+    });
+  }
+
+  void _removePerson(String person) {
+    setState(() {
+      _people = List<String>.unmodifiable(
+        _people.where((selected) => selected != person),
+      );
+    });
+  }
+
+  String _formatTime(BuildContext context, bool use24HourTime) {
+    final time = _timeFromMinute(_dueMinute ?? 18 * 60);
+    if (use24HourTime) {
+      return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+    }
+    return time.format(context);
+  }
+
+  static TimeOfDay _timeFromMinute(int minute) {
+    return TimeOfDay(hour: minute ~/ 60, minute: minute % 60);
+  }
+
+  static String _recurrenceLabel(PlannerTaskRecurrence recurrence) {
+    return switch (recurrence) {
+      PlannerTaskRecurrence.none => 'Does not repeat',
+      PlannerTaskRecurrence.daily => 'Daily',
+      PlannerTaskRecurrence.weekly => 'Weekly',
+      PlannerTaskRecurrence.monthly => 'Monthly',
+      PlannerTaskRecurrence.yearly => 'Yearly',
+    };
   }
 
   Future<void> _save() async {
@@ -192,9 +491,12 @@ final class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
           PlannerTaskDraft(
             id: _stableTaskId,
             title: _titleController.text,
-            notes: _notesController.text,
-            dueDate: _dueDate,
+            notes: _descriptionController.text,
+            dueDate: _setDueDate ? _dueDate : null,
+            dueMinute: _setDueDate ? _dueMinute : null,
+            recurrence: _setDueDate ? _recurrence : PlannerTaskRecurrence.none,
             requiresReport: _requiresReport,
+            people: _people,
           ),
         );
     if (!mounted) {
@@ -210,5 +512,212 @@ final class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
           ref.read(plannerControllerProvider).message ??
           'Task could not be saved. Your input remains available.';
     });
+  }
+}
+
+final class _TaskPersonDialog extends StatefulWidget {
+  const _TaskPersonDialog();
+
+  @override
+  State<_TaskPersonDialog> createState() => _TaskPersonDialogState();
+}
+
+final class _TaskPersonDialogState extends State<_TaskPersonDialog> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      key: const Key('task-people-dialog'),
+      title: const Text('Add Person'),
+      content: TextField(
+        key: const Key('task-person-name-field'),
+        controller: _controller,
+        autofocus: true,
+        textInputAction: TextInputAction.done,
+        decoration: const InputDecoration(labelText: 'Name'),
+        onSubmitted: (value) => Navigator.of(context).pop(value),
+      ),
+      actions: <Widget>[
+        TextButton(
+          key: const Key('task-person-cancel'),
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          key: const Key('task-person-add'),
+          onPressed: () => Navigator.of(context).pop(_controller.text),
+          child: const Text('Add'),
+        ),
+      ],
+    );
+  }
+}
+
+final class _TaskValueField extends StatelessWidget {
+  const _TaskValueField({
+    required this.label,
+    required this.value,
+    required this.onTap,
+    this.icon,
+    super.key,
+  });
+
+  final String label;
+  final String value;
+  final VoidCallback onTap;
+  final IconData? icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(4),
+      child: InputDecorator(
+        isFocused: false,
+        decoration: InputDecoration(
+          labelText: label,
+          suffixIcon: icon == null ? null : Icon(icon, size: 30),
+          enabledBorder: OutlineInputBorder(
+            borderSide: const BorderSide(color: Colors.white54),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderSide: const BorderSide(color: AppTheme.rose, width: 2),
+            borderRadius: BorderRadius.circular(4),
+          ),
+        ),
+        child: Text(value, style: const TextStyle(fontSize: 17)),
+      ),
+    );
+  }
+}
+
+final class _TaskRepeatField extends StatelessWidget {
+  const _TaskRepeatField({required this.value, required this.onTap, super.key});
+
+  final PlannerTaskRecurrence value;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      key: const Key('task-repeat-value'),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          children: <Widget>[
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  const Text('Repeat', style: TextStyle(fontSize: 15)),
+                  const SizedBox(height: 4),
+                  Text(
+                    _TaskFormScreenState._recurrenceLabel(value),
+                    style: const TextStyle(fontSize: 18),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.keyboard_arrow_down, size: 26),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+final class _TaskSectionHeader extends StatelessWidget {
+  const _TaskSectionHeader({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        Text(
+          label,
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 8),
+        const Divider(height: 1, color: Colors.white38),
+      ],
+    );
+  }
+}
+
+final class _CapabilityNotice extends StatelessWidget {
+  const _CapabilityNotice({
+    required this.message,
+    required this.onEnable,
+    this.supportingText,
+    super.key,
+  });
+
+  final String message;
+  final String? supportingText;
+  final VoidCallback onEnable;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: <Widget>[
+            const CircleAvatar(
+              radius: 18,
+              backgroundColor: Color(0xFFFFB915),
+              child: Text(
+                'i',
+                style: TextStyle(
+                  color: Colors.black,
+                  fontSize: 25,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(message, style: const TextStyle(fontSize: 16)),
+            ),
+            TextButton(
+              key: Key(
+                'enable-${message.startsWith('Notifications') ? 'notifications' : 'reminders'}',
+              ),
+              onPressed: onEnable,
+              style: TextButton.styleFrom(
+                minimumSize: const Size(96, 48),
+                foregroundColor: AppTheme.background,
+                backgroundColor: AppTheme.rose,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                textStyle: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              child: const Text('Enable'),
+            ),
+          ],
+        ),
+        if (supportingText != null) ...<Widget>[
+          const SizedBox(height: 10),
+          Text(supportingText!, style: const TextStyle(fontSize: 15)),
+        ],
+      ],
+    );
   }
 }

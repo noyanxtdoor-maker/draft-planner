@@ -28,11 +28,30 @@ void main() {
   tearDown(() => database.close());
 
   test(
-    'six system Event Types have exact deterministic indicator mappings',
+    'system Event Types preserve exact mappings and target catalog identities',
     () async {
       final types = await repository.readEventTypes(profileId: profileId);
 
-      expect(types, hasLength(10));
+      expect(types, hasLength(18));
+      expect(
+        types.map((type) => type.stableKey).toSet(),
+        containsAll(<String>[
+          SystemEventTypeKeys.meaningfulConnection,
+          SystemEventTypeKeys.teaching,
+          SystemEventTypeKeys.finding,
+          SystemEventTypeKeys.meeting,
+          SystemEventTypeKeys.studyOrPlan,
+          SystemEventTypeKeys.service,
+          SystemEventTypeKeys.work,
+          SystemEventTypeKeys.templeVisit,
+          SystemEventTypeKeys.travel,
+          SystemEventTypeKeys.meal,
+          SystemEventTypeKeys.other,
+        ]),
+      );
+      expect(types.where((type) => type.label == 'Contact'), hasLength(1));
+      expect(types.where((type) => type.label == 'Service'), hasLength(1));
+      expect(types.where((type) => type.label == 'Work'), hasLength(1));
       expect({
         for (final type in types)
           if (type.exactIndicatorKey != null)

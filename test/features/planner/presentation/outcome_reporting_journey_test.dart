@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rmplanner/core/diagnostics/sanitized_diagnostics.dart';
 import 'package:rmplanner/core/platform/app_environment.dart';
-import 'package:rmplanner/features/planner/data/drift_outcome_reporting_repository.dart';
 import 'package:rmplanner/features/planner/data/drift_planner_repository.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 import 'package:rmplanner/features/planner/domain/planner_task.dart';
@@ -13,8 +12,7 @@ void main() {
   const selected = PlannerDate(year: 2026, month: 7, day: 27);
 
   testWidgets(
-    'AC-G-001..020 / AC-H-001..020: required Task report, contribution, '
-    'correction, and immutable history remain coherent',
+    'VS08 owner override: Task completion uses direct status and no Activity Report UI',
     (tester) async {
       tester.view.physicalSize = const Size(862, 1824);
       tester.view.devicePixelRatio = 2;
@@ -29,11 +27,10 @@ void main() {
         privacyGate: privacy.gate,
       );
       final profile = await startupRepository.completeOnboarding();
-      final taskRepository = DriftPlannerRepository(
+      await DriftPlannerRepository(
         database: database,
         clock: FixedClock(DateTime.utc(2026, 7, 27, 12)),
-      );
-      await taskRepository.saveTask(
+      ).saveTask(
         profileId: profile.id,
         draft: const PlannerTaskDraft(
           id: 'required-report-task',
@@ -55,8 +52,6 @@ void main() {
           plannerIdentifierSource: SequenceIdentifierSource(<String>[
             '60000000-0000-4000-8000-000000000001',
             '60000000-0000-4000-8000-000000000002',
-            '60000000-0000-4000-8000-000000000003',
-            '60000000-0000-4000-8000-000000000004',
           ]),
         ),
       );
@@ -79,90 +74,22 @@ void main() {
       await tester.tap(find.text('Required reporting fixture'));
       await tester.pumpAndSettle();
 
+      expect(find.byKey(const Key('open-task-report-button')), findsNothing);
+      expect(find.textContaining('Activity Report'), findsNothing);
       await tester.tap(find.byKey(const Key('complete-task-button')));
       await tester.pumpAndSettle();
-      expect(find.byKey(const Key('outcome-report-form')), findsOneWidget);
-      expect(find.text('Draft'), findsOneWidget);
-      expect(find.text('Required reporting fixture'), findsOneWidget);
-
-      await tester.tap(
-        find.byKey(const Key('report-outcome-completedHappened')),
-      );
-      await tester.tap(
-        find.byKey(const Key('report-indicator-job_applications')),
-      );
-      await tester.pumpAndSettle();
-      await tester.enterText(
-        find.byKey(const Key('report-indicator-value-job_applications')),
-        '999999999999999999999999999999',
-      );
-      await tester.scrollUntilVisible(
-        find.byKey(const Key('submit-outcome-report')),
-        300,
-        scrollable: find
-            .descendant(
-              of: find.byKey(const Key('outcome-report-form')),
-              matching: find.byType(Scrollable),
-            )
-            .first,
-      );
-      await tester.tap(find.byKey(const Key('submit-outcome-report')));
-      await tester.pumpAndSettle();
-      expect(find.textContaining('supported range'), findsOneWidget);
-      await tester.scrollUntilVisible(
-        find.byKey(const Key('report-indicator-value-job_applications')),
-        -300,
-        scrollable: find
-            .descendant(
-              of: find.byKey(const Key('outcome-report-form')),
-              matching: find.byType(Scrollable),
-            )
-            .first,
-      );
-      await tester.enterText(
-        find.byKey(const Key('report-indicator-value-job_applications')),
-        '1',
-      );
-      await tester.scrollUntilVisible(
-        find.byKey(const Key('submit-outcome-report')),
-        300,
-        scrollable: find
-            .descendant(
-              of: find.byKey(const Key('outcome-report-form')),
-              matching: find.byType(Scrollable),
-            )
-            .first,
-      );
-      await tester.tap(find.byKey(const Key('submit-outcome-report')));
-      await tester.pumpAndSettle();
-
+      expect(find.byKey(const Key('outcome-report-form')), findsNothing);
       expect(find.text('Completed'), findsOneWidget);
+
+      final task = await (database.select(
+        database.plannerTasks,
+      )..where((row) => row.id.equals('required-report-task'))).getSingle();
+      expect(task.status, PlannerTaskStatus.completed.name);
+
       await tester.tap(find.byKey(const Key('task-activity-history-button')));
       await tester.pumpAndSettle();
-      expect(find.byKey(const Key('activity-history-list')), findsOneWidget);
-      expect(find.textContaining('Effective'), findsWidgets);
-      expect(find.text('Correct Report'), findsNothing);
-      final reports = await database.select(database.outcomeReports).get();
-      expect(reports, hasLength(1));
-      final ledger = await database
-          .select(database.activityLedgerEntries)
-          .get();
-      expect(ledger, hasLength(1));
-
-      final outcomeRepository = DriftOutcomeReportingRepository(
-        database: database,
-        clock: FixedClock(DateTime.utc(2026, 7, 27, 12)),
-      );
-      final actual = await outcomeRepository.readActual(
-        profileId: profile.id,
-        indicatorKey: 'job_applications',
-        startDate: selected,
-        endDate: selected,
-      );
-      expect(actual.value.scaledValue, 1);
-      final audit = await outcomeRepository.auditProjection(profile.id);
-      expect(audit.isConsistent, isTrue);
-      expect(audit.issueCount, 0);
+      expect(find.text('No status activity recorded yet.'), findsOneWidget);
+      expect(find.textContaining('Activity Report'), findsNothing);
     },
   );
 }

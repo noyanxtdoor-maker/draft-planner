@@ -215,3 +215,38 @@ final class _PlannerDatePickerPanel extends StatelessWidget {
 }
 
 const Key plannerDatePickerPanelKey = Key('planner-date-picker-panel');
+
+/// Presents the same in-place Planner calendar for a draft-owned date.
+///
+/// The Planner keeps [PlannerDatePickerOverlay] mounted in its existing Stack;
+/// forms use this transparent route wrapper so the exact panel, animation,
+/// SafeArea offset, and Cancel/OK semantics are shared without changing the
+/// Planner's selected date or viewport.
+Future<DateTime?> showSharedPlannerDatePicker({
+  required BuildContext context,
+  required DateTime initialDate,
+  DateTime? firstDate,
+  DateTime? lastDate,
+  String helpText = 'Select Planner date',
+}) {
+  final navigator = Navigator.of(context);
+  return showGeneralDialog<DateTime?>(
+    context: context,
+    useRootNavigator: true,
+    barrierDismissible: false,
+    barrierColor: Colors.transparent,
+    transitionDuration: Duration.zero,
+    pageBuilder: (dialogContext, _, _) => Stack(
+      children: <Widget>[
+        PlannerDatePickerOverlay(
+          initialDate: initialDate,
+          firstDate: firstDate ?? DateTime(1900),
+          lastDate: lastDate ?? DateTime(2200, 12, 31),
+          helpText: helpText,
+          onCancel: () => navigator.pop(),
+          onConfirm: (value) => navigator.pop(value),
+        ),
+      ],
+    ),
+  );
+}

@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:rmplanner/app/router/route_names.dart';
 import 'package:rmplanner/features/planner/application/event_type_providers.dart';
 import 'package:rmplanner/features/planner/domain/event_type.dart';
+import 'package:rmplanner/features/planner/presentation/widgets/planner_event_color_resolver.dart';
 
 final class EventTypesScreen extends ConsumerStatefulWidget {
   const EventTypesScreen({super.key});
@@ -65,45 +66,49 @@ final class _EventTypesScreenState extends ConsumerState<EventTypesScreen> {
                       ],
                     ),
                   for (final type in state.eventTypes)
-                    Card(
-                      child: ListTile(
-                        key: Key('event-type-${type.stableKey}'),
-                        leading: CircleAvatar(
-                          backgroundColor: Color(
-                            type.colorValue,
-                          ).withValues(alpha: 0.2),
-                          child: Icon(
-                            _icon(type.icon),
-                            color: Color(type.colorValue),
+                    Builder(
+                      builder: (context) {
+                        final accent =
+                            PlannerEventColorResolver.accentColorForType(
+                              type,
+                              state.resolvedEventColorsByTypeId,
+                            );
+                        return Card(
+                          child: ListTile(
+                            key: Key('event-type-${type.stableKey}'),
+                            leading: CircleAvatar(
+                              backgroundColor: accent.withValues(alpha: 0.2),
+                              child: Icon(_icon(type.icon), color: accent),
+                            ),
+                            title: Text(type.label),
+                            subtitle: Text(_subtitle(type)),
+                            trailing: type.isSystem
+                                ? const Tooltip(
+                                    message: 'Protected system type',
+                                    child: Icon(Icons.lock_outline, size: 19),
+                                  )
+                                : IconButton(
+                                    tooltip: type.isArchived
+                                        ? 'Restore Event Type'
+                                        : 'Archive Event Type',
+                                    onPressed: () => controller.setArchived(
+                                      type,
+                                      !type.isArchived,
+                                    ),
+                                    icon: Icon(
+                                      type.isArchived
+                                          ? Icons.unarchive_outlined
+                                          : Icons.archive_outlined,
+                                    ),
+                                  ),
+                            onTap: type.isSystem
+                                ? null
+                                : () => context.push(
+                                    '${RoutePaths.eventTypes}/${type.id}/edit',
+                                  ),
                           ),
-                        ),
-                        title: Text(type.label),
-                        subtitle: Text(_subtitle(type)),
-                        trailing: type.isSystem
-                            ? const Tooltip(
-                                message: 'Protected system type',
-                                child: Icon(Icons.lock_outline, size: 19),
-                              )
-                            : IconButton(
-                                tooltip: type.isArchived
-                                    ? 'Restore Event Type'
-                                    : 'Archive Event Type',
-                                onPressed: () => controller.setArchived(
-                                  type,
-                                  !type.isArchived,
-                                ),
-                                icon: Icon(
-                                  type.isArchived
-                                      ? Icons.unarchive_outlined
-                                      : Icons.archive_outlined,
-                                ),
-                              ),
-                        onTap: type.isSystem
-                            ? null
-                            : () => context.push(
-                                '${RoutePaths.eventTypes}/${type.id}/edit',
-                              ),
-                      ),
+                        );
+                      },
                     ),
                 ],
               ),

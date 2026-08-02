@@ -78,8 +78,8 @@ final class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                 _DetailRow(
                   icon: Icons.assignment_outlined,
                   label: task.requiresReport
-                      ? 'Structured report required'
-                      : 'No structured report required',
+                      ? 'Status tracking enabled'
+                      : 'No status tracking requirement',
                 ),
                 if (task.linkedEventIds.isNotEmpty)
                   _DetailRow(
@@ -123,27 +123,10 @@ final class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                 if (task.status == PlannerTaskStatus.incomplete) ...<Widget>[
                   FilledButton.tonalIcon(
                     key: const Key('complete-task-button'),
-                    onPressed: task.requiresReport
-                        ? () => _openReport(task)
-                        : () => _changeStatus(PlannerTaskStatus.completed),
-                    icon: Icon(
-                      task.requiresReport
-                          ? Icons.assignment_turned_in_outlined
-                          : Icons.check,
-                    ),
-                    label: Text(
-                      task.requiresReport
-                          ? 'Complete with Report'
-                          : 'Mark Completed',
-                    ),
+                    onPressed: () => _changeStatus(PlannerTaskStatus.completed),
+                    icon: const Icon(Icons.check),
+                    label: const Text('Mark Completed'),
                   ),
-                  if (!task.requiresReport)
-                    OutlinedButton.icon(
-                      key: const Key('open-task-report-button'),
-                      onPressed: () => _openReport(task),
-                      icon: const Icon(Icons.assignment_outlined),
-                      label: const Text('Open Activity Report'),
-                    ),
                   OutlinedButton.icon(
                     key: const Key('skip-task-button'),
                     onPressed: () => _changeStatus(PlannerTaskStatus.skipped),
@@ -218,13 +201,6 @@ final class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
     }
   }
 
-  Future<void> _openReport(PlannerTask task) async {
-    final changed = await context.push<bool>(RoutePaths.taskReport(task.id));
-    if (changed == true && mounted) {
-      setState(_reload);
-    }
-  }
-
   Future<void> _changeStatus(PlannerTaskStatus target) async {
     final operationId = ref.read(plannerIdentifierSourceProvider).nextUuid();
     final outcome = await ref
@@ -239,7 +215,7 @@ final class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
     }
     final message = switch (outcome) {
       TaskStatusChangeOutcome.reportRequired =>
-        'This Task remains Incomplete. Its required report cannot be bypassed.',
+        'This Task status could not be changed.',
       TaskStatusChangeOutcome.correctionRequired =>
         'A correction is required because this status has historical effects.',
       TaskStatusChangeOutcome.unchanged => 'Task status was unchanged.',

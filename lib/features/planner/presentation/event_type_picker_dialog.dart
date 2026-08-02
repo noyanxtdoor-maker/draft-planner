@@ -4,9 +4,25 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rmplanner/app/theme/app_theme.dart';
 import 'package:rmplanner/features/planner/application/event_type_providers.dart';
+import 'package:rmplanner/features/planner/domain/event_color_preferences.dart';
 import 'package:rmplanner/features/planner/domain/event_type.dart';
+import 'package:rmplanner/features/planner/presentation/widgets/planner_event_color_resolver.dart';
 
-Future<EventType?> showEventTypePicker({
+sealed class EventTypePickerSelection {
+  const EventTypePickerSelection();
+}
+
+final class EventTypePickerEvent extends EventTypePickerSelection {
+  const EventTypePickerEvent(this.eventType);
+
+  final EventType eventType;
+}
+
+final class EventTypePickerTask extends EventTypePickerSelection {
+  const EventTypePickerTask();
+}
+
+Future<EventTypePickerSelection?> showEventTypePicker({
   required BuildContext context,
   required WidgetRef ref,
   String? recommendedEventTypeId,
@@ -36,7 +52,7 @@ Future<EventType?> showEventTypePicker({
     return null;
   }
   final types = _orderedPickerTypes(state.eventTypes, recommendedId);
-  return showDialog<EventType>(
+  return showDialog<EventTypePickerSelection>(
     context: context,
     barrierDismissible: true,
     barrierColor: Colors.black.withValues(alpha: 0.18),
@@ -61,6 +77,7 @@ Future<EventType?> showEventTypePicker({
                 child: _EventTypePickerSheet(
                   eventTypes: types,
                   recommendedEventTypeId: recommendedId,
+                  eventColorsByTypeId: state.resolvedEventColorsByTypeId,
                 ),
               ),
             ),
@@ -118,7 +135,11 @@ Future<EventType?> showEventTypeDropdown({
   }
   final topLeft = fieldBox.localToGlobal(Offset.zero, ancestor: overlayBox);
   final fieldRect = topLeft & fieldBox.size;
-  final types = _orderedPickerTypes(state.eventTypes, recommendedId);
+  final types = _orderedPickerTypes(
+    state.eventTypes,
+    recommendedId,
+    targetOrder: false,
+  );
   return showMenu<EventType>(
     context: context,
     position: RelativeRect.fromRect(fieldRect, Offset.zero & overlayBox.size),
@@ -165,9 +186,23 @@ Future<EventType?> showEventTypeDropdown({
 
 List<EventType> _orderedPickerTypes(
   List<EventType> types,
-  String? recommendedId,
-) {
-  const mappedOrder = <String, int>{
+  String? recommendedId, {
+  bool targetOrder = true,
+}) {
+  const targetMappedOrder = <String, int>{
+    SystemEventTypeKeys.meaningfulConnection: 0,
+    SystemEventTypeKeys.teaching: 1,
+    SystemEventTypeKeys.finding: 2,
+    SystemEventTypeKeys.meeting: 3,
+    SystemEventTypeKeys.studyOrPlan: 4,
+    SystemEventTypeKeys.service: 5,
+    SystemEventTypeKeys.work: 6,
+    SystemEventTypeKeys.templeVisit: 7,
+    SystemEventTypeKeys.travel: 8,
+    SystemEventTypeKeys.meal: 9,
+    SystemEventTypeKeys.other: 10,
+  };
+  const legacyMappedOrder = <String, int>{
     SystemEventTypeKeys.templeVisit: 0,
     SystemEventTypeKeys.scriptureStudy: 1,
     SystemEventTypeKeys.exercise: 2,
@@ -175,6 +210,7 @@ List<EventType> _orderedPickerTypes(
     SystemEventTypeKeys.jobApplication: 4,
     SystemEventTypeKeys.meaningfulConnection: 5,
   };
+  final mappedOrder = targetOrder ? targetMappedOrder : legacyMappedOrder;
   final ordered = types.where((type) => !type.isArchived).toList()
     ..sort((left, right) {
       if (left.id == recommendedId && right.id != recommendedId) {
@@ -204,10 +240,12 @@ final class _EventTypePickerSheet extends StatelessWidget {
   const _EventTypePickerSheet({
     required this.eventTypes,
     required this.recommendedEventTypeId,
+    required this.eventColorsByTypeId,
   });
 
   final List<EventType> eventTypes;
   final String? recommendedEventTypeId;
+  final Map<String, EventColorPreference> eventColorsByTypeId;
 
   @override
   Widget build(BuildContext context) {
@@ -249,6 +287,7 @@ final class _EventTypePickerSheet extends StatelessWidget {
                       children: <Widget>[
                         for (final type in eventTypes)
                           _buildEventTypeRow(context, type),
+                        _buildTaskRow(context),
                       ],
                     ),
             ),
@@ -289,7 +328,7 @@ final class _EventTypePickerSheet extends StatelessWidget {
       child: InkWell(
         key: Key('event-type-option-${type.stableKey}'),
         overlayColor: const WidgetStatePropertyAll(Colors.transparent),
-        onTap: () => Navigator.of(context).pop(type),
+        onTap: () => Navigator.of(context).pop(EventTypePickerEvent(type)),
         child: SizedBox(
           height: 44,
           child: Padding(
@@ -301,7 +340,10 @@ final class _EventTypePickerSheet extends StatelessWidget {
                   width: 22,
                   height: 22,
                   decoration: BoxDecoration(
-                    color: Color(type.colorValue),
+                    color: PlannerEventColorResolver.accentColorForType(
+                      type,
+                      eventColorsByTypeId,
+                    ),
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -325,6 +367,46 @@ final class _EventTypePickerSheet extends StatelessWidget {
                     width: 0,
                     height: 0,
                   ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTaskRow(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'Task entry',
+      child: InkWell(
+        key: const Key('event-type-option-task'),
+        overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+        onTap: () => Navigator.of(context).pop(const EventTypePickerTask()),
+        child: const SizedBox(
+          height: 44,
+          child: Padding(
+            padding: EdgeInsets.only(left: 26),
+            child: Row(
+              children: <Widget>[
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: Color(0xFFF2E9E0),
+                    shape: BoxShape.circle,
+                  ),
+                  child: SizedBox(width: 22, height: 22),
+                ),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Task',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 17,
+                      height: 24 / 17,
+                    ),
+                  ),
+                ),
               ],
             ),
           ),

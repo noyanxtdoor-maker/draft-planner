@@ -4,6 +4,7 @@ import 'package:rmplanner/features/planner/application/event_type_providers.dart
 import 'package:rmplanner/features/planner/domain/event_color_preferences.dart';
 import 'package:rmplanner/features/planner/domain/event_type.dart';
 import 'package:rmplanner/features/planner/presentation/widgets/planner_event_color_preview.dart';
+import 'package:rmplanner/features/planner/presentation/widgets/planner_event_color_resolver.dart';
 import 'package:rmplanner/features/settings/presentation/event_color_picker_dialog.dart';
 
 final class PlannerEventColorsScreen extends ConsumerWidget {
@@ -98,8 +99,7 @@ final class PlannerEventColorsScreen extends ConsumerWidget {
     EventTypeState state,
     EventType type,
   ) {
-    return state.eventColors[type.stableKey] ??
-        PlannerEventColorDefaults.forEventType(type);
+    return PlannerEventColorResolver.preferenceForType(type, state.eventColors);
   }
 
   Future<void> _editColor(

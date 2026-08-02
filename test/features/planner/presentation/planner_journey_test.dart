@@ -224,11 +224,9 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('complete-task-button')));
       await tester.pumpAndSettle();
-      expect(find.byKey(const Key('outcome-report-form')), findsOneWidget);
+      expect(find.byKey(const Key('outcome-report-form')), findsNothing);
       expect(find.text('Report-required fixture'), findsOneWidget);
-      await tester.pageBack();
-      await tester.pumpAndSettle();
-      expect(find.text('Incomplete'), findsOneWidget);
+      expect(find.text('Completed'), findsOneWidget);
 
       await tester.pageBack();
       await tester.pumpAndSettle();
@@ -244,9 +242,107 @@ void main() {
       expect(taskRows, hasLength(2));
       expect(
         taskRows.singleWhere((row) => row.id == 'report-task').status,
-        PlannerTaskStatus.incomplete.name,
+        PlannerTaskStatus.completed.name,
       );
       expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'VS08-OWNER / TASK FORM: due-date gating and People persistence remain '
+    'separate from Event creation',
+    (tester) async {
+      tester.view.physicalSize = const Size(393, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final database = openMemoryDatabase();
+      addTearDown(database.close);
+      final privacy = TestPrivacyDependencies(database: database);
+      final startupRepository = buildTestRepository(
+        database: database,
+        privacyGate: privacy.gate,
+      );
+      await startupRepository.completeOnboarding();
+
+      await tester.pumpWidget(
+        privacy.buildApp(
+          environment: const AppEnvironment(
+            name: AppEnvironmentName.production,
+            label: 'PRODUCTION',
+          ),
+          diagnostics: SanitizedDiagnostics(),
+          startupRepository: startupRepository,
+          plannerDateSource: const FixedPlannerDateSource(selected),
+          plannerIdentifierSource: SequenceIdentifierSource(<String>[
+            'task-owner-form',
+          ]),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Planner'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('planner-create-button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('create-task-action')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('task-due-date-field')), findsOneWidget);
+      expect(find.byKey(const Key('task-due-time-field')), findsOneWidget);
+      expect(find.byKey(const Key('task-repeat-field')), findsOneWidget);
+      expect(find.text('Task Owner'), findsNothing);
+      expect(find.text('Members Participating'), findsNothing);
+
+      await tester.tap(find.byKey(const Key('task-set-due-date-switch')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('task-due-date-field')), findsNothing);
+      expect(find.byKey(const Key('task-due-time-field')), findsNothing);
+      expect(find.byKey(const Key('task-repeat-field')), findsNothing);
+      expect(find.byKey(const Key('task-notifications-notice')), findsNothing);
+      expect(find.byKey(const Key('task-reminders-notice')), findsNothing);
+
+      await tester.enterText(
+        find.byKey(const Key('task-title-field')),
+        'Unscheduled Task',
+      );
+      await tester.enterText(
+        find.byKey(const Key('task-notes-field')),
+        'Description stays optional.',
+      );
+      await tester.ensureVisible(
+        find.byKey(const Key('task-add-people-button')),
+      );
+      await tester.tap(find.byKey(const Key('task-add-people-button')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('task-person-name-field')),
+        'Mia',
+      );
+      await tester.tap(find.byKey(const Key('task-person-add')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('task-person-row-Mia')), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('task-remove-person-Mia')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('task-person-row-Mia')), findsNothing);
+
+      await tester.tap(find.byKey(const Key('task-add-people-button')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('task-person-name-field')),
+        'Mia',
+      );
+      await tester.tap(find.byKey(const Key('task-person-add')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('save-task-button')));
+      await tester.pumpAndSettle();
+
+      final taskRow = await database.select(database.plannerTasks).getSingle();
+      expect(taskRow.title, 'Unscheduled Task');
+      expect(taskRow.dueDate, isNull);
+      expect(taskRow.dueMinute, isNull);
+      expect(taskRow.recurrenceFrequency, PlannerTaskRecurrence.none.name);
+      expect(taskRow.peopleJson, '["Mia"]');
+      expect(await database.select(database.calendarEvents).get(), isEmpty);
     },
   );
 

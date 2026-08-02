@@ -48,9 +48,6 @@ final class PlannerEventColorPreview extends StatelessWidget {
             borderRadius: BorderRadius.circular(
               PlannerEventBlockLayoutPolicy.eventBorderRadius,
             ),
-            side: BorderSide(
-              color: PlannerEventBlockColorPolicy.borderColor(accent),
-            ),
           ),
           clipBehavior: Clip.antiAlias,
           child: DecoratedBox(

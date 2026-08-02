@@ -50,9 +50,7 @@ void main() {
     expect(find.byType(PlannerEventColorPreview), findsWidgets);
     expect(find.text('Person Status'), findsNothing);
 
-    await tester.tap(
-      find.byKey(const Key('event-color-swatch-Exercise-accent')),
-    );
+    await tester.tap(find.byKey(const Key('event-color-swatch-Other-accent')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('planner-event-color-picker')), findsOneWidget);
     expect(find.text('Choose Color'), findsOneWidget);
@@ -61,19 +59,17 @@ void main() {
     expect(find.byKey(const Key('planner-event-color-picker')), findsNothing);
     expect(await database.select(database.plannerPreferences).get(), isEmpty);
 
-    await tester.tap(
-      find.byKey(const Key('event-color-swatch-Exercise-accent')),
-    );
+    await tester.tap(find.byKey(const Key('event-color-swatch-Other-accent')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('planner-event-color-save')));
     await tester.pumpAndSettle();
     final savedAccent =
         (await database.select(database.plannerPreferences).getSingle())
             .eventColorPreferencesJson;
-    expect(savedAccent, contains('exercise'));
+    expect(savedAccent, contains('other'));
 
     await tester.tap(
-      find.byKey(const Key('event-color-swatch-Exercise-Event background')),
+      find.byKey(const Key('event-color-swatch-Other-Event background')),
     );
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('planner-event-color-save')));
@@ -104,7 +100,7 @@ void main() {
     expect(
       (await database.select(database.plannerPreferences).getSingle())
           .eventColorPreferencesJson,
-      contains('exercise'),
+      contains('other'),
     );
 
     await tester.tap(

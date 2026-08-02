@@ -85,6 +85,40 @@ void main() {
     expect(day.overdueTasks.single.id, 'task-overdue');
   });
 
+  test('VS08-OWNER / TASK PEOPLE: selected People normalize, persist, and '
+      'can be removed on edit', () async {
+    final saved = await repository.saveTask(
+      profileId: profileId,
+      draft: const PlannerTaskDraft(
+        id: 'task-people',
+        title: 'Visit family',
+        dueDate: null,
+        requiresReport: false,
+        people: <String>['  Allen  ', 'Mia', 'Allen'],
+      ),
+    );
+    expect(saved.people, <String>['Allen', 'Mia']);
+
+    final updated = await repository.saveTask(
+      profileId: profileId,
+      draft: const PlannerTaskDraft(
+        id: 'task-people',
+        title: 'Visit family',
+        dueDate: null,
+        requiresReport: false,
+        people: <String>['Mia'],
+      ),
+    );
+    expect(
+      (await repository.readTask(
+        profileId: profileId,
+        taskId: 'task-people',
+      ))?.people,
+      <String>['Mia'],
+    );
+    expect(updated.people, <String>['Mia']);
+  });
+
   test('AC-C-002,003,006..008,013..016,020: mixed event read models remain '
       'distinct and use the locked section rules', () async {
     final source = MemoryPlannerCalendarSource(<PlannerCalendarItem>[
@@ -170,7 +204,7 @@ void main() {
   });
 
   test('AC-D-005,008..012,017..020: status writes preserve independence, '
-      'history, report guards, and retry identity', () async {
+      'direct completion, and retry identity', () async {
     await repository.saveTask(
       profileId: profileId,
       draft: const PlannerTaskDraft(
@@ -180,11 +214,11 @@ void main() {
         requiresReport: true,
       ),
     );
-    final guarded = await repository.changeTaskStatus(
+    final completed = await repository.changeTaskStatus(
       profileId: profileId,
       taskId: 'task-report',
       target: PlannerTaskStatus.completed,
-      operationId: 'operation-guarded',
+      operationId: 'operation-completed',
     );
     final skipped = await repository.changeTaskStatus(
       profileId: profileId,
@@ -209,13 +243,15 @@ void main() {
         )
         .get();
 
-    expect(guarded, TaskStatusChangeOutcome.reportRequired);
-    expect(skipped, TaskStatusChangeOutcome.changed);
-    expect(retry, TaskStatusChangeOutcome.unchanged);
-    expect(task!.status, PlannerTaskStatus.skipped);
+    expect(completed, TaskStatusChangeOutcome.changed);
+    expect(skipped, TaskStatusChangeOutcome.correctionRequired);
+    expect(retry, TaskStatusChangeOutcome.correctionRequired);
+    expect(task!.status, PlannerTaskStatus.completed);
     expect(changes, hasLength(1));
-    expect(changes.single.fromStatus, PlannerTaskStatus.incomplete.name);
-    expect(changes.single.toStatus, PlannerTaskStatus.skipped.name);
+    expect(
+      changes.map((change) => change.toStatus),
+      contains(PlannerTaskStatus.completed.name),
+    );
     expect(
       tables.map((row) => row.read<String>('name')),
       isNot(contains('actual_contributions')),
