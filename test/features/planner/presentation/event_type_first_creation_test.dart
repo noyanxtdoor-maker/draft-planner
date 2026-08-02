@@ -65,8 +65,42 @@ void main() {
       final pickerSize = tester.getSize(
         find.byKey(const Key('event-type-picker')),
       );
+      final pickerRect = tester.getRect(
+        find.byKey(const Key('event-type-picker')),
+      );
+      final stripRect = tester.getRect(
+        find.byKey(const Key('planner-week-strip')),
+      );
+      expect(
+        pickerRect.center.dx,
+        closeTo(tester.view.physicalSize.width / 2, 1),
+        reason: 'Option A picker must remain horizontally centered',
+      );
+      expect(
+        pickerRect.top,
+        greaterThan(stripRect.bottom),
+        reason: 'Option A picker must sit below the approved date strip',
+      );
+      expect(
+        pickerRect.center.dy,
+        lessThan(tester.view.physicalSize.height / 2),
+        reason: 'Option A picker must remain above the true vertical center',
+      );
+      expect(
+        pickerRect.bottom,
+        lessThanOrEqualTo(tester.view.physicalSize.height),
+      );
       expect(pickerSize.width, lessThan(390));
       expect(pickerSize.height, lessThan(730));
+      expect(
+        tester.getSize(find.byKey(const Key('event-type-icon-general'))).width,
+        greaterThan(18),
+      );
+      expect(
+        tester.getSize(find.byKey(const Key('event-type-icon-general'))).width,
+        closeTo(21, 0.1),
+      );
+      expect(find.byType(DraggableScrollableSheet), findsNothing);
       expect(find.byKey(const Key('event-type-picker-scroll')), findsOneWidget);
       for (final stableKey in <String>[
         'general',
@@ -91,6 +125,18 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('New Calendar Event'), findsNothing);
+      expect(
+        find.byKey(const Key('calendar-event-form-entrance-fade')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('calendar-event-draggable-sheet')),
+        findsOneWidget,
+      );
+      final formRoute = ModalRoute.of(
+        tester.element(find.byKey(const Key('calendar-event-detail-sheet'))),
+      );
+      expect(formRoute?.transitionDuration, const Duration(milliseconds: 260));
       expect(
         find.byKey(const Key('calendar-event-detail-sheet')),
         findsOneWidget,
@@ -138,6 +184,11 @@ void main() {
       expect(find.text('Save'), findsOneWidget);
       expect(find.byIcon(Icons.check_rounded), findsNothing);
       expect(find.byKey(const Key('save-event-bottom-button')), findsNothing);
+      expect(find.byKey(const Key('event-set-time-now')), findsNothing);
+      expect(
+        find.byKey(const Key('event-schedule-from-calendar')),
+        findsNothing,
+      );
       expect(
         find.descendant(
           of: find.byKey(const Key('event-type-field')),
@@ -161,6 +212,7 @@ void main() {
       final dateField = find.byKey(const Key('event-date-field'));
       await scrollFormTo(dateField);
       expect(dateField, findsWidgets);
+      expect(find.text('Scheduling Details'), findsOneWidget);
       expect(find.text(selected.iso8601), findsWidgets);
       final startTime = find.byKey(const Key('event-start-time'));
       await scrollFormTo(startTime);
@@ -170,8 +222,44 @@ void main() {
       await scrollFormTo(endTime);
       expect(endTime, findsWidgets);
       expect(find.text('11:30 AM'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('event-people-section')),
+        220,
+        scrollable: find
+            .descendant(
+              of: find.byKey(const Key('calendar-event-form-scroll')),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
+      expect(find.byKey(const Key('people-section-header')), findsOneWidget);
+      expect(find.text('+ People'), findsOneWidget);
+      expect(find.text('+ Address'), findsOneWidget);
+      expect(find.text('+ Location'), findsOneWidget);
       expect(
-        find.textContaining('saving never creates Actual'),
+        find.byKey(const Key('weekly-life-indicator-link-section')),
+        findsOneWidget,
+      );
+      expect(find.text('Link to Weekly Life Indicator'), findsWidgets);
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('event-requires-report-switch')),
+        220,
+        scrollable: find
+            .descendant(
+              of: find.byKey(const Key('calendar-event-form-scroll')),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
+      expect(find.text('Report required'), findsOneWidget);
+      expect(find.textContaining('saving never creates Actual'), findsNothing);
+      expect(
+        find.textContaining('Elapsed time creates attention'),
+        findsNothing,
+      );
+      expect(find.textContaining('Optional people context'), findsNothing);
+      expect(
+        find.textContaining('Optional — Reporting & progress context'),
         findsOneWidget,
       );
       expect(await database.select(database.calendarEvents).get(), isEmpty);

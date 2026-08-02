@@ -9,9 +9,9 @@
 // "completed Tasks" must be controlled only by the
 // `contentFilters.completedTasks` flag.
 //
-// Issue 6: the bottom resize hit area must be present on every
-// interactive timed Event block (short and tall). A vertical drag on
-// it must update the live block height and displayed end time, must
+// Issue 6: the top and bottom resize hit areas must be present on
+// interactive timed Event blocks. A vertical drag on either edge must
+// update the live block height and displayed time, must
 // snap to 15-minute increments, must enforce a 15-minute minimum
 // duration, must persist exactly once on release (no per-frame
 // writes), must keep the reported outcome and Activity Report linked,
@@ -112,13 +112,14 @@ void main() {
     // First move crosses kTouchSlop (18 logical pixels) so
     // the vertical drag recognizer dispatches `onStart` and
     // the first `onUpdate` for this crossing event.
-    await gesture.moveBy(const Offset(0, 24));
+    final claimDelta = totalDeltaY.isNegative ? -24.0 : 24.0;
+    await gesture.moveBy(Offset(0, claimDelta));
     await tester.pump();
     // Second move carries the remaining delta. Each emitted
     // pointer move produces exactly one `onUpdate` for the
     // cumulative accumulator (snap minutes are applied per
     // total).
-    final remaining = totalDeltaY - 24;
+    final remaining = totalDeltaY - claimDelta;
     await gesture.moveBy(Offset(0, remaining));
     await tester.pump();
     await gesture.up();
@@ -746,6 +747,100 @@ void main() {
     });
   });
 
+  group('Issue 6: Event resize via the top hit area', () {
+    testWidgets(
+      'top-edge drags change only the start time and persist once per drag',
+      (tester) async {
+        tester.view.physicalSize = const Size(862, 1824);
+        tester.view.devicePixelRatio = 2;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final database = openMemoryDatabase();
+        addTearDown(database.close);
+        final privacy = TestPrivacyDependencies(database: database);
+        final startup = buildTestRepository(
+          database: database,
+          privacyGate: privacy.gate,
+        );
+        final profile = await startup.completeOnboarding();
+        final (plannerRepository, calendarRepository) = await buildRepositories(
+          database,
+        );
+        await calendarRepository.saveEvent(
+          profileId: profile.id,
+          draft: timedDraft(
+            id: scheduledEventId,
+            title: 'Top Earlier',
+            startMinute: 10 * 60,
+            endMinute: 12 * 60,
+          ),
+        );
+        await calendarRepository.saveEvent(
+          profileId: profile.id,
+          draft: timedDraft(
+            id: completedEventId,
+            title: 'Top Later',
+            startMinute: 13 * 60,
+            endMinute: 15 * 60,
+          ),
+        );
+        final identifiers = SequenceIdentifierSource(<String>[
+          'a4444444-4444-4444-8444-444444444444',
+          'a5555555-5555-4555-8555-555555555555',
+        ]);
+
+        await tester.pumpWidget(
+          privacy.buildApp(
+            environment: const AppEnvironment(
+              name: AppEnvironmentName.production,
+              label: 'PRODUCTION',
+            ),
+            diagnostics: SanitizedDiagnostics(),
+            startupRepository: startup,
+            plannerRepository: plannerRepository,
+            plannerDateSource: const FixedPlannerDateSource(selected),
+            plannerIdentifierSource: identifiers,
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Planner'));
+        await tester.pumpAndSettle();
+
+        final earlierHit = find.byKey(
+          Key('planner-top-resize-hit-${occurrenceIdFor(scheduledEventId)}'),
+        );
+        final laterHit = find.byKey(
+          Key('planner-top-resize-hit-${occurrenceIdFor(completedEventId)}'),
+        );
+        expect(earlierHit, findsOneWidget);
+        expect(laterHit, findsOneWidget);
+
+        await driveResizeDrag(tester, earlierHit, totalDeltaY: -60);
+        await driveResizeDrag(tester, laterHit, totalDeltaY: 30);
+
+        final exceptions = await database
+            .select(database.calendarEventExceptions)
+            .get();
+        expect(exceptions, hasLength(2));
+        final earlierException = exceptions.firstWhere(
+          (row) => row.eventId == scheduledEventId,
+        );
+        expect(earlierException.startMinute, 9 * 60);
+        expect(earlierException.endMinute, 12 * 60);
+        final laterException = exceptions.firstWhere(
+          (row) => row.eventId == completedEventId,
+        );
+        expect(laterException.startMinute, 13 * 60 + 30);
+        expect(laterException.endMinute, 15 * 60);
+        expect(
+          await database.select(database.calendarEventOperations).get(),
+          hasLength(2),
+        );
+        expect(identifiers.nextUuid, throwsStateError);
+      },
+    );
+  });
+
   group('Issue 6: Event resize via the bottom hit area', () {
     testWidgets(
       'resize hit area exists on a short (30 min) interactive Event',
@@ -872,6 +967,18 @@ void main() {
       expect(
         find.byKey(
           Key('planner-resize-handle-${occurrenceIdFor(scheduledEventId)}'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(
+          Key('planner-top-resize-hit-${occurrenceIdFor(scheduledEventId)}'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(
+          Key('planner-top-resize-handle-${occurrenceIdFor(scheduledEventId)}'),
         ),
         findsOneWidget,
       );

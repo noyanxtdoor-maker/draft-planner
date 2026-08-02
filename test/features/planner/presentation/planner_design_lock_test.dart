@@ -6,6 +6,7 @@ import 'package:rmplanner/features/planner/domain/planner_date.dart';
 import 'package:rmplanner/features/planner/domain/planner_timeline_layout.dart';
 import 'package:rmplanner/features/planner/presentation/widgets/planner_date_strip.dart';
 import 'package:rmplanner/features/planner/presentation/widgets/planner_event_block_layout_policy.dart';
+import 'package:rmplanner/features/planner/presentation/widgets/planner_top_bar_icons.dart';
 
 import '../../../support/test_dependencies.dart';
 
@@ -83,6 +84,50 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('planner-overflow-menu')), findsOneWidget);
   });
+
+  testWidgets(
+    'DESIGN LOCK 8A — top-bar icons use the approved shapes and feedback',
+    (tester) async {
+      await _pumpPlanner(tester);
+
+      expect(find.byType(PlannerFilterIcon), findsOneWidget);
+      expect(find.byType(PlannerSelectionIcon), findsOneWidget);
+
+      IconButton topBarButton(Finder scope) {
+        return tester.widget<IconButton>(
+          find.descendant(of: scope, matching: find.byType(IconButton)),
+        );
+      }
+
+      for (final key in <String>[
+        'planner-hamburger',
+        'planner-filter-button',
+        'planner-selection-button',
+        'planner-overflow-button',
+      ]) {
+        final button = topBarButton(find.byKey(Key(key)));
+        expect(
+          button.style?.overlayColor?.resolve(<WidgetState>{
+            WidgetState.pressed,
+          }),
+          Colors.white.withValues(alpha: 0.14),
+          reason: '$key must use white transient press feedback',
+        );
+        expect(
+          button.style?.shape?.resolve(<WidgetState>{}),
+          isA<CircleBorder>(),
+          reason: '$key must use circular, not rectangular, feedback',
+        );
+      }
+
+      final calendarInk = tester.widget<InkWell>(
+        find.byKey(const Key('planner-today-button')),
+      );
+      expect(calendarInk.customBorder, isA<CircleBorder>());
+      expect(calendarInk.highlightColor, Colors.white.withValues(alpha: 0.12));
+      expect(calendarInk.splashColor, Colors.white.withValues(alpha: 0.16));
+    },
+  );
 
   testWidgets('DESIGN LOCK 9 — date strip remains compact', (tester) async {
     await _pumpPlanner(tester);

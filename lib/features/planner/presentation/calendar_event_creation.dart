@@ -67,37 +67,60 @@ Future<T?> showCalendarEventFormSheet<T>({
     enableDrag: false,
     backgroundColor: Colors.transparent,
     barrierColor: Colors.black.withValues(alpha: 0.38),
-    builder: (sheetContext) => DraggableScrollableSheet(
-      key: const Key('calendar-event-draggable-sheet'),
-      controller: sheetController,
-      initialChildSize: 0.40,
-      minChildSize: minChildSize,
-      maxChildSize: maxChildSize,
-      expand: false,
-      builder: (context, scrollController) => sourceTaskId == null
-          ? CalendarEventFormScreen.create(
-              initialDate: date,
-              initialStartMinute: startMinute,
-              initialIndicatorKey: indicatorKey,
-              initialEventTypeId: eventType.id,
-              sheetPresentation: true,
-              sheetScrollController: scrollController,
-              sheetController: sheetController,
-              sheetMinChildSize: minChildSize,
-              sheetMaxChildSize: maxChildSize,
-            )
-          : CalendarEventFormScreen.createFromTask(
-              sourceTaskId: sourceTaskId,
-              initialDate: date,
-              initialStartMinute: startMinute,
-              initialIndicatorKey: indicatorKey,
-              initialEventTypeId: eventType.id,
-              sheetPresentation: true,
-              sheetScrollController: scrollController,
-              sheetController: sheetController,
-              sheetMinChildSize: minChildSize,
-              sheetMaxChildSize: maxChildSize,
-            ),
+    sheetAnimationStyle: const AnimationStyle(
+      duration: Duration(milliseconds: 260),
+      reverseDuration: Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeInCubic,
     ),
+    builder: (sheetContext) {
+      final sheet = DraggableScrollableSheet(
+        key: const Key('calendar-event-draggable-sheet'),
+        controller: sheetController,
+        initialChildSize: 0.40,
+        minChildSize: minChildSize,
+        maxChildSize: maxChildSize,
+        expand: false,
+        builder: (context, scrollController) => sourceTaskId == null
+            ? CalendarEventFormScreen.create(
+                initialDate: date,
+                initialEventType: eventType,
+                initialStartMinute: startMinute,
+                initialIndicatorKey: indicatorKey,
+                initialEventTypeId: eventType.id,
+                sheetPresentation: true,
+                sheetScrollController: scrollController,
+                sheetController: sheetController,
+                sheetMinChildSize: minChildSize,
+                sheetMaxChildSize: maxChildSize,
+              )
+            : CalendarEventFormScreen.createFromTask(
+                sourceTaskId: sourceTaskId,
+                initialDate: date,
+                initialEventType: eventType,
+                initialStartMinute: startMinute,
+                initialIndicatorKey: indicatorKey,
+                initialEventTypeId: eventType.id,
+                sheetPresentation: true,
+                sheetScrollController: scrollController,
+                sheetController: sheetController,
+                sheetMinChildSize: minChildSize,
+                sheetMaxChildSize: maxChildSize,
+              ),
+      );
+      final routeAnimation = ModalRoute.of(sheetContext)?.animation;
+      if (routeAnimation == null) {
+        return sheet;
+      }
+      return FadeTransition(
+        key: const Key('calendar-event-form-entrance-fade'),
+        opacity: CurvedAnimation(
+          parent: routeAnimation,
+          curve: Curves.easeOutCubic,
+          reverseCurve: Curves.easeInCubic,
+        ),
+        child: sheet,
+      );
+    },
   ).whenComplete(sheetController.dispose);
 }

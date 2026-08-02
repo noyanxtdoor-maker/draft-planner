@@ -109,7 +109,8 @@ void main() {
       expect(find.text('Exercise'), findsOneWidget);
       await tester.tap(find.byKey(const Key('weekly-life-indicator-remove')));
       await tester.pumpAndSettle();
-      expect(find.text('Optional — no indicator linked'), findsOneWidget);
+      expect(find.text('Optional — no indicator linked'), findsNothing);
+      expect(find.text('Link Indicator'), findsOneWidget);
       await tester.tap(find.byKey(const Key('calendar-event-sheet-close')));
       await tester.pumpAndSettle();
       expect(await database.select(database.calendarEvents).get(), isEmpty);

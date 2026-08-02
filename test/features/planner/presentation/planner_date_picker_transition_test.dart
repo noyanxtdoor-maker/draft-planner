@@ -352,12 +352,11 @@ void main() {
       );
       await tester.tap(find.byKey(const Key('planner-date-label')));
       await tester.pumpAndSettle();
-      // The route uses a non-null barrier color (32% black) so the
-      // surrounding Planner remains faintly visible. We assert
-      // that at least one ModalRoute is mounted with a
-      // barrier color. The Navigator.pages list may be empty
-      // because MaterialApp uses an imperative Navigator; the
-      // route is reachable through the modal route lookup.
+      // The route uses a non-null transparent barrier so the
+      // surrounding Planner remains fully visible while the
+      // modal route still blocks input. The Navigator.pages list
+      // may be empty because MaterialApp uses an imperative
+      // Navigator; the route is reachable through modal lookup.
       final modalRoute = ModalRoute.of(
         tester.element(find.byKey(const Key('planner-date-picker-panel'))),
       );
@@ -368,7 +367,7 @@ void main() {
         isNotNull,
         reason: 'route must declare a non-null barrier color',
       );
-      expect(modalRoute.barrierColor!.a, inInclusiveRange(0.12, 0.25));
+      expect(modalRoute.barrierColor, Colors.transparent);
       expect(
         tester
             .widget<Material>(

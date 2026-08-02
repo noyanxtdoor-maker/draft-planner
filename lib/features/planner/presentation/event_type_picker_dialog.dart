@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rmplanner/app/theme/app_theme.dart';
 import 'package:rmplanner/features/planner/application/event_type_providers.dart';
 import 'package:rmplanner/features/planner/domain/event_type.dart';
+import 'package:rmplanner/features/planner/presentation/widgets/planner_date_strip.dart';
 
 Future<EventType?> showEventTypePicker({
   required BuildContext context,
@@ -42,16 +43,32 @@ Future<EventType?> showEventTypePicker({
     barrierColor: Colors.black.withValues(alpha: 0.18),
     useSafeArea: false,
     builder: (dialogContext) {
-      final media = MediaQuery.sizeOf(dialogContext);
-      return Center(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxWidth: math.min(360, media.width - 32),
-            maxHeight: media.height * 0.76,
-          ),
-          child: _EventTypePickerSheet(
-            eventTypes: types,
-            recommendedEventTypeId: recommendedId,
+      return SafeArea(
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              const topGap = 8.0;
+              final topOffset =
+                  kToolbarHeight + PlannerDateStrip.stripHeight + 2 + topGap;
+              final maxHeight = math.max<double>(
+                0,
+                constraints.maxHeight - topOffset - 16,
+              );
+              return Padding(
+                padding: EdgeInsets.fromLTRB(16, topOffset, 16, 16),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: math.min(360, constraints.maxWidth),
+                    maxHeight: maxHeight,
+                  ),
+                  child: _EventTypePickerSheet(
+                    eventTypes: types,
+                    recommendedEventTypeId: recommendedId,
+                  ),
+                ),
+              );
+            },
           ),
         ),
       );
@@ -167,8 +184,11 @@ final class _EventTypePickerSheet extends StatelessWidget {
                               child: Row(
                                 children: <Widget>[
                                   Container(
-                                    width: 18,
-                                    height: 18,
+                                    key: Key(
+                                      'event-type-icon-${type.stableKey}',
+                                    ),
+                                    width: 21,
+                                    height: 21,
                                     decoration: BoxDecoration(
                                       color: Color(type.colorValue),
                                       shape: BoxShape.circle,

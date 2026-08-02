@@ -98,8 +98,9 @@ class _SafetyHarness {
   final DriftCalendarEventRepository calendarRepository;
 
   Future<void> seedEvents() async {
-    final profile = await buildTestRepository(database: database)
-        .completeOnboarding();
+    final profile = await buildTestRepository(
+      database: database,
+    ).completeOnboarding();
     await calendarRepository.saveEvent(
       profileId: profile.id,
       draft: _draft(id: _previousEventId, date: _previous),
@@ -171,14 +172,11 @@ class _SafetyHarness {
     // activity_ledger_entries. These two specifically cover the
     // no-Actual-row and no-contribution-row invariants from the
     // prompt.
-    final actuals = (await database.select(database.outcomeReports).get())
-        .length;
+    final actuals =
+        (await database.select(database.outcomeReports).get()).length;
     final contributions =
         (await database.select(database.activityLedgerEntries).get()).length;
-    return <String, int>{
-      'actuals': actuals,
-      'contributions': contributions,
-    };
+    return <String, int>{'actuals': actuals, 'contributions': contributions};
   }
 }
 
@@ -276,10 +274,7 @@ Future<TestGesture> _beginPartialDrag(
 /// Advance the frame pump without releasing the gesture. Used
 /// while a live drag is mid-flight so the production tree
 /// resolves any pending layout before we attempt an interaction.
-Future<void> _pumpWhileLiveDrag(
-  WidgetTester tester, {
-  int frames = 4,
-}) async {
+Future<void> _pumpWhileLiveDrag(WidgetTester tester, {int frames = 4}) async {
   for (var i = 0; i < frames; i++) {
     await tester.pump(const Duration(milliseconds: 16));
   }
@@ -289,9 +284,9 @@ Future<void> _pumpWhileLiveDrag(
 /// the next day. Returns `null` when the preview block is not
 /// in the widget tree.
 Rect? _previewEventRect(WidgetTester tester) {
-  final blockFinder = find.byKey(Key(
-    'planner-pager-preview-event-${_occurrenceId(_nextEventId, _next)}',
-  ));
+  final blockFinder = find.byKey(
+    Key('planner-pager-preview-event-${_occurrenceId(_nextEventId, _next)}'),
+  );
   if (blockFinder.evaluate().isEmpty) return null;
   return tester.getRect(blockFinder);
 }
@@ -299,14 +294,18 @@ Rect? _previewEventRect(WidgetTester tester) {
 /// Read the visible rectangle of the centered event block for
 /// the currently selected date.
 Rect _centeredEventRect(WidgetTester tester) {
-  return tester.getRect(find.byKey(Key(
-    'planner-timed-event-${_occurrenceId(_selectedEventId, _selected)}',
-  )));
+  return tester.getRect(
+    find.byKey(
+      Key('planner-timed-event-${_occurrenceId(_selectedEventId, _selected)}'),
+    ),
+  );
 }
 
 void main() {
   group('Stage B3-R1 D3-A2: interactive pager interaction-safety', () {
-    testWidgets('TEST 1 — adjacent visible Event tap is blocked', (tester) async {
+    testWidgets('TEST 1 — adjacent visible Event tap is blocked', (
+      tester,
+    ) async {
       final harness = _buildHarness();
       addTearDown(harness.database.close);
       await _pumpPlannerWithSeededEvents(tester, harness: harness);
@@ -314,9 +313,11 @@ void main() {
       final beforeOps = await harness.latestOperationTimestamp();
       final beforeActual = await harness.actualAndContributionSnapshot();
       expect(
-        find.byKey(Key(
-          'planner-pager-preview-event-${_occurrenceId(_nextEventId, _next)}',
-        )),
+        find.byKey(
+          Key(
+            'planner-pager-preview-event-${_occurrenceId(_nextEventId, _next)}',
+          ),
+        ),
         findsOneWidget,
         reason: 'next-day preview Event must be rendered',
       );
@@ -344,9 +345,9 @@ void main() {
       // selectedDate must NOT have changed mid-drag.
       // The selected-date strip button is a Semantics widget
       // whose label embeds the ISO date.
-      final semantics = tester.getSemantics(find.byKey(
-        const Key('planner-selected-date'),
-      ));
+      final semantics = tester.getSemantics(
+        find.byKey(const Key('planner-selected-date')),
+      );
       expect(
         semantics.label,
         contains('2026-07-27'),
@@ -357,18 +358,28 @@ void main() {
       await tester.pumpAndSettle();
       // No DB mutation, no operation consumption.
       final afterCounts = await harness.snapshotCounts();
-      expect(afterCounts, beforeCounts,
-          reason:
-              'blocked adjacent Event tap must not touch any Drift table');
+      expect(
+        afterCounts,
+        beforeCounts,
+        reason: 'blocked adjacent Event tap must not touch any Drift table',
+      );
       final afterOps = await harness.latestOperationTimestamp();
-      expect(afterOps, beforeOps,
-          reason: 'no operation identifier may be consumed');
+      expect(
+        afterOps,
+        beforeOps,
+        reason: 'no operation identifier may be consumed',
+      );
       final afterActual = await harness.actualAndContributionSnapshot();
-      expect(afterActual, beforeActual,
-          reason: 'no Actual or contribution record may be created');
+      expect(
+        afterActual,
+        beforeActual,
+        reason: 'no Actual or contribution record may be created',
+      );
     });
 
-    testWidgets('TEST 2 — adjacent visible Event move is blocked', (tester) async {
+    testWidgets('TEST 2 — adjacent visible Event move is blocked', (
+      tester,
+    ) async {
       final harness = _buildHarness();
       addTearDown(harness.database.close);
       await _pumpPlannerWithSeededEvents(tester, harness: harness);
@@ -392,21 +403,28 @@ void main() {
       await gesture.up();
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
-      final calendarEvent = (await harness.database
-              .select(harness.database.calendarEvents)
-              .get())
-          .firstWhere((row) => row.id == _nextEventId);
-      expect(calendarEvent.startMinute, 9 * 60,
-          reason: 'preview Event start minute must not have moved');
-      expect(calendarEvent.endMinute, 11 * 60,
-          reason: 'preview Event end minute must not have moved');
+      final calendarEvent =
+          (await harness.database.select(harness.database.calendarEvents).get())
+              .firstWhere((row) => row.id == _nextEventId);
+      expect(
+        calendarEvent.startMinute,
+        9 * 60,
+        reason: 'preview Event start minute must not have moved',
+      );
+      expect(
+        calendarEvent.endMinute,
+        11 * 60,
+        reason: 'preview Event end minute must not have moved',
+      );
       final afterCounts = await harness.snapshotCounts();
       expect(afterCounts, beforeCounts);
       final afterOps = await harness.latestOperationTimestamp();
       expect(afterOps, beforeOps);
     });
 
-    testWidgets('TEST 3 — adjacent visible Event resize is blocked', (tester) async {
+    testWidgets('TEST 3 — adjacent visible Event resize is blocked', (
+      tester,
+    ) async {
       final harness = _buildHarness();
       addTearDown(harness.database.close);
       await _pumpPlannerWithSeededEvents(tester, harness: harness);
@@ -423,8 +441,7 @@ void main() {
         previewRect!.center.dx,
         previewRect.bottom - 4,
       );
-      final resizeGesture =
-          await tester.startGesture(resizeStart, pointer: 4);
+      final resizeGesture = await tester.startGesture(resizeStart, pointer: 4);
       await resizeGesture.moveBy(const Offset(0, 30));
       await tester.pump();
       await resizeGesture.moveBy(const Offset(0, 30));
@@ -434,20 +451,23 @@ void main() {
       await gesture.up();
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
-      final calendarEvent = (await harness.database
-              .select(harness.database.calendarEvents)
-              .get())
-          .firstWhere((row) => row.id == _nextEventId);
-      expect(calendarEvent.endMinute, 11 * 60,
-          reason: 'preview Event end minute must not have resized');
+      final calendarEvent =
+          (await harness.database.select(harness.database.calendarEvents).get())
+              .firstWhere((row) => row.id == _nextEventId);
+      expect(
+        calendarEvent.endMinute,
+        11 * 60,
+        reason: 'preview Event end minute must not have resized',
+      );
       final afterCounts = await harness.snapshotCounts();
       expect(afterCounts, beforeCounts);
       final afterOps = await harness.latestOperationTimestamp();
       expect(afterOps, beforeOps);
     });
 
-    testWidgets('TEST 4 — adjacent visible empty-time creation is blocked',
-        (tester) async {
+    testWidgets('TEST 4 — adjacent visible empty-time creation is blocked', (
+      tester,
+    ) async {
       final harness = _buildHarness();
       addTearDown(harness.database.close);
       await _pumpPlannerWithSeededEvents(tester, harness: harness);
@@ -471,9 +491,12 @@ void main() {
         // window.
         columnRect.top + columnRect.height * 0.05,
       );
-      expect(emptySpot.dy < previewRect!.top, isTrue,
-          reason:
-              'the chosen tap target must lie above the visible preview Event');
+      expect(
+        emptySpot.dy < previewRect!.top,
+        isTrue,
+        reason:
+            'the chosen tap target must lie above the visible preview Event',
+      );
       await tester.tapAt(emptySpot);
       await tester.pump();
       await _pumpWhileLiveDrag(tester);
@@ -492,8 +515,11 @@ void main() {
       await gesture.up();
       await tester.pumpAndSettle();
       final afterCounts = await harness.snapshotCounts();
-      expect(afterCounts, beforeCounts,
-          reason: 'blocked empty-tap must not create any new Drift rows');
+      expect(
+        afterCounts,
+        beforeCounts,
+        reason: 'blocked empty-tap must not create any new Drift rows',
+      );
       final afterOps = await harness.latestOperationTimestamp();
       expect(afterOps, beforeOps);
     });
@@ -520,16 +546,20 @@ void main() {
       await gesture.up();
       await tester.pumpAndSettle();
       final afterCounts = await harness.snapshotCounts();
-      expect(afterCounts, beforeCounts,
-          reason:
-              'centered-page interaction during live drag must not '
-              'mutate any Drift table');
+      expect(
+        afterCounts,
+        beforeCounts,
+        reason:
+            'centered-page interaction during live drag must not '
+            'mutate any Drift table',
+      );
       final afterOps = await harness.latestOperationTimestamp();
       expect(afterOps, beforeOps);
     });
 
-    testWidgets('TEST 6 — interaction is blocked during settlement',
-        (tester) async {
+    testWidgets('TEST 6 — interaction is blocked during settlement', (
+      tester,
+    ) async {
       final harness = _buildHarness();
       addTearDown(harness.database.close);
       await _pumpPlannerWithSeededEvents(tester, harness: harness);
@@ -554,9 +584,9 @@ void main() {
       if (previewRect != null) {
         await tester.tapAt(previewRect.center);
       } else {
-        final centered = find.byKey(Key(
-          'planner-timed-event-${_occurrenceId(_nextEventId, _next)}',
-        ));
+        final centered = find.byKey(
+          Key('planner-timed-event-${_occurrenceId(_nextEventId, _next)}'),
+        );
         if (centered.evaluate().isNotEmpty) {
           await tester.tapAt(tester.getCenter(centered));
         }
@@ -566,12 +596,15 @@ void main() {
       expect(tester.takeException(), isNull);
       await tester.pumpAndSettle();
       final afterCounts = await harness.snapshotCounts();
-      expect(afterCounts, beforeCounts,
-          reason:
-              'interaction during settlement must not mutate any Drift '
-              'table (a legitimate commit may bump rows during '
-              'pumpAndSettle, but settlement must NOT have done so '
-              'before we sampled)');
+      expect(
+        afterCounts,
+        beforeCounts,
+        reason:
+            'interaction during settlement must not mutate any Drift '
+            'table (a legitimate commit may bump rows during '
+            'pumpAndSettle, but settlement must NOT have done so '
+            'before we sampled)',
+      );
       final afterOps = await harness.latestOperationTimestamp();
       // The commit may have advanced the operation sequence
       // exactly once via the commit pipeline. What matters is
@@ -595,16 +628,19 @@ void main() {
       }
     });
 
-    testWidgets('TEST 7 — cancelled drag does not release a delayed tap',
-        (tester) async {
+    testWidgets('TEST 7 — cancelled drag does not release a delayed tap', (
+      tester,
+    ) async {
       final harness = _buildHarness();
       addTearDown(harness.database.close);
       await _pumpPlannerWithSeededEvents(tester, harness: harness);
       final beforeCounts = await harness.snapshotCounts();
       final beforeOps = await harness.latestOperationTimestamp();
       final centeredRect = _centeredEventRect(tester);
-      final gesture = await tester.startGesture(centeredRect.center,
-          pointer: 1);
+      final gesture = await tester.startGesture(
+        centeredRect.center,
+        pointer: 1,
+      );
       await gesture.moveBy(const Offset(-30, 0));
       await tester.pump(const Duration(milliseconds: 16));
       await gesture.moveBy(const Offset(-20, 0));
@@ -622,14 +658,22 @@ void main() {
             'over an Event',
       );
       final afterCounts = await harness.snapshotCounts();
-      expect(afterCounts, beforeCounts,
-          reason: 'cancelled drag must not cause any Drift mutation');
+      expect(
+        afterCounts,
+        beforeCounts,
+        reason: 'cancelled drag must not cause any Drift mutation',
+      );
       final afterOps = await harness.latestOperationTimestamp();
-      expect(afterOps, beforeOps,
-          reason: 'no operation identifier may be consumed by a cancel');
+      expect(
+        afterOps,
+        beforeOps,
+        reason: 'no operation identifier may be consumed by a cancel',
+      );
     });
 
-    testWidgets('TEST 8 — interaction is restored after cancel', (tester) async {
+    testWidgets('TEST 8 — interaction is restored after cancel', (
+      tester,
+    ) async {
       final harness = _buildHarness();
       addTearDown(harness.database.close);
       await _pumpPlannerWithSeededEvents(tester, harness: harness);
@@ -664,13 +708,56 @@ void main() {
       expect(find.text('Did Not Attempt'), findsOneWidget);
       expect(find.text('Did Not Attend'), findsNothing);
       expect(find.text('Did Not Happen'), findsNothing);
+      await tester.tap(find.byKey(const Key('event-status-option-scheduled')));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('event-detail-sheet-edit-icon')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('event-detail-sheet-overflow-icon')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('event-detail-title')), findsOneWidget);
+      expect(find.text('Date'), findsOneWidget);
+      expect(find.text('Time'), findsOneWidget);
+      for (final removedAction in <String>[
+        'Link or manage Tasks',
+        'Edit',
+        'Reschedule',
+        'Cancel',
+        'Open Report',
+        'View Activity History',
+      ]) {
+        expect(find.text(removedAction), findsNothing, reason: removedAction);
+      }
+
       await tester.tap(
-        find.byKey(const Key('event-status-option-scheduled')),
+        find.byKey(const Key('event-detail-sheet-overflow-icon')),
       );
       await tester.pumpAndSettle();
+      expect(find.byKey(const Key('event-overflow-duplicate')), findsOneWidget);
+      expect(find.byKey(const Key('event-overflow-delete')), findsOneWidget);
+      expect(find.byKey(const Key('event-overflow-change-type')), findsNothing);
+      expect(find.text('Duplicate'), findsOneWidget);
+      expect(find.text('Delete'), findsOneWidget);
+      await tester.tapAt(const Offset(4, 4));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('event-detail-sheet-overflow-icon')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('event-overflow-delete')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('confirm-delete-event')), findsOneWidget);
+      await tester.tap(find.text('Keep Event'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('event-detail-title')), findsOneWidget);
     });
 
-    testWidgets('TEST 9 — interaction is restored after commit', (tester) async {
+    testWidgets('TEST 9 — interaction is restored after commit', (
+      tester,
+    ) async {
       final harness = _buildHarness();
       addTearDown(harness.database.close);
       await _pumpPlannerWithSeededEvents(tester, harness: harness);
@@ -687,11 +774,14 @@ void main() {
       }
       await swipe.up();
       await tester.pumpAndSettle();
-      final blockFinder = find.byKey(Key(
-        'planner-timed-event-${_occurrenceId(_nextEventId, _next)}',
-      ));
-      expect(blockFinder, findsOneWidget,
-          reason: 'the previously next-day Event must be centered after commit');
+      final blockFinder = find.byKey(
+        Key('planner-timed-event-${_occurrenceId(_nextEventId, _next)}'),
+      );
+      expect(
+        blockFinder,
+        findsOneWidget,
+        reason: 'the previously next-day Event must be centered after commit',
+      );
       final blockRect = tester.getRect(blockFinder);
       await tester.tapAt(blockRect.center);
       await tester.pumpAndSettle();
@@ -705,64 +795,75 @@ void main() {
       );
     });
 
-    testWidgets('TEST 10 — second pointer cancels paging without Event action',
-        (tester) async {
-      final harness = _buildHarness();
-      addTearDown(harness.database.close);
-      await _pumpPlannerWithSeededEvents(tester, harness: harness);
-      final beforeCounts = await harness.snapshotCounts();
-      final beforeOps = await harness.latestOperationTimestamp();
-      final beforeActual = await harness.actualAndContributionSnapshot();
-      final beforeSemantics = tester.getSemantics(find.byKey(
-        const Key('planner-selected-date'),
-      ));
-      final beforeDate = beforeSemantics.label;
-      final pagerCenter = tester.getCenter(
-        find.byKey(const Key('planner-day-pager-viewport')),
-      );
-      final first = await tester.startGesture(pagerCenter, pointer: 1);
-      await first.moveBy(const Offset(-80, 0));
-      await tester.pump(const Duration(milliseconds: 16));
-      await first.moveBy(const Offset(-60, 0));
-      await tester.pump(const Duration(milliseconds: 16));
-      // Add a second finger — the pinch coordinator must
-      // cancel the swipe and recenter the pager.
-      final second = await tester.startGesture(
-        pagerCenter + const Offset(40, 40),
-        pointer: 2,
-      );
-      await tester.pump();
-      // Spread the two pointers apart to confirm a real
-      // two-pointer gesture has been seen.
-      await first.moveBy(const Offset(-40, 0));
-      await second.moveBy(const Offset(40, 0));
-      await tester.pump();
-      await first.up();
-      await second.up();
-      for (var i = 0; i < 18; i++) {
+    testWidgets(
+      'TEST 10 — second pointer cancels paging without Event action',
+      (tester) async {
+        final harness = _buildHarness();
+        addTearDown(harness.database.close);
+        await _pumpPlannerWithSeededEvents(tester, harness: harness);
+        final beforeCounts = await harness.snapshotCounts();
+        final beforeOps = await harness.latestOperationTimestamp();
+        final beforeActual = await harness.actualAndContributionSnapshot();
+        final beforeSemantics = tester.getSemantics(
+          find.byKey(const Key('planner-selected-date')),
+        );
+        final beforeDate = beforeSemantics.label;
+        final pagerCenter = tester.getCenter(
+          find.byKey(const Key('planner-day-pager-viewport')),
+        );
+        final first = await tester.startGesture(pagerCenter, pointer: 1);
+        await first.moveBy(const Offset(-80, 0));
         await tester.pump(const Duration(milliseconds: 16));
-      }
-      await tester.pumpAndSettle();
-      expect(tester.takeException(), isNull);
-      // selectedDate must not have changed.
-      final afterSemantics = tester.getSemantics(find.byKey(
-        const Key('planner-selected-date'),
-      ));
-      final afterDate = afterSemantics.label;
-      expect(
-        afterDate,
-        beforeDate,
-        reason: 'a two-pointer gesture must not commit a date change',
-      );
-      final afterCounts = await harness.snapshotCounts();
-      expect(afterCounts, beforeCounts,
-          reason: 'a two-pointer cancel must not mutate any Drift table');
-      final afterOps = await harness.latestOperationTimestamp();
-      expect(afterOps, beforeOps,
-          reason: 'a two-pointer cancel must not consume an operation id');
-      final afterActual = await harness.actualAndContributionSnapshot();
-      expect(afterActual, beforeActual,
-          reason: 'no Actual or contribution record may be created');
-    });
+        await first.moveBy(const Offset(-60, 0));
+        await tester.pump(const Duration(milliseconds: 16));
+        // Add a second finger — the pinch coordinator must
+        // cancel the swipe and recenter the pager.
+        final second = await tester.startGesture(
+          pagerCenter + const Offset(40, 40),
+          pointer: 2,
+        );
+        await tester.pump();
+        // Spread the two pointers apart to confirm a real
+        // two-pointer gesture has been seen.
+        await first.moveBy(const Offset(-40, 0));
+        await second.moveBy(const Offset(40, 0));
+        await tester.pump();
+        await first.up();
+        await second.up();
+        for (var i = 0; i < 18; i++) {
+          await tester.pump(const Duration(milliseconds: 16));
+        }
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        // selectedDate must not have changed.
+        final afterSemantics = tester.getSemantics(
+          find.byKey(const Key('planner-selected-date')),
+        );
+        final afterDate = afterSemantics.label;
+        expect(
+          afterDate,
+          beforeDate,
+          reason: 'a two-pointer gesture must not commit a date change',
+        );
+        final afterCounts = await harness.snapshotCounts();
+        expect(
+          afterCounts,
+          beforeCounts,
+          reason: 'a two-pointer cancel must not mutate any Drift table',
+        );
+        final afterOps = await harness.latestOperationTimestamp();
+        expect(
+          afterOps,
+          beforeOps,
+          reason: 'a two-pointer cancel must not consume an operation id',
+        );
+        final afterActual = await harness.actualAndContributionSnapshot();
+        expect(
+          afterActual,
+          beforeActual,
+          reason: 'no Actual or contribution record may be created',
+        );
+      },
+    );
   });
 }

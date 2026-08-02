@@ -11,10 +11,10 @@ import 'package:rmplanner/features/planner/application/planner_providers.dart';
 import 'package:rmplanner/features/planner/domain/calendar_event.dart';
 import 'package:rmplanner/features/planner/domain/outcome_reporting.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
-import 'package:rmplanner/features/planner/presentation/event_type_picker_dialog.dart';
 import 'package:rmplanner/features/planner/presentation/widgets/anchored_top_bar_popup.dart';
+import 'package:rmplanner/features/planner/presentation/widgets/planner_top_bar_icons.dart';
 
-enum _CalendarEventDetailAction { changeType, duplicate, delete }
+enum _CalendarEventDetailAction { duplicate, delete }
 
 final class CalendarEventDetailScreen extends ConsumerStatefulWidget {
   const CalendarEventDetailScreen({
@@ -244,55 +244,7 @@ final class _CalendarEventDetailScreenState
                 icon: Icons.redo,
                 label: 'Replacement Event: ${occurrence.replacementEventId}',
               ),
-            const SizedBox(height: 22),
-            FilledButton.tonalIcon(
-              key: const Key('manage-event-task-links'),
-              onPressed: () => _manageLinks(occurrence),
-              icon: const Icon(Icons.link),
-              label: const Text('Link or manage Tasks'),
-            ),
-            const SizedBox(height: 8),
-            if (occurrence.status == CalendarEventStatus.scheduled) ...<Widget>[
-              FilledButton.icon(
-                key: const Key('edit-event-button'),
-                onPressed: () =>
-                    _openForm(occurrence: occurrence, reschedule: false),
-                icon: const Icon(Icons.edit_outlined),
-                label: const Text('Edit'),
-              ),
-              const SizedBox(height: 8),
-              OutlinedButton.icon(
-                key: const Key('reschedule-event-button'),
-                onPressed: () =>
-                    _openForm(occurrence: occurrence, reschedule: true),
-                icon: const Icon(Icons.event_repeat_outlined),
-                label: const Text('Reschedule'),
-              ),
-              const SizedBox(height: 8),
-              OutlinedButton.icon(
-                key: const Key('cancel-event-button'),
-                onPressed: () => _cancel(occurrence),
-                icon: const Icon(Icons.event_busy_outlined),
-                label: const Text('Cancel'),
-              ),
-            ],
-            if (occurrence.requiresReport &&
-                occurrence.status == CalendarEventStatus.scheduled) ...<Widget>[
-              const SizedBox(height: 8),
-              OutlinedButton.icon(
-                key: const Key('open-event-report-button'),
-                onPressed: () => _openReport(occurrence),
-                icon: const Icon(Icons.assignment_outlined),
-                label: Text(awaitingReport ? 'Report Activity' : 'Open Report'),
-              ),
-            ],
-            const SizedBox(height: 8),
-            TextButton.icon(
-              key: const Key('event-activity-history-button'),
-              onPressed: () => context.push(RoutePaths.activityHistory),
-              icon: const Icon(Icons.history),
-              label: const Text('View Activity History'),
-            ),
+            const SizedBox(height: 24),
           ],
         );
       },
@@ -302,7 +254,7 @@ final class _CalendarEventDetailScreenState
         appBar: AppBar(
           title: Text(_detailHeading),
           actions: <Widget>[
-            IconButton(
+            PlannerTopBarIconButton(
               key: const Key('event-detail-edit-icon'),
               tooltip: 'Edit Event',
               onPressed: _openTopEdit,
@@ -310,7 +262,7 @@ final class _CalendarEventDetailScreenState
             ),
             KeyedSubtree(
               key: _overflowAnchorKey,
-              child: IconButton(
+              child: PlannerTopBarIconButton(
                 key: const Key('event-detail-overflow-icon'),
                 tooltip: 'Event actions',
                 onPressed: _openTopOverflow,
@@ -356,7 +308,7 @@ final class _CalendarEventDetailScreenState
                     ),
                   ),
                 ),
-                IconButton(
+                PlannerTopBarIconButton(
                   key: const Key('event-detail-sheet-edit-icon'),
                   tooltip: 'Edit Event',
                   onPressed: _openTopEdit,
@@ -364,7 +316,7 @@ final class _CalendarEventDetailScreenState
                 ),
                 KeyedSubtree(
                   key: _overflowAnchorKey,
-                  child: IconButton(
+                  child: PlannerTopBarIconButton(
                     key: const Key('event-detail-sheet-overflow-icon'),
                     tooltip: 'Event actions',
                     onPressed: _openTopOverflow,
@@ -395,7 +347,7 @@ final class _CalendarEventDetailScreenState
     if (!mounted || occurrence == null) {
       return;
     }
-    await _openForm(occurrence: occurrence, reschedule: false);
+    await _openForm(occurrence: occurrence);
   }
 
   Future<void> _openTopOverflow() async {
@@ -412,15 +364,6 @@ final class _CalendarEventDetailScreenState
       builder: (popupContext) => Column(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          _DetailOverflowItem(
-            key: const Key('event-overflow-change-type'),
-            icon: Icons.swap_horiz_outlined,
-            label: 'Change to Teaching',
-            onTap: () {
-              action = _CalendarEventDetailAction.changeType;
-              anchoredTopBarPopupController.dismiss();
-            },
-          ),
           _DetailOverflowItem(
             key: const Key('event-overflow-duplicate'),
             icon: Icons.copy_outlined,
@@ -448,8 +391,6 @@ final class _CalendarEventDetailScreenState
       return;
     }
     switch (selectedAction) {
-      case _CalendarEventDetailAction.changeType:
-        await _changeType(occurrence);
       case _CalendarEventDetailAction.duplicate:
         await _duplicate(occurrence);
       case _CalendarEventDetailAction.delete:
@@ -554,42 +495,6 @@ final class _CalendarEventDetailScreenState
     await _openReport(occurrence, initialOutcome: outcome);
   }
 
-  Future<void> _changeType(CalendarEventOccurrence occurrence) async {
-    final selected = await showEventTypePicker(
-      context: context,
-      ref: ref,
-      recommendedEventTypeId: occurrence.activityTypeId,
-    );
-    if (!mounted || selected == null) {
-      return;
-    }
-    final draft = await ref
-        .read(calendarEventControllerProvider.notifier)
-        .readEventDraft(occurrence.eventId);
-    if (!mounted || draft == null) {
-      return;
-    }
-    final scope = await _selectScope(occurrence);
-    if (!mounted || scope == null) {
-      return;
-    }
-    final saved = await ref
-        .read(calendarEventControllerProvider.notifier)
-        .editEvent(
-          eventId: occurrence.eventId,
-          originalDate: occurrence.originalDate,
-          scope: scope,
-          draft: draft.copyWith(
-            activityTypeId: selected.id,
-            activityTypeMappingVersion: selected.mappingVersion,
-          ),
-          operationId: ref.read(plannerIdentifierSourceProvider).nextUuid(),
-        );
-    if (saved && mounted) {
-      setState(_reload);
-    }
-  }
-
   Future<void> _duplicate(CalendarEventOccurrence occurrence) async {
     final saved = await ref
         .read(calendarEventControllerProvider.notifier)
@@ -606,36 +511,18 @@ final class _CalendarEventDetailScreenState
     }
   }
 
-  Future<void> _openForm({
-    required CalendarEventOccurrence occurrence,
-    required bool reschedule,
-  }) async {
+  Future<void> _openForm({required CalendarEventOccurrence occurrence}) async {
     final scope = await _selectScope(occurrence);
     if (!mounted || scope == null) {
       return;
     }
-    final path = reschedule
-        ? RoutePaths.calendarEventReschedule(
-            occurrence.eventId,
-            occurrence.originalDate,
-            scope,
-          )
-        : RoutePaths.calendarEventEdit(
-            occurrence.eventId,
-            occurrence.originalDate,
-            scope,
-          );
+    final path = RoutePaths.calendarEventEdit(
+      occurrence.eventId,
+      occurrence.originalDate,
+      scope,
+    );
     final changed = await context.push<bool>(path);
     if (changed == true && mounted) {
-      setState(_reload);
-    }
-  }
-
-  Future<void> _manageLinks(CalendarEventOccurrence occurrence) async {
-    await context.push<bool>(
-      '${RoutePaths.calendarEventDetail(occurrence.eventId, occurrence.originalDate)}/link-task',
-    );
-    if (mounted) {
       setState(_reload);
     }
   }

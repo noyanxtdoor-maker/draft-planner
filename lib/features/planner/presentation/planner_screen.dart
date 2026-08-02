@@ -32,6 +32,7 @@ import 'package:rmplanner/features/planner/presentation/widgets/planner_interact
 import 'package:rmplanner/features/planner/presentation/widgets/planner_shared_viewport.dart'
     show kPlannerTimelineBottomBoundaryExtent;
 import 'package:rmplanner/features/planner/presentation/widgets/planner_slide_down_date_picker.dart';
+import 'package:rmplanner/features/planner/presentation/widgets/planner_top_bar_icons.dart';
 
 final class PlannerScreen extends ConsumerStatefulWidget {
   const PlannerScreen({super.key, this.currentTimeListenable});
@@ -354,16 +355,10 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     }
     return AppBar(
       leading: Builder(
-        builder: (innerContext) => IconButton(
+        builder: (innerContext) => PlannerTopBarIconButton(
           key: const Key('planner-hamburger'),
           tooltip: 'Open global navigation',
           onPressed: () => GlobalDrawerScope.of(innerContext).open(),
-          style: IconButton.styleFrom(
-            padding: EdgeInsets.zero,
-            minimumSize: const Size(48, 48),
-            shape: const CircleBorder(),
-            overlayColor: AppTheme.rose.withValues(alpha: 0.16),
-          ),
           icon: const Icon(Icons.menu, size: 26),
         ),
       ),
@@ -428,43 +423,29 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
         ),
         KeyedSubtree(
           key: const Key('planner-filter-button'),
-          child: IconButton(
+          child: PlannerTopBarIconButton(
             key: _filterButtonKey,
             tooltip: 'Filter Planner content',
             onPressed: () => _showFilters(context, ref, settings),
-            style: IconButton.styleFrom(
-              padding: EdgeInsets.zero,
-              minimumSize: const Size(48, 48),
-              shape: const CircleBorder(),
-              overlayColor: AppTheme.rose.withValues(alpha: 0.16),
+            icon: PlannerFilterIcon(
+              color: Theme.of(context).colorScheme.onSurface,
             ),
-            icon: const Icon(Icons.filter_alt_outlined, size: 25),
           ),
         ),
-        IconButton(
+        PlannerTopBarIconButton(
           key: const Key('planner-selection-button'),
           tooltip: 'Select Events or Tasks',
           onPressed: () => setState(() => _selectionActive = true),
-          style: IconButton.styleFrom(
-            padding: EdgeInsets.zero,
-            minimumSize: const Size(48, 48),
-            shape: const CircleBorder(),
-            overlayColor: AppTheme.rose.withValues(alpha: 0.16),
+          icon: PlannerSelectionIcon(
+            color: Theme.of(context).colorScheme.onSurface,
           ),
-          icon: const Icon(Icons.checklist_outlined, size: 26),
         ),
         KeyedSubtree(
           key: const Key('planner-overflow-button'),
-          child: IconButton(
+          child: PlannerTopBarIconButton(
             key: _overflowButtonKey,
             tooltip: 'Planner menu',
             onPressed: () => _showOverflowMenu(context, ref, state, settings),
-            style: IconButton.styleFrom(
-              padding: EdgeInsets.zero,
-              minimumSize: const Size(48, 48),
-              shape: const CircleBorder(),
-              overlayColor: AppTheme.rose.withValues(alpha: 0.16),
-            ),
             icon: const Icon(Icons.more_vert, size: 26),
           ),
         ),
@@ -997,8 +978,13 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                           ),
                           onMove: (event, startMinute) =>
                               _moveEvent(ref, event, startMinute),
-                          onResize: (event, endMinute) =>
-                              _resizeEvent(ref, event, endMinute),
+                          onResize: (event, startMinute, endMinute) =>
+                              _resizeEvent(
+                                ref,
+                                event,
+                                startMinute: startMinute,
+                                endMinute: endMinute,
+                              ),
                           selectionMode: _selectionMode,
                           selectedItems: _selectedItems,
                           onToggleSelection: _toggleEventSelection,
@@ -1402,14 +1388,10 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
 
   Future<bool> _resizeEvent(
     WidgetRef ref,
-    PlannerCalendarItem event,
-    int endMinute,
-  ) async {
-    final start = event.startLocal;
-    if (start == null) {
-      return false;
-    }
-    final startMinute = start.hour * 60 + start.minute;
+    PlannerCalendarItem event, {
+    required int startMinute,
+    required int endMinute,
+  }) async {
     return _persistTimelineEdit(
       ref,
       event,
@@ -1471,6 +1453,8 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
 }
 
 enum _PlannerOverflowAction { search, schedule, day, week, tasks }
+
+enum _TimelineResizeEdge { top, bottom }
 
 /// Internal descriptor for a row inside the top-bar overflow popup.
 final class _OverflowEntry {
@@ -1790,7 +1774,11 @@ final class _TimedEventTimeline extends StatefulWidget {
   final ValueChanged<int> onCreate;
   final Future<bool> Function(PlannerCalendarItem event, int startMinute)
   onMove;
-  final Future<bool> Function(PlannerCalendarItem event, int endMinute)
+  final Future<bool> Function(
+    PlannerCalendarItem event,
+    int startMinute,
+    int endMinute,
+  )
   onResize;
   final bool selectionMode;
   final Set<PlannerSelectionId> selectedItems;
@@ -2359,7 +2347,7 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
           unawaited(_finishMove(event, originalStartMinute));
         },
         onMoveCancel: () => _clearPreview(event.id),
-        onResizeStart: () {
+        onResizeStart: (_) {
           // Vertical resize owns the gesture; cancel any pending
           // horizontal day-swipe so a long-finger drag along the
           // bottom edge never navigates between days. Suppressed
@@ -2376,9 +2364,10 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
           // resize start, so each onResizeUpdate adds to it rather than
           // overwriting the preview with the current incremental delta.
           _previewStartMinutes.remove(event.id);
+          _previewEndMinutes.remove(event.id);
           _resizeAccumulatedPixels[event.id] = 0;
         },
-        onResizeUpdate: (deltaPixels) {
+        onResizeUpdate: (edge, deltaPixels) {
           // First vertical update also pins the gesture to resize.
           if (_suppressOneFingerInteractions) {
             return;
@@ -2391,20 +2380,33 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
           final deltaMinutes =
               (rawDelta / widget.settings.snapMinutes).round() *
               widget.settings.snapMinutes;
-          final nextEnd = (originalEndMinute + deltaMinutes).clamp(
-            originalStartMinute + widget.settings.snapMinutes,
-            visibleEnd,
-          );
-          setState(() => _previewEndMinutes[event.id] = nextEnd);
+          if (edge == _TimelineResizeEdge.top) {
+            final nextStart = (originalStartMinute + deltaMinutes).clamp(
+              visibleStart,
+              originalEndMinute - widget.settings.snapMinutes,
+            );
+            setState(() {
+              _previewStartMinutes[event.id] = nextStart;
+              _previewEndMinutes[event.id] = originalEndMinute;
+            });
+          } else {
+            final nextEnd = (originalEndMinute + deltaMinutes).clamp(
+              originalStartMinute + widget.settings.snapMinutes,
+              visibleEnd,
+            );
+            setState(() => _previewEndMinutes[event.id] = nextEnd);
+          }
         },
-        onResizeEnd: () {
+        onResizeEnd: (_) {
           if (_suppressOneFingerInteractions) {
             _clearPreview(event.id);
             return;
           }
-          unawaited(_finishResize(event, originalEndMinute));
+          unawaited(
+            _finishResize(event, originalStartMinute, originalEndMinute),
+          );
         },
-        onResizeCancel: () => _clearPreview(event.id),
+        onResizeCancel: (_) => _clearPreview(event.id),
       ),
     );
   }
@@ -2440,15 +2442,17 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
 
   Future<void> _finishResize(
     PlannerCalendarItem event,
+    int originalStartMinute,
     int originalEndMinute,
   ) async {
+    final nextStart = _previewStartMinutes[event.id] ?? originalStartMinute;
     final nextEnd = _previewEndMinutes[event.id] ?? originalEndMinute;
-    if (nextEnd == originalEndMinute) {
+    if (nextStart == originalStartMinute && nextEnd == originalEndMinute) {
       _clearPreview(event.id);
       return;
     }
     setState(() => _persisting.add(event.id));
-    final saved = await widget.onResize(event, nextEnd);
+    final saved = await widget.onResize(event, nextStart, nextEnd);
     if (mounted) {
       setState(() {
         _persisting.remove(event.id);
@@ -2523,10 +2527,11 @@ final class _TimelineEventBlock extends StatelessWidget {
   final ValueChanged<double> onMoveUpdate;
   final VoidCallback onMoveEnd;
   final VoidCallback onMoveCancel;
-  final VoidCallback onResizeStart;
-  final ValueChanged<double> onResizeUpdate;
-  final VoidCallback onResizeEnd;
-  final VoidCallback onResizeCancel;
+  final ValueChanged<_TimelineResizeEdge> onResizeStart;
+  final void Function(_TimelineResizeEdge edge, double deltaPixels)
+  onResizeUpdate;
+  final ValueChanged<_TimelineResizeEdge> onResizeEnd;
+  final ValueChanged<_TimelineResizeEdge> onResizeCancel;
 
   @override
   Widget build(BuildContext context) {
@@ -2617,6 +2622,68 @@ final class _TimelineEventBlock extends StatelessWidget {
               ),
               if (content.showResizeHandle)
                 Positioned(
+                  key: Key('planner-top-resize-handle-${event.id}'),
+                  left: 14,
+                  right: 14,
+                  top: 0,
+                  height: 14,
+                  child: GestureDetector(
+                    key: Key('planner-top-resize-drag-${event.id}'),
+                    behavior: HitTestBehavior.opaque,
+                    onVerticalDragStart: interactive
+                        ? (_) => onResizeStart(_TimelineResizeEdge.top)
+                        : null,
+                    onVerticalDragUpdate: interactive
+                        ? (details) => onResizeUpdate(
+                            _TimelineResizeEdge.top,
+                            details.primaryDelta ?? 0,
+                          )
+                        : null,
+                    onVerticalDragEnd: interactive
+                        ? (_) => onResizeEnd(_TimelineResizeEdge.top)
+                        : null,
+                    onVerticalDragCancel: interactive
+                        ? () => onResizeCancel(_TimelineResizeEdge.top)
+                        : null,
+                    child: Center(
+                      child: Container(
+                        width: 28,
+                        height: 3,
+                        decoration: BoxDecoration(
+                          color: Colors.white60,
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              if (interactive &&
+                  availableHeight >=
+                      PlannerEventBlockLayoutPolicy.topResizeMinimumHeight)
+                Positioned(
+                  key: Key('planner-top-resize-hit-${event.id}'),
+                  left: 0,
+                  right: 0,
+                  top: 0,
+                  height: PlannerEventBlockLayoutPolicy.topResizeHitAreaHeight,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.translucent,
+                    dragStartBehavior: DragStartBehavior.down,
+                    onVerticalDragStart: (_) =>
+                        onResizeStart(_TimelineResizeEdge.top),
+                    onVerticalDragUpdate: (details) => onResizeUpdate(
+                      _TimelineResizeEdge.top,
+                      details.primaryDelta ?? 0,
+                    ),
+                    onVerticalDragEnd: (_) =>
+                        onResizeEnd(_TimelineResizeEdge.top),
+                    onVerticalDragCancel: () =>
+                        onResizeCancel(_TimelineResizeEdge.top),
+                    child: const SizedBox.expand(),
+                  ),
+                ),
+              if (content.showResizeHandle)
+                Positioned(
                   key: Key('planner-resize-handle-${event.id}'),
                   left: 14,
                   right: 14,
@@ -2626,15 +2693,20 @@ final class _TimelineEventBlock extends StatelessWidget {
                     key: Key('planner-resize-drag-${event.id}'),
                     behavior: HitTestBehavior.opaque,
                     onVerticalDragStart: interactive
-                        ? (_) => onResizeStart()
+                        ? (_) => onResizeStart(_TimelineResizeEdge.bottom)
                         : null,
                     onVerticalDragUpdate: interactive
-                        ? (details) => onResizeUpdate(details.primaryDelta ?? 0)
+                        ? (details) => onResizeUpdate(
+                            _TimelineResizeEdge.bottom,
+                            details.primaryDelta ?? 0,
+                          )
                         : null,
                     onVerticalDragEnd: interactive
-                        ? (_) => onResizeEnd()
+                        ? (_) => onResizeEnd(_TimelineResizeEdge.bottom)
                         : null,
-                    onVerticalDragCancel: interactive ? onResizeCancel : null,
+                    onVerticalDragCancel: interactive
+                        ? () => onResizeCancel(_TimelineResizeEdge.bottom)
+                        : null,
                     child: Center(
                       child: Container(
                         width: 28,
@@ -2663,11 +2735,16 @@ final class _TimelineEventBlock extends StatelessWidget {
                   child: GestureDetector(
                     behavior: HitTestBehavior.translucent,
                     dragStartBehavior: DragStartBehavior.down,
-                    onVerticalDragStart: (_) => onResizeStart(),
-                    onVerticalDragUpdate: (details) =>
-                        onResizeUpdate(details.primaryDelta ?? 0),
-                    onVerticalDragEnd: (_) => onResizeEnd(),
-                    onVerticalDragCancel: onResizeCancel,
+                    onVerticalDragStart: (_) =>
+                        onResizeStart(_TimelineResizeEdge.bottom),
+                    onVerticalDragUpdate: (details) => onResizeUpdate(
+                      _TimelineResizeEdge.bottom,
+                      details.primaryDelta ?? 0,
+                    ),
+                    onVerticalDragEnd: (_) =>
+                        onResizeEnd(_TimelineResizeEdge.bottom),
+                    onVerticalDragCancel: () =>
+                        onResizeCancel(_TimelineResizeEdge.bottom),
                     child: const SizedBox.expand(),
                   ),
                 ),

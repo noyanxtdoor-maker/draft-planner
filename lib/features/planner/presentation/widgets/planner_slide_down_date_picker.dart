@@ -46,8 +46,8 @@ typedef PlannerDatePickerRouteAnimation =
 /// Shows a reusable [showDatePicker] dialog with the same content
 /// as production already exposes, but the dialog is rendered
 /// inside a custom [PageRouteBuilder] that slides the panel
-/// downward on entry and upward on exit. The barrier uses a
-/// subtle dim so the surrounding Planner remains faintly visible
+/// downward on entry and upward on exit. The barrier is
+/// transparent so the surrounding Planner remains fully visible
 /// but cannot accept input while the picker is open.
 Future<DateTime?> showPlannerSlideDownDatePicker({
   required BuildContext context,
@@ -60,7 +60,10 @@ Future<DateTime?> showPlannerSlideDownDatePicker({
     PageRouteBuilder<DateTime>(
       settings: const RouteSettings(name: 'planner-date-picker-route'),
       opaque: false,
-      barrierColor: Colors.black.withValues(alpha: 0.18),
+      // The Planner must remain fully visible while the picker owns modal
+      // input. A transparent barrier blocks taps without introducing the
+      // rejected black or dim replacement layer.
+      barrierColor: Colors.transparent,
       barrierDismissible: true,
       barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
       transitionDuration: const Duration(milliseconds: 240),

@@ -126,6 +126,14 @@ abstract final class PlannerEventBlockLayoutPolicy {
   /// per the owner-correction contract) but constrained to the bottom
   /// region so the Event tap area is preserved.
   static const double resizeHitAreaHeight = 48;
+
+  /// A compact top-edge target that leaves the Event body available for its
+  /// existing tap and long-press move behavior.
+  static const double topResizeHitAreaHeight = 24;
+
+  /// Top and bottom targets remain distinct once a block is tall enough to
+  /// expose both edges without making short blocks gesture-ambiguous.
+  static const double topResizeMinimumHeight = 76;
 }
 
 enum Density { veryShort, short, medium, tall }
