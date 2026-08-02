@@ -2794,10 +2794,26 @@ commit created for this section; its short SHA is reported after commit.
 
 ### Acceptance boundary
 
-- Final APK build/hash/install/data-preservation evidence is pending the
-  authorized device becoming reachable.
-- Physical acceptance items 01–50 are pending explicit owner PASS/FAIL and are
-  not inferred from automated tests or prior reports.
+- Final marker-free APK was rebuilt from Temp at
+  `C:\Users\sherl\Documents\Next Transfer-Temp\build\app\outputs\flutter-apk\app-debug.apk`.
+  Size: `195332916` bytes. SHA-256:
+  `7E494F329367D966ACDE5118A15B110BE906D8DD44615070C97AC05324FE15D5`.
+- The authorized Infinix (`192.168.1.54:34439`) was reached through its
+  discovered mDNS ADB endpoint. `adb install -r` returned `Success`; no clear,
+  uninstall, or first-install reset was performed.
+- Installed APK SHA-256 matched the final Temp APK hash. Before and after
+  `firstInstallTime` remained `2026-07-27 15:42:22`, `dataDir` remained
+  `/data/user/0/com.nexttransfer.rmplanner`, and `ceDataInode` remained
+  `1509267`; only `lastUpdateTime` advanced.
+- The app process launched, but the phone remained at its secure lock screen
+  after normal wake/swipe/key input. The visible Android overlay permission was
+  accepted, but no lock-screen bypass was attempted. Planner UI inspection and
+  owner physical acceptance therefore remain blocked on the device owner
+  unlocking the phone.
+- Physical acceptance items 01–50 are not marked PASS and are not inferred
+  from automated tests, screenshots behind the lock screen, or prior reports.
+  Item 34 (People works) is additionally blocked by the missing approved
+  person-link persistence architecture described above.
 - Physical acceptance and final integration checkpoints were not created.
 - No push was made; PR #8 remains untouched; VS-09 remains unauthorized and
   unstarted.
