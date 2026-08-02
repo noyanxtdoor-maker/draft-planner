@@ -3302,3 +3302,60 @@ commit created for this section; its short SHA is reported after commit.
   owner's explicit PASS or FAIL for items 01–67; no physical PASS is inferred
   from installation or automated tests.
 - No push was made; PR #8 remains untouched; VS-09 was not started.
+
+## VS-08 Owner Correction — Typography, WLI Event Types, Reporting, and Home
+
+- Writable checkout: `C:\Users\sherl\Documents\Next Transfer-Temp`, branch
+  `temp/vs08-shared-preview`. Protected original checkout was not modified.
+  The inherited untracked `.todo.md` remains unmodified and untracked.
+- Locked Event Type model is implemented: Job Application, Scripture Study,
+  Exercise, Contact, Budget Review, Temple Visit, Meeting, Study or Plan,
+  Service, Work, Travel, Meal, Other, plus Task as the separate creation
+  entry point. Teaching, Finding, General, and Appointment are hidden from
+  new creation while legacy rows remain readable and preserved.
+- The six stable WLI/Event Type relationships remain ID-based and locked:
+  Job Applications/Job Application, Scripture Study/Scripture Study,
+  Exercise/Exercise, Meaningful Connections/Contact, Budget Review/Budget
+  Review, and Temple Visit/Temple Visit. WLI display titles and linked Event
+  Type display names have independent validated edit fields; names persist
+  without changing stable IDs, mappings, existing Events, or history.
+- First-six Event creation auto-links the exact WLI, enables Report Required,
+  disables the report toggle, and prevents unlinking. Current Status remains
+  the reporting mechanism; Activity History remains read-only and Activity
+  Report remains absent.
+- Home now uses the shared Roboto theme and approved app-bar scale, live WLI
+  Actual/Target cards, first/four-middle/Temple wide-card hierarchy, View All,
+  Weekly Planning, and an outlined Active Pathways section. Scheduled metrics
+  were removed from the first five WLIs and WLI detail. Temple Visit uses the
+  earliest valid future occurrence for Next Visit, otherwise Set Schedule
+  opens Temple Visit creation without creating progress.
+- Planner Event-block geometry, left-only accent treatment, approved colors,
+  recurrence behavior, and existing Planner interactions were preserved;
+  only title/time typography was reduced to the PMG density. Weekly Planning
+  uses the six canonical WLI slots and current display titles without
+  scheduled-progress metrics.
+- Implementation commit: `308be67ba994a2b47406bad98c5bfc4e7abcc1f6`
+  (`feat(home): align typography WLI event types and reporting`).
+- Verification: full Flutter suite `359 passed, 0 failed, 0 skipped`; Planner
+  suite `294 passed, 0 failed, 0 skipped`; Indicators `4 passed`; Weekly
+  Planning `5 passed`; Event Type-first creation `5 passed`; analyzer reports
+  `No issues found!`; `git diff --check` passed.
+- Temp debug APK was rebuilt with
+  `C:\Users\sherl\AppData\Local\Temp\run_flutter.bat build apk --debug`.
+  Artifact: `C:\Users\sherl\Documents\Next Transfer-Temp\build\app\outputs\flutter-apk\app-debug.apk`,
+  195410461 bytes, SHA-256
+  `0C42BB71A73FC54662B5572F1CB82636F2679539F4C5A10B630E54BF820407B2`.
+- Authorized device: Infinix X6731, serial
+  `adb-10620253B3004617-2m7ZVB._adb-tls-connect._tcp`. Update-only
+  `adb install -r` returned `Success`; the installed base APK SHA-256 matched
+  the Temp APK. No uninstall or app-data clear was used.
+- Data-preservation evidence after install: package
+  `com.nexttransfer.rmplanner`, version `0.1.0`,
+  `dataDir=/data/user/0/com.nexttransfer.rmplanner`,
+  `firstInstallTime=2026-07-27 15:42:22`, `ceDataInode=1509267`, and
+  `app_flutter/next_transfer.sqlite` remained present. The package was
+  force-stopped and relaunched successfully.
+- Physical owner walkthrough acceptance remains pending the owner’s explicit
+  PASS or FAIL for the required latest VS-08 acceptance items; no physical
+  PASS is inferred from automated tests or installation. No push was made,
+  PR #8 was not updated, and VS-09 was not started.
