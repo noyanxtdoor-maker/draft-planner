@@ -185,12 +185,16 @@ final class PlannerBackupStripeBackground extends StatelessWidget {
     return Stack(
       clipBehavior: Clip.hardEdge,
       children: <Widget>[
-        Positioned.fill(
+        Positioned.fill(child: child),
+        Positioned(
+          left: 0,
+          top: 0,
+          bottom: 0,
+          width: PlannerEventBlockLayoutPolicy.backupEventAccentWidth,
           child: CustomPaint(
             painter: _PlannerBackupStripePainter(accent: accent),
           ),
         ),
-        Positioned.fill(child: child),
       ],
     );
   }

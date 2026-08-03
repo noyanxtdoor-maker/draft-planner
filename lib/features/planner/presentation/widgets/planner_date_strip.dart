@@ -461,7 +461,13 @@ final class _PlannerDateStripDayButton extends StatelessWidget {
                     Text(
                       _labels[date.weekday - 1],
                       maxLines: 1,
-                      style: TextStyle(fontSize: 11, color: color),
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: selected
+                            ? FontWeight.w600
+                            : FontWeight.w400,
+                        color: color,
+                      ),
                     ),
                     Text(
                       '${date.day}',

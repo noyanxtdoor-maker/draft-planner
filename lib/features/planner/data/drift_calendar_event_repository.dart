@@ -286,11 +286,6 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
   }) async {
     _validateOperationId(operationId);
     final reports = await reportSource.readSeriesReports(eventId);
-    _ensureOccurrenceIsEditable(
-      eventId: eventId,
-      originalDate: originalDate,
-      reports: reports,
-    );
     return database.transaction(() async {
       if (await _operationExists(operationId)) {
         return CalendarEventMutationOutcome.unchanged;
@@ -511,6 +506,7 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
         eventId: duplicateId,
         draft: draft,
         existing: null,
+        parentEventId: eventId,
       );
       await _insertOperation(
         operationId: operationId,

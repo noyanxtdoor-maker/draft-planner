@@ -180,11 +180,19 @@ final class _PlannerEventStatusRow extends StatelessWidget {
     final IconData icon;
     final String label;
     if (awaitingReport) {
-      icon = Icons.assignment_late_outlined;
+      icon = Icons.error_outline;
       label = 'Unreported';
-    } else if (event.hasOutcomeReport) {
+    } else if (event.state == PlannerEventState.completedHappened) {
       icon = Icons.check_circle_outline;
-      label = 'Completed';
+      label = event.activityTypeLabel?.toLowerCase().contains('contact') == true
+          ? 'Contacted'
+          : 'Completed';
+    } else if (event.state == PlannerEventState.partiallyCompleted) {
+      icon = Icons.block_outlined;
+      label = 'Missed - Attempted';
+    } else if (event.state == PlannerEventState.didNotHappen) {
+      icon = Icons.remove_circle_outline;
+      label = 'Did Not Attempt';
     } else if (event.isBackupAppointment) {
       icon = Icons.layers_outlined;
       label = 'Backup';

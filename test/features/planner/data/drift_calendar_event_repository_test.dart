@@ -181,6 +181,46 @@ void main() {
   );
 
   test(
+    'VS08-PB: reportable occurrence cancellation preserves external history',
+    () async {
+      final occurrenceId = CalendarEventOccurrenceIdentity.forDate(
+        eventId: _eventId,
+        originalDate: _start,
+      );
+      final reportSource = _MemoryReportSource(<CalendarEventReportSnapshot>[
+        CalendarEventReportSnapshot(
+          occurrenceId: occurrenceId,
+          originalDate: _start,
+          status: CalendarEventStatus.completedHappened,
+        ),
+      ]);
+      final repository = buildRepository(reportSource: reportSource);
+      await repository.saveEvent(profileId: profileId, draft: _allDayDraft());
+
+      final result = await repository.cancelEvent(
+        profileId: profileId,
+        eventId: _eventId,
+        originalDate: _start,
+        scope: CalendarEventEditScope.occurrence,
+        operationId: _secondOperationId,
+      );
+      final cancelled = await repository.readOccurrence(
+        profileId: profileId,
+        eventId: _eventId,
+        originalDate: _start,
+      );
+
+      expect(result, CalendarEventMutationOutcome.changed);
+      expect(cancelled!.status, CalendarEventStatus.cancelled);
+      expect(reportSource.reports, hasLength(1));
+      expect(
+        reportSource.reports.single.status,
+        CalendarEventStatus.completedHappened,
+      );
+    },
+  );
+
+  test(
     'AC-E-017,018,021,023: reports are factual and reported history is immutable',
     () async {
       final occurrenceId = CalendarEventOccurrenceIdentity.forDate(
@@ -380,6 +420,10 @@ void main() {
       expect(duplicate.status, CalendarEventStatus.scheduled);
       expect(duplicate.contributionRuleKey, isNull);
       expect(duplicate.recurrence.isRecurring, isFalse);
+      final duplicateRow = rows.singleWhere((row) => row.id == _duplicateId);
+      final sourceRow = rows.singleWhere((row) => row.id == _eventId);
+      expect(duplicateRow.parentEventId, _eventId);
+      expect(sourceRow.parentEventId, isNull);
     },
   );
 }

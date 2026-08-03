@@ -522,10 +522,6 @@ final class _CalendarEventFormScreenState
                   bottomPadding,
                 ),
                 children: <Widget>[
-                  if (widget.scope != null) ...<Widget>[
-                    _ScopeBanner(scope: widget.scope!),
-                    const SizedBox(height: 16),
-                  ],
                   if (widget.sourceTaskId != null) ...<Widget>[
                     Card(
                       child: Padding(
@@ -992,10 +988,13 @@ final class _CalendarEventFormScreenState
   Widget _buildIndicatorLinkSection() {
     final linked = _indicatorOption(_linkedIndicatorKey);
     final locked = _selectedEventType?.isLockedWliType == true;
+    final sectionLabel = locked
+        ? 'Linked to Weekly Life Indicator'
+        : 'Link to Weekly Life Indicator';
     return Semantics(
       container: true,
       enabled: !locked,
-      label: 'Link to Weekly Life Indicator',
+      label: sectionLabel,
       child: Material(
         color: locked ? const Color(0xFF26282A) : Colors.transparent,
         child: InkWell(
@@ -1008,7 +1007,7 @@ final class _CalendarEventFormScreenState
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
                 _MeasuredFormSectionHeader(
-                  label: 'Link to Weekly Life Indicator',
+                  label: sectionLabel,
                   color: locked ? const Color(0xFF8E9295) : null,
                   dividerColor: locked ? const Color(0xFF6F7376) : null,
                 ),
@@ -1023,15 +1022,33 @@ final class _CalendarEventFormScreenState
                       ),
                       const SizedBox(width: 10),
                       Expanded(
-                        child: Text(
-                          linked?.label ??
-                              _selectedEventType?.label ??
-                              'Automatically linked',
-                          key: const Key('weekly-life-indicator-link-value'),
-                          style: const TextStyle(
-                            color: Color(0xFF8E9295),
-                            fontWeight: FontWeight.w500,
-                          ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            Text(
+                              linked?.label ??
+                                  _selectedEventType?.label ??
+                                  'Automatically linked',
+                              key: const Key(
+                                'weekly-life-indicator-link-value',
+                              ),
+                              style: const TextStyle(
+                                color: Color(0xFF8E9295),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            const Text(
+                              'Automatically linked for this Event Type',
+                              key: Key(
+                                'weekly-life-indicator-link-locked-help',
+                              ),
+                              style: TextStyle(
+                                color: Color(0xFF6F7376),
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
@@ -1494,29 +1511,6 @@ final class _FormSectionLabel extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-final class _ScopeBanner extends StatelessWidget {
-  const _ScopeBanner({required this.scope});
-
-  final CalendarEventEditScope scope;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      key: const Key('event-selected-scope'),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.12),
-        border: Border.all(color: Theme.of(context).colorScheme.primary),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Text(
-        'Selected scope: ${calendarEventScopeLabel(scope)}',
-        style: const TextStyle(fontWeight: FontWeight.w700),
-      ),
     );
   }
 }

@@ -13,7 +13,6 @@ import 'package:rmplanner/features/planner/domain/event_type.dart';
 import 'package:rmplanner/features/planner/domain/outcome_reporting.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 import 'package:rmplanner/features/planner/presentation/widgets/anchored_top_bar_popup.dart';
-import 'package:rmplanner/features/planner/presentation/widgets/planner_event_color_resolver.dart';
 import 'package:rmplanner/features/planner/presentation/widgets/planner_top_bar_icons.dart';
 
 enum _CalendarEventDetailAction { duplicate, delete }
@@ -98,10 +97,6 @@ final class _CalendarEventDetailScreenState
         }
         final nowUtc = DateTime.now().toUtc();
         final displayToday = PlannerDate.fromDateTime(DateTime.now());
-        final awaitingReport = occurrence.isAwaitingReport(
-          nowUtc: nowUtc,
-          displayToday: displayToday,
-        );
         final isFuture = occurrence.timing == CalendarEventTiming.allDay
             ? occurrence.displayDate.compareTo(displayToday) > 0
             : occurrence.startUtc?.isAfter(nowUtc) ?? false;
@@ -112,12 +107,6 @@ final class _CalendarEventDetailScreenState
                   .where((type) => type.id == occurrence.activityTypeId)
                   .firstOrNull;
         final eventTypeLabel = eventType?.label ?? occurrence.activityTypeLabel;
-        final eventTypeAccent = eventType == null
-            ? Color(occurrence.activityTypeColorValue ?? 0xFFE91E63)
-            : PlannerEventColorResolver.accentColorForType(
-                eventType,
-                eventTypeState.resolvedEventColorsByTypeId,
-              );
         final isContactEvent = _isContactEvent(eventType, eventTypeLabel);
         return ListView(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
@@ -145,34 +134,16 @@ final class _CalendarEventDetailScreenState
               spacing: 8,
               runSpacing: 8,
               children: <Widget>[
-                if (eventTypeLabel != null)
-                  Chip(
-                    key: const Key('event-detail-event-type'),
-                    avatar: Icon(
-                      Icons.category_outlined,
-                      size: 18,
-                      color: eventTypeAccent,
-                    ),
-                    label: Text(eventTypeLabel),
-                  ),
                 if (occurrence.isRecurring)
                   const Chip(
                     avatar: Icon(Icons.repeat, size: 18),
                     label: Text('Recurring'),
                   ),
-                if (occurrence.requiresReport)
-                  const Chip(label: Text('Report required')),
                 if (occurrence.isBackupAppointment)
                   const Chip(
                     key: Key('event-detail-backup-badge'),
                     avatar: Icon(Icons.layers_outlined, size: 18),
                     label: Text('Backup Appointment'),
-                  ),
-                if (awaitingReport)
-                  const Chip(
-                    key: Key('event-detail-awaiting-report'),
-                    avatar: Icon(Icons.error_outline, size: 18),
-                    label: Text('Unreported'),
                   ),
               ],
             ),
@@ -446,7 +417,6 @@ final class _CalendarEventDetailScreenState
     if (anchor == null) {
       return;
     }
-    CalendarEventStatus? selected;
     await showAnchoredTopBarPopup(
       context: context,
       triggerKey: _statusControlAnchorKey,
@@ -468,8 +438,16 @@ final class _CalendarEventDetailScreenState
               child: InkWell(
                 key: Key('event-status-option-${status.name}'),
                 onTap: () {
-                  selected = status;
-                  anchoredTopBarPopupController.dismiss();
+                  if (_statusSaving) {
+                    return;
+                  }
+                  setState(() => _statusSaving = true);
+                  unawaited(
+                    _persistStatusSelection(
+                      occurrence,
+                      selected: status,
+                    ),
+                  );
                 },
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -497,26 +475,26 @@ final class _CalendarEventDetailScreenState
         ],
       ),
     );
-    if (!mounted || selected == null) {
-      return;
-    }
-    if (selected == CalendarEventStatus.scheduled) {
-      return;
-    }
-    final outcome = switch (selected) {
-      CalendarEventStatus.completedHappened => OutcomeKind.completedHappened,
-      CalendarEventStatus.partiallyCompleted => OutcomeKind.partiallyCompleted,
-      CalendarEventStatus.didNotHappen => OutcomeKind.didNotHappen,
-      _ => null,
-    };
-    if (outcome == null) {
-      return;
-    }
-    if (_outcomeForStatus(occurrence.status) == outcome) {
-      return;
-    }
-    setState(() => _statusSaving = true);
+  }
+
+  Future<void> _persistStatusSelection(
+    CalendarEventOccurrence occurrence, {
+    required CalendarEventStatus selected,
+  }) async {
     try {
+      if (selected == CalendarEventStatus.scheduled) {
+        return;
+      }
+      final outcome = switch (selected) {
+        CalendarEventStatus.completedHappened => OutcomeKind.completedHappened,
+        CalendarEventStatus.partiallyCompleted =>
+          OutcomeKind.partiallyCompleted,
+        CalendarEventStatus.didNotHappen => OutcomeKind.didNotHappen,
+        _ => null,
+      };
+      if (outcome == null || _outcomeForStatus(occurrence.status) == outcome) {
+        return;
+      }
       final result = await ref
           .read(outcomeReportingControllerProvider.notifier)
           .submitEventStatus(
@@ -529,7 +507,19 @@ final class _CalendarEventDetailScreenState
       if (mounted && result != null) {
         setState(_reload);
       }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Unable to save the Event status.')),
+        );
+      }
     } finally {
+      // The popup is intentionally dismissed only after the canonical write
+      // completes. This keeps a visible row tap from appearing successful
+      // while the report/outbox/contribution pipeline is still in flight.
+      if (anchoredTopBarPopupController.isOpen) {
+        anchoredTopBarPopupController.dismiss();
+      }
       if (mounted) {
         setState(() => _statusSaving = false);
       }
@@ -583,7 +573,7 @@ final class _CalendarEventDetailScreenState
           delete ? 'Delete Calendar Event?' : 'Cancel Calendar Event?',
         ),
         content: Text(
-          'Scope: ${calendarEventScopeLabel(scope)}. Historical records '
+          'Scope: ${_scopeLabel(scope)}. Historical records '
           'and reports will be preserved.',
         ),
         actions: <Widget>[
@@ -637,19 +627,27 @@ final class _CalendarEventDetailScreenState
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
               Text(
-                'Choose recurrence scope',
+                'Change repeating event',
                 style: Theme.of(
                   sheetContext,
                 ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
               ),
               const SizedBox(height: 10),
-              for (final scope in CalendarEventEditScope.values)
+              for (final scope in <CalendarEventEditScope>[
+                CalendarEventEditScope.occurrence,
+                CalendarEventEditScope.series,
+              ])
                 ListTile(
                   key: Key('event-scope-${scope.name}'),
-                  title: Text(calendarEventScopeLabel(scope)),
+                  title: Text(_scopeLabel(scope)),
                   subtitle: Text(_scopeHelp(scope)),
                   onTap: () => Navigator.of(sheetContext).pop(scope),
                 ),
+              TextButton(
+                key: const Key('event-scope-cancel'),
+                onPressed: () => Navigator.of(sheetContext).pop(),
+                child: const Text('Cancel'),
+              ),
             ],
           ),
         ),
@@ -665,6 +663,14 @@ final class _CalendarEventDetailScreenState
         'Preserve earlier occurrences and start a stable continuation',
       CalendarEventEditScope.series =>
         'Apply to the series while preserving reported history',
+    };
+  }
+
+  static String _scopeLabel(CalendarEventEditScope scope) {
+    return switch (scope) {
+      CalendarEventEditScope.occurrence => 'This event only',
+      CalendarEventEditScope.series => 'All events',
+      CalendarEventEditScope.thisAndFuture => 'This event only',
     };
   }
 
@@ -709,7 +715,7 @@ final class _CalendarEventDetailScreenState
     return switch (status) {
       CalendarEventStatus.scheduled => Icons.error_outline,
       CalendarEventStatus.completedHappened => Icons.check_circle_outline,
-      CalendarEventStatus.partiallyCompleted => Icons.sync_disabled,
+      CalendarEventStatus.partiallyCompleted => Icons.block_outlined,
       CalendarEventStatus.didNotHappen => Icons.remove_circle_outline,
       _ => Icons.flag_outlined,
     };

@@ -104,9 +104,39 @@ void main() {
         ),
         findsOneWidget,
       );
+      expect(find.byType(Chip), findsNothing);
       expect(find.byKey(const Key('outcome-report-form')), findsNothing);
       await tester.tap(find.byKey(const Key('event-status-control')));
       await tester.pumpAndSettle();
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('event-status-option-scheduled')),
+          matching: find.text('Unreported'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('event-status-option-completedHappened')),
+          matching: find.text('Completed'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('event-status-option-partiallyCompleted')),
+          matching: find.text('Missed - Attempted'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('event-status-option-didNotHappen')),
+          matching: find.text('Did Not Attempt'),
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Did Not Attend'), findsNothing);
       await tester.tap(
         find.byKey(const Key('event-status-option-completedHappened')),
       );
