@@ -1,5 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:rmplanner/core/ids/identifier_source.dart';
 import 'package:rmplanner/features/indicators/application/indicator_providers.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 import 'package:rmplanner/features/startup/application/startup_providers.dart';
@@ -13,10 +12,6 @@ final weeklyPlanningRepositoryProvider = Provider<WeeklyPlanningRepository>((
   throw StateError(
     'WeeklyPlanningRepository must be overridden at the app root',
   );
-});
-
-final weeklyPlanningIdentifierProvider = Provider<IdentifierSource>((ref) {
-  return const UuidIdentifierSource();
 });
 
 final weeklyPlanningProfileIdProvider = Provider<String>((ref) {
@@ -36,18 +31,6 @@ final weeklyPlanProvider = FutureProvider.family<WeeklyPlan, PlannerDate>((
   return ref
       .read(weeklyPlanningRepositoryProvider)
       .openOrCreate(profileId: profileId, date: date);
-});
-
-final weeklyPlanByIdProvider = FutureProvider.family<WeeklyPlan?, String>((
-  ref,
-  planId,
-) {
-  return ref
-      .read(weeklyPlanningRepositoryProvider)
-      .readPlan(
-        profileId: ref.read(weeklyPlanningProfileIdProvider),
-        planId: planId,
-      );
 });
 
 final weeklyPlanHistoryProvider = FutureProvider<List<WeeklyPlan>>((ref) {

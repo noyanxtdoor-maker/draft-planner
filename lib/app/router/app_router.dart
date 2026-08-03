@@ -3,7 +3,6 @@ import 'package:go_router/go_router.dart';
 import 'package:rmplanner/app/router/route_names.dart';
 import 'package:rmplanner/app/router/startup_route_guard.dart';
 import 'package:rmplanner/app/shell/main_shell.dart';
-import 'package:rmplanner/features/indicators/domain/life_indicator.dart';
 import 'package:rmplanner/features/indicators/presentation/indicator_detail_screen.dart';
 import 'package:rmplanner/features/indicators/presentation/indicator_edit_screen.dart';
 import 'package:rmplanner/features/indicators/presentation/indicator_list_screen.dart';
@@ -38,7 +37,6 @@ import 'package:rmplanner/features/startup/presentation/recovery_screen.dart';
 import 'package:rmplanner/features/startup/presentation/startup_screen.dart';
 import 'package:rmplanner/features/weekly_planning/presentation/weekly_plan_history_screen.dart';
 import 'package:rmplanner/features/weekly_planning/presentation/weekly_planning_screen.dart';
-import 'package:rmplanner/features/weekly_planning/presentation/weekly_review_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final startupState = ref.watch(startupControllerProvider);
@@ -169,12 +167,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             path: RoutePaths.weeklyPlanningHistory,
             builder: (context, state) => const WeeklyPlanHistoryScreen(),
           ),
-          GoRoute(
-            name: RouteNames.weeklyPlanningReview,
-            path: '${RoutePaths.weeklyPlanning}/:planId/review',
-            builder: (context, state) =>
-                WeeklyReviewScreen(planId: state.pathParameters['planId']!),
-          ),
         ],
       ),
       GoRoute(
@@ -184,8 +176,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           final rawDate = state.uri.queryParameters['date'];
           return TaskFormScreen.create(
             initialDueDate: rawDate == null ? null : PlannerDate.parse(rawDate),
-            indicatorKey: state.uri.queryParameters['indicator'],
-            indicatorPeriod: _goalPeriodFromQuery(state.uri.queryParameters),
           );
         },
       ),
@@ -368,29 +358,4 @@ PlannerDate _periodStart(String? raw, PlannerDate today) {
     }
   }
   return today.addDays(-(today.asLocalDate.weekday - DateTime.monday));
-}
-
-IndicatorGoalPeriod? _goalPeriodFromQuery(Map<String, String> query) {
-  final rawType = query['indicatorPeriod'];
-  final rawStart = query['indicatorPeriodStart'];
-  if (rawType == null || rawStart == null) {
-    return null;
-  }
-  final type = IndicatorGoalPeriodType.values
-      .where((value) => value.name == rawType)
-      .firstOrNull;
-  if (type == null) {
-    return null;
-  }
-  PlannerDate start;
-  try {
-    start = PlannerDate.parse(rawStart);
-  } on FormatException {
-    return null;
-  }
-  return switch (type) {
-    IndicatorGoalPeriodType.daily => IndicatorGoalPeriod.daily(start),
-    IndicatorGoalPeriodType.weekly => IndicatorGoalPeriod.weekly(start),
-    IndicatorGoalPeriodType.monthly => IndicatorGoalPeriod.monthly(start),
-  };
 }

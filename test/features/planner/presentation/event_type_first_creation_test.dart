@@ -396,62 +396,6 @@ void main() {
     },
   );
 
-  testWidgets('VS-08: goal Commitments opens the picker before the form', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(431, 912);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    final database = openMemoryDatabase();
-    addTearDown(database.close);
-    final privacy = TestPrivacyDependencies(database: database);
-    final startup = buildTestRepository(
-      database: database,
-      privacyGate: privacy.gate,
-    );
-    await startup.completeOnboarding();
-
-    await tester.pumpWidget(
-      privacy.buildApp(
-        environment: const AppEnvironment(
-          name: AppEnvironmentName.production,
-          label: 'PRODUCTION',
-        ),
-        diagnostics: SanitizedDiagnostics(),
-        startupRepository: startup,
-        plannerDateSource: const FixedPlannerDateSource(selected),
-      ),
-    );
-    await tester.pumpAndSettle(
-      const Duration(milliseconds: 100),
-      EnginePhase.sendSemanticsUpdate,
-      const Duration(seconds: 5),
-    );
-    await tester.tap(find.text('Start Weekly Planning'));
-    await tester.pumpAndSettle(
-      const Duration(milliseconds: 100),
-      EnginePhase.sendSemanticsUpdate,
-      const Duration(seconds: 5),
-    );
-    await tester.tap(
-      find.byKey(const Key('weekly-plan-indicator-job_applications')),
-    );
-    await tester.pumpAndSettle(
-      const Duration(milliseconds: 100),
-      EnginePhase.sendSemanticsUpdate,
-      const Duration(seconds: 5),
-    );
-    expect(find.text('Edit Goal'), findsOneWidget);
-    expect(find.byKey(const Key('goal-add-commitment')), findsOneWidget);
-    expect(find.textContaining('Actual:'), findsNothing);
-    await tester.tap(find.byKey(const Key('goal-add-commitment')));
-    await tester.pump(const Duration(milliseconds: 500));
-    expect(find.text('Select Event Type'), findsOneWidget);
-    expect(find.text('New Calendar Event'), findsNothing);
-    await tester.pumpWidget(const SizedBox.shrink());
-    await tester.pump(const Duration(milliseconds: 1));
-  });
-
   testWidgets('VS-08: Task scheduling opens the picker before the form', (
     tester,
   ) async {

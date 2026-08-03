@@ -301,7 +301,6 @@ final class TestPrivacyDependencies {
             displayTimeZoneId: 'Asia/Manila',
           ),
           indicators: indicatorRepository,
-          calendarEvents: resolvedCalendarEventRepository,
         );
     return ProviderScope(
       overrides: [

@@ -84,7 +84,6 @@ Future<void> main() async {
     identifiers: const UuidIdentifierSource(),
     timeZones: calendarEventTimeZones,
     indicators: indicatorRepository,
-    calendarEvents: calendarEventRepository,
   );
   final taskEventLinkCoordinator = DriftTaskEventLinkCoordinator(
     database: database,

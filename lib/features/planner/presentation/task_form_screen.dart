@@ -3,8 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rmplanner/app/theme/app_theme.dart';
-import 'package:rmplanner/features/indicators/application/indicator_providers.dart';
-import 'package:rmplanner/features/indicators/domain/life_indicator.dart';
 import 'package:rmplanner/features/planner/application/event_type_providers.dart';
 import 'package:rmplanner/features/planner/application/planner_providers.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
@@ -12,26 +10,16 @@ import 'package:rmplanner/features/planner/domain/planner_task.dart';
 import 'package:rmplanner/features/planner/presentation/widgets/planner_slide_down_date_picker.dart';
 import 'package:rmplanner/features/privacy/application/privacy_providers.dart';
 import 'package:rmplanner/features/privacy/domain/permission_summary.dart';
-import 'package:rmplanner/features/startup/application/startup_providers.dart';
-import 'package:rmplanner/features/startup/domain/startup_state.dart';
 
 final class TaskFormScreen extends ConsumerStatefulWidget {
-  const TaskFormScreen.create({
-    required this.initialDueDate,
-    this.indicatorKey,
-    this.indicatorPeriod,
-    super.key,
-  }) : taskId = null;
+  const TaskFormScreen.create({required this.initialDueDate, super.key})
+    : taskId = null;
 
   const TaskFormScreen.edit({required this.taskId, super.key})
-    : initialDueDate = null,
-      indicatorKey = null,
-      indicatorPeriod = null;
+    : initialDueDate = null;
 
   final String? taskId;
   final PlannerDate? initialDueDate;
-  final String? indicatorKey;
-  final IndicatorGoalPeriod? indicatorPeriod;
 
   @override
   ConsumerState<TaskFormScreen> createState() => _TaskFormScreenState();
@@ -518,28 +506,6 @@ final class _TaskFormScreenState extends ConsumerState<TaskFormScreen>
       return;
     }
     if (saved) {
-      if (widget.indicatorKey != null) {
-        final startup = ref.read(startupControllerProvider);
-        if (startup is StartupReady) {
-          await ref
-              .read(indicatorRepositoryProvider)
-              .linkCommitment(
-                profileId: startup.profile.id,
-                indicatorKey: widget.indicatorKey!,
-                period:
-                    widget.indicatorPeriod ??
-                    IndicatorGoalPeriod.weekly(
-                      _dueDate ?? PlannerDate.fromDateTime(DateTime.now()),
-                    ),
-                entityType: IndicatorCommitmentEntityType.task,
-                entityId: _stableTaskId,
-                linkId: ref.read(plannerIdentifierSourceProvider).nextUuid(),
-                operationId: ref
-                    .read(plannerIdentifierSourceProvider)
-                    .nextUuid(),
-              );
-        }
-      }
       if (!mounted) {
         return;
       }

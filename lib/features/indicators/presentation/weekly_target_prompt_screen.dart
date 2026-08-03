@@ -3,16 +3,11 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import 'package:rmplanner/app/router/route_names.dart';
 import 'package:rmplanner/app/theme/app_theme.dart';
 import 'package:rmplanner/features/indicators/application/indicator_providers.dart';
 import 'package:rmplanner/features/indicators/domain/life_indicator.dart';
 import 'package:rmplanner/features/planner/application/planner_providers.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
-import 'package:rmplanner/features/planner/presentation/calendar_event_creation.dart';
-import 'package:rmplanner/features/planner/presentation/widgets/planner_event_block_content.dart';
-import 'package:rmplanner/features/planner/presentation/widgets/planner_event_block_layout_policy.dart';
 
 final class WeeklyTargetPromptScreen extends ConsumerWidget {
   const WeeklyTargetPromptScreen({
@@ -287,7 +282,6 @@ final class _GoalEditorScreenState extends ConsumerState<_GoalEditorScreen>
   PlannerDate _anchor = const PlannerDate(year: 2026, month: 1, day: 1);
   IndicatorGoalSnapshot? _snapshot;
   List<IndicatorGoalSnapshot> _history = const <IndicatorGoalSnapshot>[];
-  List<IndicatorCommitment> _commitments = const <IndicatorCommitment>[];
   String _label = '';
   bool _loading = true;
   bool _targetSet = false;
@@ -311,10 +305,10 @@ final class _GoalEditorScreenState extends ConsumerState<_GoalEditorScreen>
 
   @override
   void dispose() {
-    unawaited(_flushPending());
+    _disposed = true;
     _saveTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
-    _disposed = true;
+    unawaited(_flushPending());
     super.dispose();
   }
 
@@ -322,7 +316,8 @@ final class _GoalEditorScreenState extends ConsumerState<_GoalEditorScreen>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.inactive ||
         state == AppLifecycleState.paused ||
-        state == AppLifecycleState.detached) {
+        state == AppLifecycleState.detached ||
+        state == AppLifecycleState.hidden) {
       unawaited(_flushPending());
     }
   }
@@ -356,10 +351,6 @@ final class _GoalEditorScreenState extends ConsumerState<_GoalEditorScreen>
         periodType: _periodType,
         anchor: _anchor,
       );
-      final commitments = await controller.readCommitments(
-        indicatorKey: widget.indicatorKey,
-        period: _period,
-      );
       if (!mounted || _disposed || token != _reloadToken) {
         return;
       }
@@ -372,7 +363,6 @@ final class _GoalEditorScreenState extends ConsumerState<_GoalEditorScreen>
             : definition.first.label;
         _snapshot = snapshot;
         _history = history;
-        _commitments = commitments;
         _targetSet = snapshot.target.isSet;
         _target = snapshot.target.value?.scaledValue ?? 0;
         _loading = false;
@@ -543,12 +533,6 @@ final class _GoalEditorScreenState extends ConsumerState<_GoalEditorScreen>
                     ),
                     const SizedBox(height: 28),
                     const _MajorSeparator(),
-                    _CommitmentsSection(
-                      commitments: _commitments,
-                      onAdd: _addCommitment,
-                      onOpen: _openCommitment,
-                    ),
-                    const _MajorSeparator(),
                     const Padding(
                       padding: EdgeInsets.fromLTRB(18, 24, 18, 8),
                       child: Text('History', style: AppTypography.sectionTitle),
@@ -574,36 +558,6 @@ final class _GoalEditorScreenState extends ConsumerState<_GoalEditorScreen>
       Navigator.of(context).pop();
     }
   }
-
-  Future<void> _addCommitment() async {
-    final result = await launchCalendarEventCreation<Object?>(
-      context,
-      ref,
-      CalendarEventCreationContext(
-        source: 'goal-commitment',
-        destinationPath: RoutePaths.calendarEventCreate,
-        date: _period.start,
-        indicatorKey: widget.indicatorKey,
-        indicatorPeriod: _period,
-        startTaskUnscheduled: true,
-      ),
-    );
-    if (result != null && mounted && !_disposed) {
-      await _reload();
-    }
-  }
-
-  void _openCommitment(IndicatorCommitment commitment) {
-    if (commitment.isEvent && commitment.date != null) {
-      unawaited(
-        context.push(
-          RoutePaths.calendarEventDetail(commitment.entityId, commitment.date!),
-        ),
-      );
-    } else if (commitment.isTask) {
-      unawaited(context.push('${RoutePaths.tasks}/${commitment.entityId}'));
-    }
-  }
 }
 
 final class _PendingGoalSave {
@@ -611,142 +565,6 @@ final class _PendingGoalSave {
 
   final IndicatorGoalPeriod period;
   final IndicatorAmount? value;
-}
-
-final class _CommitmentsSection extends StatelessWidget {
-  const _CommitmentsSection({
-    required this.commitments,
-    required this.onAdd,
-    required this.onOpen,
-  });
-
-  final List<IndicatorCommitment> commitments;
-  final VoidCallback onAdd;
-  final ValueChanged<IndicatorCommitment> onOpen;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(18, 24, 18, 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: <Widget>[
-          const Text('Commitments', style: AppTypography.sectionTitle),
-          const SizedBox(height: 8),
-          const Divider(height: 1),
-          const SizedBox(height: 16),
-          for (final commitment in commitments) ...<Widget>[
-            _CommitmentBlock(
-              commitment: commitment,
-              onTap: () => onOpen(commitment),
-            ),
-            const SizedBox(height: 8),
-          ],
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton.icon(
-              key: const Key('goal-add-commitment'),
-              onPressed: onAdd,
-              icon: const Icon(Icons.add, size: 20),
-              label: const Text('Commitments'),
-              style: TextButton.styleFrom(
-                minimumSize: const Size(48, 48),
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                foregroundColor: AppTheme.rose,
-                textStyle: AppTypography.button,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-final class _CommitmentBlock extends StatelessWidget {
-  const _CommitmentBlock({required this.commitment, required this.onTap});
-
-  final IndicatorCommitment commitment;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final base = Color(commitment.colorArgb);
-    final surface = commitment.isBackup
-        ? PlannerEventBlockLayoutPolicy.backupEventSurface
-        : PlannerEventBlockColorPolicy.surfaceColor(base);
-    final accent = commitment.isBackup
-        ? PlannerEventBlockLayoutPolicy.backupEventAccent
-        : base;
-    final textColor = PlannerEventBlockColorPolicy.textColor(surface);
-    final schedule = commitment.isUnscheduled
-        ? 'Unscheduled'
-        : commitment.date == null
-        ? commitment.statusLabel
-        : commitment.startMinute == null || commitment.endMinute == null
-        ? '${commitment.date!.iso8601}  ${commitment.statusLabel}'
-        : '${commitment.date!.iso8601}  ${formatPlannerEventRange(commitment.startMinute!, commitment.endMinute!, false)}';
-    return Material(
-      color: surface,
-      borderRadius: BorderRadius.circular(4),
-      child: InkWell(
-        key: Key('goal-commitment-${commitment.linkId}'),
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(4),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(
-            minHeight: 58,
-            minWidth: double.infinity,
-          ),
-          child: IntrinsicHeight(
-            child: Row(
-              children: <Widget>[
-                SizedBox(width: 4, child: ColoredBox(color: accent)),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(10, 10, 6, 10),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: <Widget>[
-                        Text(
-                          commitment.label,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: textColor,
-                            fontSize: 14,
-                            height: 17 / 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          schedule,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: textColor.withValues(alpha: 0.9),
-                            fontSize: 13,
-                            height: 16 / 13,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                if (commitment.isRecurring)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 10),
-                    child: Icon(Icons.repeat, size: 18, color: accent),
-                  ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 final class _PeriodTabs extends StatelessWidget {
@@ -776,6 +594,7 @@ final class _PeriodTabs extends StatelessWidget {
           for (final type in types)
             Expanded(
               child: InkWell(
+                key: Key('goal-period-${type.name}'),
                 onTap: () => onSelected(type),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.end,
@@ -914,12 +733,14 @@ final class _GoalControls extends StatelessWidget {
               ),
               const SizedBox(width: 16),
               _RoundGoalButton(
+                key: const Key('goal-minus'),
                 icon: Icons.remove,
                 onPressed: onMinus,
                 filled: false,
               ),
               const SizedBox(width: 8),
               _RoundGoalButton(
+                key: const Key('goal-plus'),
                 icon: Icons.add,
                 onPressed: onPlus,
                 filled: true,
@@ -937,6 +758,7 @@ final class _RoundGoalButton extends StatelessWidget {
     required this.icon,
     required this.onPressed,
     required this.filled,
+    super.key,
   });
 
   final IconData icon;

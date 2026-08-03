@@ -31,7 +31,6 @@ final class DriftIndicatorRepository implements IndicatorRepository {
             database.lifeIndicatorDefinitions,
             database.weeklyIndicatorTargetRevisions,
             database.indicatorGoalRevisions,
-            database.indicatorCommitmentLinks,
             database.activityLedgerEntries,
             database.outcomeReports,
             database.plannerTasks,
@@ -74,6 +73,7 @@ final class DriftIndicatorRepository implements IndicatorRepository {
     );
     IndicatorAmount? monthlyTempleActual;
     IndicatorTarget? monthlyTempleTarget;
+    IndicatorGoalSnapshot? dailyJobApplications;
     final templeDefinition = definitions
         .where((definition) => definition.indicatorKey == 'temple_visit')
         .firstOrNull;
@@ -87,6 +87,18 @@ final class DriftIndicatorRepository implements IndicatorRepository {
       );
       monthlyTempleActual = monthly.actual;
       monthlyTempleTarget = monthly.target;
+    }
+    final jobApplicationsDefinition = definitions
+        .where((definition) => definition.indicatorKey == 'job_applications')
+        .firstOrNull;
+    if (jobApplicationsDefinition != null) {
+      dailyJobApplications = await _readGoalSnapshot(
+        profileId: profileId,
+        indicatorKey: jobApplicationsDefinition.indicatorKey,
+        period: IndicatorGoalPeriod.daily(today),
+        today: today,
+        definition: jobApplicationsDefinition,
+      );
     }
     final indicators = <LifeIndicatorSummary>[];
     for (final definition in definitions) {
@@ -148,6 +160,7 @@ final class DriftIndicatorRepository implements IndicatorRepository {
       currentWeekPlanned: currentWeekPlanned,
       monthlyTempleActual: monthlyTempleActual,
       monthlyTempleTarget: monthlyTempleTarget,
+      dailyJobApplications: dailyJobApplications,
     );
   }
 
@@ -466,258 +479,6 @@ final class DriftIndicatorRepository implements IndicatorRepository {
           ),
         )
         .toList(growable: false);
-  }
-
-  @override
-  Future<void> linkCommitment({
-    required String profileId,
-    required String indicatorKey,
-    required IndicatorGoalPeriod period,
-    required IndicatorCommitmentEntityType entityType,
-    required String entityId,
-    String? occurrenceId,
-    required String linkId,
-    required String operationId,
-  }) async {
-    if (!Uuid.isValidUUID(fromString: linkId) ||
-        !Uuid.isValidUUID(fromString: operationId)) {
-      throw StateError('Commitment links require stable UUID identities');
-    }
-    if (entityId.trim().isEmpty) {
-      throw StateError('Commitment links require a source entity');
-    }
-    await database.transaction(() async {
-      final priorOperation =
-          await (database.select(database.indicatorCommitmentLinks)
-                ..where((table) => table.operationId.equals(operationId))
-                ..limit(1))
-              .getSingleOrNull();
-      if (priorOperation != null) {
-        return;
-      }
-      await _definition(profileId, indicatorKey);
-      final commitmentKey =
-          '${entityType.name}:$entityId:${occurrenceId ?? ''}';
-      final existing =
-          await (database.select(database.indicatorCommitmentLinks)
-                ..where(
-                  (table) =>
-                      table.profileId.equals(profileId) &
-                      table.indicatorKey.equals(indicatorKey) &
-                      table.periodType.equals(period.type.name) &
-                      table.periodStartDate.equals(period.start.iso8601) &
-                      table.commitmentKey.equals(commitmentKey),
-                )
-                ..limit(1))
-              .getSingleOrNull();
-      if (existing != null) {
-        return;
-      }
-      await database
-          .into(database.indicatorCommitmentLinks)
-          .insert(
-            IndicatorCommitmentLinksCompanion.insert(
-              id: linkId,
-              profileId: profileId,
-              indicatorKey: indicatorKey,
-              periodType: period.type.name,
-              periodStartDate: period.start.iso8601,
-              entityType: entityType.name,
-              entityId: entityId,
-              occurrenceId: Value<String?>(occurrenceId),
-              commitmentKey: commitmentKey,
-              operationId: operationId,
-              createdAtUtc: clock.nowUtc(),
-            ),
-          );
-    });
-  }
-
-  @override
-  Future<List<IndicatorCommitment>> readCommitments({
-    required String profileId,
-    required String indicatorKey,
-    required IndicatorGoalPeriod period,
-  }) async {
-    final links =
-        await (database.select(database.indicatorCommitmentLinks)
-              ..where(
-                (table) =>
-                    table.profileId.equals(profileId) &
-                    table.indicatorKey.equals(indicatorKey),
-              )
-              ..orderBy(<OrderingTerm Function(IndicatorCommitmentLinks)>[
-                (table) => OrderingTerm.asc(table.createdAtUtc),
-              ]))
-            .get();
-    final result = <IndicatorCommitment>[];
-    final seen = <String>{};
-    for (final link in links) {
-      final type = IndicatorCommitmentEntityType.values
-          .where((value) => value.name == link.entityType)
-          .firstOrNull;
-      if (type == null) {
-        // Unknown link kinds are ignored so a future migration cannot make a
-        // valid goal screen fail to render its other commitments.
-        continue;
-      }
-      if (type == IndicatorCommitmentEntityType.task) {
-        final task =
-            await (database.select(database.plannerTasks)
-                  ..where(
-                    (table) =>
-                        table.profileId.equals(profileId) &
-                        table.id.equals(link.entityId),
-                  )
-                  ..limit(1))
-                .getSingleOrNull();
-        if (task == null || task.status == 'cancelled') {
-          continue;
-        }
-        final date = task.dueDate == null
-            ? null
-            : PlannerDate.parse(task.dueDate!);
-        final inCreationPeriod =
-            link.periodType == period.type.name &&
-            link.periodStartDate == period.start.iso8601;
-        if (date == null && !inCreationPeriod) {
-          continue;
-        }
-        if (date != null && !period.indicatorPeriod.contains(date)) {
-          continue;
-        }
-        final identity = '${link.id}:task:${task.id}';
-        if (!seen.add(identity)) {
-          continue;
-        }
-        result.add(
-          IndicatorCommitment(
-            linkId: link.id,
-            indicatorKey: indicatorKey,
-            entityType: type,
-            entityId: task.id,
-            label: task.title,
-            date: date,
-            startMinute: task.dueMinute,
-            endMinute: task.dueMinute == null ? null : task.dueMinute! + 30,
-            colorArgb: 0xFF8C8F93,
-            isRecurring: _isRecurringTask(task.recurrenceFrequency),
-            statusLabel: _taskStatusLabel(task.status),
-            isBackup: false,
-            occurrenceId: link.occurrenceId,
-            isUnscheduled: date == null,
-          ),
-        );
-        continue;
-      }
-
-      final draft = await calendarEvents.readEventDraft(
-        profileId: profileId,
-        eventId: link.entityId,
-      );
-      if (draft == null) {
-        continue;
-      }
-      final dates = _commitmentEventDates(draft, period);
-      for (final originalDate in dates) {
-        final occurrence = await calendarEvents.readOccurrence(
-          profileId: profileId,
-          eventId: link.entityId,
-          originalDate: originalDate,
-        );
-        if (occurrence == null ||
-            occurrence.status == CalendarEventStatus.cancelled ||
-            !period.indicatorPeriod.contains(occurrence.displayDate)) {
-          continue;
-        }
-        final identity = '${link.id}:event:${occurrence.id}';
-        if (!seen.add(identity)) {
-          continue;
-        }
-        result.add(
-          IndicatorCommitment(
-            linkId: link.id,
-            indicatorKey: indicatorKey,
-            entityType: type,
-            entityId: occurrence.eventId,
-            occurrenceId: occurrence.id,
-            label: occurrence.displayTitle,
-            date: occurrence.displayDate,
-            startMinute: occurrence.startDisplay == null
-                ? null
-                : occurrence.startDisplay!.hour * 60 +
-                      occurrence.startDisplay!.minute,
-            endMinute: occurrence.endDisplay == null
-                ? null
-                : occurrence.endDisplay!.hour * 60 +
-                      occurrence.endDisplay!.minute,
-            colorArgb: occurrence.activityTypeColorValue ?? 0xFFE91E63,
-            isRecurring: occurrence.isRecurring,
-            statusLabel: calendarEventStatusLabel(occurrence.status),
-            isBackup: occurrence.isBackupAppointment,
-            activityTypeId: occurrence.activityTypeId,
-          ),
-        );
-      }
-    }
-    result.sort((left, right) {
-      final leftDate = left.date;
-      final rightDate = right.date;
-      if (leftDate == null && rightDate != null) {
-        return -1;
-      }
-      if (leftDate != null && rightDate == null) {
-        return 1;
-      }
-      final dateCompare = leftDate?.compareTo(rightDate!) ?? 0;
-      if (dateCompare != 0) {
-        return dateCompare;
-      }
-      return left.label.compareTo(right.label);
-    });
-    return result;
-  }
-
-  List<PlannerDate> _commitmentEventDates(
-    CalendarEventDraft draft,
-    IndicatorGoalPeriod period,
-  ) {
-    if (!draft.recurrence.isRecurring) {
-      return <PlannerDate>[draft.startDate];
-    }
-    final dates = <PlannerDate>{draft.startDate};
-    for (
-      var offset = 0;
-      offset <=
-          period.end.asLocalDate.difference(period.start.asLocalDate).inDays;
-      offset += 1
-    ) {
-      final candidate = period.start.addDays(offset);
-      if (draft.recurrence.occurrenceIndexOn(
-            startDate: draft.startDate,
-            targetDate: candidate,
-          ) !=
-          null) {
-        dates.add(candidate);
-      }
-    }
-    return dates.toList(growable: false);
-  }
-
-  bool _isRecurringTask(String rawFrequency) {
-    final frequency = PlannerTaskRecurrence.values
-        .where((value) => value.name == rawFrequency)
-        .firstOrNull;
-    return frequency != null && frequency != PlannerTaskRecurrence.none;
-  }
-
-  String _taskStatusLabel(String rawStatus) {
-    return switch (rawStatus) {
-      'completed' => 'Completed',
-      'skipped' => 'Skipped',
-      'cancelled' => 'Cancelled',
-      _ => 'Incomplete',
-    };
   }
 
   Future<IndicatorAmount> _readActual({

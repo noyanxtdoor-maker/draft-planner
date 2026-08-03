@@ -92,111 +92,12 @@ final class _PlanBody extends ConsumerWidget {
                   )
                 : null,
           ),
-        const SizedBox(height: 24),
-        const SizedBox(height: 20),
-        if (state == WeeklyPlanState.reviewDue)
-          FilledButton.icon(
-            key: const Key('weekly-plan-review-button'),
-            onPressed: () =>
-                context.push(RoutePaths.weeklyPlanningReview(plan.id)),
-            icon: const Icon(Icons.fact_check_outlined),
-            label: const Text('Complete Weekly Review'),
-          ),
-        if (plan.review != null) ...<Widget>[
-          Card(
-            child: ListTile(
-              key: const Key('weekly-plan-reviewed-summary'),
-              leading: const Icon(Icons.verified_outlined),
-              title: const Text('Review complete'),
-              subtitle: Text(
-                plan.postReviewChanges.isEmpty
-                    ? 'No post-review factual changes.'
-                    : '${plan.postReviewChanges.length} post-review factual '
-                          'change(s) recorded.',
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          FilledButton.icon(
-            key: const Key('weekly-plan-start-next-button'),
-            onPressed: () => _startNextWeek(context, ref),
-            icon: const Icon(Icons.arrow_forward),
-            label: const Text('Start next week'),
-          ),
-        ],
       ],
     );
   }
 
   void _openWeek(BuildContext context, PlannerDate start) {
     unawaited(context.push(RoutePaths.weeklyPlanningFor(_mondayOf(start))));
-  }
-
-  Future<void> _startNextWeek(BuildContext context, WidgetRef ref) async {
-    final incomplete = plan.commitments
-        .where((item) => item.isIncompleteTask)
-        .toList(growable: false);
-    final carried = <String, bool>{
-      for (final task in incomplete) task.sourceId: false,
-    };
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          title: const Text('Start next week'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                const Text(
-                  'Tasks carry only when you choose them. Events never carry '
-                  'automatically.',
-                ),
-                for (final task in incomplete)
-                  CheckboxListTile(
-                    value: carried[task.sourceId],
-                    title: Text(task.label),
-                    onChanged: (value) =>
-                        setState(() => carried[task.sourceId] = value ?? false),
-                  ),
-              ],
-            ),
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: const Text('Start'),
-            ),
-          ],
-        ),
-      ),
-    );
-    if (confirmed != true || !context.mounted) {
-      return;
-    }
-    final decisions = <String, TaskCarryoverDecision>{
-      for (final task in incomplete)
-        task.sourceId: carried[task.sourceId]!
-            ? TaskCarryoverDecision.carry
-            : TaskCarryoverDecision.doNotCarry,
-    };
-    final next = await ref
-        .read(weeklyPlanningRepositoryProvider)
-        .startNextWeek(
-          profileId: ref.read(weeklyPlanningProfileIdProvider),
-          fromPlanId: plan.id,
-          nextPlanId: ref.read(weeklyPlanningIdentifierProvider).nextUuid(),
-          taskDecisions: decisions,
-        );
-    ref.invalidate(weeklyPlanHistoryProvider);
-    if (context.mounted) {
-      context.go(RoutePaths.weeklyPlanningFor(next.period.start));
-    }
   }
 }
 
@@ -277,7 +178,7 @@ final class _WeeklyGoalRow extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Container(
-        constraints: const BoxConstraints(minHeight: 80),
+        constraints: const BoxConstraints(minHeight: 80, maxHeight: 82),
         decoration: const BoxDecoration(
           border: Border(bottom: BorderSide(color: AppTheme.outline)),
         ),

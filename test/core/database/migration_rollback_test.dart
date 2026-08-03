@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart' as drift;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rmplanner/core/database/app_database.dart';
@@ -783,7 +784,7 @@ void main() {
         expect(
           (await versionTen.customSelect('PRAGMA user_version').getSingle())
               .read<int>('user_version'),
-          15,
+          16,
         );
         final taskColumns = await versionTen
             .customSelect('PRAGMA table_info(planner_tasks)')
@@ -851,6 +852,94 @@ void main() {
           isNot(contains('timeline_hour_height')),
         );
         await reopenedVersionNine.close();
+      } finally {
+        sqliteDatabase.close();
+      }
+    },
+  );
+
+  test(
+    'Prompt A: v15 to v16 removes Commitment metadata without deleting Events or Tasks',
+    () async {
+      final sqliteDatabase = sqlite3.openInMemory();
+      try {
+        final version15 = AppDatabase.forTesting(
+          NativeDatabase.opened(sqliteDatabase, closeUnderlyingOnClose: false),
+          schemaVersionOverride: 15,
+        );
+        final profile = await buildTestRepository(
+          database: version15,
+        ).completeOnboarding();
+        final createdAt = DateTime.utc(2026, 7, 27, 12);
+        await version15
+            .into(version15.plannerTasks)
+            .insert(
+              PlannerTasksCompanion.insert(
+                id: 'prompt-a-task',
+                profileId: profile.id,
+                title: 'Preserve this task',
+                dueDate: const drift.Value<String?>('2026-07-29'),
+                createdAtUtc: createdAt,
+                updatedAtUtc: createdAt,
+              ),
+            );
+        await version15
+            .into(version15.calendarEvents)
+            .insert(
+              CalendarEventsCompanion.insert(
+                id: 'prompt-a-event',
+                profileId: profile.id,
+                title: 'Preserve this event',
+                timing: 'allDay',
+                startDate: '2026-07-29',
+                createdAtUtc: createdAt,
+                updatedAtUtc: createdAt,
+              ),
+            );
+        for (final tableName in <String>[
+          'indicator_commitment_links',
+          'weekly_plan_commitments',
+          'weekly_plan_review_indicator_snapshots',
+          'weekly_plan_reviews',
+          'weekly_plan_task_carryover_decisions',
+        ]) {
+          await version15.customStatement(
+            'CREATE TABLE $tableName (id TEXT PRIMARY KEY)',
+          );
+        }
+        await version15.close();
+
+        final current = AppDatabase.forTesting(
+          NativeDatabase.opened(sqliteDatabase, closeUnderlyingOnClose: false),
+        );
+        expect(
+          (await current.select(current.plannerTasks).get()).single.title,
+          'Preserve this task',
+        );
+        expect(
+          (await current.select(current.calendarEvents).get()).single.title,
+          'Preserve this event',
+        );
+        for (final tableName in <String>[
+          'indicator_commitment_links',
+          'weekly_plan_commitments',
+          'weekly_plan_review_indicator_snapshots',
+          'weekly_plan_reviews',
+          'weekly_plan_task_carryover_decisions',
+        ]) {
+          final table = await current
+              .customSelect(
+                "SELECT COUNT(*) AS count FROM sqlite_master "
+                "WHERE type = 'table' AND name = '$tableName'",
+              )
+              .getSingle();
+          expect(table.read<int>('count'), 0, reason: tableName);
+        }
+        final version = await current
+            .customSelect('PRAGMA user_version')
+            .getSingle();
+        expect(version.read<int>('user_version'), 16);
+        await current.close();
       } finally {
         sqliteDatabase.close();
       }

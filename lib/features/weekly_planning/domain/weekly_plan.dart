@@ -1,12 +1,7 @@
 import 'package:rmplanner/features/indicators/domain/life_indicator.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
-import 'package:rmplanner/features/planner/domain/planner_task.dart';
 
 enum WeeklyPlanState { draft, active, reviewDue, reviewed, historical }
-
-enum WeeklyCommitmentType { task, event }
-
-enum TaskCarryoverDecision { carry, doNotCarry }
 
 final class WeeklyPeriod {
   WeeklyPeriod({required this.start, required this.end}) {
@@ -32,33 +27,6 @@ final class WeeklyPeriod {
       date.compareTo(start) >= 0 && date.compareTo(end) <= 0;
 }
 
-final class WeeklyPlanCommitment {
-  const WeeklyPlanCommitment({
-    required this.id,
-    required this.type,
-    required this.sourceId,
-    required this.label,
-    required this.requiresReport,
-    required this.reportResolved,
-    this.occurrenceId,
-    this.taskStatus,
-  });
-
-  final String id;
-  final WeeklyCommitmentType type;
-  final String sourceId;
-  final String? occurrenceId;
-  final String label;
-  final bool requiresReport;
-  final bool reportResolved;
-  final PlannerTaskStatus? taskStatus;
-
-  bool get hasUnresolvedReport => requiresReport && !reportResolved;
-  bool get isIncompleteTask =>
-      type == WeeklyCommitmentType.task &&
-      taskStatus == PlannerTaskStatus.incomplete;
-}
-
 final class WeeklyIndicatorReview {
   const WeeklyIndicatorReview({
     required this.indicatorKey,
@@ -75,32 +43,6 @@ final class WeeklyIndicatorReview {
   final IndicatorAmount scheduled;
 }
 
-final class WeeklyReview {
-  const WeeklyReview({
-    required this.id,
-    required this.completedAtUtc,
-    required this.unresolvedReportsAcknowledged,
-    required this.indicators,
-    this.privateReflection,
-  });
-
-  final String id;
-  final DateTime completedAtUtc;
-  final bool unresolvedReportsAcknowledged;
-  final String? privateReflection;
-  final List<WeeklyIndicatorReview> indicators;
-}
-
-final class PostReviewChange {
-  const PostReviewChange({
-    required this.indicatorKey,
-    required this.recordedAtUtc,
-  });
-
-  final String indicatorKey;
-  final DateTime recordedAtUtc;
-}
-
 final class WeeklyPlan {
   const WeeklyPlan({
     required this.id,
@@ -108,12 +50,9 @@ final class WeeklyPlan {
     required this.period,
     required this.timeZoneId,
     required this.storedState,
-    required this.commitments,
     required this.indicators,
-    required this.postReviewChanges,
     required this.createdAtUtc,
     required this.updatedAtUtc,
-    this.review,
   });
 
   final String id;
@@ -121,10 +60,7 @@ final class WeeklyPlan {
   final WeeklyPeriod period;
   final String timeZoneId;
   final WeeklyPlanState storedState;
-  final List<WeeklyPlanCommitment> commitments;
   final List<WeeklyIndicatorReview> indicators;
-  final WeeklyReview? review;
-  final List<PostReviewChange> postReviewChanges;
   final DateTime createdAtUtc;
   final DateTime updatedAtUtc;
 
@@ -136,10 +72,6 @@ final class WeeklyPlan {
     }
     return storedState;
   }
-
-  List<WeeklyPlanCommitment> get unresolvedReports => commitments
-      .where((commitment) => commitment.hasUnresolvedReport)
-      .toList(growable: false);
 
   bool get isReadOnly =>
       storedState == WeeklyPlanState.reviewed ||

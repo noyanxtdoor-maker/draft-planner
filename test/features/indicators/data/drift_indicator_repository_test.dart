@@ -388,4 +388,116 @@ void main() {
       expect(snapshot.hasPartialFailure, isTrue);
     },
   );
+
+  test(
+    'Prompt A: daily, weekly, and monthly targets use independent canonical keys',
+    () async {
+      final database = openMemoryDatabase();
+      addTearDown(database.close);
+      final clock = FixedClock(DateTime.utc(2026, 7, 27, 12));
+      final profile = await buildTestRepository(
+        database: database,
+      ).completeOnboarding();
+      final reporting = DriftOutcomeReportingRepository(
+        database: database,
+        clock: clock,
+      );
+      final calendar = DriftCalendarEventRepository(
+        database: database,
+        clock: clock,
+        timeZones: IanaCalendarEventTimeZones(displayTimeZoneId: 'Asia/Manila'),
+        reportSource: reporting,
+      );
+      final repository = DriftIndicatorRepository(
+        database: database,
+        clock: clock,
+        calendarEvents: calendar,
+      );
+      final daily = IndicatorGoalPeriod.daily(monday);
+      final weekly = IndicatorGoalPeriod.weekly(monday);
+      final monthly = IndicatorGoalPeriod.monthly(monday);
+
+      await repository.saveGoal(
+        profileId: profile.id,
+        draft: const IndicatorGoalRevisionDraft(
+          id: '73000000-0000-4000-8000-000000000001',
+          operationId: '73000000-0000-4000-8000-000000000002',
+          indicatorKey: 'job_applications',
+          period: IndicatorGoalPeriod(
+            type: IndicatorGoalPeriodType.daily,
+            start: monday,
+            end: monday,
+          ),
+          value: IndicatorAmount(scaledValue: 1, scale: 0, unit: 'count'),
+        ),
+      );
+      await repository.saveGoal(
+        profileId: profile.id,
+        draft: const IndicatorGoalRevisionDraft(
+          id: '73000000-0000-4000-8000-000000000003',
+          operationId: '73000000-0000-4000-8000-000000000004',
+          indicatorKey: 'job_applications',
+          period: IndicatorGoalPeriod(
+            type: IndicatorGoalPeriodType.weekly,
+            start: monday,
+            end: PlannerDate(year: 2026, month: 8, day: 2),
+          ),
+          value: IndicatorAmount(scaledValue: 2, scale: 0, unit: 'count'),
+        ),
+      );
+      await repository.saveGoal(
+        profileId: profile.id,
+        draft: const IndicatorGoalRevisionDraft(
+          id: '73000000-0000-4000-8000-000000000005',
+          operationId: '73000000-0000-4000-8000-000000000006',
+          indicatorKey: 'temple_visit',
+          period: IndicatorGoalPeriod(
+            type: IndicatorGoalPeriodType.monthly,
+            start: PlannerDate(year: 2026, month: 7, day: 1),
+            end: PlannerDate(year: 2026, month: 7, day: 31),
+          ),
+          value: IndicatorAmount(scaledValue: 3, scale: 0, unit: 'count'),
+        ),
+      );
+
+      final dailySnapshot = await repository.readGoal(
+        profileId: profile.id,
+        indicatorKey: 'job_applications',
+        period: daily,
+        today: monday,
+      );
+      final weeklySnapshot = await repository.readGoal(
+        profileId: profile.id,
+        indicatorKey: 'job_applications',
+        period: weekly,
+        today: monday,
+      );
+      final monthlySnapshot = await repository.readGoal(
+        profileId: profile.id,
+        indicatorKey: 'temple_visit',
+        period: monthly,
+        today: monday,
+      );
+      expect(dailySnapshot.target.value?.scaledValue, 1);
+      expect(weeklySnapshot.target.value?.scaledValue, 2);
+      expect(monthlySnapshot.target.value?.scaledValue, 3);
+
+      final home = await repository.readHome(
+        profileId: profile.id,
+        period: period,
+        today: monday,
+      );
+      expect(
+        home.indicators
+            .firstWhere((indicator) => indicator.key == 'job_applications')
+            .target
+            .value
+            ?.scaledValue,
+        2,
+      );
+      expect(home.monthlyTempleTarget?.value?.scaledValue, 3);
+      final rows = await database.select(database.indicatorGoalRevisions).get();
+      expect(rows, hasLength(3));
+    },
+  );
 }

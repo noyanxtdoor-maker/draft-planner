@@ -1,14 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rmplanner/core/diagnostics/sanitized_diagnostics.dart';
-import 'package:rmplanner/core/ids/identifier_source.dart';
 import 'package:rmplanner/core/platform/app_environment.dart';
-import 'package:rmplanner/features/indicators/data/drift_indicator_repository.dart';
-import 'package:rmplanner/features/planner/data/calendar_event_time_zones.dart';
-import 'package:rmplanner/features/planner/data/drift_calendar_event_repository.dart';
-import 'package:rmplanner/features/planner/data/drift_outcome_reporting_repository.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
-import 'package:rmplanner/features/weekly_planning/data/drift_weekly_planning_repository.dart';
 
 import '../../../support/test_dependencies.dart';
 
@@ -114,127 +108,6 @@ void main() {
         findsOneWidget,
       );
       expect(tester.takeException(), isNull);
-
-      await tester.pumpWidget(const SizedBox.shrink());
-      await tester.pump(const Duration(milliseconds: 1));
-    },
-  );
-
-  testWidgets(
-    'AC-I-010..016,020: due review stores a private reflection and reopens '
-    'as factual read-only evidence',
-    (tester) async {
-      tester.view.physicalSize = const Size(941, 1672);
-      tester.view.devicePixelRatio = 2.5;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-      final database = openMemoryDatabase();
-      addTearDown(database.close);
-      final startup = buildTestRepository(database: database);
-      await startup.completeOnboarding();
-      final reviewClock = FixedClock(DateTime.utc(2026, 8, 3, 12));
-      final timeZones = IanaCalendarEventTimeZones(
-        displayTimeZoneId: 'Asia/Manila',
-      );
-      final reporting = DriftOutcomeReportingRepository(
-        database: database,
-        clock: reviewClock,
-      );
-      final calendar = DriftCalendarEventRepository(
-        database: database,
-        clock: reviewClock,
-        timeZones: timeZones,
-        reportSource: reporting,
-      );
-      final indicators = DriftIndicatorRepository(
-        database: database,
-        clock: reviewClock,
-        calendarEvents: calendar,
-      );
-      final weekly = DriftWeeklyPlanningRepository(
-        database: database,
-        clock: reviewClock,
-        identifiers: const UuidIdentifierSource(),
-        timeZones: timeZones,
-        indicators: indicators,
-        calendarEvents: calendar,
-      );
-      final privacy = TestPrivacyDependencies(database: database);
-
-      await tester.pumpWidget(
-        privacy.buildApp(
-          environment: const AppEnvironment(
-            name: AppEnvironmentName.production,
-            label: 'PRODUCTION',
-          ),
-          diagnostics: SanitizedDiagnostics(),
-          startupRepository: startup,
-          plannerDateSource: const FixedPlannerDateSource(monday),
-          weeklyPlanningRepository: weekly,
-        ),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Start Weekly Planning'));
-      await tester.pumpAndSettle();
-      await tester.scrollUntilVisible(
-        find.byKey(const Key('weekly-plan-review-button')),
-        300,
-        scrollable: find.descendant(
-          of: find.byKey(const Key('weekly-plan-list')),
-          matching: find.byType(Scrollable),
-        ),
-      );
-      await tester.drag(
-        find.descendant(
-          of: find.byKey(const Key('weekly-plan-list')),
-          matching: find.byType(Scrollable),
-        ),
-        const Offset(0, -120),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('weekly-plan-review-button')));
-      await tester.pumpAndSettle();
-      expect(find.text('Weekly Review'), findsOneWidget);
-      await tester.scrollUntilVisible(
-        find.byKey(const Key('weekly-review-reflection')),
-        300,
-        scrollable: find.descendant(
-          of: find.byKey(const Key('weekly-review-list')),
-          matching: find.byType(Scrollable),
-        ),
-      );
-      expect(find.text('Outstanding reports (0)'), findsOneWidget);
-      await tester.enterText(
-        find.byKey(const Key('weekly-review-reflection')),
-        'Private review fixture',
-      );
-      await tester.tap(find.byKey(const Key('weekly-review-complete')));
-      await tester.pumpAndSettle();
-
-      await tester.scrollUntilVisible(
-        find.byKey(const Key('weekly-plan-reviewed-summary')),
-        300,
-        scrollable: find.descendant(
-          of: find.byKey(const Key('weekly-plan-list')),
-          matching: find.byType(Scrollable),
-        ),
-      );
-      expect(
-        find.byKey(const Key('weekly-plan-reviewed-summary')),
-        findsOneWidget,
-      );
-      await tester.scrollUntilVisible(
-        find.byKey(const Key('weekly-plan-start-next-button')),
-        180,
-        scrollable: find.descendant(
-          of: find.byKey(const Key('weekly-plan-list')),
-          matching: find.byType(Scrollable),
-        ),
-      );
-      expect(
-        find.byKey(const Key('weekly-plan-start-next-button')),
-        findsOneWidget,
-      );
 
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(milliseconds: 1));

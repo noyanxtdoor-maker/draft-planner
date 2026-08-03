@@ -32,7 +32,6 @@ abstract final class RouteNames {
   static const String indicatorEdit = 'indicator-edit';
   static const String weeklyPlanning = 'weekly-planning';
   static const String weeklyPlanningTargets = 'weekly-planning-targets';
-  static const String weeklyPlanningReview = 'weekly-planning-review';
   static const String weeklyPlanningHistory = 'weekly-planning-history';
   static const String privacyCenter = 'privacy-center';
   static const String permissions = 'permissions';
@@ -109,9 +108,5 @@ abstract final class RoutePaths {
 
   static String weeklyPlanningFor(PlannerDate periodStart) {
     return '$weeklyPlanning?week=${periodStart.iso8601}';
-  }
-
-  static String weeklyPlanningReview(String planId) {
-    return '$weeklyPlanning/$planId/review';
   }
 }

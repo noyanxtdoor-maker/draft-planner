@@ -458,40 +458,6 @@ class IndicatorGoalRevisions extends Table {
   Set<Column<Object>> get primaryKey => <Column<Object>>{id};
 }
 
-/// A relationship between a stable Life Indicator slot and a canonical
-/// Planner entity.  The link stores identity and creation context only;
-/// labels, dates, recurrence, and status are always read from the source
-/// Event or Task.
-@TableIndex(
-  name: 'indicator_commitment_link_unique',
-  columns: <Symbol>{
-    #profileId,
-    #indicatorKey,
-    #periodType,
-    #periodStartDate,
-    #commitmentKey,
-  },
-  unique: true,
-)
-@DataClassName('IndicatorCommitmentLinkRow')
-class IndicatorCommitmentLinks extends Table {
-  TextColumn get id => text()();
-  TextColumn get profileId =>
-      text().references(LocalProfiles, #id, onDelete: KeyAction.restrict)();
-  TextColumn get indicatorKey => text()();
-  TextColumn get periodType => text()();
-  TextColumn get periodStartDate => text()();
-  TextColumn get entityType => text()();
-  TextColumn get entityId => text()();
-  TextColumn get occurrenceId => text().nullable()();
-  TextColumn get commitmentKey => text()();
-  TextColumn get operationId => text()();
-  DateTimeColumn get createdAtUtc => dateTime()();
-
-  @override
-  Set<Column<Object>> get primaryKey => <Column<Object>>{id};
-}
-
 @TableIndex(
   name: 'weekly_plan_profile_period_unique',
   columns: <Symbol>{#profileId, #periodStartDate},
@@ -509,116 +475,6 @@ class WeeklyPlans extends Table {
   DateTimeColumn get reviewCompletedAtUtc => dateTime().nullable()();
   DateTimeColumn get createdAtUtc => dateTime()();
   DateTimeColumn get updatedAtUtc => dateTime()();
-
-  @override
-  Set<Column<Object>> get primaryKey => <Column<Object>>{id};
-}
-
-@TableIndex(
-  name: 'weekly_plan_commitment_unique',
-  columns: <Symbol>{#planId, #commitmentKey},
-  unique: true,
-)
-@DataClassName('WeeklyPlanCommitmentRow')
-class WeeklyPlanCommitments extends Table {
-  TextColumn get id => text()();
-  TextColumn get profileId =>
-      text().references(LocalProfiles, #id, onDelete: KeyAction.restrict)();
-  TextColumn get planId =>
-      text().references(WeeklyPlans, #id, onDelete: KeyAction.restrict)();
-  TextColumn get commitmentKey => text()();
-  TextColumn get sourceType => text()();
-  TextColumn get sourceId => text()();
-  TextColumn get occurrenceId => text().nullable()();
-  DateTimeColumn get addedAtUtc => dateTime()();
-
-  @override
-  Set<Column<Object>> get primaryKey => <Column<Object>>{id};
-}
-
-@TableIndex(
-  name: 'weekly_plan_review_plan_unique',
-  columns: <Symbol>{#planId},
-  unique: true,
-)
-@TableIndex(
-  name: 'weekly_plan_review_operation_unique',
-  columns: <Symbol>{#operationId},
-  unique: true,
-)
-@DataClassName('WeeklyPlanReviewRow')
-class WeeklyPlanReviews extends Table {
-  TextColumn get id => text()();
-  TextColumn get profileId =>
-      text().references(LocalProfiles, #id, onDelete: KeyAction.restrict)();
-  TextColumn get planId =>
-      text().references(WeeklyPlans, #id, onDelete: KeyAction.restrict)();
-  TextColumn get operationId => text()();
-  TextColumn get privateReflection => text().nullable()();
-  BoolColumn get unresolvedReportsAcknowledged => boolean()();
-  DateTimeColumn get completedAtUtc => dateTime()();
-
-  @override
-  Set<Column<Object>> get primaryKey => <Column<Object>>{id};
-}
-
-@TableIndex(
-  name: 'weekly_plan_review_indicator_unique',
-  columns: <Symbol>{#reviewId, #indicatorKey},
-  unique: true,
-)
-@DataClassName('WeeklyPlanReviewIndicatorSnapshotRow')
-class WeeklyPlanReviewIndicatorSnapshots extends Table {
-  TextColumn get id => text()();
-  TextColumn get profileId =>
-      text().references(LocalProfiles, #id, onDelete: KeyAction.restrict)();
-  TextColumn get reviewId =>
-      text().references(WeeklyPlanReviews, #id, onDelete: KeyAction.restrict)();
-  TextColumn get indicatorKey => text()();
-  IntColumn get actualValueScaled => integer()();
-  IntColumn get actualValueScale => integer()();
-  TextColumn get actualUnit => text()();
-  TextColumn get targetState => text()();
-  IntColumn get targetValueScaled => integer().nullable()();
-  IntColumn get targetValueScale => integer()();
-  TextColumn get targetUnit => text()();
-  IntColumn get scheduledValueScaled => integer()();
-  IntColumn get scheduledValueScale => integer()();
-  TextColumn get scheduledUnit => text()();
-
-  @override
-  Set<Column<Object>> get primaryKey => <Column<Object>>{id};
-}
-
-@TableIndex(
-  name: 'weekly_plan_carryover_operation_unique',
-  columns: <Symbol>{#operationId},
-  unique: true,
-)
-@TableIndex(
-  name: 'weekly_plan_carryover_task_unique',
-  columns: <Symbol>{#fromPlanId, #taskId},
-  unique: true,
-)
-@DataClassName('WeeklyPlanTaskCarryoverDecisionRow')
-class WeeklyPlanTaskCarryoverDecisions extends Table {
-  TextColumn get id => text()();
-  TextColumn get profileId =>
-      text().references(LocalProfiles, #id, onDelete: KeyAction.restrict)();
-  @ReferenceName('carryoverSourcePlan')
-  TextColumn get fromPlanId =>
-      text().references(WeeklyPlans, #id, onDelete: KeyAction.restrict)();
-  TextColumn get taskId =>
-      text().references(PlannerTasks, #id, onDelete: KeyAction.restrict)();
-  TextColumn get decision => text()();
-  @ReferenceName('carryoverDestinationPlan')
-  TextColumn get toPlanId => text().nullable().references(
-    WeeklyPlans,
-    #id,
-    onDelete: KeyAction.restrict,
-  )();
-  TextColumn get operationId => text()();
-  DateTimeColumn get decidedAtUtc => dateTime()();
 
   @override
   Set<Column<Object>> get primaryKey => <Column<Object>>{id};
@@ -741,12 +597,7 @@ class PlannerPreferences extends Table {
     ActivityLedgerEntries,
     WeeklyIndicatorTargetRevisions,
     IndicatorGoalRevisions,
-    IndicatorCommitmentLinks,
     WeeklyPlans,
-    WeeklyPlanCommitments,
-    WeeklyPlanReviews,
-    WeeklyPlanReviewIndicatorSnapshots,
-    WeeklyPlanTaskCarryoverDecisions,
     ActivityTypes,
     ActivityTypeIndicatorMappings,
     PlannerPreferences,
@@ -807,7 +658,7 @@ final class AppDatabase extends _$AppDatabase {
   final bool _injectPlannerExperienceMigrationFailure;
 
   @override
-  int get schemaVersion => _schemaVersionOverride ?? 15;
+  int get schemaVersion => _schemaVersionOverride ?? 16;
 
   @override
   MigrationStrategy get migration {
@@ -843,10 +694,6 @@ final class AppDatabase extends _$AppDatabase {
         }
         if (schemaVersion >= 8) {
           await migrator.createTable(weeklyPlans);
-          await migrator.createTable(weeklyPlanCommitments);
-          await migrator.createTable(weeklyPlanReviews);
-          await migrator.createTable(weeklyPlanReviewIndicatorSnapshots);
-          await migrator.createTable(weeklyPlanTaskCarryoverDecisions);
         }
         if (schemaVersion >= 9) {
           await migrator.createTable(activityTypes);
@@ -855,9 +702,6 @@ final class AppDatabase extends _$AppDatabase {
         }
         if (schemaVersion >= 14) {
           await migrator.createTable(indicatorGoalRevisions);
-        }
-        if (schemaVersion >= 15) {
-          await migrator.createTable(indicatorCommitmentLinks);
         }
       },
       onUpgrade: (migrator, from, to) async {
@@ -910,10 +754,6 @@ final class AppDatabase extends _$AppDatabase {
               await migrator.addColumn(localProfiles, localProfiles.timeZoneId);
             }
             await migrator.createTable(weeklyPlans);
-            await migrator.createTable(weeklyPlanCommitments);
-            await migrator.createTable(weeklyPlanReviews);
-            await migrator.createTable(weeklyPlanReviewIndicatorSnapshots);
-            await migrator.createTable(weeklyPlanTaskCarryoverDecisions);
             if (_injectWeeklyPlanningMigrationFailure) {
               throw StateError('Injected weekly planning migration failure');
             }
@@ -1097,7 +937,6 @@ final class AppDatabase extends _$AppDatabase {
             await migrator.createTable(indicatorGoalRevisions);
           }
           if (from < 15 && to >= 15) {
-            await migrator.createTable(indicatorCommitmentLinks);
             // Promote legacy weekly revisions into the canonical goal table.
             // IDs and operation IDs are retained so idempotency and revision
             // chains survive the migration without creating a second write.
@@ -1114,6 +953,20 @@ final class AppDatabase extends _$AppDatabase {
                      supersedes_revision_id, operation_id, created_at_utc
               FROM weekly_indicator_target_revisions
             ''');
+          }
+          if (from < 16 && to >= 16) {
+            // Prompt A removes the legacy Commitment feature.  These tables
+            // contain only links/review/carryover metadata; the canonical
+            // Event, Task, report, ledger, and goal tables remain untouched.
+            for (final tableName in <String>[
+              'indicator_commitment_links',
+              'weekly_plan_commitments',
+              'weekly_plan_review_indicator_snapshots',
+              'weekly_plan_reviews',
+              'weekly_plan_task_carryover_decisions',
+            ]) {
+              await customStatement('DROP TABLE IF EXISTS $tableName');
+            }
           }
         });
       },

@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rmplanner/app/theme/app_theme.dart';
-import 'package:rmplanner/features/indicators/application/indicator_providers.dart';
 import 'package:rmplanner/features/indicators/domain/life_indicator.dart';
 import 'package:rmplanner/features/planner/application/calendar_event_providers.dart';
 import 'package:rmplanner/features/planner/application/event_type_providers.dart';
@@ -18,8 +17,6 @@ import 'package:rmplanner/features/planner/domain/planner_date.dart';
 import 'package:rmplanner/features/planner/domain/task_event_link.dart';
 import 'package:rmplanner/features/planner/presentation/event_type_picker_dialog.dart';
 import 'package:rmplanner/features/planner/presentation/widgets/planner_slide_down_date_picker.dart';
-import 'package:rmplanner/features/startup/application/startup_providers.dart';
-import 'package:rmplanner/features/startup/domain/startup_state.dart';
 
 enum CalendarEventFormMode { create, edit, reschedule }
 
@@ -29,7 +26,6 @@ final class CalendarEventFormScreen extends ConsumerStatefulWidget {
     this.initialEventType,
     this.initialStartMinute,
     this.initialIndicatorKey,
-    this.initialIndicatorPeriod,
     this.initialEventTypeId,
     this.sheetPresentation = false,
     this.sheetScrollController,
@@ -49,7 +45,6 @@ final class CalendarEventFormScreen extends ConsumerStatefulWidget {
     this.initialEventType,
     this.initialStartMinute,
     this.initialIndicatorKey,
-    this.initialIndicatorPeriod,
     this.initialEventTypeId,
     this.sheetPresentation = false,
     this.sheetScrollController,
@@ -77,7 +72,6 @@ final class CalendarEventFormScreen extends ConsumerStatefulWidget {
        initialEventType = null,
        initialStartMinute = null,
        initialIndicatorKey = null,
-       initialIndicatorPeriod = null,
        initialEventTypeId = null,
        sourceTaskId = null;
 
@@ -96,7 +90,6 @@ final class CalendarEventFormScreen extends ConsumerStatefulWidget {
        initialEventType = null,
        initialStartMinute = null,
        initialIndicatorKey = null,
-       initialIndicatorPeriod = null,
        initialEventTypeId = null,
        sourceTaskId = null;
 
@@ -105,7 +98,6 @@ final class CalendarEventFormScreen extends ConsumerStatefulWidget {
   final EventType? initialEventType;
   final int? initialStartMinute;
   final String? initialIndicatorKey;
-  final IndicatorGoalPeriod? initialIndicatorPeriod;
   final String? initialEventTypeId;
   final String? eventId;
   final PlannerDate? originalDate;
@@ -1274,31 +1266,6 @@ final class _CalendarEventFormScreenState
     }
     setState(() => _saving = false);
     if (saved) {
-      if (widget.mode == CalendarEventFormMode.create &&
-          widget.initialIndicatorKey != null) {
-        final startup = ref.read(startupControllerProvider);
-        if (startup is StartupReady) {
-          await ref
-              .read(indicatorRepositoryProvider)
-              .linkCommitment(
-                profileId: startup.profile.id,
-                indicatorKey: widget.initialIndicatorKey!,
-                period:
-                    widget.initialIndicatorPeriod ??
-                    IndicatorGoalPeriod.weekly(_date),
-                entityType: IndicatorCommitmentEntityType.event,
-                entityId: _draftId,
-                occurrenceId: CalendarEventOccurrenceIdentity.forDate(
-                  eventId: _draftId,
-                  originalDate: _date,
-                ),
-                linkId: ref.read(plannerIdentifierSourceProvider).nextUuid(),
-                operationId: ref
-                    .read(plannerIdentifierSourceProvider)
-                    .nextUuid(),
-              );
-        }
-      }
       if (!mounted) {
         return;
       }
