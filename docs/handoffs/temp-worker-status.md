@@ -3359,3 +3359,259 @@ commit created for this section; its short SHA is reported after commit.
   PASS or FAIL for the required latest VS-08 acceptance items; no physical
   PASS is inferred from automated tests or installation. No push was made,
   PR #8 was not updated, and VS-09 was not started.
+
+## VS-08 Owner Correction — Full Goals, Commitments, and Planner Reliability
+
+- Writable checkout: `C:\Users\sherl\Documents\Next Transfer-Temp`.
+  Starting branch: `temp/vs08-shared-preview`. Starting HEAD:
+  `cec7b6e20659d45fab41f8c6c9934b48b58ef086`.
+  The protected checkout `C:\Users\sherl\Documents\Next Transfer` remained
+  clean. The inherited untracked `.todo.md` remains unmodified and was not
+  staged.
+- Evidence reviewed: `C:\Users\sherl\Downloads\VS08-Full-Goals-Commitments-Planner-Reliability-Prompt.txt`,
+  `C:\Users\sherl\Downloads\Screen_Recording_20260803_091148.mp4`, and
+  `C:\Users\sherl\Downloads\Screenshot_20260803-091217.jpg`.
+
+### Requirement matrix
+
+Implementation and audit sections:
+
+- 0 PASS — non-partial execution contract followed; no blocker was hidden.
+  Contract items 0.1–0.7 were honored: no premature completion claim, no
+  invented workaround, no final acceptance checkpoint, and no unrelated
+  feature was started.
+- 1 PASS — repository/branch authority and Temp-only write boundary.
+- 2 PASS — attached evidence inventory and visual-authority review.
+- 3 PASS — master Home/Goal/Planner text and hierarchy authority.
+- 4 PASS — approved working behavior preserved.
+- 5 PASS — Home measurements, overflow, WLI cards, bottom inset, and Active
+  Pathways preservation.
+- 6 PASS — View All, Start Weekly Planning, and Weekly Planning share the
+  canonical route/controller.
+- 7 PASS — one canonical goal-target source keyed by stable WLI slot, period
+  type, and period start.
+- 8 PASS — 200 ms goal debounce with lifecycle/navigation flushes.
+- 9 PASS — Actual removed from Edit Goal while remaining in Home/ratio/history.
+- 10 PASS — final Edit Goal hierarchy and separators.
+- 11 PASS — Commitments are contextual inside each goal screen.
+- 12 PASS — Commitments section design and placement.
+- 13 PASS — Event-block commitment visual renderer.
+- 14 PASS — Event/Task commitment creation flow.
+- 15 PASS — canonical commitment relationship model and duplicate protection.
+- 16 PASS — cross-period commitment visibility and deletion/move behavior.
+- 17 PASS — outcome-driven progress with exactly-once contribution behavior.
+- 18 PASS — History remains the final Edit Goal section.
+- 19 PASS — Current Status is the reporting mechanism; Activity History remains
+  read-only and Activity Report remains removed.
+- 20 PASS — approved Planner scrolling, move, resize, and interaction
+  thresholds preserved.
+- 21 PASS — Planner event-block content is computed from actual height with
+  no FittedBox or clipped RenderFlex error; minimum-height blocks are
+  title-only when schedule/recurrence cannot fit.
+- 22 PASS — All-day control removed from creation and normal edit; legacy
+  all-day Events remain readable.
+- 23 PASS — recurrence serializer and create/edit persistence.
+- 24 PASS — recurring move/resize scope dialog and cancel behavior.
+- 25 PASS — Home/Goal/Planner overflow cleanup and audit.
+- 26 PASS — automated matrix implemented.
+- 27 PASS — required automated gates are green.
+- 28 PASS — bug/leak/performance audit completed; proven issues fixed without
+  unrelated broad refactors.
+- 29 PASS — diagnostics and explicitly identified temporary evidence removed;
+  changed Dart files formatted; `.todo.md` and artifacts excluded.
+- 30 PASS — focused implementation commit created.
+- 31 PASS — required handoff appended and committed below.
+- 32 PASS — Temp APK built, update-installed, hash-matched, and data-preserved.
+- 33 PENDING — physical owner must provide explicit PASS or FAIL for items
+  01–67; automated tests and installation are not substituted for owner
+  acceptance.
+- 34 PENDING — final success stop condition remains intentionally unclaimed
+  until the physical owner acceptance gate passes.
+
+Automated acceptance matrix:
+
+- 1 PASS approved Home card dimensions at 393 dp.
+- 2 PASS Job Applications card has no overflow.
+- 3 PASS middle cards have no overflow.
+- 4 PASS Temple Visit shows Month Goal.
+- 5 PASS unset monthly goal renders 0/0.
+- 6 PASS Set Schedule is absent.
+- 7 PASS Weekly Planning is fully visible.
+- 8 PASS View All and Weekly Planning use the same route.
+- 9 PASS Active Pathways is preserved.
+- 10 PASS Daily and Weekly targets persist independently.
+- 11 PASS Weekly and Monthly targets persist independently.
+- 12 PASS tab switching flushes writes.
+- 13 PASS back navigation flushes writes.
+- 14 PASS app background flushes writes.
+- 15 PASS Home reads the canonical target.
+- 16 PASS Weekly Planning reads the canonical target.
+- 17 PASS Edit Goal reads the canonical target.
+- 18 PASS target values have no off-by-one behavior.
+- 19 PASS stale provider values are invalidated.
+- 20 PASS Actual is absent from Edit Goal modes.
+- 21 PASS Commitments precede History.
+- 22 PASS History remains last.
+- 23 PASS major separators span the content width.
+- 24 PASS no right-side separator gap.
+- 25 PASS + Commitments opens Select Event Type.
+- 26 PASS Event opens the Event form.
+- 27 PASS Task opens the Task form.
+- 28 PASS WLI link is pre-applied.
+- 29 PASS one canonical Event or Task entity is created.
+- 30 PASS Event commitment uses Event-block styling.
+- 31 PASS Task commitment uses Event-block styling.
+- 32 PASS Event detail opens from its commitment block.
+- 33 PASS Task detail opens from its commitment block.
+- 34 PASS no global New Task button.
+- 35 PASS no global New Event button.
+- 36 PASS no visible Optional commitment label.
+- 37 PASS weekly-created scheduled Event appears in Daily.
+- 38 PASS monthly-created scheduled Event appears in Daily.
+- 39 PASS daily-created Event appears in its containing week.
+- 40 PASS daily-created Event appears in its containing month.
+- 41 PASS moving a commitment updates all views.
+- 42 PASS deleting an entity removes it from all commitment views.
+- 43 PASS unscheduled Task stays out of Daily.
+- 44 PASS scheduled Task appears in Daily.
+- 45 PASS duplicate entities are not created.
+- 46 PASS creating a commitment does not change Actual.
+- 47 PASS eligible completion updates Actual once.
+- 48 PASS duplicate contribution is prevented.
+- 49 PASS every Current Status row has a tappable target.
+- 50 PASS Completed saves.
+- 51 PASS Missed - Attempted saves.
+- 52 PASS Did Not Attempt saves.
+- 53 PASS one Activity History record is retained per effective write.
+- 54 PASS contribution reconciles with status.
+- 55 PASS rapid status taps are idempotent.
+- 56 PASS restart preserves status.
+- 57 PASS approved Planner scroll sensitivity is preserved.
+- 58 PASS intentional move works.
+- 59 PASS intentional resize works.
+- 60 PASS pinch behavior is unchanged.
+- 61 PASS no overflow at minimum zoom.
+- 62 PASS no overflow at maximum zoom.
+- 63 PASS All-day control is absent.
+- 64 PASS legacy all-day Event remains readable.
+- 65 PASS non-repeat to repeat editing persists.
+- 66 PASS repeat icon appears when applicable.
+- 67 PASS restart preserves recurrence.
+- 68 PASS generated occurrences remain valid.
+- 69 PASS recurring move/resize opens a scope dialog.
+- 70 PASS This event only creates an exception.
+- 71 PASS All events updates the series.
+- 72 PASS Cancel performs no write.
+- 73 PASS no overflow at 360 dp.
+- 74 PASS no overflow at 393 dp.
+- 75 PASS no overflow at 411 dp.
+- 76 PASS no overflow at text scale 1.30.
+- 77 PASS no keyboard overflow.
+
+### Implementation evidence
+
+- Home measurements: 393 dp viewport content width is 357 dp; wide cards are
+  357 x 86 dp; middle cards are 172.5 x 100 dp with a 12 dp gap; Temple
+  Visit is 357 x 86 dp; the Weekly Planning action is 220 x 48 dp; wide-card
+  leading icons are 36 dp; the goal panel is 118 x 62 dp; card padding is
+  12 dp. The bottom inset is computed from navigation height, system inset,
+  FAB allowance, and 24 dp breathing room.
+- Overflow fixes: fixed compact typography, maxLines/ellipsis, no FittedBox,
+  no clipped RenderFlex error, dynamic bottom inset, clamped card text scale,
+  and a shared height policy. A 15 px quarter-hour block retains the approved
+  inline schedule contract; an 11 px minimum-zoom block becomes title-only and
+  suppresses the recurrence affordance when it cannot fit.
+- Canonical goal storage: schema 15 adds `indicator_commitment_links`; all
+  Daily, Weekly, and Monthly targets use canonical goal revisions keyed by
+  stable WLI slot, period type, and period start. Legacy weekly rows migrate
+  with `INSERT OR IGNORE` and remain read-compatible.
+- Auto-save: targets debounce at 200 ms, then flush before tab changes, period
+  changes, back navigation, app backgrounding, opening another goal, and
+  dispose. Provider invalidation and canonical rereads keep Home, Weekly
+  Planning, and Edit Goal synchronized.
+- Daily/Weekly/Monthly independence: each period type has separate canonical
+  target rows and period keys; changing one period cannot overwrite another.
+- Actual row removal: Edit Goal no longer renders an `Actual: X` row; actuals
+  remain derived in Home ratios and History.
+- Final Edit Goal hierarchy: Back/Edit Goal, period tabs, selected period,
+  title, goal controls, separator, Commitments, separator, History/chart last.
+- Commitments design: contextual `Commitments` section with a transparent
+  `+ Commitments` action; no global commitment creation controls in Weekly
+  Planning. Blocks use the canonical Event-block surface, 4 dp left accent,
+  4 dp radius, 58 dp minimum height, 14 sp title, 13 sp schedule, and an
+  18 dp recurrence icon only when it fits.
+- Relationship model: links store stable WLI slot, period type/start,
+  entity type/id, optional occurrence id, operation id, and unique link
+  identity. Event and Task forms create one canonical entity and link it to
+  the originating goal context.
+- Cross-period visibility: scheduled Events/Tasks are read from canonical
+  entities and projected into every containing Daily/Weekly/Monthly period;
+  moving, cancelling, or deleting the source updates projections. Unscheduled
+  Tasks remain visible only in their creation context until they receive a due
+  date.
+- Progress: creation never contributes; only eligible completed outcome/status
+  writes contribute, guarded transactionally by operation identity, with no
+  duplicate Activity History or ledger entries.
+- Current Status root cause/fix: status needed a real hit-targeted selector
+  rather than a presentation-only row. The detail screen now exposes 56 dp
+  status rows and a real popup with Unreported, Completed, Missed - Attempted,
+  and Did Not Attempt; writes use the existing transactional idempotency path.
+- Planner reliability: scroll wins over accidental movement, intentional move
+  and resize remain available, pinch thresholds remain unchanged, and the
+  shared content policy prevents min/max-zoom overflow. Recurring timeline
+  adjustment now asks This event only / All events / Cancel and performs no
+  write on Cancel.
+- All-day behavior: creation and ordinary edit no longer expose an All-day
+  switch; legacy all-day records remain readable and date-only.
+- Recurrence: create/edit serialization persists recurrence and generated
+  occurrences; repeat icons render when applicable; occurrence and series
+  adjustment scopes are explicit.
+- Migration: Drift schema 14 -> 15 creates the canonical commitment-link
+  table and guardedly migrates legacy weekly target revisions. Generated Drift
+  code was rebuilt; no uninstall, data clear, broad rewrite, or dependency
+  upgrade occurred.
+- Changed production files: `lib/app/router/app_router.dart`,
+  `lib/core/database/app_database.dart`,
+  `lib/core/database/app_database.g.dart`, indicator repository/providers/
+  domain, `weekly_target_prompt_screen.dart`, event creation/form/detail,
+  task form, Planner timeline/policy/content widgets, `home_screen.dart`,
+  and `weekly_planning_screen.dart`. Tests were updated only for the schema
+  migration expectation, canonical target/commitment journeys, and the
+  minimum-height Planner content contract.
+
+### Verification and handoff
+
+- Focused matrix command: `C:\Users\sherl\AppData\Local\Temp\run_flutter.bat
+  test test/features/indicators test/features/weekly_planning
+  test/features/planner/presentation test/core/database/migration_rollback_test.dart
+  --reporter expanded` — **271 passed, 0 failed, 0 skipped**.
+- Planner command: `... run_flutter.bat test test/features/planner
+  --reporter expanded` — **295 passed, 0 failed, 0 skipped**.
+- Home/WLI/Weekly Planning command — **9 passed, 0 failed, 0 skipped**.
+- Full command: `... run_flutter.bat test --reporter expanded` —
+  **360 passed, 0 failed, 0 skipped**.
+- Analyzer: `No issues found!`.
+- `git diff --check` passed before staging. Source audit found no new
+  diagnostics, debug markers, production debug prints, polling loops, or
+  temporary artifacts in the staged change.
+- Implementation commit: `58303cf42be81b89a75ca0276e8d09b87d2c9d44`
+  (`fix(vs08): complete goals commitments and planner reliability`).
+- Final Temp APK:
+  `C:\Users\sherl\Documents\Next Transfer-Temp\build\app\outputs\flutter-apk\app-debug.apk`;
+  195532353 bytes; write time `2026-08-03T04:41:13.2476248Z` UTC; SHA-256
+  `7F72FE754A9520909BB94E30B896266E70CC896B0DC7775AE6FDD4173224943C`.
+- Authorized device: Infinix X6731, serial
+  `adb-10620253B3004617-2m7ZVB._adb-tls-connect._tcp`. `adb install -r`
+  returned `Success`; the app was force-stopped and launched with
+  `com.nexttransfer.rmplanner/.MainActivity`.
+- Installed base APK SHA-256 exactly matched the local Temp APK. The pulled
+  APK was deleted after comparison.
+- Data preservation: `dataDir=/data/user/0/com.nexttransfer.rmplanner`,
+  `firstInstallTime=2026-07-27 15:42:22`, and `ceDataInode=1509267` were
+  unchanged before and after update install. The existing
+  `app_flutter/next_transfer.sqlite` remains present. No uninstall or clear
+  data command was used.
+- Physical acceptance is pending the owner's explicit PASS or FAIL for items
+  01–67. No physical PASS is inferred from automated tests, APK hash, or
+  installation. No push was made; PR #8 remains untouched; VS-09 is
+  unstarted. Wait for explicit owner instruction after this handoff.
