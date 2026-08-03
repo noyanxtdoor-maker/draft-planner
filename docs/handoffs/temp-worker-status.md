@@ -3615,3 +3615,151 @@ Automated acceptance matrix:
   01–67. No physical PASS is inferred from automated tests, APK hash, or
   installation. No push was made; PR #8 remains untouched; VS-09 is
   unstarted. Wait for explicit owner instruction after this handoff.
+
+## VS-08 Prompt A — Home, WLI, and Goal Synchronization
+
+- Writable checkout: `C:\Users\sherl\Documents\Next Transfer-Temp`.
+  Starting branch: `temp/vs08-shared-preview`. Starting HEAD for this
+  continuation: `48e544e540d451ade1c608dd2ca71f0554bbdf2d`.
+  Implementation commit: `0cd762e` (`fix(vs08): synchronize goals and
+  compact home WLI`). The protected checkout
+  `C:\Users\sherl\Documents\Next Transfer` remained untouched. The
+  inherited untracked `.todo.md` remains unmodified and was not staged.
+- This continuation preserved the live Temp state after the power outage. No
+  reset, restore, clean, stash, rebase, amend, or discard operation was used.
+- Newly reviewed visual authority:
+  `C:\Users\sherl\Downloads\VS08-Prompt-A-Continue-After-Power-Outage-With-Evidence.txt`,
+  `C:\Users\sherl\Downloads\The lord speaks to elijah.mp4`,
+  `C:\Users\sherl\Downloads\Approved Home design.jpeg`, and
+  `C:\Users\sherl\Downloads\current oversize home screen.jpg`.
+  The approved Home reference is 941x1672; the current oversize reference is
+  922x1945; the recording is 1080x2400 and approximately 1048.5 seconds.
+  The recording contact sheet and focused visual review confirmed the
+  oversized WLI cards, excessive vertical spacing, and Weekly Planning/FAB
+  crowding in the prior live state. The approved compact card arrangement,
+  direct icon/title alignment, and earlier Active Pathways placement were used
+  as the visual correction authority. The Prompt A text graph remains the
+  authority for the final Temple left/right split where an older screenshot
+  differs.
+
+### Prompt A requirement matrix
+
+| ID | Requirement | Production / test evidence | Implementation | Automated | Physical |
+|---:|---|---|---|---|---|
+| 0 | Non-partial execution contract | Temp-only trace, preserved state, no hidden blocker | COMPLETE | PASS | Pending owner |
+| 1 | Repository authority | Branch/HEAD/status/worktree audit | COMPLETE | PASS | Pending owner |
+| 2 | Scope boundary | Prompt A only; Prompt B excluded | COMPLETE | PASS | Pending owner |
+| 3 | Attached evidence review | Approved/current Home images plus recording reviewed | COMPLETE | PASS | Pending owner |
+| 4 | Master Home/WLI/Goal text graph | `home_screen.dart`, goal editor, weekly screen | COMPLETE | PASS | Pending owner |
+| 5 | Active production trace | Home, WLI provider/repository, planning, goal, migration paths traced | COMPLETE | PASS | Pending owner |
+| 6 | Remove Commitments completely | Indicator/weekly/planner routes, providers, forms, tests | COMPLETE | PASS | Pending owner |
+| 7 | Canonical GoalPeriodTarget source | `indicator_goal_revisions`, stable slot + type + start | COMPLETE | PASS | Pending owner |
+| 8 | Daily/weekly/monthly period model | `IndicatorGoalPeriod` local date/Monday/month keys | COMPLETE | PASS | Pending owner |
+| 9 | Independent auto-save and flush | 200 ms debounce, tab/date/lifecycle/dispose flush | COMPLETE | PASS | Pending owner |
+| 10 | Remove Actual from Edit Goal | Goal editor hierarchy and tests | COMPLETE | PASS | Pending owner |
+| 11 | History at bottom | Five-period chart after separator | COMPLETE | PASS | Pending owner |
+| 12 | Canonical six-row Weekly Planning | One route/controller, six WLI rows | COMPLETE | PASS | Pending owner |
+| 13 | Home unplanned/planned states | Start Weekly Planning and six-card states | COMPLETE | PASS | Pending owner |
+| 14 | Compact Home text graph | WLI layout and button hierarchy | COMPLETE | PASS | Pending owner |
+| 15 | Exact compact measurements | 357 dp content, 60 dp cards, 6 dp gaps, 182x42 button | COMPLETE | PASS | Pending owner |
+| 16 | Temple Visit card split | Event schedule left; monthly goal right | COMPLETE | PASS | Pending owner |
+| 17 | Home/Planning/Edit Goal synchronization | Shared canonical repository and invalidation | COMPLETE | PASS | Pending owner |
+| 18 | Home overflow removal | Responsive matrix, scroll inset, no clipping/FittedBox | COMPLETE | PASS | Pending owner |
+| 19 | Preserve Active Pathways | Existing pathway widget retained | COMPLETE | PASS | Pending owner |
+| 20 | Data/migration safety | v15 to v16 drops metadata only; Event/Task rows retained | COMPLETE | PASS | Pending owner |
+| 21 | Required tests | Focused suites and negative-removal coverage | COMPLETE | PASS | Pending owner |
+| 22 | Automated gate | Full Flutter suite and analyzer | COMPLETE | PASS | Pending owner |
+| 23 | Bug/leak/performance audit | Duplicate source, stale period, lifecycle, query, logging audit | COMPLETE | PASS | Pending owner |
+| 24 | Cleanup | Changed Dart formatted; no Prompt-A diagnostics/artifacts | COMPLETE | PASS | Pending owner |
+| 25 | Implementation checkpoint | Focused commit `0cd762e` | COMPLETE | PASS | Pending owner |
+| 26 | Handoff checkpoint | This appended handoff section | COMPLETE | PASS | Pending owner |
+| 27 | Build/install/hash/data verification | Must be recorded after this checkpoint | In progress | Not run at checkpoint | Pending owner |
+| 28 | Physical owner acceptance 01–50 | Explicit item-by-item owner response required | Pending | Not applicable | PENDING |
+| 29 | Success stop condition | Cannot be claimed until physical acceptance | Pending | Blocked by owner response | PENDING |
+
+### Automated test matrix
+
+All numbered Prompt A automated requirements passed with no failures or
+skips. The exact coverage groups are:
+
+- Removal/data safety: requirements 01, 02, 03, 04, 05, 06, 07, 08, 09,
+  10, 11.
+- Goal storage/flush: requirements 12, 13, 14, 15, 16, 17, 18, 19, 20,
+  21, 22.
+- Synchronization: requirements 23, 24, 25, 26, 27, 28, 29, 30, 31, 32.
+- Edit Goal: requirements 33, 34, 35, 36, 37, 38, 39.
+- Weekly Planning: requirements 40, 41, 42, 43, 44, 45.
+- Home compact layout: requirements 46, 47, 48, 49, 50, 51, 52, 53, 54,
+  55, 56, 57.
+- Temple Visit: requirements 58, 59, 60, 61, 62, 63, 64, 65, 66.
+- Responsive behavior: requirements 67, 68, 69, 70, 71, 72.
+
+### Implementation details
+
+- Commitments were removed from active production models, providers,
+  repositories, Weekly Planning, Edit Goal, event/task creation context, and
+  routes. The legacy schema names remain only in the explicit v15-to-v16
+  migration drop list and migration assertions; Event, Task, recurrence,
+  due-date, history, reporting, and Planner rows are preserved.
+- The canonical goal record is `indicator_goal_revisions`, keyed by
+  `profileId`, stable `indicatorKey`, `periodType`, and `periodStartDate`,
+  with superseding revisions and operation-id idempotency. Home, Weekly
+  Planning, Edit Goal, and History all read through this source.
+- Daily uses the local calendar date, weekly uses the local Monday start, and
+  monthly uses the local first-of-month start. Current periods are resolved on
+  launch, route read, provider refresh, and app resume.
+- Edit Goal updates immediately, debounces writes at 200 ms, and flushes
+  before period/date navigation, tab switching, Back, app backgrounding,
+  another goal opening, route disposal, and widget disposal. Daily, weekly,
+  and monthly rows remain independent.
+- Edit Goal now renders App bar, applicable tabs, selected period, title,
+  controls, full-width separator, and History/chart. The Actual row and every
+  Commitment section/action are absent.
+- Weekly Planning uses one canonical route/controller and exactly six rows,
+  with 80 dp rows, current actual/target or Set Goal, and read-only historical
+  periods. Home View All, Start Weekly Planning, and Weekly Planning use the
+  same route.
+- Planned Home WLI content uses 18 dp page padding and 357 dp content width;
+  the first wide card, four half cards, and Temple card are each 60 dp high,
+  with 6 dp row gaps, 10 dp middle-column gap, 8 dp before Weekly Planning,
+  and 10 dp before Active Pathways. The wide cards use 27 dp icons, 106x46 dp
+  panels, and the half cards use 26 dp icons. Weekly Planning is 182x42 dp.
+  The computed bottom inset leaves the scroll content above the bottom nav/FAB.
+- Every WLI icon is in the same horizontal row directly before its title and
+  value. Compact card text is bounded to the approved one/two-line contract;
+  no ClipRect or FittedBox is used to conceal overflow.
+- Temple Visit uses the earliest valid future scheduled occurrence on the left
+  (`Next Visit: ...`, otherwise `Set Schedule`) and the canonical monthly
+  actual/target in a right `Month Goal` panel. Deleted/cancelled/replaced and
+  invalid occurrences are ignored, and scheduling opens Temple Visit creation
+  without changing actual progress.
+- Active Pathways was preserved; only the Prompt A WLI footprint and spacing
+  above it were corrected.
+
+### Verification at handoff checkpoint
+
+- Focused Home/WLI suite: **4 passed, 0 failed, 0 skipped**, including 200%
+  text-scale usability, planned compact card geometry, Temple Set Schedule,
+  target-period auto-save switching, and the 360/393/411 responsive matrix.
+- Full command:
+  `C:\Users\sherl\AppData\Local\Temp\run_flutter.bat test --reporter expanded`
+  — **362 passed, 0 failed, 0 skipped**.
+- Analyzer:
+  `C:\Users\sherl\AppData\Local\Temp\run_flutter.bat analyze` —
+  **No issues found!**
+- `dart format` reported both changed files already formatted and
+  `git diff --check` passed. Source cleanup found no new Prompt-A diagnostics,
+  debug markers, polling loops, or temporary artifacts. The existing
+  allowlisted sanitized diagnostics utility was not changed.
+- Changed production surface includes the app lifecycle refresh, route
+  removal, Drift schema/generated code, indicator domain/repository/providers,
+  goal editor, event/task creation context, and Weekly Planning provider,
+  repository, domain, and screen. The obsolete Weekly Review screen was
+  removed. Tests cover migration, canonical target independence/sync, Home,
+  Weekly Planning, planner compatibility, privacy schema expectation, and
+  Commitment removal.
+- Build/install/hash/data-preservation evidence is intentionally not claimed
+  in this checkpoint; it is the next required step. Physical owner acceptance
+  items 01–50 remain pending and cannot be inferred from automated tests.
+- Prompt B was not started. No push was made. PR #8 was not updated. VS-09
+  was not started.
