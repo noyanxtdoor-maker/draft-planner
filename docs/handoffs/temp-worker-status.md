@@ -4274,3 +4274,34 @@ Owner visual PASS/FAIL sign-off remains pending. The install-dependent
 acceptance items cannot be claimed until the authorized device is reachable;
 the exact blocker is the empty ADB/mDNS discovery result and the timeout at
 the recorded endpoint above.
+
+### Reconnect continuation — update-install now verified
+
+Date: 2026-08-03
+
+The authorized device became discoverable after the retry. The earlier blocked
+install gate is superseded by this continuation evidence:
+
+- `adb devices -l` reported the authorized device as:
+  `adb-10620253B3004617-2m7ZVB._adb-tls-connect._tcp device product:X6731-GL model:Infinix_X6731 device:Infinix-X6731`.
+- The exact command `adb -s adb-10620253B3004617-2m7ZVB._adb-tls-connect._tcp install -r C:\Users\sherl\Documents\Next Transfer-Temp\build\app\outputs\flutter-apk\app-debug.apk` returned `Success`.
+- The installed base APK was pulled temporarily and matched the local build:
+  local SHA-256 and installed SHA-256 were both
+  `1CB4EEB667CB433B7C3E3E9CDEDDBBBE5DE754A958D2F397D335F36C523FD114`.
+- Post-install package metadata remained `versionName=0.1.0`,
+  `dataDir=/data/user/0/com.nexttransfer.rmplanner`, and
+  `firstInstallTime=2026-07-27 15:42:22`. `lastUpdateTime` advanced as
+  expected for the update-only install.
+- The app-owned data root was readable through `run-as` and remained present:
+  `/data/user/0/com.nexttransfer.rmplanner`, including `app_flutter`,
+  `cache`, `code_cache`, `files`, and `shared_prefs`.
+- The package was force-stopped and launched with
+  `am start -n com.nexttransfer.rmplanner/.MainActivity` successfully.
+- The temporarily pulled APK and its empty verification directory were
+  deleted after hash comparison.
+- No uninstall, `pm clear`, data reset, or equivalent destructive device
+  operation was issued.
+
+The physical update-install, installed-hash, package/data-marker, and launch
+verification gates are now COMPLETE. Owner visual PASS/FAIL sign-off remains a
+separate pending acceptance step.
