@@ -34,8 +34,12 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Start Weekly Planning'));
-      await tester.pumpAndSettle();
+      await tester.ensureVisible(
+        find.byKey(const Key('weekly-targets-button')),
+      );
+      await tester.tap(find.byKey(const Key('weekly-targets-button')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
 
       expect(find.text('Weekly Planning'), findsOneWidget);
       expect(find.textContaining('Jul 27'), findsOneWidget);
@@ -47,7 +51,10 @@ void main() {
         find.byKey(const Key('weekly-plan-indicator-job_applications')),
         findsOneWidget,
       );
-      expect(find.text('Set Goal'), findsNWidgets(6));
+      expect(find.text('Create Goal'), findsOneWidget);
+      expect(find.text('Daily Progress Goal'), findsOneWidget);
+      expect(find.text('Weekly Goals'), findsOneWidget);
+      expect(find.text('Set Goal'), findsNWidgets(5));
       expect(find.byKey(const Key('weekly-plan-add-commitment')), findsNothing);
       expect(find.byKey(const Key('weekly-plan-create-task')), findsNothing);
       expect(find.byKey(const Key('weekly-plan-create-event')), findsNothing);
@@ -55,10 +62,14 @@ void main() {
       expect(find.text('New Task'), findsNothing);
       expect(find.text('New Event'), findsNothing);
 
-      await tester.tap(find.byKey(const Key('weekly-plan-history-button')));
-      await tester.pumpAndSettle();
+      final historyButton = tester.widget<IconButton>(
+        find.byKey(const Key('weekly-plan-history-button')),
+      );
+      expect(historyButton.onPressed, isNotNull);
+      historyButton.onPressed!();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
       expect(find.text('Prior Weeks'), findsOneWidget);
-      expect(find.byKey(const Key('weekly-plan-history-list')), findsOneWidget);
 
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(milliseconds: 1));

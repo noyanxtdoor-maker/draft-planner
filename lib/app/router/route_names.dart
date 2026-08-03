@@ -33,6 +33,9 @@ abstract final class RouteNames {
   static const String weeklyPlanning = 'weekly-planning';
   static const String weeklyPlanningTargets = 'weekly-planning-targets';
   static const String weeklyPlanningHistory = 'weekly-planning-history';
+  static const String goalCreate = 'goal-create';
+  static const String goalEdit = 'goal-edit';
+  static const String goalArchive = 'goal-archive';
   static const String privacyCenter = 'privacy-center';
   static const String permissions = 'permissions';
   static const String diagnosticPreview = 'diagnostic-preview';
@@ -62,8 +65,10 @@ abstract final class RoutePaths {
   static const String weeklyPlanning = '/planner/weekly-planning';
   static const String weeklyPlanningTargetsPath =
       '/planner/weekly-planning/targets';
-  static const String weeklyPlanningHistory =
-      '/planner/weekly-planning/history';
+  static const String weeklyPlanningHistory = '/planner/weekly-planning-history';
+  static const String goalCreate = '/planner/weekly-planning/create';
+  static const String goalArchive = '/planner/weekly-planning/archive';
+  static const String goalEditPath = '/planner/weekly-planning/goals';
   static const String privacyCenter = '/privacy';
   static const String permissions = '/privacy/permissions';
   static const String diagnosticPreview = '/privacy/diagnostics';
@@ -108,5 +113,9 @@ abstract final class RoutePaths {
 
   static String weeklyPlanningFor(PlannerDate periodStart) {
     return '$weeklyPlanning?week=${periodStart.iso8601}';
+  }
+
+  static String goalEdit(String goalId) {
+    return '$goalEditPath/$goalId/edit';
   }
 }

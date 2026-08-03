@@ -53,6 +53,84 @@ class LifeIndicatorDefinitions extends Table {
   Set<Column<Object>> get primaryKey => <Column<Object>>{id};
 }
 
+/// The canonical lifecycle record for a user-facing goal.
+///
+/// `role` and `activeSlotIndex` are intentionally stored as stable values
+/// rather than inferred from the current WLI label.  This lets a renamed or
+/// archived goal keep its identity, history, and relationships intact.
+@TableIndex(
+  name: 'goal_profile_active_slot_unique',
+  columns: <Symbol>{#profileId, #activeSlotIndex},
+  unique: true,
+)
+@TableIndex(
+  name: 'goal_profile_status_slot',
+  columns: <Symbol>{#profileId, #status, #activeSlotIndex},
+)
+@DataClassName('GoalRow')
+class Goals extends Table {
+  TextColumn get id => text()();
+  TextColumn get profileId =>
+      text().references(LocalProfiles, #id, onDelete: KeyAction.restrict)();
+  TextColumn get indicatorKey => text().nullable()();
+  TextColumn get role => text()();
+  IntColumn get activeSlotIndex => integer().nullable()();
+  TextColumn get title => text()();
+  TextColumn get iconId => text().nullable()();
+  TextColumn get status => text()();
+  DateTimeColumn get createdAtUtc => dateTime()();
+  DateTimeColumn get updatedAtUtc => dateTime()();
+  DateTimeColumn get archivedAtUtc => dateTime().nullable()();
+
+  @override
+  Set<Column<Object>> get primaryKey => <Column<Object>>{id};
+}
+
+@TableIndex(
+  name: 'goal_activity_operation_unique',
+  columns: <Symbol>{#operationId},
+  unique: true,
+)
+@TableIndex(
+  name: 'goal_activity_goal_time',
+  columns: <Symbol>{#goalId, #occurredAtUtc},
+)
+@DataClassName('GoalActivityRow')
+class GoalActivities extends Table {
+  TextColumn get id => text()();
+  TextColumn get profileId =>
+      text().references(LocalProfiles, #id, onDelete: KeyAction.restrict)();
+  TextColumn get goalId =>
+      text().references(Goals, #id, onDelete: KeyAction.restrict)();
+  TextColumn get operationId => text()();
+  TextColumn get action => text()();
+  TextColumn get previousValue => text().nullable()();
+  TextColumn get newValue => text().nullable()();
+  DateTimeColumn get occurredAtUtc => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => <Column<Object>>{id};
+}
+
+/// Local, idempotent outbox entries for Goal lifecycle mutations.  The app is
+/// currently offline-first; keeping the operation payload by stable Goal ID
+/// makes later sync/backup integration additive instead of requiring a second
+/// Goal architecture.
+@DataClassName('GoalOutboxOperationRow')
+class GoalOutboxOperations extends Table {
+  TextColumn get operationId => text()();
+  TextColumn get profileId =>
+      text().references(LocalProfiles, #id, onDelete: KeyAction.restrict)();
+  TextColumn get entityType => text()();
+  TextColumn get entityId => text()();
+  TextColumn get action => text()();
+  TextColumn get payloadJson => text()();
+  DateTimeColumn get createdAtUtc => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => <Column<Object>>{operationId};
+}
+
 @DataClassName('PrivacyPreferenceRow')
 class PrivacyPreferences extends Table {
   TextColumn get key => text().withDefault(const Constant('primary'))();
@@ -405,6 +483,7 @@ class WeeklyIndicatorTargetRevisions extends Table {
   TextColumn get profileId =>
       text().references(LocalProfiles, #id, onDelete: KeyAction.restrict)();
   TextColumn get indicatorKey => text()();
+  TextColumn get goalId => text().nullable()();
   TextColumn get periodStartDate => text()();
   TextColumn get state => text()();
   IntColumn get valueScaled => integer().nullable()();
@@ -442,6 +521,7 @@ class IndicatorGoalRevisions extends Table {
   TextColumn get id => text()();
   TextColumn get profileId =>
       text().references(LocalProfiles, #id, onDelete: KeyAction.restrict)();
+  TextColumn get goalId => text().nullable()();
   TextColumn get indicatorKey => text()();
   TextColumn get periodType => text()();
   TextColumn get periodStartDate => text()();
@@ -583,6 +663,9 @@ class PlannerPreferences extends Table {
     LocalProfiles,
     OnboardingCheckpoints,
     LifeIndicatorDefinitions,
+    Goals,
+    GoalActivities,
+    GoalOutboxOperations,
     PrivacyPreferences,
     PermissionAudits,
     PlannerTasks,
@@ -658,7 +741,7 @@ final class AppDatabase extends _$AppDatabase {
   final bool _injectPlannerExperienceMigrationFailure;
 
   @override
-  int get schemaVersion => _schemaVersionOverride ?? 16;
+    int get schemaVersion => _schemaVersionOverride ?? 17;
 
   @override
   MigrationStrategy get migration {
@@ -699,6 +782,11 @@ final class AppDatabase extends _$AppDatabase {
           await migrator.createTable(activityTypes);
           await migrator.createTable(activityTypeIndicatorMappings);
           await migrator.createTable(plannerPreferences);
+        }
+        if (schemaVersion >= 17) {
+          await migrator.createTable(goals);
+          await migrator.createTable(goalActivities);
+          await migrator.createTable(goalOutboxOperations);
         }
         if (schemaVersion >= 14) {
           await migrator.createTable(indicatorGoalRevisions);
@@ -967,6 +1055,130 @@ final class AppDatabase extends _$AppDatabase {
             ]) {
               await customStatement('DROP TABLE IF EXISTS $tableName');
             }
+          }
+          if (from < 17 && to >= 17) {
+            await migrator.createTable(goals);
+            await migrator.createTable(goalActivities);
+            await migrator.createTable(goalOutboxOperations);
+            if (!await _columnExists(
+              'weekly_indicator_target_revisions',
+              'goal_id',
+            )) {
+              await migrator.addColumn(
+                weeklyIndicatorTargetRevisions,
+                weeklyIndicatorTargetRevisions.goalId,
+              );
+            }
+            if (!await _columnExists('indicator_goal_revisions', 'goal_id')) {
+              await migrator.addColumn(
+                indicatorGoalRevisions,
+                indicatorGoalRevisions.goalId,
+              );
+            }
+
+            // The six seeded WLI definitions are the only pre-canonical Goal
+            // records.  Their IDs are deterministic, so reopening a partially
+            // migrated database cannot create duplicate Goals.
+            await customStatement('''
+              INSERT OR IGNORE INTO goals
+                (id, profile_id, indicator_key, role, active_slot_index,
+                 title, icon_id, status, created_at_utc, updated_at_utc,
+                 archived_at_utc)
+              SELECT profile_id || ':goal:' || (position + 1),
+                     profile_id,
+                     indicator_key,
+                     CASE position
+                       WHEN 0 THEN 'dailyWeekly'
+                       WHEN 5 THEN 'weeklyMonthly'
+                       ELSE 'weekly'
+                     END,
+                     position + 1,
+                     CASE
+                       WHEN position = 3 AND label = 'Meaningful Connections'
+                         THEN 'Ministering Visit'
+                       ELSE label
+                     END,
+                     NULL,
+                     'active',
+                     created_at_utc,
+                     created_at_utc,
+                     NULL
+                FROM life_indicator_definitions
+            ''');
+            await customStatement('''
+              UPDATE life_indicator_definitions
+                 SET label = 'Ministering Visit'
+               WHERE indicator_key = 'meaningful_connections'
+                 AND position = 3
+                 AND label = 'Meaningful Connections'
+            ''');
+            await customStatement('''
+              UPDATE indicator_goal_revisions
+                 SET goal_id = (
+                   SELECT g.id
+                     FROM goals g
+                    WHERE g.profile_id = indicator_goal_revisions.profile_id
+                      AND g.indicator_key = indicator_goal_revisions.indicator_key
+                    LIMIT 1
+                 )
+               WHERE goal_id IS NULL
+            ''');
+            await customStatement('''
+              UPDATE weekly_indicator_target_revisions
+                 SET goal_id = (
+                   SELECT g.id
+                     FROM goals g
+                    WHERE g.profile_id = weekly_indicator_target_revisions.profile_id
+                      AND g.indicator_key = weekly_indicator_target_revisions.indicator_key
+                    LIMIT 1
+                 )
+              WHERE goal_id IS NULL
+            ''');
+            await customStatement('''
+              INSERT OR IGNORE INTO goal_activities
+                (id, profile_id, goal_id, operation_id, action,
+                 previous_value, new_value, occurred_at_utc)
+              SELECT profile_id || ':goal:' || (position + 1) || ':created',
+                     profile_id,
+                     profile_id || ':goal:' || (position + 1),
+                     profile_id || ':goal:' || (position + 1) || ':created',
+                     'created',
+                     NULL,
+                     CASE
+                       WHEN position = 3 AND label = 'Meaningful Connections'
+                         THEN 'Ministering Visit'
+                       ELSE label
+                     END,
+                     created_at_utc
+                FROM life_indicator_definitions
+            ''');
+            await customStatement('''
+              INSERT OR IGNORE INTO goal_outbox_operations
+                (operation_id, profile_id, entity_type, entity_id, action,
+                 payload_json, created_at_utc)
+              SELECT profile_id || ':goal:' || (position + 1) || ':created',
+                     profile_id,
+                     'goal',
+                     profile_id || ':goal:' || (position + 1),
+                     'created',
+                     json_object(
+                       'goalId', profile_id || ':goal:' || (position + 1),
+                       'role', CASE
+                         WHEN position = 0 THEN 'dailyWeekly'
+                         WHEN position = 5 THEN 'weeklyMonthly'
+                         ELSE 'weekly'
+                       END,
+                       'slot', position + 1,
+                       'title', CASE
+                         WHEN position = 3 AND label = 'Meaningful Connections'
+                           THEN 'Ministering Visit'
+                         ELSE label
+                       END,
+                       'iconId', NULL
+                     ),
+                     created_at_utc
+                FROM life_indicator_definitions
+            ''');
           }
         });
       },

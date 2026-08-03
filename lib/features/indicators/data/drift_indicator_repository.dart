@@ -1,6 +1,8 @@
 import 'package:drift/drift.dart';
 import 'package:rmplanner/core/database/app_database.dart';
 import 'package:rmplanner/core/time/app_clock.dart';
+import 'package:rmplanner/features/goals/data/drift_goal_repository.dart';
+import 'package:rmplanner/features/goals/domain/goal.dart';
 import 'package:rmplanner/features/indicators/application/indicator_repository.dart';
 import 'package:rmplanner/features/indicators/domain/life_indicator.dart';
 import 'package:rmplanner/features/planner/application/calendar_event_repository.dart';
@@ -29,6 +31,9 @@ final class DriftIndicatorRepository implements IndicatorRepository {
         .tableUpdates(
           TableUpdateQuery.onAllTables(<ResultSetImplementation>[
             database.lifeIndicatorDefinitions,
+            database.goals,
+            database.goalActivities,
+            database.goalOutboxOperations,
             database.weeklyIndicatorTargetRevisions,
             database.indicatorGoalRevisions,
             database.activityLedgerEntries,
@@ -48,6 +53,9 @@ final class DriftIndicatorRepository implements IndicatorRepository {
     required IndicatorPeriod period,
     required PlannerDate today,
   }) async {
+    if (database.schemaVersion >= 17) {
+      await GoalBootstrap.ensure(database, profileId, nowUtc: clock.nowUtc());
+    }
     final definitions =
         await (database.select(database.lifeIndicatorDefinitions)
               ..where((table) => table.profileId.equals(profileId))
@@ -55,10 +63,33 @@ final class DriftIndicatorRepository implements IndicatorRepository {
                 (table) => OrderingTerm.asc(table.position),
               ]))
             .get();
+    final canonicalGoals = database.schemaVersion >= 17
+        ? await (database.select(
+            database.goals,
+          )..where((table) => table.profileId.equals(profileId))).get()
+        : const <GoalRow>[];
+    final goalByIndicator = <String, GoalRow>{
+      for (final goal in canonicalGoals)
+        if (goal.status == GoalStatus.active.name && goal.indicatorKey != null)
+          goal.indicatorKey!: goal,
+    };
+    // Definitions remain the durable WLI compatibility surface, but archived
+    // canonical Goals must no longer render as Home Goal cards. The fallback
+    // keeps pre-canonical databases readable while startup completes the
+    // migration.
+    final visibleDefinitions =
+        database.schemaVersion >= 17 && canonicalGoals.isNotEmpty
+        ? definitions
+              .where(
+                (definition) =>
+                    goalByIndicator.containsKey(definition.indicatorKey),
+              )
+              .toList(growable: false)
+        : definitions;
     final targets = await _latestTargets(profileId, period.start);
     final currentWeekPlanned =
-        definitions.isNotEmpty &&
-        definitions.every(
+        visibleDefinitions.isNotEmpty &&
+        visibleDefinitions.every(
           (definition) => targets[definition.indicatorKey]?.state == 'explicit',
         );
     final scheduled = await _scheduledSources(
@@ -74,7 +105,7 @@ final class DriftIndicatorRepository implements IndicatorRepository {
     IndicatorAmount? monthlyTempleActual;
     IndicatorTarget? monthlyTempleTarget;
     IndicatorGoalSnapshot? dailyJobApplications;
-    final templeDefinition = definitions
+    final templeDefinition = visibleDefinitions
         .where((definition) => definition.indicatorKey == 'temple_visit')
         .firstOrNull;
     if (templeDefinition != null) {
@@ -88,7 +119,7 @@ final class DriftIndicatorRepository implements IndicatorRepository {
       monthlyTempleActual = monthly.actual;
       monthlyTempleTarget = monthly.target;
     }
-    final jobApplicationsDefinition = definitions
+    final jobApplicationsDefinition = visibleDefinitions
         .where((definition) => definition.indicatorKey == 'job_applications')
         .firstOrNull;
     if (jobApplicationsDefinition != null) {
@@ -101,7 +132,7 @@ final class DriftIndicatorRepository implements IndicatorRepository {
       );
     }
     final indicators = <LifeIndicatorSummary>[];
-    for (final definition in definitions) {
+    for (final definition in visibleDefinitions) {
       try {
         final actual = await _readActual(
           profileId: profileId,
@@ -114,9 +145,12 @@ final class DriftIndicatorRepository implements IndicatorRepository {
         indicators.add(
           LifeIndicatorSummary(
             key: definition.indicatorKey,
-            label: definition.label,
+            label:
+                goalByIndicator[definition.indicatorKey]?.title ??
+                definition.label,
             unit: definition.unit,
             position: definition.position,
+            goalId: goalByIndicator[definition.indicatorKey]?.id,
             actual: actual,
             target: _mapTarget(targets[definition.indicatorKey]),
             scheduledPotential: _sumSources(sources, definition.unit),
@@ -130,9 +164,12 @@ final class DriftIndicatorRepository implements IndicatorRepository {
         indicators.add(
           LifeIndicatorSummary(
             key: definition.indicatorKey,
-            label: definition.label,
+            label:
+                goalByIndicator[definition.indicatorKey]?.title ??
+                definition.label,
             unit: definition.unit,
             position: definition.position,
+            goalId: goalByIndicator[definition.indicatorKey]?.id,
             actual: IndicatorAmount(
               scaledValue: 0,
               scale: IndicatorUnitPolicy.allowedScale(definition.unit),
@@ -284,6 +321,16 @@ final class DriftIndicatorRepository implements IndicatorRepository {
         }
       }
       final definition = await _definition(profileId, draft.indicatorKey);
+      final canonicalGoal = database.schemaVersion >= 17
+          ? await (database.select(database.goals)
+                  ..where(
+                    (table) =>
+                        table.profileId.equals(profileId) &
+                        table.indicatorKey.equals(draft.indicatorKey),
+                  )
+                  ..limit(1))
+                .getSingleOrNull()
+          : null;
       final value = draft.value;
       if (value != null &&
           (value.scaledValue < 0 ||
@@ -303,6 +350,7 @@ final class DriftIndicatorRepository implements IndicatorRepository {
             IndicatorGoalRevisionsCompanion.insert(
               id: draft.id,
               profileId: profileId,
+              goalId: Value<String?>(canonicalGoal?.id),
               indicatorKey: draft.indicatorKey,
               periodType: draft.period.type.name,
               periodStartDate: draft.period.start.iso8601,

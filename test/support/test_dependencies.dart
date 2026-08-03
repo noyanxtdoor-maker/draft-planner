@@ -9,6 +9,8 @@ import 'package:rmplanner/core/platform/app_environment.dart';
 import 'package:rmplanner/core/security/auth_token_store.dart';
 import 'package:rmplanner/core/security/privacy_gate.dart';
 import 'package:rmplanner/core/time/app_clock.dart';
+import 'package:rmplanner/features/goals/application/goal_providers.dart';
+import 'package:rmplanner/features/goals/data/drift_goal_repository.dart';
 import 'package:rmplanner/features/indicators/application/indicator_providers.dart';
 import 'package:rmplanner/features/indicators/data/drift_indicator_repository.dart';
 import 'package:rmplanner/features/planner/application/calendar_event_providers.dart';
@@ -291,6 +293,11 @@ final class TestPrivacyDependencies {
       clock: FixedClock(DateTime.utc(2026, 7, 27, 12)),
       calendarEvents: resolvedCalendarEventRepository,
     );
+    final goalRepository = DriftGoalRepository(
+      database: repository.database,
+      clock: FixedClock(DateTime.utc(2026, 7, 27, 12)),
+      identifiers: const UuidIdentifierSource(),
+    );
     final resolvedWeeklyPlanningRepository =
         weeklyPlanningRepository ??
         DriftWeeklyPlanningRepository(
@@ -323,6 +330,7 @@ final class TestPrivacyDependencies {
         ),
         plannerRepositoryProvider.overrideWithValue(resolvedPlannerRepository),
         indicatorRepositoryProvider.overrideWithValue(indicatorRepository),
+        goalRepositoryProvider.overrideWithValue(goalRepository),
         weeklyPlanningRepositoryProvider.overrideWithValue(
           resolvedWeeklyPlanningRepository,
         ),

@@ -173,6 +173,7 @@ final class LifeIndicatorSummary {
     required this.scheduledPotential,
     required this.scheduledSources,
     required this.projectionState,
+    this.goalId,
     this.failureMessage,
   });
 
@@ -185,6 +186,7 @@ final class LifeIndicatorSummary {
   final IndicatorAmount scheduledPotential;
   final List<ScheduledIndicatorSource> scheduledSources;
   final IndicatorProjectionState projectionState;
+  final String? goalId;
   final String? failureMessage;
 }
 

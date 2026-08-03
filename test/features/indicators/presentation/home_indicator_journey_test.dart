@@ -60,24 +60,34 @@ void main() {
         find.byKey(const Key('weekly-plan-indicator-job_applications')),
         findsOneWidget,
       );
-      expect(find.text('Set Goal'), findsNWidgets(6));
+      expect(find.text('Set Goal'), findsNWidgets(5));
       await tester.tap(
         find.byKey(const Key('weekly-plan-indicator-job_applications')),
       );
       await tester.pumpAndSettle();
       expect(find.text('Edit Goal'), findsOneWidget);
-      expect(find.text('Weekly'), findsOneWidget);
-      expect(find.text('Save'), findsNothing);
+      expect(find.text('Daily Progress Goal'), findsOneWidget);
+      expect(find.text('Save'), findsOneWidget);
 
-      await tester.tap(find.byKey(const Key('goal-plus')));
-      await tester.tap(find.byKey(const Key('goal-period-daily')));
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(const Key('goal-period-daily')),
+          matching: find.byIcon(Icons.add_circle),
+        ),
+      );
       await tester.pumpAndSettle();
-      expect(find.text('—'), findsOneWidget);
+      expect(find.text('1'), findsWidgets);
 
-      await tester.tap(find.byKey(const Key('goal-plus')));
-      await tester.tap(find.byKey(const Key('goal-period-weekly')));
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(const Key('goal-period-weekly')),
+          matching: find.byIcon(Icons.add_circle),
+        ),
+      );
       await tester.pumpAndSettle();
-      expect(find.text('1'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('goal-edit-save')));
+      await tester.pumpAndSettle();
+      expect(find.text('Weekly Planning'), findsOneWidget);
 
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(milliseconds: 1));

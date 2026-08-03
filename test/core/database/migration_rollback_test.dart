@@ -784,7 +784,7 @@ void main() {
         expect(
           (await versionTen.customSelect('PRAGMA user_version').getSingle())
               .read<int>('user_version'),
-          16,
+          17,
         );
         final taskColumns = await versionTen
             .customSelect('PRAGMA table_info(planner_tasks)')
@@ -938,7 +938,7 @@ void main() {
         final version = await current
             .customSelect('PRAGMA user_version')
             .getSingle();
-        expect(version.read<int>('user_version'), 16);
+        expect(version.read<int>('user_version'), 17);
         await current.close();
       } finally {
         sqliteDatabase.close();

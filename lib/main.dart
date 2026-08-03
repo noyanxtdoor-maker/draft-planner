@@ -8,6 +8,8 @@ import 'package:rmplanner/core/platform/app_environment.dart';
 import 'package:rmplanner/core/security/auth_token_store.dart';
 import 'package:rmplanner/core/security/privacy_gate.dart';
 import 'package:rmplanner/core/time/app_clock.dart';
+import 'package:rmplanner/features/goals/application/goal_providers.dart';
+import 'package:rmplanner/features/goals/data/drift_goal_repository.dart';
 import 'package:rmplanner/features/indicators/application/indicator_providers.dart';
 import 'package:rmplanner/features/indicators/data/drift_indicator_repository.dart';
 import 'package:rmplanner/features/planner/application/calendar_event_providers.dart';
@@ -78,6 +80,11 @@ Future<void> main() async {
     clock: clock,
     calendarEvents: calendarEventRepository,
   );
+  final goalRepository = DriftGoalRepository(
+    database: database,
+    clock: clock,
+    identifiers: const UuidIdentifierSource(),
+  );
   final weeklyPlanningRepository = DriftWeeklyPlanningRepository(
     database: database,
     clock: clock,
@@ -122,6 +129,7 @@ Future<void> main() async {
         ),
         plannerRepositoryProvider.overrideWithValue(plannerRepository),
         indicatorRepositoryProvider.overrideWithValue(indicatorRepository),
+        goalRepositoryProvider.overrideWithValue(goalRepository),
         weeklyPlanningRepositoryProvider.overrideWithValue(
           weeklyPlanningRepository,
         ),

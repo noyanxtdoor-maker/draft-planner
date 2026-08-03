@@ -3,6 +3,9 @@ import 'package:go_router/go_router.dart';
 import 'package:rmplanner/app/router/route_names.dart';
 import 'package:rmplanner/app/router/startup_route_guard.dart';
 import 'package:rmplanner/app/shell/main_shell.dart';
+import 'package:rmplanner/features/goals/presentation/goal_archive_screen.dart';
+import 'package:rmplanner/features/goals/presentation/goal_create_screen.dart';
+import 'package:rmplanner/features/goals/presentation/goal_edit_screen.dart';
 import 'package:rmplanner/features/indicators/presentation/indicator_detail_screen.dart';
 import 'package:rmplanner/features/indicators/presentation/indicator_edit_screen.dart';
 import 'package:rmplanner/features/indicators/presentation/indicator_list_screen.dart';
@@ -166,6 +169,23 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             name: RouteNames.weeklyPlanningHistory,
             path: RoutePaths.weeklyPlanningHistory,
             builder: (context, state) => const WeeklyPlanHistoryScreen(),
+          ),
+          GoRoute(
+            name: RouteNames.goalCreate,
+            path: RoutePaths.goalCreate,
+            builder: (context, state) => const GoalCreateScreen(),
+          ),
+          GoRoute(
+            name: RouteNames.goalArchive,
+            path: RoutePaths.goalArchive,
+            builder: (context, state) => const GoalArchiveScreen(),
+          ),
+          GoRoute(
+            name: RouteNames.goalEdit,
+            path: '${RoutePaths.goalEditPath}/:goalId/edit',
+            builder: (context, state) => GoalEditScreen(
+              goalId: state.pathParameters['goalId']!,
+            ),
           ),
         ],
       ),

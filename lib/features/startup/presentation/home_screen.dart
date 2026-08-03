@@ -84,9 +84,10 @@ final class HomeScreen extends ConsumerWidget {
                       else ...<Widget>[
                         _IndicatorGrid(
                           snapshot: snapshot,
-                          onOpenPlanning: () => _openWeeklyPlanning(
+                          onOpenGoal: (indicator) => _openGoal(
                             context,
                             snapshot.period.start,
+                            indicator,
                           ),
                           onOpenTempleSchedule: () => _openTempleSchedule(
                             context,
@@ -158,6 +159,19 @@ final class HomeScreen extends ConsumerWidget {
 
   static void _openWeeklyPlanning(BuildContext context, PlannerDate start) {
     unawaited(context.push(RoutePaths.weeklyPlanningFor(start)));
+  }
+
+  static void _openGoal(
+    BuildContext context,
+    PlannerDate start,
+    LifeIndicatorSummary indicator,
+  ) {
+    final goalId = indicator.goalId;
+    if (goalId == null) {
+      _openWeeklyPlanning(context, start);
+      return;
+    }
+    unawaited(context.push(RoutePaths.goalEdit(goalId)));
   }
 
   static void _openTempleSchedule(
@@ -307,12 +321,12 @@ final class _StartPlanningButton extends StatelessWidget {
 final class _IndicatorGrid extends StatelessWidget {
   const _IndicatorGrid({
     required this.snapshot,
-    required this.onOpenPlanning,
+    required this.onOpenGoal,
     required this.onOpenTempleSchedule,
   });
 
   final HomeIndicatorSnapshot snapshot;
-  final VoidCallback onOpenPlanning;
+  final ValueChanged<LifeIndicatorSummary> onOpenGoal;
   final VoidCallback onOpenTempleSchedule;
 
   @override
@@ -334,7 +348,7 @@ final class _IndicatorGrid extends StatelessWidget {
             wide: true,
             asideLabel: "Today's Goal",
             asideValue: _todayGoalRatio(snapshot),
-            onTap: onOpenPlanning,
+            onTap: () => onOpenGoal(first),
           ),
         ),
         const SizedBox(height: 6),
@@ -347,7 +361,7 @@ final class _IndicatorGrid extends StatelessWidget {
                   child: _IndicatorCard(
                     indicator: middle[row],
                     wide: false,
-                    onTap: onOpenPlanning,
+                    onTap: () => onOpenGoal(middle[row]),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -356,7 +370,7 @@ final class _IndicatorGrid extends StatelessWidget {
                       ? _IndicatorCard(
                           indicator: middle[row + 1],
                           wide: false,
-                          onTap: onOpenPlanning,
+                          onTap: () => onOpenGoal(middle[row + 1]),
                         )
                       : const SizedBox.shrink(),
                 ),
@@ -376,9 +390,10 @@ final class _IndicatorGrid extends StatelessWidget {
             secondaryLabel: snapshot.nextTempleVisit == null
                 ? 'Set Schedule'
                 : 'Next Visit: ${_formatNextVisit(context, snapshot.nextTempleVisit!)}',
-            onTap: snapshot.nextTempleVisit == null
+            onTap: () => onOpenGoal(temple),
+            onSecondaryTap: snapshot.nextTempleVisit == null
                 ? onOpenTempleSchedule
-                : onOpenPlanning,
+                : null,
           ),
         ),
       ],
@@ -413,6 +428,7 @@ final class _IndicatorCard extends StatelessWidget {
     this.asideLabel,
     this.asideValue,
     this.secondaryLabel,
+    this.onSecondaryTap,
   });
 
   final LifeIndicatorSummary indicator;
@@ -421,6 +437,7 @@ final class _IndicatorCard extends StatelessWidget {
   final String? asideValue;
   final VoidCallback onTap;
   final String? secondaryLabel;
+  final VoidCallback? onSecondaryTap;
 
   @override
   Widget build(BuildContext context) {
@@ -513,25 +530,46 @@ final class _IndicatorCard extends StatelessWidget {
                   fontWeight: FontWeight.w400,
                 ),
               ),
-              Text(
-                secondaryLabel ??
-                    '${indicator.actual.display}/${indicator.target.display}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontFamily: 'Roboto',
-                  fontSize: secondaryLabel == null ? 22 : 14,
-                  height: secondaryLabel == null ? 24 / 22 : 18 / 14,
-                  fontWeight: secondaryLabel == null
-                      ? FontWeight.w600
-                      : FontWeight.w400,
-                  color: secondaryLabel == 'Set Schedule'
-                      ? AppTheme.rose
-                      : secondaryLabel == null
-                      ? AppTheme.rose
-                      : Colors.white70,
+              if (secondaryLabel == 'Set Schedule' && onSecondaryTap != null)
+                TextButton(
+                  key: const Key('home-temple-schedule'),
+                  onPressed: onSecondaryTap,
+                  style: TextButton.styleFrom(
+                    padding: EdgeInsets.zero,
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    alignment: Alignment.centerLeft,
+                    foregroundColor: AppTheme.rose,
+                  ),
+                  child: const Text(
+                    'Set Schedule',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontFamily: 'Roboto',
+                      fontSize: 14,
+                      height: 18 / 14,
+                    ),
+                  ),
+                )
+              else
+                Text(
+                  secondaryLabel ??
+                      '${indicator.actual.display}/${indicator.target.display}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: 'Roboto',
+                    fontSize: secondaryLabel == null ? 22 : 14,
+                    height: secondaryLabel == null ? 24 / 22 : 18 / 14,
+                    fontWeight: secondaryLabel == null
+                        ? FontWeight.w600
+                        : FontWeight.w400,
+                    color: secondaryLabel == null
+                        ? AppTheme.rose
+                        : Colors.white70,
+                  ),
                 ),
-              ),
             ],
           ),
         ),
