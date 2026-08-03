@@ -2032,7 +2032,10 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
   Widget build(BuildContext context) {
     final slotCount = _lastHour - _firstHour;
     final timelineHeight = slotCount * _hourHeight;
-    final placements = PlannerTimelineLayout.arrange(widget.events);
+    final placements = PlannerTimelineLayout.arrange(
+      widget.events,
+      hourHeight: _hourHeight,
+    );
     // The current-time read happens inside the
     // ValueListenableBuilder so the indicator's visibility,
     // label, and vertical position all refresh together on every
@@ -2685,12 +2688,8 @@ final class _TimelineEventBlock extends StatelessWidget {
       event,
       eventColorsByTypeId,
     );
-    final accent = event.isBackupAppointment
-        ? PlannerEventBlockLayoutPolicy.backupEventAccent
-        : resolvedAccent;
-    final fill = event.isBackupAppointment
-        ? PlannerEventBlockLayoutPolicy.backupEventSurface
-        : resolvedFill;
+    final accent = resolvedAccent;
+    final fill = resolvedFill;
     return LayoutBuilder(
       builder: (context, constraints) {
         final availableHeight = constraints.maxHeight.isFinite
@@ -2699,6 +2698,37 @@ final class _TimelineEventBlock extends StatelessWidget {
         final content = PlannerEventBlockContent.forHeight(
           availableHeight,
           interactive: interactive,
+        );
+        final eventBody = InkWell(
+          onTap: selectionMode
+              ? onToggleSelection
+              : () => _openCalendarEvent(context, event),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              border: Border(
+                left: BorderSide(
+                  color: accent,
+                  width: event.isBackupAppointment
+                      ? PlannerEventBlockLayoutPolicy.backupEventAccentWidth
+                      : PlannerEventBlockLayoutPolicy.eventAccentWidth,
+                ),
+              ),
+            ),
+            child: PlannerEventBlockContentView(
+              event: event,
+              accentColor: accent,
+              surfaceColor: fill,
+              use24HourTime: use24HourTime,
+              displayStartMinute: displayStartMinute,
+              displayEndMinute: displayEndMinute,
+              awaitingReport: awaitingReport,
+              content: content,
+              titleKey: const Key('planner-event-block-title'),
+              timeKey: const Key('planner-event-block-time'),
+              recurrenceKey: Key('planner-event-recurring-${event.id}'),
+              statusKey: Key('planner-event-block-status-${event.id}'),
+            ),
+          ),
         );
         return Semantics(
           button: true,
@@ -2747,43 +2777,12 @@ final class _TimelineEventBlock extends StatelessWidget {
                       ),
                     ),
                     clipBehavior: Clip.antiAlias,
-                    child: InkWell(
-                      onTap: selectionMode
-                          ? onToggleSelection
-                          : () => _openCalendarEvent(context, event),
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          border: Border(
-                            left: BorderSide(
-                              color: accent,
-                              width: event.isBackupAppointment
-                                  ? PlannerEventBlockLayoutPolicy
-                                        .backupEventAccentWidth
-                                  : PlannerEventBlockLayoutPolicy
-                                        .eventAccentWidth,
-                            ),
-                          ),
-                        ),
-                        child: PlannerEventBlockContentView(
-                          event: event,
-                          accentColor: accent,
-                          surfaceColor: fill,
-                          use24HourTime: use24HourTime,
-                          displayStartMinute: displayStartMinute,
-                          displayEndMinute: displayEndMinute,
-                          awaitingReport: awaitingReport,
-                          content: content,
-                          titleKey: const Key('planner-event-block-title'),
-                          timeKey: const Key('planner-event-block-time'),
-                          recurrenceKey: Key(
-                            'planner-event-recurring-${event.id}',
-                          ),
-                          statusKey: Key(
-                            'planner-event-block-status-${event.id}',
-                          ),
-                        ),
-                      ),
-                    ),
+                    child: event.isBackupAppointment
+                        ? PlannerBackupStripeBackground(
+                            accent: resolvedAccent,
+                            child: eventBody,
+                          )
+                        : eventBody,
                   ),
                 ),
               ),

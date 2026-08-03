@@ -502,6 +502,7 @@ final class _CalendarEventFormScreenState
     final message =
         ref.watch(calendarEventControllerProvider) ??
         ref.watch(taskEventLinkControllerProvider);
+    final lockedWli = _selectedEventType?.isLockedWliType == true;
     final bottomPadding = widget.sheetPresentation
         ? 24.0 + MediaQuery.of(context).viewInsets.bottom
         : 120.0;
@@ -727,24 +728,55 @@ final class _CalendarEventFormScreenState
                   const SizedBox(height: 32),
                   _buildIndicatorLinkSection(),
                   const SizedBox(height: 32),
-                  const _FormSectionLabel(
+                  _FormSectionLabel(
                     icon: Icons.fact_check_outlined,
                     label: 'Reporting & progress context',
+                    color: lockedWli ? const Color(0xFF8E9295) : null,
+                    iconColor: lockedWli ? const Color(0xFF85898C) : null,
                   ),
-                  SwitchListTile(
-                    key: const Key('event-requires-report-switch'),
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Report required'),
-                    subtitle: _selectedEventType?.isLockedWliType == true
-                        ? const Text('Locked for WLI reporting')
-                        : null,
-                    value: _requiresReport,
-                    onChanged: _selectedEventType?.isLockedWliType == true
-                        ? null
-                        : (value) {
-                            FocusScope.of(context).unfocus();
-                            setState(() => _requiresReport = value);
-                          },
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: lockedWli
+                          ? const Color(0xFF26282A)
+                          : Colors.transparent,
+                    ),
+                    child: SwitchListTile(
+                      key: const Key('event-requires-report-switch'),
+                      contentPadding: lockedWli
+                          ? const EdgeInsets.symmetric(horizontal: 12)
+                          : EdgeInsets.zero,
+                      activeThumbColor: lockedWli
+                          ? const Color(0xFF777B7E)
+                          : null,
+                      activeTrackColor: lockedWli
+                          ? const Color(0xFF4B4F52)
+                          : null,
+                      inactiveThumbColor: lockedWli
+                          ? const Color(0xFF777B7E)
+                          : null,
+                      inactiveTrackColor: lockedWli
+                          ? const Color(0xFF4B4F52)
+                          : null,
+                      title: Text(
+                        'Report required',
+                        style: lockedWli
+                            ? const TextStyle(color: Color(0xFF8E9295))
+                            : null,
+                      ),
+                      subtitle: lockedWli
+                          ? const Text(
+                              'Locked for WLI reporting',
+                              style: TextStyle(color: Color(0xFF6F7376)),
+                            )
+                          : null,
+                      value: _requiresReport,
+                      onChanged: lockedWli
+                          ? null
+                          : (value) {
+                              FocusScope.of(context).unfocus();
+                              setState(() => _requiresReport = value);
+                            },
+                    ),
                   ),
                   const SizedBox(height: 20),
                 ],
@@ -962,26 +994,33 @@ final class _CalendarEventFormScreenState
     final locked = _selectedEventType?.isLockedWliType == true;
     return Semantics(
       container: true,
+      enabled: !locked,
       label: 'Link to Weekly Life Indicator',
       child: Material(
-        color: Colors.transparent,
+        color: locked ? const Color(0xFF26282A) : Colors.transparent,
         child: InkWell(
           key: const Key('weekly-life-indicator-link-section'),
           onTap: locked ? null : _chooseIndicator,
           borderRadius: BorderRadius.circular(4),
           child: Padding(
-            padding: EdgeInsets.zero,
+            padding: locked ? const EdgeInsets.all(12) : EdgeInsets.zero,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
-                const _MeasuredFormSectionHeader(
+                _MeasuredFormSectionHeader(
                   label: 'Link to Weekly Life Indicator',
+                  color: locked ? const Color(0xFF8E9295) : null,
+                  dividerColor: locked ? const Color(0xFF6F7376) : null,
                 ),
                 const SizedBox(height: 24),
                 if (locked)
                   Row(
                     children: <Widget>[
-                      const Icon(Icons.lock_outline, size: 22),
+                      const Icon(
+                        Icons.lock_outline,
+                        size: 22,
+                        color: Color(0xFF85898C),
+                      ),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
@@ -989,7 +1028,10 @@ final class _CalendarEventFormScreenState
                               _selectedEventType?.label ??
                               'Automatically linked',
                           key: const Key('weekly-life-indicator-link-value'),
-                          style: const TextStyle(fontWeight: FontWeight.w500),
+                          style: const TextStyle(
+                            color: Color(0xFF8E9295),
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
                     ],
@@ -1396,40 +1438,58 @@ final class _MeasuredFormSeparator extends StatelessWidget {
 }
 
 final class _MeasuredFormSectionHeader extends StatelessWidget {
-  const _MeasuredFormSectionHeader({required this.label, super.key});
+  const _MeasuredFormSectionHeader({
+    required this.label,
+    this.color,
+    this.dividerColor,
+    super.key,
+  });
 
   final String label;
+  final Color? color;
+  final Color? dividerColor;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        Text(label, style: AppTypography.sectionTitle),
+        Text(label, style: AppTypography.sectionTitle.copyWith(color: color)),
         const SizedBox(height: 6),
-        const Divider(height: 1, thickness: 1),
+        Divider(height: 1, thickness: 1, color: dividerColor),
       ],
     );
   }
 }
 
 final class _FormSectionLabel extends StatelessWidget {
-  const _FormSectionLabel({required this.icon, required this.label});
+  const _FormSectionLabel({
+    required this.icon,
+    required this.label,
+    this.color,
+    this.iconColor,
+  });
 
   final IconData icon;
   final String label;
+  final Color? color;
+  final Color? iconColor;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: <Widget>[
-        Icon(icon, size: 18, color: Theme.of(context).colorScheme.primary),
+        Icon(
+          icon,
+          size: 18,
+          color: iconColor ?? Theme.of(context).colorScheme.primary,
+        ),
         const SizedBox(width: 8),
         Expanded(
           child: Text(
             label,
             style: AppTypography.sectionTitle.copyWith(
-              color: Theme.of(context).colorScheme.primary,
+              color: color ?? Theme.of(context).colorScheme.primary,
             ),
           ),
         ),

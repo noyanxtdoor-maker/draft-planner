@@ -69,8 +69,12 @@ void main() {
         1e-9,
       ),
     );
-    expect(geometry.height, closeTo(hourHeight / 4, 1e-9));
-    expect(geometry.bottom, closeTo(10 * hourHeight - 6 * hourHeight, 1e-9));
+    expect(geometry.logicalHeight, closeTo(hourHeight / 4, 1e-9));
+    expect(geometry.height, greaterThanOrEqualTo(48));
+    expect(
+      geometry.top + geometry.logicalHeight,
+      closeTo(10 * hourHeight - 6 * hourHeight, 1e-9),
+    );
   });
 
   test('TEST 3 — consecutive quarter-hour Events touch without overlap', () {
@@ -99,11 +103,13 @@ void main() {
     ];
 
     for (var index = 0; index < events.length - 1; index++) {
-      expect(events[index].bottom, closeTo(events[index + 1].top, 1e-9));
-      expect(events[index].bottom <= events[index + 1].top + 1e-9, isTrue);
-      expect(events[index].height, closeTo(15, 1e-9));
+      expect(
+        events[index].top + events[index].logicalHeight,
+        closeTo(events[index + 1].top, 1e-9),
+      );
+      expect(events[index].logicalHeight, closeTo(15, 1e-9));
     }
-    expect(events.last.height, closeTo(15, 1e-9));
+    expect(events.last.logicalHeight, closeTo(15, 1e-9));
   });
 
   test('TEST 4 — resize snapping preserves a 15-minute minimum', () {
@@ -137,9 +143,10 @@ void main() {
         visibleEndMinute: visibleEndMinute,
         hourHeight: hourHeight,
       );
-      expect(geometry.height, closeTo(hourHeight / 4, 1e-9));
+      expect(geometry.logicalHeight, closeTo(hourHeight / 4, 1e-9));
+      expect(geometry.height, greaterThanOrEqualTo(48));
       expect(
-        geometry.bottom,
+        geometry.top + geometry.logicalHeight,
         closeTo(
           PlannerTimelineGeometry.yForMinute(
             minute: 10 * 60,
@@ -182,8 +189,12 @@ void main() {
         .clamp(0.0, geometry.height)
         .toDouble();
 
-    expect(geometry.height, closeTo(15, 1e-9));
+    expect(geometry.logicalHeight, closeTo(15, 1e-9));
+    expect(geometry.height, greaterThanOrEqualTo(48));
     expect(hitHeight, lessThanOrEqualTo(geometry.height));
-    expect(geometry.bottom, closeTo(10 * 60 / 60 * 60 - 6 * 60, 1e-9));
+    expect(
+      geometry.top + geometry.logicalHeight,
+      closeTo(10 * 60 / 60 * 60 - 6 * 60, 1e-9),
+    );
   });
 }

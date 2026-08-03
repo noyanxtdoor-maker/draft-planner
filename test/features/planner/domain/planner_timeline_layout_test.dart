@@ -40,6 +40,19 @@ void main() {
     },
   );
 
+  test('low-zoom readable height reserves a lane for a touching neighbor', () {
+    final placements = PlannerTimelineLayout.arrange(<PlannerCalendarItem>[
+      event('short', 9 * 60, 9 * 60 + 15),
+      event('next', 9 * 60 + 15, 9 * 60 + 30),
+    ], hourHeight: 60);
+
+    final short = placements.singleWhere((item) => item.event.id == 'short');
+    final next = placements.singleWhere((item) => item.event.id == 'next');
+    expect(short.columnCount, 2);
+    expect(next.columnCount, 2);
+    expect(short.column, isNot(next.column));
+  });
+
   test('time snapping is deterministic and clamped to the day', () {
     expect(snapPlannerMinute(9 * 60 + 7, 15), 9 * 60);
     expect(snapPlannerMinute(9 * 60 + 8, 15), 9 * 60 + 15);

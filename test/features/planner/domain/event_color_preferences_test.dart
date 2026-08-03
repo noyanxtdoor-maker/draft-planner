@@ -44,12 +44,12 @@ void main() {
     );
   });
 
-  test('current system icons receive deterministic muted fallbacks', () {
+  test('current system types receive the approved deterministic pairs', () {
     expect(
       PlannerEventColorDefaults.forEventType(
         type(label: 'Exercise', icon: EventTypeIcon.exercise),
       ),
-      PlannerEventColorDefaults.contact,
+      PlannerEventColorDefaults.exercise,
     );
     expect(
       PlannerEventColorDefaults.forEventType(
@@ -83,5 +83,19 @@ void main() {
       isEmpty,
     );
     expect(EventColorPreferenceCodec.decode('not-json'), isEmpty);
+  });
+
+  test('document codec preserves independent Event and Group colors', () {
+    const preference = EventColorPreference(
+      accentArgb: 0xFF112233,
+      surfaceArgb: 0xFF445566,
+    );
+    final encoded = EventColorPreferenceCodec.encodeDocument(
+      events: <String, EventColorPreference>{'work': preference},
+      groups: const <String, int>{'family': 0xFFEBC766},
+    );
+    final decoded = EventColorPreferenceCodec.decodeDocument(encoded);
+    expect(decoded.events['work'], preference);
+    expect(decoded.groups['family'], 0xFFEBC766);
   });
 }

@@ -40,17 +40,18 @@ void main() {
     await tester.tap(find.byKey(const Key('settings-colors')));
     await tester.pumpAndSettle();
     expect(
-      find.byKey(const Key('colors-planner-event-colors')),
+      find.byKey(const Key('planner-event-colors-events-section')),
       findsOneWidget,
     );
-    await tester.tap(find.byKey(const Key('colors-planner-event-colors')));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Planner Event Colors'), findsWidgets);
+    expect(find.text('Colors'), findsOneWidget);
+    expect(find.text('Events'), findsOneWidget);
     expect(find.byType(PlannerEventColorPreview), findsWidgets);
     expect(find.text('Person Status'), findsNothing);
 
-    await tester.tap(find.byKey(const Key('event-color-swatch-Other-accent')));
+    final jobAccent = find.byKey(
+      const Key('event-color-swatch-Job Application-accent'),
+    );
+    await tester.tap(jobAccent);
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('planner-event-color-picker')), findsOneWidget);
     expect(find.text('Choose Color'), findsOneWidget);
@@ -59,18 +60,19 @@ void main() {
     expect(find.byKey(const Key('planner-event-color-picker')), findsNothing);
     expect(await database.select(database.plannerPreferences).get(), isEmpty);
 
-    await tester.tap(find.byKey(const Key('event-color-swatch-Other-accent')));
+    await tester.tap(jobAccent);
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('planner-event-color-save')));
     await tester.pumpAndSettle();
     final savedAccent =
         (await database.select(database.plannerPreferences).getSingle())
             .eventColorPreferencesJson;
-    expect(savedAccent, contains('other'));
+    expect(savedAccent, contains('job_application'));
 
-    await tester.tap(
-      find.byKey(const Key('event-color-swatch-Other-Event background')),
+    final jobSurface = find.byKey(
+      const Key('event-color-swatch-Job Application-Event background'),
     );
+    await tester.tap(jobSurface);
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('planner-event-color-save')));
     await tester.pumpAndSettle();
@@ -85,6 +87,17 @@ void main() {
       const Offset(0, -2000),
     );
     await tester.pumpAndSettle();
+    expect(find.text('Groups'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('group-color-swatch-family')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('planner-event-color-save')));
+    await tester.pumpAndSettle();
+    final savedWithGroup =
+        (await database.select(database.plannerPreferences).getSingle())
+            .eventColorPreferencesJson;
+    expect(savedWithGroup, contains('groups'));
+    expect(savedWithGroup, contains('family'));
+
     await tester.tap(
       find.byKey(const Key('planner-event-colors-restore-defaults')),
     );
@@ -100,7 +113,7 @@ void main() {
     expect(
       (await database.select(database.plannerPreferences).getSingle())
           .eventColorPreferencesJson,
-      contains('other'),
+      contains('job_application'),
     );
 
     await tester.tap(
@@ -109,6 +122,24 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(
       find.byKey(const Key('planner-event-colors-restore-confirm')),
+    );
+    await tester.pumpAndSettle();
+    final afterEventRestore =
+        (await database.select(database.plannerPreferences).getSingle())
+            .eventColorPreferencesJson;
+    expect(afterEventRestore, isNot(contains('job_application')));
+    expect(afterEventRestore, contains('family'));
+
+    await tester.tap(
+      find.byKey(const Key('planner-group-colors-restore-defaults')),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('planner-group-colors-restore-dialog')),
+      findsOneWidget,
+    );
+    await tester.tap(
+      find.byKey(const Key('planner-group-colors-restore-confirm')),
     );
     await tester.pumpAndSettle();
     expect(

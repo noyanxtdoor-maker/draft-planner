@@ -869,7 +869,10 @@ class _PagerPreviewColumn extends StatelessWidget {
                   event.state != PlannerEventState.cancelled),
         )
         .toList(growable: false);
-    final placements = PlannerTimelineLayout.arrange(events);
+    final placements = PlannerTimelineLayout.arrange(
+      events,
+      hourHeight: hourHeight,
+    );
     final contentWidth = width - kPlannerPagerTimeColumnWidth - 8.0;
     return SizedBox(
       width: width,
@@ -972,12 +975,36 @@ class _PagerPreviewColumn extends StatelessWidget {
       event,
       eventColorsByTypeId,
     );
-    final accent = event.isBackupAppointment
-        ? PlannerEventBlockLayoutPolicy.backupEventAccent
-        : resolvedAccent;
-    final surface = event.isBackupAppointment
-        ? PlannerEventBlockLayoutPolicy.backupEventSurface
-        : resolvedSurface;
+    final accent = resolvedAccent;
+    final surface = resolvedSurface;
+    final eventBody = DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border(
+          left: BorderSide(
+            color: accent,
+            width: event.isBackupAppointment
+                ? PlannerEventBlockLayoutPolicy.backupEventAccentWidth
+                : PlannerEventBlockLayoutPolicy.eventAccentWidth,
+          ),
+        ),
+      ),
+      child: PlannerEventBlockContentView(
+        event: event,
+        accentColor: accent,
+        surfaceColor: surface,
+        use24HourTime: settings.use24HourTime,
+        displayStartMinute: startMinute,
+        displayEndMinute: endMinute,
+        awaitingReport: event.isAwaitingReport(currentTimeListenable.value),
+        content: content,
+        titleKey: Key('planner-pager-preview-event-title-${event.id}'),
+        timeKey: Key('planner-pager-preview-event-time-${event.id}'),
+        recurrenceKey: Key(
+          'planner-pager-preview-event-recurrence-${event.id}',
+        ),
+        statusKey: Key('planner-pager-preview-event-status-${event.id}'),
+      ),
+    );
     final columnGap = (placement.columnCount > 1 ? 3.0 : 0.0);
     final splitWidth = placement.widthFactor != null;
     final widthBasis = splitWidth
@@ -1009,36 +1036,12 @@ class _PagerPreviewColumn extends StatelessWidget {
             ),
           ),
           clipBehavior: Clip.antiAlias,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              border: Border(
-                left: BorderSide(
-                  color: accent,
-                  width: event.isBackupAppointment
-                      ? PlannerEventBlockLayoutPolicy.backupEventAccentWidth
-                      : PlannerEventBlockLayoutPolicy.eventAccentWidth,
-                ),
-              ),
-            ),
-            child: PlannerEventBlockContentView(
-              event: event,
-              accentColor: accent,
-              surfaceColor: surface,
-              use24HourTime: settings.use24HourTime,
-              displayStartMinute: startMinute,
-              displayEndMinute: endMinute,
-              awaitingReport: event.isAwaitingReport(
-                currentTimeListenable.value,
-              ),
-              content: content,
-              titleKey: Key('planner-pager-preview-event-title-${event.id}'),
-              timeKey: Key('planner-pager-preview-event-time-${event.id}'),
-              recurrenceKey: Key(
-                'planner-pager-preview-event-recurrence-${event.id}',
-              ),
-              statusKey: Key('planner-pager-preview-event-status-${event.id}'),
-            ),
-          ),
+          child: event.isBackupAppointment
+              ? PlannerBackupStripeBackground(
+                  accent: resolvedAccent,
+                  child: eventBody,
+                )
+              : eventBody,
         ),
       ),
     );

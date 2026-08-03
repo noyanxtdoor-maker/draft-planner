@@ -373,7 +373,57 @@ final class DriftEventTypeRepository implements EventTypeRepository {
     final row = await (database.select(
       database.plannerPreferences,
     )..where((table) => table.profileId.equals(profileId))).getSingleOrNull();
-    return EventColorPreferenceCodec.decode(row?.eventColorPreferencesJson);
+    return EventColorPreferenceCodec.decodeDocument(
+      row?.eventColorPreferencesJson,
+    ).events;
+  }
+
+  @override
+  Future<Map<String, int>> readContactGroupColors({
+    required String profileId,
+  }) async {
+    final row = await (database.select(
+      database.plannerPreferences,
+    )..where((table) => table.profileId.equals(profileId))).getSingleOrNull();
+    return EventColorPreferenceCodec.decodeDocument(
+      row?.eventColorPreferencesJson,
+    ).groups;
+  }
+
+  @override
+  Future<Map<String, int>> saveContactGroupColor({
+    required String profileId,
+    required String groupId,
+    required int colorArgb,
+  }) async {
+    final normalizedId = groupId.trim();
+    if (normalizedId.isEmpty) {
+      throw ArgumentError.value(groupId, 'groupId', 'Group ID is required.');
+    }
+    if (colorArgb < 0 || colorArgb > 0xFFFFFFFF) {
+      throw ArgumentError.value(colorArgb, 'colorArgb', 'Invalid ARGB color.');
+    }
+    final current = await _readColorDocument(profileId);
+    final updated = <String, int>{...current.groups, normalizedId: colorArgb};
+    await _writeColorDocument(
+      profileId: profileId,
+      events: current.events,
+      groups: updated,
+    );
+    return Map<String, int>.unmodifiable(updated);
+  }
+
+  @override
+  Future<Map<String, int>> restoreContactGroupColorDefaults({
+    required String profileId,
+  }) async {
+    final current = await _readColorDocument(profileId);
+    await _writeColorDocument(
+      profileId: profileId,
+      events: current.events,
+      groups: const <String, int>{},
+    );
+    return const <String, int>{};
   }
 
   @override
@@ -390,14 +440,15 @@ final class DriftEventTypeRepository implements EventTypeRepository {
         'Event Type stable key is required.',
       );
     }
-    final current = await readEventColorPreferences(profileId: profileId);
+    final current = await _readColorDocument(profileId);
     final updated = <String, EventColorPreference>{
-      ...current,
+      ...current.events,
       stableKey: preference,
     };
-    await _writeEventColorPreferences(
+    await _writeColorDocument(
       profileId: profileId,
-      preferences: updated,
+      events: updated,
+      groups: current.groups,
     );
     return Map<String, EventColorPreference>.unmodifiable(updated);
   }
@@ -406,18 +457,24 @@ final class DriftEventTypeRepository implements EventTypeRepository {
   Future<Map<String, EventColorPreference>> restoreEventColorDefaults({
     required String profileId,
   }) async {
-    await _writeEventColorPreferences(
+    final current = await _readColorDocument(profileId);
+    await _writeColorDocument(
       profileId: profileId,
-      preferences: const <String, EventColorPreference>{},
+      events: const <String, EventColorPreference>{},
+      groups: current.groups,
     );
     return const <String, EventColorPreference>{};
   }
 
-  Future<void> _writeEventColorPreferences({
+  Future<void> _writeColorDocument({
     required String profileId,
-    required Map<String, EventColorPreference> preferences,
+    required Map<String, EventColorPreference> events,
+    required Map<String, int> groups,
   }) async {
-    final encoded = EventColorPreferenceCodec.encode(preferences);
+    final encoded = EventColorPreferenceCodec.encodeDocument(
+      events: events,
+      groups: groups,
+    );
     await database.transaction(() async {
       final existing = await (database.select(
         database.plannerPreferences,
@@ -443,6 +500,17 @@ final class DriftEventTypeRepository implements EventTypeRepository {
         ),
       );
     });
+  }
+
+  Future<PlannerColorPreferencesDocument> _readColorDocument(
+    String profileId,
+  ) async {
+    final row = await (database.select(
+      database.plannerPreferences,
+    )..where((table) => table.profileId.equals(profileId))).getSingleOrNull();
+    return EventColorPreferenceCodec.decodeDocument(
+      row?.eventColorPreferencesJson,
+    );
   }
 
   Future<void> _ensureSystemTypes(String profileId) async {

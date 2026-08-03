@@ -94,7 +94,7 @@ final class PlannerEventBlockContentView extends StatelessWidget {
         : PlannerEventBlockLayoutPolicy.contentHorizontalPadding;
 
     return Stack(
-      clipBehavior: Clip.none,
+      clipBehavior: Clip.hardEdge,
       children: <Widget>[
         Positioned.fill(
           child: Padding(

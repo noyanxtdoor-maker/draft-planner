@@ -2,6 +2,66 @@ import 'dart:convert';
 
 import 'package:rmplanner/features/planner/domain/event_type.dart';
 
+/// The four built-in Contact Groups whose colors are shared by Contacts and
+/// the Colors settings surface.  The group identity is stable; the label is
+/// intentionally kept outside the color preference so a future rename does
+/// not orphan the saved color.
+final class ContactGroup {
+  const ContactGroup({
+    required this.id,
+    required this.label,
+    required this.defaultColorArgb,
+  });
+
+  final String id;
+  final String label;
+  final int defaultColorArgb;
+}
+
+abstract final class ContactGroupDefaults {
+  static const ContactGroup family = ContactGroup(
+    id: 'family',
+    label: 'Family',
+    defaultColorArgb: 0xFFEBC766,
+  );
+  static const ContactGroup friends = ContactGroup(
+    id: 'friends',
+    label: 'Friends',
+    defaultColorArgb: 0xFF7FB7D1,
+  );
+  static const ContactGroup avoid = ContactGroup(
+    id: 'avoid',
+    label: 'Avoid',
+    defaultColorArgb: 0xFFD35A70,
+  );
+  static const ContactGroup other = ContactGroup(
+    id: 'other',
+    label: 'Other',
+    defaultColorArgb: 0xFF969B9E,
+  );
+
+  static const List<ContactGroup> ordered = <ContactGroup>[
+    family,
+    friends,
+    avoid,
+    other,
+  ];
+
+  static ContactGroup byId(String id) {
+    return ordered.firstWhere((group) => group.id == id, orElse: () => other);
+  }
+}
+
+final class PlannerColorPreferencesDocument {
+  const PlannerColorPreferencesDocument({
+    required this.events,
+    required this.groups,
+  });
+
+  final Map<String, EventColorPreference> events;
+  final Map<String, int> groups;
+}
+
 /// The two user-editable colors that describe one Planner Event Type.
 ///
 /// Preferences are keyed by an Event Type stable key rather than copied onto
@@ -53,38 +113,103 @@ final class EventColorPreference {
 
 /// JSON codec for the existing profile-scoped Planner Preferences row.
 abstract final class EventColorPreferenceCodec {
-  static Map<String, EventColorPreference> decode(String? encoded) {
+  static PlannerColorPreferencesDocument decodeDocument(String? encoded) {
     if (encoded == null || encoded.trim().isEmpty) {
-      return const <String, EventColorPreference>{};
+      return const PlannerColorPreferencesDocument(
+        events: <String, EventColorPreference>{},
+        groups: <String, int>{},
+      );
     }
     try {
       final decoded = jsonDecode(encoded);
       if (decoded is! Map) {
-        return const <String, EventColorPreference>{};
+        return const PlannerColorPreferencesDocument(
+          events: <String, EventColorPreference>{},
+          groups: <String, int>{},
+        );
       }
-      final result = <String, EventColorPreference>{};
-      for (final entry in decoded.entries) {
-        final key = entry.key;
-        if (key is! String || key.trim().isEmpty) {
-          continue;
-        }
-        final preference = EventColorPreference.fromJson(entry.value);
-        if (preference != null) {
-          result[key] = preference;
+      final hasDocumentShape =
+          decoded.containsKey('events') || decoded.containsKey('groups');
+      final eventValue = hasDocumentShape ? decoded['events'] : decoded;
+      final groupValue = hasDocumentShape ? decoded['groups'] : null;
+      final groups = <String, int>{};
+      if (groupValue is Map) {
+        for (final entry in groupValue.entries) {
+          final key = entry.key;
+          final value = entry.value;
+          if (key is! String || key.trim().isEmpty || value is! num) {
+            continue;
+          }
+          final argb = value.toInt();
+          if (argb >= 0 && argb <= 0xFFFFFFFF) {
+            groups[key] = argb;
+          }
         }
       }
-      return Map<String, EventColorPreference>.unmodifiable(result);
+      return PlannerColorPreferencesDocument(
+        events: _decodeEventMap(eventValue),
+        groups: Map<String, int>.unmodifiable(groups),
+      );
     } on FormatException {
-      return const <String, EventColorPreference>{};
+      return const PlannerColorPreferencesDocument(
+        events: <String, EventColorPreference>{},
+        groups: <String, int>{},
+      );
     }
   }
 
+  static Map<String, EventColorPreference> decode(String? encoded) {
+    return decodeDocument(encoded).events;
+  }
+
   static String encode(Map<String, EventColorPreference> preferences) {
-    final json = <String, Map<String, int>>{
+    return jsonEncode(_encodeEventMap(preferences));
+  }
+
+  static String encodeDocument({
+    required Map<String, EventColorPreference> events,
+    required Map<String, int> groups,
+  }) {
+    // Keep the legacy flat document when no Group color has ever been saved.
+    // This is a lossless migration for existing installs and leaves Restore
+    // Event Defaults compatible with the pre-Prompt-B preference shape.
+    if (groups.isEmpty) {
+      return encode(events);
+    }
+    return jsonEncode(<String, Object>{
+      'events': _encodeEventMap(events),
+      'groups': <String, int>{
+        for (final entry in groups.entries)
+          if (entry.key.trim().isNotEmpty) entry.key: entry.value,
+      },
+    });
+  }
+
+  static Map<String, EventColorPreference> _decodeEventMap(Object? value) {
+    if (value is! Map) {
+      return const <String, EventColorPreference>{};
+    }
+    final result = <String, EventColorPreference>{};
+    for (final entry in value.entries) {
+      final key = entry.key;
+      if (key is! String || key.trim().isEmpty) {
+        continue;
+      }
+      final preference = EventColorPreference.fromJson(entry.value);
+      if (preference != null) {
+        result[key] = preference;
+      }
+    }
+    return Map<String, EventColorPreference>.unmodifiable(result);
+  }
+
+  static Map<String, Map<String, int>> _encodeEventMap(
+    Map<String, EventColorPreference> preferences,
+  ) {
+    return <String, Map<String, int>>{
       for (final entry in preferences.entries)
         if (entry.key.trim().isNotEmpty) entry.key: entry.value.toJson(),
     };
-    return jsonEncode(json);
   }
 }
 
@@ -103,7 +228,15 @@ abstract final class PlannerEventColorDefaults {
     accentArgb: 0xFFDE9EDA,
     surfaceArgb: 0xFF4C464A,
   );
+  static const EventColorPreference exercise = EventColorPreference(
+    accentArgb: 0xFFD9A35F,
+    surfaceArgb: 0xFF4B4640,
+  );
   static const EventColorPreference service = EventColorPreference(
+    accentArgb: 0xFFDEEDF2,
+    surfaceArgb: 0xFF404447,
+  );
+  static const EventColorPreference work = EventColorPreference(
     accentArgb: 0xFFDEEDF2,
     surfaceArgb: 0xFF404447,
   );
@@ -144,8 +277,9 @@ abstract final class PlannerEventColorDefaults {
       <String, EventColorPreference>{
         'teaching': teaching,
         'finding': finding,
+        'exercise': exercise,
         'service': service,
-        'work': service,
+        'work': work,
         'other': other,
         'meeting': meeting,
         'study or plan': studyOrPlan,
@@ -169,6 +303,10 @@ abstract final class PlannerEventColorDefaults {
   /// custom types receive the muted neutral pair instead of a bright full
   /// block.
   static EventColorPreference forEventType(EventType type) {
+    final byStableKey = _stableKeyDefaults[type.stableKey];
+    if (byStableKey != null) {
+      return byStableKey;
+    }
     final byLabel = _labelDefaults[_normalize(type.label)];
     if (byLabel != null) {
       return byLabel;
@@ -186,6 +324,20 @@ abstract final class PlannerEventColorDefaults {
       EventTypeIcon.personal => travel,
     };
   }
+
+  static const Map<String, EventColorPreference> _stableKeyDefaults =
+      <String, EventColorPreference>{
+        SystemEventTypeKeys.scriptureStudy: studyOrPlan,
+        SystemEventTypeKeys.exercise: exercise,
+        SystemEventTypeKeys.meaningfulConnection: contact,
+        SystemEventTypeKeys.meeting: meeting,
+        SystemEventTypeKeys.studyOrPlan: studyOrPlan,
+        SystemEventTypeKeys.templeVisit: baptism,
+        SystemEventTypeKeys.travel: travel,
+        SystemEventTypeKeys.meal: meal,
+        SystemEventTypeKeys.service: service,
+        SystemEventTypeKeys.work: work,
+      };
 
   static String _normalize(String value) {
     return value

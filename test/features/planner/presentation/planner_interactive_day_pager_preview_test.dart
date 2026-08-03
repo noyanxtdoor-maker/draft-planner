@@ -881,8 +881,9 @@ void main() {
       // Short Event: renders on the previous preview using
       // the exact production minute-to-pixel geometry. At
       // the preview's 60px/hour scale, a 30-minute Event is
-      // 30 logical pixels tall; no visual minimum inflates
-      // its duration.
+      // 30 logical pixels tall. The readable preview rectangle
+      // may be visually expanded to the production minimum
+      // without changing the logical schedule span.
       final shortFinder = find.descendant(
         of: find.byKey(_previewPageKey(_previous)),
         matching: find.byKey(_previewEventKey(shortOccurrenceId)),
@@ -893,7 +894,7 @@ void main() {
         reason: 'short Event must render on the preview',
       );
       final shortSize = tester.getSize(shortFinder);
-      expect(shortSize.height, 30);
+      expect(shortSize.height, greaterThanOrEqualTo(48));
 
       // Both overlapping Events render side-by-side on the
       // same preview page because the production layout

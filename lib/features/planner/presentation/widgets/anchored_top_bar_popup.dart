@@ -61,11 +61,12 @@ Future<void> showAnchoredTopBarPopup({
   required WidgetBuilder builder,
   double width = 280,
   double maxHeight = 360,
+  double topGap = 0,
+  double borderRadius = 14,
   Duration duration = const Duration(milliseconds: 220),
 }) async {
   final overlay = Overlay.of(context, rootOverlay: true);
-  final renderBox =
-      triggerKey.currentContext?.findRenderObject() as RenderBox?;
+  final renderBox = triggerKey.currentContext?.findRenderObject() as RenderBox?;
   if (renderBox == null) {
     return;
   }
@@ -87,6 +88,8 @@ Future<void> showAnchoredTopBarPopup({
         triggerBox: renderBox,
         width: width,
         maxHeight: maxHeight,
+        topGap: topGap,
+        borderRadius: borderRadius,
         duration: duration,
         onDismissRequest: closer,
         child: Builder(builder: builder),
@@ -103,6 +106,8 @@ class _AnchoredTopBarPopupScaffold extends StatefulWidget {
     required this.triggerBox,
     required this.width,
     required this.maxHeight,
+    required this.topGap,
+    required this.borderRadius,
     required this.duration,
     required this.onDismissRequest,
     required this.child,
@@ -111,6 +116,8 @@ class _AnchoredTopBarPopupScaffold extends StatefulWidget {
   final RenderBox triggerBox;
   final double width;
   final double maxHeight;
+  final double topGap;
+  final double borderRadius;
   final Duration duration;
   final VoidCallback onDismissRequest;
   final Widget child;
@@ -166,7 +173,7 @@ class _AnchoredTopBarPopupScaffoldState
     final screenSize = media.size;
     final triggerTopLeft = widget.triggerBox.localToGlobal(Offset.zero);
     final triggerSize = widget.triggerBox.size;
-    final topY = triggerTopLeft.dy + triggerSize.height;
+    final topY = triggerTopLeft.dy + triggerSize.height + widget.topGap;
     final leftX = triggerTopLeft.dx;
 
     final maxLeftSpace = screenSize.width - padding.right - 8;
@@ -178,11 +185,8 @@ class _AnchoredTopBarPopupScaffoldState
       resolvedLeft = maxLeftSpace - widget.width;
     }
 
-    final maxAvailableHeight =
-        (screenSize.height - padding.bottom - topY - 12).clamp(
-      96.0,
-      widget.maxHeight,
-    );
+    final maxAvailableHeight = (screenSize.height - padding.bottom - topY - 12)
+        .clamp(96.0, widget.maxHeight);
 
     return PopScope(
       canPop: false,
@@ -232,7 +236,7 @@ class _AnchoredTopBarPopupScaffoldState
                     elevation: 12,
                     shadowColor: Colors.black,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(widget.borderRadius),
                       side: BorderSide(
                         color: Theme.of(context).colorScheme.outline,
                       ),

@@ -1,7 +1,4 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
-import 'package:rmplanner/features/planner/presentation/widgets/planner_event_block_layout_policy.dart';
 
 enum EventColorRole { accent, surface }
 
@@ -56,125 +53,121 @@ final class _EventColorPickerDialogState
 
   @override
   Widget build(BuildContext context) {
-    final titleRole = widget.role == EventColorRole.accent
-        ? 'Accent'
-        : 'Surface';
-    final textColor = PlannerEventBlockColorPolicy.textColor(_color);
-    final accent = widget.role == EventColorRole.accent
-        ? _color
-        : widget.otherColor;
-    final surface = widget.role == EventColorRole.surface
-        ? _color
-        : widget.otherColor;
-    final similarityWarning =
-        PlannerEventBlockColorPolicy.contrastRatio(accent, surface) < 1.35;
-
     return Dialog(
       key: const Key('planner-event-color-picker'),
-      insetPadding: const EdgeInsets.symmetric(horizontal: 22, vertical: 24),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 350),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: <Widget>[
-                Text(
-                  'Choose Color',
-                  key: const Key('planner-event-color-picker-title'),
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 4),
-                Text('$titleRole color for ${widget.eventTypeLabel}'),
-                const SizedBox(height: 16),
-                Semantics(
-                  label: 'Current color ${colorHex(_color)}',
-                  child: Container(
-                    key: const Key('planner-event-color-current-preview'),
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: _color,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    alignment: Alignment.center,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 347),
+        child: SizedBox(
+          width: 347,
+          child: SafeArea(
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
                     child: Text(
-                      colorHex(_color),
-                      style: TextStyle(
-                        color: textColor,
-                        fontWeight: FontWeight.w700,
+                      'Choose Color',
+                      key: const Key('planner-event-color-picker-title'),
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final size = math.min(constraints.maxWidth, 240.0);
-                    return Align(
-                      alignment: Alignment.center,
-                      child: _SaturationValuePicker(
-                        key: const Key('planner-event-color-sv-picker'),
-                        hsv: _selected,
-                        size: size,
-                        onChanged: (saturation, value) {
-                          setState(() {
-                            _selected = _selected
-                                .withSaturation(saturation)
-                                .withValue(value);
-                          });
-                        },
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(height: 16),
-                _HuePicker(
-                  key: const Key('planner-event-color-hue-picker'),
-                  hue: _selected.hue,
-                  onChanged: (hue) {
-                    setState(() {
-                      _selected = _selected.withHue(hue);
-                    });
-                  },
-                ),
-                if (similarityWarning) ...<Widget>[
                   const SizedBox(height: 14),
-                  Container(
-                    key: const Key('planner-event-color-contrast-warning'),
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surfaceContainer,
-                      borderRadius: BorderRadius.circular(6),
+                  Semantics(
+                    label:
+                        '${widget.eventTypeLabel} ${widget.role.name} color, '
+                        '${colorHex(_color)}',
+                    child: Center(
+                      child: Container(
+                        key: const Key('planner-event-color-current-preview'),
+                        width: 30,
+                        height: 30,
+                        decoration: BoxDecoration(
+                          color: _color,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white70),
+                        ),
+                      ),
                     ),
-                    child: const Text(
-                      'Accent and background are very similar. The Event '
-                      'category may be harder to recognize.',
+                  ),
+                  const SizedBox(height: 14),
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final squareSize = (constraints.maxWidth - 42).clamp(
+                        1.0,
+                        320.0,
+                      );
+                      return SizedBox(
+                        height: squareSize,
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: <Widget>[
+                            SizedBox(
+                              width: squareSize,
+                              child: _SaturationValuePicker(
+                                key: const Key('planner-event-color-sv-picker'),
+                                hsv: _selected,
+                                size: squareSize,
+                                onChanged: (saturation, value) {
+                                  setState(() {
+                                    _selected = _selected
+                                        .withSaturation(saturation)
+                                        .withValue(value);
+                                  });
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            SizedBox(
+                              width: 34,
+                              child: _HuePicker(
+                                key: const Key(
+                                  'planner-event-color-hue-picker',
+                                ),
+                                hue: _selected.hue,
+                                onChanged: (hue) {
+                                  setState(() {
+                                    _selected = _selected.withHue(hue);
+                                  });
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
+                    child: SizedBox(
+                      height: 56,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: <Widget>[
+                          TextButton(
+                            key: const Key('planner-event-color-cancel'),
+                            onPressed: () => Navigator.of(context).pop(),
+                            child: const Text('Cancel'),
+                          ),
+                          const SizedBox(width: 8),
+                          TextButton(
+                            key: const Key('planner-event-color-save'),
+                            onPressed: () => Navigator.of(context).pop(_color),
+                            child: const Text('Save'),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: <Widget>[
-                    TextButton(
-                      key: const Key('planner-event-color-cancel'),
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: const Text('Cancel'),
-                    ),
-                    const SizedBox(width: 8),
-                    FilledButton(
-                      key: const Key('planner-event-color-save'),
-                      onPressed: () => Navigator.of(context).pop(_color),
-                      child: const Text('Save'),
-                    ),
-                  ],
-                ),
-              ],
+              ),
             ),
           ),
         ),
@@ -197,7 +190,7 @@ final class _SaturationValuePicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final handleSize = 18.0;
+    const handleSize = 18.0;
     final left = (hsv.saturation * (size - handleSize)).clamp(
       0.0,
       size - handleSize,
@@ -210,11 +203,11 @@ final class _SaturationValuePicker extends StatelessWidget {
       key: const Key('planner-event-color-sv-gesture'),
       onPanDown: (details) => _update(details.localPosition),
       onPanUpdate: (details) => _update(details.localPosition),
-      child: SizedBox(
-        width: size,
-        height: size,
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(4),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(3),
+        child: SizedBox(
+          width: size,
+          height: size,
           child: Stack(
             children: <Widget>[
               DecoratedBox(
@@ -285,12 +278,12 @@ final class _HuePicker extends StatelessWidget {
       onPanUpdate: (details) => _update(details.localPosition, context),
       child: SizedBox(
         key: const Key('planner-event-color-hue-gesture'),
-        height: 28,
+        width: 34,
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final handleLeft = (hue / 360 * (constraints.maxWidth - 18)).clamp(
+            final handleTop = (hue / 360 * (constraints.maxHeight - 18)).clamp(
               0.0,
-              constraints.maxWidth - 18,
+              constraints.maxHeight - 18,
             );
             return Stack(
               clipBehavior: Clip.none,
@@ -298,19 +291,22 @@ final class _HuePicker extends StatelessWidget {
                 Positioned.fill(
                   child: DecoratedBox(
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(14),
-                      gradient: LinearGradient(colors: hues),
+                      borderRadius: BorderRadius.circular(2),
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: hues,
+                      ),
                     ),
                   ),
                 ),
                 Positioned(
-                  left: handleLeft,
-                  top: 3,
+                  top: handleTop,
+                  left: 1,
                   child: Container(
-                    width: 18,
-                    height: 22,
+                    width: 32,
+                    height: 18,
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(9),
                       border: Border.all(color: Colors.white, width: 2),
                       boxShadow: const <BoxShadow>[
                         BoxShadow(color: Colors.black54, blurRadius: 2),
@@ -327,8 +323,8 @@ final class _HuePicker extends StatelessWidget {
   }
 
   void _update(Offset position, BuildContext context) {
-    final width = context.size?.width ?? 1;
-    onChanged((position.dx / width * 360).clamp(0.0, 360.0));
+    final height = context.size?.height ?? 1;
+    onChanged((position.dy / height * 360).clamp(0.0, 360.0));
   }
 }
 

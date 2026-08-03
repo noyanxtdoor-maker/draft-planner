@@ -57,4 +57,16 @@ abstract interface class EventTypeRepository {
   Future<Map<String, EventColorPreference>> restoreEventColorDefaults({
     required String profileId,
   });
+
+  Future<Map<String, int>> readContactGroupColors({required String profileId});
+
+  Future<Map<String, int>> saveContactGroupColor({
+    required String profileId,
+    required String groupId,
+    required int colorArgb,
+  });
+
+  Future<Map<String, int>> restoreContactGroupColorDefaults({
+    required String profileId,
+  });
 }

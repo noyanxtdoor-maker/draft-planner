@@ -203,32 +203,35 @@ void main() {
     await _pumpStrip(tester);
     expect(
       find.byKey(const Key('planner-selected-date-indicator')),
-      findsOneWidget,
+      findsNothing,
     );
+    expect(find.byKey(const Key('planner-selected-date')), findsOneWidget);
   });
 
   testWidgets('DESIGN LOCK 13 — live progress moves the indicator', (
     tester,
   ) async {
     final harness = await _pumpStrip(tester);
-    final indicator = find.byKey(const Key('planner-selected-date-indicator'));
-    final before = tester.getTopLeft(indicator).dx;
+    final strip = find.byKey(const Key('planner-date-strip-live-transform'));
+    final before = tester.widget<Transform>(strip).transform.getTranslation().x;
     harness.progress.value = -0.5;
     await tester.pump();
-    expect(tester.getTopLeft(indicator).dx, lessThan(before));
+    final after = tester.widget<Transform>(strip).transform.getTranslation().x;
+    expect(after, lessThan(before));
   });
 
   testWidgets('DESIGN LOCK 14 — cancelled swipe restores the indicator', (
     tester,
   ) async {
     final harness = await _pumpStrip(tester);
-    final indicator = find.byKey(const Key('planner-selected-date-indicator'));
-    final before = tester.getTopLeft(indicator).dx;
+    final strip = find.byKey(const Key('planner-date-strip-live-transform'));
+    final before = tester.widget<Transform>(strip).transform.getTranslation().x;
     harness.progress.value = -0.6;
     await tester.pump();
     harness.progress.value = 0;
     await tester.pump();
-    expect(tester.getTopLeft(indicator).dx, closeTo(before, 0.01));
+    final after = tester.widget<Transform>(strip).transform.getTranslation().x;
+    expect(after, closeTo(before, 0.01));
     expect(harness.selectedDate, _selected);
     expect(harness.selectionCount, 0);
   });
@@ -254,17 +257,12 @@ void main() {
     tester,
   ) async {
     final harness = await _pumpStrip(tester);
-    final indicator = find.byKey(const Key('planner-selected-date-indicator'));
-    final before = tester.getTopLeft(indicator).dx;
     await tester.tap(
       find.byKey(Key('planner-day-${_selected.addDays(1).iso8601}')),
     );
-    for (var frame = 0; frame < 6; frame++) {
-      await tester.pump(const Duration(milliseconds: 16));
-    }
-    expect(tester.getTopLeft(indicator).dx, greaterThan(before));
     await tester.pumpAndSettle();
     expect(harness.selectedDate, _selected.addDays(1));
+    expect(find.byKey(const Key('planner-selected-date')), findsOneWidget);
   });
 
   testWidgets('DESIGN LOCK 17 — direct strip drag only browses', (
@@ -312,8 +310,9 @@ void main() {
       visibleEndMinute: 22 * 60,
       hourHeight: hourHeight,
     );
-    expect(geometry.height, hourHeight / 4);
-    expect(geometry.bottom, 4 * hourHeight);
+    expect(geometry.logicalHeight, hourHeight / 4);
+    expect(geometry.height, greaterThanOrEqualTo(48));
+    expect(geometry.top + geometry.logicalHeight, 4 * hourHeight);
   });
 
   test(

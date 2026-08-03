@@ -6,6 +6,7 @@ import 'package:rmplanner/app/theme/app_theme.dart';
 import 'package:rmplanner/features/planner/application/event_type_providers.dart';
 import 'package:rmplanner/features/planner/domain/event_color_preferences.dart';
 import 'package:rmplanner/features/planner/domain/event_type.dart';
+import 'package:rmplanner/features/planner/presentation/widgets/anchored_top_bar_popup.dart';
 import 'package:rmplanner/features/planner/presentation/widgets/planner_event_color_resolver.dart';
 
 sealed class EventTypePickerSelection {
@@ -101,10 +102,7 @@ Future<EventType?> showEventTypeDropdown({
 }) async {
   final fieldContext = anchorKey.currentContext;
   final fieldBox = fieldContext?.findRenderObject() as RenderBox?;
-  final overlay = Overlay.of(context);
-  final overlayContext = overlay.context;
-  final overlayBox = overlayContext.findRenderObject() as RenderBox?;
-  if (fieldBox == null || overlayBox == null || !fieldBox.hasSize) {
+  if (fieldBox == null || !fieldBox.hasSize) {
     return null;
   }
   final controller = ref.read(eventTypeControllerProvider.notifier);
@@ -133,55 +131,60 @@ Future<EventType?> showEventTypeDropdown({
   if (!context.mounted) {
     return null;
   }
-  final topLeft = fieldBox.localToGlobal(Offset.zero, ancestor: overlayBox);
-  final fieldRect = topLeft & fieldBox.size;
   final types = _orderedPickerTypes(
     state.eventTypes,
     recommendedId,
     targetOrder: false,
   );
-  return showMenu<EventType>(
+  EventType? selected;
+  await showAnchoredTopBarPopup(
     context: context,
-    position: RelativeRect.fromRect(fieldRect, Offset.zero & overlayBox.size),
-    constraints: BoxConstraints(
-      minWidth: fieldRect.width,
-      maxWidth: fieldRect.width,
-      maxHeight: 336,
-    ),
-    color: AppTheme.surface,
-    elevation: 0,
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-    menuPadding: EdgeInsets.zero,
-    items: <PopupMenuEntry<EventType>>[
-      for (final type in types)
-        PopupMenuItem<EventType>(
-          key: Key('event-type-dropdown-option-${type.stableKey}'),
-          value: type,
-          height: 48,
-          padding: EdgeInsets.zero,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: <Widget>[
-                Expanded(
-                  child: Text(
-                    type.label,
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: type.id == selectedEventTypeId
-                          ? FontWeight.w600
-                          : FontWeight.w400,
-                    ),
+    triggerKey: anchorKey,
+    width: fieldBox.size.width,
+    maxHeight: 336,
+    topGap: 5,
+    borderRadius: 5,
+    builder: (popupContext) => SingleChildScrollView(
+      key: const Key('event-type-dropdown-scroll'),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          for (final type in types)
+            SizedBox(
+              height: 48,
+              child: InkWell(
+                key: Key('event-type-dropdown-option-${type.stableKey}'),
+                onTap: () {
+                  selected = type;
+                  anchoredTopBarPopupController.dismiss();
+                },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    children: <Widget>[
+                      Expanded(
+                        child: Text(
+                          type.label,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: type.id == selectedEventTypeId
+                                ? FontWeight.w600
+                                : FontWeight.w400,
+                          ),
+                        ),
+                      ),
+                      if (type.id == selectedEventTypeId)
+                        const Icon(Icons.check, size: 20),
+                    ],
                   ),
                 ),
-                if (type.id == selectedEventTypeId)
-                  const Icon(Icons.check, size: 20),
-              ],
+              ),
             ),
-          ),
-        ),
-    ],
+        ],
+      ),
+    ),
   );
+  return selected;
 }
 
 List<EventType> _orderedPickerTypes(
@@ -199,10 +202,14 @@ List<EventType> _orderedPickerTypes(
   };
   final ordered = types.where((type) => type.isCreationVisible).toList()
     ..sort((left, right) {
-      if (left.id == recommendedId && right.id != recommendedId) {
+      if (targetOrder &&
+          left.id == recommendedId &&
+          right.id != recommendedId) {
         return -1;
       }
-      if (right.id == recommendedId && left.id != recommendedId) {
+      if (targetOrder &&
+          right.id == recommendedId &&
+          left.id != recommendedId) {
         return 1;
       }
       final leftMapped = mappedOrder[left.stableKey];

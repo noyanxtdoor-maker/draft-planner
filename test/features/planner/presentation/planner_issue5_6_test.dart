@@ -1495,11 +1495,12 @@ void main() {
         Key('planner-resize-hit-${occurrenceIdFor(scheduledEventId)}'),
       );
 
-      // Huge upward drag (-500 px) clamps to 15-min
-      // minimum ⇒ height stays at 15 min (clamped to 32).
+      // Huge upward drag (-500 px) clamps the stored schedule to
+      // 15 minutes while the low-zoom block remains readable at
+      // the approved visual minimum.
       await driveResizeDrag(tester, hit, totalDeltaY: -500);
       final after = tester.widget<Positioned>(blockKey);
-      expect(after.height, lessThanOrEqualTo(32));
+      expect(after.height, greaterThanOrEqualTo(48));
       expect(identifiers.nextUuid, throwsStateError);
       // RenderFlex overflow should have been raised.
       expect(tester.takeException(), isNull);

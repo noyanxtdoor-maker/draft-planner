@@ -18,6 +18,7 @@ final class EventTypeState {
     required this.eventTypes,
     required this.settings,
     required this.eventColors,
+    required this.groupColors,
     this.message,
   });
 
@@ -26,6 +27,7 @@ final class EventTypeState {
       eventTypes = const <EventType>[],
       settings = const PlannerSettings.defaults(),
       eventColors = const <String, EventColorPreference>{},
+      groupColors = const <String, int>{},
       message = null;
 
   final bool isLoading;
@@ -35,6 +37,7 @@ final class EventTypeState {
   /// Explicit user choices keyed by Event Type stable key. Missing entries
   /// resolve through [PlannerEventColorDefaults] at the presentation edge.
   final Map<String, EventColorPreference> eventColors;
+  final Map<String, int> groupColors;
   final String? message;
 
   EventTypeState copyWith({
@@ -42,6 +45,7 @@ final class EventTypeState {
     List<EventType>? eventTypes,
     PlannerSettings? settings,
     Map<String, EventColorPreference>? eventColors,
+    Map<String, int>? groupColors,
     String? message,
     bool clearMessage = false,
   }) {
@@ -50,6 +54,7 @@ final class EventTypeState {
       eventTypes: eventTypes ?? this.eventTypes,
       settings: settings ?? this.settings,
       eventColors: eventColors ?? this.eventColors,
+      groupColors: groupColors ?? this.groupColors,
       message: clearMessage ? null : message ?? this.message,
     );
   }
@@ -96,12 +101,14 @@ final class EventTypeController extends Notifier<EventTypeState> {
         ),
         _repository.readPlannerSettings(profileId: _profileId),
         _repository.readEventColorPreferences(profileId: _profileId),
+        _repository.readContactGroupColors(profileId: _profileId),
       ]);
       state = EventTypeState(
         isLoading: false,
         eventTypes: results[0] as List<EventType>,
         settings: results[1] as PlannerSettings,
         eventColors: results[2] as Map<String, EventColorPreference>,
+        groupColors: results[3] as Map<String, int>,
       );
     } on Object {
       state = state.copyWith(
@@ -234,6 +241,41 @@ final class EventTypeController extends Notifier<EventTypeState> {
     } on Object {
       state = state.copyWith(
         message: 'Event colors were not restored. You can safely retry.',
+      );
+      return false;
+    }
+  }
+
+  Future<bool> saveContactGroupColor({
+    required String groupId,
+    required int colorArgb,
+  }) async {
+    try {
+      final saved = await _repository.saveContactGroupColor(
+        profileId: _profileId,
+        groupId: groupId,
+        colorArgb: colorArgb,
+      );
+      state = state.copyWith(groupColors: saved, clearMessage: true);
+      return true;
+    } on Object {
+      state = state.copyWith(
+        message: 'Group color was not changed. You can safely retry.',
+      );
+      return false;
+    }
+  }
+
+  Future<bool> restoreContactGroupColorDefaults() async {
+    try {
+      final restored = await _repository.restoreContactGroupColorDefaults(
+        profileId: _profileId,
+      );
+      state = state.copyWith(groupColors: restored, clearMessage: true);
+      return true;
+    } on Object {
+      state = state.copyWith(
+        message: 'Group colors were not restored. You can safely retry.',
       );
       return false;
     }

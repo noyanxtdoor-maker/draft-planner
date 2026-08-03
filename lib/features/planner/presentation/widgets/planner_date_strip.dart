@@ -365,45 +365,10 @@ final class _PlannerDateStripState extends State<PlannerDateStrip>
       child: dateList,
       builder: (context, child) {
         final pagerValue = progress?.value ?? 0;
-        final scrollOffset = _scrollController.hasClients
-            ? _scrollController.position.pixels
-            : 0.0;
-        final visualIndex =
-            _selectionFromIndex != null && _selectionToIndex != null
-            ? _selectionFromIndex! +
-                  (_selectionToIndex! - _selectionFromIndex!) *
-                      _selectionController.value
-            : _selectedIndex().toDouble();
-        final indicatorLeft =
-            _edgePadding +
-            visualIndex * PlannerDateStrip.itemExtent -
-            scrollOffset +
-            pagerValue * PlannerDateStrip.itemExtent;
-        return Stack(
-          clipBehavior: Clip.none,
-          children: <Widget>[
-            Transform.translate(
-              key: const Key('planner-date-strip-live-transform'),
-              offset: Offset(pagerValue * PlannerDateStrip.itemExtent, 0),
-              child: child,
-            ),
-            Positioned(
-              key: const Key('planner-selected-date-indicator'),
-              left: indicatorLeft,
-              top: 1,
-              width: PlannerDateStrip.itemExtent - 4,
-              height: PlannerDateStrip.stripHeight - 2,
-              child: IgnorePointer(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: AppTheme.rose.withValues(alpha: 0.12),
-                    border: Border.all(color: AppTheme.rose, width: 1.5),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-              ),
-            ),
-          ],
+        return Transform.translate(
+          key: const Key('planner-date-strip-live-transform'),
+          offset: Offset(pagerValue * PlannerDateStrip.itemExtent, 0),
+          child: child,
         );
       },
     );
@@ -474,7 +439,6 @@ final class _PlannerDateStripDayButton extends StatelessWidget {
       child: InkWell(
         key: Key('planner-day-${date.iso8601}'),
         onTap: () => onSelected(date),
-        borderRadius: BorderRadius.circular(8),
         child: SizedBox(
           width: PlannerDateStrip.itemExtent,
           height: height,
@@ -505,8 +469,8 @@ final class _PlannerDateStripDayButton extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 17,
                         fontWeight: selected
-                            ? FontWeight.w800
-                            : FontWeight.w500,
+                            ? FontWeight.w600
+                            : FontWeight.w400,
                         color: color,
                       ),
                     ),

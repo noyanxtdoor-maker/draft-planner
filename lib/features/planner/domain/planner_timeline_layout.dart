@@ -30,6 +30,7 @@ final class PlannerTimelinePlacement {
 abstract final class PlannerTimelineGeometry {
   static const int minutesPerHour = 60;
   static const int quarterHourMinutes = 15;
+  static const double minimumReadableEventHeight = 48;
 
   static double pixelsPerMinute(double hourHeight) {
     return hourHeight / minutesPerHour;
@@ -57,9 +58,11 @@ abstract final class PlannerTimelineGeometry {
     );
   }
 
-  /// Resolve a visible Event rectangle without applying a minimum visual
-  /// height. Clipping keeps the rectangle inside the configured timeline;
-  /// the returned height still represents the clipped minute duration.
+  /// Resolve a visible Event rectangle while keeping logical duration and
+  /// rendered readability separate. [logicalHeight] is always the exact
+  /// clipped minute span; [PlannerTimelineEventGeometry.height] may be
+  /// visually expanded for very short Events, but remains inside the visible
+  /// timeline bounds.
   static PlannerTimelineEventGeometry event({
     required int startMinute,
     required int endMinute,
@@ -80,14 +83,23 @@ abstract final class PlannerTimelineGeometry {
       visibleStartMinute: visibleStartMinute,
       hourHeight: hourHeight,
     );
+    final logicalHeight = heightForDuration(
+      durationMinutes: clippedEnd - clippedStart,
+      hourHeight: hourHeight,
+    );
+    final availableHeight = heightForDuration(
+      durationMinutes: visibleEndMinute - clippedStart,
+      hourHeight: hourHeight,
+    );
+    final visualHeight = logicalHeight
+        .clamp(minimumReadableEventHeight, availableHeight)
+        .toDouble();
     return PlannerTimelineEventGeometry(
       clippedStartMinute: clippedStart,
       clippedEndMinute: clippedEnd,
       top: top,
-      height: heightForDuration(
-        durationMinutes: clippedEnd - clippedStart,
-        hourHeight: hourHeight,
-      ),
+      logicalHeight: logicalHeight,
+      height: visualHeight,
     );
   }
 }
@@ -97,12 +109,14 @@ final class PlannerTimelineEventGeometry {
     required this.clippedStartMinute,
     required this.clippedEndMinute,
     required this.top,
+    required this.logicalHeight,
     required this.height,
   });
 
   final int clippedStartMinute;
   final int clippedEndMinute;
   final double top;
+  final double logicalHeight;
   final double height;
 
   double get bottom => top + height;
@@ -110,8 +124,9 @@ final class PlannerTimelineEventGeometry {
 
 abstract final class PlannerTimelineLayout {
   static List<PlannerTimelinePlacement> arrange(
-    List<PlannerCalendarItem> events,
-  ) {
+    List<PlannerCalendarItem> events, {
+    double? hourHeight,
+  }) {
     final timed =
         events
             .where(
@@ -125,7 +140,7 @@ abstract final class PlannerTimelineLayout {
                 : right.endLocal!.compareTo(left.endLocal!);
           });
     final result = <PlannerTimelinePlacement>[];
-    for (final group in _overlapGroups(timed)) {
+    for (final group in _overlapGroups(timed, hourHeight: hourHeight)) {
       final active = <_ActiveColumn>[];
       final assigned = <PlannerCalendarItem, int>{};
       var columnCount = 1;
@@ -146,7 +161,12 @@ abstract final class PlannerTimelineLayout {
           column += 1;
         }
         assigned[event] = column;
-        active.add(_ActiveColumn(column: column, end: event.endLocal!));
+        active.add(
+          _ActiveColumn(
+            column: column,
+            end: _visualEnd(event, hourHeight: hourHeight),
+          ),
+        );
         if (column + 1 > columnCount) {
           columnCount = column + 1;
         }
@@ -171,8 +191,9 @@ abstract final class PlannerTimelineLayout {
   }
 
   static List<List<PlannerCalendarItem>> _overlapGroups(
-    List<PlannerCalendarItem> events,
-  ) {
+    List<PlannerCalendarItem> events, {
+    double? hourHeight,
+  }) {
     final groups = <List<PlannerCalendarItem>>[];
     var current = <PlannerCalendarItem>[];
     DateTime? furthestEnd;
@@ -185,14 +206,43 @@ abstract final class PlannerTimelineLayout {
         furthestEnd = null;
       }
       current.add(event);
-      if (furthestEnd == null || event.endLocal!.isAfter(furthestEnd)) {
-        furthestEnd = event.endLocal;
+      final visualEnd = _visualEnd(event, hourHeight: hourHeight);
+      if (furthestEnd == null || visualEnd.isAfter(furthestEnd)) {
+        furthestEnd = visualEnd;
       }
     }
     if (current.isNotEmpty) {
       groups.add(current);
     }
     return groups;
+  }
+
+  /// Returns the end used only for lane calculation. At low zoom a short
+  /// Event is rendered at the minimum readable height; treating that visual
+  /// footprint as part of the lane interval prevents the expanded block from
+  /// covering a touching neighbor. The Event's stored and displayed times
+  /// remain unchanged.
+  static DateTime _visualEnd(PlannerCalendarItem event, {double? hourHeight}) {
+    final start = event.startLocal!;
+    final logicalEnd = event.endLocal!;
+    if (hourHeight == null || hourHeight <= 0) {
+      return logicalEnd;
+    }
+    final logicalDuration = logicalEnd.difference(start).inMicroseconds;
+    final quarterHourDuration = const Duration(minutes: 15).inMicroseconds;
+    final minimumReadableDuration =
+        (PlannerTimelineGeometry.minimumReadableEventHeight /
+                PlannerTimelineGeometry.pixelsPerMinute(hourHeight) *
+                const Duration(minutes: 1).inMicroseconds)
+            .round();
+    final minimumVisualDuration = logicalDuration > quarterHourDuration
+        ? logicalDuration
+        : quarterHourDuration;
+    final requiredDuration = minimumVisualDuration > minimumReadableDuration
+        ? minimumVisualDuration
+        : minimumReadableDuration;
+    final visualEnd = start.add(Duration(microseconds: requiredDuration));
+    return visualEnd.isAfter(logicalEnd) ? visualEnd : logicalEnd;
   }
 }
 

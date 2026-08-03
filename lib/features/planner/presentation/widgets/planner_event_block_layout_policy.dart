@@ -24,8 +24,9 @@ abstract final class PlannerEventBlockLayoutPolicy {
   static const double eventBorderRadius = 4;
   static const double eventAccentWidth = 4;
   static const double backupEventAccentWidth = 7;
-  static const Color backupEventSurface = Color(0xFF45484A);
-  static const Color backupEventAccent = Color(0xFF7A7E81);
+  static const Color backupStripeDark = Color(0xFF1B1C1D);
+  static const double backupStripeSpacing = 5;
+  static const double backupStripeWidth = 2.2;
   static const double contentHorizontalPadding = 8;
   static const double recurrenceRightInset = 8;
   static const double recurrenceIconSize = 18;
@@ -164,6 +165,83 @@ abstract final class PlannerEventBlockLayoutPolicy {
   /// Top and bottom targets remain distinct once a block is tall enough to
   /// expose both edges without making short blocks gesture-ambiguous.
   static const double topResizeMinimumHeight = 76;
+}
+
+/// Applies the approved diagonal backup treatment without changing the
+/// Event Type surface or accent. The dark stripe is deliberately near-black,
+/// while the adjacent stripe uses the original Event Type accent.
+final class PlannerBackupStripeBackground extends StatelessWidget {
+  const PlannerBackupStripeBackground({
+    required this.accent,
+    required this.child,
+    super.key,
+  });
+
+  final Color accent;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      clipBehavior: Clip.hardEdge,
+      children: <Widget>[
+        Positioned.fill(
+          child: CustomPaint(
+            painter: _PlannerBackupStripePainter(accent: accent),
+          ),
+        ),
+        Positioned.fill(child: child),
+      ],
+    );
+  }
+}
+
+final class _PlannerBackupStripePainter extends CustomPainter {
+  const _PlannerBackupStripePainter({required this.accent});
+
+  final Color accent;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final extent = size.width + size.height;
+    final darkPaint = Paint()
+      ..color = PlannerEventBlockLayoutPolicy.backupStripeDark
+      ..strokeWidth = PlannerEventBlockLayoutPolicy.backupStripeWidth
+      ..style = PaintingStyle.stroke;
+    final accentPaint = Paint()
+      ..color = accent
+      ..strokeWidth = PlannerEventBlockLayoutPolicy.backupStripeWidth
+      ..style = PaintingStyle.stroke;
+    for (
+      var offset = -size.height;
+      offset <= extent;
+      offset += PlannerEventBlockLayoutPolicy.backupStripeSpacing
+    ) {
+      canvas.drawLine(
+        Offset(offset, size.height),
+        Offset(offset + size.height, 0),
+        darkPaint,
+      );
+      canvas.drawLine(
+        Offset(
+          offset + PlannerEventBlockLayoutPolicy.backupStripeWidth + 1,
+          size.height,
+        ),
+        Offset(
+          offset +
+              size.height +
+              PlannerEventBlockLayoutPolicy.backupStripeWidth +
+              1,
+          0,
+        ),
+        accentPaint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _PlannerBackupStripePainter oldDelegate) =>
+      oldDelegate.accent != accent;
 }
 
 enum Density { veryShort, short, medium, tall }

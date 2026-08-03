@@ -5,6 +5,7 @@ import 'package:rmplanner/features/planner/application/calendar_event_repository
 import 'package:rmplanner/features/planner/application/outcome_reporting_repository.dart';
 import 'package:rmplanner/features/planner/application/planner_repository.dart';
 import 'package:rmplanner/features/planner/domain/calendar_event.dart';
+import 'package:rmplanner/features/planner/domain/event_type.dart';
 import 'package:rmplanner/features/planner/domain/outcome_reporting.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 import 'package:rmplanner/features/planner/domain/planner_task.dart';
@@ -757,7 +758,8 @@ final class DriftOutcomeReportingRepository
 
   static bool _isContactEvent(String? value) {
     final normalized = value?.trim().toLowerCase();
-    return normalized != null && normalized.contains('contact');
+    return normalized == SystemEventTypeKeys.meaningfulConnection ||
+        (normalized != null && normalized.contains('contact'));
   }
 
   Future<void> _applyRequiredTaskStatus({

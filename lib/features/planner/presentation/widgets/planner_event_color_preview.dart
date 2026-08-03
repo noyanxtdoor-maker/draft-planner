@@ -37,11 +37,11 @@ final class PlannerEventColorPreview extends StatelessWidget {
       activityTypeLabel: eventType.label,
       activityTypeColorValue: eventType.colorValue,
     );
-    final content = PlannerEventBlockContent.forHeight(64, interactive: false);
+    final content = PlannerEventBlockContent.forHeight(56, interactive: false);
     return Semantics(
       label: '${eventType.label} Event preview',
       child: SizedBox(
-        height: 64,
+        height: 56,
         child: Material(
           color: surface,
           shape: RoundedRectangleBorder(

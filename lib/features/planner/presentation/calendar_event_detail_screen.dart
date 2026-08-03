@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rmplanner/app/router/route_names.dart';
-import 'package:rmplanner/app/theme/app_theme.dart';
 import 'package:rmplanner/features/planner/application/calendar_event_providers.dart';
 import 'package:rmplanner/features/planner/application/event_type_providers.dart';
 import 'package:rmplanner/features/planner/application/outcome_reporting_providers.dart';
@@ -97,11 +96,16 @@ final class _CalendarEventDetailScreenState
             ),
           );
         }
+        final nowUtc = DateTime.now().toUtc();
+        final displayToday = PlannerDate.fromDateTime(DateTime.now());
         final awaitingReport = occurrence.isAwaitingReport(
-          nowUtc: DateTime.now().toUtc(),
-          displayToday: PlannerDate.fromDateTime(DateTime.now()),
+          nowUtc: nowUtc,
+          displayToday: displayToday,
         );
-        final showStatus = occurrence.requiresReport;
+        final isFuture = occurrence.timing == CalendarEventTiming.allDay
+            ? occurrence.displayDate.compareTo(displayToday) > 0
+            : occurrence.startUtc?.isAfter(nowUtc) ?? false;
+        final showStatus = occurrence.requiresReport && !isFuture;
         final eventType = occurrence.activityTypeId == null
             ? null
             : eventTypeState.eventTypes
@@ -193,7 +197,10 @@ final class _CalendarEventDetailScreenState
                   trailing: const Icon(Icons.expand_more),
                   onTap: _statusSaving
                       ? null
-                      : () => _showStatusMenu(occurrence),
+                      : () => _showStatusMenu(
+                          occurrence,
+                          isContactEvent: isContactEvent,
+                        ),
                 ),
               ),
             const SizedBox(height: 18),
@@ -427,61 +434,68 @@ final class _CalendarEventDetailScreenState
     }
   }
 
-  Future<void> _showStatusMenu(CalendarEventOccurrence occurrence) async {
+  Future<void> _showStatusMenu(
+    CalendarEventOccurrence occurrence, {
+    required bool isContactEvent,
+  }) async {
     if (_statusSaving) {
       return;
     }
     final anchorContext = _statusControlAnchorKey.currentContext;
-    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
     final anchor = anchorContext?.findRenderObject() as RenderBox?;
     if (anchor == null) {
       return;
     }
-    final topLeft = anchor.localToGlobal(Offset.zero, ancestor: overlay);
-    final bottomRight = anchor.localToGlobal(
-      anchor.size.bottomRight(Offset.zero),
-      ancestor: overlay,
-    );
-    final selected = await showMenu<CalendarEventStatus>(
+    CalendarEventStatus? selected;
+    await showAnchoredTopBarPopup(
       context: context,
-      position: RelativeRect.fromRect(
-        Rect.fromPoints(topLeft, bottomRight),
-        Offset.zero & overlay.size,
-      ),
-      color: AppTheme.surface,
-      elevation: 8,
-      constraints: const BoxConstraints(minWidth: 280, maxWidth: 420),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      items: [
-        for (final status in <CalendarEventStatus>[
-          CalendarEventStatus.scheduled,
-          CalendarEventStatus.completedHappened,
-          CalendarEventStatus.partiallyCompleted,
-          CalendarEventStatus.didNotHappen,
-        ])
-          PopupMenuItem<CalendarEventStatus>(
-            key: Key('event-status-option-${status.name}'),
-            value: status,
-            height: 56,
-            child: Row(
-              children: <Widget>[
-                Icon(_statusIcon(status), color: _statusColor(status)),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Text(
-                    calendarEventOutcomeLabel(
-                      status: status,
-                      isContactEvent: _isContactEvent(
-                        null,
-                        occurrence.activityTypeLabel,
+      triggerKey: _statusControlAnchorKey,
+      width: anchor.size.width,
+      maxHeight: 240,
+      topGap: 5,
+      borderRadius: 5,
+      builder: (popupContext) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          for (final status in <CalendarEventStatus>[
+            CalendarEventStatus.scheduled,
+            CalendarEventStatus.completedHappened,
+            CalendarEventStatus.partiallyCompleted,
+            CalendarEventStatus.didNotHappen,
+          ])
+            SizedBox(
+              height: 56,
+              child: InkWell(
+                key: Key('event-status-option-${status.name}'),
+                onTap: () {
+                  selected = status;
+                  anchoredTopBarPopupController.dismiss();
+                },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    children: <Widget>[
+                      Icon(
+                        _statusIcon(status),
+                        color: _statusColor(status),
+                        size: 24,
                       ),
-                    ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Text(
+                          calendarEventOutcomeLabel(
+                            status: status,
+                            isContactEvent: isContactEvent,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ],
+              ),
             ),
-          ),
-      ],
+        ],
+      ),
     );
     if (!mounted || selected == null) {
       return;
