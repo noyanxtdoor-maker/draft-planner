@@ -4132,3 +4132,145 @@ gates pass, and the physical acceptance checklist is ready. No release or
 remote operation was performed. The remaining action is owner visual PASS/FAIL
 sign-off only; if any item fails, record the exact item and return to Prompt B
 scope without beginning Prompt C/VS-09.
+
+---
+
+## VS-08 Correction Prompt A — Path B Compact Colors and Contact Group Colors
+
+Date: 2026-08-03
+
+Scope and status:
+
+- This correction is strictly limited to the Colors feature.
+- The owner selected Path B and explicitly deferred dynamic Contact Group
+  synchronization until the canonical Contact slice exists.
+- The implementation checkpoint is `6575db185417d7e052eabbcc402b621d09161236`
+  (`fix(vs08): compact colors and sync contact groups`).
+- No Planner/reporting correction, PR #8 update, push, or VS-09 work was
+  started.
+- The inherited unrelated worktree changes remain untouched:
+  `lib/features/shell/global_app_drawer.dart` and `.todo.md`.
+
+Visual authority reviewed:
+
+- `C:\Users\sherl\Pictures\Screenshots\Screenshot 2026-08-03 183102.png`
+  — owner-annotated Colors screen; yellow marks identify excess vertical
+  spacing and red marks identify the vertical-centering defect.
+- `C:\Users\sherl\Downloads\Screenshot_20260803-175352.jpg` and
+  `C:\Users\sherl\Downloads\Screenshot_20260803-175355.jpg` — current
+  Colors layouts and current Event color behavior.
+- `C:\Users\sherl\Downloads\Screenshot_20260803-131207.jpg` — PMG density
+  and alignment reference only; Person Status semantics were not copied.
+- `C:\Users\sherl\Downloads\Screenshot_20260803-131124.jpg` — PMG color
+  picker interaction and proportions reference.
+
+Implemented compact Event rows:
+
+- Every Event row is a single horizontal row containing the Event preview,
+  accent swatch, accent pencil, Event-background swatch, and Event-background
+  pencil.
+- At the 393 dp reference viewport the preview is 183 x 40 dp, the row is
+  44 dp high, the preview-to-controls gap is 12 dp, and the controls area is
+  150 dp wide.
+- At 360 dp the preview becomes 162 x 40 dp so the same horizontal structure
+  remains inside the available 324 dp content width; no stacked fallback is
+  used.
+- The Event accent strip is 4 dp, the visible swatches are 26 dp, pencil
+  glyphs are 20 dp, and all four controls use 40 dp centered touch targets.
+- The Event row pitch is 58 dp (44 dp row plus the approved 14 dp separation),
+  removing the excessive yellow-marked vertical spacing while preserving the
+  PMG density.
+- The compact preview uses the production Planner Event text-color policy,
+  accent strip, surface color, and recurrence treatment, with a deterministic
+  10:00 AM - 11:00 AM sample and ellipsis-safe single-line title/time content.
+- Text-scale checks at 1.00, 1.15, and 1.30 and viewport widths 360, 393, and
+  411 completed without a RenderFlex overflow or exception in the focused
+  route test.
+
+Approved active Event rows:
+
+`Job Application`, `Scripture Study`, `Exercise`, `Contact`, `Budget Review`,
+`Temple Visit`, `Meeting`, `Study or Plan`, `Service`, `Work`, `Travel`,
+`Meal`, and `Other`.
+
+The screen continues to use the canonical `EventType.isCreationVisible`
+registry and `SystemEventTypeKeys.approvedCreationOrder`. Legacy system rows
+such as General, Teaching, Finding, Appointment, and Baptism are not emitted
+as active Colors rows, and Task was not added to this active list. No parallel
+Event-type registry was created.
+
+Implemented fixed built-in Contact Group Colors:
+
+- The heading is exactly `Contact Group Colors`.
+- Only the four built-in groups are rendered: Family, Friends, Avoid, and
+  Other.
+- The stable persistence IDs are exactly `family`, `friends`, `avoid`, and
+  `other`; the UI writes those IDs rather than editable display labels.
+- Event color preferences and group color preferences continue to use the
+  existing independent document/codec and Drift repository fields.
+- Restore Event Defaults clears only Event overrides and explicitly leaves
+  group overrides intact. Restore Group Defaults clears only group overrides
+  and explicitly leaves Event overrides intact.
+- Existing Event colors and app data were preserved: this correction adds no
+  schema migration, no data reset, and no replacement of the existing
+  preference repository.
+- The picker now reports live SV/hue changes to the screen preview without
+  persisting them. Cancel removes the live override; Save performs the one
+  existing persistence write.
+
+Required Path B handoff:
+
+> Dynamic Contact Group synchronization is deferred until the canonical Contact slice is implemented. The current four built-in group colors use stable IDs so they can be migrated safely later.
+
+The following requirements are intentionally DEFERRED BY PATH B and are not
+implemented here: user-created Contact Groups appearing automatically,
+Contact Group rename synchronization, Contact Group deletion synchronization,
+and canonical Contact Group repository/provider integration. No temporary
+Contacts database, repository, provider, model, or CRUD lifecycle was created.
+
+Requirement matrix for this correction:
+
+| Requirement | Status |
+|---|---|
+| Compact PMG-style Event rows | COMPLETE — focused widget test |
+| One horizontal preview/control row | COMPLETE — focused widget test |
+| Vertical centering of both swatches and pencils | COMPLETE — center-coordinate assertions |
+| Excessive vertical spacing removed | COMPLETE — 44 dp row / 58 dp pitch assertions |
+| Approved active Event types only | COMPLETE — active/legacy label assertions |
+| Four fixed built-in Contact Groups | COMPLETE — route and domain tests |
+| Stable IDs `family`, `friends`, `avoid`, `other` | COMPLETE — domain and codec tests |
+| Independent Event and Group restores | COMPLETE — route persistence journey |
+| Preserve Event colors and app data | COMPLETE in code; no schema/data reset |
+| Dynamic Contact Group synchronization | DEFERRED BY PATH B |
+| Focused Colors tests | PASS |
+| Full Flutter test suite | PASS — 365 tests, 0 failures |
+| Flutter analyzer | PASS — no issues found |
+| Debug APK build | PASS |
+| Physical update-install and installed-hash verification | BLOCKED — no device reachable |
+
+Host verification:
+
+- The previous APK was deleted only after verifying the exact target path
+  inside this Temp workspace:
+  `C:\Users\sherl\Documents\Next Transfer-Temp\build\app\outputs\flutter-apk\app-debug.apk`.
+- The new debug APK was built at that exact path.
+- APK size: 195,345,317 bytes.
+- APK SHA-256:
+  `1CB4EEB667CB433B7C3E3E9CDEDDBBBE5DE754A958D2F397D335F36C523FD114`.
+- The bundled ADB executable started successfully, but
+  `adb devices -l` returned no devices and `adb mdns services` returned no
+  services.
+- The previously authorized Infinix X6731 endpoint recorded in this handoff,
+  `192.168.1.54:34439`, was tried once and returned connection timeout
+  `10060`. ADB install, force-stop, launch, installed APK pull/hash, and
+  device-side data-preservation checks were therefore not performed in this
+  run.
+- No `adb uninstall`, `pm clear`, data reset, or equivalent destructive device
+  operation was issued.
+
+Physical acceptance:
+
+Owner visual PASS/FAIL sign-off remains pending. The install-dependent
+acceptance items cannot be claimed until the authorized device is reachable;
+the exact blocker is the empty ADB/mDNS discovery result and the timeout at
+the recorded endpoint above.
