@@ -98,4 +98,20 @@ void main() {
     expect(decoded.events['work'], preference);
     expect(decoded.groups['family'], 0xFFEBC766);
   });
+
+  test(
+    'built-in Contact Group colors use stable IDs independent of labels',
+    () {
+      expect(
+        ContactGroupDefaults.ordered.map((group) => group.id).toList(),
+        <String>['family', 'friends', 'avoid', 'other'],
+      );
+      expect(
+        ContactGroupDefaults.ordered.map((group) => group.label).toList(),
+        <String>['Family', 'Friends', 'Avoid', 'Other'],
+      );
+      expect(ContactGroupDefaults.byId('family').label, 'Family');
+      expect(ContactGroupDefaults.byId('not-a-label').id, 'other');
+    },
+  );
 }

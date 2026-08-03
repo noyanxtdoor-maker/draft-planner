@@ -7,11 +7,27 @@ import 'package:rmplanner/features/planner/presentation/widgets/planner_event_co
 import 'package:rmplanner/features/planner/presentation/widgets/planner_event_color_resolver.dart';
 import 'package:rmplanner/features/settings/presentation/event_color_picker_dialog.dart';
 
-final class PlannerEventColorsScreen extends ConsumerWidget {
+const double _eventPreviewWidth = 183;
+const double _eventRowHeight = 44;
+const double _eventPreviewToControlsGap = 12;
+const double _eventControlsWidth = 150;
+
+final class PlannerEventColorsScreen extends ConsumerStatefulWidget {
   const PlannerEventColorsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<PlannerEventColorsScreen> createState() =>
+      _PlannerEventColorsScreenState();
+}
+
+final class _PlannerEventColorsScreenState
+    extends ConsumerState<PlannerEventColorsScreen> {
+  final Map<String, EventColorPreference> _liveEventColors =
+      <String, EventColorPreference>{};
+  final Map<String, int> _liveGroupColors = <String, int>{};
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(eventTypeControllerProvider);
     final controller = ref.read(eventTypeControllerProvider.notifier);
     final eventTypes = _orderedEventTypes(state.eventTypes);
@@ -43,8 +59,11 @@ final class PlannerEventColorsScreen extends ConsumerWidget {
                   const SizedBox(height: 14),
                   for (final type in eventTypes) ...<Widget>[
                     _EventColorRow(
+                      key: Key('event-color-row-${type.stableKey}'),
                       type: type,
-                      preference: _preferenceFor(state, type),
+                      preference:
+                          _liveEventColors[type.stableKey] ??
+                          _preferenceFor(state, type),
                       onAccent: () => _editEventColor(
                         context,
                         controller,
@@ -73,14 +92,16 @@ final class PlannerEventColorsScreen extends ConsumerWidget {
                   const SizedBox(height: 24),
                   const _ColorsSectionHeader(
                     key: Key('planner-event-colors-groups-section'),
-                    label: 'Groups',
+                    label: 'Contact Group Colors',
                   ),
                   const SizedBox(height: 10),
                   for (final group in ContactGroupDefaults.ordered) ...<Widget>[
                     _GroupColorRow(
                       group: group,
                       color: Color(
-                        state.groupColors[group.id] ?? group.defaultColorArgb,
+                        _liveGroupColors[group.id] ??
+                            state.groupColors[group.id] ??
+                            group.defaultColorArgb,
                       ),
                       onPressed: () =>
                           _editGroupColor(context, controller, group),
@@ -144,10 +165,7 @@ final class PlannerEventColorsScreen extends ConsumerWidget {
     EventType type,
     EventColorRole role,
   ) async {
-    final state = ProviderScope.containerOf(
-      context,
-      listen: false,
-    ).read(eventTypeControllerProvider);
+    final state = ref.read(eventTypeControllerProvider);
     final current = _preferenceFor(state, type);
     final chosen = await showPlannerEventColorPicker(
       context: context,
@@ -163,8 +181,30 @@ final class PlannerEventColorsScreen extends ConsumerWidget {
             ? current.surfaceArgb
             : current.accentArgb,
       ),
+      onChanged: (color) {
+        if (!mounted) {
+          return;
+        }
+        setState(() {
+          _liveEventColors[type.stableKey] = role == EventColorRole.accent
+              ? EventColorPreference(
+                  accentArgb: color.toARGB32(),
+                  surfaceArgb: current.surfaceArgb,
+                )
+              : EventColorPreference(
+                  accentArgb: current.accentArgb,
+                  surfaceArgb: color.toARGB32(),
+                );
+        });
+      },
     );
-    if (chosen == null || !context.mounted) {
+    if (!mounted) {
+      return;
+    }
+    if (chosen == null) {
+      setState(() {
+        _liveEventColors.remove(type.stableKey);
+      });
       return;
     }
     final updated = role == EventColorRole.accent
@@ -177,6 +217,11 @@ final class PlannerEventColorsScreen extends ConsumerWidget {
             surfaceArgb: chosen.toARGB32(),
           );
     await controller.saveEventColor(type, updated);
+    if (mounted) {
+      setState(() {
+        _liveEventColors.remove(type.stableKey);
+      });
+    }
   }
 
   Future<void> _editGroupColor(
@@ -184,12 +229,11 @@ final class PlannerEventColorsScreen extends ConsumerWidget {
     EventTypeController controller,
     ContactGroup group,
   ) async {
-    final state = ProviderScope.containerOf(
-      context,
-      listen: false,
-    ).read(eventTypeControllerProvider);
+    final state = ref.read(eventTypeControllerProvider);
     final current = Color(
-      state.groupColors[group.id] ?? group.defaultColorArgb,
+      _liveGroupColors[group.id] ??
+          state.groupColors[group.id] ??
+          group.defaultColorArgb,
     );
     final chosen = await showPlannerEventColorPicker(
       context: context,
@@ -197,14 +241,33 @@ final class PlannerEventColorsScreen extends ConsumerWidget {
       role: EventColorRole.accent,
       initialColor: current,
       otherColor: Theme.of(context).scaffoldBackgroundColor,
+      onChanged: (color) {
+        if (!mounted) {
+          return;
+        }
+        setState(() {
+          _liveGroupColors[group.id] = color.toARGB32();
+        });
+      },
     );
-    if (chosen == null || !context.mounted) {
+    if (!mounted) {
+      return;
+    }
+    if (chosen == null) {
+      setState(() {
+        _liveGroupColors.remove(group.id);
+      });
       return;
     }
     await controller.saveContactGroupColor(
       groupId: group.id,
       colorArgb: chosen.toARGB32(),
     );
+    if (mounted) {
+      setState(() {
+        _liveGroupColors.remove(group.id);
+      });
+    }
   }
 
   Future<void> _confirmRestoreEvents(
@@ -236,6 +299,9 @@ final class PlannerEventColorsScreen extends ConsumerWidget {
     );
     if (restore == true && context.mounted) {
       await controller.restoreEventColorDefaults();
+      if (mounted) {
+        setState(_liveEventColors.clear);
+      }
     }
   }
 
@@ -268,6 +334,9 @@ final class PlannerEventColorsScreen extends ConsumerWidget {
     );
     if (restore == true && context.mounted) {
       await controller.restoreContactGroupColorDefaults();
+      if (mounted) {
+        setState(_liveGroupColors.clear);
+      }
     }
   }
 }
@@ -302,6 +371,7 @@ final class _EventColorRow extends StatelessWidget {
     required this.preference,
     required this.onAccent,
     required this.onSurface,
+    super.key,
   });
 
   final EventType type;
@@ -311,11 +381,6 @@ final class _EventColorRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final preview = SizedBox(
-      width: 202,
-      height: 56,
-      child: PlannerEventColorPreview(eventType: type, preference: preference),
-    );
     final controls = _EventColorControls(
       type: type,
       preference: preference,
@@ -327,19 +392,29 @@ final class _EventColorRow extends StatelessWidget {
       label: '${type.label} Event colors',
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final canFit = constraints.maxWidth >= 354;
-          if (!canFit) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+          final previewWidth =
+              (constraints.maxWidth -
+                      _eventControlsWidth -
+                      _eventPreviewToControlsGap)
+                  .clamp(0.0, _eventPreviewWidth)
+                  .toDouble();
+          return SizedBox(
+            height: _eventRowHeight,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: <Widget>[
-                SizedBox(height: 56, child: preview),
-                const SizedBox(height: 4),
-                Align(alignment: Alignment.centerRight, child: controls),
+                SizedBox(
+                  width: previewWidth,
+                  height: 40,
+                  child: PlannerEventColorPreview(
+                    eventType: type,
+                    preference: preference,
+                  ),
+                ),
+                const SizedBox(width: _eventPreviewToControlsGap),
+                controls,
               ],
-            );
-          }
-          return Row(
-            children: <Widget>[preview, const SizedBox(width: 8), controls],
+            ),
           );
         },
       ),
@@ -363,10 +438,11 @@ final class _EventColorControls extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 144,
-      height: 56,
+      width: _eventControlsWidth,
+      height: _eventRowHeight,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: <Widget>[
           _ColorControl(
             key: Key('event-color-accent-${type.stableKey}'),
@@ -406,14 +482,14 @@ final class _ColorControl extends StatelessWidget {
   Widget build(BuildContext context) {
     final value = colorHex(color);
     return SizedBox(
-      width: 68,
-      height: 56,
+      width: 70,
+      height: 40,
       child: Stack(
         clipBehavior: Clip.none,
         children: <Widget>[
           Positioned(
             left: 0,
-            top: 6,
+            top: 0,
             child: Semantics(
               button: true,
               label: '$typeLabel $roleLabel color, current value $value',
@@ -421,14 +497,14 @@ final class _ColorControl extends StatelessWidget {
               child: InkWell(
                 key: Key('event-color-swatch-$typeLabel-$roleLabel'),
                 onTap: onPressed,
-                borderRadius: BorderRadius.circular(22),
+                borderRadius: BorderRadius.circular(20),
                 child: SizedBox(
-                  width: 44,
-                  height: 44,
+                  width: 40,
+                  height: 40,
                   child: Center(
                     child: Container(
-                      width: 30,
-                      height: 30,
+                      width: 26,
+                      height: 26,
                       decoration: BoxDecoration(
                         color: color,
                         shape: BoxShape.circle,
@@ -443,8 +519,8 @@ final class _ColorControl extends StatelessWidget {
             ),
           ),
           Positioned(
-            left: 24,
-            top: 6,
+            left: 30,
+            top: 0,
             child: Semantics(
               button: true,
               label: 'Edit $typeLabel $roleLabel color',
@@ -454,10 +530,10 @@ final class _ColorControl extends StatelessWidget {
                 child: InkWell(
                   key: Key('event-color-pencil-$typeLabel-$roleLabel'),
                   onTap: onPressed,
-                  borderRadius: BorderRadius.circular(22),
+                  borderRadius: BorderRadius.circular(20),
                   child: const SizedBox(
-                    width: 44,
-                    height: 44,
+                    width: 40,
+                    height: 40,
                     child: Center(child: Icon(Icons.edit_outlined, size: 20)),
                   ),
                 ),
@@ -488,7 +564,7 @@ final class _GroupColorRow extends StatelessWidget {
       label: '${group.label} group color, current value ${colorHex(color)}',
       child: SizedBox(
         key: Key('planner-group-color-row-${group.id}'),
-        height: 64,
+        height: 52,
         child: Row(
           children: <Widget>[
             Expanded(
@@ -504,8 +580,8 @@ final class _GroupColorRow extends StatelessWidget {
               onTap: onPressed,
               borderRadius: BorderRadius.circular(22),
               child: SizedBox(
-                width: 44,
-                height: 44,
+                width: 40,
+                height: 40,
                 child: Center(
                   child: DecoratedBox(
                     decoration: BoxDecoration(
@@ -515,22 +591,22 @@ final class _GroupColorRow extends StatelessWidget {
                         color: Theme.of(context).colorScheme.outline,
                       ),
                     ),
-                    child: const SizedBox(width: 30, height: 30),
+                    child: const SizedBox(width: 28, height: 28),
                   ),
                 ),
               ),
             ),
             SizedBox(
-              width: 44,
-              height: 44,
+              width: 40,
+              height: 40,
               child: IconButton(
                 key: Key('group-color-edit-${group.id}'),
                 tooltip: 'Edit ${group.label} group color',
                 onPressed: onPressed,
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints.tightFor(
-                  width: 44,
-                  height: 44,
+                  width: 40,
+                  height: 40,
                 ),
                 icon: const Icon(Icons.edit_outlined, size: 20),
               ),

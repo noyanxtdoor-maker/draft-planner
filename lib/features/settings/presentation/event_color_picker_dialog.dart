@@ -8,6 +8,7 @@ Future<Color?> showPlannerEventColorPicker({
   required EventColorRole role,
   required Color initialColor,
   required Color otherColor,
+  ValueChanged<Color>? onChanged,
 }) {
   return showDialog<Color>(
     context: context,
@@ -17,6 +18,7 @@ Future<Color?> showPlannerEventColorPicker({
       role: role,
       initialColor: initialColor,
       otherColor: otherColor,
+      onChanged: onChanged,
     ),
   );
 }
@@ -27,12 +29,14 @@ final class _EventColorPickerDialog extends StatefulWidget {
     required this.role,
     required this.initialColor,
     required this.otherColor,
+    this.onChanged,
   });
 
   final String eventTypeLabel;
   final EventColorRole role;
   final Color initialColor;
   final Color otherColor;
+  final ValueChanged<Color>? onChanged;
 
   @override
   State<_EventColorPickerDialog> createState() =>
@@ -115,11 +119,13 @@ final class _EventColorPickerDialogState
                                 hsv: _selected,
                                 size: squareSize,
                                 onChanged: (saturation, value) {
+                                  final updated = _selected
+                                      .withSaturation(saturation)
+                                      .withValue(value);
                                   setState(() {
-                                    _selected = _selected
-                                        .withSaturation(saturation)
-                                        .withValue(value);
+                                    _selected = updated;
                                   });
+                                  widget.onChanged?.call(updated.toColor());
                                 },
                               ),
                             ),
@@ -132,9 +138,11 @@ final class _EventColorPickerDialogState
                                 ),
                                 hue: _selected.hue,
                                 onChanged: (hue) {
+                                  final updated = _selected.withHue(hue);
                                   setState(() {
-                                    _selected = _selected.withHue(hue);
+                                    _selected = updated;
                                   });
+                                  widget.onChanged?.call(updated.toColor());
                                 },
                               ),
                             ),

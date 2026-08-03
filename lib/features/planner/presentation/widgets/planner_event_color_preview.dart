@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:rmplanner/features/planner/domain/event_color_preferences.dart';
 import 'package:rmplanner/features/planner/domain/event_type.dart';
-import 'package:rmplanner/features/planner/domain/planner_date.dart';
-import 'package:rmplanner/features/planner/domain/planner_day.dart';
 import 'package:rmplanner/features/planner/presentation/widgets/planner_event_block_content.dart';
 import 'package:rmplanner/features/planner/presentation/widgets/planner_event_block_layout_policy.dart';
 
@@ -22,33 +20,15 @@ final class PlannerEventColorPreview extends StatelessWidget {
   Widget build(BuildContext context) {
     final accent = Color(preference.accentArgb);
     final surface = Color(preference.surfaceArgb);
-    final sample = PlannerCalendarItem(
-      id: 'event-color-preview-${eventType.stableKey}',
-      title: eventType.label,
-      date: PlannerDate.parse('2026-08-02'),
-      timing: PlannerEventTiming.timed,
-      state: PlannerEventState.scheduled,
-      requiresReport: false,
-      hasOutcomeReport: false,
-      startLocal: DateTime(2026, 8, 2, 10),
-      endLocal: DateTime(2026, 8, 2, 11),
-      isRecurring: true,
-      activityTypeId: eventType.id,
-      activityTypeLabel: eventType.label,
-      activityTypeColorValue: eventType.colorValue,
-    );
-    final content = PlannerEventBlockContent.forHeight(56, interactive: false);
+    final textColor = PlannerEventBlockColorPolicy.textColor(surface);
+    final timeText = formatPlannerEventRange(600, 660, false);
     return Semantics(
       label: '${eventType.label} Event preview',
       child: SizedBox(
-        height: 56,
+        height: 40,
         child: Material(
           color: surface,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(
-              PlannerEventBlockLayoutPolicy.eventBorderRadius,
-            ),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
           clipBehavior: Clip.antiAlias,
           child: DecoratedBox(
             decoration: BoxDecoration(
@@ -59,15 +39,54 @@ final class PlannerEventColorPreview extends StatelessWidget {
                 ),
               ),
             ),
-            child: PlannerEventBlockContentView(
-              event: sample,
-              use24HourTime: false,
-              displayStartMinute: 10 * 60,
-              displayEndMinute: 11 * 60,
-              awaitingReport: false,
-              content: content,
-              accentColor: accent,
-              surfaceColor: surface,
+            child: Stack(
+              clipBehavior: Clip.hardEdge,
+              children: <Widget>[
+                Positioned.fill(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(9, 3, 28, 3),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          eventType.label,
+                          style: TextStyle(
+                            color: textColor,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            height: 1,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          softWrap: false,
+                        ),
+                        Text(
+                          timeText,
+                          style: TextStyle(
+                            color: textColor.withValues(alpha: 0.92),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w400,
+                            height: 1,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          softWrap: false,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                Positioned(
+                  top: 11,
+                  right: 8,
+                  child: Icon(
+                    Icons.repeat,
+                    size: 18,
+                    color: accent.withValues(alpha: 0.92),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
