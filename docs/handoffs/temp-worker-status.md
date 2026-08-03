@@ -4525,8 +4525,8 @@ repeat build/install/hash verification before acceptance.
 
 - Implementation commit: `feat(vs08): add canonical goal lifecycle`
   (`74b358062fa2c7ea30223a46c884d3153c1c8a9f`).
-- Handoff commit: `docs(handoff): record canonical goal lifecycle`; its SHA is
-  recorded in the final transfer summary after the commit is created.
+- Handoff commit: `docs(handoff): record canonical goal lifecycle`
+  (`149d18c8f05c3ea4d035946b0bf5f187d5b7b5db`).
 - No push occurred.
 - PR #8 remains untouched.
 - Prompt D and VS-09 remain unstarted.
