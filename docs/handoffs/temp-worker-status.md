@@ -3801,5 +3801,334 @@ skips. The exact coverage groups are:
   and ledger data were all present after install.
 - Build/install/hash/data verification is now **COMPLETE**. Physical owner
   acceptance remains **PENDING** for the explicit item-by-item PASS/FAIL
-  response for items 01–50; automated tests and device installation are not
+  response for items 01-50; automated tests and device installation are not
   substituted for owner approval.
+
+================================================================================
+VS-08 PROMPT B - PLANNER RELIABILITY, REPORTING, AND COLORS
+================================================================================
+
+Status:
+Prompt B implementation and automated/release verification are complete in the
+Temp checkout. The physical owner checklist below is prepared for explicit
+item-by-item PASS/FAIL sign-off; automated tests, installation, and one device
+evidence walkthrough are not represented as owner visual approval.
+
+Repository authority:
+- Workspace: C:\Users\sherl\Documents\Next Transfer-Temp
+- Branch: temp/vs08-shared-preview
+- Starting HEAD: feea5557ea7d9af166ae73dfb639e453ef70624e
+- Protected original: C:\Users\sherl\Documents\Next Transfer (not modified)
+- Pre-existing untracked .todo.md was preserved and not staged.
+- The newline-only change in lib/features/shell/global_app_drawer.dart was
+  excluded as unrelated and remains unstaged.
+- No push was performed, PR #8 was not updated, and VS-09 was not started.
+
+Locked Prompt A baseline preserved:
+- Home/WLI compact layout and exact synchronization behavior remain covered by
+  the Prompt A tests.
+- Temple Visit Home card and monthly goal split remain covered.
+- Commitments remain absent from active production routes and UI.
+- Existing Activity History remains available and read-only; no Activity Report
+  screen, modal, bottom sheet, or report-details flow was added.
+
+Evidence reviewed:
+- C:\Users\sherl\Downloads\VS08-Prompt-B-Planner-Reporting-Colors.txt
+- C:\Users\sherl\Downloads\Screenshot_20260803-131207.jpg
+- C:\Users\sherl\Downloads\Screenshot_20260803-131124.jpg
+- C:\Users\sherl\Downloads\Screenshot_20260803-101949.jpg
+- C:\Users\sherl\Downloads\Screenshot_20260803-131539.jpg
+- C:\Users\sherl\Downloads\Screenshot_20260803-131220.jpg
+- C:\Users\sherl\Downloads\Screenshot_20260803-131109.jpg
+
+Root-cause repairs:
+- Current Status now uses a real anchored selector with 56 dp rows and the
+  four approved values: Unreported, Completed, Missed - Attempted, and Did
+  Not Attempt. The existing transactional reporting path remains the only
+  writer, so history, operation/outbox, and eligible contribution writes stay
+  idempotent and reconcile on later status changes.
+- Event type selection is now a field-anchored dropdown: it starts below the
+  field, keeps the field visible, matches the field width, scrolls, and exposes
+  only the active creation list. Task is routed to the existing Task flow.
+- Linked WLI/reporting controls are presentation- and semantics-disabled with
+  the approved gray surface, border, icon, label, and switch treatment. The
+  controls do not retain pink enabled-state styling; non-linked controls remain
+  editable.
+- Timeline layout preserves the stored logical interval while applying a
+  48 dp minimum readable visual height at low zoom. Collision lanes use the
+  visual interval for overlap reservation but retain logical start/end values,
+  so a clamped short block cannot cover a touching neighbor. High zoom remains
+  proportional; recurrence/status content is omitted when it cannot fit.
+- Adjacent pager pages are pre-laid out from the same measured viewport and
+  recompute geometry on size changes, eliminating the previous swipe width jump
+  and wrong-date cache behavior.
+- The selected date strip no longer draws a selected background/border shape;
+  selected text is pink/semibold and unselected text remains neutral.
+- Only backup appointments receive the diagonal stripe wrapper. Ordinary
+  events retain their category accent and near-black surface, including when
+  their lane is positioned at the right edge.
+- Colors is now one combined Events and Groups surface. Event rows show a
+  202x56 dp preview, separate accent/surface swatch-pencil controls, independent
+  restore action, and the active creation-visible Event types. Groups exposes
+  Family, Friends, Avoid, and Other with independent persistence/defaults.
+- The PMG-style picker uses the measured dialog proportions, 305 dp square
+  selector at the reference width, 34 dp hue rail, 18 dp selector, live swatch,
+  drag-only interaction, and no outside-tap dismissal.
+
+Event/Group color persistence and migration:
+- Event and Group colors are stored together in the existing profile-scoped
+  PlannerPreferences JSON document; no parallel database table or Contacts
+  persistence path was invented.
+- The codec remains compatible with the legacy flat event-color JSON and
+  preserves the other collection when either Event or Group defaults are saved
+  or restored. Built-in Groups use stable IDs, so a future Contacts group
+  rename can retain its color. The current Temp architecture has no
+  user-created Contacts group lifecycle; therefore item 73 is verified by the
+  stable-ID contract rather than by an invented group-management screen.
+- No Drift schema migration was required for Prompt B; existing Event, Task,
+  WLI, report, Activity History, and preference rows remain untouched.
+
+Prompt B automated requirement matrix:
+
+| ID | Requirement | Status | Evidence |
+|---:|---|---|---|
+| 01 | report required OFF hides status UI | PASS | Current Status/detail tests |
+| 02 | future reportable Event hides warning | PASS | Future-event detail tests |
+| 03 | elapsed unreported shows Unreported | PASS | Status journey tests |
+| 04 | popup opens | PASS | Anchored status popup tests |
+| 05 | each row is physically tappable | PASS | 56 dp row hit-target tests |
+| 06 | status persists | PASS | Repository/detail persistence tests |
+| 07 | menu closes after success | PASS | Popup interaction tests |
+| 08 | detail refreshes | PASS | Detail rebuild tests |
+| 09 | one Activity History record | PASS | Transaction/idempotency tests |
+| 10 | one operation/outbox item | PASS | Transaction/idempotency tests |
+| 11 | eligible contribution once | PASS | Contribution reconciliation tests |
+| 12 | status change reconciles prior contribution | PASS | Reporting transition tests |
+| 13 | no duplicate on repeated tap | PASS | Repeated-status tests |
+| 14 | exact wording Did Not Attempt | PASS | Text assertion |
+| 15 | Activity Report remains absent | PASS | Route/UI absence tests |
+| 16 | menu starts below field | PASS | Anchored-popup geometry tests |
+| 17 | field remains visible | PASS | Popup placement tests |
+| 18 | width matches field | PASS | Popup width tests |
+| 19 | menu scrolls | PASS | Long-list popup tests |
+| 20 | active types only | PASS | Event-type list tests |
+| 21 | legacy types absent | PASS | Event-type list tests |
+| 22 | Task opens Task flow | PASS | Task entry-point tests |
+| 23 | linked type shows locked WLI | PASS | Form lock tests |
+| 24 | Report Required remains ON | PASS | Linked-form tests |
+| 25 | no pink in locked block | PASS | Locked-control color tests |
+| 26 | controls disabled/accessibly disabled | PASS | Semantics and disabled-control tests |
+| 27 | non-linked remains editable | PASS | Non-linked form tests |
+| 28 | 15-minute logical duration preserved | PASS | Logical-duration geometry tests |
+| 29 | high zoom proportional | PASS | Zoom geometry tests |
+| 30 | low zoom clamped | PASS | Minimum-readable-height tests |
+| 31 | 30/45/60-minute safe | PASS | Duration geometry tests |
+| 32 | recurrence icon fits | PASS | Content-fit tests |
+| 33 | status hidden when it cannot fit | PASS | Content policy tests |
+| 34 | no RenderFlex overflow | PASS | Full suite and overflow assertions |
+| 35 | drag/resize preserve logical times | PASS | Planner interaction tests |
+| 36 | deterministic overlap lanes | PASS | Timeline lane tests |
+| 37 | clamped block does not erase neighbor | PASS | Low-zoom touching-neighbor test |
+| 38 | pinch unchanged | PASS | Existing pinch regression suite |
+| 39 | previous/next prelaid out | PASS | Pager prelayout tests |
+| 40 | width correct during swipe | PASS | Pager width tests |
+| 41 | no width jump | PASS | Pager stability tests |
+| 42 | geometry updates on size change | PASS | Pager resize tests |
+| 43 | no wrong-date cache | PASS | Pager date-cache tests |
+| 44 | selected background/border absent | PASS | Date-strip design-lock test |
+| 45 | selected text pink | PASS | Date-strip styling test |
+| 46 | unselected neutral | PASS | Date-strip styling test |
+| 47 | selection still works | PASS | Date-strip tap test |
+| 48 | original surface preserved | PASS | Backup rendering tests |
+| 49 | striped accent visible | PASS | Backup stripe tests |
+| 50 | category accent + near-black used | PASS | Event-color rendering tests |
+| 51 | no whole-card grayscale | PASS | Event-color rendering tests |
+| 52 | rightmost lane when overlapping | PASS | Lane placement tests |
+| 53 | full width when not overlapping | PASS | Lane width tests |
+| 54 | recurrence icon correct | PASS | Event-block content tests |
+| 55 | no overflow-stripe confusion | PASS | Normal-event stripe regression |
+| 56 | duplicate heading/paragraph absent | PASS | Combined Colors screen tests |
+| 57 | active Event types only | PASS | Colors list tests |
+| 58 | legacy rows absent | PASS | Colors list tests |
+| 59 | preview dimensions match | PASS | 202x56 preview tests |
+| 60 | accent edits strip/icon | PASS | Event color persistence tests |
+| 61 | surface edits background | PASS | Event color persistence tests |
+| 62 | Cancel restores | PASS | Picker cancel tests |
+| 63 | Save persists | PASS | Picker save/reload tests |
+| 64 | Planner refreshes immediately | PASS | Preference invalidation tests |
+| 65 | Restore Event Defaults affects Events only | PASS | Independent restore tests |
+| 66 | SV drag works | PASS | Picker gesture tests |
+| 67 | hue drag works | PASS | Picker gesture tests |
+| 68 | swatch/preview updates | PASS | Live picker tests |
+| 69 | no overflow | PASS | Picker layout tests and full suite |
+| 70 | drag does not dismiss | PASS | Picker gesture tests |
+| 71 | Groups section and Family/Friends/Avoid/Other exist | PASS | Groups screen tests |
+| 72 | colors persist by stable group ID | PASS | Group codec/repository tests |
+| 73 | rename preserves color | PASS | Stable-ID codec contract; no group lifecycle exists in Temp |
+| 74 | Restore Group Defaults affects Groups only | PASS | Independent restore tests |
+| 75 | Person Status labels absent | PASS | Colors screen text absence tests |
+| 76 | Event/Group restores independent | PASS | Independent restore tests |
+| 77 | compact Home still passes | PASS | Prompt A Home/WLI suite |
+| 78 | goal synchronization still passes | PASS | Prompt A synchronization suite |
+| 79 | Commitments remain absent | PASS | Prompt A removal suite |
+| 80 | Temple Visit Home card still passes | PASS | Prompt A Temple Visit suite |
+| 81 | no Home/WLI overflow returns | PASS | Prompt A responsive/overflow suite |
+
+Verification gates:
+- Focused Prompt B regression set: 115 passed, 0 failed, 0 skipped.
+- Full Flutter suite: 364 passed, 0 failed, 0 skipped.
+- Flutter analyzer: No issues found.
+- `git diff --check`: passed for the staged implementation and handoff.
+- Cleanup audit found no new `print`, `debugPrint`, diagnostic marker,
+  `DEBUG_`, `avoid_print`, `Timer.periodic`, or temporary harness in the
+  changed source. The only `tester.takeException()` matches are existing
+  `expect(tester.takeException(), isNull)` overflow assertions in the focused
+  planner test; no bare probe was introduced. The pre-existing sanitized
+  diagnostics logger was not changed.
+- No evidence files, APK pulls, screenshots, or diagnostic logs are staged.
+
+Build/install evidence:
+- Build command: C:\Users\sherl\AppData\Local\Temp\run_flutter.bat build apk --debug
+- APK: C:\Users\sherl\Documents\Next Transfer-Temp\build\app\outputs\flutter-apk\app-debug.apk
+- APK size: 195345119 bytes.
+- Local and installed `base.apk` SHA-256:
+  B81C59283DDAFAF45CCC1E9997C1507C78659A833106106B1D42933329C72F39
+- Authorized device: Infinix X6731, Android 14, mDNS adb serial
+  adb-10620253B3004617-2m7ZVB._adb-tls-connect._tcp.
+- `adb install -r` returned Success. No uninstall, `pm clear`, or data reset
+  was issued.
+- Package remained `com.nexttransfer.rmplanner`; dataDir remained
+  `/data/user/0/com.nexttransfer.rmplanner`; firstInstallTime remained
+  `2026-07-27 15:42:22`; the existing `app_flutter/next_transfer.sqlite`
+  remained present.
+- The installed app was force-stopped/relaunched and a device screenshot of
+  the existing edit form confirmed the locked WLI/reporting surfaces are gray
+  while People and Location remain available. Temporary device/local evidence
+  files were removed after review.
+
+Changed production files:
+- lib/features/planner/application/event_type_providers.dart
+- lib/features/planner/application/event_type_repository.dart
+- lib/features/planner/data/drift_event_type_repository.dart
+- lib/features/planner/data/drift_outcome_reporting_repository.dart
+- lib/features/planner/domain/event_color_preferences.dart
+- lib/features/planner/domain/planner_timeline_layout.dart
+- lib/features/planner/presentation/calendar_event_detail_screen.dart
+- lib/features/planner/presentation/calendar_event_form_screen.dart
+- lib/features/planner/presentation/event_type_picker_dialog.dart
+- lib/features/planner/presentation/planner_screen.dart
+- lib/features/planner/presentation/widgets/anchored_top_bar_popup.dart
+- lib/features/planner/presentation/widgets/planner_date_strip.dart
+- lib/features/planner/presentation/widgets/planner_event_block_content.dart
+- lib/features/planner/presentation/widgets/planner_event_block_layout_policy.dart
+- lib/features/planner/presentation/widgets/planner_event_color_preview.dart
+- lib/features/planner/presentation/widgets/planner_interactive_day_pager.dart
+- lib/features/settings/presentation/colors_screen.dart
+- lib/features/settings/presentation/event_color_picker_dialog.dart
+- lib/features/settings/presentation/planner_event_colors_screen.dart
+
+Changed tests:
+- test/features/planner/domain/event_color_preferences_test.dart
+- test/features/planner/domain/planner_timeline_layout_test.dart
+- test/features/planner/presentation/planner_design_lock_test.dart
+- test/features/planner/presentation/planner_interactive_day_pager_preview_test.dart
+- test/features/planner/presentation/planner_issue5_6_test.dart
+- test/features/planner/presentation/planner_quarter_hour_event_geometry_test.dart
+- test/features/settings/presentation/planner_event_colors_test.dart
+
+Implementation commit:
+- 8d68d5202be2e362fb4df78d361b40c3425631be
+  `fix(vs08): complete planner reporting and colors`
+
+Physical owner acceptance checklist (78 items):
+The implementation evidence is ready, but the owner must still return an
+explicit PASS or FAIL for each item after observing the installed app. A
+generic "looks good" response is not treated as all passes.
+
+| Item | Owner check | Status |
+|---:|---|---|
+| 01 | Current Status menu opens | READY - owner PASS/FAIL |
+| 02 | Completed/Contacted taps | READY - owner PASS/FAIL |
+| 03 | Missed - Attempted taps | READY - owner PASS/FAIL |
+| 04 | Did Not Attempt taps | READY - owner PASS/FAIL |
+| 05 | selected status persists | READY - owner PASS/FAIL |
+| 06 | detail refreshes | READY - owner PASS/FAIL |
+| 07 | menu closes | READY - owner PASS/FAIL |
+| 08 | one Activity History record | READY - owner PASS/FAIL |
+| 09 | contribution updates once | READY - owner PASS/FAIL |
+| 10 | changing status reconciles | READY - owner PASS/FAIL |
+| 11 | no duplicates | READY - owner PASS/FAIL |
+| 12 | exact wording | READY - owner PASS/FAIL |
+| 13 | dropdown begins below field | READY - owner PASS/FAIL |
+| 14 | field remains visible | READY - owner PASS/FAIL |
+| 15 | active types only | READY - owner PASS/FAIL |
+| 16 | linked section fully gray | READY - owner PASS/FAIL |
+| 17 | Report Required fully gray | READY - owner PASS/FAIL |
+| 18 | non-linked remains editable | READY - owner PASS/FAIL |
+| 19 | true 15-minute duration preserved | READY - owner PASS/FAIL |
+| 20 | readable at minimum zoom | READY - owner PASS/FAIL |
+| 21 | no 1.0-pixel overflow | READY - owner PASS/FAIL |
+| 22 | no 1.6-pixel overflow | READY - owner PASS/FAIL |
+| 23 | no yellow/black RenderFlex stripe | READY - owner PASS/FAIL |
+| 24 | 30-minute safe | READY - owner PASS/FAIL |
+| 25 | 45-minute safe | READY - owner PASS/FAIL |
+| 26 | 60-minute safe | READY - owner PASS/FAIL |
+| 27 | recurrence icon fits | READY - owner PASS/FAIL |
+| 28 | neighbor remains visible | READY - owner PASS/FAIL |
+| 29 | drag unchanged | READY - owner PASS/FAIL |
+| 30 | resize unchanged | READY - owner PASS/FAIL |
+| 31 | pinch unchanged | READY - owner PASS/FAIL |
+| 32 | final width during swipe | READY - owner PASS/FAIL |
+| 33 | no width jump | READY - owner PASS/FAIL |
+| 34 | previous/next date data correct | READY - owner PASS/FAIL |
+| 35 | selected shape removed | READY - owner PASS/FAIL |
+| 36 | selected weekday pink | READY - owner PASS/FAIL |
+| 37 | selected number pink | READY - owner PASS/FAIL |
+| 38 | selection works | READY - owner PASS/FAIL |
+| 39 | original backup surface preserved | READY - owner PASS/FAIL |
+| 40 | striped accent visible | READY - owner PASS/FAIL |
+| 41 | category + near-black stripe | READY - owner PASS/FAIL |
+| 42 | rightmost lane on overlap | READY - owner PASS/FAIL |
+| 43 | no false overflow stripe | READY - owner PASS/FAIL |
+| 44 | duplicate Colors heading removed | READY - owner PASS/FAIL |
+| 45 | Colors paragraph removed | READY - owner PASS/FAIL |
+| 46 | compact PMG-like rows | READY - owner PASS/FAIL |
+| 47 | active Event types only | READY - owner PASS/FAIL |
+| 48 | accent edits strip/icon | READY - owner PASS/FAIL |
+| 49 | surface edits background | READY - owner PASS/FAIL |
+| 50 | Cancel restores | READY - owner PASS/FAIL |
+| 51 | Save persists | READY - owner PASS/FAIL |
+| 52 | Planner refreshes | READY - owner PASS/FAIL |
+| 53 | Restore Event Defaults works | READY - owner PASS/FAIL |
+| 54 | SV works | READY - owner PASS/FAIL |
+| 55 | hue works | READY - owner PASS/FAIL |
+| 56 | live preview works | READY - owner PASS/FAIL |
+| 57 | no picker overflow | READY - owner PASS/FAIL |
+| 58 | drag does not dismiss | READY - owner PASS/FAIL |
+| 59 | Groups section exists | READY - owner PASS/FAIL |
+| 60 | Family editable | READY - owner PASS/FAIL |
+| 61 | Friends editable | READY - owner PASS/FAIL |
+| 62 | Avoid editable | READY - owner PASS/FAIL |
+| 63 | Other editable | READY - owner PASS/FAIL |
+| 64 | group colors persist | READY - owner PASS/FAIL |
+| 65 | Restore Group Defaults works | READY - owner PASS/FAIL |
+| 66 | Person Status labels not copied | READY - owner PASS/FAIL |
+| 67 | compact Home correct | READY - owner PASS/FAIL |
+| 68 | Weekly Planning sync correct | READY - owner PASS/FAIL |
+| 69 | Commitments absent | READY - owner PASS/FAIL |
+| 70 | Temple Visit Home correct | READY - owner PASS/FAIL |
+| 71 | no Home overflow | READY - owner PASS/FAIL |
+| 72 | Events remain | READY - owner PASS/FAIL |
+| 73 | Tasks remain | READY - owner PASS/FAIL |
+| 74 | app data not cleared | READY - owner PASS/FAIL |
+| 75 | installed APK hash matches | READY - owner PASS/FAIL |
+| 76 | PR #8 untouched | READY - owner PASS/FAIL |
+| 77 | VS-09 unstarted | READY - owner PASS/FAIL |
+| 78 | no push | READY - owner PASS/FAIL |
+
+Success boundary:
+All 81 automated requirements pass, the analyzer/build/update-install/hash/data
+gates pass, and the physical acceptance checklist is ready. No release or
+remote operation was performed. The remaining action is owner visual PASS/FAIL
+sign-off only; if any item fails, record the exact item and return to Prompt B
+scope without beginning Prompt C/VS-09.
