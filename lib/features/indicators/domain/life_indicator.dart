@@ -244,6 +244,50 @@ final class IndicatorGoalRevisionDraft {
   final IndicatorAmount? value;
 }
 
+enum IndicatorCommitmentEntityType { event, task }
+
+/// A read model for a contextual commitment.  The database stores only the
+/// relationship; this object is rebuilt from the canonical Event or Task on
+/// every read so renamed or rescheduled entities cannot drift from a goal.
+final class IndicatorCommitment {
+  const IndicatorCommitment({
+    required this.linkId,
+    required this.indicatorKey,
+    required this.entityType,
+    required this.entityId,
+    required this.label,
+    required this.date,
+    required this.startMinute,
+    required this.endMinute,
+    required this.colorArgb,
+    required this.isRecurring,
+    required this.statusLabel,
+    required this.isBackup,
+    this.occurrenceId,
+    this.activityTypeId,
+    this.isUnscheduled = false,
+  });
+
+  final String linkId;
+  final String indicatorKey;
+  final IndicatorCommitmentEntityType entityType;
+  final String entityId;
+  final String? occurrenceId;
+  final String label;
+  final PlannerDate? date;
+  final int? startMinute;
+  final int? endMinute;
+  final int colorArgb;
+  final bool isRecurring;
+  final String statusLabel;
+  final bool isBackup;
+  final String? activityTypeId;
+  final bool isUnscheduled;
+
+  bool get isEvent => entityType == IndicatorCommitmentEntityType.event;
+  bool get isTask => entityType == IndicatorCommitmentEntityType.task;
+}
+
 final class IndicatorDetail {
   const IndicatorDetail({
     required this.summary,

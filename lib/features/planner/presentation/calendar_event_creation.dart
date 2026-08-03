@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rmplanner/app/router/route_names.dart';
+import 'package:rmplanner/features/indicators/domain/life_indicator.dart';
 import 'package:rmplanner/features/planner/domain/event_type.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 import 'package:rmplanner/features/planner/presentation/calendar_event_form_screen.dart';
@@ -14,6 +15,8 @@ final class CalendarEventCreationContext {
     required this.date,
     this.startMinute,
     this.indicatorKey,
+    this.indicatorPeriod,
+    this.startTaskUnscheduled = false,
     this.recommendedEventTypeId,
     this.sourceTaskId,
   });
@@ -23,6 +26,8 @@ final class CalendarEventCreationContext {
   final PlannerDate date;
   final int? startMinute;
   final String? indicatorKey;
+  final IndicatorGoalPeriod? indicatorPeriod;
+  final bool startTaskUnscheduled;
   final String? recommendedEventTypeId;
   final String? sourceTaskId;
 }
@@ -48,12 +53,28 @@ Future<T?> launchCalendarEventCreation<T>(
       date: creationContext.date,
       startMinute: creationContext.startMinute,
       indicatorKey: creationContext.indicatorKey,
+      indicatorPeriod: creationContext.indicatorPeriod,
       sourceTaskId: creationContext.sourceTaskId,
     ),
     EventTypePickerTask() => context.push<T>(
-      '${RoutePaths.taskCreate}?date=${creationContext.date.iso8601}',
+      _taskCreationPath(creationContext),
     ),
   };
+}
+
+String _taskCreationPath(CalendarEventCreationContext creationContext) {
+  final query = <String, String>{
+    if (!creationContext.startTaskUnscheduled)
+      'date': creationContext.date.iso8601,
+    if (creationContext.indicatorKey != null)
+      'indicator': creationContext.indicatorKey!,
+    if (creationContext.indicatorPeriod != null) ...<String, String>{
+      'indicatorPeriod': creationContext.indicatorPeriod!.type.name,
+      'indicatorPeriodStart': creationContext.indicatorPeriod!.start.iso8601,
+    },
+  };
+  final encoded = Uri(queryParameters: query).query;
+  return '${RoutePaths.taskCreate}${encoded.isEmpty ? '' : '?$encoded'}';
 }
 
 Future<T?> showCalendarEventFormSheet<T>({
@@ -62,6 +83,7 @@ Future<T?> showCalendarEventFormSheet<T>({
   required PlannerDate date,
   int? startMinute,
   String? indicatorKey,
+  IndicatorGoalPeriod? indicatorPeriod,
   String? sourceTaskId,
 }) {
   final sheetController = DraggableScrollableController();
@@ -94,6 +116,7 @@ Future<T?> showCalendarEventFormSheet<T>({
                 initialEventType: eventType,
                 initialStartMinute: startMinute,
                 initialIndicatorKey: indicatorKey,
+                initialIndicatorPeriod: indicatorPeriod,
                 initialEventTypeId: eventType.id,
                 sheetPresentation: true,
                 sheetScrollController: scrollController,
@@ -107,6 +130,7 @@ Future<T?> showCalendarEventFormSheet<T>({
                 initialEventType: eventType,
                 initialStartMinute: startMinute,
                 initialIndicatorKey: indicatorKey,
+                initialIndicatorPeriod: indicatorPeriod,
                 initialEventTypeId: eventType.id,
                 sheetPresentation: true,
                 sheetScrollController: scrollController,

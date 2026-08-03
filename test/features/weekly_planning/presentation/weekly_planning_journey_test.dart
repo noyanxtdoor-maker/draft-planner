@@ -1,7 +1,5 @@
-import 'package:drift/drift.dart' hide isNull;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:rmplanner/core/database/app_database.dart';
 import 'package:rmplanner/core/diagnostics/sanitized_diagnostics.dart';
 import 'package:rmplanner/core/ids/identifier_source.dart';
 import 'package:rmplanner/core/platform/app_environment.dart';
@@ -18,8 +16,7 @@ void main() {
   const monday = PlannerDate(year: 2026, month: 7, day: 27);
 
   testWidgets(
-    'AC-I-001..010,019,020: Home opens the offline plan and selects factual '
-    'Task and Event commitments',
+    'VS08: Weekly Planning is WLI-only and has no global commitment creation',
     (tester) async {
       tester.view.physicalSize = const Size(941, 1672);
       tester.view.devicePixelRatio = 2.5;
@@ -28,8 +25,7 @@ void main() {
       final database = openMemoryDatabase();
       addTearDown(database.close);
       final startup = buildTestRepository(database: database);
-      final profile = await startup.completeOnboarding();
-      await _seedCommitments(database, profile.id);
+      await startup.completeOnboarding();
       final privacy = TestPrivacyDependencies(database: database);
 
       await tester.pumpWidget(
@@ -58,32 +54,12 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('Set Goal'), findsNWidgets(6));
-
-      await tester.scrollUntilVisible(
-        find.byKey(const Key('weekly-plan-add-commitment')),
-        250,
-        scrollable: find.descendant(
-          of: find.byKey(const Key('weekly-plan-list')),
-          matching: find.byType(Scrollable),
-        ),
-      );
-      await tester.tap(find.byKey(const Key('weekly-plan-add-commitment')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Select existing Task'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Prepare applications'));
-      await tester.pumpAndSettle();
-      expect(find.text('Prepare applications'), findsOneWidget);
-      expect(find.text('Outcome report outstanding'), findsOneWidget);
-
-      await tester.tap(find.byKey(const Key('weekly-plan-add-commitment')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Select weekly Event'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Application session'));
-      await tester.pumpAndSettle();
-      expect(find.text('Application session'), findsOneWidget);
-      expect(find.text('Outcome report outstanding'), findsNWidgets(2));
+      expect(find.byKey(const Key('weekly-plan-add-commitment')), findsNothing);
+      expect(find.byKey(const Key('weekly-plan-create-task')), findsNothing);
+      expect(find.byKey(const Key('weekly-plan-create-event')), findsNothing);
+      expect(find.text('Commitments'), findsNothing);
+      expect(find.text('New Task'), findsNothing);
+      expect(find.text('New Event'), findsNothing);
 
       await tester.tap(find.byKey(const Key('weekly-plan-history-button')));
       await tester.pumpAndSettle();
@@ -264,35 +240,4 @@ void main() {
       await tester.pump(const Duration(milliseconds: 1));
     },
   );
-}
-
-Future<void> _seedCommitments(AppDatabase database, String profileId) async {
-  final now = DateTime.utc(2026, 7, 27, 12);
-  await database
-      .into(database.plannerTasks)
-      .insert(
-        PlannerTasksCompanion.insert(
-          id: '82000000-0000-4000-8000-000000000001',
-          profileId: profileId,
-          title: 'Prepare applications',
-          dueDate: const Value<String?>('2026-07-29'),
-          requiresReport: const Value<bool>(true),
-          createdAtUtc: now,
-          updatedAtUtc: now,
-        ),
-      );
-  await database
-      .into(database.calendarEvents)
-      .insert(
-        CalendarEventsCompanion.insert(
-          id: '82000000-0000-4000-8000-000000000002',
-          profileId: profileId,
-          title: 'Application session',
-          timing: 'allDay',
-          startDate: '2026-07-28',
-          requiresReport: const Value<bool>(true),
-          createdAtUtc: now,
-          updatedAtUtc: now,
-        ),
-      );
 }

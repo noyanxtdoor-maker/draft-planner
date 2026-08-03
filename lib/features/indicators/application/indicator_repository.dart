@@ -53,4 +53,21 @@ abstract interface class IndicatorRepository {
     required String indicatorKey,
     required PlannerDate periodStart,
   });
+
+  Future<List<IndicatorCommitment>> readCommitments({
+    required String profileId,
+    required String indicatorKey,
+    required IndicatorGoalPeriod period,
+  });
+
+  Future<void> linkCommitment({
+    required String profileId,
+    required String indicatorKey,
+    required IndicatorGoalPeriod period,
+    required IndicatorCommitmentEntityType entityType,
+    required String entityId,
+    String? occurrenceId,
+    required String linkId,
+    required String operationId,
+  });
 }

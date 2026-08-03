@@ -320,10 +320,7 @@ void main() {
         findsNothing,
       );
       expect(find.textContaining('Optional people context'), findsNothing);
-      expect(
-        find.textContaining('Optional — Reporting & progress context'),
-        findsOneWidget,
-      );
+      expect(find.text('Reporting & progress context'), findsOneWidget);
       expect(await database.select(database.calendarEvents).get(), isEmpty);
       expect(
         await database.select(database.activityLedgerEntries).get(),
@@ -362,9 +359,9 @@ void main() {
       final homeContext = tester.element(
         find.byKey(const Key('main-bottom-navigation')),
       );
-      GoRouter.of(homeContext).go(
-        RoutePaths.indicatorDetail('job_applications', selected),
-      );
+      GoRouter.of(
+        homeContext,
+      ).go(RoutePaths.indicatorDetail('job_applications', selected));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('indicator-schedule-activity')));
       await tester.pumpAndSettle();
@@ -399,7 +396,7 @@ void main() {
     },
   );
 
-  testWidgets('VS-08: Weekly Planning opens the picker before the form', (
+  testWidgets('VS-08: goal Commitments opens the picker before the form', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(431, 912);
@@ -425,34 +422,34 @@ void main() {
         plannerDateSource: const FixedPlannerDateSource(selected),
       ),
     );
-    await tester.pumpAndSettle();
+    await tester.pumpAndSettle(
+      const Duration(milliseconds: 100),
+      EnginePhase.sendSemanticsUpdate,
+      const Duration(seconds: 5),
+    );
     await tester.tap(find.text('Start Weekly Planning'));
-    await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(
-      find.byKey(const Key('weekly-plan-create-event')),
-      250,
-      scrollable: find.descendant(
-        of: find.byKey(const Key('weekly-plan-list')),
-        matching: find.byType(Scrollable),
-      ),
+    await tester.pumpAndSettle(
+      const Duration(milliseconds: 100),
+      EnginePhase.sendSemanticsUpdate,
+      const Duration(seconds: 5),
     );
-    await tester.drag(
-      find.descendant(
-        of: find.byKey(const Key('weekly-plan-list')),
-        matching: find.byType(Scrollable),
-      ),
-      const Offset(0, -100),
+    await tester.tap(
+      find.byKey(const Key('weekly-plan-indicator-job_applications')),
     );
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('weekly-plan-create-event')));
-    await tester.pumpAndSettle();
-
+    await tester.pumpAndSettle(
+      const Duration(milliseconds: 100),
+      EnginePhase.sendSemanticsUpdate,
+      const Duration(seconds: 5),
+    );
+    expect(find.text('Edit Goal'), findsOneWidget);
+    expect(find.byKey(const Key('goal-add-commitment')), findsOneWidget);
+    expect(find.textContaining('Actual:'), findsNothing);
+    await tester.tap(find.byKey(const Key('goal-add-commitment')));
+    await tester.pump(const Duration(milliseconds: 500));
     expect(find.text('Select Event Type'), findsOneWidget);
     expect(find.text('New Calendar Event'), findsNothing);
-    await tester.tap(find.byKey(const Key('event-type-picker-cancel')));
-    await tester.pumpAndSettle();
-    expect(find.text('Weekly Planning'), findsOneWidget);
-    expect(await database.select(database.calendarEvents).get(), isEmpty);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 1));
   });
 
   testWidgets('VS-08: Task scheduling opens the picker before the form', (

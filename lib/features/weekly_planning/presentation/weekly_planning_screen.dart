@@ -6,8 +6,6 @@ import 'package:go_router/go_router.dart';
 import 'package:rmplanner/app/router/route_names.dart';
 import 'package:rmplanner/app/theme/app_theme.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
-import 'package:rmplanner/features/planner/domain/planner_task.dart';
-import 'package:rmplanner/features/planner/presentation/calendar_event_creation.dart';
 import 'package:rmplanner/features/weekly_planning/application/weekly_planning_providers.dart';
 import 'package:rmplanner/features/weekly_planning/domain/weekly_plan.dart';
 
@@ -47,7 +45,7 @@ final class WeeklyPlanningScreen extends ConsumerWidget {
             message: error.toString(),
             onRetry: () => ref.invalidate(weeklyPlanProvider(resolvedStart)),
           ),
-          data: (value) => _PlanBody(plan: value, requestedDate: resolvedStart),
+          data: (value) => _PlanBody(plan: value),
         ),
       ),
     );
@@ -55,10 +53,9 @@ final class WeeklyPlanningScreen extends ConsumerWidget {
 }
 
 final class _PlanBody extends ConsumerWidget {
-  const _PlanBody({required this.plan, required this.requestedDate});
+  const _PlanBody({required this.plan});
 
   final WeeklyPlan plan;
-  final PlannerDate requestedDate;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -96,98 +93,6 @@ final class _PlanBody extends ConsumerWidget {
                 : null,
           ),
         const SizedBox(height: 24),
-        Row(
-          children: <Widget>[
-            const Expanded(
-              child: Text('Commitments', style: AppTypography.sectionTitle),
-            ),
-            if (editable)
-              PopupMenuButton<WeeklyCommitmentType>(
-                key: const Key('weekly-plan-add-commitment'),
-                tooltip: 'Add commitment',
-                onSelected: (type) => _selectCommitment(context, ref, type),
-                itemBuilder: (context) =>
-                    const <PopupMenuEntry<WeeklyCommitmentType>>[
-                      PopupMenuItem(
-                        value: WeeklyCommitmentType.task,
-                        child: Text('Select existing Task'),
-                      ),
-                      PopupMenuItem(
-                        value: WeeklyCommitmentType.event,
-                        child: Text('Select weekly Event'),
-                      ),
-                    ],
-                icon: const Icon(Icons.add_circle_outline),
-              ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        if (plan.commitments.isEmpty)
-          const Card(
-            child: Padding(
-              padding: EdgeInsets.all(16),
-              child: Text(
-                'No commitments yet. Add existing items or create a Task or '
-                'Calendar Event.',
-              ),
-            ),
-          )
-        else
-          for (final commitment in plan.commitments)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Card(
-                child: ListTile(
-                  leading: Icon(
-                    commitment.type == WeeklyCommitmentType.task
-                        ? Icons.check_box_outlined
-                        : Icons.event_outlined,
-                  ),
-                  title: Text(commitment.label, style: AppTypography.cardTitle),
-                  subtitle: Text(
-                    _commitmentStatus(commitment),
-                    key: Key('commitment-status-${commitment.id}'),
-                    style: AppTypography.secondary,
-                  ),
-                ),
-              ),
-            ),
-        if (editable) ...<Widget>[
-          const SizedBox(height: 8),
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: OutlinedButton.icon(
-                  key: const Key('weekly-plan-create-task'),
-                  onPressed: () => context.push(
-                    '${RoutePaths.taskCreate}?date=${plan.period.start.iso8601}',
-                  ),
-                  icon: const Icon(Icons.add_task),
-                  label: const Text('New Task'),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: OutlinedButton.icon(
-                  key: const Key('weekly-plan-create-event'),
-                  onPressed: () => unawaited(
-                    launchCalendarEventCreation<void>(
-                      context,
-                      ref,
-                      CalendarEventCreationContext(
-                        source: 'weekly-planning',
-                        destinationPath: RoutePaths.calendarEventCreate,
-                        date: plan.period.start,
-                      ),
-                    ),
-                  ),
-                  icon: const Icon(Icons.event_available),
-                  label: const Text('New Event'),
-                ),
-              ),
-            ],
-          ),
-        ],
         const SizedBox(height: 20),
         if (state == WeeklyPlanState.reviewDue)
           FilledButton.icon(
@@ -225,85 +130,6 @@ final class _PlanBody extends ConsumerWidget {
 
   void _openWeek(BuildContext context, PlannerDate start) {
     unawaited(context.push(RoutePaths.weeklyPlanningFor(_mondayOf(start))));
-  }
-
-  Future<void> _selectCommitment(
-    BuildContext context,
-    WidgetRef ref,
-    WeeklyCommitmentType type,
-  ) async {
-    final repository = ref.read(weeklyPlanningRepositoryProvider);
-    final profileId = ref.read(weeklyPlanningProfileIdProvider);
-    final candidates = type == WeeklyCommitmentType.task
-        ? await repository.readTaskCandidates(
-            profileId: profileId,
-            planId: plan.id,
-          )
-        : await repository.readEventCandidates(
-            profileId: profileId,
-            planId: plan.id,
-          );
-    if (!context.mounted) {
-      return;
-    }
-    if (candidates.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            type == WeeklyCommitmentType.task
-                ? 'No unselected incomplete Tasks are available.'
-                : 'No unselected Events occur in this week.',
-          ),
-        ),
-      );
-      return;
-    }
-    final selected = await showDialog<WeeklyPlanCommitment>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(
-          type == WeeklyCommitmentType.task ? 'Select Task' : 'Select Event',
-        ),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: ListView(
-            shrinkWrap: true,
-            children: <Widget>[
-              for (final candidate in candidates)
-                ListTile(
-                  title: Text(candidate.label),
-                  onTap: () => Navigator.of(dialogContext).pop(candidate),
-                ),
-            ],
-          ),
-        ),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Cancel'),
-          ),
-        ],
-      ),
-    );
-    if (selected == null || !context.mounted) {
-      return;
-    }
-    try {
-      await repository.addCommitment(
-        profileId: profileId,
-        planId: plan.id,
-        type: selected.type,
-        sourceId: selected.sourceId,
-        occurrenceId: selected.occurrenceId,
-      );
-      ref.invalidate(weeklyPlanProvider(requestedDate));
-    } on WeeklyPlanningValidationException catch (error) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(error.message)));
-      }
-    }
   }
 
   Future<void> _startNextWeek(BuildContext context, WidgetRef ref) async {
@@ -372,21 +198,6 @@ final class _PlanBody extends ConsumerWidget {
       context.go(RoutePaths.weeklyPlanningFor(next.period.start));
     }
   }
-
-  String _commitmentStatus(WeeklyPlanCommitment item) {
-    if (item.hasUnresolvedReport) {
-      return 'Outcome report outstanding';
-    }
-    if (item.requiresReport) {
-      return 'Outcome report recorded';
-    }
-    if (item.type == WeeklyCommitmentType.task) {
-      return item.taskStatus == PlannerTaskStatus.incomplete
-          ? 'Incomplete Task'
-          : 'Task ${item.taskStatus!.name}';
-    }
-    return 'Calendar Event';
-  }
 }
 
 final class _WeekNavigation extends StatelessWidget {
@@ -404,12 +215,12 @@ final class _WeekNavigation extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final start = MaterialLocalizations.of(context).formatShortMonthDay(
-      period.start.asLocalDate,
-    );
-    final end = MaterialLocalizations.of(context).formatShortMonthDay(
-      period.end.asLocalDate,
-    );
+    final start = MaterialLocalizations.of(
+      context,
+    ).formatShortMonthDay(period.start.asLocalDate);
+    final end = MaterialLocalizations.of(
+      context,
+    ).formatShortMonthDay(period.end.asLocalDate);
     final label = period.start.year == period.end.year
         ? '$start – $end, ${period.end.year}'
         : '$start, ${period.start.year} – $end, ${period.end.year}';
@@ -417,7 +228,11 @@ final class _WeekNavigation extends StatelessWidget {
       height: 64,
       child: Row(
         children: <Widget>[
-          const Icon(Icons.calendar_month_outlined, color: AppTheme.rose, size: 24),
+          const Icon(
+            Icons.calendar_month_outlined,
+            color: AppTheme.rose,
+            size: 24,
+          ),
           const SizedBox(width: 16),
           Expanded(child: Text(label, style: AppTypography.body)),
           IconButton(
@@ -445,7 +260,11 @@ final class _WeekNavigation extends StatelessWidget {
 }
 
 final class _WeeklyGoalRow extends StatelessWidget {
-  const _WeeklyGoalRow({required this.indicator, required this.onTap, super.key});
+  const _WeeklyGoalRow({
+    required this.indicator,
+    required this.onTap,
+    super.key,
+  });
 
   final WeeklyIndicatorReview indicator;
   final VoidCallback? onTap;

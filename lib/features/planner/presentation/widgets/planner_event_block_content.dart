@@ -89,12 +89,12 @@ final class PlannerEventBlockContentView extends StatelessWidget {
     );
     final inlineText = '${event.displayTitle}  $timeText';
     final verticalPadding = density == Density.veryShort ? 0.0 : 4.0;
-    final rightPadding = event.isRecurring
+    final rightPadding = event.isRecurring && content.showRecurrence
         ? PlannerEventBlockLayoutPolicy.recurringContentRightPadding
         : PlannerEventBlockLayoutPolicy.contentHorizontalPadding;
 
     return Stack(
-      clipBehavior: Clip.hardEdge,
+      clipBehavior: Clip.none,
       children: <Widget>[
         Positioned.fill(
           child: Padding(
@@ -145,7 +145,7 @@ final class PlannerEventBlockContentView extends StatelessWidget {
             ),
           ),
         ),
-        if (event.isRecurring)
+        if (event.isRecurring && content.showRecurrence)
           Positioned(
             key: recurrenceKey,
             top: density == Density.veryShort ? 1 : 3,

@@ -63,20 +63,6 @@ void main() {
         find.byKey(const Key('event-title-field')),
         'Offline Calendar Event',
       );
-      final allDaySwitch = find.byKey(const Key('event-all-day-switch'));
-      for (var attempt = 0; attempt < 8; attempt++) {
-        if (allDaySwitch.evaluate().isNotEmpty) {
-          break;
-        }
-        await tester.drag(
-          find.byKey(const Key('calendar-event-form-scroll')),
-          const Offset(0, -220),
-        );
-        await tester.pumpAndSettle();
-      }
-      expect(allDaySwitch, findsOneWidget);
-      await tester.tap(allDaySwitch);
-      expect(tester.takeException(), isNull, reason: 'all-day selected');
       final formScrollable = find.byElementPredicate((element) {
         if (element.widget is! Scrollable || element is! StatefulElement) {
           return false;
@@ -104,8 +90,10 @@ void main() {
         expect(target, findsOneWidget);
       }
 
-      final backupOffset = formState.position.maxScrollExtent - 350;
-      formState.position.jumpTo(backupOffset < 0 ? 0 : backupOffset);
+      formState.position.jumpTo(0);
+      await tester.pumpAndSettle();
+      await reveal(addLocation);
+      await tester.ensureVisible(addLocation);
       await tester.pumpAndSettle();
       await tester.tap(addLocation);
       await tester.pumpAndSettle();
@@ -142,23 +130,20 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
 
-      // VS-08 patch removed the all-day lane from Day view; all-day records
-      // remain preserved in storage and surface through Schedule, Search, and
-      // Event details. Verify persistence directly through the database so
-      // the "Save persists one Event" and "All-day records remain preserved"
-      // locked behaviors are still asserted.
-      final savedAllDay =
+      // VS-08 creation no longer exposes an All-day control. Legacy all-day
+      // rows remain readable through their existing detail/search flows; this
+      // journey verifies the normal timed Event path and its persisted fields.
+      final savedEvent =
           await (database.select(database.calendarEvents)
                 ..where((row) => row.title.equals('Offline Calendar Event')))
               .getSingle();
-      expect(savedAllDay.title, 'Offline Calendar Event');
-      expect(savedAllDay.timing, 'allDay');
-      expect(savedAllDay.locationText, 'Typed location only');
-      expect(savedAllDay.requiresReport, isTrue);
-      expect(savedAllDay.isBackupAppointment, isTrue);
-      expect(savedAllDay.profileId, profile.id);
-      // No all-day fixture renders on the Day timeline any more.
-      expect(find.text('Offline Calendar Event'), findsNothing);
+      expect(savedEvent.title, 'Offline Calendar Event');
+      expect(savedEvent.timing, 'timed');
+      expect(savedEvent.locationText, 'Typed location only');
+      expect(savedEvent.requiresReport, isTrue);
+      expect(savedEvent.isBackupAppointment, isTrue);
+      expect(savedEvent.profileId, profile.id);
+      expect(find.text('Offline Calendar Event'), findsOneWidget);
       expect(find.byKey(const Key('all-day-section')), findsNothing);
       // The 'Other' activity-type chip is still surfaced through the new
       // selected-type indicator on the create form, so make sure no stale

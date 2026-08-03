@@ -458,6 +458,40 @@ class IndicatorGoalRevisions extends Table {
   Set<Column<Object>> get primaryKey => <Column<Object>>{id};
 }
 
+/// A relationship between a stable Life Indicator slot and a canonical
+/// Planner entity.  The link stores identity and creation context only;
+/// labels, dates, recurrence, and status are always read from the source
+/// Event or Task.
+@TableIndex(
+  name: 'indicator_commitment_link_unique',
+  columns: <Symbol>{
+    #profileId,
+    #indicatorKey,
+    #periodType,
+    #periodStartDate,
+    #commitmentKey,
+  },
+  unique: true,
+)
+@DataClassName('IndicatorCommitmentLinkRow')
+class IndicatorCommitmentLinks extends Table {
+  TextColumn get id => text()();
+  TextColumn get profileId =>
+      text().references(LocalProfiles, #id, onDelete: KeyAction.restrict)();
+  TextColumn get indicatorKey => text()();
+  TextColumn get periodType => text()();
+  TextColumn get periodStartDate => text()();
+  TextColumn get entityType => text()();
+  TextColumn get entityId => text()();
+  TextColumn get occurrenceId => text().nullable()();
+  TextColumn get commitmentKey => text()();
+  TextColumn get operationId => text()();
+  DateTimeColumn get createdAtUtc => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => <Column<Object>>{id};
+}
+
 @TableIndex(
   name: 'weekly_plan_profile_period_unique',
   columns: <Symbol>{#profileId, #periodStartDate},
@@ -707,6 +741,7 @@ class PlannerPreferences extends Table {
     ActivityLedgerEntries,
     WeeklyIndicatorTargetRevisions,
     IndicatorGoalRevisions,
+    IndicatorCommitmentLinks,
     WeeklyPlans,
     WeeklyPlanCommitments,
     WeeklyPlanReviews,
@@ -772,7 +807,7 @@ final class AppDatabase extends _$AppDatabase {
   final bool _injectPlannerExperienceMigrationFailure;
 
   @override
-  int get schemaVersion => _schemaVersionOverride ?? 14;
+  int get schemaVersion => _schemaVersionOverride ?? 15;
 
   @override
   MigrationStrategy get migration {
@@ -820,6 +855,9 @@ final class AppDatabase extends _$AppDatabase {
         }
         if (schemaVersion >= 14) {
           await migrator.createTable(indicatorGoalRevisions);
+        }
+        if (schemaVersion >= 15) {
+          await migrator.createTable(indicatorCommitmentLinks);
         }
       },
       onUpgrade: (migrator, from, to) async {
@@ -1057,6 +1095,25 @@ final class AppDatabase extends _$AppDatabase {
           }
           if (from < 14 && to >= 14) {
             await migrator.createTable(indicatorGoalRevisions);
+          }
+          if (from < 15 && to >= 15) {
+            await migrator.createTable(indicatorCommitmentLinks);
+            // Promote legacy weekly revisions into the canonical goal table.
+            // IDs and operation IDs are retained so idempotency and revision
+            // chains survive the migration without creating a second write.
+            await customStatement('''
+              INSERT OR IGNORE INTO indicator_goal_revisions
+                (id, profile_id, indicator_key, period_type,
+                 period_start_date, period_end_date, state, value_scaled,
+                 value_scale, unit, supersedes_revision_id, operation_id,
+                 created_at_utc)
+              SELECT id, profile_id, indicator_key, 'weekly',
+                     period_start_date,
+                     date(period_start_date, '+6 days'),
+                     state, value_scaled, value_scale, unit,
+                     supersedes_revision_id, operation_id, created_at_utc
+              FROM weekly_indicator_target_revisions
+            ''');
           }
         });
       },

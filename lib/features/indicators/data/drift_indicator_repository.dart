@@ -31,6 +31,7 @@ final class DriftIndicatorRepository implements IndicatorRepository {
             database.lifeIndicatorDefinitions,
             database.weeklyIndicatorTargetRevisions,
             database.indicatorGoalRevisions,
+            database.indicatorCommitmentLinks,
             database.activityLedgerEntries,
             database.outcomeReports,
             database.plannerTasks,
@@ -56,7 +57,8 @@ final class DriftIndicatorRepository implements IndicatorRepository {
               ]))
             .get();
     final targets = await _latestTargets(profileId, period.start);
-    final currentWeekPlanned = definitions.isNotEmpty &&
+    final currentWeekPlanned =
+        definitions.isNotEmpty &&
         definitions.every(
           (definition) => targets[definition.indicatorKey]?.state == 'explicit',
         );
@@ -219,79 +221,16 @@ final class DriftIndicatorRepository implements IndicatorRepository {
     required String profileId,
     required IndicatorTargetRevisionDraft draft,
   }) async {
-    if (!Uuid.isValidUUID(fromString: draft.id) ||
-        !Uuid.isValidUUID(fromString: draft.operationId)) {
-      throw StateError('Target revisions require stable UUID identities');
-    }
-    await database.transaction(() async {
-      final priorOperation =
-          await (database.select(database.weeklyIndicatorTargetRevisions)
-                ..where((table) => table.operationId.equals(draft.operationId))
-                ..limit(1))
-              .getSingleOrNull();
-      if (priorOperation != null) {
-        return;
-      }
-      final plan =
-          await (database.select(database.weeklyPlans)
-                ..where(
-                  (table) =>
-                      table.profileId.equals(profileId) &
-                      table.periodStartDate.equals(draft.period.start.iso8601),
-                )
-                ..limit(1))
-              .getSingleOrNull();
-      if (plan != null &&
-          (plan.state == 'reviewed' || plan.state == 'historical')) {
-        throw StateError(
-          'Reviewed and historical Weekly Plan targets are read-only',
-        );
-      }
-      final definition =
-          await (database.select(database.lifeIndicatorDefinitions)
-                ..where(
-                  (table) =>
-                      table.profileId.equals(profileId) &
-                      table.indicatorKey.equals(draft.indicatorKey),
-                )
-                ..limit(1))
-              .getSingleOrNull();
-      if (definition == null) {
-        throw StateError('Life Indicator not found');
-      }
-      final value = draft.value;
-      if (value != null) {
-        if (value.scaledValue < 0 ||
-            value.unit != definition.unit ||
-            value.scale != IndicatorUnitPolicy.allowedScale(definition.unit)) {
-          throw StateError('Target value does not match the indicator unit');
-        }
-      }
-      final prior = await _latestTarget(
-        profileId,
-        draft.indicatorKey,
-        draft.period.start,
-      );
-      await database
-          .into(database.weeklyIndicatorTargetRevisions)
-          .insert(
-            WeeklyIndicatorTargetRevisionsCompanion.insert(
-              id: draft.id,
-              profileId: profileId,
-              indicatorKey: draft.indicatorKey,
-              periodStartDate: draft.period.start.iso8601,
-              state: value == null ? 'notSet' : 'explicit',
-              valueScaled: Value<int?>(value?.scaledValue),
-              valueScale:
-                  value?.scale ??
-                  IndicatorUnitPolicy.allowedScale(definition.unit),
-              unit: definition.unit,
-              supersedesRevisionId: Value<String?>(prior?.id),
-              operationId: draft.operationId,
-              createdAtUtc: clock.nowUtc(),
-            ),
-          );
-    });
+    await saveGoal(
+      profileId: profileId,
+      draft: IndicatorGoalRevisionDraft(
+        id: draft.id,
+        operationId: draft.operationId,
+        indicatorKey: draft.indicatorKey,
+        period: IndicatorGoalPeriod.weekly(draft.period.start),
+        value: draft.value,
+      ),
+    );
   }
 
   @override
@@ -299,19 +238,6 @@ final class DriftIndicatorRepository implements IndicatorRepository {
     required String profileId,
     required IndicatorGoalRevisionDraft draft,
   }) async {
-    if (draft.period.type == IndicatorGoalPeriodType.weekly) {
-      await saveTarget(
-        profileId: profileId,
-        draft: IndicatorTargetRevisionDraft(
-          id: draft.id,
-          operationId: draft.operationId,
-          indicatorKey: draft.indicatorKey,
-          period: draft.period.indicatorPeriod,
-          value: draft.value,
-        ),
-      );
-      return;
-    }
     if (!Uuid.isValidUUID(fromString: draft.id) ||
         !Uuid.isValidUUID(fromString: draft.operationId)) {
       throw StateError('Goal revisions require stable UUID identities');
@@ -325,12 +251,32 @@ final class DriftIndicatorRepository implements IndicatorRepository {
       if (priorOperation != null) {
         return;
       }
+      if (draft.period.type == IndicatorGoalPeriodType.weekly) {
+        final plan =
+            await (database.select(database.weeklyPlans)
+                  ..where(
+                    (table) =>
+                        table.profileId.equals(profileId) &
+                        table.periodStartDate.equals(
+                          draft.period.start.iso8601,
+                        ),
+                  )
+                  ..limit(1))
+                .getSingleOrNull();
+        if (plan != null &&
+            (plan.state == 'reviewed' || plan.state == 'historical')) {
+          throw StateError(
+            'Reviewed and historical Weekly Plan targets are read-only',
+          );
+        }
+      }
       final definition = await _definition(profileId, draft.indicatorKey);
       final value = draft.value;
       if (value != null &&
           (value.scaledValue < 0 ||
               value.unit != definition.unit ||
-              value.scale != IndicatorUnitPolicy.allowedScale(definition.unit))) {
+              value.scale !=
+                  IndicatorUnitPolicy.allowedScale(definition.unit))) {
         throw StateError('Goal value does not match the indicator unit');
       }
       final prior = await _latestGoal(
@@ -338,23 +284,27 @@ final class DriftIndicatorRepository implements IndicatorRepository {
         indicatorKey: draft.indicatorKey,
         period: draft.period,
       );
-      await database.into(database.indicatorGoalRevisions).insert(
-        IndicatorGoalRevisionsCompanion.insert(
-          id: draft.id,
-          profileId: profileId,
-          indicatorKey: draft.indicatorKey,
-          periodType: draft.period.type.name,
-          periodStartDate: draft.period.start.iso8601,
-          periodEndDate: draft.period.end.iso8601,
-          state: value == null ? 'notSet' : 'explicit',
-          valueScaled: Value<int?>(value?.scaledValue),
-          valueScale: value?.scale ?? IndicatorUnitPolicy.allowedScale(definition.unit),
-          unit: definition.unit,
-          supersedesRevisionId: Value<String?>(prior?.id),
-          operationId: draft.operationId,
-          createdAtUtc: clock.nowUtc(),
-        ),
-      );
+      await database
+          .into(database.indicatorGoalRevisions)
+          .insert(
+            IndicatorGoalRevisionsCompanion.insert(
+              id: draft.id,
+              profileId: profileId,
+              indicatorKey: draft.indicatorKey,
+              periodType: draft.period.type.name,
+              periodStartDate: draft.period.start.iso8601,
+              periodEndDate: draft.period.end.iso8601,
+              state: value == null ? 'notSet' : 'explicit',
+              valueScaled: Value<int?>(value?.scaledValue),
+              valueScale:
+                  value?.scale ??
+                  IndicatorUnitPolicy.allowedScale(definition.unit),
+              unit: definition.unit,
+              supersedesRevisionId: Value<String?>(prior?.id),
+              operationId: draft.operationId,
+              createdAtUtc: clock.nowUtc(),
+            ),
+          );
     });
   }
 
@@ -386,7 +336,7 @@ final class DriftIndicatorRepository implements IndicatorRepository {
     final periods = <IndicatorGoalPeriod>[];
     switch (periodType) {
       case IndicatorGoalPeriodType.daily:
-        for (var offset = 6; offset >= 0; offset -= 1) {
+        for (var offset = 4; offset >= 0; offset -= 1) {
           periods.add(IndicatorGoalPeriod.daily(anchor.addDays(-offset)));
         }
       case IndicatorGoalPeriodType.weekly:
@@ -399,7 +349,11 @@ final class DriftIndicatorRepository implements IndicatorRepository {
       case IndicatorGoalPeriodType.monthly:
         final cursor = IndicatorGoalPeriod.monthly(anchor);
         for (var offset = 4; offset >= 0; offset -= 1) {
-          final month = DateTime(cursor.start.year, cursor.start.month - offset, 1);
+          final month = DateTime(
+            cursor.start.year,
+            cursor.start.month - offset,
+            1,
+          );
           periods.add(
             IndicatorGoalPeriod.monthly(PlannerDate.fromDateTime(month)),
           );
@@ -466,28 +420,29 @@ final class DriftIndicatorRepository implements IndicatorRepository {
     required PlannerDate periodStart,
   }) async {
     final rows =
-        await (database.select(database.weeklyIndicatorTargetRevisions)..where(
+        await (database.select(database.indicatorGoalRevisions)..where(
               (table) =>
                   table.profileId.equals(profileId) &
                   table.indicatorKey.equals(indicatorKey) &
+                  table.periodType.equals(IndicatorGoalPeriodType.weekly.name) &
                   table.periodStartDate.equals(periodStart.iso8601),
             ))
             .get();
-    final byId = <String, WeeklyIndicatorTargetRevisionRow>{
+    final byId = <String, IndicatorGoalRevisionRow>{
       for (final row in rows) row.id: row,
     };
     final superseded = rows
         .map((row) => row.supersedesRevisionId)
         .whereType<String>()
         .toSet();
-    WeeklyIndicatorTargetRevisionRow? current;
+    IndicatorGoalRevisionRow? current;
     for (final row in rows) {
       if (!superseded.contains(row.id)) {
         current = row;
         break;
       }
     }
-    final ordered = <WeeklyIndicatorTargetRevisionRow>[];
+    final ordered = <IndicatorGoalRevisionRow>[];
     while (current != null) {
       ordered.add(current);
       current = current.supersedesRevisionId == null
@@ -511,6 +466,258 @@ final class DriftIndicatorRepository implements IndicatorRepository {
           ),
         )
         .toList(growable: false);
+  }
+
+  @override
+  Future<void> linkCommitment({
+    required String profileId,
+    required String indicatorKey,
+    required IndicatorGoalPeriod period,
+    required IndicatorCommitmentEntityType entityType,
+    required String entityId,
+    String? occurrenceId,
+    required String linkId,
+    required String operationId,
+  }) async {
+    if (!Uuid.isValidUUID(fromString: linkId) ||
+        !Uuid.isValidUUID(fromString: operationId)) {
+      throw StateError('Commitment links require stable UUID identities');
+    }
+    if (entityId.trim().isEmpty) {
+      throw StateError('Commitment links require a source entity');
+    }
+    await database.transaction(() async {
+      final priorOperation =
+          await (database.select(database.indicatorCommitmentLinks)
+                ..where((table) => table.operationId.equals(operationId))
+                ..limit(1))
+              .getSingleOrNull();
+      if (priorOperation != null) {
+        return;
+      }
+      await _definition(profileId, indicatorKey);
+      final commitmentKey =
+          '${entityType.name}:$entityId:${occurrenceId ?? ''}';
+      final existing =
+          await (database.select(database.indicatorCommitmentLinks)
+                ..where(
+                  (table) =>
+                      table.profileId.equals(profileId) &
+                      table.indicatorKey.equals(indicatorKey) &
+                      table.periodType.equals(period.type.name) &
+                      table.periodStartDate.equals(period.start.iso8601) &
+                      table.commitmentKey.equals(commitmentKey),
+                )
+                ..limit(1))
+              .getSingleOrNull();
+      if (existing != null) {
+        return;
+      }
+      await database
+          .into(database.indicatorCommitmentLinks)
+          .insert(
+            IndicatorCommitmentLinksCompanion.insert(
+              id: linkId,
+              profileId: profileId,
+              indicatorKey: indicatorKey,
+              periodType: period.type.name,
+              periodStartDate: period.start.iso8601,
+              entityType: entityType.name,
+              entityId: entityId,
+              occurrenceId: Value<String?>(occurrenceId),
+              commitmentKey: commitmentKey,
+              operationId: operationId,
+              createdAtUtc: clock.nowUtc(),
+            ),
+          );
+    });
+  }
+
+  @override
+  Future<List<IndicatorCommitment>> readCommitments({
+    required String profileId,
+    required String indicatorKey,
+    required IndicatorGoalPeriod period,
+  }) async {
+    final links =
+        await (database.select(database.indicatorCommitmentLinks)
+              ..where(
+                (table) =>
+                    table.profileId.equals(profileId) &
+                    table.indicatorKey.equals(indicatorKey),
+              )
+              ..orderBy(<OrderingTerm Function(IndicatorCommitmentLinks)>[
+                (table) => OrderingTerm.asc(table.createdAtUtc),
+              ]))
+            .get();
+    final result = <IndicatorCommitment>[];
+    final seen = <String>{};
+    for (final link in links) {
+      final type = IndicatorCommitmentEntityType.values
+          .where((value) => value.name == link.entityType)
+          .firstOrNull;
+      if (type == null) {
+        // Unknown link kinds are ignored so a future migration cannot make a
+        // valid goal screen fail to render its other commitments.
+        continue;
+      }
+      if (type == IndicatorCommitmentEntityType.task) {
+        final task =
+            await (database.select(database.plannerTasks)
+                  ..where(
+                    (table) =>
+                        table.profileId.equals(profileId) &
+                        table.id.equals(link.entityId),
+                  )
+                  ..limit(1))
+                .getSingleOrNull();
+        if (task == null || task.status == 'cancelled') {
+          continue;
+        }
+        final date = task.dueDate == null
+            ? null
+            : PlannerDate.parse(task.dueDate!);
+        final inCreationPeriod =
+            link.periodType == period.type.name &&
+            link.periodStartDate == period.start.iso8601;
+        if (date == null && !inCreationPeriod) {
+          continue;
+        }
+        if (date != null && !period.indicatorPeriod.contains(date)) {
+          continue;
+        }
+        final identity = '${link.id}:task:${task.id}';
+        if (!seen.add(identity)) {
+          continue;
+        }
+        result.add(
+          IndicatorCommitment(
+            linkId: link.id,
+            indicatorKey: indicatorKey,
+            entityType: type,
+            entityId: task.id,
+            label: task.title,
+            date: date,
+            startMinute: task.dueMinute,
+            endMinute: task.dueMinute == null ? null : task.dueMinute! + 30,
+            colorArgb: 0xFF8C8F93,
+            isRecurring: _isRecurringTask(task.recurrenceFrequency),
+            statusLabel: _taskStatusLabel(task.status),
+            isBackup: false,
+            occurrenceId: link.occurrenceId,
+            isUnscheduled: date == null,
+          ),
+        );
+        continue;
+      }
+
+      final draft = await calendarEvents.readEventDraft(
+        profileId: profileId,
+        eventId: link.entityId,
+      );
+      if (draft == null) {
+        continue;
+      }
+      final dates = _commitmentEventDates(draft, period);
+      for (final originalDate in dates) {
+        final occurrence = await calendarEvents.readOccurrence(
+          profileId: profileId,
+          eventId: link.entityId,
+          originalDate: originalDate,
+        );
+        if (occurrence == null ||
+            occurrence.status == CalendarEventStatus.cancelled ||
+            !period.indicatorPeriod.contains(occurrence.displayDate)) {
+          continue;
+        }
+        final identity = '${link.id}:event:${occurrence.id}';
+        if (!seen.add(identity)) {
+          continue;
+        }
+        result.add(
+          IndicatorCommitment(
+            linkId: link.id,
+            indicatorKey: indicatorKey,
+            entityType: type,
+            entityId: occurrence.eventId,
+            occurrenceId: occurrence.id,
+            label: occurrence.displayTitle,
+            date: occurrence.displayDate,
+            startMinute: occurrence.startDisplay == null
+                ? null
+                : occurrence.startDisplay!.hour * 60 +
+                      occurrence.startDisplay!.minute,
+            endMinute: occurrence.endDisplay == null
+                ? null
+                : occurrence.endDisplay!.hour * 60 +
+                      occurrence.endDisplay!.minute,
+            colorArgb: occurrence.activityTypeColorValue ?? 0xFFE91E63,
+            isRecurring: occurrence.isRecurring,
+            statusLabel: calendarEventStatusLabel(occurrence.status),
+            isBackup: occurrence.isBackupAppointment,
+            activityTypeId: occurrence.activityTypeId,
+          ),
+        );
+      }
+    }
+    result.sort((left, right) {
+      final leftDate = left.date;
+      final rightDate = right.date;
+      if (leftDate == null && rightDate != null) {
+        return -1;
+      }
+      if (leftDate != null && rightDate == null) {
+        return 1;
+      }
+      final dateCompare = leftDate?.compareTo(rightDate!) ?? 0;
+      if (dateCompare != 0) {
+        return dateCompare;
+      }
+      return left.label.compareTo(right.label);
+    });
+    return result;
+  }
+
+  List<PlannerDate> _commitmentEventDates(
+    CalendarEventDraft draft,
+    IndicatorGoalPeriod period,
+  ) {
+    if (!draft.recurrence.isRecurring) {
+      return <PlannerDate>[draft.startDate];
+    }
+    final dates = <PlannerDate>{draft.startDate};
+    for (
+      var offset = 0;
+      offset <=
+          period.end.asLocalDate.difference(period.start.asLocalDate).inDays;
+      offset += 1
+    ) {
+      final candidate = period.start.addDays(offset);
+      if (draft.recurrence.occurrenceIndexOn(
+            startDate: draft.startDate,
+            targetDate: candidate,
+          ) !=
+          null) {
+        dates.add(candidate);
+      }
+    }
+    return dates.toList(growable: false);
+  }
+
+  bool _isRecurringTask(String rawFrequency) {
+    final frequency = PlannerTaskRecurrence.values
+        .where((value) => value.name == rawFrequency)
+        .firstOrNull;
+    return frequency != null && frequency != PlannerTaskRecurrence.none;
+  }
+
+  String _taskStatusLabel(String rawStatus) {
+    return switch (rawStatus) {
+      'completed' => 'Completed',
+      'skipped' => 'Skipped',
+      'cancelled' => 'Cancelled',
+      _ => 'Incomplete',
+    };
   }
 
   Future<IndicatorAmount> _readActual({
@@ -548,14 +755,15 @@ final class DriftIndicatorRepository implements IndicatorRepository {
     String profileId,
     String indicatorKey,
   ) async {
-    final definition = await (database.select(database.lifeIndicatorDefinitions)
-          ..where(
-            (table) =>
-                table.profileId.equals(profileId) &
-                table.indicatorKey.equals(indicatorKey),
-          )
-          ..limit(1))
-        .getSingleOrNull();
+    final definition =
+        await (database.select(database.lifeIndicatorDefinitions)
+              ..where(
+                (table) =>
+                    table.profileId.equals(profileId) &
+                    table.indicatorKey.equals(indicatorKey),
+              )
+              ..limit(1))
+            .getSingleOrNull();
     if (definition == null) {
       throw StateError('Life Indicator not found');
     }
@@ -574,20 +782,13 @@ final class DriftIndicatorRepository implements IndicatorRepository {
       definition: definition,
       period: period.indicatorPeriod,
     );
-    IndicatorTarget target;
-    if (period.type == IndicatorGoalPeriodType.weekly) {
-      target = _mapTarget(
-        await _latestTarget(profileId, indicatorKey, period.start),
-      );
-    } else {
-      target = _mapGoalTarget(
-        await _latestGoal(
-          profileId: profileId,
-          indicatorKey: indicatorKey,
-          period: period,
-        ),
-      );
-    }
+    final target = _mapGoalTarget(
+      await _latestGoal(
+        profileId: profileId,
+        indicatorKey: indicatorKey,
+        period: period,
+      ),
+    );
     return IndicatorGoalSnapshot(
       indicatorKey: indicatorKey,
       period: period,
@@ -601,19 +802,20 @@ final class DriftIndicatorRepository implements IndicatorRepository {
     required String indicatorKey,
     required IndicatorGoalPeriod period,
   }) async {
-    final rows = await (database.select(database.indicatorGoalRevisions)
-          ..where(
-            (table) =>
-                table.profileId.equals(profileId) &
-                table.indicatorKey.equals(indicatorKey) &
-                table.periodType.equals(period.type.name) &
-                table.periodStartDate.equals(period.start.iso8601),
-          )
-          ..orderBy(<OrderingTerm Function(IndicatorGoalRevisions)>[
-            (table) => OrderingTerm.desc(table.createdAtUtc),
-            (table) => OrderingTerm.desc(table.id),
-          ]))
-        .get();
+    final rows =
+        await (database.select(database.indicatorGoalRevisions)
+              ..where(
+                (table) =>
+                    table.profileId.equals(profileId) &
+                    table.indicatorKey.equals(indicatorKey) &
+                    table.periodType.equals(period.type.name) &
+                    table.periodStartDate.equals(period.start.iso8601),
+              )
+              ..orderBy(<OrderingTerm Function(IndicatorGoalRevisions)>[
+                (table) => OrderingTerm.desc(table.createdAtUtc),
+                (table) => OrderingTerm.desc(table.id),
+              ]))
+            .get();
     final supersededIds = rows
         .map((row) => row.supersedesRevisionId)
         .whereType<String>()
@@ -634,18 +836,21 @@ final class DriftIndicatorRepository implements IndicatorRepository {
     );
   }
 
-  Future<Map<String, WeeklyIndicatorTargetRevisionRow>> _latestTargets(
+  Future<Map<String, IndicatorGoalRevisionRow>> _latestTargets(
     String profileId,
     PlannerDate start,
   ) async {
     final rows =
-        await (database.select(database.weeklyIndicatorTargetRevisions)
+        await (database.select(database.indicatorGoalRevisions)
               ..where(
                 (table) =>
                     table.profileId.equals(profileId) &
+                    table.periodType.equals(
+                      IndicatorGoalPeriodType.weekly.name,
+                    ) &
                     table.periodStartDate.equals(start.iso8601),
               )
-              ..orderBy(<OrderingTerm Function(WeeklyIndicatorTargetRevisions)>[
+              ..orderBy(<OrderingTerm Function(IndicatorGoalRevisions)>[
                 (table) => OrderingTerm.desc(table.createdAtUtc),
                 (table) => OrderingTerm.desc(table.id),
               ]))
@@ -654,7 +859,7 @@ final class DriftIndicatorRepository implements IndicatorRepository {
         .map((row) => row.supersedesRevisionId)
         .whereType<String>()
         .toSet();
-    final latest = <String, WeeklyIndicatorTargetRevisionRow>{};
+    final latest = <String, IndicatorGoalRevisionRow>{};
     for (final row in rows) {
       if (!supersededIds.contains(row.id)) {
         latest.putIfAbsent(row.indicatorKey, () => row);
@@ -663,32 +868,7 @@ final class DriftIndicatorRepository implements IndicatorRepository {
     return latest;
   }
 
-  Future<WeeklyIndicatorTargetRevisionRow?> _latestTarget(
-    String profileId,
-    String indicatorKey,
-    PlannerDate start,
-  ) async {
-    final rows =
-        await (database.select(database.weeklyIndicatorTargetRevisions)
-              ..where(
-                (table) =>
-                    table.profileId.equals(profileId) &
-                    table.indicatorKey.equals(indicatorKey) &
-                    table.periodStartDate.equals(start.iso8601),
-              )
-              ..orderBy(<OrderingTerm Function(WeeklyIndicatorTargetRevisions)>[
-                (table) => OrderingTerm.desc(table.createdAtUtc),
-                (table) => OrderingTerm.desc(table.id),
-              ]))
-            .get();
-    final supersededIds = rows
-        .map((row) => row.supersedesRevisionId)
-        .whereType<String>()
-        .toSet();
-    return rows.where((row) => !supersededIds.contains(row.id)).firstOrNull;
-  }
-
-  IndicatorTarget _mapTarget(WeeklyIndicatorTargetRevisionRow? row) {
+  IndicatorTarget _mapTarget(IndicatorGoalRevisionRow? row) {
     if (row == null || row.state == 'notSet' || row.valueScaled == null) {
       return const IndicatorTarget.notSet();
     }

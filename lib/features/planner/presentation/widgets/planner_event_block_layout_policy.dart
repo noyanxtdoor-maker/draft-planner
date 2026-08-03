@@ -237,6 +237,7 @@ final class PlannerEventBlockContent {
     required this.titleMaxLines,
     required this.showTime,
     required this.showTimeInline,
+    this.showRecurrence = true,
     required this.showStatusIcons,
     required this.showResizeHandle,
   });
@@ -250,8 +251,20 @@ final class PlannerEventBlockContent {
       density: density,
       titleMaxLines: PlannerEventBlockLayoutPolicy.titleMaxLines(density),
       showTime: PlannerEventBlockLayoutPolicy.showTime(density),
-      showTimeInline: PlannerEventBlockLayoutPolicy.showTimeInline(density),
-      showStatusIcons: PlannerEventBlockLayoutPolicy.showStatusIcons(density),
+      // At the actual minimum zoom a 15-minute block can be about 11 px
+      // tall. Keep the approved inline schedule for compact blocks that can
+      // still contain it, but collapse smaller blocks to title-only and hide
+      // the recurrence affordance so it cannot bleed outside the block.
+      showTimeInline:
+          height >= 15 && PlannerEventBlockLayoutPolicy.showTimeInline(density),
+      showRecurrence: height >= 18,
+      // A medium block can be only a few pixels taller than the title/time
+      // rows. Keep the status row until there is enough room for all three
+      // rows and their measured gaps; compact blocks must never rely on
+      // clipping to hide an overflow.
+      showStatusIcons:
+          density == Density.tall ||
+          (density == Density.medium && height >= 58),
       showResizeHandle: PlannerEventBlockLayoutPolicy.showResizeHandle(
         density,
         interactive,
@@ -263,6 +276,7 @@ final class PlannerEventBlockContent {
   final int titleMaxLines;
   final bool showTime;
   final bool showTimeInline;
+  final bool showRecurrence;
   final bool showStatusIcons;
   final bool showResizeHandle;
 }

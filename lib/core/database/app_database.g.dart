@@ -12358,6 +12358,707 @@ class IndicatorGoalRevisionsCompanion
   }
 }
 
+class $IndicatorCommitmentLinksTable extends IndicatorCommitmentLinks
+    with TableInfo<$IndicatorCommitmentLinksTable, IndicatorCommitmentLinkRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $IndicatorCommitmentLinksTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _profileIdMeta = const VerificationMeta(
+    'profileId',
+  );
+  @override
+  late final GeneratedColumn<String> profileId = GeneratedColumn<String>(
+    'profile_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES local_profiles (id) ON DELETE RESTRICT',
+    ),
+  );
+  static const VerificationMeta _indicatorKeyMeta = const VerificationMeta(
+    'indicatorKey',
+  );
+  @override
+  late final GeneratedColumn<String> indicatorKey = GeneratedColumn<String>(
+    'indicator_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _periodTypeMeta = const VerificationMeta(
+    'periodType',
+  );
+  @override
+  late final GeneratedColumn<String> periodType = GeneratedColumn<String>(
+    'period_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _periodStartDateMeta = const VerificationMeta(
+    'periodStartDate',
+  );
+  @override
+  late final GeneratedColumn<String> periodStartDate = GeneratedColumn<String>(
+    'period_start_date',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _entityTypeMeta = const VerificationMeta(
+    'entityType',
+  );
+  @override
+  late final GeneratedColumn<String> entityType = GeneratedColumn<String>(
+    'entity_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _entityIdMeta = const VerificationMeta(
+    'entityId',
+  );
+  @override
+  late final GeneratedColumn<String> entityId = GeneratedColumn<String>(
+    'entity_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _occurrenceIdMeta = const VerificationMeta(
+    'occurrenceId',
+  );
+  @override
+  late final GeneratedColumn<String> occurrenceId = GeneratedColumn<String>(
+    'occurrence_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _commitmentKeyMeta = const VerificationMeta(
+    'commitmentKey',
+  );
+  @override
+  late final GeneratedColumn<String> commitmentKey = GeneratedColumn<String>(
+    'commitment_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _operationIdMeta = const VerificationMeta(
+    'operationId',
+  );
+  @override
+  late final GeneratedColumn<String> operationId = GeneratedColumn<String>(
+    'operation_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtUtcMeta = const VerificationMeta(
+    'createdAtUtc',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAtUtc = GeneratedColumn<DateTime>(
+    'created_at_utc',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    profileId,
+    indicatorKey,
+    periodType,
+    periodStartDate,
+    entityType,
+    entityId,
+    occurrenceId,
+    commitmentKey,
+    operationId,
+    createdAtUtc,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'indicator_commitment_links';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<IndicatorCommitmentLinkRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('profile_id')) {
+      context.handle(
+        _profileIdMeta,
+        profileId.isAcceptableOrUnknown(data['profile_id']!, _profileIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_profileIdMeta);
+    }
+    if (data.containsKey('indicator_key')) {
+      context.handle(
+        _indicatorKeyMeta,
+        indicatorKey.isAcceptableOrUnknown(
+          data['indicator_key']!,
+          _indicatorKeyMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_indicatorKeyMeta);
+    }
+    if (data.containsKey('period_type')) {
+      context.handle(
+        _periodTypeMeta,
+        periodType.isAcceptableOrUnknown(data['period_type']!, _periodTypeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_periodTypeMeta);
+    }
+    if (data.containsKey('period_start_date')) {
+      context.handle(
+        _periodStartDateMeta,
+        periodStartDate.isAcceptableOrUnknown(
+          data['period_start_date']!,
+          _periodStartDateMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_periodStartDateMeta);
+    }
+    if (data.containsKey('entity_type')) {
+      context.handle(
+        _entityTypeMeta,
+        entityType.isAcceptableOrUnknown(data['entity_type']!, _entityTypeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_entityTypeMeta);
+    }
+    if (data.containsKey('entity_id')) {
+      context.handle(
+        _entityIdMeta,
+        entityId.isAcceptableOrUnknown(data['entity_id']!, _entityIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_entityIdMeta);
+    }
+    if (data.containsKey('occurrence_id')) {
+      context.handle(
+        _occurrenceIdMeta,
+        occurrenceId.isAcceptableOrUnknown(
+          data['occurrence_id']!,
+          _occurrenceIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('commitment_key')) {
+      context.handle(
+        _commitmentKeyMeta,
+        commitmentKey.isAcceptableOrUnknown(
+          data['commitment_key']!,
+          _commitmentKeyMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_commitmentKeyMeta);
+    }
+    if (data.containsKey('operation_id')) {
+      context.handle(
+        _operationIdMeta,
+        operationId.isAcceptableOrUnknown(
+          data['operation_id']!,
+          _operationIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_operationIdMeta);
+    }
+    if (data.containsKey('created_at_utc')) {
+      context.handle(
+        _createdAtUtcMeta,
+        createdAtUtc.isAcceptableOrUnknown(
+          data['created_at_utc']!,
+          _createdAtUtcMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtUtcMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  IndicatorCommitmentLinkRow map(
+    Map<String, dynamic> data, {
+    String? tablePrefix,
+  }) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return IndicatorCommitmentLinkRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      profileId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}profile_id'],
+      )!,
+      indicatorKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}indicator_key'],
+      )!,
+      periodType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}period_type'],
+      )!,
+      periodStartDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}period_start_date'],
+      )!,
+      entityType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}entity_type'],
+      )!,
+      entityId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}entity_id'],
+      )!,
+      occurrenceId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}occurrence_id'],
+      ),
+      commitmentKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}commitment_key'],
+      )!,
+      operationId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}operation_id'],
+      )!,
+      createdAtUtc: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at_utc'],
+      )!,
+    );
+  }
+
+  @override
+  $IndicatorCommitmentLinksTable createAlias(String alias) {
+    return $IndicatorCommitmentLinksTable(attachedDatabase, alias);
+  }
+}
+
+class IndicatorCommitmentLinkRow extends DataClass
+    implements Insertable<IndicatorCommitmentLinkRow> {
+  final String id;
+  final String profileId;
+  final String indicatorKey;
+  final String periodType;
+  final String periodStartDate;
+  final String entityType;
+  final String entityId;
+  final String? occurrenceId;
+  final String commitmentKey;
+  final String operationId;
+  final DateTime createdAtUtc;
+  const IndicatorCommitmentLinkRow({
+    required this.id,
+    required this.profileId,
+    required this.indicatorKey,
+    required this.periodType,
+    required this.periodStartDate,
+    required this.entityType,
+    required this.entityId,
+    this.occurrenceId,
+    required this.commitmentKey,
+    required this.operationId,
+    required this.createdAtUtc,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['profile_id'] = Variable<String>(profileId);
+    map['indicator_key'] = Variable<String>(indicatorKey);
+    map['period_type'] = Variable<String>(periodType);
+    map['period_start_date'] = Variable<String>(periodStartDate);
+    map['entity_type'] = Variable<String>(entityType);
+    map['entity_id'] = Variable<String>(entityId);
+    if (!nullToAbsent || occurrenceId != null) {
+      map['occurrence_id'] = Variable<String>(occurrenceId);
+    }
+    map['commitment_key'] = Variable<String>(commitmentKey);
+    map['operation_id'] = Variable<String>(operationId);
+    map['created_at_utc'] = Variable<DateTime>(createdAtUtc);
+    return map;
+  }
+
+  IndicatorCommitmentLinksCompanion toCompanion(bool nullToAbsent) {
+    return IndicatorCommitmentLinksCompanion(
+      id: Value(id),
+      profileId: Value(profileId),
+      indicatorKey: Value(indicatorKey),
+      periodType: Value(periodType),
+      periodStartDate: Value(periodStartDate),
+      entityType: Value(entityType),
+      entityId: Value(entityId),
+      occurrenceId: occurrenceId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(occurrenceId),
+      commitmentKey: Value(commitmentKey),
+      operationId: Value(operationId),
+      createdAtUtc: Value(createdAtUtc),
+    );
+  }
+
+  factory IndicatorCommitmentLinkRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return IndicatorCommitmentLinkRow(
+      id: serializer.fromJson<String>(json['id']),
+      profileId: serializer.fromJson<String>(json['profileId']),
+      indicatorKey: serializer.fromJson<String>(json['indicatorKey']),
+      periodType: serializer.fromJson<String>(json['periodType']),
+      periodStartDate: serializer.fromJson<String>(json['periodStartDate']),
+      entityType: serializer.fromJson<String>(json['entityType']),
+      entityId: serializer.fromJson<String>(json['entityId']),
+      occurrenceId: serializer.fromJson<String?>(json['occurrenceId']),
+      commitmentKey: serializer.fromJson<String>(json['commitmentKey']),
+      operationId: serializer.fromJson<String>(json['operationId']),
+      createdAtUtc: serializer.fromJson<DateTime>(json['createdAtUtc']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'profileId': serializer.toJson<String>(profileId),
+      'indicatorKey': serializer.toJson<String>(indicatorKey),
+      'periodType': serializer.toJson<String>(periodType),
+      'periodStartDate': serializer.toJson<String>(periodStartDate),
+      'entityType': serializer.toJson<String>(entityType),
+      'entityId': serializer.toJson<String>(entityId),
+      'occurrenceId': serializer.toJson<String?>(occurrenceId),
+      'commitmentKey': serializer.toJson<String>(commitmentKey),
+      'operationId': serializer.toJson<String>(operationId),
+      'createdAtUtc': serializer.toJson<DateTime>(createdAtUtc),
+    };
+  }
+
+  IndicatorCommitmentLinkRow copyWith({
+    String? id,
+    String? profileId,
+    String? indicatorKey,
+    String? periodType,
+    String? periodStartDate,
+    String? entityType,
+    String? entityId,
+    Value<String?> occurrenceId = const Value.absent(),
+    String? commitmentKey,
+    String? operationId,
+    DateTime? createdAtUtc,
+  }) => IndicatorCommitmentLinkRow(
+    id: id ?? this.id,
+    profileId: profileId ?? this.profileId,
+    indicatorKey: indicatorKey ?? this.indicatorKey,
+    periodType: periodType ?? this.periodType,
+    periodStartDate: periodStartDate ?? this.periodStartDate,
+    entityType: entityType ?? this.entityType,
+    entityId: entityId ?? this.entityId,
+    occurrenceId: occurrenceId.present ? occurrenceId.value : this.occurrenceId,
+    commitmentKey: commitmentKey ?? this.commitmentKey,
+    operationId: operationId ?? this.operationId,
+    createdAtUtc: createdAtUtc ?? this.createdAtUtc,
+  );
+  IndicatorCommitmentLinkRow copyWithCompanion(
+    IndicatorCommitmentLinksCompanion data,
+  ) {
+    return IndicatorCommitmentLinkRow(
+      id: data.id.present ? data.id.value : this.id,
+      profileId: data.profileId.present ? data.profileId.value : this.profileId,
+      indicatorKey: data.indicatorKey.present
+          ? data.indicatorKey.value
+          : this.indicatorKey,
+      periodType: data.periodType.present
+          ? data.periodType.value
+          : this.periodType,
+      periodStartDate: data.periodStartDate.present
+          ? data.periodStartDate.value
+          : this.periodStartDate,
+      entityType: data.entityType.present
+          ? data.entityType.value
+          : this.entityType,
+      entityId: data.entityId.present ? data.entityId.value : this.entityId,
+      occurrenceId: data.occurrenceId.present
+          ? data.occurrenceId.value
+          : this.occurrenceId,
+      commitmentKey: data.commitmentKey.present
+          ? data.commitmentKey.value
+          : this.commitmentKey,
+      operationId: data.operationId.present
+          ? data.operationId.value
+          : this.operationId,
+      createdAtUtc: data.createdAtUtc.present
+          ? data.createdAtUtc.value
+          : this.createdAtUtc,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('IndicatorCommitmentLinkRow(')
+          ..write('id: $id, ')
+          ..write('profileId: $profileId, ')
+          ..write('indicatorKey: $indicatorKey, ')
+          ..write('periodType: $periodType, ')
+          ..write('periodStartDate: $periodStartDate, ')
+          ..write('entityType: $entityType, ')
+          ..write('entityId: $entityId, ')
+          ..write('occurrenceId: $occurrenceId, ')
+          ..write('commitmentKey: $commitmentKey, ')
+          ..write('operationId: $operationId, ')
+          ..write('createdAtUtc: $createdAtUtc')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    profileId,
+    indicatorKey,
+    periodType,
+    periodStartDate,
+    entityType,
+    entityId,
+    occurrenceId,
+    commitmentKey,
+    operationId,
+    createdAtUtc,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is IndicatorCommitmentLinkRow &&
+          other.id == this.id &&
+          other.profileId == this.profileId &&
+          other.indicatorKey == this.indicatorKey &&
+          other.periodType == this.periodType &&
+          other.periodStartDate == this.periodStartDate &&
+          other.entityType == this.entityType &&
+          other.entityId == this.entityId &&
+          other.occurrenceId == this.occurrenceId &&
+          other.commitmentKey == this.commitmentKey &&
+          other.operationId == this.operationId &&
+          other.createdAtUtc == this.createdAtUtc);
+}
+
+class IndicatorCommitmentLinksCompanion
+    extends UpdateCompanion<IndicatorCommitmentLinkRow> {
+  final Value<String> id;
+  final Value<String> profileId;
+  final Value<String> indicatorKey;
+  final Value<String> periodType;
+  final Value<String> periodStartDate;
+  final Value<String> entityType;
+  final Value<String> entityId;
+  final Value<String?> occurrenceId;
+  final Value<String> commitmentKey;
+  final Value<String> operationId;
+  final Value<DateTime> createdAtUtc;
+  final Value<int> rowid;
+  const IndicatorCommitmentLinksCompanion({
+    this.id = const Value.absent(),
+    this.profileId = const Value.absent(),
+    this.indicatorKey = const Value.absent(),
+    this.periodType = const Value.absent(),
+    this.periodStartDate = const Value.absent(),
+    this.entityType = const Value.absent(),
+    this.entityId = const Value.absent(),
+    this.occurrenceId = const Value.absent(),
+    this.commitmentKey = const Value.absent(),
+    this.operationId = const Value.absent(),
+    this.createdAtUtc = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  IndicatorCommitmentLinksCompanion.insert({
+    required String id,
+    required String profileId,
+    required String indicatorKey,
+    required String periodType,
+    required String periodStartDate,
+    required String entityType,
+    required String entityId,
+    this.occurrenceId = const Value.absent(),
+    required String commitmentKey,
+    required String operationId,
+    required DateTime createdAtUtc,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       profileId = Value(profileId),
+       indicatorKey = Value(indicatorKey),
+       periodType = Value(periodType),
+       periodStartDate = Value(periodStartDate),
+       entityType = Value(entityType),
+       entityId = Value(entityId),
+       commitmentKey = Value(commitmentKey),
+       operationId = Value(operationId),
+       createdAtUtc = Value(createdAtUtc);
+  static Insertable<IndicatorCommitmentLinkRow> custom({
+    Expression<String>? id,
+    Expression<String>? profileId,
+    Expression<String>? indicatorKey,
+    Expression<String>? periodType,
+    Expression<String>? periodStartDate,
+    Expression<String>? entityType,
+    Expression<String>? entityId,
+    Expression<String>? occurrenceId,
+    Expression<String>? commitmentKey,
+    Expression<String>? operationId,
+    Expression<DateTime>? createdAtUtc,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (profileId != null) 'profile_id': profileId,
+      if (indicatorKey != null) 'indicator_key': indicatorKey,
+      if (periodType != null) 'period_type': periodType,
+      if (periodStartDate != null) 'period_start_date': periodStartDate,
+      if (entityType != null) 'entity_type': entityType,
+      if (entityId != null) 'entity_id': entityId,
+      if (occurrenceId != null) 'occurrence_id': occurrenceId,
+      if (commitmentKey != null) 'commitment_key': commitmentKey,
+      if (operationId != null) 'operation_id': operationId,
+      if (createdAtUtc != null) 'created_at_utc': createdAtUtc,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  IndicatorCommitmentLinksCompanion copyWith({
+    Value<String>? id,
+    Value<String>? profileId,
+    Value<String>? indicatorKey,
+    Value<String>? periodType,
+    Value<String>? periodStartDate,
+    Value<String>? entityType,
+    Value<String>? entityId,
+    Value<String?>? occurrenceId,
+    Value<String>? commitmentKey,
+    Value<String>? operationId,
+    Value<DateTime>? createdAtUtc,
+    Value<int>? rowid,
+  }) {
+    return IndicatorCommitmentLinksCompanion(
+      id: id ?? this.id,
+      profileId: profileId ?? this.profileId,
+      indicatorKey: indicatorKey ?? this.indicatorKey,
+      periodType: periodType ?? this.periodType,
+      periodStartDate: periodStartDate ?? this.periodStartDate,
+      entityType: entityType ?? this.entityType,
+      entityId: entityId ?? this.entityId,
+      occurrenceId: occurrenceId ?? this.occurrenceId,
+      commitmentKey: commitmentKey ?? this.commitmentKey,
+      operationId: operationId ?? this.operationId,
+      createdAtUtc: createdAtUtc ?? this.createdAtUtc,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (profileId.present) {
+      map['profile_id'] = Variable<String>(profileId.value);
+    }
+    if (indicatorKey.present) {
+      map['indicator_key'] = Variable<String>(indicatorKey.value);
+    }
+    if (periodType.present) {
+      map['period_type'] = Variable<String>(periodType.value);
+    }
+    if (periodStartDate.present) {
+      map['period_start_date'] = Variable<String>(periodStartDate.value);
+    }
+    if (entityType.present) {
+      map['entity_type'] = Variable<String>(entityType.value);
+    }
+    if (entityId.present) {
+      map['entity_id'] = Variable<String>(entityId.value);
+    }
+    if (occurrenceId.present) {
+      map['occurrence_id'] = Variable<String>(occurrenceId.value);
+    }
+    if (commitmentKey.present) {
+      map['commitment_key'] = Variable<String>(commitmentKey.value);
+    }
+    if (operationId.present) {
+      map['operation_id'] = Variable<String>(operationId.value);
+    }
+    if (createdAtUtc.present) {
+      map['created_at_utc'] = Variable<DateTime>(createdAtUtc.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('IndicatorCommitmentLinksCompanion(')
+          ..write('id: $id, ')
+          ..write('profileId: $profileId, ')
+          ..write('indicatorKey: $indicatorKey, ')
+          ..write('periodType: $periodType, ')
+          ..write('periodStartDate: $periodStartDate, ')
+          ..write('entityType: $entityType, ')
+          ..write('entityId: $entityId, ')
+          ..write('occurrenceId: $occurrenceId, ')
+          ..write('commitmentKey: $commitmentKey, ')
+          ..write('operationId: $operationId, ')
+          ..write('createdAtUtc: $createdAtUtc, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $WeeklyPlansTable extends WeeklyPlans
     with TableInfo<$WeeklyPlansTable, WeeklyPlanRow> {
   @override
@@ -18221,6 +18922,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   weeklyIndicatorTargetRevisions = $WeeklyIndicatorTargetRevisionsTable(this);
   late final $IndicatorGoalRevisionsTable indicatorGoalRevisions =
       $IndicatorGoalRevisionsTable(this);
+  late final $IndicatorCommitmentLinksTable indicatorCommitmentLinks =
+      $IndicatorCommitmentLinksTable(this);
   late final $WeeklyPlansTable weeklyPlans = $WeeklyPlansTable(this);
   late final $WeeklyPlanCommitmentsTable weeklyPlanCommitments =
       $WeeklyPlanCommitmentsTable(this);
@@ -18331,6 +19034,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     'indicator_goal_period_history',
     'CREATE INDEX indicator_goal_period_history ON indicator_goal_revisions (profile_id, indicator_key, period_type, period_start_date, created_at_utc)',
   );
+  late final Index indicatorCommitmentLinkUnique = Index(
+    'indicator_commitment_link_unique',
+    'CREATE UNIQUE INDEX indicator_commitment_link_unique ON indicator_commitment_links (profile_id, indicator_key, period_type, period_start_date, commitment_key)',
+  );
   late final Index weeklyPlanProfilePeriodUnique = Index(
     'weekly_plan_profile_period_unique',
     'CREATE UNIQUE INDEX weekly_plan_profile_period_unique ON weekly_plans (profile_id, period_start_date)',
@@ -18393,6 +19100,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     activityLedgerEntries,
     weeklyIndicatorTargetRevisions,
     indicatorGoalRevisions,
+    indicatorCommitmentLinks,
     weeklyPlans,
     weeklyPlanCommitments,
     weeklyPlanReviews,
@@ -18424,6 +19132,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     weeklyIndicatorTargetPeriodHistory,
     indicatorGoalOperationUnique,
     indicatorGoalPeriodHistory,
+    indicatorCommitmentLinkUnique,
     weeklyPlanProfilePeriodUnique,
     weeklyPlanCommitmentUnique,
     weeklyPlanReviewPlanUnique,
@@ -18747,6 +19456,31 @@ final class $$LocalProfilesTableReferences
 
     final cache = $_typedResult.readTableOrNull(
       _indicatorGoalRevisionsRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<
+    $IndicatorCommitmentLinksTable,
+    List<IndicatorCommitmentLinkRow>
+  >
+  _indicatorCommitmentLinksRefsTable(_$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.indicatorCommitmentLinks,
+        aliasName: 'local_profiles__id__indicator_commitment_links__profile_id',
+      );
+
+  $$IndicatorCommitmentLinksTableProcessedTableManager
+  get indicatorCommitmentLinksRefs {
+    final manager = $$IndicatorCommitmentLinksTableTableManager(
+      $_db,
+      $_db.indicatorCommitmentLinks,
+    ).filter((f) => f.profileId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _indicatorCommitmentLinksRefsTable($_db),
     );
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: cache),
@@ -19285,6 +20019,33 @@ class $$LocalProfilesTableFilterComposer
               }) => $$IndicatorGoalRevisionsTableFilterComposer(
                 $db: $db,
                 $table: $db.indicatorGoalRevisions,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
+
+  Expression<bool> indicatorCommitmentLinksRefs(
+    Expression<bool> Function($$IndicatorCommitmentLinksTableFilterComposer f)
+    f,
+  ) {
+    final $$IndicatorCommitmentLinksTableFilterComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.indicatorCommitmentLinks,
+          getReferencedColumn: (t) => t.profileId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$IndicatorCommitmentLinksTableFilterComposer(
+                $db: $db,
+                $table: $db.indicatorCommitmentLinks,
                 $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
                 joinBuilder: joinBuilder,
                 $removeJoinBuilderFromRootComposer:
@@ -19905,6 +20666,33 @@ class $$LocalProfilesTableAnnotationComposer
     return f(composer);
   }
 
+  Expression<T> indicatorCommitmentLinksRefs<T extends Object>(
+    Expression<T> Function($$IndicatorCommitmentLinksTableAnnotationComposer a)
+    f,
+  ) {
+    final $$IndicatorCommitmentLinksTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.indicatorCommitmentLinks,
+          getReferencedColumn: (t) => t.profileId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$IndicatorCommitmentLinksTableAnnotationComposer(
+                $db: $db,
+                $table: $db.indicatorCommitmentLinks,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
+
   Expression<T> weeklyPlansRefs<T extends Object>(
     Expression<T> Function($$WeeklyPlansTableAnnotationComposer a) f,
   ) {
@@ -20147,6 +20935,7 @@ class $$LocalProfilesTableTableManager
             bool activityLedgerEntriesRefs,
             bool weeklyIndicatorTargetRevisionsRefs,
             bool indicatorGoalRevisionsRefs,
+            bool indicatorCommitmentLinksRefs,
             bool weeklyPlansRefs,
             bool weeklyPlanCommitmentsRefs,
             bool weeklyPlanReviewsRefs,
@@ -20230,6 +21019,7 @@ class $$LocalProfilesTableTableManager
                 activityLedgerEntriesRefs = false,
                 weeklyIndicatorTargetRevisionsRefs = false,
                 indicatorGoalRevisionsRefs = false,
+                indicatorCommitmentLinksRefs = false,
                 weeklyPlansRefs = false,
                 weeklyPlanCommitmentsRefs = false,
                 weeklyPlanReviewsRefs = false,
@@ -20256,6 +21046,8 @@ class $$LocalProfilesTableTableManager
                     if (weeklyIndicatorTargetRevisionsRefs)
                       db.weeklyIndicatorTargetRevisions,
                     if (indicatorGoalRevisionsRefs) db.indicatorGoalRevisions,
+                    if (indicatorCommitmentLinksRefs)
+                      db.indicatorCommitmentLinks,
                     if (weeklyPlansRefs) db.weeklyPlans,
                     if (weeklyPlanCommitmentsRefs) db.weeklyPlanCommitments,
                     if (weeklyPlanReviewsRefs) db.weeklyPlanReviews,
@@ -20523,6 +21315,27 @@ class $$LocalProfilesTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (indicatorCommitmentLinksRefs)
+                        await $_getPrefetchedData<
+                          LocalProfileRow,
+                          $LocalProfilesTable,
+                          IndicatorCommitmentLinkRow
+                        >(
+                          currentTable: table,
+                          referencedTable: $$LocalProfilesTableReferences
+                              ._indicatorCommitmentLinksRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$LocalProfilesTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).indicatorCommitmentLinksRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.profileId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                       if (weeklyPlansRefs)
                         await $_getPrefetchedData<
                           LocalProfileRow,
@@ -20724,6 +21537,7 @@ typedef $$LocalProfilesTableProcessedTableManager =
         bool activityLedgerEntriesRefs,
         bool weeklyIndicatorTargetRevisionsRefs,
         bool indicatorGoalRevisionsRefs,
+        bool indicatorCommitmentLinksRefs,
         bool weeklyPlansRefs,
         bool weeklyPlanCommitmentsRefs,
         bool weeklyPlanReviewsRefs,
@@ -28828,6 +29642,480 @@ typedef $$IndicatorGoalRevisionsTableProcessedTableManager =
       IndicatorGoalRevisionRow,
       PrefetchHooks Function({bool profileId})
     >;
+typedef $$IndicatorCommitmentLinksTableCreateCompanionBuilder =
+    IndicatorCommitmentLinksCompanion Function({
+      required String id,
+      required String profileId,
+      required String indicatorKey,
+      required String periodType,
+      required String periodStartDate,
+      required String entityType,
+      required String entityId,
+      Value<String?> occurrenceId,
+      required String commitmentKey,
+      required String operationId,
+      required DateTime createdAtUtc,
+      Value<int> rowid,
+    });
+typedef $$IndicatorCommitmentLinksTableUpdateCompanionBuilder =
+    IndicatorCommitmentLinksCompanion Function({
+      Value<String> id,
+      Value<String> profileId,
+      Value<String> indicatorKey,
+      Value<String> periodType,
+      Value<String> periodStartDate,
+      Value<String> entityType,
+      Value<String> entityId,
+      Value<String?> occurrenceId,
+      Value<String> commitmentKey,
+      Value<String> operationId,
+      Value<DateTime> createdAtUtc,
+      Value<int> rowid,
+    });
+
+final class $$IndicatorCommitmentLinksTableReferences
+    extends
+        BaseReferences<
+          _$AppDatabase,
+          $IndicatorCommitmentLinksTable,
+          IndicatorCommitmentLinkRow
+        > {
+  $$IndicatorCommitmentLinksTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $LocalProfilesTable _profileIdTable(_$AppDatabase db) =>
+      db.localProfiles.createAlias(
+        'indicator_commitment_links__profile_id__local_profiles__id',
+      );
+
+  $$LocalProfilesTableProcessedTableManager get profileId {
+    final $_column = $_itemColumn<String>('profile_id')!;
+
+    final manager = $$LocalProfilesTableTableManager(
+      $_db,
+      $_db.localProfiles,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_profileIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$IndicatorCommitmentLinksTableFilterComposer
+    extends Composer<_$AppDatabase, $IndicatorCommitmentLinksTable> {
+  $$IndicatorCommitmentLinksTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get indicatorKey => $composableBuilder(
+    column: $table.indicatorKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get periodType => $composableBuilder(
+    column: $table.periodType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get periodStartDate => $composableBuilder(
+    column: $table.periodStartDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get entityType => $composableBuilder(
+    column: $table.entityType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get entityId => $composableBuilder(
+    column: $table.entityId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get occurrenceId => $composableBuilder(
+    column: $table.occurrenceId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get commitmentKey => $composableBuilder(
+    column: $table.commitmentKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get operationId => $composableBuilder(
+    column: $table.operationId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAtUtc => $composableBuilder(
+    column: $table.createdAtUtc,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$LocalProfilesTableFilterComposer get profileId {
+    final $$LocalProfilesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.profileId,
+      referencedTable: $db.localProfiles,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LocalProfilesTableFilterComposer(
+            $db: $db,
+            $table: $db.localProfiles,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$IndicatorCommitmentLinksTableOrderingComposer
+    extends Composer<_$AppDatabase, $IndicatorCommitmentLinksTable> {
+  $$IndicatorCommitmentLinksTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get indicatorKey => $composableBuilder(
+    column: $table.indicatorKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get periodType => $composableBuilder(
+    column: $table.periodType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get periodStartDate => $composableBuilder(
+    column: $table.periodStartDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get entityType => $composableBuilder(
+    column: $table.entityType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get entityId => $composableBuilder(
+    column: $table.entityId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get occurrenceId => $composableBuilder(
+    column: $table.occurrenceId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get commitmentKey => $composableBuilder(
+    column: $table.commitmentKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get operationId => $composableBuilder(
+    column: $table.operationId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAtUtc => $composableBuilder(
+    column: $table.createdAtUtc,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$LocalProfilesTableOrderingComposer get profileId {
+    final $$LocalProfilesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.profileId,
+      referencedTable: $db.localProfiles,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LocalProfilesTableOrderingComposer(
+            $db: $db,
+            $table: $db.localProfiles,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$IndicatorCommitmentLinksTableAnnotationComposer
+    extends Composer<_$AppDatabase, $IndicatorCommitmentLinksTable> {
+  $$IndicatorCommitmentLinksTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get indicatorKey => $composableBuilder(
+    column: $table.indicatorKey,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get periodType => $composableBuilder(
+    column: $table.periodType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get periodStartDate => $composableBuilder(
+    column: $table.periodStartDate,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get entityType => $composableBuilder(
+    column: $table.entityType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get entityId =>
+      $composableBuilder(column: $table.entityId, builder: (column) => column);
+
+  GeneratedColumn<String> get occurrenceId => $composableBuilder(
+    column: $table.occurrenceId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get commitmentKey => $composableBuilder(
+    column: $table.commitmentKey,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get operationId => $composableBuilder(
+    column: $table.operationId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAtUtc => $composableBuilder(
+    column: $table.createdAtUtc,
+    builder: (column) => column,
+  );
+
+  $$LocalProfilesTableAnnotationComposer get profileId {
+    final $$LocalProfilesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.profileId,
+      referencedTable: $db.localProfiles,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LocalProfilesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.localProfiles,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$IndicatorCommitmentLinksTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $IndicatorCommitmentLinksTable,
+          IndicatorCommitmentLinkRow,
+          $$IndicatorCommitmentLinksTableFilterComposer,
+          $$IndicatorCommitmentLinksTableOrderingComposer,
+          $$IndicatorCommitmentLinksTableAnnotationComposer,
+          $$IndicatorCommitmentLinksTableCreateCompanionBuilder,
+          $$IndicatorCommitmentLinksTableUpdateCompanionBuilder,
+          (
+            IndicatorCommitmentLinkRow,
+            $$IndicatorCommitmentLinksTableReferences,
+          ),
+          IndicatorCommitmentLinkRow,
+          PrefetchHooks Function({bool profileId})
+        > {
+  $$IndicatorCommitmentLinksTableTableManager(
+    _$AppDatabase db,
+    $IndicatorCommitmentLinksTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$IndicatorCommitmentLinksTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$IndicatorCommitmentLinksTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$IndicatorCommitmentLinksTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> profileId = const Value.absent(),
+                Value<String> indicatorKey = const Value.absent(),
+                Value<String> periodType = const Value.absent(),
+                Value<String> periodStartDate = const Value.absent(),
+                Value<String> entityType = const Value.absent(),
+                Value<String> entityId = const Value.absent(),
+                Value<String?> occurrenceId = const Value.absent(),
+                Value<String> commitmentKey = const Value.absent(),
+                Value<String> operationId = const Value.absent(),
+                Value<DateTime> createdAtUtc = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => IndicatorCommitmentLinksCompanion(
+                id: id,
+                profileId: profileId,
+                indicatorKey: indicatorKey,
+                periodType: periodType,
+                periodStartDate: periodStartDate,
+                entityType: entityType,
+                entityId: entityId,
+                occurrenceId: occurrenceId,
+                commitmentKey: commitmentKey,
+                operationId: operationId,
+                createdAtUtc: createdAtUtc,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String profileId,
+                required String indicatorKey,
+                required String periodType,
+                required String periodStartDate,
+                required String entityType,
+                required String entityId,
+                Value<String?> occurrenceId = const Value.absent(),
+                required String commitmentKey,
+                required String operationId,
+                required DateTime createdAtUtc,
+                Value<int> rowid = const Value.absent(),
+              }) => IndicatorCommitmentLinksCompanion.insert(
+                id: id,
+                profileId: profileId,
+                indicatorKey: indicatorKey,
+                periodType: periodType,
+                periodStartDate: periodStartDate,
+                entityType: entityType,
+                entityId: entityId,
+                occurrenceId: occurrenceId,
+                commitmentKey: commitmentKey,
+                operationId: operationId,
+                createdAtUtc: createdAtUtc,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$IndicatorCommitmentLinksTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({profileId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (profileId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.profileId,
+                                referencedTable:
+                                    $$IndicatorCommitmentLinksTableReferences
+                                        ._profileIdTable(db),
+                                referencedColumn:
+                                    $$IndicatorCommitmentLinksTableReferences
+                                        ._profileIdTable(db)
+                                        .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$IndicatorCommitmentLinksTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $IndicatorCommitmentLinksTable,
+      IndicatorCommitmentLinkRow,
+      $$IndicatorCommitmentLinksTableFilterComposer,
+      $$IndicatorCommitmentLinksTableOrderingComposer,
+      $$IndicatorCommitmentLinksTableAnnotationComposer,
+      $$IndicatorCommitmentLinksTableCreateCompanionBuilder,
+      $$IndicatorCommitmentLinksTableUpdateCompanionBuilder,
+      (IndicatorCommitmentLinkRow, $$IndicatorCommitmentLinksTableReferences),
+      IndicatorCommitmentLinkRow,
+      PrefetchHooks Function({bool profileId})
+    >;
 typedef $$WeeklyPlansTableCreateCompanionBuilder =
     WeeklyPlansCompanion Function({
       required String id,
@@ -33964,6 +35252,11 @@ class $AppDatabaseManager {
       $$IndicatorGoalRevisionsTableTableManager(
         _db,
         _db.indicatorGoalRevisions,
+      );
+  $$IndicatorCommitmentLinksTableTableManager get indicatorCommitmentLinks =>
+      $$IndicatorCommitmentLinksTableTableManager(
+        _db,
+        _db.indicatorCommitmentLinks,
       );
   $$WeeklyPlansTableTableManager get weeklyPlans =>
       $$WeeklyPlansTableTableManager(_db, _db.weeklyPlans);

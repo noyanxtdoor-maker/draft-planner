@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -50,67 +51,71 @@ final class HomeScreen extends ConsumerWidget {
                       .read(homeIndicatorControllerProvider.notifier)
                       .refresh(),
                   child: ListView(
-                  key: const Key('home-indicator-list'),
-                  padding: const EdgeInsets.fromLTRB(18, 24, 18, 120),
-                  children: <Widget>[
-                    _SectionHeader(
-                      title: 'Weekly Life Indicators',
-                      onViewAll: () => _openWeeklyPlanning(
-                        context,
-                        snapshot.period.start,
-                      ),
-                      viewAllKey: const Key('home-wli-view-all'),
+                    key: const Key('home-indicator-list'),
+                    padding: EdgeInsets.fromLTRB(
+                      18,
+                      24,
+                      18,
+                      _homeBottomInset(context),
                     ),
-                    const SizedBox(height: 16),
-                    if (!snapshot.currentWeekPlanned)
-                      _StartPlanningButton(
-                        onPressed: () => _openWeeklyPlanning(
-                          context,
-                          snapshot.period.start,
-                        ),
-                      )
-                    else ...<Widget>[
-                      _IndicatorGrid(
-                        snapshot: snapshot,
-                        onOpenPlanning: () => _openWeeklyPlanning(
-                          context,
-                          snapshot.period.start,
-                        ),
+                    children: <Widget>[
+                      _SectionHeader(
+                        title: 'Weekly Life Indicators',
+                        onViewAll: () =>
+                            _openWeeklyPlanning(context, snapshot.period.start),
+                        viewAllKey: const Key('home-wli-view-all'),
                       ),
                       const SizedBox(height: 16),
-                      Center(
-                        child: OutlinedButton(
-                          key: const Key('weekly-targets-button'),
+                      if (!snapshot.currentWeekPlanned)
+                        _StartPlanningButton(
                           onPressed: () => _openWeeklyPlanning(
                             context,
                             snapshot.period.start,
                           ),
-                          style: OutlinedButton.styleFrom(
-                            minimumSize: const Size(228, 48),
-                            textStyle: AppTypography.button,
-                            side: const BorderSide(color: AppTheme.outline),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
+                        )
+                      else ...<Widget>[
+                        _IndicatorGrid(
+                          snapshot: snapshot,
+                          onOpenPlanning: () => _openWeeklyPlanning(
+                            context,
+                            snapshot.period.start,
                           ),
-                          child: const Text('Weekly Planning'),
                         ),
+                        const SizedBox(height: 16),
+                        Center(
+                          child: OutlinedButton(
+                            key: const Key('weekly-targets-button'),
+                            onPressed: () => _openWeeklyPlanning(
+                              context,
+                              snapshot.period.start,
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              minimumSize: const Size(220, 48),
+                              fixedSize: const Size(220, 48),
+                              textStyle: AppTypography.button,
+                              side: const BorderSide(color: AppTheme.outline),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            child: const Text('Weekly Planning'),
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 24),
+                      _SectionHeader(
+                        title: 'Active Pathways',
+                        onViewAll: () => _showPathwayMessage(context),
+                        viewAllKey: const Key('home-pathways-view-all'),
                       ),
+                      const SizedBox(height: 16),
+                      const _PathwaysCard(),
+                      if (state.status == HomeIndicatorLoadStatus.rebuilding)
+                        const Padding(
+                          padding: EdgeInsets.only(top: 12),
+                          child: LinearProgressIndicator(),
+                        ),
                     ],
-                    const SizedBox(height: 24),
-                    _SectionHeader(
-                      title: 'Active Pathways',
-                      onViewAll: () => _showPathwayMessage(context),
-                      viewAllKey: const Key('home-pathways-view-all'),
-                    ),
-                    const SizedBox(height: 16),
-                    const _PathwaysCard(),
-                    if (state.status == HomeIndicatorLoadStatus.rebuilding)
-                      const Padding(
-                        padding: EdgeInsets.only(top: 12),
-                        child: LinearProgressIndicator(),
-                      ),
-                  ],
                   ),
                 ),
         ),
@@ -119,6 +124,22 @@ final class HomeScreen extends ConsumerWidget {
         destination: CreateActionDestination.home,
         onSelected: (action) => _handleCreate(context, ref, action),
       ),
+    );
+  }
+
+  static double _homeBottomInset(BuildContext context) {
+    final navigationHeight =
+        NavigationBarTheme.of(context).height ?? kBottomNavigationBarHeight;
+    const fabDiameter = 56.0;
+    const fabBottomMargin = 16.0;
+    const breathingRoom = 24.0;
+    return math.max(
+      breathingRoom,
+      navigationHeight +
+          MediaQuery.viewPaddingOf(context).bottom +
+          fabDiameter +
+          fabBottomMargin +
+          breathingRoom,
     );
   }
 
@@ -229,7 +250,7 @@ final class _StartPlanningButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       key: const Key('home-start-weekly-planning'),
-      height: 56,
+      height: 48,
       width: double.infinity,
       child: FilledButton(
         key: const Key('weekly-targets-button'),
@@ -238,7 +259,7 @@ final class _StartPlanningButton extends StatelessWidget {
           backgroundColor: AppTheme.rose,
           foregroundColor: const Color(0xFF400018),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(28),
+            borderRadius: BorderRadius.circular(24),
           ),
           textStyle: AppTypography.button,
         ),
@@ -270,7 +291,7 @@ final class _IndicatorGrid extends StatelessWidget {
                 width: index == 0 || index == indicators.length - 1
                     ? width
                     : halfWidth,
-                height: index == 0 || index == indicators.length - 1 ? 92 : 112,
+                height: index == 0 || index == indicators.length - 1 ? 86 : 100,
                 child: _IndicatorCard(
                   indicator: indicators[index],
                   period: snapshot.period,
@@ -327,9 +348,12 @@ final class _IndicatorCard extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        child: Padding(
-          padding: EdgeInsets.all(wide ? 14 : 12),
-          child: wide ? _wide(context) : _compact(context),
+        child: MediaQuery.withClampedTextScaling(
+          maxScaleFactor: 1,
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: wide ? _wide(context) : _compact(context),
+          ),
         ),
       ),
     );
@@ -339,7 +363,7 @@ final class _IndicatorCard extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        Icon(_iconFor(indicator.key), color: AppTheme.rose, size: 38),
+        Icon(_iconFor(indicator.key), color: AppTheme.rose, size: 34),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
@@ -351,12 +375,18 @@ final class _IndicatorCard extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: AppTypography.cardTitle,
               ),
-              const Spacer(),
+              const SizedBox(height: 4),
               Text(
                 '${indicator.actual.display}/${indicator.target.display}',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: AppTypography.metricCompact.copyWith(color: AppTheme.rose),
+                style: const TextStyle(
+                  fontFamily: 'Roboto',
+                  fontSize: 23,
+                  height: 26 / 23,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.rose,
+                ),
               ),
             ],
           ),
@@ -370,7 +400,7 @@ final class _IndicatorCard extends StatelessWidget {
       children: <Widget>[
         SizedBox(
           width: 52,
-          child: Icon(_iconFor(indicator.key), color: AppTheme.rose, size: 40),
+          child: Icon(_iconFor(indicator.key), color: AppTheme.rose, size: 36),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -380,16 +410,22 @@ final class _IndicatorCard extends StatelessWidget {
             children: <Widget>[
               Text(
                 indicator.label,
-                maxLines: 2,
+                maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: AppTypography.cardTitle,
+                style: AppTypography.cardTitle.copyWith(height: 20 / 16),
               ),
               const SizedBox(height: 2),
               Text(
                 '${indicator.actual.display}/${indicator.target.display}',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: AppTypography.metricLarge.copyWith(color: AppTheme.rose),
+                style: const TextStyle(
+                  fontFamily: 'Roboto',
+                  fontSize: 25,
+                  height: 28 / 25,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.rose,
+                ),
               ),
             ],
           ),
@@ -411,7 +447,7 @@ final class _WideAside extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       width: 120,
-      height: 66,
+      height: 62,
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: const Color(0xFF2A2A2B),
@@ -426,7 +462,13 @@ final class _WideAside extends StatelessWidget {
               const Spacer(),
               Text(
                 value,
-                style: AppTypography.metricCompact.copyWith(color: AppTheme.rose),
+                style: const TextStyle(
+                  fontFamily: 'Roboto',
+                  fontSize: 22,
+                  height: 22 / 22,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.rose,
+                ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -551,7 +593,9 @@ final class _PathwayRow extends StatelessWidget {
                       child: LinearProgressIndicator(
                         value: .45,
                         backgroundColor: Color(0xFF343638),
-                        valueColor: AlwaysStoppedAnimation<Color>(AppTheme.rose),
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          AppTheme.rose,
+                        ),
                       ),
                     ),
                   ),

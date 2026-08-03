@@ -40,7 +40,10 @@ void main() {
         find.byKey(const Key('home-start-weekly-planning')),
         findsOneWidget,
       );
-      expect(find.byKey(const Key('home-indicator-job_applications')), findsNothing);
+      expect(
+        find.byKey(const Key('home-indicator-job_applications')),
+        findsNothing,
+      );
       expect(find.text('Scheduled'), findsNothing);
       expect(find.textContaining('worthiness'), findsNothing);
       expect(find.byKey(const Key('home-pathway-employment')), findsOneWidget);
@@ -59,7 +62,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Edit Goal'), findsOneWidget);
       expect(find.text('Weekly'), findsOneWidget);
-      expect(find.text('Save'), findsOneWidget);
+      expect(find.text('Save'), findsNothing);
 
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(milliseconds: 1));
@@ -102,10 +105,7 @@ void main() {
         matching: find.byType(Scrollable),
       ),
     );
-    expect(
-      find.byKey(const Key('home-pathway-documents')),
-      findsOneWidget,
-    );
+    expect(find.byKey(const Key('home-pathway-documents')), findsOneWidget);
     expect(tester.takeException(), isNull);
 
     await tester.pumpWidget(const SizedBox.shrink());

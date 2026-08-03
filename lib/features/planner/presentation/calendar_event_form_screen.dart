@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rmplanner/app/theme/app_theme.dart';
+import 'package:rmplanner/features/indicators/application/indicator_providers.dart';
 import 'package:rmplanner/features/indicators/domain/life_indicator.dart';
 import 'package:rmplanner/features/planner/application/calendar_event_providers.dart';
 import 'package:rmplanner/features/planner/application/event_type_providers.dart';
@@ -17,6 +18,8 @@ import 'package:rmplanner/features/planner/domain/planner_date.dart';
 import 'package:rmplanner/features/planner/domain/task_event_link.dart';
 import 'package:rmplanner/features/planner/presentation/event_type_picker_dialog.dart';
 import 'package:rmplanner/features/planner/presentation/widgets/planner_slide_down_date_picker.dart';
+import 'package:rmplanner/features/startup/application/startup_providers.dart';
+import 'package:rmplanner/features/startup/domain/startup_state.dart';
 
 enum CalendarEventFormMode { create, edit, reschedule }
 
@@ -26,6 +29,7 @@ final class CalendarEventFormScreen extends ConsumerStatefulWidget {
     this.initialEventType,
     this.initialStartMinute,
     this.initialIndicatorKey,
+    this.initialIndicatorPeriod,
     this.initialEventTypeId,
     this.sheetPresentation = false,
     this.sheetScrollController,
@@ -45,6 +49,7 @@ final class CalendarEventFormScreen extends ConsumerStatefulWidget {
     this.initialEventType,
     this.initialStartMinute,
     this.initialIndicatorKey,
+    this.initialIndicatorPeriod,
     this.initialEventTypeId,
     this.sheetPresentation = false,
     this.sheetScrollController,
@@ -72,6 +77,7 @@ final class CalendarEventFormScreen extends ConsumerStatefulWidget {
        initialEventType = null,
        initialStartMinute = null,
        initialIndicatorKey = null,
+       initialIndicatorPeriod = null,
        initialEventTypeId = null,
        sourceTaskId = null;
 
@@ -90,6 +96,7 @@ final class CalendarEventFormScreen extends ConsumerStatefulWidget {
        initialEventType = null,
        initialStartMinute = null,
        initialIndicatorKey = null,
+       initialIndicatorPeriod = null,
        initialEventTypeId = null,
        sourceTaskId = null;
 
@@ -98,6 +105,7 @@ final class CalendarEventFormScreen extends ConsumerStatefulWidget {
   final EventType? initialEventType;
   final int? initialStartMinute;
   final String? initialIndicatorKey;
+  final IndicatorGoalPeriod? initialIndicatorPeriod;
   final String? initialEventTypeId;
   final String? eventId;
   final PlannerDate? originalDate;
@@ -636,22 +644,14 @@ final class _CalendarEventFormScreenState
                       ],
                     ),
                   ],
-                  const SizedBox(height: 8),
-                  SwitchListTile(
-                    key: const Key('event-all-day-switch'),
-                    contentPadding: EdgeInsets.zero,
-                    dense: true,
-                    title: const Text('All-day event'),
-                    value: _timing == CalendarEventTiming.allDay,
-                    onChanged: (value) {
-                      FocusScope.of(context).unfocus();
-                      setState(
-                        () => _timing = value
-                            ? CalendarEventTiming.allDay
-                            : CalendarEventTiming.timed,
-                      );
-                    },
-                  ),
+                  if (_timing == CalendarEventTiming.allDay)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 12),
+                      child: Text(
+                        'All day event',
+                        style: AppTypography.secondary,
+                      ),
+                    ),
                   const SizedBox(height: 20),
                   _buildRepeatField(),
                   if (_frequency !=
@@ -737,7 +737,7 @@ final class _CalendarEventFormScreenState
                   const SizedBox(height: 32),
                   const _FormSectionLabel(
                     icon: Icons.fact_check_outlined,
-                    label: 'Optional — Reporting & progress context',
+                    label: 'Reporting & progress context',
                   ),
                   SwitchListTile(
                     key: const Key('event-requires-report-switch'),
@@ -1274,6 +1274,34 @@ final class _CalendarEventFormScreenState
     }
     setState(() => _saving = false);
     if (saved) {
+      if (widget.mode == CalendarEventFormMode.create &&
+          widget.initialIndicatorKey != null) {
+        final startup = ref.read(startupControllerProvider);
+        if (startup is StartupReady) {
+          await ref
+              .read(indicatorRepositoryProvider)
+              .linkCommitment(
+                profileId: startup.profile.id,
+                indicatorKey: widget.initialIndicatorKey!,
+                period:
+                    widget.initialIndicatorPeriod ??
+                    IndicatorGoalPeriod.weekly(_date),
+                entityType: IndicatorCommitmentEntityType.event,
+                entityId: _draftId,
+                occurrenceId: CalendarEventOccurrenceIdentity.forDate(
+                  eventId: _draftId,
+                  originalDate: _date,
+                ),
+                linkId: ref.read(plannerIdentifierSourceProvider).nextUuid(),
+                operationId: ref
+                    .read(plannerIdentifierSourceProvider)
+                    .nextUuid(),
+              );
+        }
+      }
+      if (!mounted) {
+        return;
+      }
       Navigator.of(context).pop(true);
     }
   }

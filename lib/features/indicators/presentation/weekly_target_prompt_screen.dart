@@ -3,11 +3,16 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:rmplanner/app/router/route_names.dart';
 import 'package:rmplanner/app/theme/app_theme.dart';
 import 'package:rmplanner/features/indicators/application/indicator_providers.dart';
 import 'package:rmplanner/features/indicators/domain/life_indicator.dart';
 import 'package:rmplanner/features/planner/application/planner_providers.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
+import 'package:rmplanner/features/planner/presentation/calendar_event_creation.dart';
+import 'package:rmplanner/features/planner/presentation/widgets/planner_event_block_content.dart';
+import 'package:rmplanner/features/planner/presentation/widgets/planner_event_block_layout_policy.dart';
 
 final class WeeklyTargetPromptScreen extends ConsumerWidget {
   const WeeklyTargetPromptScreen({
@@ -276,18 +281,21 @@ final class _GoalEditorScreen extends ConsumerStatefulWidget {
   ConsumerState<_GoalEditorScreen> createState() => _GoalEditorScreenState();
 }
 
-final class _GoalEditorScreenState extends ConsumerState<_GoalEditorScreen> {
+final class _GoalEditorScreenState extends ConsumerState<_GoalEditorScreen>
+    with WidgetsBindingObserver {
   late IndicatorGoalPeriodType _periodType;
   PlannerDate _anchor = const PlannerDate(year: 2026, month: 1, day: 1);
   IndicatorGoalSnapshot? _snapshot;
   List<IndicatorGoalSnapshot> _history = const <IndicatorGoalSnapshot>[];
+  List<IndicatorCommitment> _commitments = const <IndicatorCommitment>[];
   String _label = '';
   bool _loading = true;
-  bool _saving = false;
   bool _targetSet = false;
   int _target = 0;
   bool _disposed = false;
   int _reloadToken = 0;
+  Timer? _saveTimer;
+  _PendingGoalSave? _pendingSave;
 
   bool get _hasDaily => widget.indicatorKey == 'job_applications';
   bool get _hasMonthly => widget.indicatorKey == 'temple_visit';
@@ -295,6 +303,7 @@ final class _GoalEditorScreenState extends ConsumerState<_GoalEditorScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _anchor = widget.periodStart;
     _periodType = IndicatorGoalPeriodType.weekly;
     unawaited(_reload());
@@ -302,8 +311,20 @@ final class _GoalEditorScreenState extends ConsumerState<_GoalEditorScreen> {
 
   @override
   void dispose() {
+    unawaited(_flushPending());
+    _saveTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     _disposed = true;
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      unawaited(_flushPending());
+    }
   }
 
   IndicatorGoalPeriod get _period {
@@ -335,6 +356,10 @@ final class _GoalEditorScreenState extends ConsumerState<_GoalEditorScreen> {
         periodType: _periodType,
         anchor: _anchor,
       );
+      final commitments = await controller.readCommitments(
+        indicatorKey: widget.indicatorKey,
+        period: _period,
+      );
       if (!mounted || _disposed || token != _reloadToken) {
         return;
       }
@@ -347,6 +372,7 @@ final class _GoalEditorScreenState extends ConsumerState<_GoalEditorScreen> {
             : definition.first.label;
         _snapshot = snapshot;
         _history = history;
+        _commitments = commitments;
         _targetSet = snapshot.target.isSet;
         _target = snapshot.target.value?.scaledValue ?? 0;
         _loading = false;
@@ -362,8 +388,16 @@ final class _GoalEditorScreenState extends ConsumerState<_GoalEditorScreen> {
     if (_periodType == type) {
       return;
     }
+    unawaited(_changePeriod(type));
+  }
+
+  Future<void> _changePeriod(IndicatorGoalPeriodType type) async {
+    await _flushPending();
+    if (!mounted || _disposed) {
+      return;
+    }
     setState(() => _periodType = type);
-    unawaited(_reload());
+    await _reload();
   }
 
   void _movePeriod(int delta) {
@@ -372,48 +406,68 @@ final class _GoalEditorScreenState extends ConsumerState<_GoalEditorScreen> {
       IndicatorGoalPeriodType.weekly => _anchor.addDays(delta * 7),
       IndicatorGoalPeriodType.monthly => _addMonths(_anchor, delta),
     };
-    setState(() => _anchor = next);
-    unawaited(_reload());
+    unawaited(_moveTo(next));
   }
 
-  Future<void> _save() async {
-    if (_saving || _loading) {
+  Future<void> _moveTo(PlannerDate next) async {
+    await _flushPending();
+    if (!mounted || _disposed) {
       return;
     }
-    setState(() => _saving = true);
+    setState(() => _anchor = next);
+    await _reload();
+  }
+
+  void _queueSave() {
+    final snapshot = _snapshot;
+    if (_loading || snapshot == null || _disposed) {
+      return;
+    }
+    _pendingSave = _PendingGoalSave(
+      period: _period,
+      value: _targetSet
+          ? IndicatorAmount(
+              scaledValue: _target,
+              scale: 0,
+              unit: snapshot.actual.unit,
+            )
+          : null,
+    );
+    _saveTimer?.cancel();
+    _saveTimer = Timer(const Duration(milliseconds: 200), () {
+      _saveTimer = null;
+      unawaited(_flushPending());
+    });
+  }
+
+  Future<void> _flushPending() async {
+    _saveTimer?.cancel();
+    _saveTimer = null;
+    final pending = _pendingSave;
+    _pendingSave = null;
+    if (pending == null) {
+      return;
+    }
     try {
       await ref
           .read(homeIndicatorControllerProvider.notifier)
           .saveGoal(
             indicatorKey: widget.indicatorKey,
-            period: _period,
-            value: _targetSet
-                ? IndicatorAmount(
-                    scaledValue: _target,
-                    scale: 0,
-                    unit: _snapshot?.actual.unit ?? 'count',
-                  )
-                : null,
+            period: pending.period,
+            value: pending.value,
           );
-      if (!mounted || _disposed) {
-        return;
-      }
-      await _reload();
-      if (mounted && !_disposed) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Goal saved')));
-      }
+      ref.invalidate(
+        indicatorPeriodSnapshotProvider(pending.period.indicatorPeriod),
+      );
     } on Object {
       if (mounted && !_disposed) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('Goal was not changed.')));
       }
-    } finally {
-      if (mounted && !_disposed) {
-        setState(() => _saving = false);
-      }
+    }
+    if (_pendingSave != null) {
+      await _flushPending();
     }
   }
 
@@ -427,87 +481,269 @@ final class _GoalEditorScreenState extends ConsumerState<_GoalEditorScreen> {
         ? IndicatorGoalPeriod.monthly(today).start
         : IndicatorGoalPeriod.weekly(today).start;
     final canGoNext = _period.start.compareTo(maxForward) < 0;
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Edit Goal'),
-        actions: <Widget>[
-          TextButton(
-            onPressed: _saving || _loading ? null : _save,
-            style: TextButton.styleFrom(
-              foregroundColor: AppTheme.rose,
-              textStyle: AppTypography.button,
+    return PopScope<void>(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) {
+          unawaited(_flushAndPop());
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(title: const Text('Edit Goal')),
+        body: SafeArea(
+          child: _loading
+              ? const Center(child: CircularProgressIndicator())
+              : ListView(
+                  padding: EdgeInsets.only(
+                    bottom: MediaQuery.viewPaddingOf(context).bottom + 96,
+                  ),
+                  children: <Widget>[
+                    if (_hasDaily || _hasMonthly)
+                      _PeriodTabs(
+                        periodType: _periodType,
+                        hasDaily: _hasDaily,
+                        hasMonthly: _hasMonthly,
+                        onSelected: _selectPeriod,
+                      ),
+                    _GoalPeriodNavigation(
+                      label: periodLabel,
+                      canGoNext: canGoNext,
+                      onPrevious: () => _movePeriod(-1),
+                      onNext: canGoNext ? () => _movePeriod(1) : null,
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(18, 20, 18, 0),
+                      child: Text(
+                        _label,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 22,
+                          height: 28 / 22,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    _GoalControls(
+                      target: _target,
+                      targetSet: _targetSet,
+                      icon: _iconForGoal(widget.indicatorKey),
+                      onMinus: _targetSet && _target > 0
+                          ? () => setState(() {
+                              _target -= 1;
+                              _queueSave();
+                            })
+                          : null,
+                      onPlus: () => setState(() {
+                        _targetSet = true;
+                        _target += 1;
+                        _queueSave();
+                      }),
+                    ),
+                    const SizedBox(height: 28),
+                    const _MajorSeparator(),
+                    _CommitmentsSection(
+                      commitments: _commitments,
+                      onAdd: _addCommitment,
+                      onOpen: _openCommitment,
+                    ),
+                    const _MajorSeparator(),
+                    const Padding(
+                      padding: EdgeInsets.fromLTRB(18, 24, 18, 8),
+                      child: Text('History', style: AppTypography.sectionTitle),
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 18),
+                      child: Divider(height: 1),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(18, 12, 18, 0),
+                      child: _GoalHistoryChart(history: _history),
+                    ),
+                  ],
+                ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _flushAndPop() async {
+    await _flushPending();
+    if (mounted) {
+      Navigator.of(context).pop();
+    }
+  }
+
+  Future<void> _addCommitment() async {
+    final result = await launchCalendarEventCreation<Object?>(
+      context,
+      ref,
+      CalendarEventCreationContext(
+        source: 'goal-commitment',
+        destinationPath: RoutePaths.calendarEventCreate,
+        date: _period.start,
+        indicatorKey: widget.indicatorKey,
+        indicatorPeriod: _period,
+        startTaskUnscheduled: true,
+      ),
+    );
+    if (result != null && mounted && !_disposed) {
+      await _reload();
+    }
+  }
+
+  void _openCommitment(IndicatorCommitment commitment) {
+    if (commitment.isEvent && commitment.date != null) {
+      unawaited(
+        context.push(
+          RoutePaths.calendarEventDetail(commitment.entityId, commitment.date!),
+        ),
+      );
+    } else if (commitment.isTask) {
+      unawaited(context.push('${RoutePaths.tasks}/${commitment.entityId}'));
+    }
+  }
+}
+
+final class _PendingGoalSave {
+  const _PendingGoalSave({required this.period, required this.value});
+
+  final IndicatorGoalPeriod period;
+  final IndicatorAmount? value;
+}
+
+final class _CommitmentsSection extends StatelessWidget {
+  const _CommitmentsSection({
+    required this.commitments,
+    required this.onAdd,
+    required this.onOpen,
+  });
+
+  final List<IndicatorCommitment> commitments;
+  final VoidCallback onAdd;
+  final ValueChanged<IndicatorCommitment> onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(18, 24, 18, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          const Text('Commitments', style: AppTypography.sectionTitle),
+          const SizedBox(height: 8),
+          const Divider(height: 1),
+          const SizedBox(height: 16),
+          for (final commitment in commitments) ...<Widget>[
+            _CommitmentBlock(
+              commitment: commitment,
+              onTap: () => onOpen(commitment),
             ),
-            child: _saving
-                ? const SizedBox.square(
-                    dimension: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Text('Save'),
+            const SizedBox(height: 8),
+          ],
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              key: const Key('goal-add-commitment'),
+              onPressed: onAdd,
+              icon: const Icon(Icons.add, size: 20),
+              label: const Text('Commitments'),
+              style: TextButton.styleFrom(
+                minimumSize: const Size(48, 48),
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                foregroundColor: AppTheme.rose,
+                textStyle: AppTypography.button,
+              ),
+            ),
           ),
         ],
       ),
-      body: SafeArea(
-        child: _loading
-            ? const Center(child: CircularProgressIndicator())
-            : ListView(
-                padding: const EdgeInsets.only(bottom: 120),
-                children: <Widget>[
-                  if (_hasDaily || _hasMonthly)
-                    _PeriodTabs(
-                      periodType: _periodType,
-                      hasDaily: _hasDaily,
-                      hasMonthly: _hasMonthly,
-                      onSelected: _selectPeriod,
+    );
+  }
+}
+
+final class _CommitmentBlock extends StatelessWidget {
+  const _CommitmentBlock({required this.commitment, required this.onTap});
+
+  final IndicatorCommitment commitment;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final base = Color(commitment.colorArgb);
+    final surface = commitment.isBackup
+        ? PlannerEventBlockLayoutPolicy.backupEventSurface
+        : PlannerEventBlockColorPolicy.surfaceColor(base);
+    final accent = commitment.isBackup
+        ? PlannerEventBlockLayoutPolicy.backupEventAccent
+        : base;
+    final textColor = PlannerEventBlockColorPolicy.textColor(surface);
+    final schedule = commitment.isUnscheduled
+        ? 'Unscheduled'
+        : commitment.date == null
+        ? commitment.statusLabel
+        : commitment.startMinute == null || commitment.endMinute == null
+        ? '${commitment.date!.iso8601}  ${commitment.statusLabel}'
+        : '${commitment.date!.iso8601}  ${formatPlannerEventRange(commitment.startMinute!, commitment.endMinute!, false)}';
+    return Material(
+      color: surface,
+      borderRadius: BorderRadius.circular(4),
+      child: InkWell(
+        key: Key('goal-commitment-${commitment.linkId}'),
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(4),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(
+            minHeight: 58,
+            minWidth: double.infinity,
+          ),
+          child: IntrinsicHeight(
+            child: Row(
+              children: <Widget>[
+                SizedBox(width: 4, child: ColoredBox(color: accent)),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(10, 10, 6, 10),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: <Widget>[
+                        Text(
+                          commitment.label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: textColor,
+                            fontSize: 14,
+                            height: 17 / 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          schedule,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: textColor.withValues(alpha: 0.9),
+                            fontSize: 13,
+                            height: 16 / 13,
+                          ),
+                        ),
+                      ],
                     ),
-                  _GoalPeriodNavigation(
-                    label: periodLabel,
-                    canGoNext: canGoNext,
-                    onPrevious: () => _movePeriod(-1),
-                    onNext: canGoNext ? () => _movePeriod(1) : null,
                   ),
+                ),
+                if (commitment.isRecurring)
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(18, 20, 18, 0),
-                    child: Text(
-                      _label,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 22,
-                        height: 28 / 22,
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
+                    padding: const EdgeInsets.only(right: 10),
+                    child: Icon(Icons.repeat, size: 18, color: accent),
                   ),
-                  const SizedBox(height: 16),
-                  _GoalControls(
-                    target: _target,
-                    targetSet: _targetSet,
-                    actual: _snapshot?.actual.display ?? '0',
-                    icon: _iconForGoal(widget.indicatorKey),
-                    onMinus: _targetSet && _target > 0
-                        ? () => setState(() => _target -= 1)
-                        : null,
-                    onPlus: () => setState(() {
-                      _targetSet = true;
-                      _target += 1;
-                    }),
-                  ),
-                  const SizedBox(height: 28),
-                  const _MajorSeparator(),
-                  const Padding(
-                    padding: EdgeInsets.fromLTRB(18, 24, 18, 8),
-                    child: Text('History', style: AppTypography.sectionTitle),
-                  ),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 18),
-                    child: Divider(height: 1),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(18, 12, 18, 0),
-                    child: _GoalHistoryChart(history: _history),
-                  ),
-                ],
-              ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -627,7 +863,6 @@ final class _GoalControls extends StatelessWidget {
   const _GoalControls({
     required this.target,
     required this.targetSet,
-    required this.actual,
     required this.icon,
     required this.onMinus,
     required this.onPlus,
@@ -635,7 +870,6 @@ final class _GoalControls extends StatelessWidget {
 
   final int target;
   final bool targetSet;
-  final String actual;
   final IconData icon;
   final VoidCallback? onMinus;
   final VoidCallback onPlus;
@@ -690,14 +924,6 @@ final class _GoalControls extends StatelessWidget {
                 onPressed: onPlus,
                 filled: true,
               ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: <Widget>[
-              const Icon(Icons.info_outline, color: AppTheme.rose, size: 22),
-              const SizedBox(width: 10),
-              Text('Actual: $actual', style: AppTypography.body),
             ],
           ),
         ],

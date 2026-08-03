@@ -872,8 +872,10 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     final slotCount = lastHour - firstHour;
     final timelineHeight = slotCount * hourHeight;
     final systemBottomInset = MediaQuery.viewPaddingOf(context).bottom;
-    final plannerBottomInset =
-        (72.0 + systemBottomInset + 56.0 + 24.0).clamp(120.0, 200.0);
+    final plannerBottomInset = (72.0 + systemBottomInset + 56.0 + 24.0).clamp(
+      120.0,
+      200.0,
+    );
 
     // Refresh-indicator removed: the Planner does not support
     // pull-to-refresh. The previous RefreshIndicator intercepted
@@ -1444,17 +1446,91 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     if (existing == null) {
       return false;
     }
-    final operationId = ref.read(plannerIdentifierSourceProvider).nextUuid();
-    return controller.editEvent(
-      eventId: eventId,
-      originalDate: originalDate,
-      scope: CalendarEventEditScope.occurrence,
-      draft: existing.copyWith(
+    final scope = event.isRecurring
+        ? await _selectTimelineEditScope()
+        : CalendarEventEditScope.occurrence;
+    if (!mounted || scope == null) {
+      return false;
+    }
+    final draft = switch (scope) {
+      CalendarEventEditScope.occurrence => existing.copyWith(
         startDate: originalDate,
         startMinute: startMinute,
         endMinute: endMinute,
       ),
+      CalendarEventEditScope.series => _seriesTimelineDraft(
+        existing: existing,
+        event: event,
+        startMinute: startMinute,
+        endMinute: endMinute,
+      ),
+      CalendarEventEditScope.thisAndFuture => existing.copyWith(
+        startDate: originalDate,
+        startMinute: startMinute,
+        endMinute: endMinute,
+      ),
+    };
+    final operationId = ref.read(plannerIdentifierSourceProvider).nextUuid();
+    return controller.editEvent(
+      eventId: eventId,
+      originalDate: originalDate,
+      scope: scope,
+      draft: draft,
       operationId: operationId,
+    );
+  }
+
+  CalendarEventDraft _seriesTimelineDraft({
+    required CalendarEventDraft existing,
+    required PlannerCalendarItem event,
+    required int startMinute,
+    required int endMinute,
+  }) {
+    final occurrenceStart =
+        event.startLocal!.hour * 60 + event.startLocal!.minute;
+    final delta = startMinute - occurrenceStart;
+    final duration = endMinute - startMinute;
+    final baseStart = existing.startMinute ?? startMinute;
+    final nextStart = (baseStart + delta).clamp(0, 1440 - duration);
+    return existing.copyWith(
+      startDate: existing.startDate,
+      startMinute: nextStart,
+      endMinute: nextStart + duration,
+    );
+  }
+
+  Future<CalendarEventEditScope?> _selectTimelineEditScope() {
+    return showDialog<CalendarEventEditScope>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        key: const Key('recurring-timeline-scope-dialog'),
+        title: const Text('Change repeating event?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            _TimelineScopeButton(
+              key: const Key('recurring-timeline-scope-this'),
+              label: 'This event only',
+              onPressed: () => Navigator.of(
+                dialogContext,
+              ).pop(CalendarEventEditScope.occurrence),
+            ),
+            _TimelineScopeButton(
+              key: const Key('recurring-timeline-scope-all'),
+              label: 'All events',
+              onPressed: () => Navigator.of(
+                dialogContext,
+              ).pop(CalendarEventEditScope.series),
+            ),
+            _TimelineScopeButton(
+              key: const Key('recurring-timeline-scope-cancel'),
+              label: 'Cancel',
+              onPressed: () => Navigator.of(dialogContext).pop(),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -1486,6 +1562,29 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
 enum _PlannerOverflowAction { search, schedule, day, week, tasks }
 
 enum _TimelineResizeEdge { top, bottom }
+
+final class _TimelineScopeButton extends StatelessWidget {
+  const _TimelineScopeButton({
+    required this.label,
+    required this.onPressed,
+    super.key,
+  });
+
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 56,
+      child: TextButton(
+        onPressed: onPressed,
+        style: TextButton.styleFrom(alignment: Alignment.centerLeft),
+        child: Text(label),
+      ),
+    );
+  }
+}
 
 /// Internal descriptor for a row inside the top-bar overflow popup.
 final class _OverflowEntry {
@@ -2632,10 +2731,9 @@ final class _TimelineEventBlock extends StatelessWidget {
                                         details.offsetFromOrigin.dy,
                                       );
                                   recognizer.onLongPressStart = (_) =>
-                                      unawaited(
-                                        HapticFeedback.mediumImpact(),
-                                      );
-                                  recognizer.onLongPressEnd = (_) => onMoveEnd();
+                                      unawaited(HapticFeedback.mediumImpact());
+                                  recognizer.onLongPressEnd = (_) =>
+                                      onMoveEnd();
                                   recognizer.onLongPressCancel = onMoveCancel;
                                 },
                               ),

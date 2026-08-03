@@ -230,6 +230,21 @@ void main() {
       },
     );
 
+    test(
+      'minimum-height content suppresses schedule and recurrence affordances',
+      () {
+        final content = PlannerEventBlockContent.forHeight(
+          11,
+          interactive: true,
+        );
+        expect(content.density, Density.veryShort);
+        expect(content.showTime, isFalse);
+        expect(content.showTimeInline, isFalse);
+        expect(content.showRecurrence, isFalse);
+        expect(content.showStatusIcons, isFalse);
+      },
+    );
+
     test('medium shows time and status; resize only when interactive', () {
       final interactive = PlannerEventBlockContent.forHeight(
         60,

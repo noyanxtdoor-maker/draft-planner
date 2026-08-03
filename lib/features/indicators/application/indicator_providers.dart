@@ -234,4 +234,15 @@ final class HomeIndicatorController extends Notifier<HomeIndicatorState> {
       periodStart: periodStart,
     );
   }
+
+  Future<List<IndicatorCommitment>> readCommitments({
+    required String indicatorKey,
+    required IndicatorGoalPeriod period,
+  }) {
+    return _repository.readCommitments(
+      profileId: _profileId,
+      indicatorKey: indicatorKey,
+      period: period,
+    );
+  }
 }
