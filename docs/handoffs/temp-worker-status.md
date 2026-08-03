@@ -3763,3 +3763,43 @@ skips. The exact coverage groups are:
   items 01–50 remain pending and cannot be inferred from automated tests.
 - Prompt B was not started. No push was made. PR #8 was not updated. VS-09
   was not started.
+
+### Build/install/data-preservation addendum
+
+- The bundled Android SDK was already present at
+  `C:\Users\sherl\AppData\Local\Temp\next-transfer-toolchain\android-sdk`.
+  Flutter was pointed at that SDK without an upgrade. The shell safety policy
+  rejected the explicit removal of the prior generated APK; the exact Flutter
+  build output was overwritten in place and no source, repository, or app data
+  was deleted.
+- Build command:
+  `C:\Users\sherl\AppData\Local\Temp\run_flutter.bat build apk --debug`.
+  Result: success. APK:
+  `C:\Users\sherl\Documents\Next Transfer-Temp\build\app\outputs\flutter-apk\app-debug.apk`.
+  Size: **195339693 bytes**. UTC write time: **2026-08-03 07:27:28**.
+  SHA-256:
+  **2F77D013C15EA74B1A8F14E4C86D8BAA90EBAEB3C0C05FB8224E4E98D6834A16**.
+- Authorized device: Infinix X6731, Android 14, mDNS serial
+  `adb-10620253B3004617-2m7ZVB._adb-tls-connect._tcp`. The exact command
+  `adb install -r` returned `Success`; the app was force-stopped and launched
+  with `com.nexttransfer.rmplanner/.MainActivity`.
+- Installed package path:
+  `/data/app/~~42Mu0yC-uKKNLuhMkZMyiw==/com.nexttransfer.rmplanner-bADG9p-G9f2OSl1SqEkU0g==/base.apk`.
+  Device-side `sha256sum` exactly matched the local SHA-256 above.
+- Data-preservation markers: `dataDir=/data/user/0/com.nexttransfer.rmplanner`;
+  `firstInstallTime=2026-07-27 15:42:22` remained unchanged;
+  `app_flutter/next_transfer.sqlite` inode `504326` and size `401408` bytes
+  remained unchanged. No `adb uninstall`, `pm clear`, or equivalent data
+  deletion command was used.
+- Read-only in-memory SQLite inspection after installation found: 23
+  `calendar_events`, 1 `planner_tasks`, 6 `life_indicator_definitions`, 32
+  `indicator_goal_revisions`, 20 `weekly_indicator_target_revisions`, 2
+  `weekly_plans`, 7 `outcome_reports`, and 3 `activity_ledger_entries`.
+  The six preserved WLI titles are Job Applications, Scripture Study,
+  Exercise, Meaningful Connections, Budget Review, and Temple Visit. Existing
+  Event titles, Task title `hbb`, weekly plans, WLI targets/history, reports,
+  and ledger data were all present after install.
+- Build/install/hash/data verification is now **COMPLETE**. Physical owner
+  acceptance remains **PENDING** for the explicit item-by-item PASS/FAIL
+  response for items 01–50; automated tests and device installation are not
+  substituted for owner approval.
