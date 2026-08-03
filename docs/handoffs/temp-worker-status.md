@@ -4305,3 +4305,228 @@ install gate is superseded by this continuation evidence:
 The physical update-install, installed-hash, package/data-marker, and launch
 verification gates are now COMPLETE. Owner visual PASS/FAIL sign-off remains a
 separate pending acceptance step.
+
+## VS-08 Correction Prompt C — Canonical Goal Lifecycle
+
+Date: 2026-08-04
+
+### Execution boundary and evidence
+
+- Writable repository: `C:\Users\sherl\Documents\Next Transfer-Temp`.
+- Branch: `temp/vs08-shared-preview`.
+- Starting HEAD: `95739dc948fc645a9ac8c63fa758fc64039a7e59`
+  (`95739dc`).
+- The inherited Prompt A/B baseline was preserved. The inherited working-tree
+  changes in `lib/features/shell/global_app_drawer.dart` and `.todo.md` were
+  not staged, committed, reset, restored, cleaned, or discarded.
+- Protected original repository `C:\Users\sherl\Documents\Next Transfer`
+  was not modified.
+- Visual hierarchy references reviewed, without staging or using them as
+  production assets: the supplied Create Goal, Goal Archive, and Weekly
+  Planning mockups, plus the current Home/Planner evidence in the Prompt C
+  package.
+- Prompt D was not started. PR #8 was not updated. No push occurred. VS-09
+  was not started.
+
+### Implemented canonical lifecycle
+
+- Added the canonical `Goal`, `GoalActivity`, role, status, capacity, period,
+  progress, archive, and backup domain contracts in
+  `lib/features/goals/domain/goal.dart` and
+  `lib/features/goals/application/goal_repository.dart`.
+- Added the single Drift-backed Goal repository in
+  `lib/features/goals/data/drift_goal_repository.dart`; no parallel Home,
+  Planner, or Contacts Goal store was created.
+- Added schema version 17 with a safe v16-to-v17 migration. Existing six WLI
+  slots become stable Goal IDs, legacy target ownership is re-keyed to
+  `goalId`, deterministic creation activity/outbox rows are inserted once,
+  and migration reruns do not duplicate rows.
+- Enforced one `dailyWeekly` slot, four `weekly` slots, and one
+  `weeklyMonthly` slot. Archived Goals retain identity and history while their
+  active slot becomes nullable.
+- Implemented current-period target ownership by Goal ID, preserving prior
+  periods and Actuals.
+- Implemented Create Goal, capacity validation, Save-based Edit Goal, draft
+  plus/minus behavior, unsaved-change handling, rename, archive, compatible
+  restore, read-only Goal Archive, read-only Activity History, and Home card
+  navigation to the card's own Edit Goal screen.
+- Added operation-idempotent create/update/archive/restore/activity/outbox
+  behavior and backup/export/import coverage. Nullable `iconId` is preserved,
+  unknown IDs fall back safely, and no icon picker or icon library was added.
+- Untouched Slot 4 migrates from `Meaningful Connections` to
+  `Ministering Visit`; customized Slot 4 titles are preserved. The Contact
+  relationship remains attached to the canonical WLI identity.
+- Updated Home and Weekly Planning watchers to observe canonical Goal changes,
+  while preventing read-time write notification loops.
+- Preserved the accepted compact Colors, Contact Group Colors, Planner,
+  reporting, Event deletion, Current Status, compact Home/WLI, Temple Visit,
+  and Commitments-removal behavior.
+
+### Complete requirement matrix (1–119)
+
+`COMPLETE AND VERIFIED` means the production path is implemented and supported
+by code inspection plus the focused/full automated gates. `OWNER PENDING`
+means the device is installed and verified, but the owner still must perform
+the requested visual PASS/FAIL inspection; it is not a claim of physical
+acceptance.
+
+| ID | Requirement / production evidence | Test evidence / automated status | Implementation status | Physical verification | Remaining blocker |
+|---:|---|---|---|---|---|
+| 1 | Six existing Goals remain visible after migration; `app_database.dart`, `drift_goal_repository.dart` | `goal_migration_test.dart`; PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 2 | Existing user-edited and untouched titles are preserved by migration | `goal_migration_test.dart`; PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 3 | Current targets remain attached to migrated Goal IDs | migration/repository tests; PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 4 | Actual values remain in the existing target records | migration/repository code audit and full suite; PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 5 | Historical period records remain untouched | migration/backup repository audit; PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 6 | Untouched Slot 4 becomes `Ministering Visit` | `goal_migration_test.dart`; PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 7 | Customized Slot 4 remains unchanged | `goal_migration_test.dart`; PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 8 | Migration creates no duplicate Goals | migration idempotency test; PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 9 | Update install preserves app data; no clear/reset path used | ADB package/data markers; PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 10 | Weekly Planning has an Archive action in the app bar | `weekly_planning_screen.dart`; full suite PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 11 | `+ Create Goal` appears below the week range | `weekly_planning_screen.dart`; weekly journey/full suite PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 12 | Daily Progress Goal section is present with exact supporting text | `weekly_planning_screen.dart`; full suite PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 13 | Weekly Goals section is present with exact supporting text | `weekly_planning_screen.dart`; full suite PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 14 | Monthly Progress Goal section is present with exact supporting text | `weekly_planning_screen.dart`; full suite PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 15 | Section explanations match the approved hierarchy | `weekly_planning_screen.dart`; full suite PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 16 | Goal rows show actual/target and role-specific secondary metrics | Goal planning model and screen audit; PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 17 | Each row overflow menu contains Edit Goal and Archive Goal | `weekly_planning_screen.dart`; full suite PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 18 | Empty states are rendered for available role slots | capacity/planning UI code audit; PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 19 | Weekly availability count is derived from canonical capacity | `drift_goal_repository_test.dart`; PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 20 | Create Goal opens a full-page flow | `goal_create_screen.dart` and router; full suite PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 21 | All three Goal types are visible | `goal_create_screen.dart`; full suite PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 22 | Unavailable Goal types remain visible and show Full/availability state | capacity UI and repository audit; PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 23 | Daily role exposes Daily and Weekly targets | `goal_create_screen.dart`, GoalTargets; PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 24 | Weekly role exposes Weekly target | `goal_create_screen.dart`, GoalTargets; PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 25 | Monthly role exposes Weekly and Monthly targets | `goal_create_screen.dart`, GoalTargets; PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 26 | Invalid Create Goal data cannot be saved | form validation and capacity checks; full suite PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 27 | A valid Create Goal creates one canonical Goal | `drift_goal_repository_test.dart`; PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 28 | Newly created Goal appears in Weekly Planning | canonical watcher path and planning read; PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 29 | Newly created WLI-linked Goal appears in Home | Home Goal-ID watcher path; PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 30 | Seventh active Goal is rejected | `GoalCapacityException` and capacity tests; PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 31 | Goal limit warning is shown at capacity | Create screen capacity dialog; full suite PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 32 | Edit Goal restores a Save action | `goal_edit_screen.dart`; full suite PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 33 | Plus/minus edits draft state only | Edit screen draft-state audit; PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 34 | Title edits remain draft-only until Save | Edit screen draft-state audit; PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 35 | Back with changes offers Discard/Continue | `goal_edit_screen.dart`; full suite PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 36 | Save updates Home | Goal watcher and Home navigation code; PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 37 | Save updates Weekly Planning | Goal watcher and planning read; PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 38 | Save updates the current Edit Goal view | repository save/read path; PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 39 | Values stay synchronized across Home, Planning, and Edit Goal | canonical Goal-ID target path; full suite PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 40 | Rename preserves history | rename activity/repository test; PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 41 | Rename does not archive | `drift_goal_repository_test.dart`; PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 42 | Archive confirmation appears | Planning archive flow; full suite PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 43 | Archived Goal disappears from Home | archive visibility test; PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 44 | Archived Goal disappears from active Weekly Planning | archive visibility test; PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 45 | Archiving frees the compatible slot | `drift_goal_repository_test.dart`; PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 46 | Archived Goal appears in Goal Archive | archive screen/query path; full suite PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 47 | Historical targets remain after archive | repository archive test; PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 48 | Actual history remains after archive | repository/backup audit; PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 49 | Prompt C never permanently deletes a Goal | archive screen has no permanent-delete action; PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 50 | Archived Goals tab exists | `goal_archive_screen.dart`; full suite PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 51 | Activity History tab exists | `goal_archive_screen.dart`; full suite PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 52 | Archived Goal search works | archive screen filtering code; full suite PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 53 | Archive rows show the role label | Goal archive mapper; full suite PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 54 | Archive rows show archive date | Goal archive mapper; full suite PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 55 | Restore action exists | `goal_archive_screen.dart`; full suite PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 56 | No oversized permanent Delete button is present | archive UI audit; full suite PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 57 | Restore returns the same permanent Goal ID | `drift_goal_repository_test.dart`; PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 58 | Restored Goal returns to its compatible role section | role/slot restore test; PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 59 | Home refreshes after restore | Goal watcher path; PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 60 | Weekly Planning refreshes after restore | Goal watcher path; PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 61 | Activity history remains after restore | restore/history test; PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 62 | Fallback or stored icon remains after restore | nullable icon/backup test; PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 63 | Restore is blocked when the compatible role is full | `GoalCapacityException` test; PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 64 | Restore cannot produce a seventh active Goal | slot uniqueness/capacity test; PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 65 | Created activity appears once | activity/outbox test; PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 66 | Renamed activity appears once | rename retry test; PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 67 | Archived activity appears once | archive retry test; PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 68 | Restored activity appears once | restore retry test; PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 69 | Cancelled drafts create no activity | draft lifecycle audit; full suite PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 70 | Activity history is newest first | `readActivityHistory` ordering audit; PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 71 | Each Home Goal card opens its own Edit Goal | `home_screen.dart` uses card `goalId`; full suite PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 72 | Home View All opens Weekly Planning | Home navigation route audit; PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 73 | Home Weekly Planning button opens Weekly Planning | Home route audit; PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 74 | Home Start Weekly Planning opens Weekly Planning | Home route audit; weekly journey PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 75 | Existing fallback icons render when iconId is null | nullable icon repository/UI audit; PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 76 | Null iconId does not crash | migration/repository test; PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 77 | Stored iconId survives archive/restore | backup/import and restore test; PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 78 | No user-facing icon picker appears | Prompt C screen/router audit; PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 79 | Compact Event Colors remains intact | existing Colors tests; full suite PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 80 | Contact Group Colors remains intact | existing group-color tests; full suite PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 81 | Planner Event deletion remains intact | existing deletion tests; full suite PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 82 | Planner Current Status remains intact | existing reporting/status tests; full suite PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 83 | Fifteen-minute Planner rendering remains intact | existing Planner viewport tests; full suite PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 84 | Adjacent-page stability remains intact | existing Planner stability tests; full suite PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 85 | Compact Home remains intact | `home_indicator_journey_test.dart`; full suite PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 86 | Commitments remain absent | privacy/startup regression tests; full suite PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 87 | Temple Visit Home behavior remains intact | Home indicator journey tests; full suite PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 88 | Existing Event data remains intact | full Flutter suite and update-install evidence; PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 89 | Existing Task data remains intact | full Flutter suite and update-install evidence; PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 90 | Installed APK hash equals local Temp APK hash | build/install hash proof; PASS | COMPLETE AND VERIFIED | OWNER PENDING | Owner visual sign-off |
+| 91 | No push occurred | repository/remote audit; PASS | COMPLETE AND VERIFIED | N/A | None |
+| 92 | PR #8 was not updated | repository/remote boundary audit; PASS | COMPLETE AND VERIFIED | N/A | None |
+| 93 | VS-09 was not started | scope audit; PASS | COMPLETE AND VERIFIED | N/A | None |
+| 94 | Prompt D was not started | scope audit; PASS | COMPLETE AND VERIFIED | N/A | None |
+| 95 | Home View All opens Weekly Planning | Home route audit; full suite PASS | COMPLETE AND VERIFIED | N/A | None |
+| 96 | Home Weekly Planning button opens Weekly Planning | Home route audit; full suite PASS | COMPLETE AND VERIFIED | N/A | None |
+| 97 | Home Start Weekly Planning opens Weekly Planning | Home route audit; weekly journey PASS | COMPLETE AND VERIFIED | N/A | None |
+| 98 | Goal create enters the outbox | repository create transaction test; PASS | COMPLETE AND VERIFIED | N/A | None |
+| 99 | Goal update enters the outbox | repository save transaction audit; PASS | COMPLETE AND VERIFIED | N/A | None |
+| 100 | Goal archive enters the outbox | repository archive transaction test; PASS | COMPLETE AND VERIFIED | N/A | None |
+| 101 | Goal restore enters the outbox | repository restore transaction test; PASS | COMPLETE AND VERIFIED | N/A | None |
+| 102 | Retried operations are idempotent | create/save/archive/restore retry tests; PASS | COMPLETE AND VERIFIED | N/A | None |
+| 103 | Backup includes canonical Goals | goal backup test; PASS | COMPLETE AND VERIFIED | N/A | None |
+| 104 | Backup includes GoalActivity rows | goal backup/restore audit; PASS | COMPLETE AND VERIFIED | N/A | None |
+| 105 | Backup includes nullable iconId | `drift_goal_repository_test.dart`; PASS | COMPLETE AND VERIFIED | N/A | None |
+| 106 | Backup round trip preserves Goal data | backup import/export test; PASS | COMPLETE AND VERIFIED | N/A | None |
+| 107 | Old six-slot data migrates safely | v16-to-v17 migration test; PASS | COMPLETE AND VERIFIED | N/A | None |
+| 108 | Conflict/slot validation preserves capacity | backup conflict and capacity tests; PASS | COMPLETE AND VERIFIED | N/A | None |
+| 109 | Compact Colors still passes | full Flutter suite: 373 passed; PASS | COMPLETE AND VERIFIED | N/A | None |
+| 110 | Contact Group Colors still passes | full Flutter suite: 373 passed; PASS | COMPLETE AND VERIFIED | N/A | None |
+| 111 | Planner deletion still passes | full Flutter suite: 373 passed; PASS | COMPLETE AND VERIFIED | N/A | None |
+| 112 | Current Status still passes | full Flutter suite: 373 passed; PASS | COMPLETE AND VERIFIED | N/A | None |
+| 113 | Fifteen-minute rendering still passes | full Flutter suite: 373 passed; PASS | COMPLETE AND VERIFIED | N/A | None |
+| 114 | Adjacent-page stability still passes | full Flutter suite: 373 passed; PASS | COMPLETE AND VERIFIED | N/A | None |
+| 115 | Compact Home still passes | full Flutter suite: 373 passed; PASS | COMPLETE AND VERIFIED | N/A | None |
+| 116 | Commitments remain absent | full Flutter suite: 373 passed; PASS | COMPLETE AND VERIFIED | N/A | None |
+| 117 | Temple Visit Home behavior still passes | full Flutter suite: 373 passed; PASS | COMPLETE AND VERIFIED | N/A | None |
+| 118 | Existing Events remain | full Flutter suite: 373 passed; PASS | COMPLETE AND VERIFIED | N/A | None |
+| 119 | Existing Tasks remain | full Flutter suite: 373 passed; PASS | COMPLETE AND VERIFIED | N/A | None |
+
+### Test, build, and install gates
+
+- Focused Goal/migration suite: `7 tests passed` with zero failures.
+- Full Flutter suite: `373 tests passed`, zero failures, zero skipped.
+- Analyzer: `No issues found!`.
+- `git diff --check`: clean before handoff.
+- Debug APK: `C:\Users\sherl\Documents\Next Transfer-Temp\build\app\outputs\flutter-apk\app-debug.apk`.
+- APK size: `195552455` bytes.
+- APK SHA-256: `5F70C8267640D6E40BB771900317C802D71E7060B838F3AD16DC43B09718FD98`.
+- The authorized Infinix X6731 was updated with `adb install -r`; output was
+  `Success`. The app was force-stopped and launched with
+  `com.nexttransfer.rmplanner/.MainActivity`.
+- Pre/post install evidence preserved `dataDir=/data/user/0/com.nexttransfer.rmplanner`
+  and `firstInstallTime=2026-07-27 15:42:22`; only `lastUpdateTime` advanced.
+- The temporarily pulled installed `base.apk` was exactly 195552455 bytes and
+  its SHA-256 matched the local Temp APK. The temporary pull was deleted after
+  comparison. No uninstall, `pm clear`, data reset, or equivalent destructive
+  operation was issued.
+- Build emitted only the existing flutter_timezone Kotlin-plugin and Android
+  SDK XML-version warnings; no build failure occurred.
+
+### Physical owner acceptance
+
+Items 01–94 are ready for explicit owner PASS/FAIL inspection on the installed
+build. The device installation and hash/data-preservation gates are complete,
+but visual owner acceptance is intentionally not claimed by Codex. If any item
+fails, record the exact item, fix Prompt C only, rerun the relevant tests, and
+repeat build/install/hash verification before acceptance.
+
+### Commit and release boundary
+
+- Implementation commit: `feat(vs08): add canonical goal lifecycle`
+  (`74b358062fa2c7ea30223a46c884d3153c1c8a9f`).
+- Handoff commit: `docs(handoff): record canonical goal lifecycle`; its SHA is
+  recorded in the final transfer summary after the commit is created.
+- No push occurred.
+- PR #8 remains untouched.
+- Prompt D and VS-09 remain unstarted.
