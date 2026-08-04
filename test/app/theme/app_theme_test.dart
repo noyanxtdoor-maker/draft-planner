@@ -3,6 +3,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:rmplanner/app/theme/app_theme.dart';
 
 void main() {
+  test('canonical highlight pink is shared by the dark color scheme', () {
+    const expectedRose = Color(0xFFF9B7C7);
+    final scheme = AppTheme.dark().colorScheme;
+
+    expect(AppTheme.rose, expectedRose);
+    expect(scheme.primary, expectedRose);
+    expect(scheme.onPrimary, const Color(0xFF340012));
+  });
+
   test('Q4: primary and surface text meet WCAG AA contrast', () {
     final scheme = AppTheme.dark().colorScheme;
 

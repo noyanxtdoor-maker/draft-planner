@@ -87,7 +87,8 @@ abstract final class AppTypography {
 }
 
 abstract final class AppTheme {
-  static const Color rose = Color(0xFFFF7895);
+  /// Canonical app highlight pink shared by existing highlight roles.
+  static const Color rose = Color(0xFFF9B7C7);
   static const Color background = Color(0xFF0D0E10);
   static const Color surface = Color(0xFF181A1E);
   static const Color outline = Color(0xFF454850);
