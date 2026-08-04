@@ -4872,13 +4872,13 @@ without clearing data. Before/after evidence retained:
 - firstInstallTime=2026-07-27 15:42:22;
 - ceDataInode=1509267.
 
-The required physical Home screenshot/check was attempted. Android stopped the
-final relaunch at the credential gate with Authentication required, Verify
-identity, and Touch in-display fingerprint sensor; an earlier physical capture
-also showed Verify your fingerprint or swipe up to unlock. The final
-device-state capture was written outside the repository at
-C:\Users\sherl\AppData\Local\Temp\vs08-pack1a-final-device.png; it is not
-claimed as Home visual proof. The physical Phase A matrix therefore remains
+The required physical Home screenshot/check was attempted. The final launch
+reached the app's own protected lock screen, showing Next Transfer is locked,
+Use Android biometrics or your device credential, and an Unlock button. This
+is an app-authentication boundary, not a reason to bypass authentication from
+ADB. The final pulled device-state capture is outside the repository at
+C:\Users\sherl\AppData\Local\Temp\vs08-pack1a-physical-final-pulled.png; it is
+not claimed as Home visual proof. The physical Phase A matrix therefore remains
 pending owner unlock.
 
 ## Focused accent verification
