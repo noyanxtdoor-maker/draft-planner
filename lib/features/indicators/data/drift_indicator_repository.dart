@@ -48,6 +48,14 @@ final class DriftIndicatorRepository implements IndicatorRepository {
   }
 
   @override
+  Future<PlannerDate?> readNextTempleVisit({
+    required String profileId,
+    required PlannerDate today,
+  }) {
+    return _readNextTempleVisit(profileId: profileId, today: today);
+  }
+
+  @override
   Future<HomeIndicatorSnapshot> readHome({
     required String profileId,
     required IndicatorPeriod period,

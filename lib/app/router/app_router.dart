@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:rmplanner/app/router/app_route_observer.dart';
 import 'package:rmplanner/app/router/route_names.dart';
 import 'package:rmplanner/app/router/startup_route_guard.dart';
 import 'package:rmplanner/app/shell/main_shell.dart';
@@ -80,6 +81,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       ShellRoute(
         navigatorKey: _shellNavigatorKey,
+        observers: <NavigatorObserver>[shellRouteObserver],
         builder: (context, state, child) => MainShell(child: child),
         routes: <RouteBase>[
           GoRoute(
@@ -156,6 +158,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                         raw,
                         ref.read(plannerDateSourceProvider).today(),
                       ),
+                initialManagementMode: state.extra == true,
               );
             },
           ),

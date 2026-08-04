@@ -5267,6 +5267,39 @@ class $CalendarEventsTable extends CalendarEvents
         type: DriftSqlType.int,
         requiredDuringInsert: false,
       );
+  static const VerificationMeta _activityTypeStableKeySnapshotMeta =
+      const VerificationMeta('activityTypeStableKeySnapshot');
+  @override
+  late final GeneratedColumn<String> activityTypeStableKeySnapshot =
+      GeneratedColumn<String>(
+        'activity_type_stable_key_snapshot',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _activityTypeLabelSnapshotMeta =
+      const VerificationMeta('activityTypeLabelSnapshot');
+  @override
+  late final GeneratedColumn<String> activityTypeLabelSnapshot =
+      GeneratedColumn<String>(
+        'activity_type_label_snapshot',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _activityTypeColorValueSnapshotMeta =
+      const VerificationMeta('activityTypeColorValueSnapshot');
+  @override
+  late final GeneratedColumn<int> activityTypeColorValueSnapshot =
+      GeneratedColumn<int>(
+        'activity_type_color_value_snapshot',
+        aliasedName,
+        true,
+        type: DriftSqlType.int,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _contributionRuleKeyMeta =
       const VerificationMeta('contributionRuleKey');
   @override
@@ -5431,6 +5464,9 @@ class $CalendarEventsTable extends CalendarEvents
     requiresReport,
     activityTypeId,
     activityTypeMappingVersion,
+    activityTypeStableKeySnapshot,
+    activityTypeLabelSnapshot,
+    activityTypeColorValueSnapshot,
     contributionRuleKey,
     isBackupAppointment,
     backupForEventId,
@@ -5557,6 +5593,33 @@ class $CalendarEventsTable extends CalendarEvents
         activityTypeMappingVersion.isAcceptableOrUnknown(
           data['activity_type_mapping_version']!,
           _activityTypeMappingVersionMeta,
+        ),
+      );
+    }
+    if (data.containsKey('activity_type_stable_key_snapshot')) {
+      context.handle(
+        _activityTypeStableKeySnapshotMeta,
+        activityTypeStableKeySnapshot.isAcceptableOrUnknown(
+          data['activity_type_stable_key_snapshot']!,
+          _activityTypeStableKeySnapshotMeta,
+        ),
+      );
+    }
+    if (data.containsKey('activity_type_label_snapshot')) {
+      context.handle(
+        _activityTypeLabelSnapshotMeta,
+        activityTypeLabelSnapshot.isAcceptableOrUnknown(
+          data['activity_type_label_snapshot']!,
+          _activityTypeLabelSnapshotMeta,
+        ),
+      );
+    }
+    if (data.containsKey('activity_type_color_value_snapshot')) {
+      context.handle(
+        _activityTypeColorValueSnapshotMeta,
+        activityTypeColorValueSnapshot.isAcceptableOrUnknown(
+          data['activity_type_color_value_snapshot']!,
+          _activityTypeColorValueSnapshotMeta,
         ),
       );
     }
@@ -5739,6 +5802,18 @@ class $CalendarEventsTable extends CalendarEvents
         DriftSqlType.int,
         data['${effectivePrefix}activity_type_mapping_version'],
       ),
+      activityTypeStableKeySnapshot: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}activity_type_stable_key_snapshot'],
+      ),
+      activityTypeLabelSnapshot: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}activity_type_label_snapshot'],
+      ),
+      activityTypeColorValueSnapshot: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}activity_type_color_value_snapshot'],
+      ),
       contributionRuleKey: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}contribution_rule_key'],
@@ -5815,6 +5890,9 @@ class CalendarEventRow extends DataClass
   final bool requiresReport;
   final String? activityTypeId;
   final int? activityTypeMappingVersion;
+  final String? activityTypeStableKeySnapshot;
+  final String? activityTypeLabelSnapshot;
+  final int? activityTypeColorValueSnapshot;
   final String? contributionRuleKey;
   final bool isBackupAppointment;
   final String? backupForEventId;
@@ -5842,6 +5920,9 @@ class CalendarEventRow extends DataClass
     required this.requiresReport,
     this.activityTypeId,
     this.activityTypeMappingVersion,
+    this.activityTypeStableKeySnapshot,
+    this.activityTypeLabelSnapshot,
+    this.activityTypeColorValueSnapshot,
     this.contributionRuleKey,
     required this.isBackupAppointment,
     this.backupForEventId,
@@ -5886,6 +5967,21 @@ class CalendarEventRow extends DataClass
     if (!nullToAbsent || activityTypeMappingVersion != null) {
       map['activity_type_mapping_version'] = Variable<int>(
         activityTypeMappingVersion,
+      );
+    }
+    if (!nullToAbsent || activityTypeStableKeySnapshot != null) {
+      map['activity_type_stable_key_snapshot'] = Variable<String>(
+        activityTypeStableKeySnapshot,
+      );
+    }
+    if (!nullToAbsent || activityTypeLabelSnapshot != null) {
+      map['activity_type_label_snapshot'] = Variable<String>(
+        activityTypeLabelSnapshot,
+      );
+    }
+    if (!nullToAbsent || activityTypeColorValueSnapshot != null) {
+      map['activity_type_color_value_snapshot'] = Variable<int>(
+        activityTypeColorValueSnapshot,
       );
     }
     if (!nullToAbsent || contributionRuleKey != null) {
@@ -5950,6 +6046,18 @@ class CalendarEventRow extends DataClass
           activityTypeMappingVersion == null && nullToAbsent
           ? const Value.absent()
           : Value(activityTypeMappingVersion),
+      activityTypeStableKeySnapshot:
+          activityTypeStableKeySnapshot == null && nullToAbsent
+          ? const Value.absent()
+          : Value(activityTypeStableKeySnapshot),
+      activityTypeLabelSnapshot:
+          activityTypeLabelSnapshot == null && nullToAbsent
+          ? const Value.absent()
+          : Value(activityTypeLabelSnapshot),
+      activityTypeColorValueSnapshot:
+          activityTypeColorValueSnapshot == null && nullToAbsent
+          ? const Value.absent()
+          : Value(activityTypeColorValueSnapshot),
       contributionRuleKey: contributionRuleKey == null && nullToAbsent
           ? const Value.absent()
           : Value(contributionRuleKey),
@@ -6002,6 +6110,15 @@ class CalendarEventRow extends DataClass
       activityTypeMappingVersion: serializer.fromJson<int?>(
         json['activityTypeMappingVersion'],
       ),
+      activityTypeStableKeySnapshot: serializer.fromJson<String?>(
+        json['activityTypeStableKeySnapshot'],
+      ),
+      activityTypeLabelSnapshot: serializer.fromJson<String?>(
+        json['activityTypeLabelSnapshot'],
+      ),
+      activityTypeColorValueSnapshot: serializer.fromJson<int?>(
+        json['activityTypeColorValueSnapshot'],
+      ),
       contributionRuleKey: serializer.fromJson<String?>(
         json['contributionRuleKey'],
       ),
@@ -6048,6 +6165,15 @@ class CalendarEventRow extends DataClass
       'activityTypeMappingVersion': serializer.toJson<int?>(
         activityTypeMappingVersion,
       ),
+      'activityTypeStableKeySnapshot': serializer.toJson<String?>(
+        activityTypeStableKeySnapshot,
+      ),
+      'activityTypeLabelSnapshot': serializer.toJson<String?>(
+        activityTypeLabelSnapshot,
+      ),
+      'activityTypeColorValueSnapshot': serializer.toJson<int?>(
+        activityTypeColorValueSnapshot,
+      ),
       'contributionRuleKey': serializer.toJson<String?>(contributionRuleKey),
       'isBackupAppointment': serializer.toJson<bool>(isBackupAppointment),
       'backupForEventId': serializer.toJson<String?>(backupForEventId),
@@ -6080,6 +6206,9 @@ class CalendarEventRow extends DataClass
     bool? requiresReport,
     Value<String?> activityTypeId = const Value.absent(),
     Value<int?> activityTypeMappingVersion = const Value.absent(),
+    Value<String?> activityTypeStableKeySnapshot = const Value.absent(),
+    Value<String?> activityTypeLabelSnapshot = const Value.absent(),
+    Value<int?> activityTypeColorValueSnapshot = const Value.absent(),
     Value<String?> contributionRuleKey = const Value.absent(),
     bool? isBackupAppointment,
     Value<String?> backupForEventId = const Value.absent(),
@@ -6111,6 +6240,15 @@ class CalendarEventRow extends DataClass
     activityTypeMappingVersion: activityTypeMappingVersion.present
         ? activityTypeMappingVersion.value
         : this.activityTypeMappingVersion,
+    activityTypeStableKeySnapshot: activityTypeStableKeySnapshot.present
+        ? activityTypeStableKeySnapshot.value
+        : this.activityTypeStableKeySnapshot,
+    activityTypeLabelSnapshot: activityTypeLabelSnapshot.present
+        ? activityTypeLabelSnapshot.value
+        : this.activityTypeLabelSnapshot,
+    activityTypeColorValueSnapshot: activityTypeColorValueSnapshot.present
+        ? activityTypeColorValueSnapshot.value
+        : this.activityTypeColorValueSnapshot,
     contributionRuleKey: contributionRuleKey.present
         ? contributionRuleKey.value
         : this.contributionRuleKey,
@@ -6166,6 +6304,16 @@ class CalendarEventRow extends DataClass
       activityTypeMappingVersion: data.activityTypeMappingVersion.present
           ? data.activityTypeMappingVersion.value
           : this.activityTypeMappingVersion,
+      activityTypeStableKeySnapshot: data.activityTypeStableKeySnapshot.present
+          ? data.activityTypeStableKeySnapshot.value
+          : this.activityTypeStableKeySnapshot,
+      activityTypeLabelSnapshot: data.activityTypeLabelSnapshot.present
+          ? data.activityTypeLabelSnapshot.value
+          : this.activityTypeLabelSnapshot,
+      activityTypeColorValueSnapshot:
+          data.activityTypeColorValueSnapshot.present
+          ? data.activityTypeColorValueSnapshot.value
+          : this.activityTypeColorValueSnapshot,
       contributionRuleKey: data.contributionRuleKey.present
           ? data.contributionRuleKey.value
           : this.contributionRuleKey,
@@ -6222,6 +6370,13 @@ class CalendarEventRow extends DataClass
           ..write('requiresReport: $requiresReport, ')
           ..write('activityTypeId: $activityTypeId, ')
           ..write('activityTypeMappingVersion: $activityTypeMappingVersion, ')
+          ..write(
+            'activityTypeStableKeySnapshot: $activityTypeStableKeySnapshot, ',
+          )
+          ..write('activityTypeLabelSnapshot: $activityTypeLabelSnapshot, ')
+          ..write(
+            'activityTypeColorValueSnapshot: $activityTypeColorValueSnapshot, ',
+          )
           ..write('contributionRuleKey: $contributionRuleKey, ')
           ..write('isBackupAppointment: $isBackupAppointment, ')
           ..write('backupForEventId: $backupForEventId, ')
@@ -6256,6 +6411,9 @@ class CalendarEventRow extends DataClass
     requiresReport,
     activityTypeId,
     activityTypeMappingVersion,
+    activityTypeStableKeySnapshot,
+    activityTypeLabelSnapshot,
+    activityTypeColorValueSnapshot,
     contributionRuleKey,
     isBackupAppointment,
     backupForEventId,
@@ -6287,6 +6445,11 @@ class CalendarEventRow extends DataClass
           other.requiresReport == this.requiresReport &&
           other.activityTypeId == this.activityTypeId &&
           other.activityTypeMappingVersion == this.activityTypeMappingVersion &&
+          other.activityTypeStableKeySnapshot ==
+              this.activityTypeStableKeySnapshot &&
+          other.activityTypeLabelSnapshot == this.activityTypeLabelSnapshot &&
+          other.activityTypeColorValueSnapshot ==
+              this.activityTypeColorValueSnapshot &&
           other.contributionRuleKey == this.contributionRuleKey &&
           other.isBackupAppointment == this.isBackupAppointment &&
           other.backupForEventId == this.backupForEventId &&
@@ -6317,6 +6480,9 @@ class CalendarEventsCompanion extends UpdateCompanion<CalendarEventRow> {
   final Value<bool> requiresReport;
   final Value<String?> activityTypeId;
   final Value<int?> activityTypeMappingVersion;
+  final Value<String?> activityTypeStableKeySnapshot;
+  final Value<String?> activityTypeLabelSnapshot;
+  final Value<int?> activityTypeColorValueSnapshot;
   final Value<String?> contributionRuleKey;
   final Value<bool> isBackupAppointment;
   final Value<String?> backupForEventId;
@@ -6345,6 +6511,9 @@ class CalendarEventsCompanion extends UpdateCompanion<CalendarEventRow> {
     this.requiresReport = const Value.absent(),
     this.activityTypeId = const Value.absent(),
     this.activityTypeMappingVersion = const Value.absent(),
+    this.activityTypeStableKeySnapshot = const Value.absent(),
+    this.activityTypeLabelSnapshot = const Value.absent(),
+    this.activityTypeColorValueSnapshot = const Value.absent(),
     this.contributionRuleKey = const Value.absent(),
     this.isBackupAppointment = const Value.absent(),
     this.backupForEventId = const Value.absent(),
@@ -6374,6 +6543,9 @@ class CalendarEventsCompanion extends UpdateCompanion<CalendarEventRow> {
     this.requiresReport = const Value.absent(),
     this.activityTypeId = const Value.absent(),
     this.activityTypeMappingVersion = const Value.absent(),
+    this.activityTypeStableKeySnapshot = const Value.absent(),
+    this.activityTypeLabelSnapshot = const Value.absent(),
+    this.activityTypeColorValueSnapshot = const Value.absent(),
     this.contributionRuleKey = const Value.absent(),
     this.isBackupAppointment = const Value.absent(),
     this.backupForEventId = const Value.absent(),
@@ -6409,6 +6581,9 @@ class CalendarEventsCompanion extends UpdateCompanion<CalendarEventRow> {
     Expression<bool>? requiresReport,
     Expression<String>? activityTypeId,
     Expression<int>? activityTypeMappingVersion,
+    Expression<String>? activityTypeStableKeySnapshot,
+    Expression<String>? activityTypeLabelSnapshot,
+    Expression<int>? activityTypeColorValueSnapshot,
     Expression<String>? contributionRuleKey,
     Expression<bool>? isBackupAppointment,
     Expression<String>? backupForEventId,
@@ -6439,6 +6614,12 @@ class CalendarEventsCompanion extends UpdateCompanion<CalendarEventRow> {
       if (activityTypeId != null) 'activity_type_id': activityTypeId,
       if (activityTypeMappingVersion != null)
         'activity_type_mapping_version': activityTypeMappingVersion,
+      if (activityTypeStableKeySnapshot != null)
+        'activity_type_stable_key_snapshot': activityTypeStableKeySnapshot,
+      if (activityTypeLabelSnapshot != null)
+        'activity_type_label_snapshot': activityTypeLabelSnapshot,
+      if (activityTypeColorValueSnapshot != null)
+        'activity_type_color_value_snapshot': activityTypeColorValueSnapshot,
       if (contributionRuleKey != null)
         'contribution_rule_key': contributionRuleKey,
       if (isBackupAppointment != null)
@@ -6475,6 +6656,9 @@ class CalendarEventsCompanion extends UpdateCompanion<CalendarEventRow> {
     Value<bool>? requiresReport,
     Value<String?>? activityTypeId,
     Value<int?>? activityTypeMappingVersion,
+    Value<String?>? activityTypeStableKeySnapshot,
+    Value<String?>? activityTypeLabelSnapshot,
+    Value<int?>? activityTypeColorValueSnapshot,
     Value<String?>? contributionRuleKey,
     Value<bool>? isBackupAppointment,
     Value<String?>? backupForEventId,
@@ -6505,6 +6689,12 @@ class CalendarEventsCompanion extends UpdateCompanion<CalendarEventRow> {
       activityTypeId: activityTypeId ?? this.activityTypeId,
       activityTypeMappingVersion:
           activityTypeMappingVersion ?? this.activityTypeMappingVersion,
+      activityTypeStableKeySnapshot:
+          activityTypeStableKeySnapshot ?? this.activityTypeStableKeySnapshot,
+      activityTypeLabelSnapshot:
+          activityTypeLabelSnapshot ?? this.activityTypeLabelSnapshot,
+      activityTypeColorValueSnapshot:
+          activityTypeColorValueSnapshot ?? this.activityTypeColorValueSnapshot,
       contributionRuleKey: contributionRuleKey ?? this.contributionRuleKey,
       isBackupAppointment: isBackupAppointment ?? this.isBackupAppointment,
       backupForEventId: backupForEventId ?? this.backupForEventId,
@@ -6565,6 +6755,21 @@ class CalendarEventsCompanion extends UpdateCompanion<CalendarEventRow> {
     if (activityTypeMappingVersion.present) {
       map['activity_type_mapping_version'] = Variable<int>(
         activityTypeMappingVersion.value,
+      );
+    }
+    if (activityTypeStableKeySnapshot.present) {
+      map['activity_type_stable_key_snapshot'] = Variable<String>(
+        activityTypeStableKeySnapshot.value,
+      );
+    }
+    if (activityTypeLabelSnapshot.present) {
+      map['activity_type_label_snapshot'] = Variable<String>(
+        activityTypeLabelSnapshot.value,
+      );
+    }
+    if (activityTypeColorValueSnapshot.present) {
+      map['activity_type_color_value_snapshot'] = Variable<int>(
+        activityTypeColorValueSnapshot.value,
       );
     }
     if (contributionRuleKey.present) {
@@ -6632,6 +6837,13 @@ class CalendarEventsCompanion extends UpdateCompanion<CalendarEventRow> {
           ..write('requiresReport: $requiresReport, ')
           ..write('activityTypeId: $activityTypeId, ')
           ..write('activityTypeMappingVersion: $activityTypeMappingVersion, ')
+          ..write(
+            'activityTypeStableKeySnapshot: $activityTypeStableKeySnapshot, ',
+          )
+          ..write('activityTypeLabelSnapshot: $activityTypeLabelSnapshot, ')
+          ..write(
+            'activityTypeColorValueSnapshot: $activityTypeColorValueSnapshot, ',
+          )
           ..write('contributionRuleKey: $contributionRuleKey, ')
           ..write('isBackupAppointment: $isBackupAppointment, ')
           ..write('backupForEventId: $backupForEventId, ')
@@ -6837,6 +7049,39 @@ class $CalendarEventExceptionsTable extends CalendarEventExceptions
         type: DriftSqlType.int,
         requiredDuringInsert: false,
       );
+  static const VerificationMeta _activityTypeStableKeySnapshotMeta =
+      const VerificationMeta('activityTypeStableKeySnapshot');
+  @override
+  late final GeneratedColumn<String> activityTypeStableKeySnapshot =
+      GeneratedColumn<String>(
+        'activity_type_stable_key_snapshot',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _activityTypeLabelSnapshotMeta =
+      const VerificationMeta('activityTypeLabelSnapshot');
+  @override
+  late final GeneratedColumn<String> activityTypeLabelSnapshot =
+      GeneratedColumn<String>(
+        'activity_type_label_snapshot',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _activityTypeColorValueSnapshotMeta =
+      const VerificationMeta('activityTypeColorValueSnapshot');
+  @override
+  late final GeneratedColumn<int> activityTypeColorValueSnapshot =
+      GeneratedColumn<int>(
+        'activity_type_color_value_snapshot',
+        aliasedName,
+        true,
+        type: DriftSqlType.int,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _contributionRuleKeyMeta =
       const VerificationMeta('contributionRuleKey');
   @override
@@ -6933,6 +7178,9 @@ class $CalendarEventExceptionsTable extends CalendarEventExceptions
     requiresReport,
     activityTypeId,
     activityTypeMappingVersion,
+    activityTypeStableKeySnapshot,
+    activityTypeLabelSnapshot,
+    activityTypeColorValueSnapshot,
     contributionRuleKey,
     isBackupAppointment,
     backupForEventId,
@@ -7089,6 +7337,33 @@ class $CalendarEventExceptionsTable extends CalendarEventExceptions
         ),
       );
     }
+    if (data.containsKey('activity_type_stable_key_snapshot')) {
+      context.handle(
+        _activityTypeStableKeySnapshotMeta,
+        activityTypeStableKeySnapshot.isAcceptableOrUnknown(
+          data['activity_type_stable_key_snapshot']!,
+          _activityTypeStableKeySnapshotMeta,
+        ),
+      );
+    }
+    if (data.containsKey('activity_type_label_snapshot')) {
+      context.handle(
+        _activityTypeLabelSnapshotMeta,
+        activityTypeLabelSnapshot.isAcceptableOrUnknown(
+          data['activity_type_label_snapshot']!,
+          _activityTypeLabelSnapshotMeta,
+        ),
+      );
+    }
+    if (data.containsKey('activity_type_color_value_snapshot')) {
+      context.handle(
+        _activityTypeColorValueSnapshotMeta,
+        activityTypeColorValueSnapshot.isAcceptableOrUnknown(
+          data['activity_type_color_value_snapshot']!,
+          _activityTypeColorValueSnapshotMeta,
+        ),
+      );
+    }
     if (data.containsKey('contribution_rule_key')) {
       context.handle(
         _contributionRuleKeyMeta,
@@ -7229,6 +7504,18 @@ class $CalendarEventExceptionsTable extends CalendarEventExceptions
         DriftSqlType.int,
         data['${effectivePrefix}activity_type_mapping_version'],
       ),
+      activityTypeStableKeySnapshot: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}activity_type_stable_key_snapshot'],
+      ),
+      activityTypeLabelSnapshot: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}activity_type_label_snapshot'],
+      ),
+      activityTypeColorValueSnapshot: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}activity_type_color_value_snapshot'],
+      ),
       contributionRuleKey: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}contribution_rule_key'],
@@ -7284,6 +7571,9 @@ class CalendarEventExceptionRow extends DataClass
   final bool requiresReport;
   final String? activityTypeId;
   final int? activityTypeMappingVersion;
+  final String? activityTypeStableKeySnapshot;
+  final String? activityTypeLabelSnapshot;
+  final int? activityTypeColorValueSnapshot;
   final String? contributionRuleKey;
   final bool isBackupAppointment;
   final String? backupForEventId;
@@ -7308,6 +7598,9 @@ class CalendarEventExceptionRow extends DataClass
     required this.requiresReport,
     this.activityTypeId,
     this.activityTypeMappingVersion,
+    this.activityTypeStableKeySnapshot,
+    this.activityTypeLabelSnapshot,
+    this.activityTypeColorValueSnapshot,
     this.contributionRuleKey,
     required this.isBackupAppointment,
     this.backupForEventId,
@@ -7349,6 +7642,21 @@ class CalendarEventExceptionRow extends DataClass
     if (!nullToAbsent || activityTypeMappingVersion != null) {
       map['activity_type_mapping_version'] = Variable<int>(
         activityTypeMappingVersion,
+      );
+    }
+    if (!nullToAbsent || activityTypeStableKeySnapshot != null) {
+      map['activity_type_stable_key_snapshot'] = Variable<String>(
+        activityTypeStableKeySnapshot,
+      );
+    }
+    if (!nullToAbsent || activityTypeLabelSnapshot != null) {
+      map['activity_type_label_snapshot'] = Variable<String>(
+        activityTypeLabelSnapshot,
+      );
+    }
+    if (!nullToAbsent || activityTypeColorValueSnapshot != null) {
+      map['activity_type_color_value_snapshot'] = Variable<int>(
+        activityTypeColorValueSnapshot,
       );
     }
     if (!nullToAbsent || contributionRuleKey != null) {
@@ -7404,6 +7712,18 @@ class CalendarEventExceptionRow extends DataClass
           activityTypeMappingVersion == null && nullToAbsent
           ? const Value.absent()
           : Value(activityTypeMappingVersion),
+      activityTypeStableKeySnapshot:
+          activityTypeStableKeySnapshot == null && nullToAbsent
+          ? const Value.absent()
+          : Value(activityTypeStableKeySnapshot),
+      activityTypeLabelSnapshot:
+          activityTypeLabelSnapshot == null && nullToAbsent
+          ? const Value.absent()
+          : Value(activityTypeLabelSnapshot),
+      activityTypeColorValueSnapshot:
+          activityTypeColorValueSnapshot == null && nullToAbsent
+          ? const Value.absent()
+          : Value(activityTypeColorValueSnapshot),
       contributionRuleKey: contributionRuleKey == null && nullToAbsent
           ? const Value.absent()
           : Value(contributionRuleKey),
@@ -7447,6 +7767,15 @@ class CalendarEventExceptionRow extends DataClass
       activityTypeMappingVersion: serializer.fromJson<int?>(
         json['activityTypeMappingVersion'],
       ),
+      activityTypeStableKeySnapshot: serializer.fromJson<String?>(
+        json['activityTypeStableKeySnapshot'],
+      ),
+      activityTypeLabelSnapshot: serializer.fromJson<String?>(
+        json['activityTypeLabelSnapshot'],
+      ),
+      activityTypeColorValueSnapshot: serializer.fromJson<int?>(
+        json['activityTypeColorValueSnapshot'],
+      ),
       contributionRuleKey: serializer.fromJson<String?>(
         json['contributionRuleKey'],
       ),
@@ -7486,6 +7815,15 @@ class CalendarEventExceptionRow extends DataClass
       'activityTypeMappingVersion': serializer.toJson<int?>(
         activityTypeMappingVersion,
       ),
+      'activityTypeStableKeySnapshot': serializer.toJson<String?>(
+        activityTypeStableKeySnapshot,
+      ),
+      'activityTypeLabelSnapshot': serializer.toJson<String?>(
+        activityTypeLabelSnapshot,
+      ),
+      'activityTypeColorValueSnapshot': serializer.toJson<int?>(
+        activityTypeColorValueSnapshot,
+      ),
       'contributionRuleKey': serializer.toJson<String?>(contributionRuleKey),
       'isBackupAppointment': serializer.toJson<bool>(isBackupAppointment),
       'backupForEventId': serializer.toJson<String?>(backupForEventId),
@@ -7515,6 +7853,9 @@ class CalendarEventExceptionRow extends DataClass
     bool? requiresReport,
     Value<String?> activityTypeId = const Value.absent(),
     Value<int?> activityTypeMappingVersion = const Value.absent(),
+    Value<String?> activityTypeStableKeySnapshot = const Value.absent(),
+    Value<String?> activityTypeLabelSnapshot = const Value.absent(),
+    Value<int?> activityTypeColorValueSnapshot = const Value.absent(),
     Value<String?> contributionRuleKey = const Value.absent(),
     bool? isBackupAppointment,
     Value<String?> backupForEventId = const Value.absent(),
@@ -7543,6 +7884,15 @@ class CalendarEventExceptionRow extends DataClass
     activityTypeMappingVersion: activityTypeMappingVersion.present
         ? activityTypeMappingVersion.value
         : this.activityTypeMappingVersion,
+    activityTypeStableKeySnapshot: activityTypeStableKeySnapshot.present
+        ? activityTypeStableKeySnapshot.value
+        : this.activityTypeStableKeySnapshot,
+    activityTypeLabelSnapshot: activityTypeLabelSnapshot.present
+        ? activityTypeLabelSnapshot.value
+        : this.activityTypeLabelSnapshot,
+    activityTypeColorValueSnapshot: activityTypeColorValueSnapshot.present
+        ? activityTypeColorValueSnapshot.value
+        : this.activityTypeColorValueSnapshot,
     contributionRuleKey: contributionRuleKey.present
         ? contributionRuleKey.value
         : this.contributionRuleKey,
@@ -7597,6 +7947,16 @@ class CalendarEventExceptionRow extends DataClass
       activityTypeMappingVersion: data.activityTypeMappingVersion.present
           ? data.activityTypeMappingVersion.value
           : this.activityTypeMappingVersion,
+      activityTypeStableKeySnapshot: data.activityTypeStableKeySnapshot.present
+          ? data.activityTypeStableKeySnapshot.value
+          : this.activityTypeStableKeySnapshot,
+      activityTypeLabelSnapshot: data.activityTypeLabelSnapshot.present
+          ? data.activityTypeLabelSnapshot.value
+          : this.activityTypeLabelSnapshot,
+      activityTypeColorValueSnapshot:
+          data.activityTypeColorValueSnapshot.present
+          ? data.activityTypeColorValueSnapshot.value
+          : this.activityTypeColorValueSnapshot,
       contributionRuleKey: data.contributionRuleKey.present
           ? data.contributionRuleKey.value
           : this.contributionRuleKey,
@@ -7638,6 +7998,13 @@ class CalendarEventExceptionRow extends DataClass
           ..write('requiresReport: $requiresReport, ')
           ..write('activityTypeId: $activityTypeId, ')
           ..write('activityTypeMappingVersion: $activityTypeMappingVersion, ')
+          ..write(
+            'activityTypeStableKeySnapshot: $activityTypeStableKeySnapshot, ',
+          )
+          ..write('activityTypeLabelSnapshot: $activityTypeLabelSnapshot, ')
+          ..write(
+            'activityTypeColorValueSnapshot: $activityTypeColorValueSnapshot, ',
+          )
           ..write('contributionRuleKey: $contributionRuleKey, ')
           ..write('isBackupAppointment: $isBackupAppointment, ')
           ..write('backupForEventId: $backupForEventId, ')
@@ -7669,6 +8036,9 @@ class CalendarEventExceptionRow extends DataClass
     requiresReport,
     activityTypeId,
     activityTypeMappingVersion,
+    activityTypeStableKeySnapshot,
+    activityTypeLabelSnapshot,
+    activityTypeColorValueSnapshot,
     contributionRuleKey,
     isBackupAppointment,
     backupForEventId,
@@ -7697,6 +8067,11 @@ class CalendarEventExceptionRow extends DataClass
           other.requiresReport == this.requiresReport &&
           other.activityTypeId == this.activityTypeId &&
           other.activityTypeMappingVersion == this.activityTypeMappingVersion &&
+          other.activityTypeStableKeySnapshot ==
+              this.activityTypeStableKeySnapshot &&
+          other.activityTypeLabelSnapshot == this.activityTypeLabelSnapshot &&
+          other.activityTypeColorValueSnapshot ==
+              this.activityTypeColorValueSnapshot &&
           other.contributionRuleKey == this.contributionRuleKey &&
           other.isBackupAppointment == this.isBackupAppointment &&
           other.backupForEventId == this.backupForEventId &&
@@ -7725,6 +8100,9 @@ class CalendarEventExceptionsCompanion
   final Value<bool> requiresReport;
   final Value<String?> activityTypeId;
   final Value<int?> activityTypeMappingVersion;
+  final Value<String?> activityTypeStableKeySnapshot;
+  final Value<String?> activityTypeLabelSnapshot;
+  final Value<int?> activityTypeColorValueSnapshot;
   final Value<String?> contributionRuleKey;
   final Value<bool> isBackupAppointment;
   final Value<String?> backupForEventId;
@@ -7750,6 +8128,9 @@ class CalendarEventExceptionsCompanion
     this.requiresReport = const Value.absent(),
     this.activityTypeId = const Value.absent(),
     this.activityTypeMappingVersion = const Value.absent(),
+    this.activityTypeStableKeySnapshot = const Value.absent(),
+    this.activityTypeLabelSnapshot = const Value.absent(),
+    this.activityTypeColorValueSnapshot = const Value.absent(),
     this.contributionRuleKey = const Value.absent(),
     this.isBackupAppointment = const Value.absent(),
     this.backupForEventId = const Value.absent(),
@@ -7776,6 +8157,9 @@ class CalendarEventExceptionsCompanion
     this.requiresReport = const Value.absent(),
     this.activityTypeId = const Value.absent(),
     this.activityTypeMappingVersion = const Value.absent(),
+    this.activityTypeStableKeySnapshot = const Value.absent(),
+    this.activityTypeLabelSnapshot = const Value.absent(),
+    this.activityTypeColorValueSnapshot = const Value.absent(),
     this.contributionRuleKey = const Value.absent(),
     this.isBackupAppointment = const Value.absent(),
     this.backupForEventId = const Value.absent(),
@@ -7811,6 +8195,9 @@ class CalendarEventExceptionsCompanion
     Expression<bool>? requiresReport,
     Expression<String>? activityTypeId,
     Expression<int>? activityTypeMappingVersion,
+    Expression<String>? activityTypeStableKeySnapshot,
+    Expression<String>? activityTypeLabelSnapshot,
+    Expression<int>? activityTypeColorValueSnapshot,
     Expression<String>? contributionRuleKey,
     Expression<bool>? isBackupAppointment,
     Expression<String>? backupForEventId,
@@ -7838,6 +8225,12 @@ class CalendarEventExceptionsCompanion
       if (activityTypeId != null) 'activity_type_id': activityTypeId,
       if (activityTypeMappingVersion != null)
         'activity_type_mapping_version': activityTypeMappingVersion,
+      if (activityTypeStableKeySnapshot != null)
+        'activity_type_stable_key_snapshot': activityTypeStableKeySnapshot,
+      if (activityTypeLabelSnapshot != null)
+        'activity_type_label_snapshot': activityTypeLabelSnapshot,
+      if (activityTypeColorValueSnapshot != null)
+        'activity_type_color_value_snapshot': activityTypeColorValueSnapshot,
       if (contributionRuleKey != null)
         'contribution_rule_key': contributionRuleKey,
       if (isBackupAppointment != null)
@@ -7870,6 +8263,9 @@ class CalendarEventExceptionsCompanion
     Value<bool>? requiresReport,
     Value<String?>? activityTypeId,
     Value<int?>? activityTypeMappingVersion,
+    Value<String?>? activityTypeStableKeySnapshot,
+    Value<String?>? activityTypeLabelSnapshot,
+    Value<int?>? activityTypeColorValueSnapshot,
     Value<String?>? contributionRuleKey,
     Value<bool>? isBackupAppointment,
     Value<String?>? backupForEventId,
@@ -7897,6 +8293,12 @@ class CalendarEventExceptionsCompanion
       activityTypeId: activityTypeId ?? this.activityTypeId,
       activityTypeMappingVersion:
           activityTypeMappingVersion ?? this.activityTypeMappingVersion,
+      activityTypeStableKeySnapshot:
+          activityTypeStableKeySnapshot ?? this.activityTypeStableKeySnapshot,
+      activityTypeLabelSnapshot:
+          activityTypeLabelSnapshot ?? this.activityTypeLabelSnapshot,
+      activityTypeColorValueSnapshot:
+          activityTypeColorValueSnapshot ?? this.activityTypeColorValueSnapshot,
       contributionRuleKey: contributionRuleKey ?? this.contributionRuleKey,
       isBackupAppointment: isBackupAppointment ?? this.isBackupAppointment,
       backupForEventId: backupForEventId ?? this.backupForEventId,
@@ -7962,6 +8364,21 @@ class CalendarEventExceptionsCompanion
         activityTypeMappingVersion.value,
       );
     }
+    if (activityTypeStableKeySnapshot.present) {
+      map['activity_type_stable_key_snapshot'] = Variable<String>(
+        activityTypeStableKeySnapshot.value,
+      );
+    }
+    if (activityTypeLabelSnapshot.present) {
+      map['activity_type_label_snapshot'] = Variable<String>(
+        activityTypeLabelSnapshot.value,
+      );
+    }
+    if (activityTypeColorValueSnapshot.present) {
+      map['activity_type_color_value_snapshot'] = Variable<int>(
+        activityTypeColorValueSnapshot.value,
+      );
+    }
     if (contributionRuleKey.present) {
       map['contribution_rule_key'] = Variable<String>(
         contributionRuleKey.value,
@@ -8012,6 +8429,13 @@ class CalendarEventExceptionsCompanion
           ..write('requiresReport: $requiresReport, ')
           ..write('activityTypeId: $activityTypeId, ')
           ..write('activityTypeMappingVersion: $activityTypeMappingVersion, ')
+          ..write(
+            'activityTypeStableKeySnapshot: $activityTypeStableKeySnapshot, ',
+          )
+          ..write('activityTypeLabelSnapshot: $activityTypeLabelSnapshot, ')
+          ..write(
+            'activityTypeColorValueSnapshot: $activityTypeColorValueSnapshot, ',
+          )
           ..write('contributionRuleKey: $contributionRuleKey, ')
           ..write('isBackupAppointment: $isBackupAppointment, ')
           ..write('backupForEventId: $backupForEventId, ')
@@ -23402,6 +23826,9 @@ typedef $$CalendarEventsTableCreateCompanionBuilder =
       Value<bool> requiresReport,
       Value<String?> activityTypeId,
       Value<int?> activityTypeMappingVersion,
+      Value<String?> activityTypeStableKeySnapshot,
+      Value<String?> activityTypeLabelSnapshot,
+      Value<int?> activityTypeColorValueSnapshot,
       Value<String?> contributionRuleKey,
       Value<bool> isBackupAppointment,
       Value<String?> backupForEventId,
@@ -23432,6 +23859,9 @@ typedef $$CalendarEventsTableUpdateCompanionBuilder =
       Value<bool> requiresReport,
       Value<String?> activityTypeId,
       Value<int?> activityTypeMappingVersion,
+      Value<String?> activityTypeStableKeySnapshot,
+      Value<String?> activityTypeLabelSnapshot,
+      Value<int?> activityTypeColorValueSnapshot,
       Value<String?> contributionRuleKey,
       Value<bool> isBackupAppointment,
       Value<String?> backupForEventId,
@@ -23567,6 +23997,21 @@ class $$CalendarEventsTableFilterComposer
 
   ColumnFilters<int> get activityTypeMappingVersion => $composableBuilder(
     column: $table.activityTypeMappingVersion,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get activityTypeStableKeySnapshot => $composableBuilder(
+    column: $table.activityTypeStableKeySnapshot,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get activityTypeLabelSnapshot => $composableBuilder(
+    column: $table.activityTypeLabelSnapshot,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get activityTypeColorValueSnapshot => $composableBuilder(
+    column: $table.activityTypeColorValueSnapshot,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -23754,6 +24199,22 @@ class $$CalendarEventsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get activityTypeStableKeySnapshot =>
+      $composableBuilder(
+        column: $table.activityTypeStableKeySnapshot,
+        builder: (column) => ColumnOrderings(column),
+      );
+
+  ColumnOrderings<String> get activityTypeLabelSnapshot => $composableBuilder(
+    column: $table.activityTypeLabelSnapshot,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get activityTypeColorValueSnapshot => $composableBuilder(
+    column: $table.activityTypeColorValueSnapshot,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get contributionRuleKey => $composableBuilder(
     column: $table.contributionRuleKey,
     builder: (column) => ColumnOrderings(column),
@@ -23898,6 +24359,22 @@ class $$CalendarEventsTableAnnotationComposer
 
   GeneratedColumn<int> get activityTypeMappingVersion => $composableBuilder(
     column: $table.activityTypeMappingVersion,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get activityTypeStableKeySnapshot =>
+      $composableBuilder(
+        column: $table.activityTypeStableKeySnapshot,
+        builder: (column) => column,
+      );
+
+  GeneratedColumn<String> get activityTypeLabelSnapshot => $composableBuilder(
+    column: $table.activityTypeLabelSnapshot,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get activityTypeColorValueSnapshot => $composableBuilder(
+    column: $table.activityTypeColorValueSnapshot,
     builder: (column) => column,
   );
 
@@ -24062,6 +24539,11 @@ class $$CalendarEventsTableTableManager
                 Value<bool> requiresReport = const Value.absent(),
                 Value<String?> activityTypeId = const Value.absent(),
                 Value<int?> activityTypeMappingVersion = const Value.absent(),
+                Value<String?> activityTypeStableKeySnapshot =
+                    const Value.absent(),
+                Value<String?> activityTypeLabelSnapshot = const Value.absent(),
+                Value<int?> activityTypeColorValueSnapshot =
+                    const Value.absent(),
                 Value<String?> contributionRuleKey = const Value.absent(),
                 Value<bool> isBackupAppointment = const Value.absent(),
                 Value<String?> backupForEventId = const Value.absent(),
@@ -24091,6 +24573,9 @@ class $$CalendarEventsTableTableManager
                 requiresReport: requiresReport,
                 activityTypeId: activityTypeId,
                 activityTypeMappingVersion: activityTypeMappingVersion,
+                activityTypeStableKeySnapshot: activityTypeStableKeySnapshot,
+                activityTypeLabelSnapshot: activityTypeLabelSnapshot,
+                activityTypeColorValueSnapshot: activityTypeColorValueSnapshot,
                 contributionRuleKey: contributionRuleKey,
                 isBackupAppointment: isBackupAppointment,
                 backupForEventId: backupForEventId,
@@ -24121,6 +24606,11 @@ class $$CalendarEventsTableTableManager
                 Value<bool> requiresReport = const Value.absent(),
                 Value<String?> activityTypeId = const Value.absent(),
                 Value<int?> activityTypeMappingVersion = const Value.absent(),
+                Value<String?> activityTypeStableKeySnapshot =
+                    const Value.absent(),
+                Value<String?> activityTypeLabelSnapshot = const Value.absent(),
+                Value<int?> activityTypeColorValueSnapshot =
+                    const Value.absent(),
                 Value<String?> contributionRuleKey = const Value.absent(),
                 Value<bool> isBackupAppointment = const Value.absent(),
                 Value<String?> backupForEventId = const Value.absent(),
@@ -24150,6 +24640,9 @@ class $$CalendarEventsTableTableManager
                 requiresReport: requiresReport,
                 activityTypeId: activityTypeId,
                 activityTypeMappingVersion: activityTypeMappingVersion,
+                activityTypeStableKeySnapshot: activityTypeStableKeySnapshot,
+                activityTypeLabelSnapshot: activityTypeLabelSnapshot,
+                activityTypeColorValueSnapshot: activityTypeColorValueSnapshot,
                 contributionRuleKey: contributionRuleKey,
                 isBackupAppointment: isBackupAppointment,
                 backupForEventId: backupForEventId,
@@ -24277,6 +24770,9 @@ typedef $$CalendarEventExceptionsTableCreateCompanionBuilder =
       Value<bool> requiresReport,
       Value<String?> activityTypeId,
       Value<int?> activityTypeMappingVersion,
+      Value<String?> activityTypeStableKeySnapshot,
+      Value<String?> activityTypeLabelSnapshot,
+      Value<int?> activityTypeColorValueSnapshot,
       Value<String?> contributionRuleKey,
       Value<bool> isBackupAppointment,
       Value<String?> backupForEventId,
@@ -24304,6 +24800,9 @@ typedef $$CalendarEventExceptionsTableUpdateCompanionBuilder =
       Value<bool> requiresReport,
       Value<String?> activityTypeId,
       Value<int?> activityTypeMappingVersion,
+      Value<String?> activityTypeStableKeySnapshot,
+      Value<String?> activityTypeLabelSnapshot,
+      Value<int?> activityTypeColorValueSnapshot,
       Value<String?> contributionRuleKey,
       Value<bool> isBackupAppointment,
       Value<String?> backupForEventId,
@@ -24440,6 +24939,21 @@ class $$CalendarEventExceptionsTableFilterComposer
 
   ColumnFilters<int> get activityTypeMappingVersion => $composableBuilder(
     column: $table.activityTypeMappingVersion,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get activityTypeStableKeySnapshot => $composableBuilder(
+    column: $table.activityTypeStableKeySnapshot,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get activityTypeLabelSnapshot => $composableBuilder(
+    column: $table.activityTypeLabelSnapshot,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get activityTypeColorValueSnapshot => $composableBuilder(
+    column: $table.activityTypeColorValueSnapshot,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -24604,6 +25118,22 @@ class $$CalendarEventExceptionsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get activityTypeStableKeySnapshot =>
+      $composableBuilder(
+        column: $table.activityTypeStableKeySnapshot,
+        builder: (column) => ColumnOrderings(column),
+      );
+
+  ColumnOrderings<String> get activityTypeLabelSnapshot => $composableBuilder(
+    column: $table.activityTypeLabelSnapshot,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get activityTypeColorValueSnapshot => $composableBuilder(
+    column: $table.activityTypeColorValueSnapshot,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get contributionRuleKey => $composableBuilder(
     column: $table.contributionRuleKey,
     builder: (column) => ColumnOrderings(column),
@@ -24756,6 +25286,22 @@ class $$CalendarEventExceptionsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get activityTypeStableKeySnapshot =>
+      $composableBuilder(
+        column: $table.activityTypeStableKeySnapshot,
+        builder: (column) => column,
+      );
+
+  GeneratedColumn<String> get activityTypeLabelSnapshot => $composableBuilder(
+    column: $table.activityTypeLabelSnapshot,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get activityTypeColorValueSnapshot => $composableBuilder(
+    column: $table.activityTypeColorValueSnapshot,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get contributionRuleKey => $composableBuilder(
     column: $table.contributionRuleKey,
     builder: (column) => column,
@@ -24892,6 +25438,11 @@ class $$CalendarEventExceptionsTableTableManager
                 Value<bool> requiresReport = const Value.absent(),
                 Value<String?> activityTypeId = const Value.absent(),
                 Value<int?> activityTypeMappingVersion = const Value.absent(),
+                Value<String?> activityTypeStableKeySnapshot =
+                    const Value.absent(),
+                Value<String?> activityTypeLabelSnapshot = const Value.absent(),
+                Value<int?> activityTypeColorValueSnapshot =
+                    const Value.absent(),
                 Value<String?> contributionRuleKey = const Value.absent(),
                 Value<bool> isBackupAppointment = const Value.absent(),
                 Value<String?> backupForEventId = const Value.absent(),
@@ -24918,6 +25469,9 @@ class $$CalendarEventExceptionsTableTableManager
                 requiresReport: requiresReport,
                 activityTypeId: activityTypeId,
                 activityTypeMappingVersion: activityTypeMappingVersion,
+                activityTypeStableKeySnapshot: activityTypeStableKeySnapshot,
+                activityTypeLabelSnapshot: activityTypeLabelSnapshot,
+                activityTypeColorValueSnapshot: activityTypeColorValueSnapshot,
                 contributionRuleKey: contributionRuleKey,
                 isBackupAppointment: isBackupAppointment,
                 backupForEventId: backupForEventId,
@@ -24945,6 +25499,11 @@ class $$CalendarEventExceptionsTableTableManager
                 Value<bool> requiresReport = const Value.absent(),
                 Value<String?> activityTypeId = const Value.absent(),
                 Value<int?> activityTypeMappingVersion = const Value.absent(),
+                Value<String?> activityTypeStableKeySnapshot =
+                    const Value.absent(),
+                Value<String?> activityTypeLabelSnapshot = const Value.absent(),
+                Value<int?> activityTypeColorValueSnapshot =
+                    const Value.absent(),
                 Value<String?> contributionRuleKey = const Value.absent(),
                 Value<bool> isBackupAppointment = const Value.absent(),
                 Value<String?> backupForEventId = const Value.absent(),
@@ -24971,6 +25530,9 @@ class $$CalendarEventExceptionsTableTableManager
                 requiresReport: requiresReport,
                 activityTypeId: activityTypeId,
                 activityTypeMappingVersion: activityTypeMappingVersion,
+                activityTypeStableKeySnapshot: activityTypeStableKeySnapshot,
+                activityTypeLabelSnapshot: activityTypeLabelSnapshot,
+                activityTypeColorValueSnapshot: activityTypeColorValueSnapshot,
                 contributionRuleKey: contributionRuleKey,
                 isBackupAppointment: isBackupAppointment,
                 backupForEventId: backupForEventId,

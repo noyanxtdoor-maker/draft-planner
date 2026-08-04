@@ -29,6 +29,7 @@ abstract interface class GoalRepository {
     required GoalTargets targets,
     String? iconId,
     String? operationId,
+    PlannerDate? today,
   });
 
   Future<void> archiveGoal({
@@ -71,6 +72,7 @@ abstract interface class GoalRepository {
   Future<GoalPlanningSnapshot> readPlanning({
     required String profileId,
     required PlannerDate periodStart,
+    PlannerDate? today,
   });
 
   Future<GoalProgress?> readProgress({

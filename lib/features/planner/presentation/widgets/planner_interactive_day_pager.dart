@@ -977,34 +977,33 @@ class _PagerPreviewColumn extends StatelessWidget {
     );
     final accent = resolvedAccent;
     final surface = resolvedSurface;
-    final eventBody = DecoratedBox(
-      decoration: BoxDecoration(
-        border: Border(
-          left: BorderSide(
-            color: accent,
-            width: event.isBackupAppointment
-                ? PlannerEventBlockLayoutPolicy.backupEventAccentWidth
-                : PlannerEventBlockLayoutPolicy.eventAccentWidth,
-          ),
-        ),
-      ),
-      child: PlannerEventBlockContentView(
-        event: event,
-        accentColor: accent,
-        surfaceColor: surface,
-        use24HourTime: settings.use24HourTime,
-        displayStartMinute: startMinute,
-        displayEndMinute: endMinute,
-        awaitingReport: event.isAwaitingReport(currentTimeListenable.value),
-        content: content,
-        titleKey: Key('planner-pager-preview-event-title-${event.id}'),
-        timeKey: Key('planner-pager-preview-event-time-${event.id}'),
-        recurrenceKey: Key(
-          'planner-pager-preview-event-recurrence-${event.id}',
-        ),
-        statusKey: Key('planner-pager-preview-event-status-${event.id}'),
-      ),
+    final eventContent = PlannerEventBlockContentView(
+      event: event,
+      accentColor: accent,
+      surfaceColor: surface,
+      use24HourTime: settings.use24HourTime,
+      displayStartMinute: startMinute,
+      displayEndMinute: endMinute,
+      awaitingReport: event.isAwaitingReport(currentTimeListenable.value),
+      content: content,
+      titleKey: Key('planner-pager-preview-event-title-${event.id}'),
+      timeKey: Key('planner-pager-preview-event-time-${event.id}'),
+      recurrenceKey: Key('planner-pager-preview-event-recurrence-${event.id}'),
+      statusKey: Key('planner-pager-preview-event-status-${event.id}'),
     );
+    final eventBody = event.isBackupAppointment
+        ? eventContent
+        : DecoratedBox(
+            decoration: BoxDecoration(
+              border: Border(
+                left: BorderSide(
+                  color: accent,
+                  width: PlannerEventBlockLayoutPolicy.eventAccentWidth,
+                ),
+              ),
+            ),
+            child: eventContent,
+          );
     final columnGap = (placement.columnCount > 1 ? 3.0 : 0.0);
     final splitWidth = placement.widthFactor != null;
     final widthBasis = splitWidth
@@ -1039,6 +1038,13 @@ class _PagerPreviewColumn extends StatelessWidget {
           child: event.isBackupAppointment
               ? PlannerBackupStripeBackground(
                   accent: resolvedAccent,
+                  surfaceColor: surface,
+                  accentKey: Key(
+                    'planner-pager-backup-accent-strip-${event.id}',
+                  ),
+                  surfaceKey: Key(
+                    'planner-pager-backup-event-surface-${event.id}',
+                  ),
                   child: eventBody,
                 )
               : eventBody,

@@ -229,6 +229,9 @@ class CalendarEvents extends Table {
       boolean().withDefault(const Constant(false))();
   TextColumn get activityTypeId => text().nullable()();
   IntColumn get activityTypeMappingVersion => integer().nullable()();
+  TextColumn get activityTypeStableKeySnapshot => text().nullable()();
+  TextColumn get activityTypeLabelSnapshot => text().nullable()();
+  IntColumn get activityTypeColorValueSnapshot => integer().nullable()();
   TextColumn get contributionRuleKey => text().nullable()();
   BoolColumn get isBackupAppointment =>
       boolean().withDefault(const Constant(false))();
@@ -275,6 +278,9 @@ class CalendarEventExceptions extends Table {
       boolean().withDefault(const Constant(false))();
   TextColumn get activityTypeId => text().nullable()();
   IntColumn get activityTypeMappingVersion => integer().nullable()();
+  TextColumn get activityTypeStableKeySnapshot => text().nullable()();
+  TextColumn get activityTypeLabelSnapshot => text().nullable()();
+  IntColumn get activityTypeColorValueSnapshot => integer().nullable()();
   TextColumn get contributionRuleKey => text().nullable()();
   BoolColumn get isBackupAppointment =>
       boolean().withDefault(const Constant(false))();
@@ -741,7 +747,7 @@ final class AppDatabase extends _$AppDatabase {
   final bool _injectPlannerExperienceMigrationFailure;
 
   @override
-    int get schemaVersion => _schemaVersionOverride ?? 17;
+  int get schemaVersion => _schemaVersionOverride ?? 18;
 
   @override
   MigrationStrategy get migration {
@@ -1153,7 +1159,7 @@ final class AppDatabase extends _$AppDatabase {
                 FROM life_indicator_definitions
             ''');
             await customStatement('''
-              INSERT OR IGNORE INTO goal_outbox_operations
+            INSERT OR IGNORE INTO goal_outbox_operations
                 (operation_id, profile_id, entity_type, entity_id, action,
                  payload_json, created_at_utc)
               SELECT profile_id || ':goal:' || (position + 1) || ':created',
@@ -1178,6 +1184,110 @@ final class AppDatabase extends _$AppDatabase {
                      ),
                      created_at_utc
                 FROM life_indicator_definitions
+            ''');
+          }
+          if (from < 18 && to >= 18) {
+            if (!await _columnExists(
+              'calendar_events',
+              'activity_type_stable_key_snapshot',
+            )) {
+              await migrator.addColumn(
+                calendarEvents,
+                calendarEvents.activityTypeStableKeySnapshot,
+              );
+            }
+            if (!await _columnExists(
+              'calendar_events',
+              'activity_type_label_snapshot',
+            )) {
+              await migrator.addColumn(
+                calendarEvents,
+                calendarEvents.activityTypeLabelSnapshot,
+              );
+            }
+            if (!await _columnExists(
+              'calendar_events',
+              'activity_type_color_value_snapshot',
+            )) {
+              await migrator.addColumn(
+                calendarEvents,
+                calendarEvents.activityTypeColorValueSnapshot,
+              );
+            }
+            if (!await _columnExists(
+              'calendar_event_exceptions',
+              'activity_type_stable_key_snapshot',
+            )) {
+              await migrator.addColumn(
+                calendarEventExceptions,
+                calendarEventExceptions.activityTypeStableKeySnapshot,
+              );
+            }
+            if (!await _columnExists(
+              'calendar_event_exceptions',
+              'activity_type_label_snapshot',
+            )) {
+              await migrator.addColumn(
+                calendarEventExceptions,
+                calendarEventExceptions.activityTypeLabelSnapshot,
+              );
+            }
+            if (!await _columnExists(
+              'calendar_event_exceptions',
+              'activity_type_color_value_snapshot',
+            )) {
+              await migrator.addColumn(
+                calendarEventExceptions,
+                calendarEventExceptions.activityTypeColorValueSnapshot,
+              );
+            }
+
+            // Events created before snapshot support are frozen to the
+            // current canonical Event Type metadata once, so later renames
+            // cannot rewrite their historical labels or colors.
+            await customStatement('''
+              UPDATE calendar_events
+                 SET activity_type_stable_key_snapshot = (
+                       SELECT stable_key
+                         FROM activity_types
+                        WHERE activity_types.profile_id = calendar_events.profile_id
+                          AND activity_types.id = calendar_events.activity_type_id
+                     ),
+                     activity_type_label_snapshot = (
+                       SELECT label
+                         FROM activity_types
+                        WHERE activity_types.profile_id = calendar_events.profile_id
+                          AND activity_types.id = calendar_events.activity_type_id
+                     ),
+                     activity_type_color_value_snapshot = (
+                       SELECT color_value
+                         FROM activity_types
+                        WHERE activity_types.profile_id = calendar_events.profile_id
+                          AND activity_types.id = calendar_events.activity_type_id
+                     )
+               WHERE activity_type_id IS NOT NULL
+            ''');
+            await customStatement('''
+              UPDATE calendar_event_exceptions
+                 SET activity_type_stable_key_snapshot = (
+                       SELECT stable_key
+                         FROM activity_types
+                        WHERE activity_types.profile_id = calendar_event_exceptions.profile_id
+                          AND activity_types.id = calendar_event_exceptions.activity_type_id
+                     ),
+                     activity_type_label_snapshot = (
+                       SELECT label
+                         FROM activity_types
+                        WHERE activity_types.profile_id = calendar_event_exceptions.profile_id
+                          AND activity_types.id = calendar_event_exceptions.activity_type_id
+                     ),
+                     activity_type_color_value_snapshot = (
+                       SELECT color_value
+                         FROM activity_types
+                        WHERE activity_types.profile_id = calendar_event_exceptions.profile_id
+                          AND activity_types.id = calendar_event_exceptions.activity_type_id
+                     )
+               WHERE activity_type_id IS NOT NULL
             ''');
           }
         });

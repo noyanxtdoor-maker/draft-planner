@@ -77,6 +77,225 @@ void main() {
   });
 
   test(
+    'planning projects only canonical active slots and orders replacements by role',
+    () async {
+      final (database, repository, profileId) = await arrange();
+      addTearDown(database.close);
+
+      final active = await repository.readActiveGoals(profileId);
+      for (var index = 0; index < active.length; index += 1) {
+        await repository.archiveGoal(
+          profileId: profileId,
+          goalId: active[index].id,
+          operationId: 'pack1-archive-default-$index',
+        );
+      }
+
+      const target = IndicatorAmount(scaledValue: 2, scale: 0, unit: 'count');
+      await repository.createGoal(
+        profileId: profileId,
+        role: GoalRole.weeklyMonthly,
+        title: 'Replacement Monthly',
+        iconId: 'temple',
+        targets: const GoalTargets(weekly: target, monthly: target),
+        operationId: 'pack1-create-monthly',
+      );
+      for (var index = 4; index >= 1; index -= 1) {
+        await repository.createGoal(
+          profileId: profileId,
+          role: GoalRole.weekly,
+          title: 'Replacement Weekly $index',
+          iconId: 'open_book',
+          targets: const GoalTargets(weekly: target),
+          operationId: 'pack1-create-weekly-$index',
+        );
+      }
+      await repository.createGoal(
+        profileId: profileId,
+        role: GoalRole.dailyWeekly,
+        title: 'Replacement Daily',
+        iconId: 'briefcase',
+        targets: const GoalTargets(daily: target, weekly: target),
+        operationId: 'pack1-create-daily',
+      );
+
+      final planning = await repository.readPlanning(
+        profileId: profileId,
+        periodStart: periodStart,
+      );
+      expect(planning.daily?.goal.title, 'Replacement Daily');
+      expect(planning.weekly.map((progress) => progress.goal.title), <String>[
+        'Replacement Weekly 4',
+        'Replacement Weekly 3',
+        'Replacement Weekly 2',
+        'Replacement Weekly 1',
+      ]);
+      expect(
+        planning.weekly.map((progress) => progress.goal.activeSlotIndex),
+        <int?>[2, 3, 4, 5],
+      );
+      expect(planning.monthly?.goal.title, 'Replacement Monthly');
+      expect(planning.daily?.goal.iconId, 'briefcase');
+      expect(planning.monthly?.goal.iconId, 'temple');
+
+      await database
+          .into(database.goals)
+          .insert(
+            GoalsCompanion.insert(
+              id: 'pack1-invalid-active-goal',
+              profileId: profileId,
+              role: GoalRole.weekly.storageName,
+              title: 'Invalid Unslotted Goal',
+              status: GoalStatus.active.name,
+              activeSlotIndex: const Value<int?>(null),
+              indicatorKey: const Value<String?>(null),
+              iconId: const Value<String?>(null),
+              createdAtUtc: clock.value,
+              updatedAtUtc: clock.value,
+              archivedAtUtc: const Value<DateTime?>(null),
+            ),
+          );
+      final reloaded = await repository.readPlanning(
+        profileId: profileId,
+        periodStart: periodStart,
+      );
+      final projectedTitles = <String>[
+        if (reloaded.daily != null) reloaded.daily!.goal.title,
+        ...reloaded.weekly.map((progress) => progress.goal.title),
+        if (reloaded.monthly != null) reloaded.monthly!.goal.title,
+      ];
+      expect(projectedTitles, isNot(contains('Invalid Unslotted Goal')));
+      expect(
+        (await repository.readActiveGoals(profileId)).map((goal) => goal.title),
+        contains('Invalid Unslotted Goal'),
+      );
+
+      final occupiedWeekly = reloaded.weekly.first.goal;
+      await repository.archiveGoal(
+        profileId: profileId,
+        goalId: occupiedWeekly.id,
+        operationId: 'pack1-archive-for-invalid-slot-capacity',
+      );
+      expect((await repository.readCapacity(profileId)).availableWeekly, 1);
+      final replacement = await repository.createGoal(
+        profileId: profileId,
+        role: GoalRole.weekly,
+        title: 'Capacity ignores invalid active slot',
+        targets: const GoalTargets(weekly: target),
+        operationId: 'pack1-create-after-invalid-slot',
+      );
+      expect(replacement.activeSlotIndex, occupiedWeekly.activeSlotIndex);
+    },
+  );
+
+  test(
+    'daily target update changes only the target and one idempotent outbox row',
+    () async {
+      final (database, repository, profileId) = await arrange();
+      addTearDown(database.close);
+      final daily = (await repository.readActiveGoals(
+        profileId,
+      )).firstWhere((goal) => goal.role == GoalRole.dailyWeekly);
+      final before = await repository.readProgress(
+        profileId: profileId,
+        goalId: daily.id,
+        today: periodStart,
+      );
+      expect(before != null, isTrue);
+      final baseline = before!;
+      final activityCountBefore = await (database.select(
+        database.goalActivities,
+      )..where((table) => table.profileId.equals(profileId))).get();
+      final outboxCountBefore = await (database.select(
+        database.goalOutboxOperations,
+      )..where((table) => table.profileId.equals(profileId))).get();
+      final ledgerCountBefore = await (database.select(
+        database.activityLedgerEntries,
+      )..where((table) => table.profileId.equals(profileId))).get();
+      final reportCountBefore = await (database.select(
+        database.outcomeReports,
+      )..where((table) => table.profileId.equals(profileId))).get();
+
+      const nextDailyTarget = IndicatorAmount(
+        scaledValue: 3,
+        scale: 0,
+        unit: 'count',
+      );
+      final targets = GoalTargets(
+        daily: nextDailyTarget,
+        weekly: baseline.weeklyTarget.value,
+        monthly: baseline.monthlyTarget.value,
+      );
+      final updated = await repository.saveGoal(
+        profileId: profileId,
+        goalId: daily.id,
+        title: daily.title,
+        iconId: daily.iconId,
+        targets: targets,
+        operationId: 'pack1-daily-target-update',
+      );
+      final retried = await repository.saveGoal(
+        profileId: profileId,
+        goalId: daily.id,
+        title: daily.title,
+        iconId: daily.iconId,
+        targets: targets,
+        operationId: 'pack1-daily-target-update',
+      );
+      final after = await repository.readProgress(
+        profileId: profileId,
+        goalId: daily.id,
+        today: periodStart,
+      );
+
+      expect(updated.id, daily.id);
+      expect(retried.id, daily.id);
+      expect(updated.title, daily.title);
+      expect(updated.iconId, daily.iconId);
+      expect(updated.role, daily.role);
+      expect(updated.activeSlotIndex, daily.activeSlotIndex);
+      expect(after?.dailyTarget.value?.scaledValue, 3);
+      expect(after?.dailyActual.scaledValue, baseline.dailyActual.scaledValue);
+      expect(after?.dailyActual.scale, baseline.dailyActual.scale);
+      expect(after?.dailyActual.unit, baseline.dailyActual.unit);
+      expect(
+        after?.weeklyActual.scaledValue,
+        baseline.weeklyActual.scaledValue,
+      );
+      expect(after?.weeklyActual.scale, baseline.weeklyActual.scale);
+      expect(after?.weeklyActual.unit, baseline.weeklyActual.unit);
+      expect(
+        after?.monthlyActual.scaledValue,
+        baseline.monthlyActual.scaledValue,
+      );
+      expect(after?.monthlyActual.scale, baseline.monthlyActual.scale);
+      expect(after?.monthlyActual.unit, baseline.monthlyActual.unit);
+
+      final activityCountAfter = await (database.select(
+        database.goalActivities,
+      )..where((table) => table.profileId.equals(profileId))).get();
+      final outboxCountAfter = await (database.select(
+        database.goalOutboxOperations,
+      )..where((table) => table.profileId.equals(profileId))).get();
+      final targetOperations = outboxCountAfter.where(
+        (row) => row.operationId == 'pack1-daily-target-update',
+      );
+      final ledgerCountAfter = await (database.select(
+        database.activityLedgerEntries,
+      )..where((table) => table.profileId.equals(profileId))).get();
+      final reportCountAfter = await (database.select(
+        database.outcomeReports,
+      )..where((table) => table.profileId.equals(profileId))).get();
+
+      expect(activityCountAfter, hasLength(activityCountBefore.length));
+      expect(outboxCountAfter.length, outboxCountBefore.length + 1);
+      expect(targetOperations, hasLength(1));
+      expect(ledgerCountAfter, hasLength(ledgerCountBefore.length));
+      expect(reportCountAfter, hasLength(reportCountBefore.length));
+    },
+  );
+
+  test(
     'rename, archive, restore, and target history keep the same identity',
     () async {
       final (database, repository, profileId) = await arrange();

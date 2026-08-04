@@ -187,6 +187,9 @@ final class CalendarEventDraft {
     this.locationText,
     this.activityTypeId,
     this.activityTypeMappingVersion,
+    this.activityTypeStableKeySnapshot,
+    this.activityTypeLabelSnapshot,
+    this.activityTypeColorValueSnapshot,
     this.contributionRuleKey,
     this.isBackupAppointment = false,
     this.backupForEventId,
@@ -206,6 +209,9 @@ final class CalendarEventDraft {
   final String? locationText;
   final String? activityTypeId;
   final int? activityTypeMappingVersion;
+  final String? activityTypeStableKeySnapshot;
+  final String? activityTypeLabelSnapshot;
+  final int? activityTypeColorValueSnapshot;
   final bool requiresReport;
   final String? contributionRuleKey;
   final bool isBackupAppointment;
@@ -222,6 +228,12 @@ final class CalendarEventDraft {
     final normalizedTitle = _normalizeOptional(title);
     final normalizedNotes = _normalizeOptional(notes);
     final normalizedLocation = _normalizeOptional(locationText);
+    final normalizedActivityTypeStableKey = _normalizeOptional(
+      activityTypeStableKeySnapshot,
+    );
+    final normalizedActivityTypeLabel = _normalizeOptional(
+      activityTypeLabelSnapshot,
+    );
     final normalizedContribution = _normalizeOptional(contributionRuleKey);
     final normalizedRecurrence = recurrence.normalizedFor(startDate);
     if (timing == CalendarEventTiming.allDay) {
@@ -236,6 +248,9 @@ final class CalendarEventDraft {
         locationText: normalizedLocation,
         activityTypeId: activityTypeId,
         activityTypeMappingVersion: activityTypeMappingVersion,
+        activityTypeStableKeySnapshot: normalizedActivityTypeStableKey,
+        activityTypeLabelSnapshot: normalizedActivityTypeLabel,
+        activityTypeColorValueSnapshot: activityTypeColorValueSnapshot,
         contributionRuleKey: normalizedContribution,
         isBackupAppointment: isBackupAppointment,
         backupForEventId: isBackupAppointment
@@ -278,6 +293,9 @@ final class CalendarEventDraft {
       locationText: normalizedLocation,
       activityTypeId: activityTypeId,
       activityTypeMappingVersion: activityTypeMappingVersion,
+      activityTypeStableKeySnapshot: normalizedActivityTypeStableKey,
+      activityTypeLabelSnapshot: normalizedActivityTypeLabel,
+      activityTypeColorValueSnapshot: activityTypeColorValueSnapshot,
       requiresReport: requiresReport,
       status: status,
       contributionRuleKey: normalizedContribution,
@@ -305,6 +323,9 @@ final class CalendarEventDraft {
     String? locationText,
     String? activityTypeId,
     int? activityTypeMappingVersion,
+    String? activityTypeStableKeySnapshot,
+    String? activityTypeLabelSnapshot,
+    int? activityTypeColorValueSnapshot,
     bool? requiresReport,
     String? contributionRuleKey,
     bool? isBackupAppointment,
@@ -326,6 +347,12 @@ final class CalendarEventDraft {
       activityTypeId: activityTypeId ?? this.activityTypeId,
       activityTypeMappingVersion:
           activityTypeMappingVersion ?? this.activityTypeMappingVersion,
+      activityTypeStableKeySnapshot:
+          activityTypeStableKeySnapshot ?? this.activityTypeStableKeySnapshot,
+      activityTypeLabelSnapshot:
+          activityTypeLabelSnapshot ?? this.activityTypeLabelSnapshot,
+      activityTypeColorValueSnapshot:
+          activityTypeColorValueSnapshot ?? this.activityTypeColorValueSnapshot,
       requiresReport: requiresReport ?? this.requiresReport,
       contributionRuleKey: contributionRuleKey ?? this.contributionRuleKey,
       isBackupAppointment: isBackupAppointment ?? this.isBackupAppointment,
@@ -396,6 +423,7 @@ final class CalendarEventOccurrence {
     this.locationText,
     this.activityTypeId,
     this.activityTypeMappingVersion,
+    this.activityTypeStableKey,
     this.activityTypeLabel,
     this.activityTypeColorValue,
     this.contributionRuleKey,
@@ -425,6 +453,7 @@ final class CalendarEventOccurrence {
   final String? locationText;
   final String? activityTypeId;
   final int? activityTypeMappingVersion;
+  final String? activityTypeStableKey;
   final String? activityTypeLabel;
   final int? activityTypeColorValue;
   final CalendarEventStatus status;

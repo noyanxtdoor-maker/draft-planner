@@ -328,7 +328,7 @@ void main() {
       );
       expect(
         PlannerEventBlockLayoutPolicy.backupEventAccentWidth,
-        greaterThan(PlannerEventBlockLayoutPolicy.eventAccentWidth),
+        equals(PlannerEventBlockLayoutPolicy.eventAccentWidth),
       );
       for (final height in <double>[20, 40, 60, 120]) {
         final content = PlannerEventBlockContent.forHeight(

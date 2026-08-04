@@ -4,6 +4,11 @@ import 'package:rmplanner/features/planner/domain/planner_date.dart';
 abstract interface class IndicatorRepository {
   Stream<void> watchChanges(String profileId);
 
+  Future<PlannerDate?> readNextTempleVisit({
+    required String profileId,
+    required PlannerDate today,
+  });
+
   Future<HomeIndicatorSnapshot> readHome({
     required String profileId,
     required IndicatorPeriod period,

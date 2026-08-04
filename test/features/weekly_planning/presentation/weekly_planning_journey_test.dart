@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rmplanner/core/diagnostics/sanitized_diagnostics.dart';
+import 'package:rmplanner/core/ids/identifier_source.dart';
 import 'package:rmplanner/core/platform/app_environment.dart';
+import 'package:rmplanner/features/goals/data/drift_goal_repository.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 
 import '../../../support/test_dependencies.dart';
@@ -103,7 +105,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Start Weekly Planning'));
+      await tester.tap(find.byKey(const Key('weekly-targets-button')));
       await tester.pumpAndSettle();
       expect(find.text('Weekly Planning'), findsOneWidget);
       await tester.scrollUntilVisible(
@@ -119,6 +121,118 @@ void main() {
         findsOneWidget,
       );
       expect(tester.takeException(), isNull);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(milliseconds: 1));
+    },
+  );
+
+  testWidgets(
+    'Pack 1: limit dialog cancel is local and Manage Goals activates archive mode',
+    (tester) async {
+      tester.view.physicalSize = const Size(393, 874);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final database = openMemoryDatabase();
+      addTearDown(database.close);
+      final startup = buildTestRepository(database: database);
+      final profile = await startup.completeOnboarding();
+      final goalRepository = DriftGoalRepository(
+        database: database,
+        clock: FixedClock(DateTime.utc(2026, 8, 3, 12)),
+        identifiers: const UuidIdentifierSource(),
+      );
+      final firstGoal = (await goalRepository.readActiveGoals(
+        profile.id,
+      )).first;
+      final privacy = TestPrivacyDependencies(database: database);
+
+      await tester.pumpWidget(
+        privacy.buildApp(
+          environment: const AppEnvironment(
+            name: AppEnvironmentName.production,
+            label: 'PRODUCTION',
+          ),
+          diagnostics: SanitizedDiagnostics(),
+          startupRepository: startup,
+          plannerDateSource: const FixedPlannerDateSource(monday),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('weekly-targets-button')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('weekly-plan-create-goal')));
+      await tester.pumpAndSettle();
+      expect(find.text('Goal limit reached'), findsOneWidget);
+      expect(
+        find.text(
+          'All 6 goal slots are currently in use. Archive at least one '
+          'goal before creating another.',
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(find.byKey(const Key('weekly-plan-goal-limit-cancel')));
+      await tester.pumpAndSettle();
+      expect(find.text('Goal limit reached'), findsNothing);
+      expect(
+        find.byKey(const Key('weekly-plan-management-mode')),
+        findsNothing,
+      );
+      expect(find.text('Weekly Planning'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('weekly-plan-create-goal')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('weekly-plan-goal-limit-manage')));
+      await tester.pumpAndSettle();
+      expect(find.text('Weekly Planning'), findsOneWidget);
+      expect(
+        find.byKey(const Key('weekly-plan-management-mode')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(Key('weekly-plan-goal-direct-archive-${firstGoal.id}')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(Key('weekly-plan-goal-menu-${firstGoal.id}')),
+        findsOneWidget,
+      );
+
+      // Canceling the shared archive confirmation preserves management mode.
+      await tester.tap(
+        find.byKey(Key('weekly-plan-goal-direct-archive-${firstGoal.id}')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Archive "${firstGoal.title}"?'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('weekly-plan-archive-cancel')));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('weekly-plan-management-mode')),
+        findsOneWidget,
+      );
+
+      // Existing three-dot actions remain available and route transitions exit
+      // the transient mode rather than persisting it in the Goal model.
+      await tester.tap(
+        find.byKey(Key('weekly-plan-goal-menu-${firstGoal.id}')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Edit Goal'));
+      await tester.pumpAndSettle();
+      expect(find.text('Edit Goal'), findsOneWidget);
+      expect(
+        find.byKey(const Key('weekly-plan-management-mode')),
+        findsNothing,
+      );
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      expect(find.text('Weekly Planning'), findsOneWidget);
+      expect(
+        find.byKey(const Key('weekly-plan-management-mode')),
+        findsNothing,
+      );
 
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(milliseconds: 1));

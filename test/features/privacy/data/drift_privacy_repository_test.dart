@@ -101,7 +101,7 @@ void main() {
       final version = await currentVersion
           .customSelect('PRAGMA user_version')
           .getSingle();
-      expect(version.read<int>('user_version'), 17);
+      expect(version.read<int>('user_version'), 18);
       await currentVersion.close();
     } finally {
       sqliteDatabase.close();

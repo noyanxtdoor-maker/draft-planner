@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rmplanner/app/router/route_names.dart';
 import 'package:rmplanner/features/planner/application/calendar_event_providers.dart';
-import 'package:rmplanner/features/planner/application/event_type_providers.dart';
 import 'package:rmplanner/features/planner/application/outcome_reporting_providers.dart';
 import 'package:rmplanner/features/planner/application/planner_providers.dart';
 import 'package:rmplanner/features/planner/domain/calendar_event.dart';
@@ -75,7 +74,6 @@ final class _CalendarEventDetailScreenState
   @override
   Widget build(BuildContext context) {
     final message = ref.watch(calendarEventControllerProvider);
-    final eventTypeState = ref.watch(eventTypeControllerProvider);
     final content = FutureBuilder<CalendarEventOccurrence?>(
       future: _load,
       builder: (context, snapshot) {
@@ -101,13 +99,11 @@ final class _CalendarEventDetailScreenState
             ? occurrence.displayDate.compareTo(displayToday) > 0
             : occurrence.startUtc?.isAfter(nowUtc) ?? false;
         final showStatus = occurrence.requiresReport && !isFuture;
-        final eventType = occurrence.activityTypeId == null
-            ? null
-            : eventTypeState.eventTypes
-                  .where((type) => type.id == occurrence.activityTypeId)
-                  .firstOrNull;
-        final eventTypeLabel = eventType?.label ?? occurrence.activityTypeLabel;
-        final isContactEvent = _isContactEvent(eventType, eventTypeLabel);
+        final eventTypeLabel = occurrence.activityTypeLabel;
+        final isContactEvent = _isContactEvent(
+          occurrence.activityTypeStableKey,
+          eventTypeLabel,
+        );
         return ListView(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
           children: <Widget>[
@@ -443,10 +439,7 @@ final class _CalendarEventDetailScreenState
                   }
                   setState(() => _statusSaving = true);
                   unawaited(
-                    _persistStatusSelection(
-                      occurrence,
-                      selected: status,
-                    ),
+                    _persistStatusSelection(occurrence, selected: status),
                   );
                 },
                 child: Padding(
@@ -694,8 +687,8 @@ final class _CalendarEventDetailScreenState
         '${_time(local)}';
   }
 
-  static bool _isContactEvent(EventType? type, String? label) {
-    if (type?.stableKey == SystemEventTypeKeys.meaningfulConnection) {
+  static bool _isContactEvent(String? stableKey, String? label) {
+    if (stableKey == SystemEventTypeKeys.meaningfulConnection) {
       return true;
     }
     final normalized = label?.trim().toLowerCase();

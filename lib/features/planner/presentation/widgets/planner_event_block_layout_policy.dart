@@ -23,7 +23,10 @@ abstract final class PlannerEventBlockLayoutPolicy {
   /// coupling tests to Flutter's internal Material shape objects.
   static const double eventBorderRadius = 4;
   static const double eventAccentWidth = 4;
-  static const double backupEventAccentWidth = 7;
+  // Backup Events use the same fixed accent width as normal Events. The
+  // striped painter is clipped to this exact strip before it can paint any
+  // diagonal segment outside its local bounds.
+  static const double backupEventAccentWidth = eventAccentWidth;
   static const Color backupStripeDark = Color(0xFF1B1C1D);
   static const double backupStripeSpacing = 5;
   static const double backupStripeWidth = 2.2;
@@ -173,29 +176,48 @@ abstract final class PlannerEventBlockLayoutPolicy {
 final class PlannerBackupStripeBackground extends StatelessWidget {
   const PlannerBackupStripeBackground({
     required this.accent,
+    required this.surfaceColor,
     required this.child,
+    this.accentKey,
+    this.surfaceKey,
     super.key,
   });
 
   final Color accent;
+  final Color surfaceColor;
   final Widget child;
+  final Key? accentKey;
+  final Key? surfaceKey;
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      clipBehavior: Clip.hardEdge,
-      children: <Widget>[
-        Positioned.fill(child: child),
-        Positioned(
-          left: 0,
-          top: 0,
-          bottom: 0,
-          width: PlannerEventBlockLayoutPolicy.backupEventAccentWidth,
-          child: CustomPaint(
-            painter: _PlannerBackupStripePainter(accent: accent),
-          ),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(
+        PlannerEventBlockLayoutPolicy.eventBorderRadius,
+      ),
+      child: ColoredBox(
+        color: surfaceColor,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            SizedBox(
+              key: accentKey,
+              width: PlannerEventBlockLayoutPolicy.backupEventAccentWidth,
+              child: ClipRect(
+                clipBehavior: Clip.hardEdge,
+                child: RepaintBoundary(
+                  child: CustomPaint(
+                    painter: _PlannerBackupStripePainter(accent: accent),
+                  ),
+                ),
+              ),
+            ),
+            Expanded(
+              child: SizedBox.expand(key: surfaceKey, child: child),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }

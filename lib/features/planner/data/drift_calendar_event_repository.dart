@@ -19,6 +19,14 @@ final class AllowCalendarEventWrites implements CalendarEventWriteGuard {
   Future<void> beforeCommit() async {}
 }
 
+final class _ActivityTypeSnapshot {
+  const _ActivityTypeSnapshot({this.stableKey, this.label, this.colorValue});
+
+  final String? stableKey;
+  final String? label;
+  final int? colorValue;
+}
+
 final class DriftCalendarEventRepository implements CalendarEventRepository {
   const DriftCalendarEventRepository({
     required this.database,
@@ -493,6 +501,9 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
           requiresReport: current.requiresReport,
           activityTypeId: current.activityTypeId,
           activityTypeMappingVersion: current.activityTypeMappingVersion,
+          activityTypeStableKeySnapshot: current.activityTypeStableKey,
+          activityTypeLabelSnapshot: current.activityTypeLabel,
+          activityTypeColorValueSnapshot: current.activityTypeColorValue,
           // A duplicate is a new scheduled record. It must not inherit a
           // scheduled indicator contribution rule or any factual outcome.
           contributionRuleKey: null,
@@ -568,6 +579,11 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
     CalendarEventRow? existing,
     String? parentEventId,
   }) async {
+    final activityTypeSnapshot = await _resolveActivityTypeSnapshot(
+      profileId: profileId,
+      draft: draft,
+      existing: existing,
+    );
     final now = clock.nowUtc();
     final values = CalendarEventsCompanion(
       title: Value<String>(draft.title),
@@ -581,6 +597,13 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
       requiresReport: Value<bool>(draft.requiresReport),
       activityTypeId: Value<String?>(draft.activityTypeId),
       activityTypeMappingVersion: Value<int?>(draft.activityTypeMappingVersion),
+      activityTypeStableKeySnapshot: Value<String?>(
+        activityTypeSnapshot?.stableKey,
+      ),
+      activityTypeLabelSnapshot: Value<String?>(activityTypeSnapshot?.label),
+      activityTypeColorValueSnapshot: Value<int?>(
+        activityTypeSnapshot?.colorValue,
+      ),
       contributionRuleKey: Value<String?>(draft.contributionRuleKey),
       isBackupAppointment: Value<bool>(draft.isBackupAppointment),
       backupForEventId: Value<String?>(draft.backupForEventId),
@@ -615,6 +638,15 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
               activityTypeId: Value<String?>(draft.activityTypeId),
               activityTypeMappingVersion: Value<int?>(
                 draft.activityTypeMappingVersion,
+              ),
+              activityTypeStableKeySnapshot: Value<String?>(
+                activityTypeSnapshot?.stableKey,
+              ),
+              activityTypeLabelSnapshot: Value<String?>(
+                activityTypeSnapshot?.label,
+              ),
+              activityTypeColorValueSnapshot: Value<int?>(
+                activityTypeSnapshot?.colorValue,
               ),
               contributionRuleKey: Value<String?>(draft.contributionRuleKey),
               isBackupAppointment: Value<bool>(draft.isBackupAppointment),
@@ -658,6 +690,9 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
       requiresReport: row.requiresReport,
       activityTypeId: row.activityTypeId,
       activityTypeMappingVersion: row.activityTypeMappingVersion,
+      activityTypeStableKeySnapshot: row.activityTypeStableKeySnapshot,
+      activityTypeLabelSnapshot: row.activityTypeLabelSnapshot,
+      activityTypeColorValueSnapshot: row.activityTypeColorValueSnapshot,
       contributionRuleKey: row.contributionRuleKey,
       isBackupAppointment: row.isBackupAppointment,
       backupForEventId: row.backupForEventId,
@@ -764,9 +799,26 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
       status = report.status;
     }
     final activityTypeId = exception?.activityTypeId ?? row.activityTypeId;
-    final activityType = activityTypeId == null
+    final activityTypeStableKeySnapshot =
+        exception?.activityTypeStableKeySnapshot ??
+        row.activityTypeStableKeySnapshot;
+    final activityTypeLabelSnapshot =
+        exception?.activityTypeLabelSnapshot ?? row.activityTypeLabelSnapshot;
+    final activityTypeColorValueSnapshot =
+        exception?.activityTypeColorValueSnapshot ??
+        row.activityTypeColorValueSnapshot;
+    final activityType =
+        activityTypeId == null ||
+            (activityTypeStableKeySnapshot != null &&
+                activityTypeLabelSnapshot != null &&
+                activityTypeColorValueSnapshot != null)
         ? null
         : await _readActivityType(row.profileId, activityTypeId);
+    final activityTypeStableKey =
+        activityTypeStableKeySnapshot ?? activityType?.stableKey;
+    final activityTypeLabel = activityTypeLabelSnapshot ?? activityType?.label;
+    final activityTypeColorValue =
+        activityTypeColorValueSnapshot ?? activityType?.colorValue;
     return CalendarEventOccurrence(
       id: occurrenceId,
       eventId: row.id,
@@ -793,8 +845,9 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
       activityTypeMappingVersion:
           exception?.activityTypeMappingVersion ??
           row.activityTypeMappingVersion,
-      activityTypeLabel: activityType?.label,
-      activityTypeColorValue: activityType?.colorValue,
+      activityTypeStableKey: activityTypeStableKey,
+      activityTypeLabel: activityTypeLabel,
+      activityTypeColorValue: activityTypeColorValue,
       contributionRuleKey: exception == null
           ? row.contributionRuleKey
           : exception.contributionRuleKey,
@@ -960,6 +1013,9 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
         requiresReport: occurrence.requiresReport,
         activityTypeId: occurrence.activityTypeId,
         activityTypeMappingVersion: occurrence.activityTypeMappingVersion,
+        activityTypeStableKeySnapshot: occurrence.activityTypeStableKey,
+        activityTypeLabelSnapshot: occurrence.activityTypeLabel,
+        activityTypeColorValueSnapshot: occurrence.activityTypeColorValue,
         contributionRuleKey: occurrence.contributionRuleKey,
         isBackupAppointment: occurrence.isBackupAppointment,
         backupForEventId: occurrence.backupForEventId,
@@ -981,6 +1037,12 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
     required String operationId,
     String? replacementEventId,
   }) async {
+    final existing = await _readRow(profileId: profileId, eventId: eventId);
+    final activityTypeSnapshot = await _resolveActivityTypeSnapshot(
+      profileId: profileId,
+      draft: draft,
+      existing: existing,
+    );
     await database
         .into(database.calendarEventExceptions)
         .insert(
@@ -1006,6 +1068,15 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
             activityTypeMappingVersion: Value<int?>(
               draft.activityTypeMappingVersion,
             ),
+            activityTypeStableKeySnapshot: Value<String?>(
+              activityTypeSnapshot?.stableKey,
+            ),
+            activityTypeLabelSnapshot: Value<String?>(
+              activityTypeSnapshot?.label,
+            ),
+            activityTypeColorValueSnapshot: Value<int?>(
+              activityTypeSnapshot?.colorValue,
+            ),
             contributionRuleKey: Value<String?>(draft.contributionRuleKey),
             isBackupAppointment: Value<bool>(draft.isBackupAppointment),
             backupForEventId: Value<String?>(draft.backupForEventId),
@@ -1017,6 +1088,40 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
             createdAtUtc: clock.nowUtc(),
           ),
         );
+  }
+
+  Future<_ActivityTypeSnapshot?> _resolveActivityTypeSnapshot({
+    required String profileId,
+    required CalendarEventDraft draft,
+    required CalendarEventRow? existing,
+  }) async {
+    final activityTypeId = draft.activityTypeId;
+    if (activityTypeId == null) {
+      return null;
+    }
+    final sameType =
+        existing != null && existing.activityTypeId == activityTypeId;
+    final canUseDraftSnapshot = existing == null || sameType;
+    final stableKey = canUseDraftSnapshot
+        ? draft.activityTypeStableKeySnapshot ??
+              (sameType ? existing.activityTypeStableKeySnapshot : null)
+        : null;
+    final label = canUseDraftSnapshot
+        ? draft.activityTypeLabelSnapshot ??
+              (sameType ? existing.activityTypeLabelSnapshot : null)
+        : null;
+    final colorValue = canUseDraftSnapshot
+        ? draft.activityTypeColorValueSnapshot ??
+              (sameType ? existing.activityTypeColorValueSnapshot : null)
+        : null;
+    final current = stableKey == null || label == null || colorValue == null
+        ? await _readActivityType(profileId, activityTypeId)
+        : null;
+    return _ActivityTypeSnapshot(
+      stableKey: stableKey ?? current?.stableKey,
+      label: label ?? current?.label,
+      colorValue: colorValue ?? current?.colorValue,
+    );
   }
 
   Future<bool> _operationExists(String operationId) async {

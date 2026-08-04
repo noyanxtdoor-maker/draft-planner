@@ -67,7 +67,7 @@ void main() {
       );
       await _pumpUi(tester);
 
-      await tester.tap(find.text('Start Weekly Planning'));
+      await tester.tap(find.byKey(const Key('weekly-targets-button')));
       await _pumpUi(tester);
       final exerciseMenu = find.byKey(
         Key('weekly-plan-goal-menu-${exercise.id}'),
@@ -216,7 +216,9 @@ void main() {
       await tester.pump();
       final menuRect = tester.getRect(menu);
       if (menuRect.top < kToolbarHeight + 16) {
-        final position = tester.state<ScrollableState>(weeklyScrollable).position;
+        final position = tester
+            .state<ScrollableState>(weeklyScrollable)
+            .position;
         position.jumpTo(
           (position.pixels - (kToolbarHeight + 16 - menuRect.top))
               .clamp(0.0, position.maxScrollExtent)

@@ -2699,36 +2699,37 @@ final class _TimelineEventBlock extends StatelessWidget {
           availableHeight,
           interactive: interactive,
         );
+        final eventContent = PlannerEventBlockContentView(
+          event: event,
+          accentColor: accent,
+          surfaceColor: fill,
+          use24HourTime: use24HourTime,
+          displayStartMinute: displayStartMinute,
+          displayEndMinute: displayEndMinute,
+          awaitingReport: awaitingReport,
+          content: content,
+          titleKey: const Key('planner-event-block-title'),
+          timeKey: const Key('planner-event-block-time'),
+          recurrenceKey: Key('planner-event-recurring-${event.id}'),
+          statusKey: Key('planner-event-block-status-${event.id}'),
+        );
         final eventBody = InkWell(
           onTap: selectionMode
               ? onToggleSelection
               : () => _openCalendarEvent(context, event),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              border: Border(
-                left: BorderSide(
-                  color: accent,
-                  width: event.isBackupAppointment
-                      ? PlannerEventBlockLayoutPolicy.backupEventAccentWidth
-                      : PlannerEventBlockLayoutPolicy.eventAccentWidth,
+          child: event.isBackupAppointment
+              ? eventContent
+              : DecoratedBox(
+                  decoration: BoxDecoration(
+                    border: Border(
+                      left: BorderSide(
+                        color: accent,
+                        width: PlannerEventBlockLayoutPolicy.eventAccentWidth,
+                      ),
+                    ),
+                  ),
+                  child: eventContent,
                 ),
-              ),
-            ),
-            child: PlannerEventBlockContentView(
-              event: event,
-              accentColor: accent,
-              surfaceColor: fill,
-              use24HourTime: use24HourTime,
-              displayStartMinute: displayStartMinute,
-              displayEndMinute: displayEndMinute,
-              awaitingReport: awaitingReport,
-              content: content,
-              titleKey: const Key('planner-event-block-title'),
-              timeKey: const Key('planner-event-block-time'),
-              recurrenceKey: Key('planner-event-recurring-${event.id}'),
-              statusKey: Key('planner-event-block-status-${event.id}'),
-            ),
-          ),
         );
         return Semantics(
           button: true,
@@ -2780,6 +2781,13 @@ final class _TimelineEventBlock extends StatelessWidget {
                     child: event.isBackupAppointment
                         ? PlannerBackupStripeBackground(
                             accent: resolvedAccent,
+                            surfaceColor: fill,
+                            accentKey: Key(
+                              'planner-backup-accent-strip-${event.id}',
+                            ),
+                            surfaceKey: Key(
+                              'planner-backup-event-surface-${event.id}',
+                            ),
                             child: eventBody,
                           )
                         : eventBody,

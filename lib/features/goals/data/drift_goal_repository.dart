@@ -317,7 +317,7 @@ final class DriftGoalRepository implements GoalRepository {
             ))
             .get();
     final counts = <GoalRole, int>{for (final role in GoalRole.values) role: 0};
-    for (final row in rows) {
+    for (final row in rows.where(_isCanonicalActiveRow)) {
       final role = _roleFromName(row.role);
       counts[role] = (counts[role] ?? 0) + 1;
     }
@@ -399,6 +399,7 @@ final class DriftGoalRepository implements GoalRepository {
     required GoalTargets targets,
     String? iconId,
     String? operationId,
+    PlannerDate? today,
   }) async {
     final normalizedTitle = title.trim();
     if (normalizedTitle.isEmpty) {
@@ -446,6 +447,7 @@ final class DriftGoalRepository implements GoalRepository {
         goal: before,
         targets: targets,
         operationId: effectiveOperationId,
+        today: today,
       );
       if (titleChanged) {
         await _writeActivity(
@@ -930,13 +932,19 @@ final class DriftGoalRepository implements GoalRepository {
   Future<GoalPlanningSnapshot> readPlanning({
     required String profileId,
     required PlannerDate periodStart,
+    PlannerDate? today,
   }) async {
-    final goals = await readActiveGoals(profileId);
+    final goals =
+        (await readActiveGoals(
+            profileId,
+          )).where(_isCanonicalPlanningGoal).toList(growable: true)
+          ..sort(_compareCanonicalPlanningGoals);
+    final resolvedToday = today ?? periodStart;
     final progress = <GoalProgress>[];
     for (final goal in goals) {
       final value = await _readProgress(
         goal: goal,
-        today: periodStart,
+        today: resolvedToday,
         periodStart: periodStart,
       );
       progress.add(value);
@@ -1031,39 +1039,53 @@ final class DriftGoalRepository implements GoalRepository {
     String unit,
   ) async {
     final byGoal =
-        await (database.select(database.indicatorGoalRevisions)
-              ..where(
-                (table) =>
-                    table.profileId.equals(goal.profileId) &
-                    table.goalId.equals(goal.id) &
-                    table.periodType.equals(period.type.name) &
-                    table.periodStartDate.equals(period.start.iso8601),
-              )
-              ..orderBy(<OrderingTerm Function(IndicatorGoalRevisions)>[
-                (table) => OrderingTerm.desc(table.createdAtUtc),
-              ])
-              ..limit(1))
-            .getSingleOrNull();
-    if (byGoal != null) {
-      return byGoal;
+        await (database.select(database.indicatorGoalRevisions)..where(
+              (table) =>
+                  table.profileId.equals(goal.profileId) &
+                  table.goalId.equals(goal.id) &
+                  table.periodType.equals(period.type.name) &
+                  table.periodStartDate.equals(period.start.iso8601),
+            ))
+            .get();
+    final currentByGoal = _latestTargetRevision(byGoal);
+    if (currentByGoal != null) {
+      return currentByGoal;
     }
     final key = goal.indicatorKey;
     if (key == null) {
       return null;
     }
-    return (database.select(database.indicatorGoalRevisions)
-          ..where(
-            (table) =>
-                table.profileId.equals(goal.profileId) &
-                table.indicatorKey.equals(key) &
-                table.periodType.equals(period.type.name) &
-                table.periodStartDate.equals(period.start.iso8601),
-          )
-          ..orderBy(<OrderingTerm Function(IndicatorGoalRevisions)>[
-            (table) => OrderingTerm.desc(table.createdAtUtc),
-          ])
-          ..limit(1))
-        .getSingleOrNull();
+    final byIndicator =
+        await (database.select(database.indicatorGoalRevisions)..where(
+              (table) =>
+                  table.profileId.equals(goal.profileId) &
+                  table.indicatorKey.equals(key) &
+                  table.periodType.equals(period.type.name) &
+                  table.periodStartDate.equals(period.start.iso8601),
+            ))
+            .get();
+    return _latestTargetRevision(byIndicator);
+  }
+
+  IndicatorGoalRevisionRow? _latestTargetRevision(
+    List<IndicatorGoalRevisionRow> revisions,
+  ) {
+    if (revisions.isEmpty) {
+      return null;
+    }
+    final supersededIds = revisions
+        .map((revision) => revision.supersedesRevisionId)
+        .whereType<String>()
+        .toSet();
+    final leaves = revisions
+        .where((revision) => !supersededIds.contains(revision.id))
+        .toList();
+    final candidates = leaves.isEmpty ? revisions : leaves;
+    candidates.sort((left, right) {
+      final created = left.createdAtUtc.compareTo(right.createdAtUtc);
+      return created != 0 ? created : left.id.compareTo(right.id);
+    });
+    return candidates.last;
   }
 
   IndicatorTarget _mapTarget(IndicatorGoalRevisionRow? row, String unit) {
@@ -1098,12 +1120,14 @@ final class DriftGoalRepository implements GoalRepository {
 
   Future<int> _freeSlot(String profileId, GoalRole role) async {
     final used =
-        await (database.select(database.goals)..where(
-              (table) =>
-                  table.profileId.equals(profileId) &
-                  table.status.equals(GoalStatus.active.name),
-            ))
-            .get();
+        (await (database.select(database.goals)..where(
+                  (table) =>
+                      table.profileId.equals(profileId) &
+                      table.status.equals(GoalStatus.active.name),
+                ))
+                .get())
+            .where(_isCanonicalActiveRow)
+            .toList(growable: false);
     final slots = switch (role) {
       GoalRole.dailyWeekly => <int>[1],
       GoalRole.weekly => <int>[2, 3, 4, 5],
@@ -1123,17 +1147,19 @@ final class DriftGoalRepository implements GoalRepository {
     required Goal goal,
     required GoalTargets targets,
     required String operationId,
+    PlannerDate? today,
   }) async {
     final unit = await _unitForGoal(goal);
+    final targetDate = today ?? _today();
     final values = <IndicatorGoalPeriod, IndicatorAmount?>{
       if (goal.role == GoalRole.dailyWeekly)
-        IndicatorGoalPeriod.daily(_today()): targets.daily,
+        IndicatorGoalPeriod.daily(targetDate): targets.daily,
       if (goal.role == GoalRole.dailyWeekly || goal.role == GoalRole.weekly)
-        IndicatorGoalPeriod.weekly(_today()): targets.weekly,
+        IndicatorGoalPeriod.weekly(targetDate): targets.weekly,
       if (goal.role ==
           GoalRole.weeklyMonthly) ...<IndicatorGoalPeriod, IndicatorAmount?>{
-        IndicatorGoalPeriod.weekly(_today()): targets.weekly,
-        IndicatorGoalPeriod.monthly(_today()): targets.monthly,
+        IndicatorGoalPeriod.weekly(targetDate): targets.weekly,
+        IndicatorGoalPeriod.monthly(targetDate): targets.monthly,
       },
     };
     for (final entry in values.entries) {
@@ -1448,6 +1474,13 @@ final class DriftGoalRepository implements GoalRepository {
     );
   }
 
+  bool _isCanonicalActiveRow(GoalRow row) {
+    final slot = row.activeSlotIndex;
+    return row.status == GoalStatus.active.name &&
+        slot != null &&
+        _slotSupportsRole(_roleFromName(row.role), slot);
+  }
+
   Map<String, Object?> _targetsPayload(GoalTargets targets) {
     return <String, Object?>{
       'daily': targets.daily?.scaledValue,
@@ -1459,6 +1492,29 @@ final class DriftGoalRepository implements GoalRepository {
   PlannerDate _mondayOf(PlannerDate date) {
     return date.addDays(-(date.asLocalDate.weekday - DateTime.monday));
   }
+}
+
+bool _isCanonicalPlanningGoal(Goal goal) {
+  final slot = goal.activeSlotIndex;
+  return goal.isActive && slot != null && _slotSupportsRole(goal.role, slot);
+}
+
+int _compareCanonicalPlanningGoals(Goal left, Goal right) {
+  final roleOrder = <GoalRole, int>{
+    GoalRole.dailyWeekly: 0,
+    GoalRole.weekly: 1,
+    GoalRole.weeklyMonthly: 2,
+  };
+  final roleComparison = roleOrder[left.role]!.compareTo(
+    roleOrder[right.role]!,
+  );
+  if (roleComparison != 0) {
+    return roleComparison;
+  }
+  final slotComparison = left.activeSlotIndex!.compareTo(
+    right.activeSlotIndex!,
+  );
+  return slotComparison != 0 ? slotComparison : left.id.compareTo(right.id);
 }
 
 Map<String, Object?> _exportGoalTarget({

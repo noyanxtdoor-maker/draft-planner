@@ -12,7 +12,16 @@ final class WeeklyPlanHistoryScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final history = ref.watch(weeklyPlanHistoryProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Prior Weeks')),
+      appBar: AppBar(
+        automaticallyImplyLeading: false,
+        leading: IconButton(
+          key: const Key('weekly-plan-history-back'),
+          tooltip: 'Back to Planning',
+          onPressed: () => context.go(RoutePaths.weeklyPlanning),
+          icon: const Icon(Icons.arrow_back),
+        ),
+        title: const Text('Prior Weeks'),
+      ),
       body: SafeArea(
         child: history.when(
           loading: () => const Center(child: CircularProgressIndicator()),

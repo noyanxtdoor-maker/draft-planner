@@ -305,7 +305,7 @@ final class _GoalCreateScreenState extends ConsumerState<GoalCreateScreen> {
   }
 
   Future<void> _showCapacityWarning(BuildContext context) async {
-    await showDialog<void>(
+    final manage = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Goal limit reached'),
@@ -315,16 +315,21 @@ final class _GoalCreateScreenState extends ConsumerState<GoalCreateScreen> {
         ),
         actions: <Widget>[
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
+            key: const Key('goal-create-limit-cancel'),
+            onPressed: () => Navigator.of(context).pop(false),
             child: const Text('Cancel'),
           ),
           FilledButton(
-            onPressed: () => Navigator.of(context).pop(),
+            key: const Key('goal-create-limit-manage'),
+            onPressed: () => Navigator.of(context).pop(true),
             child: const Text('Manage Goals'),
           ),
         ],
       ),
     );
+    if (manage == true && context.mounted) {
+      context.go(RoutePaths.weeklyPlanning, extra: true);
+    }
   }
 }
 

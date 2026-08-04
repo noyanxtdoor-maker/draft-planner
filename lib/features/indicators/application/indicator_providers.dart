@@ -24,6 +24,23 @@ final indicatorChangesProvider = StreamProvider.family<void, String>((
   return ref.read(indicatorRepositoryProvider).watchChanges(profileId);
 });
 
+/// Reads the Temple Visit schedule directly from the canonical calendar
+/// source. Home uses this small projection instead of retaining a potentially
+/// stale legacy Home snapshot.
+final nextTempleVisitProvider = FutureProvider<PlannerDate?>((ref) {
+  final startup = ref.watch(startupControllerProvider);
+  if (startup is! StartupReady) {
+    throw StateError('Temple Visit schedule requires a ready Local Profile');
+  }
+  final today = ref.watch(plannerDateSourceProvider).today();
+  // Calendar-event writes are included in the indicator change stream, so the
+  // projection refreshes when an event is created, edited, or deleted.
+  ref.watch(indicatorChangesProvider(startup.profile.id));
+  return ref
+      .read(indicatorRepositoryProvider)
+      .readNextTempleVisit(profileId: startup.profile.id, today: today);
+});
+
 final indicatorPeriodSnapshotProvider =
     FutureProvider.family<HomeIndicatorSnapshot, IndicatorPeriod>((
       ref,

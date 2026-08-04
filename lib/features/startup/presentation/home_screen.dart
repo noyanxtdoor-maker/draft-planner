@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import 'package:rmplanner/app/router/route_names.dart';
 import 'package:rmplanner/app/shell/global_drawer_controller.dart';
 import 'package:rmplanner/app/theme/app_theme.dart';
@@ -12,19 +13,37 @@ import 'package:rmplanner/features/goals/domain/goal.dart';
 import 'package:rmplanner/features/goals/presentation/widgets/goal_icon.dart';
 import 'package:rmplanner/features/indicators/application/indicator_providers.dart';
 import 'package:rmplanner/features/indicators/domain/life_indicator.dart';
+import 'package:rmplanner/features/planner/application/planner_providers.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 import 'package:rmplanner/features/planner/presentation/calendar_event_creation.dart';
 import 'package:rmplanner/features/planner/presentation/contextual_create_fab.dart';
 
+/// Returns the month-specific label shown beside the canonical monthly Goal.
+///
+/// The label is intentionally derived at render time. It is not a Goal title,
+/// persisted field, activity entry, or outbox payload.
+String homeMonthGoalLabel(PlannerDate today, Locale locale) {
+  final month = DateFormat.LLLL(
+    locale.toLanguageTag(),
+  ).format(today.asLocalDate);
+  return '$month Goal';
+}
+
 final class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
+  // The Home quick control is intentionally serialized per canonical Goal.
+  // This keeps rapid taps target-only and prevents duplicate writes from
+  // racing against one another or reading a stale progress snapshot.
+  static final Map<String, Future<void>> _dailyTargetQueues =
+      <String, Future<void>>{};
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(homeIndicatorControllerProvider);
-    final activeGoals =
-        ref.watch(activeGoalsProvider).asData?.value ?? const <Goal>[];
-    final snapshot = state.snapshot;
+    final plannerToday = ref.watch(plannerDateSourceProvider).today();
+    final periodStart = IndicatorPeriod.currentWeek(plannerToday).start;
+    final canonicalPlan = ref.watch(goalPlanningProvider(periodStart));
+    final nextTempleVisit = ref.watch(nextTempleVisitProvider).asData?.value;
     return Scaffold(
       appBar: AppBar(
         key: const Key('home-app-bar'),
@@ -57,87 +76,57 @@ final class HomeScreen extends ConsumerWidget {
       body: SafeArea(
         child: MediaQuery.withClampedTextScaling(
           maxScaleFactor: 1.3,
-          child: snapshot == null
-              ? _InitialState(state: state)
-              : RefreshIndicator(
-                  onRefresh: () => ref
-                      .read(homeIndicatorControllerProvider.notifier)
-                      .refresh(),
-                  child: ListView(
-                    key: const Key('home-indicator-list'),
-                    padding: EdgeInsets.fromLTRB(
-                      18,
-                      18,
-                      18,
-                      _homeBottomInset(context),
-                    ),
-                    children: <Widget>[
-                      _SectionHeader(
-                        title: 'Weekly Life Indicators',
-                        onViewAll: () =>
-                            _openWeeklyPlanning(context, snapshot.period.start),
-                        viewAllKey: const Key('home-wli-view-all'),
-                      ),
-                      const SizedBox(height: 6),
-                      if (!snapshot.currentWeekPlanned)
-                        _StartPlanningButton(
-                          onPressed: () => _openWeeklyPlanning(
-                            context,
-                            snapshot.period.start,
-                          ),
-                        )
-                      else ...<Widget>[
-                        _IndicatorGrid(
-                          snapshot: snapshot,
-                          goals: activeGoals,
-                          onOpenGoal: (indicator) => _openGoal(
-                            context,
-                            snapshot.period.start,
-                            indicator,
-                          ),
-                          onOpenTempleSchedule: () => _openTempleSchedule(
-                            context,
-                            ref,
-                            snapshot.period.start,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Center(
-                          child: OutlinedButton(
-                            key: const Key('weekly-targets-button'),
-                            onPressed: () => _openWeeklyPlanning(
-                              context,
-                              snapshot.period.start,
-                            ),
-                            style: OutlinedButton.styleFrom(
-                              minimumSize: const Size(182, 42),
-                              fixedSize: const Size(182, 42),
-                              textStyle: AppTypography.button,
-                              side: const BorderSide(color: AppTheme.outline),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                            child: const Text('Weekly Planning'),
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: 10),
-                      _SectionHeader(
-                        title: 'Active Pathways',
-                        onViewAll: () => _showPathwayMessage(context),
-                        viewAllKey: const Key('home-pathways-view-all'),
-                      ),
-                      const SizedBox(height: 10),
-                      const _PathwaysCard(),
-                      if (state.status == HomeIndicatorLoadStatus.rebuilding)
-                        const Padding(
-                          padding: EdgeInsets.only(top: 12),
-                          child: LinearProgressIndicator(),
-                        ),
-                    ],
+          child: RefreshIndicator(
+            onRefresh: () async {
+              ref.invalidate(goalPlanningProvider(periodStart));
+              ref.invalidate(nextTempleVisitProvider);
+              await ref.read(nextTempleVisitProvider.future);
+            },
+            child: ListView(
+              key: const Key('home-indicator-list'),
+              padding: EdgeInsets.fromLTRB(
+                18,
+                18,
+                18,
+                _homeBottomInset(context),
+              ),
+              children: <Widget>[
+                _SectionHeader(
+                  title: 'Weekly Life Indicators',
+                  onViewAll: () => _openWeeklyPlanning(context, periodStart),
+                  viewAllKey: const Key('home-wli-view-all'),
+                ),
+                const SizedBox(height: 6),
+                _CanonicalHomePlan(
+                  plan: canonicalPlan,
+                  monthGoalLabel: _monthGoalLabel(context, plannerToday),
+                  nextTempleVisit: nextTempleVisit,
+                  onOpenWeeklyPlanning: () =>
+                      _openWeeklyPlanning(context, periodStart),
+                  onOpenGoal: (progress) =>
+                      _openGoalById(context, progress.goal.id),
+                  onOpenTempleSchedule: () =>
+                      _openTempleSchedule(context, ref, plannerToday),
+                  onAdjustDailyTarget: (progress, delta) => _adjustDailyTarget(
+                    ref,
+                    progress,
+                    delta: delta,
+                    today: plannerToday,
+                    periodStart: periodStart,
                   ),
                 ),
+                const _MajorSectionSeparator(),
+                const SizedBox(height: 10),
+                _SectionHeader(
+                  title: 'Active Pathways',
+                  onViewAll: () => _showPathwayMessage(context),
+                  viewAllKey: const Key('home-pathways-view-all'),
+                ),
+                const SizedBox(height: 10),
+                const _PathwaysCard(),
+              ],
+            ),
+          ),
         ),
       ),
       floatingActionButton: ContextualCreateFab(
@@ -167,17 +156,75 @@ final class HomeScreen extends ConsumerWidget {
     unawaited(context.push(RoutePaths.weeklyPlanningFor(start)));
   }
 
-  static void _openGoal(
-    BuildContext context,
-    PlannerDate start,
-    LifeIndicatorSummary indicator,
-  ) {
-    final goalId = indicator.goalId;
-    if (goalId == null) {
-      _openWeeklyPlanning(context, start);
-      return;
-    }
+  static void _openGoalById(BuildContext context, String goalId) {
     unawaited(context.push(RoutePaths.goalEdit(goalId)));
+  }
+
+  static String _monthGoalLabel(BuildContext context, PlannerDate today) {
+    return homeMonthGoalLabel(today, Localizations.localeOf(context));
+  }
+
+  static void _adjustDailyTarget(
+    WidgetRef ref,
+    GoalProgress progress, {
+    required int delta,
+    required PlannerDate today,
+    required PlannerDate periodStart,
+  }) {
+    final goalId = progress.goal.id;
+    final previous = _dailyTargetQueues[goalId] ?? Future<void>.value();
+    final next = previous.then<void>((_) async {
+      final repository = ref.read(goalRepositoryProvider);
+      final latest = await repository.readProgress(
+        profileId: ref.read(goalProfileIdProvider),
+        goalId: goalId,
+        today: today,
+      );
+      if (latest == null) {
+        return;
+      }
+
+      final existingDaily = latest.dailyTarget.value;
+      final current = existingDaily?.scaledValue ?? 0;
+      final updated = math.max(0, current + delta);
+      if (updated == current) {
+        return;
+      }
+
+      final unit =
+          existingDaily?.unit ?? latest.weeklyTarget.value?.unit ?? 'count';
+      final scale =
+          existingDaily?.scale ?? latest.weeklyTarget.value?.scale ?? 0;
+      await repository.saveGoal(
+        profileId: ref.read(goalProfileIdProvider),
+        goalId: latest.goal.id,
+        title: latest.goal.title,
+        iconId: latest.goal.iconId,
+        targets: GoalTargets(
+          daily: IndicatorAmount(
+            scaledValue: updated,
+            scale: scale,
+            unit: unit,
+          ),
+          weekly: latest.weeklyTarget.value,
+          monthly: latest.monthlyTarget.value,
+        ),
+        today: today,
+      );
+      ref.invalidate(goalPlanningProvider(periodStart));
+      ref.invalidate(activeGoalsProvider);
+    });
+    final handled = next.catchError((Object error, StackTrace stackTrace) {
+      debugPrint('Home daily target update failed: $error');
+    });
+    _dailyTargetQueues[goalId] = handled;
+    unawaited(
+      handled.then<void>((_) {
+        if (identical(_dailyTargetQueues[goalId], handled)) {
+          unawaited(_dailyTargetQueues.remove(goalId));
+        }
+      }),
+    );
   }
 
   static void _openTempleSchedule(
@@ -232,22 +279,81 @@ final class HomeScreen extends ConsumerWidget {
   }
 }
 
-final class _InitialState extends StatelessWidget {
-  const _InitialState({required this.state});
+final class _CanonicalHomePlan extends StatelessWidget {
+  const _CanonicalHomePlan({
+    required this.plan,
+    required this.monthGoalLabel,
+    required this.nextTempleVisit,
+    required this.onOpenWeeklyPlanning,
+    required this.onOpenGoal,
+    required this.onOpenTempleSchedule,
+    required this.onAdjustDailyTarget,
+  });
 
-  final HomeIndicatorState state;
+  final AsyncValue<GoalPlanningSnapshot> plan;
+  final String monthGoalLabel;
+  final PlannerDate? nextTempleVisit;
+  final VoidCallback onOpenWeeklyPlanning;
+  final ValueChanged<GoalProgress> onOpenGoal;
+  final VoidCallback onOpenTempleSchedule;
+  final void Function(GoalProgress progress, int delta) onAdjustDailyTarget;
 
   @override
   Widget build(BuildContext context) {
-    if (state.status == HomeIndicatorLoadStatus.failure) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Text(state.message ?? 'Home data is unavailable.'),
-        ),
-      );
-    }
-    return const Center(child: CircularProgressIndicator());
+    return plan.when(
+      loading: () => const SizedBox(
+        key: Key('home-canonical-plan-loading'),
+        height: 96,
+        child: Center(child: CircularProgressIndicator()),
+      ),
+      error: (error, stackTrace) => const SizedBox(
+        key: Key('home-canonical-plan-error'),
+        height: 96,
+        child: Center(child: Text('Weekly Life Indicators unavailable.')),
+      ),
+      data: (value) {
+        final hasActiveGoals =
+            value.daily != null ||
+            value.weekly.isNotEmpty ||
+            value.monthly != null;
+        if (!hasActiveGoals) {
+          return Align(
+            alignment: Alignment.center,
+            child: _StartPlanningButton(onPressed: onOpenWeeklyPlanning),
+          );
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            _CanonicalIndicatorGrid(
+              plan: value,
+              monthGoalLabel: monthGoalLabel,
+              nextTempleVisit: nextTempleVisit,
+              onOpenGoal: onOpenGoal,
+              onOpenTempleSchedule: onOpenTempleSchedule,
+              onAdjustDailyTarget: onAdjustDailyTarget,
+            ),
+            const SizedBox(height: 8),
+            Center(
+              child: OutlinedButton(
+                key: const Key('weekly-targets-button'),
+                onPressed: onOpenWeeklyPlanning,
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(160, 40),
+                  fixedSize: const Size(160, 40),
+                  textStyle: AppTypography.button,
+                  side: const BorderSide(color: AppTheme.outline),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(22),
+                  ),
+                ),
+                child: const Text('Planning'),
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 }
 
@@ -303,129 +409,178 @@ final class _StartPlanningButton extends StatelessWidget {
     return SizedBox(
       key: const Key('home-start-weekly-planning'),
       height: 42,
-      width: 182,
+      width: 160,
       child: Center(
-        child: FilledButton(
+        child: OutlinedButton(
           key: const Key('weekly-targets-button'),
           onPressed: onPressed,
-          style: FilledButton.styleFrom(
-            backgroundColor: AppTheme.rose,
-            foregroundColor: const Color(0xFF400018),
-            fixedSize: const Size(182, 42),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: Colors.white,
+            fixedSize: const Size(160, 40),
+            side: const BorderSide(color: AppTheme.outline),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(22),
             ),
             textStyle: AppTypography.button,
           ),
-          child: const Text('Start Weekly Planning'),
+          child: const Text('Start Planning'),
         ),
       ),
     );
   }
 }
 
-final class _IndicatorGrid extends StatelessWidget {
-  const _IndicatorGrid({
-    required this.snapshot,
-    required this.goals,
-    required this.onOpenGoal,
-    required this.onOpenTempleSchedule,
-  });
-
-  final HomeIndicatorSnapshot snapshot;
-  final List<Goal> goals;
-  final ValueChanged<LifeIndicatorSummary> onOpenGoal;
-  final VoidCallback onOpenTempleSchedule;
+final class _MajorSectionSeparator extends StatelessWidget {
+  const _MajorSectionSeparator();
 
   @override
   Widget build(BuildContext context) {
-    final indicators = snapshot.indicators;
-    if (indicators.length < 2) {
-      return const SizedBox.shrink();
-    }
-    final first = indicators.first;
-    final temple = indicators.last;
-    final middle = indicators.sublist(1, indicators.length - 1);
-    final goalsById = <String, Goal>{for (final goal in goals) goal.id: goal};
-    Goal? goalFor(LifeIndicatorSummary indicator) =>
-        indicator.goalId == null ? null : goalsById[indicator.goalId];
+    final width = MediaQuery.sizeOf(context).width;
+    return SizedBox(
+      key: const Key('home-major-separator'),
+      height: 8,
+      child: OverflowBox(
+        alignment: Alignment.center,
+        minWidth: width,
+        maxWidth: width,
+        child: const SizedBox(
+          height: 8,
+          child: ColoredBox(color: AppTheme.outline),
+        ),
+      ),
+    );
+  }
+}
+
+final class _CanonicalIndicatorGrid extends StatelessWidget {
+  const _CanonicalIndicatorGrid({
+    required this.plan,
+    required this.monthGoalLabel,
+    required this.nextTempleVisit,
+    required this.onOpenGoal,
+    required this.onOpenTempleSchedule,
+    required this.onAdjustDailyTarget,
+  });
+
+  final GoalPlanningSnapshot plan;
+  final String monthGoalLabel;
+  final PlannerDate? nextTempleVisit;
+  final ValueChanged<GoalProgress> onOpenGoal;
+  final VoidCallback onOpenTempleSchedule;
+  final void Function(GoalProgress progress, int delta) onAdjustDailyTarget;
+
+  @override
+  Widget build(BuildContext context) {
+    final daily = plan.daily;
+    final monthly = plan.monthly;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        SizedBox(
-          height: 60,
-          child: _IndicatorCard(
-            indicator: first,
-            goal: goalFor(first),
-            wide: true,
-            asideLabel: "Today's Goal",
-            asideValue: _todayGoalRatio(snapshot),
-            onTap: () => onOpenGoal(first),
+        if (daily != null)
+          SizedBox(
+            height: 60,
+            child: _goalCard(
+              context,
+              daily,
+              wide: true,
+              asideLabel: "Today's Goal",
+              asideValue: _ratio(daily.dailyActual, daily.dailyTarget),
+              onDailyTargetMinus: () => onAdjustDailyTarget(daily, -1),
+              onDailyTargetPlus: () => onAdjustDailyTarget(daily, 1),
+            ),
           ),
-        ),
-        const SizedBox(height: 6),
-        for (var row = 0; row < middle.length; row += 2) ...<Widget>[
+        if (daily != null && plan.weekly.isNotEmpty) const SizedBox(height: 6),
+        for (var row = 0; row < plan.weekly.length; row += 2) ...<Widget>[
           SizedBox(
             height: 60,
             child: Row(
               children: <Widget>[
-                Expanded(
-                  child: _IndicatorCard(
-                    indicator: middle[row],
-                    goal: goalFor(middle[row]),
-                    wide: false,
-                    onTap: () => onOpenGoal(middle[row]),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: row + 1 < middle.length
-                      ? _IndicatorCard(
-                          indicator: middle[row + 1],
-                          goal: goalFor(middle[row + 1]),
-                          wide: false,
-                          onTap: () => onOpenGoal(middle[row + 1]),
-                        )
-                      : const SizedBox.shrink(),
-                ),
+                Expanded(child: _goalCard(context, plan.weekly[row])),
+                if (row + 1 < plan.weekly.length) ...<Widget>[
+                  const SizedBox(width: 10),
+                  Expanded(child: _goalCard(context, plan.weekly[row + 1])),
+                ],
               ],
             ),
           ),
-          if (row + 2 < middle.length) const SizedBox(height: 6),
+          if (row + 2 < plan.weekly.length) const SizedBox(height: 6),
         ],
-        const SizedBox(height: 6),
-        SizedBox(
-          height: 60,
-          child: _IndicatorCard(
-            indicator: temple,
-            goal: goalFor(temple),
-            wide: true,
-            asideLabel: 'Month Goal',
-            asideValue: _monthlyTempleRatio(snapshot),
-            secondaryLabel: snapshot.nextTempleVisit == null
-                ? 'Set Schedule'
-                : 'Next Visit: ${_formatNextVisit(context, snapshot.nextTempleVisit!)}',
-            onTap: () => onOpenGoal(temple),
-            onSecondaryTap: snapshot.nextTempleVisit == null
-                ? onOpenTempleSchedule
-                : null,
+        if (monthly != null) ...<Widget>[
+          if (daily != null || plan.weekly.isNotEmpty)
+            const SizedBox(height: 6),
+          SizedBox(
+            height: 60,
+            child: _goalCard(
+              context,
+              monthly,
+              wide: true,
+              asideLabel: monthGoalLabel,
+              asideValue: _ratio(monthly.monthlyActual, monthly.monthlyTarget),
+              secondaryLabel: monthly.goal.indicatorKey == 'temple_visit'
+                  ? nextTempleVisit == null
+                        ? 'Set Schedule'
+                        : 'Next Visit: ${_formatNextVisit(context, nextTempleVisit!)}'
+                  : null,
+              onSecondaryTap:
+                  monthly.goal.indicatorKey == 'temple_visit' &&
+                      nextTempleVisit == null
+                  ? onOpenTempleSchedule
+                  : null,
+            ),
           ),
-        ),
+        ],
       ],
     );
   }
 
-  String _todayGoalRatio(HomeIndicatorSnapshot snapshot) {
-    final daily = snapshot.dailyJobApplications;
-    final actual = daily?.actual.display ?? '0';
-    final target = daily?.target.value?.display ?? '0';
-    return '$actual/$target';
+  Widget _goalCard(
+    BuildContext context,
+    GoalProgress progress, {
+    bool wide = false,
+    String? asideLabel,
+    String? asideValue,
+    String? secondaryLabel,
+    VoidCallback? onSecondaryTap,
+    VoidCallback? onDailyTargetMinus,
+    VoidCallback? onDailyTargetPlus,
+  }) {
+    return _IndicatorCard(
+      indicator: _summaryFor(progress),
+      goal: progress.goal,
+      wide: wide,
+      asideLabel: asideLabel,
+      asideValue: asideValue,
+      secondaryLabel: secondaryLabel,
+      onSecondaryTap: onSecondaryTap,
+      onDailyTargetMinus: onDailyTargetMinus,
+      onDailyTargetPlus: onDailyTargetPlus,
+      onTap: () => onOpenGoal(progress),
+    );
   }
 
-  String _monthlyTempleRatio(HomeIndicatorSnapshot snapshot) {
-    final actual = snapshot.monthlyTempleActual?.display ?? '0';
-    final target = snapshot.monthlyTempleTarget?.value?.display ?? '0';
-    return '$actual/$target';
+  LifeIndicatorSummary _summaryFor(GoalProgress progress) {
+    final target = progress.weeklyTarget;
+    final unit = target.value?.unit ?? progress.weeklyActual.unit;
+    return LifeIndicatorSummary(
+      key: progress.goal.indicatorKey ?? 'goal-${progress.goal.id}',
+      label: progress.goal.title,
+      unit: unit,
+      position: progress.goal.activeSlotIndex ?? 0,
+      goalId: progress.goal.id,
+      actual: progress.weeklyActual,
+      target: target,
+      scheduledPotential: IndicatorAmount(
+        scaledValue: 0,
+        scale: progress.weeklyActual.scale,
+        unit: unit,
+      ),
+      scheduledSources: const <ScheduledIndicatorSource>[],
+      projectionState: IndicatorProjectionState.current,
+    );
+  }
+
+  String _ratio(IndicatorAmount actual, IndicatorTarget target) {
+    return '${actual.display}/${target.value?.display ?? '0'}';
   }
 
   String _formatNextVisit(BuildContext context, PlannerDate date) {
@@ -445,6 +600,8 @@ final class _IndicatorCard extends StatelessWidget {
     this.asideValue,
     this.secondaryLabel,
     this.onSecondaryTap,
+    this.onDailyTargetMinus,
+    this.onDailyTargetPlus,
   });
 
   final LifeIndicatorSummary indicator;
@@ -455,6 +612,8 @@ final class _IndicatorCard extends StatelessWidget {
   final VoidCallback onTap;
   final String? secondaryLabel;
   final VoidCallback? onSecondaryTap;
+  final VoidCallback? onDailyTargetMinus;
+  final VoidCallback? onDailyTargetPlus;
 
   @override
   Widget build(BuildContext context) {
@@ -591,7 +750,12 @@ final class _IndicatorCard extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 10),
-        _WideAside(label: asideLabel!, value: asideValue!),
+        _WideAside(
+          label: asideLabel!,
+          value: asideValue!,
+          onMinus: onDailyTargetMinus,
+          onPlus: onDailyTargetPlus,
+        ),
       ],
     );
   }
@@ -608,45 +772,88 @@ final class _IndicatorCard extends StatelessWidget {
 }
 
 final class _WideAside extends StatelessWidget {
-  const _WideAside({required this.label, required this.value});
+  const _WideAside({
+    required this.label,
+    required this.value,
+    this.onMinus,
+    this.onPlus,
+  });
 
   final String label;
   final String value;
+  final VoidCallback? onMinus;
+  final VoidCallback? onPlus;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 106,
-      height: 46,
+      key: onPlus == null && onMinus == null
+          ? null
+          : const Key('home-daily-target-quick-control'),
+      width: onPlus == null && onMinus == null ? 106 : 168,
+      height: 52,
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: const Color(0xFF2A2A2B),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          child: Row(
             children: <Widget>[
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 13, height: 15 / 13),
-              ),
-              const Spacer(),
-              Text(
-                value,
-                style: const TextStyle(
-                  fontFamily: 'Roboto',
-                  fontSize: 19,
-                  height: 20 / 19,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.rose,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 14, height: 16 / 14),
+                    ),
+                    Text(
+                      value,
+                      style: const TextStyle(
+                        fontFamily: 'Roboto',
+                        fontSize: 22,
+                        height: 24 / 22,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.rose,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
               ),
+              if (onMinus != null && onPlus != null) ...<Widget>[
+                IconButton(
+                  key: const Key('home-daily-target-minus'),
+                  tooltip: 'Decrease daily target',
+                  onPressed: onMinus,
+                  constraints: const BoxConstraints.tightFor(
+                    width: 48,
+                    height: 48,
+                  ),
+                  padding: EdgeInsets.zero,
+                  icon: const Icon(
+                    Icons.remove,
+                    size: 24,
+                    color: AppTheme.rose,
+                  ),
+                ),
+                IconButton(
+                  key: const Key('home-daily-target-plus'),
+                  tooltip: 'Increase daily target',
+                  onPressed: onPlus,
+                  constraints: const BoxConstraints.tightFor(
+                    width: 48,
+                    height: 48,
+                  ),
+                  padding: EdgeInsets.zero,
+                  icon: const Icon(Icons.add, size: 24, color: AppTheme.rose),
+                ),
+              ],
             ],
           ),
         ),

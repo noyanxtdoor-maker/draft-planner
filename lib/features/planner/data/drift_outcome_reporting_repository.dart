@@ -145,7 +145,15 @@ final class DriftOutcomeReportingRepository
       return null;
     }
     final activityTypeId = exception?.activityTypeId ?? row.activityTypeId;
-    final activityType = activityTypeId == null
+    final activityTypeStableKeySnapshot =
+        exception?.activityTypeStableKeySnapshot ??
+        row.activityTypeStableKeySnapshot;
+    final activityTypeLabelSnapshot =
+        exception?.activityTypeLabelSnapshot ?? row.activityTypeLabelSnapshot;
+    final needsActivityTypeFallback =
+        activityTypeStableKeySnapshot == null ||
+        activityTypeLabelSnapshot == null;
+    final activityType = activityTypeId == null || !needsActivityTypeFallback
         ? null
         : await (database.select(database.activityTypes)
                 ..where(
@@ -155,9 +163,12 @@ final class DriftOutcomeReportingRepository
                 )
                 ..limit(1))
               .getSingleOrNull();
+    final activityTypeStableKey =
+        activityTypeStableKeySnapshot ?? activityType?.stableKey;
+    final activityTypeLabel = activityTypeLabelSnapshot ?? activityType?.label;
     final isContactEvent =
-        _isContactEvent(activityType?.stableKey) ||
-        _isContactEvent(activityType?.label);
+        _isContactEvent(activityTypeStableKey) ||
+        _isContactEvent(activityTypeLabel);
     return OutcomeReportSource(
       type: OutcomeSourceType.event,
       sourceId: occurrenceId,
@@ -168,7 +179,7 @@ final class DriftOutcomeReportingRepository
       eventId: eventId,
       occurrenceId: occurrenceId,
       originalDate: originalDate,
-      eventTypeLabel: activityType?.label,
+      eventTypeLabel: activityTypeLabel,
       isContactEvent: isContactEvent,
     );
   }

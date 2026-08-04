@@ -1,9 +1,12 @@
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rmplanner/core/database/app_database.dart';
 import 'package:rmplanner/features/planner/application/calendar_event_repository.dart';
 import 'package:rmplanner/features/planner/data/calendar_event_time_zones.dart';
 import 'package:rmplanner/features/planner/data/drift_calendar_event_repository.dart';
+import 'package:rmplanner/features/planner/data/drift_event_type_repository.dart';
 import 'package:rmplanner/features/planner/domain/calendar_event.dart';
+import 'package:rmplanner/features/planner/domain/event_type.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 import 'package:rmplanner/features/planner/domain/planner_day.dart';
 import 'package:uuid/uuid.dart';
@@ -16,6 +19,8 @@ const _operationId = '22222222-2222-4222-8222-222222222222';
 const _secondOperationId = '44444444-4444-4444-8444-444444444444';
 const _duplicateId = '55555555-5555-4555-8555-555555555555';
 const _duplicateOperationId = '66666666-6666-4666-8666-666666666666';
+const _snapshotEditOperationId = '77777777-7777-4777-8777-777777777777';
+const _snapshotTypeChangeOperationId = '88888888-8888-4888-8888-888888888888';
 const _start = PlannerDate(year: 2026, month: 1, day: 31);
 
 void main() {
@@ -424,6 +429,115 @@ void main() {
       final sourceRow = rows.singleWhere((row) => row.id == _eventId);
       expect(duplicateRow.parentEventId, _eventId);
       expect(sourceRow.parentEventId, isNull);
+    },
+  );
+
+  test(
+    'Pack 1A: Event Type snapshots preserve history across rename, color, and type changes',
+    () async {
+      final eventTypes = DriftEventTypeRepository(
+        database: database,
+        clock: FixedClock(DateTime.utc(2026, 2, 2, 12)),
+      );
+      final seededTypes = await eventTypes.readEventTypes(profileId: profileId);
+      final scriptureStudy = seededTypes.singleWhere(
+        (type) => type.stableKey == SystemEventTypeKeys.scriptureStudy,
+      );
+      final exercise = seededTypes.singleWhere(
+        (type) => type.stableKey == SystemEventTypeKeys.exercise,
+      );
+      final repository = buildRepository();
+
+      await repository.saveEvent(
+        profileId: profileId,
+        draft: _allDayDraft().copyWith(
+          title: 'Study history',
+          activityTypeId: scriptureStudy.id,
+          activityTypeMappingVersion: scriptureStudy.mappingVersion,
+        ),
+      );
+
+      final original = await repository.readOccurrence(
+        profileId: profileId,
+        eventId: _eventId,
+        originalDate: _start,
+      );
+      expect(original!.activityTypeStableKey, scriptureStudy.stableKey);
+      expect(original.activityTypeLabel, scriptureStudy.label);
+      expect(original.activityTypeColorValue, scriptureStudy.colorValue);
+
+      await eventTypes.renameSystemType(
+        profileId: profileId,
+        eventTypeId: scriptureStudy.id,
+        label: 'Renamed Scripture Type',
+      );
+      await (database.update(
+        database.activityTypes,
+      )..where((table) => table.id.equals(scriptureStudy.id))).write(
+        ActivityTypesCompanion(
+          colorValue: const Value<int>(0xFF123456),
+          updatedAtUtc: Value<DateTime>(DateTime.utc(2026, 2, 2, 12, 1)),
+        ),
+      );
+
+      final afterTypeMetadataChange = await repository.readOccurrence(
+        profileId: profileId,
+        eventId: _eventId,
+        originalDate: _start,
+      );
+      expect(
+        afterTypeMetadataChange!.activityTypeStableKey,
+        scriptureStudy.stableKey,
+      );
+      expect(afterTypeMetadataChange.activityTypeLabel, scriptureStudy.label);
+      expect(
+        afterTypeMetadataChange.activityTypeColorValue,
+        scriptureStudy.colorValue,
+      );
+
+      final draft = await repository.readEventDraft(
+        profileId: profileId,
+        eventId: _eventId,
+      );
+      await repository.editEvent(
+        profileId: profileId,
+        eventId: _eventId,
+        originalDate: _start,
+        scope: CalendarEventEditScope.series,
+        draft: draft!.copyWith(title: 'Edited study history'),
+        operationId: _snapshotEditOperationId,
+      );
+      final afterSameTypeEdit = await repository.readOccurrence(
+        profileId: profileId,
+        eventId: _eventId,
+        originalDate: _start,
+      );
+      expect(afterSameTypeEdit!.activityTypeLabel, scriptureStudy.label);
+      expect(
+        afterSameTypeEdit.activityTypeColorValue,
+        scriptureStudy.colorValue,
+      );
+
+      await repository.editEvent(
+        profileId: profileId,
+        eventId: _eventId,
+        originalDate: _start,
+        scope: CalendarEventEditScope.series,
+        draft: draft.copyWith(
+          title: 'Exercise history',
+          activityTypeId: exercise.id,
+          activityTypeMappingVersion: exercise.mappingVersion,
+        ),
+        operationId: _snapshotTypeChangeOperationId,
+      );
+      final afterTypeChange = await repository.readOccurrence(
+        profileId: profileId,
+        eventId: _eventId,
+        originalDate: _start,
+      );
+      expect(afterTypeChange!.activityTypeStableKey, exercise.stableKey);
+      expect(afterTypeChange.activityTypeLabel, exercise.label);
+      expect(afterTypeChange.activityTypeColorValue, exercise.colorValue);
     },
   );
 }
