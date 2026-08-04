@@ -4725,3 +4725,302 @@ the D1 handoff.
   `docs(handoff): record six-icon goal pilot`.
 - No push, PR update, protected-repository modification, D2 work, or VS-09
   work is authorized or performed.
+
+---
+
+# VS-08 Pack 1A — Home Correction and Accent Normalization
+
+Recorded: 2026-08-04 (Asia/Singapore)
+
+## Release boundary and status
+
+This handoff records the time-bounded Pack 1A correction against the supplied
+current Home screenshot (Current Next Transfer home screen.jpg) and approved
+target (New apporved home screen.png). The authorized scope was limited to the
+remaining Home composition repair, controlled normalization of the existing
+app-wide pink highlight role to #F9B7C7, regression/build/installation
+evidence, and physical verification. Pack 2, Pack 3, Prompt D2, and VS-09 were
+not started.
+
+Automated implementation and release gates are complete. Final Pack 1A
+acceptance is BLOCKED, not complete, because the authorized Infinix was behind
+Android credential verification when the final Home visual check was due. No
+credential was guessed or bypassed. The owner must unlock the device before
+the physical Home and final visual matrix can be marked PASS.
+
+## Starting state and guardrails
+
+| Item | Evidence |
+| --- | --- |
+| Writable repository | C:\Users\sherl\Documents\Next Transfer-Temp |
+| Branch | temp/vs08-shared-preview |
+| Starting HEAD | b77656b68117a36b6deeb743eee4d382a0568559 |
+| Protected repository | C:\Users\sherl\Documents\Next Transfer was not modified |
+| Protected branch/PR | codex/vs-08-weekly-planning-lifecycle, PR #8 untouched |
+| .todo.md | Preserved and never staged, committed, deleted, moved, or overwritten |
+| Device | Infinix X6731, Android 14, authorized ADB serial retained |
+| Data policy | adb install -r only; no uninstall, pm clear, reset, or direct database mutation |
+
+## Screenshot comparison and Home measurements
+
+The supplied current screenshot showed the defects called out by the prompt:
+Job Applicat... and Today's... truncation, a cramped quick-control panel,
+pink Planning emphasis, and an incorrectly balanced monthly panel. The
+approved target required one integrated full-width top card, a shaded inset
+Today's Goal panel, a left text group, right-aligned minus/plus controls with
+visible space, fully readable labels, centered August Goal content, a compact
+neutral Planning button, balanced separator rhythm, and unchanged Active
+Pathways.
+
+The implementation and golden matrix use these measured constraints:
+
+- integrated daily outer card: 88 dp at the approved width;
+- text-scale-aware narrow daily card: 136 dp minimum, bounded at 220 dp;
+- quick-control inset: 192 x 72 dp, with label/ratio on the left;
+- minus and plus controls: 48 x 48 dp touch targets, minus before plus;
+- regular narrow goal cards retain the existing two-column composition;
+- Planning action: neutral transparent fill, neutral outline, 160 x 40 dp,
+  rounded secondary-action treatment, and label exactly Planning;
+- responsive acceptance coverage: widths 360, 393, and 411 dp, text scales
+  1.0, 1.15, and 1.30;
+- Home goldens assert the compact section, neutral Planning treatment,
+  separator rhythm, complete labels, centered monthly content, and no
+  overflow.
+
+## Files changed in this Pack 1A work
+
+### Production and focused-test files
+
+- lib/features/startup/presentation/home_screen.dart — corrected the
+  integrated daily-card composition, responsive text-scale handling, inset
+  control geometry, 48 dp control hit targets, centered monthly aside, and
+  neutral Planning action without changing target/progress behavior.
+- test/features/indicators/presentation/home_indicator_journey_test.dart —
+  added focused assertions for the integrated card, text visibility,
+  responsive geometry, control order/targets, neutral Planning, and target-only
+  quick-control behavior.
+- lib/app/theme/app_theme.dart — changed the single shared existing highlight
+  token AppTheme.rose to the exact Pack 1A value.
+- test/app/theme/app_theme_test.dart — locks the canonical value and the
+  accessible dark foreground used by filled accent controls.
+
+### Visual baselines
+
+- test/features/startup/presentation/goldens/goldens/home_pack1/ — refreshed
+  the existing Home Pack 1 visual matrix for the corrected geometry and the
+  controlled shared accent change; no new product surface was introduced.
+- test/features/goals/presentation/goldens/goldens/goal_icon_d1/ — refreshed
+  only the nine existing D1 context goldens affected by the shared highlight
+  token; this preserves D1 behavior while preventing stale-pink regressions.
+
+No schema, repository, provider, navigation, Planner behavior, reporting,
+Contacts, Pathways, backup, Event Type, Contact Group, or SVG production file
+was changed by this Pack 1A correction.
+
+## Accent inventory and semantic protection
+
+The inventory was reviewed before replacement. The old app highlight source
+was AppTheme.rose = Color(0xFFFF7895) in lib/app/theme/app_theme.dart. No
+#F88098, 0xFFF88098, Colors.pink, or Colors.pinkAccent source was found in the
+scoped production/test inventory. The canonical replacement is:
+
+    AppTheme.rose = const Color(0xFFF9B7C7);
+
+The token is consumed only through existing highlight semantics: selected and
+active navigation, progress emphasis, View All links, selected controls,
+approved outlines/checks, and existing plus/minus highlight glyphs. The filled
+dark-scheme foreground remains Color(0xFF340012), which is tested with the
+light #F9B7C7 background.
+
+Retained values are intentionally separate semantic roles and were not
+normalized:
+
+- AppTheme.warning (0xFFFFC857) — warnings and attention states;
+- Planner Event Type accent/background pairs — Event identity colors;
+- Contact Group colors — Contact Group identity colors;
+- D1 SVG palette values such as cyan/orange — approved Goal icon artwork;
+- Backup Event stripe and surface colors — structurally confined backup
+  treatment;
+- 0xFFE27386 and related status colors — report/status semantics;
+- neutral, disabled, system, surface, error, and destructive colors — their
+  existing accessibility and state meanings.
+
+The focused accent tests and existing Planner/Colors/Backup Event tests prove
+that those roles remain distinct.
+
+## Focused Home verification
+
+Commands run through the required wrapper:
+
+    C:\Users\sherl\AppData\Local\Temp\run_flutter.bat test test\features\indicators\presentation\home_indicator_journey_test.dart --name "Prompt A planned Home" --reporter expanded
+    C:\Users\sherl\AppData\Local\Temp\run_flutter.bat test test\features\indicators\presentation\home_indicator_journey_test.dart --reporter expanded
+    C:\Users\sherl\AppData\Local\Temp\run_flutter.bat test test\features\startup\presentation\home_golden_test.dart --update-goldens
+
+Results: the named journey passed; the complete Home journey passed with 7
+tests; the 20-case Home golden matrix passed. Coverage includes integrated
+card structure, complete labels at responsive widths/scales, centered monthly
+content, neutral Planning, Active Pathways preservation, five rapid target
+changes, minimum-zero behavior, persistence, and proof that target changes do
+not increment actual progress or create outcomes/contributions/history.
+
+## Phase A build/install and physical result
+
+The Phase A APK built successfully and was update-installed with adb install -r
+without clearing data. Before/after evidence retained:
+
+- dataDir=/data/user/0/com.nexttransfer.rmplanner;
+- firstInstallTime=2026-07-27 15:42:22;
+- ceDataInode=1509267.
+
+The required physical Home screenshot/check was attempted. Android stopped the
+final relaunch at the credential gate with Authentication required, Verify
+identity, and Touch in-display fingerprint sensor; an earlier physical capture
+also showed Verify your fingerprint or swipe up to unlock. The final
+device-state capture was written outside the repository at
+C:\Users\sherl\AppData\Local\Temp\vs08-pack1a-final-device.png; it is not
+claimed as Home visual proof. The physical Phase A matrix therefore remains
+pending owner unlock.
+
+## Focused accent verification
+
+The following focused suites passed after changing the shared token:
+
+    C:\Users\sherl\AppData\Local\Temp\run_flutter.bat test test\app\theme\app_theme_test.dart --reporter expanded
+    C:\Users\sherl\AppData\Local\Temp\run_flutter.bat test test\features\settings\presentation\planner_event_colors_test.dart --reporter expanded
+    C:\Users\sherl\AppData\Local\Temp\run_flutter.bat test test\features\planner\presentation\planner_event_color_policy_test.dart --reporter expanded
+    C:\Users\sherl\AppData\Local\Temp\run_flutter.bat test test\features\planner\presentation\backup_event_accent_test.dart --reporter expanded
+    C:\Users\sherl\AppData\Local\Temp\run_flutter.bat test test\features\goals\presentation\goldens\goal_icon_d1_golden_test.dart --update-goldens
+
+Results: canonical token contract passed; Colors passed; Event color policy
+passed; all 13 Backup Event tests passed, including its 10 goldens; the D1
+golden update/verification passed with 51 existing D1 cases. The complete
+Home golden set passed with 20 cases. The nine D1 golden refreshes are
+recorded in the separate test commit 9898672.
+
+## Full regression, analyzer, build, install, and hash evidence
+
+    C:\Users\sherl\AppData\Local\Temp\run_flutter.bat test --reporter expanded
+
+Result: 478 passed, 0 failed, 0 skipped.
+
+    C:\Users\sherl\AppData\Local\Temp\run_flutter.bat analyze --fatal-infos
+
+Result: No issues found!.
+
+    C:\Users\sherl\AppData\Local\Temp\run_flutter.bat build apk --debug
+
+Result: success. Final APK:
+
+- path: C:\Users\sherl\Documents\Next Transfer-Temp\build\app\outputs\flutter-apk\app-debug.apk;
+- size: 196934691 bytes;
+- build timestamp (UTC): 2026-08-04 12:26:03;
+- SHA-256: 76844A0232BBBF8BCDDBF499AFCF3338A7F010C6EBEC154B571E0D3B66A92D7A.
+
+adb install -r returned Success. A pulled installed base.apk was 196934691
+bytes and had the same SHA-256, so the installed hash and size matched the
+local APK. Update-install evidence retained the same firstInstallTime, dataDir,
+and CE inode; only lastUpdateTime advanced.
+
+The pulled comparison APK was kept outside the repository at the temporary
+system path during this handoff; no APK, screenshot, recording, log, or build
+output was added to Git.
+
+## Pack 1A requirement matrix
+
+Automated means the repository tests/inspection prove the item. Physical means
+the final Infinix visual/interaction check was personally completed in the
+unlocked app. The explicit Android credential blocker is why the physical
+column is not overstated.
+
+| # | Requirement | Automated | Physical |
+| ---: | --- | --- | --- |
+| 01 | One integrated top card | PASS | Pending unlock |
+| 02 | Today's Goal remains inside it | PASS | Pending unlock |
+| 03 | Job Applications fully readable | PASS | Pending unlock |
+| 04 | Today's Goal fully readable | PASS | Pending unlock |
+| 05 | Label left-aligned | PASS | Pending unlock |
+| 06 | Ratio left-aligned | PASS | Pending unlock |
+| 07 | Minus on right | PASS | Pending unlock |
+| 08 | Plus on right | PASS | Pending unlock |
+| 09 | Minus before plus | PASS | Pending unlock |
+| 10 | Visible space between controls | PASS | Pending unlock |
+| 11 | Each control meets minimum touch target | PASS | Pending unlock |
+| 12 | Shaded gray inset family | PASS | Pending unlock |
+| 13 | No overlap | PASS | Pending unlock |
+| 14 | No clipping | PASS | Pending unlock |
+| 15 | No broken border | PASS | Pending unlock |
+| 16 | Plus changes target only | PASS | Pending unlock |
+| 17 | Minus changes target only | PASS | Pending unlock |
+| 18 | Minimum zero | PASS | Pending unlock |
+| 19 | Rapid taps exact | PASS | Pending unlock |
+| 20 | Actual progress unchanged | PASS | Pending unlock |
+| 21 | August Goal centered | PASS | Pending unlock |
+| 22 | Monthly ratio centered | PASS | Pending unlock |
+| 23 | Monthly content vertically balanced | PASS | Pending unlock |
+| 24 | Planning text correct | PASS | Pending unlock |
+| 25 | Planning neutral | PASS | Pending unlock |
+| 26 | No pink Planning foreground | PASS | Pending unlock |
+| 27 | No pink Planning outline | PASS | Pending unlock |
+| 28 | No pink Planning fill | PASS | Pending unlock |
+| 29 | Separator spacing correct | PASS | Pending unlock |
+| 30 | Active Pathways preserved | PASS | Pending unlock |
+| 31 | Canonical value exactly #F9B7C7 | PASS | Pending unlock |
+| 32 | Goal progress uses canonical highlight | PASS | Pending unlock |
+| 33 | View All uses canonical highlight | PASS | Pending unlock |
+| 34 | Selected navigation uses canonical highlight | PASS | Pending unlock |
+| 35 | Progress fills use canonical highlight | PASS | Pending unlock |
+| 36 | Plus/minus use canonical highlight | PASS | Pending unlock |
+| 37 | Approved selected outlines use it | PASS | Pending unlock |
+| 38 | Approved selected checks use it | PASS | Pending unlock |
+| 39 | Filled controls use readable dark foreground | PASS | Pending unlock |
+| 40 | Planning remains neutral | PASS | Pending unlock |
+| 41 | Errors remain distinct | PASS | Pending unlock |
+| 42 | Destructive colors remain distinct | PASS | Pending unlock |
+| 43 | Warnings remain distinct | PASS | Pending unlock |
+| 44 | Event Type colors remain intact | PASS | Pending unlock |
+| 45 | Contact Group colors remain intact | PASS | Pending unlock |
+| 46 | Goal SVG colors remain intact | PASS | Pending unlock |
+| 47 | Backup Event treatment remains intact | PASS | Pending unlock |
+| 48 | App is not excessively pink | PASS | Pending unlock |
+| 49 | No uncontrolled raw replacement | PASS | Pending unlock |
+| 50 | Accessibility contrast acceptable | PASS | Pending unlock |
+| 51 | Phase A focused tests pass | PASS | N/A |
+| 52 | Phase A physical gate passes | BLOCKED by credential gate | BLOCKED |
+| 53 | Phase B focused tests pass | PASS | N/A |
+| 54 | Full suite passes | PASS: 478 | N/A |
+| 55 | Zero skipped | PASS: 0 | N/A |
+| 56 | Analyzer clean | PASS | N/A |
+| 57 | APK builds | PASS | N/A |
+| 58 | APK metadata recorded | PASS | N/A |
+| 59 | Update-install succeeds | PASS | N/A |
+| 60 | Installed hash matches | PASS | N/A |
+| 61 | App data preserved | PASS by install metadata/inode evidence | Pending owner data-screen check |
+| 62 | .todo.md untouched | PASS | N/A |
+| 63 | Protected repository untouched | PASS | N/A |
+| 64 | Original branch untouched | PASS | N/A |
+| 65 | PR #8 untouched | PASS | N/A |
+| 66 | No push | PASS | N/A |
+| 67 | Pack 2 unstarted | PASS | N/A |
+| 68 | Pack 3 unstarted | PASS | N/A |
+| 69 | Prompt D2 unstarted | PASS | N/A |
+| 70 | VS-09 unstarted | PASS | N/A |
+
+## Commits, final status, and handoff
+
+Required local checkpoint commits were created without amend, rebase, squash,
+push, or PR update:
+
+- c6de413 — fix(vs08): correct Pack 1A home layout;
+- 810fd28 — style(vs08): normalize app accent pink;
+- 9898672 — test(vs08): refresh accent-sensitive goldens.
+
+This documentation update is the required final handoff commit. The working
+tree is expected to contain only the pre-existing untracked .todo.md; it is
+not part of this work. The protected original repository and its branch remain
+untouched. No push occurred and PR #8 was not updated.
+
+The current release state is therefore: automated Pack 1A gates PASS;
+physical acceptance BLOCKED pending owner unlock. After the device is
+unlocked, finish only the physical Home/Accent matrix and the reversible UI
+cleanup of the disclosed temporary D1 test state. Do not begin Pack 2 until
+the owner explicitly states: “Pack 1A accepted.”
