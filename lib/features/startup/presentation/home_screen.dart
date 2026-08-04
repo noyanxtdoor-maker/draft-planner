@@ -342,6 +342,7 @@ final class _CanonicalHomePlan extends StatelessWidget {
                   minimumSize: const Size(160, 40),
                   fixedSize: const Size(160, 40),
                   textStyle: AppTypography.button,
+                  foregroundColor: Colors.white70,
                   side: const BorderSide(color: AppTheme.outline),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(22),
@@ -478,7 +479,15 @@ final class _CanonicalIndicatorGrid extends StatelessWidget {
       children: <Widget>[
         if (daily != null)
           SizedBox(
-            height: 60,
+            // The daily card carries two 48 dp controls in addition to its
+            // title/value pair.  Give that integrated surface enough vertical
+            // room for the control hit targets instead of squeezing them into
+            // the compact weekly-card height.
+            height: MediaQuery.sizeOf(context).width < 380
+                ? (136 * MediaQuery.textScalerOf(context).scale(1))
+                      .clamp(136.0, 220.0)
+                      .toDouble()
+                : 88,
             child: _goalCard(
               context,
               daily,
@@ -686,7 +695,50 @@ final class _IndicatorCard extends StatelessWidget {
   }
 
   Widget _wide(BuildContext context) {
+    final hasDailyControls =
+        onDailyTargetMinus != null && onDailyTargetPlus != null;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // At the narrowest supported width, stacking the daily content and
+        // its control surface preserves the full labels and both hit targets.
+        // The approved-width layout remains a single integrated row.
+        if (hasDailyControls && constraints.maxWidth < 325) {
+          return Column(
+            children: <Widget>[
+              Expanded(child: _wideContent(context)),
+              const SizedBox(height: 4),
+              Align(
+                alignment: Alignment.centerRight,
+                child: _WideAside(
+                  label: asideLabel!,
+                  value: asideValue!,
+                  onMinus: onDailyTargetMinus,
+                  onPlus: onDailyTargetPlus,
+                ),
+              ),
+            ],
+          );
+        }
+
+        return Row(
+          children: <Widget>[
+            Expanded(child: _wideContent(context)),
+            const SizedBox(width: 10),
+            _WideAside(
+              label: asideLabel!,
+              value: asideValue!,
+              onMinus: onDailyTargetMinus,
+              onPlus: onDailyTargetPlus,
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _wideContent(BuildContext context) {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: <Widget>[
         _goalIcon(size: 40),
         const SizedBox(width: 8),
@@ -694,11 +746,12 @@ final class _IndicatorCard extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: <Widget>[
               Text(
                 indicator.label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                maxLines: onDailyTargetPlus == null ? 1 : 2,
+                overflow: TextOverflow.clip,
                 style: const TextStyle(
                   fontFamily: 'Roboto',
                   fontSize: 14,
@@ -720,7 +773,7 @@ final class _IndicatorCard extends StatelessWidget {
                   child: const Text(
                     'Set Schedule',
                     maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                    overflow: TextOverflow.clip,
                     style: TextStyle(
                       fontFamily: 'Roboto',
                       fontSize: 14,
@@ -732,8 +785,8 @@ final class _IndicatorCard extends StatelessWidget {
                 Text(
                   secondaryLabel ??
                       '${indicator.actual.display}/${indicator.target.display}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  maxLines: secondaryLabel == null ? 1 : 2,
+                  overflow: TextOverflow.clip,
                   style: TextStyle(
                     fontFamily: 'Roboto',
                     fontSize: secondaryLabel == null ? 22 : 14,
@@ -748,13 +801,6 @@ final class _IndicatorCard extends StatelessWidget {
                 ),
             ],
           ),
-        ),
-        const SizedBox(width: 10),
-        _WideAside(
-          label: asideLabel!,
-          value: asideValue!,
-          onMinus: onDailyTargetMinus,
-          onPlus: onDailyTargetPlus,
         ),
       ],
     );
@@ -786,78 +832,131 @@ final class _WideAside extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hasControls = onMinus != null && onPlus != null;
     return SizedBox(
       key: onPlus == null && onMinus == null
           ? null
           : const Key('home-daily-target-quick-control'),
-      width: onPlus == null && onMinus == null ? 106 : 168,
-      height: 52,
+      width: hasControls ? 192 : 106,
+      height: hasControls ? 72 : 48,
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: const Color(0xFF2A2A2B),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          child: Row(
-            children: <Widget>[
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(
-                      label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 14, height: 16 / 14),
-                    ),
-                    Text(
-                      value,
-                      style: const TextStyle(
-                        fontFamily: 'Roboto',
-                        fontSize: 22,
-                        height: 24 / 22,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.rose,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-              if (onMinus != null && onPlus != null) ...<Widget>[
-                IconButton(
-                  key: const Key('home-daily-target-minus'),
-                  tooltip: 'Decrease daily target',
-                  onPressed: onMinus,
-                  constraints: const BoxConstraints.tightFor(
-                    width: 48,
-                    height: 48,
-                  ),
-                  padding: EdgeInsets.zero,
-                  icon: const Icon(
-                    Icons.remove,
-                    size: 24,
-                    color: AppTheme.rose,
-                  ),
-                ),
-                IconButton(
-                  key: const Key('home-daily-target-plus'),
-                  tooltip: 'Increase daily target',
-                  onPressed: onPlus,
-                  constraints: const BoxConstraints.tightFor(
-                    width: 48,
-                    height: 48,
-                  ),
-                  padding: EdgeInsets.zero,
-                  icon: const Icon(Icons.add, size: 24, color: AppTheme.rose),
-                ),
-              ],
-            ],
+          padding: EdgeInsets.symmetric(horizontal: hasControls ? 12 : 10),
+          child: _WideAsideContent(
+            label: label,
+            value: value,
+            hasControls: hasControls,
+            onMinus: onMinus,
+            onPlus: onPlus,
           ),
         ),
       ),
+    );
+  }
+}
+
+final class _WideAsideContent extends StatelessWidget {
+  const _WideAsideContent({
+    required this.label,
+    required this.value,
+    required this.hasControls,
+    required this.onMinus,
+    required this.onPlus,
+  });
+
+  final String label;
+  final String value;
+  final bool hasControls;
+  final VoidCallback? onMinus;
+  final VoidCallback? onPlus;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!hasControls) {
+      return Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: <Widget>[
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              label,
+              maxLines: 1,
+              style: const TextStyle(fontSize: 14, height: 16 / 14),
+            ),
+          ),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.clip,
+            style: const TextStyle(
+              fontFamily: 'Roboto',
+              fontSize: 22,
+              height: 24 / 22,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.rose,
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.clip,
+          style: const TextStyle(fontSize: 14, height: 18 / 14),
+        ),
+        Expanded(
+          child: Row(
+            children: <Widget>[
+              Text(
+                value,
+                maxLines: 1,
+                overflow: TextOverflow.clip,
+                style: const TextStyle(
+                  fontFamily: 'Roboto',
+                  fontSize: 22,
+                  height: 24 / 22,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.rose,
+                ),
+              ),
+              const Spacer(),
+              IconButton(
+                key: const Key('home-daily-target-minus'),
+                tooltip: 'Decrease daily target',
+                onPressed: onMinus,
+                constraints: const BoxConstraints.tightFor(
+                  width: 48,
+                  height: 48,
+                ),
+                padding: EdgeInsets.zero,
+                icon: const Icon(Icons.remove, size: 24, color: AppTheme.rose),
+              ),
+              IconButton(
+                key: const Key('home-daily-target-plus'),
+                tooltip: 'Increase daily target',
+                onPressed: onPlus,
+                constraints: const BoxConstraints.tightFor(
+                  width: 48,
+                  height: 48,
+                ),
+                padding: EdgeInsets.zero,
+                icon: const Icon(Icons.add, size: 24, color: AppTheme.rose),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

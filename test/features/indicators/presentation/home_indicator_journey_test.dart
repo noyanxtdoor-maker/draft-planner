@@ -262,7 +262,7 @@ void main() {
         tester
             .getSize(find.byKey(const Key('home-indicator-job_applications')))
             .height,
-        60,
+        88,
       );
       expect(
         tester
@@ -292,7 +292,26 @@ void main() {
       );
       expect(find.text('July Goal'), findsOneWidget);
       expect(find.text("Today's Goal"), findsOneWidget);
+      expect(find.text('Job Applications'), findsOneWidget);
       expect(find.text('0/1'), findsOneWidget);
+      expect(
+        tester
+            .getSize(find.byKey(const Key('home-daily-target-quick-control')))
+            .width,
+        192,
+      );
+      expect(
+        tester
+            .getSize(find.byKey(const Key('home-daily-target-quick-control')))
+            .height,
+        72,
+      );
+      for (final key in <String>[
+        'home-daily-target-minus',
+        'home-daily-target-plus',
+      ]) {
+        expect(tester.getSize(find.byKey(Key(key))), const Size(48, 48));
+      }
       expect(find.text('Set Schedule'), findsOneWidget);
       expect(find.text('Planning'), findsOneWidget);
       expect(tester.takeException(), isNull);
@@ -396,7 +415,7 @@ void main() {
         tester
             .getSize(find.byKey(const Key('home-indicator-job_applications')))
             .height,
-        60,
+        configuration.size.width < 380 ? 136 : 88,
       );
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
