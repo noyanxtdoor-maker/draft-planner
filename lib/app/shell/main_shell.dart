@@ -37,6 +37,7 @@ final class _MainShellState extends State<MainShell> {
         : location.startsWith(RoutePaths.more)
         ? 4
         : 0;
+    final isGoalIconPicker = location.endsWith('/icon');
 
     return GlobalDrawerScope(
       controller: _controller,
@@ -45,70 +46,72 @@ final class _MainShellState extends State<MainShell> {
         drawer: const GlobalAppDrawer(),
         drawerEdgeDragWidth: 24,
         body: widget.child,
-        bottomNavigationBar: NavigationBar(
-          key: const Key('main-bottom-navigation'),
-          selectedIndex: selectedIndex,
-          onDestinationSelected: (index) {
-            switch (index) {
-              case 0:
-                context.go(RoutePaths.home);
-                return;
-              case 1:
-                context.go(RoutePaths.planner);
-                return;
-              case 2:
-              case 3:
-                final label = const <String>[
-                  'Home',
-                  'Planner',
-                  'Pathways',
-                  'Contacts',
-                  'More',
-                ][index];
-                ScaffoldMessenger.of(context)
-                  ..hideCurrentSnackBar()
-                  ..showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        '$label is not available in the current authorized '
-                        'build.',
-                      ),
-                    ),
-                  );
-                return;
-              case 4:
-                context.go(RoutePaths.more);
-                return;
-            }
-          },
-          destinations: const <NavigationDestination>[
-            NavigationDestination(
-              icon: Icon(Icons.home_outlined),
-              selectedIcon: Icon(Icons.home),
-              label: 'Home',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.calendar_month_outlined),
-              selectedIcon: Icon(Icons.calendar_month),
-              label: 'Planner',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.layers_outlined),
-              selectedIcon: Icon(Icons.layers),
-              label: 'Pathways',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.people_outline),
-              selectedIcon: Icon(Icons.people),
-              label: 'Contacts',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.more_horiz),
-              selectedIcon: Icon(Icons.more_horiz),
-              label: 'More',
-            ),
-          ],
-        ),
+        bottomNavigationBar: isGoalIconPicker
+            ? null
+            : NavigationBar(
+                key: const Key('main-bottom-navigation'),
+                selectedIndex: selectedIndex,
+                onDestinationSelected: (index) {
+                  switch (index) {
+                    case 0:
+                      context.go(RoutePaths.home);
+                      return;
+                    case 1:
+                      context.go(RoutePaths.planner);
+                      return;
+                    case 2:
+                    case 3:
+                      final label = const <String>[
+                        'Home',
+                        'Planner',
+                        'Pathways',
+                        'Contacts',
+                        'More',
+                      ][index];
+                      ScaffoldMessenger.of(context)
+                        ..hideCurrentSnackBar()
+                        ..showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              '$label is not available in the current '
+                              'authorized build.',
+                            ),
+                          ),
+                        );
+                      return;
+                    case 4:
+                      context.go(RoutePaths.more);
+                      return;
+                  }
+                },
+                destinations: const <NavigationDestination>[
+                  NavigationDestination(
+                    icon: Icon(Icons.home_outlined),
+                    selectedIcon: Icon(Icons.home),
+                    label: 'Home',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.calendar_month_outlined),
+                    selectedIcon: Icon(Icons.calendar_month),
+                    label: 'Planner',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.layers_outlined),
+                    selectedIcon: Icon(Icons.layers),
+                    label: 'Pathways',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.people_outline),
+                    selectedIcon: Icon(Icons.people),
+                    label: 'Contacts',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.more_horiz),
+                    selectedIcon: Icon(Icons.more_horiz),
+                    label: 'More',
+                  ),
+                ],
+              ),
       ),
     );
   }

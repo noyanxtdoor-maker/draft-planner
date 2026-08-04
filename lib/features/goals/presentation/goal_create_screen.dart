@@ -2,9 +2,15 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:rmplanner/app/router/route_names.dart';
 import 'package:rmplanner/app/theme/app_theme.dart';
 import 'package:rmplanner/features/goals/application/goal_providers.dart';
 import 'package:rmplanner/features/goals/domain/goal.dart';
+import 'package:rmplanner/features/goals/domain/goal_icon_registry.dart';
+import 'package:rmplanner/features/goals/presentation/goal_icon_picker_screen.dart';
+import 'package:rmplanner/features/goals/presentation/widgets/goal_icon.dart';
+import 'package:rmplanner/features/goals/presentation/widgets/goal_icon_choice_row.dart';
 import 'package:rmplanner/features/indicators/domain/life_indicator.dart';
 
 final class GoalCreateScreen extends ConsumerStatefulWidget {
@@ -21,6 +27,8 @@ final class _GoalCreateScreenState extends ConsumerState<GoalCreateScreen> {
   int? _dailyTarget = 1;
   int? _weeklyTarget = 1;
   int? _monthlyTarget = 1;
+  String? _iconId;
+  bool _iconManuallySelected = false;
   bool _saving = false;
 
   @override
@@ -117,6 +125,23 @@ final class _GoalCreateScreenState extends ConsumerState<GoalCreateScreen> {
                       : null,
                 ),
                 const SizedBox(height: 18),
+                Text('Icon', style: AppTypography.cardTitle),
+                const SizedBox(height: 3),
+                const Text(
+                  'Choose an icon that represents your goal.',
+                  style: AppTypography.secondary,
+                ),
+                const SizedBox(height: 8),
+                GoalIconChoiceRow(
+                  goalTitle: _nameController.text.trim().isEmpty
+                      ? 'this goal'
+                      : _nameController.text.trim(),
+                  iconId: _draftIconId,
+                  fallbackIcon: goalIconFallbackForRole(_role),
+                  showSuggestion: _suggestion != null && !_iconManuallySelected,
+                  onTap: _openIconPicker,
+                ),
+                const SizedBox(height: 18),
                 if (_role == GoalRole.dailyWeekly) ...<Widget>[
                   _TargetEditor(
                     key: const Key('goal-create-daily-target'),
@@ -195,6 +220,7 @@ final class _GoalCreateScreenState extends ConsumerState<GoalCreateScreen> {
             role: _role,
             title: _nameController.text.trim(),
             targets: targets,
+            iconId: _draftIconId,
           );
       ref.invalidate(activeGoalsProvider);
       ref.invalidate(goalCapacityProvider);
@@ -240,6 +266,34 @@ final class _GoalCreateScreenState extends ConsumerState<GoalCreateScreen> {
         _weeklyTarget,
         _monthlyTarget,
       ].every((value) => value == null || value >= 0);
+
+  GoalIconSuggestion? get _suggestion => _iconManuallySelected
+      ? null
+      : GoalIconRegistry.instance.suggestForGoalTitle(
+          _nameController.text.trim(),
+        );
+
+  String? get _draftIconId =>
+      _iconManuallySelected ? _iconId : _suggestion?.iconId;
+
+  Future<void> _openIconPicker() async {
+    final selected = await context.push<String?>(
+      RoutePaths.goalCreateIconPicker,
+      extra: GoalIconPickerArgs(
+        goalTitle: _nameController.text.trim().isEmpty
+            ? 'this goal'
+            : _nameController.text.trim(),
+        currentIconId: _draftIconId,
+      ),
+    );
+    if (!mounted || selected == null) {
+      return;
+    }
+    setState(() {
+      _iconId = selected;
+      _iconManuallySelected = true;
+    });
+  }
 
   void _showError(String message) {
     if (!mounted) {

@@ -7,6 +7,9 @@ import 'package:go_router/go_router.dart';
 import 'package:rmplanner/app/router/route_names.dart';
 import 'package:rmplanner/app/shell/global_drawer_controller.dart';
 import 'package:rmplanner/app/theme/app_theme.dart';
+import 'package:rmplanner/features/goals/application/goal_providers.dart';
+import 'package:rmplanner/features/goals/domain/goal.dart';
+import 'package:rmplanner/features/goals/presentation/widgets/goal_icon.dart';
 import 'package:rmplanner/features/indicators/application/indicator_providers.dart';
 import 'package:rmplanner/features/indicators/domain/life_indicator.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
@@ -19,6 +22,8 @@ final class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(homeIndicatorControllerProvider);
+    final activeGoals =
+        ref.watch(activeGoalsProvider).asData?.value ?? const <Goal>[];
     final snapshot = state.snapshot;
     return Scaffold(
       appBar: AppBar(
@@ -84,6 +89,7 @@ final class HomeScreen extends ConsumerWidget {
                       else ...<Widget>[
                         _IndicatorGrid(
                           snapshot: snapshot,
+                          goals: activeGoals,
                           onOpenGoal: (indicator) => _openGoal(
                             context,
                             snapshot.period.start,
@@ -321,11 +327,13 @@ final class _StartPlanningButton extends StatelessWidget {
 final class _IndicatorGrid extends StatelessWidget {
   const _IndicatorGrid({
     required this.snapshot,
+    required this.goals,
     required this.onOpenGoal,
     required this.onOpenTempleSchedule,
   });
 
   final HomeIndicatorSnapshot snapshot;
+  final List<Goal> goals;
   final ValueChanged<LifeIndicatorSummary> onOpenGoal;
   final VoidCallback onOpenTempleSchedule;
 
@@ -338,6 +346,9 @@ final class _IndicatorGrid extends StatelessWidget {
     final first = indicators.first;
     final temple = indicators.last;
     final middle = indicators.sublist(1, indicators.length - 1);
+    final goalsById = <String, Goal>{for (final goal in goals) goal.id: goal};
+    Goal? goalFor(LifeIndicatorSummary indicator) =>
+        indicator.goalId == null ? null : goalsById[indicator.goalId];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
@@ -345,6 +356,7 @@ final class _IndicatorGrid extends StatelessWidget {
           height: 60,
           child: _IndicatorCard(
             indicator: first,
+            goal: goalFor(first),
             wide: true,
             asideLabel: "Today's Goal",
             asideValue: _todayGoalRatio(snapshot),
@@ -360,6 +372,7 @@ final class _IndicatorGrid extends StatelessWidget {
                 Expanded(
                   child: _IndicatorCard(
                     indicator: middle[row],
+                    goal: goalFor(middle[row]),
                     wide: false,
                     onTap: () => onOpenGoal(middle[row]),
                   ),
@@ -369,6 +382,7 @@ final class _IndicatorGrid extends StatelessWidget {
                   child: row + 1 < middle.length
                       ? _IndicatorCard(
                           indicator: middle[row + 1],
+                          goal: goalFor(middle[row + 1]),
                           wide: false,
                           onTap: () => onOpenGoal(middle[row + 1]),
                         )
@@ -384,6 +398,7 @@ final class _IndicatorGrid extends StatelessWidget {
           height: 60,
           child: _IndicatorCard(
             indicator: temple,
+            goal: goalFor(temple),
             wide: true,
             asideLabel: 'Month Goal',
             asideValue: _monthlyTempleRatio(snapshot),
@@ -423,6 +438,7 @@ final class _IndicatorGrid extends StatelessWidget {
 final class _IndicatorCard extends StatelessWidget {
   const _IndicatorCard({
     required this.indicator,
+    required this.goal,
     required this.wide,
     required this.onTap,
     this.asideLabel,
@@ -432,6 +448,7 @@ final class _IndicatorCard extends StatelessWidget {
   });
 
   final LifeIndicatorSummary indicator;
+  final Goal? goal;
   final bool wide;
   final String? asideLabel;
   final String? asideValue;
@@ -469,7 +486,7 @@ final class _IndicatorCard extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: <Widget>[
-        Icon(_iconFor(indicator.key), color: AppTheme.rose, size: 26),
+        _goalIcon(size: 36),
         const SizedBox(width: 8),
         Expanded(
           child: Column(
@@ -512,7 +529,7 @@ final class _IndicatorCard extends StatelessWidget {
   Widget _wide(BuildContext context) {
     return Row(
       children: <Widget>[
-        Icon(_iconFor(indicator.key), color: AppTheme.rose, size: 27),
+        _goalIcon(size: 40),
         const SizedBox(width: 8),
         Expanded(
           child: Column(
@@ -576,6 +593,16 @@ final class _IndicatorCard extends StatelessWidget {
         const SizedBox(width: 10),
         _WideAside(label: asideLabel!, value: asideValue!),
       ],
+    );
+  }
+
+  Widget _goalIcon({required double size}) {
+    return GoalIcon(
+      iconId: goal?.iconId,
+      size: size,
+      semanticLabel: '${indicator.label} goal icon',
+      fallbackIcon: goalIconFallbackForRole(goal?.role),
+      color: AppTheme.rose,
     );
   }
 }
@@ -758,13 +785,3 @@ final class _PathwayRow extends StatelessWidget {
     );
   }
 }
-
-IconData _iconFor(String key) => switch (key) {
-  'job_applications' => Icons.work_outline,
-  'scripture_study' => Icons.menu_book_outlined,
-  'exercise' => Icons.fitness_center,
-  'meaningful_connections' => Icons.people_outline,
-  'budget_review' => Icons.pie_chart_outline,
-  'temple_visit' => Icons.account_balance_outlined,
-  _ => Icons.insights_outlined,
-};

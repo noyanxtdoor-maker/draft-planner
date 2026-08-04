@@ -7,6 +7,7 @@ import 'package:rmplanner/app/router/route_names.dart';
 import 'package:rmplanner/app/theme/app_theme.dart';
 import 'package:rmplanner/features/goals/application/goal_providers.dart';
 import 'package:rmplanner/features/goals/domain/goal.dart';
+import 'package:rmplanner/features/goals/presentation/widgets/goal_icon.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 import 'package:rmplanner/features/weekly_planning/application/weekly_planning_providers.dart';
 
@@ -243,7 +244,12 @@ final class _GoalRow extends ConsumerWidget {
         padding: const EdgeInsets.symmetric(vertical: 12),
         child: Row(
           children: <Widget>[
-            Icon(_iconForGoal(goal), color: AppTheme.rose, size: 32),
+            GoalIcon(
+              iconId: goal.iconId,
+              size: 32,
+              semanticLabel: '${goal.title} goal icon',
+              fallbackIcon: goalIconFallbackForRole(goal.role),
+            ),
             const SizedBox(width: 14),
             Expanded(
               child: Column(
@@ -421,17 +427,3 @@ final class _Failure extends StatelessWidget {
 PlannerDate _mondayOf(PlannerDate date) {
   return date.addDays(-(date.asLocalDate.weekday - DateTime.monday));
 }
-
-IconData _iconForGoal(Goal goal) => switch (goal.indicatorKey) {
-  'job_applications' => Icons.work_outline,
-  'scripture_study' => Icons.menu_book_outlined,
-  'exercise' => Icons.fitness_center,
-  'meaningful_connections' => Icons.people_outline,
-  'budget_review' => Icons.pie_chart_outline,
-  'temple_visit' => Icons.account_balance_outlined,
-  _ => switch (goal.role) {
-    GoalRole.dailyWeekly => Icons.today_outlined,
-    GoalRole.weekly => Icons.flag_outlined,
-    GoalRole.weeklyMonthly => Icons.calendar_month_outlined,
-  },
-};

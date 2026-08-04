@@ -18,6 +18,7 @@ abstract interface class GoalRepository {
     required String title,
     required GoalTargets targets,
     String? indicatorKey,
+    String? iconId,
     String? operationId,
   });
 
@@ -26,6 +27,7 @@ abstract interface class GoalRepository {
     required String goalId,
     required String title,
     required GoalTargets targets,
+    String? iconId,
     String? operationId,
   });
 

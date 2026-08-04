@@ -5,6 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rmplanner/app/theme/app_theme.dart';
 import 'package:rmplanner/features/goals/application/goal_providers.dart';
 import 'package:rmplanner/features/goals/domain/goal.dart';
+import 'package:rmplanner/features/goals/presentation/goal_icon_picker_screen.dart';
+import 'package:rmplanner/features/goals/presentation/widgets/goal_icon.dart';
+import 'package:rmplanner/features/goals/presentation/widgets/goal_icon_choice_row.dart';
 import 'package:rmplanner/features/indicators/domain/life_indicator.dart';
 import 'package:rmplanner/features/planner/application/planner_providers.dart';
 
@@ -25,9 +28,11 @@ final class _GoalEditScreenState extends ConsumerState<GoalEditScreen> {
   int? _daily;
   int? _weekly;
   int? _monthly;
+  String? _iconId;
   String? _error;
   bool _loading = true;
   bool _saving = false;
+  bool _showIconPicker = false;
 
   @override
   void initState() {
@@ -82,6 +87,7 @@ final class _GoalEditScreenState extends ConsumerState<GoalEditScreen> {
         _daily = progress?.dailyTarget.value?.scaledValue;
         _weekly = progress?.weeklyTarget.value?.scaledValue;
         _monthly = progress?.monthlyTarget.value?.scaledValue;
+        _iconId = goal.iconId;
         _loading = false;
       });
     } on Object catch (error) {
@@ -109,6 +115,21 @@ final class _GoalEditScreenState extends ConsumerState<GoalEditScreen> {
       );
     }
     final goal = _goal!;
+    if (_showIconPicker) {
+      return GoalIconPickerScreen(
+        args: GoalIconPickerArgs(
+          goalTitle: _titleController.text.trim(),
+          currentIconId: _iconId,
+        ),
+        onSelected: (iconId) {
+          setState(() {
+            _iconId = iconId;
+            _showIconPicker = false;
+          });
+        },
+        onCancel: () => setState(() => _showIconPicker = false),
+      );
+    }
     return PopScope<void>(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
@@ -156,6 +177,20 @@ final class _GoalEditScreenState extends ConsumerState<GoalEditScreen> {
                   validator: (value) => value == null || value.trim().isEmpty
                       ? 'Enter a Goal name.'
                       : null,
+                ),
+                const SizedBox(height: 20),
+                Text('Icon', style: AppTypography.cardTitle),
+                const SizedBox(height: 3),
+                const Text(
+                  'Choose an icon that represents your goal.',
+                  style: AppTypography.secondary,
+                ),
+                const SizedBox(height: 8),
+                GoalIconChoiceRow(
+                  goalTitle: _titleController.text.trim(),
+                  iconId: _iconId,
+                  fallbackIcon: goalIconFallbackForRole(goal.role),
+                  onTap: _openIconPicker,
                 ),
                 const SizedBox(height: 20),
                 if (goal.role == GoalRole.dailyWeekly) ...<Widget>[
@@ -225,6 +260,7 @@ final class _GoalEditScreenState extends ConsumerState<GoalEditScreen> {
               weekly: _amount(_weekly),
               monthly: _amount(_monthly),
             ),
+            iconId: _iconId,
           );
       ref.invalidate(activeGoalsProvider);
       ref.invalidate(goalCapacityProvider);
@@ -289,7 +325,8 @@ final class _GoalEditScreenState extends ConsumerState<GoalEditScreen> {
     return goal.title != _titleController.text.trim() ||
         _daily != _progress?.dailyTarget.value?.scaledValue ||
         _weekly != _progress?.weeklyTarget.value?.scaledValue ||
-        _monthly != _progress?.monthlyTarget.value?.scaledValue;
+        _monthly != _progress?.monthlyTarget.value?.scaledValue ||
+        _iconId != goal.iconId;
   }
 
   bool get _draftIsValid =>
@@ -314,6 +351,12 @@ final class _GoalEditScreenState extends ConsumerState<GoalEditScreen> {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void _openIconPicker() {
+    if (mounted) {
+      setState(() => _showIconPicker = true);
+    }
   }
 }
 

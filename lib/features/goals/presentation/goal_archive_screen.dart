@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:rmplanner/app/theme/app_theme.dart';
 import 'package:rmplanner/features/goals/application/goal_providers.dart';
 import 'package:rmplanner/features/goals/domain/goal.dart';
+import 'package:rmplanner/features/goals/presentation/widgets/goal_icon.dart';
 
 final class GoalArchiveScreen extends ConsumerStatefulWidget {
   const GoalArchiveScreen({super.key});
@@ -372,57 +373,116 @@ final class _ArchivedGoalRow extends StatelessWidget {
           ).formatMediumDate(archivedAt.toLocal());
     return Card(
       key: Key('goal-archive-row-${goal.id}'),
-      child: SizedBox(
-        height: 88,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: Row(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 520;
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: compact
+                ? _buildCompactRow(context, date)
+                : SizedBox(height: 72, child: _buildWideRow(context, date)),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildIcon() {
+    return SizedBox.square(
+      dimension: 44,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: AppTheme.surface,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: GoalIcon(
+          iconId: goal.iconId,
+          size: 32,
+          semanticLabel: '${goal.title} goal icon',
+          fallbackIcon: goalIconFallbackForRole(goal.role),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCompactRow(BuildContext context, String date) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: <Widget>[
+        _buildIcon(),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              SizedBox.square(
-                dimension: 44,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: AppTheme.surface,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(_iconForGoal(goal), color: AppTheme.rose),
-                ),
+              Text(
+                goal.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppTypography.cardTitle,
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(
-                      goal.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppTypography.cardTitle,
-                    ),
-                    Text(goal.role.title, style: AppTypography.secondary),
-                    Text('Archived on $date', style: AppTypography.micro),
-                  ],
-                ),
-              ),
-              SizedBox(
-                height: 48,
-                child: TextButton.icon(
-                  key: Key('goal-restore-${goal.id}'),
-                  onPressed: restoring ? null : onRestore,
-                  icon: restoring
-                      ? const SizedBox.square(
-                          dimension: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.restore, size: 18),
-                  label: const Text('Restore'),
-                ),
+              Text(
+                '${goal.role.title} • Archived $date',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: AppTypography.secondary,
               ),
             ],
           ),
         ),
-      ),
+        const SizedBox(width: 4),
+        IconButton(
+          key: Key('goal-restore-${goal.id}'),
+          tooltip: 'Restore ${goal.title}',
+          onPressed: restoring ? null : onRestore,
+          icon: restoring
+              ? const SizedBox.square(
+                  dimension: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.restore),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildWideRow(BuildContext context, String date) {
+    return Row(
+      children: <Widget>[
+        _buildIcon(),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(
+                goal.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppTypography.cardTitle,
+              ),
+              Text(goal.role.title, style: AppTypography.secondary),
+              Text('Archived on $date', style: AppTypography.micro),
+            ],
+          ),
+        ),
+        SizedBox(
+          height: 48,
+          child: TextButton.icon(
+            key: Key('goal-restore-${goal.id}'),
+            onPressed: restoring ? null : onRestore,
+            icon: restoring
+                ? const SizedBox.square(
+                    dimension: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.restore, size: 18),
+            label: const Text('Restore'),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -465,14 +525,4 @@ IconData _activityIcon(GoalActivityAction action) => switch (action) {
   GoalActivityAction.renamed => Icons.edit_outlined,
   GoalActivityAction.archived => Icons.archive_outlined,
   GoalActivityAction.restored => Icons.restore,
-};
-
-IconData _iconForGoal(Goal goal) => switch (goal.indicatorKey) {
-  'job_applications' => Icons.work_outline,
-  'scripture_study' => Icons.menu_book_outlined,
-  'exercise' => Icons.fitness_center,
-  'meaningful_connections' => Icons.people_outline,
-  'budget_review' => Icons.pie_chart_outline,
-  'temple_visit' => Icons.account_balance_outlined,
-  _ => Icons.flag_outlined,
 };

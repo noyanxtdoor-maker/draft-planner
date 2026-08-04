@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rmplanner/app/router/route_names.dart';
@@ -6,6 +7,7 @@ import 'package:rmplanner/app/shell/main_shell.dart';
 import 'package:rmplanner/features/goals/presentation/goal_archive_screen.dart';
 import 'package:rmplanner/features/goals/presentation/goal_create_screen.dart';
 import 'package:rmplanner/features/goals/presentation/goal_edit_screen.dart';
+import 'package:rmplanner/features/goals/presentation/goal_icon_picker_screen.dart';
 import 'package:rmplanner/features/indicators/presentation/indicator_detail_screen.dart';
 import 'package:rmplanner/features/indicators/presentation/indicator_edit_screen.dart';
 import 'package:rmplanner/features/indicators/presentation/indicator_list_screen.dart';
@@ -41,9 +43,13 @@ import 'package:rmplanner/features/startup/presentation/startup_screen.dart';
 import 'package:rmplanner/features/weekly_planning/presentation/weekly_plan_history_screen.dart';
 import 'package:rmplanner/features/weekly_planning/presentation/weekly_planning_screen.dart';
 
+final _rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root');
+final _shellNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'shell');
+
 final appRouterProvider = Provider<GoRouter>((ref) {
   final startupState = ref.watch(startupControllerProvider);
   final router = GoRouter(
+    navigatorKey: _rootNavigatorKey,
     initialLocation: RoutePaths.startup,
     redirect: (context, state) {
       return StartupRouteGuard.redirect(
@@ -73,6 +79,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const ProtectedContentScreen(),
       ),
       ShellRoute(
+        navigatorKey: _shellNavigatorKey,
         builder: (context, state, child) => MainShell(child: child),
         routes: <RouteBase>[
           GoRoute(
@@ -174,6 +181,23 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             name: RouteNames.goalCreate,
             path: RoutePaths.goalCreate,
             builder: (context, state) => const GoalCreateScreen(),
+            routes: <RouteBase>[
+              GoRoute(
+                name: RouteNames.goalCreateIconPicker,
+                path: 'icon',
+                pageBuilder: (context, state) {
+                  final args = state.extra is GoalIconPickerArgs
+                      ? state.extra! as GoalIconPickerArgs
+                      : const GoalIconPickerArgs(
+                          goalTitle: 'Goal',
+                          currentIconId: null,
+                        );
+                  return NoTransitionPage<void>(
+                    child: GoalIconPickerScreen(args: args),
+                  );
+                },
+              ),
+            ],
           ),
           GoRoute(
             name: RouteNames.goalArchive,
@@ -183,9 +207,40 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             name: RouteNames.goalEdit,
             path: '${RoutePaths.goalEditPath}/:goalId/edit',
-            builder: (context, state) => GoalEditScreen(
-              goalId: state.pathParameters['goalId']!,
-            ),
+            builder: (context, state) =>
+                GoalEditScreen(goalId: state.pathParameters['goalId']!),
+            routes: <RouteBase>[
+              GoRoute(
+                name: RouteNames.goalEditIconPicker,
+                path: 'icon',
+                pageBuilder: (context, state) {
+                  final args = state.extra is GoalIconPickerArgs
+                      ? state.extra! as GoalIconPickerArgs
+                      : const GoalIconPickerArgs(
+                          goalTitle: 'Goal',
+                          currentIconId: null,
+                        );
+                  return NoTransitionPage<void>(
+                    child: GoalIconPickerScreen(args: args),
+                  );
+                },
+              ),
+            ],
+          ),
+          GoRoute(
+            name: RouteNames.goalIconPicker,
+            path: RoutePaths.goalIconPicker,
+            pageBuilder: (context, state) {
+              final args = state.extra is GoalIconPickerArgs
+                  ? state.extra! as GoalIconPickerArgs
+                  : const GoalIconPickerArgs(
+                      goalTitle: 'Goal',
+                      currentIconId: null,
+                    );
+              return NoTransitionPage<void>(
+                child: GoalIconPickerScreen(args: args),
+              );
+            },
           ),
         ],
       ),

@@ -331,6 +331,7 @@ final class DriftGoalRepository implements GoalRepository {
     required String title,
     required GoalTargets targets,
     String? indicatorKey,
+    String? iconId,
     String? operationId,
   }) async {
     final normalizedTitle = title.trim();
@@ -354,7 +355,7 @@ final class DriftGoalRepository implements GoalRepository {
         role: role,
         activeSlotIndex: slot,
         title: normalizedTitle,
-        iconId: null,
+        iconId: iconId,
         status: GoalStatus.active,
         createdAtUtc: now,
         updatedAtUtc: now,
@@ -382,7 +383,7 @@ final class DriftGoalRepository implements GoalRepository {
           'role': role.storageName,
           'slot': slot,
           'title': normalizedTitle,
-          'iconId': null,
+          'iconId': iconId,
           'targets': _targetsPayload(targets),
         },
       );
@@ -396,6 +397,7 @@ final class DriftGoalRepository implements GoalRepository {
     required String goalId,
     required String title,
     required GoalTargets targets,
+    String? iconId,
     String? operationId,
   }) async {
     final normalizedTitle = title.trim();
@@ -416,6 +418,9 @@ final class DriftGoalRepository implements GoalRepository {
       final before = _mapGoal(row);
       final now = clock.nowUtc();
       final titleChanged = before.title != normalizedTitle;
+      // A missing icon argument means the caller is an older sync/client
+      // path. Preserve the canonical value instead of clearing it.
+      final effectiveIconId = iconId ?? before.iconId;
       await (database.update(database.goals)..where(
             (table) =>
                 table.profileId.equals(profileId) & table.id.equals(goalId),
@@ -423,6 +428,7 @@ final class DriftGoalRepository implements GoalRepository {
           .write(
             GoalsCompanion(
               title: Value<String>(normalizedTitle),
+              iconId: Value<String?>(effectiveIconId),
               updatedAtUtc: Value<DateTime>(now),
             ),
           );
@@ -458,6 +464,7 @@ final class DriftGoalRepository implements GoalRepository {
         payload: <String, Object?>{
           'goalId': goalId,
           'title': normalizedTitle,
+          'iconId': effectiveIconId,
           'targets': _targetsPayload(targets),
         },
       );
@@ -528,7 +535,11 @@ final class DriftGoalRepository implements GoalRepository {
         goalId: goalId,
         operationId: effectiveOperationId,
         action: GoalActivityAction.restored.name,
-        payload: <String, Object?>{'goalId': goalId, 'slot': slot},
+        payload: <String, Object?>{
+          'goalId': goalId,
+          'slot': slot,
+          'iconId': restored.iconId,
+        },
       );
       return restored;
     });
@@ -1289,7 +1300,11 @@ final class DriftGoalRepository implements GoalRepository {
         goalId: goalId,
         operationId: effectiveOperationId,
         action: action.name,
-        payload: <String, Object?>{'goalId': goalId, 'title': goal.title},
+        payload: <String, Object?>{
+          'goalId': goalId,
+          'title': goal.title,
+          'iconId': goal.iconId,
+        },
       );
     });
   }
