@@ -4530,3 +4530,198 @@ repeat build/install/hash verification before acceptance.
 - No push occurred.
 - PR #8 remains untouched.
 - Prompt D and VS-09 remain unstarted.
+
+---
+
+## VS-08 Prompt D1 - Six-Icon Goal System Production Pilot
+
+Recorded: 2026-08-04
+
+### Checkpoint status
+
+The D1 production implementation is complete in the Temp repository and all
+automated gates are green. The installed APK is byte-for-byte identical to the
+APK built from this tree. Physical owner acceptance is not claimed yet: the
+authorized Infinix is currently stopped at Android's credential prompt after a
+relaunch, so the final restart-persistence/no-result/cleanup pass requires the
+device owner to unlock it. No security control, app data, or device credential
+was bypassed or reset.
+
+This checkpoint is deliberately not a claim of zero-partial physical
+acceptance. The code and automated evidence are complete; the remaining
+physical evidence is explicitly external-state pending.
+
+### Boundary and repository protection
+
+- Working repository: `C:\Users\sherl\Documents\Next Transfer-Temp`.
+- Branch: `temp/vs08-shared-preview`.
+- Protected repository: `C:\Users\sherl\Documents\Next Transfer` was not
+  modified. Its pre-existing `Icons` source folder was read only.
+- Prompt C and the Post-C Backup Event Accent hotfix remain in the Temp tree.
+- D2 was not started.
+- No push occurred, PR #8 was not updated, and VS-09 was not started.
+
+### D1 requirement matrix
+
+| Matrix | Requirement coverage | Evidence | Status |
+| --- | --- | --- | --- |
+| D1-01 | Read-only audit of the protected `Icons` source | Source inventory, SVG sizes, hashes, and validation output recorded below | COMPLETE |
+| D1-02 | Exact copy of the six approved SVG files | Source and Temp SHA-256 values match for every pilot asset | COMPLETE |
+| D1-03 | SVG security and specification validation | XML parse, viewBox, forbidden-content, and geometry checks; registry tests | COMPLETE |
+| D1-04 | One canonical GoalIconRegistry | `lib/features/goals/domain/goal_icon_registry.dart`; no second registry | COMPLETE |
+| D1-05 | One reusable GoalIcon renderer | `lib/features/goals/presentation/widgets/goal_icon.dart`; null and unknown IDs use safe fallback | COMPLETE |
+| D1-06 | Deterministic offline title suggestions | Six exact title mappings, normalized matching, tie stability, and no-suggestion cases tested | COMPLETE |
+| D1-07 | Create Goal icon integration | Suggested icon, manual selection, top Save, persistence, and validation journey tested | COMPLETE |
+| D1-08 | Edit Goal icon integration | Picker selection, Save, discard dialog, rename preservation, and no duplicate bottom Save tested | COMPLETE |
+| D1-09 | Full D1 Choose Icon screen | Search, six-icon grid, selected state, accessible labels, top Back/Save, no categories, no placeholders | COMPLETE |
+| D1-10 | Icon persistence through lifecycle and transport | Create, rename, archive, restore, sync/outbox, backup export/import, and nullable migration coverage | COMPLETE |
+| D1-11 | Consistent rendering on all Goal surfaces | Home, Weekly Planning, Edit Goal, Create Goal, and Goal Archive use the shared renderer | COMPLETE |
+| D1-12 | Accessibility and responsive behavior | Semantics, touch targets, constrained grid, and responsive widget coverage | COMPLETE |
+| D1-13 | Unit, widget, golden, full-suite, and analyzer gates | 451 tests pass; analyzer has no issues; D1 goldens are included | COMPLETE |
+| D1-14 | Prompt A, Prompt B, Prompt C, and Backup Event regressions | Full suite includes the locked Home, Colors, Planner, reporting, lifecycle, and accent tests | COMPLETE |
+| D1-15 | Build, install, data preservation, and APK hash comparison | Latest Temp APK installed in place and matches the pulled installed APK exactly | COMPLETE |
+| D1-16 | Physical Infinix owner acceptance | Core journeys were exercised; final relaunch/no-result/cleanup is blocked by Android credential prompt | PENDING OWNER UNLOCK |
+
+The source-level D1 test matrix is represented by the following ranges:
+
+- Unit requirements 1-46: registry integrity, SVG security/specification,
+  suggestions, and manual-selection/rename behavior. PASS.
+- Widget requirements 47-100: Create Goal, Edit Goal, Choose Icon, all
+  visible Goal surfaces, and persistence journeys. PASS.
+- Golden requirements 36 renderings plus context cases 37-50: all six SVGs,
+  null/unknown fallback, palette, clipping, surface, label, and responsive
+  context coverage. PASS.
+- Regression requirements 101-124: capacity, role, Save/discard, rename,
+  archive/restore/history/targets, Home, Ministering Visit migration,
+  nullable icon migration, Backup Event accent confinement, deletion,
+  fifteen-minute and adjacent-page Planner behavior, Colors, Current Status,
+  existing Events/Tasks, and existing app data. PASS through the full suite.
+- Physical owner requirements 01-116: not marked PASS by Codex. The verified
+  subset and exact blocker are listed under Physical evidence.
+
+### Approved source asset audit
+
+The six source assets were read from
+`C:\Users\sherl\Documents\Next Transfer\Icons\Phase2A\assets\icons\goals` without editing the
+protected repository. The Temp copy is
+`C:\Users\sherl\Documents\Next Transfer-Temp\assets\icons\goals` and contains
+exactly these six SVG files, with no preview SVGs or fabricated picker assets:
+
+| iconId | SVG | Bytes | Source SHA-256 | Temp SHA-256 |
+| --- | --- | ---: | --- | --- |
+| `finance_wallet` | `finance_wallet.svg` | 509 | `D719990B6B28625ED6A8FEF8C76FA7BCED6236CCBCFBFAAE2829892143B62C42` | `D719990B6B28625ED6A8FEF8C76FA7BCED6236CCBCFBFAAE2829892143B62C42` |
+| `learning_open_book` | `learning_open_book.svg` | 521 | `0775DBC2446F28D47D03D99DE4E8B47B17BAD6C1B0D4CB2729633521DE28256A` | `0775DBC2446F28D47D03D99DE4E8B47B17BAD6C1B0D4CB2729633521DE28256A` |
+| `marriage_rings` | `marriage_rings.svg` | 427 | `3630690E5A215BFB36F0AF63E831C35DFF672D0F85066C822F093FEA7CF94FF3` | `3630690E5A215BFB36F0AF63E831C35DFF672D0F85066C822F093FEA7CF94FF3` |
+| `social_two_people` | `social_two_people.svg` | 537 | `AC9E58F8A481781DCF0C0E65C399010158AE181EC39D0E52751F467E5F562F69` | `AC9E58F8A481781DCF0C0E65C399010158AE181EC39D0E52751F467E5F562F69` |
+| `spiritual_temple` | `spiritual_temple.svg` | 505 | `BA24DAFFE284874E7DADA3BF3579ED58554499B9B36979CA6F85688E2B9F9EAE` | `BA24DAFFE284874E7DADA3BF3579ED58554499B9B36979CA6F85688E2B9F9EAE` |
+| `work_briefcase` | `work_briefcase.svg` | 530 | `43BDC3CF177FF6879050AD8AE88DB15AC25128FCEEA80123A1C4B6905EE0B0EA` | `43BDC3CF177FF6879050AD8AE88DB15AC25128FCEEA80123A1C4B6905EE0B0EA` |
+
+The registry order is stable: Briefcase, Open Book, Wallet, Two People,
+Temple, and Rings. Each definition has a unique ID and asset path, a nonblank
+display name/category/semantics string, normalized deduplicated keywords, and
+the expected asset. Validation rejects duplicate IDs or assets, missing files,
+blank semantics, unsupported SVG content, `script`, `foreignObject`, external
+URLs, raster images, gradients, filters/shadows/glows, and baked tile content.
+
+### Production architecture and behavior
+
+- `GoalIconRegistry` is the only canonical metadata and suggestion source.
+- `GoalIcon` is the only reusable Goal icon renderer. It deliberately uses a
+  safe Material flag fallback for null or unknown IDs on Goal surfaces; the
+  picker never invents a seventh icon or substitutes a placeholder tile.
+- Suggestions are deterministic and offline. The approved mappings are:
+  `Scripture Study` -> `learning_open_book`, `Apply for Jobs` ->
+  `work_briefcase`, `Monthly Budget` -> `finance_wallet`, `Meet New Friends`
+  -> `social_two_people`, `Temple Attendance` -> `spiritual_temple`, and
+  `Wedding Anniversary` -> `marriage_rings`. Unrelated titles and
+  substring-only cases produce no suggestion; ties preserve registry order.
+- A manually selected icon is saved as `iconId` and is never silently replaced
+  by a later title rename.
+- Create Goal shows the deterministic suggestion, allows manual selection,
+  uses the existing top Save action, and saves only a valid compatible slot.
+- Edit Goal uses the same picker, restores the existing icon selection, shows
+  the unsaved-change dialog on Back, and saves the selection only through the
+  existing top Save action.
+- Choose Icon contains exactly six production icons, a responsive three-column
+  grid, search with a no-results state, selected border/check state, semantic
+  labels, top Back/Save actions, and no category tabs or duplicate bottom Save.
+- `iconId` is nullable for migration safety and is carried through create,
+  rename, archive, restore, sync/outbox, backup, restore, and import paths.
+- Home, Weekly Planning, Edit Goal, Create Goal, and Goal Archive all render
+  the stored value through `GoalIcon`.
+- No Event, Task, Contact, Pathway, navigation, or system-action icon picker
+  was added. No category tabs were added in D1.
+
+### Automated verification after final formatting
+
+- Full suite: `C:\Users\sherl\AppData\Local\Temp\run_flutter.bat test
+  --reporter expanded` -> `451` passed, zero failures, zero skips.
+- Analyzer: `C:\Users\sherl\AppData\Local\Temp\run_flutter.bat analyze`
+  -> `No issues found!`.
+- Debug build: `C:\Users\sherl\Documents\Next Transfer-Temp\build\app\outputs\flutter-apk\app-debug.apk`.
+- Latest APK size: `196900080` bytes.
+- Latest APK SHA-256:
+  `1FECA19322254DD98FD5ACE670E1A4ED394A33410E071657CE5AE8512BF6D9E4`.
+- `adb install -r` returned `Success` on the authorized Infinix X6731.
+- Before/after install retained `dataDir=/data/user/0/com.nexttransfer.rmplanner`,
+  `firstInstallTime=2026-07-27 15:42:22`, and `ceDataInode=1509267`; only
+  `lastUpdateTime` advanced to `2026-08-04 10:10:28`.
+- `pm path` pull returned an installed APK of `196900080` bytes with the same
+  SHA-256 as the local Temp APK. The temporary pulled APK was deleted after
+  comparison.
+- Existing Gradle warnings about `flutter_timezone` applying KGP and Android
+  SDK XML versions were non-fatal; no D1 build or analyzer failure occurred.
+
+### Physical evidence and remaining blocker
+
+The physical device journey reached the real installed app and verified the
+following without destructive database operations:
+
+- Exact `Scripture Study` title produced the Open Book suggestion.
+- Choose Icon displayed exactly six icons, no categories, and accessible
+  labels; `budget` search reduced the result to Wallet and Clear search
+  restored all six.
+- Wallet was manually selected and saved; Create Goal saved the temporary
+  Scripture Study and Weekly Planning rendered its Wallet SVG.
+- Edit Goal opened the stored Wallet selection, selected Temple, discarded via
+  the unsaved-change dialog without mutation, then saved Temple successfully.
+- Archive showed the temporary goal with its Temple icon; restoring it retained
+  the icon. Restoring the original Exercise goal while all four Weekly slots
+  were occupied correctly showed the compatible-slot capacity message.
+- Home and Weekly Planning remained navigable and rendered their canonical
+  seeded six-goal set with safe fallback icons where the migrated `iconId` is
+  null.
+
+The latest force-stop/relaunch was intentionally stopped by Android at its
+credential gate, showing `Authentication required`, `Verify identity`, and
+`Touch in-display fingerprint sensor`. Numeric-password fallback was not used,
+no credential was guessed, and no `pm clear`, uninstall, reset, or direct
+database cleanup was issued. Therefore these items remain pending until the
+owner unlocks the device:
+
+1. physical restart persistence screenshot/check;
+2. physical unrelated-title no-suggestion check;
+3. reversible cleanup that archives the temporary test goal and restores the
+   original Exercise goal, leaving the original six active goals intact; and
+4. final owner PASS/FAIL over the complete 01-116 physical matrix.
+
+Current device test state is disclosed rather than hidden: the temporary
+Scripture Study test goal is active with its selected Temple icon, and the
+original Exercise goal is archived because the app has no D1 delete action.
+The state can be reconciled through the existing Archive/Restore UI after the
+owner unlocks the device. No direct data mutation should be used.
+
+### D1 file and release checkpoint
+
+D1 production files are limited to the Goal icon registry/renderer/picker,
+Goal Create/Edit/Archive integration, canonical Goal repository persistence,
+Home/Weekly rendering integration, six exact SVG assets, dependency metadata,
+and D1 unit/widget/golden tests. The existing Planner/Backup Event hotfix
+files remain protected working-tree changes and are not silently replaced by
+the D1 handoff.
+
+- Implementation commit: `25663c2` (`feat(vs08): add six-icon goal pilot`).
+- Handoff commit: pending local documentation commit
+  `docs(handoff): record six-icon goal pilot`.
+- No push, PR update, protected-repository modification, D2 work, or VS-09
+  work is authorized or performed.
