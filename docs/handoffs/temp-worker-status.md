@@ -4921,9 +4921,9 @@ bytes and had the same SHA-256, so the installed hash and size matched the
 local APK. Update-install evidence retained the same firstInstallTime, dataDir,
 and CE inode; only lastUpdateTime advanced.
 
-The pulled comparison APK was kept outside the repository at the temporary
-system path during this handoff; no APK, screenshot, recording, log, or build
-output was added to Git.
+The pulled comparison APK was deleted from the temporary system path after the
+byte-for-byte comparison; no APK, screenshot, recording, log, or build output
+was added to Git.
 
 ## Pack 1A requirement matrix
 
