@@ -4854,7 +4854,7 @@ Commands run through the required wrapper:
 
     C:\Users\sherl\AppData\Local\Temp\run_flutter.bat test test\features\indicators\presentation\home_indicator_journey_test.dart --name "Prompt A planned Home" --reporter expanded
     C:\Users\sherl\AppData\Local\Temp\run_flutter.bat test test\features\indicators\presentation\home_indicator_journey_test.dart --reporter expanded
-    C:\Users\sherl\AppData\Local\Temp\run_flutter.bat test test\features\startup\presentation\home_golden_test.dart --update-goldens
+    C:\Users\sherl\AppData\Local\Temp\run_flutter.bat test test\features\startup\presentation\goldens\home_pack1_golden_test.dart --update-goldens
 
 Results: the named journey passed; the complete Home journey passed with 7
 tests; the 20-case Home golden matrix passed. Coverage includes integrated
