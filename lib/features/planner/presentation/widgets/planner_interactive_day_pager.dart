@@ -890,7 +890,11 @@ class _PlannerInteractiveDayPagerState extends State<PlannerInteractiveDayPager>
                             pageDay: widget.previousDay,
                             settings: widget.settings,
                             eventColorsByTypeId: widget.eventColorsByTypeId,
-                            hourHeight: widget.hourHeight,
+                            // S2A: the offscreen previews stay on the
+                            // committed height while the pinch is live; only
+                            // the centered page follows the live scale.
+                            hourHeight:
+                                widget.previewHourHeight ?? widget.hourHeight,
                             viewportHeight: widget.viewportHeight,
                             width: viewportWidth,
                             isToday: widget.today == widget.previousDate,
@@ -916,7 +920,9 @@ class _PlannerInteractiveDayPagerState extends State<PlannerInteractiveDayPager>
                             pageDay: widget.nextDay,
                             settings: widget.settings,
                             eventColorsByTypeId: widget.eventColorsByTypeId,
-                            hourHeight: widget.hourHeight,
+                            // S2A: see previous-column comment.
+                            hourHeight:
+                                widget.previewHourHeight ?? widget.hourHeight,
                             viewportHeight: widget.viewportHeight,
                             width: viewportWidth,
                             isToday: widget.today == widget.nextDate,
@@ -952,6 +958,13 @@ class PlannerInteractiveDayPager extends StatefulWidget {
     required this.settings,
     this.eventColorsByTypeId = const <String, EventColorPreference>{},
     required this.hourHeight,
+    // S2A: the committed hour height shown by the offscreen previous/next
+    // preview columns. During an active pinch this stays frozen at the last
+    // committed value (the centered page owns the live pinch height); it
+    // advances to the final committed height once the pinch persists. When
+    // null the previews follow the live [hourHeight] (default, keeps
+    // non-pinch callers and tests unchanged).
+    this.previewHourHeight,
     required this.timelineHeight,
     required this.viewportWidth,
     this.viewportHeight = 0,
@@ -984,6 +997,10 @@ class PlannerInteractiveDayPager extends StatefulWidget {
   final PlannerSettings settings;
   final Map<String, EventColorPreference> eventColorsByTypeId;
   final double hourHeight;
+
+  /// S2A committed preview height; see constructor docs.
+  final double? previewHourHeight;
+
   final double timelineHeight;
   final double viewportWidth;
 
@@ -1113,7 +1130,15 @@ class PlannerLoadingDayTimeline extends StatelessWidget {
   }
 }
 
-class _PagerPreviewColumn extends StatelessWidget {
+/// S2A: the offscreen preview columns are a StatefulWidget so their display
+/// geometry is memoized. While an active pinch keeps [hourHeight] (the
+/// committed preview height) and [pageDay]/[settings] unchanged, the cached
+/// placements are reused and `PlannerDisplayGeometry.resolve` is not called
+/// again on raw pinch frames — only the centered page follows the live scale.
+/// The cache is recomputed whenever any resolve input changes (Event set,
+/// settings, or hour height), so a swipe or a pinch-end commit always sees
+/// current geometry before the page becomes visible.
+class _PagerPreviewColumn extends StatefulWidget {
   const _PagerPreviewColumn({
     super.key,
     required this.pageDate,
@@ -1144,7 +1169,74 @@ class _PagerPreviewColumn extends StatelessWidget {
   final ValueListenable<DateTime> currentTimeListenable;
 
   @override
+  State<_PagerPreviewColumn> createState() => _PagerPreviewColumnState();
+}
+
+class _PagerPreviewColumnState extends State<_PagerPreviewColumn> {
+  List<PlannerDisplayPlacement>? _placements;
+  double? _cachedHourHeight;
+  double? _cachedViewportHeight;
+  PlannerDay? _cachedPageDay;
+  PlannerSettings? _cachedSettings;
+
+  bool get _geometryInputsChanged {
+    final widget = this.widget;
+    return _placements == null ||
+        _cachedHourHeight != widget.hourHeight ||
+        _cachedViewportHeight != widget.viewportHeight ||
+        !identical(_cachedPageDay, widget.pageDay) ||
+        !identical(_cachedSettings, widget.settings);
+  }
+
+  /// Recompute display geometry only when a resolve input actually changed.
+  /// During an active pinch the committed preview height and the day/settings
+  /// identity are frozen, so this is a no-op on raw pinch frames.
+  void _resolveIfNeeded() {
+    if (!_geometryInputsChanged) {
+      return;
+    }
+    final widget = this.widget;
+    final events =
+        (widget.pageDay?.timedEvents ?? const <PlannerCalendarItem>[])
+            .where(
+              (event) =>
+                  event.startLocal != null &&
+                  event.endLocal != null &&
+                  (widget.settings.showCancelledItems ||
+                      event.state != PlannerEventState.cancelled),
+            )
+            .toList(growable: false);
+    final placements = PlannerDisplayGeometry.resolve(
+      events: events,
+      hourHeight: widget.hourHeight,
+      viewportHeight: widget.viewportHeight,
+      configuredHours:
+          widget.settings.visibleEndHour - widget.settings.visibleStartHour,
+    );
+    _placements = placements;
+    _cachedHourHeight = widget.hourHeight;
+    _cachedViewportHeight = widget.viewportHeight;
+    _cachedPageDay = widget.pageDay;
+    _cachedSettings = widget.settings;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _resolveIfNeeded();
+  }
+
+  @override
+  void didUpdateWidget(covariant _PagerPreviewColumn oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _resolveIfNeeded();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    _resolveIfNeeded();
+    final hourHeight = widget.hourHeight;
+    final placements = _placements ?? const <PlannerDisplayPlacement>[];
     // The preview grid mirrors the centered timeline: the canvas spans
     // the full civil day, and the configured planning window is a soft
     // window (PMG parity) that only gates the current-time indicator.
@@ -1154,21 +1246,7 @@ class _PagerPreviewColumn extends StatelessWidget {
     final pixelsPerMinute = PlannerTimelineGeometry.pixelsPerMinute(hourHeight);
     final visibleStart = kPlannerCivilDayStartMinute;
     final visibleEnd = kPlannerCivilDayEndMinute;
-    final events = (pageDay?.timedEvents ?? const <PlannerCalendarItem>[])
-        .where(
-          (event) =>
-              event.startLocal != null &&
-              event.endLocal != null &&
-              (settings.showCancelledItems ||
-                  event.state != PlannerEventState.cancelled),
-        )
-        .toList(growable: false);
-    final placements = PlannerDisplayGeometry.resolve(
-      events: events,
-      hourHeight: hourHeight,
-      viewportHeight: viewportHeight,
-      configuredHours: settings.visibleEndHour - settings.visibleStartHour,
-    );
+    final width = widget.width;
     final contentWidth = width - kPlannerPagerTimeColumnWidth - 8.0;
     return SizedBox(
       width: width,
@@ -1188,7 +1266,7 @@ class _PagerPreviewColumn extends StatelessWidget {
               left: 0,
               width: kPlannerPagerTimeColumnWidth,
               child: Text(
-                _hourLabel(index, settings.use24HourTime),
+                _hourLabel(index, widget.settings.use24HourTime),
                 // Hour labels must never wrap (the test fallback font
                 // renders every glyph at fontSize width, which would wrap
                 // short labels and push them below the final line).
@@ -1215,9 +1293,9 @@ class _PagerPreviewColumn extends StatelessWidget {
           // centered timeline so a focused test can drive minute, hour, and
           // date transitions deterministically. The ValueListenableBuilder
           // rebuilds only this subtree on a minute tick.
-          if (settings.showCurrentTime && isToday)
+          if (widget.settings.showCurrentTime && widget.isToday)
             ValueListenableBuilder<DateTime>(
-              valueListenable: currentTimeListenable,
+              valueListenable: widget.currentTimeListenable,
               builder: (context, now, _) {
                 return _positionedCurrentTime(
                   now: now,
@@ -1255,11 +1333,11 @@ class _PagerPreviewColumn extends StatelessWidget {
     );
     final resolvedAccent = PlannerEventColorResolver.accentColor(
       event,
-      eventColorsByTypeId,
+      widget.eventColorsByTypeId,
     );
     final resolvedSurface = PlannerEventColorResolver.surfaceColor(
       event,
-      eventColorsByTypeId,
+      widget.eventColorsByTypeId,
     );
     final accent = resolvedAccent;
     final surface = resolvedSurface;
@@ -1267,10 +1345,12 @@ class _PagerPreviewColumn extends StatelessWidget {
       event: event,
       accentColor: accent,
       surfaceColor: surface,
-      use24HourTime: settings.use24HourTime,
+      use24HourTime: widget.settings.use24HourTime,
       displayStartMinute: startMinute,
       displayEndMinute: endMinute,
-      awaitingReport: event.isAwaitingReport(currentTimeListenable.value),
+      awaitingReport: event.isAwaitingReport(
+        widget.currentTimeListenable.value,
+      ),
       content: content,
       titleKey: Key('planner-pager-preview-event-title-${event.id}'),
       timeKey: Key('planner-pager-preview-event-time-${event.id}'),
@@ -1385,15 +1465,15 @@ class _PagerPreviewColumn extends StatelessWidget {
     required int visibleStart,
     required int visibleEnd,
   }) {
-    if (settings.showCurrentTime != true) {
+    if (widget.settings.showCurrentTime != true) {
       return const SizedBox.shrink();
     }
     final current = PlannerDate.fromDateTime(now);
-    if (current != pageDate) {
+    if (current != widget.pageDate) {
       return const SizedBox.shrink();
     }
-    if (now.hour < settings.visibleStartHour ||
-        now.hour >= settings.visibleEndHour) {
+    if (now.hour < widget.settings.visibleStartHour ||
+        now.hour >= widget.settings.visibleEndHour) {
       return const SizedBox.shrink();
     }
     final minuteOfDay = now.hour * 60 + now.minute;

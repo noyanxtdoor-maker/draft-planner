@@ -1338,6 +1338,14 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                               settings: settings,
                               eventColorsByTypeId: eventColorsByTypeId,
                               hourHeight: stripHourHeight,
+                              // S2A: offscreen prev/next previews keep the
+                              // committed hour height while the pinch is live
+                              // (the centered page alone follows the live
+                              // scale). `_persistZoom` updates the committed
+                              // value exactly once at pinch end, so the
+                              // previews refresh to the final zoom before the
+                              // next horizontal swipe can expose them.
+                              previewHourHeight: settings.timelineHourHeight,
                               timelineHeight: stripTimelineHeight,
                               viewportWidth: viewportWidth,
                               viewportHeight: _dayViewportHeight(),
