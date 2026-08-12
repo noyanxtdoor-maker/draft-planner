@@ -2116,9 +2116,12 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     }
     final local = timeline.globalToLocal(globalPosition);
     // R7-03: the previous strip is the same-width in-viewport strip just
-    // inside the Event canvas, structurally mirroring the next strip.
-    if (local.dx >= PlannerCurrentTimeHorizontalGeometry.timeColumnWidth &&
-        local.dx <= _crossDatePreviousBoundary) {
+    // inside the Event canvas, structurally mirroring the next strip. The
+    // left region spans from the physical screen edge (local x = 0, the
+    // time gutter included) through the old boundary so "push the dragged
+    // Event to the edge and hold" works on the left exactly like the right;
+    // the RIGHT strip stays flush with the physical right edge.
+    if (local.dx <= _crossDatePreviousBoundary) {
       return -1;
     }
     if (local.dx >= timeline.size.width - _crossDateNextTriggerWidth) {
