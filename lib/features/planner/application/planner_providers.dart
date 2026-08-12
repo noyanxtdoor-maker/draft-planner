@@ -119,6 +119,13 @@ final class PlannerController extends Notifier<PlannerState> {
   int _loadGeneration = 0;
   int _dayCacheRevision = 0;
   final Map<PlannerDate, PlannerDay> _dayCache = <PlannerDate, PlannerDay>{};
+
+  /// [S1B-02] Bounded transient in-flight map: one canonical repository read
+  /// per (date) within a cache revision, shared by every caller. Completed
+  /// futures remove themselves; a cache invalidation clears the map so a
+  /// stale future is never adopted under a newer revision.
+  final Map<PlannerDate, Future<PlannerDay>> _inFlightDayReads =
+      <PlannerDate, Future<PlannerDay>>{};
   final Map<String, int> _pendingOccurrenceDeletionCounts = <String, int>{};
   final Map<String, int> _pendingSeriesDeletionCounts = <String, int>{};
   PlannerDay? _selectedCanonicalDay;
@@ -171,6 +178,124 @@ final class PlannerController extends Notifier<PlannerState> {
     await _load(date, rethrowOnFailure: true);
   }
 
+  /// [S1B-03] Pager commit handoff for a committed day-swipe.
+  ///
+  /// When the adjacent destination is already in the canonical day cache the
+  /// target `selectedDate` + matching cached [PlannerDay] are published
+  /// ATOMICALLY and this future returns immediately, so the pager recenters
+  /// and clears its settle lock without waiting for a canonical repository
+  /// read. The canonical refresh runs in the background under the captured
+  /// generation: a newer navigation bumps the generation and the stale
+  /// refresh is dropped, so it can never restore an old date or schedule.
+  ///
+  /// An UNCACHED target keeps the existing await semantics (date-aware
+  /// loading page; never the previous date's Events). This narrow path is
+  /// used only by the interactive pager; direct date selection
+  /// ([selectDate]) and mutation refresh keep their original behavior.
+  Future<void> moveDaysForPager(int days) async {
+    final date = state.selectedDate.addDays(days);
+    final cached = _dayCache[date];
+    if (cached == null) {
+      await _load(date, rethrowOnFailure: true);
+      return;
+    }
+    final generation = ++_loadGeneration;
+    // Reinsert to make the bounded insertion-ordered map act as a tiny LRU.
+    _dayCache.remove(date);
+    _dayCache[date] = cached;
+    _selectedCanonicalDay = cached;
+    state = state.copyWith(
+      status: PlannerLoadStatus.ready,
+      selectedDate: date,
+      day: filterPendingEventDeletions(cached),
+      clearMessage: true,
+    );
+    unawaited(_refreshCanonicalInBackground(date, generation));
+    _prefetchRollingRunway();
+  }
+
+  /// Background canonical refresh for the [moveDaysForPager] handoff.
+  ///
+  /// Reads the target day from the repository and republishes it ONLY if:
+  ///   * the captured generation is still the newest (a newer navigation or
+  ///     mutation bumped [PlannerController._loadGeneration]); and
+  ///   * the fresh result is not semantically identical to the currently
+  ///     visible day (S1B-04), which would otherwise cause a second visible
+  ///     presentation correction.
+  ///
+  /// Failures are silent: the cached target already published and the pager
+  /// already unlocked.
+  Future<void> _refreshCanonicalInBackground(
+    PlannerDate date,
+    int generation,
+  ) async {
+    try {
+      final day = await _readDayCanonical(date);
+      if (generation != _loadGeneration) {
+        return;
+      }
+      final visible = state.day;
+      final filteredFresh = filterPendingEventDeletions(day);
+      if (visible != null &&
+          visible.selectedDate == date &&
+          _daysSemanticallyEqual(visible, filteredFresh)) {
+        // S1B-04: equivalent refresh — preserve the existing visible/cache
+        // object identity; only touch LRU order.
+        final existing = _dayCache[date] ?? visible;
+        _dayCache.remove(date);
+        _dayCache[date] = existing;
+        _selectedCanonicalDay = existing;
+        return;
+      }
+      _cacheDay(day);
+      _selectedCanonicalDay = day;
+      state = state.copyWith(
+        status: PlannerLoadStatus.ready,
+        selectedDate: date,
+        day: filteredFresh,
+        clearMessage: true,
+      );
+    } on Object {
+      // Silent: the cached day remains authoritative.
+    }
+  }
+
+  /// [S1B-05] Rolling bounded prefetch runway.
+  ///
+  /// After a committed navigation, asynchronously warm the dates within ±3 of
+  /// the newly selected date. [readDays] is cache-first, so dates already in
+  /// the canonical cache cost ZERO repository reads; only newly missing edge
+  /// dates are fetched. The cache remains bounded at [_dayCacheLimit]. This
+  /// is read-only and never changes [PlannerState.selectedDate]; failures are
+  /// silent and never replace the current day.
+  void _prefetchRollingRunway() {
+    final center = state.selectedDate;
+    final missing = <PlannerDate>[];
+    for (var offset = -3; offset <= 3; offset++) {
+      final date = center.addDays(offset);
+      if (!_dayCache.containsKey(date)) {
+        missing.add(date);
+      }
+    }
+    if (missing.isEmpty) {
+      return;
+    }
+    unawaited(readDays(missing).then<void>((_) {}).catchError((_) => <void>[]));
+  }
+
+  /// [S1B-06] Narrow read accessor for presentation.
+  ///
+  /// Returns the canonical cached [PlannerDay] for [date] (with active
+  /// pending-deletion tombstones filtered) or `null` when the date is not
+  /// cached. The screen uses this to seed its presentation preview cache so a
+  /// date already available in the controller cache renders immediately
+  /// without waiting for a new preview future. Only a value is exposed — the
+  /// cache map itself stays private.
+  PlannerDay? cachedDay(PlannerDate date) {
+    final cached = _dayCache[date];
+    return cached == null ? null : filterPendingEventDeletions(cached);
+  }
+
   /// Refresh the currently selected Planner day without changing
   /// [PlannerState.selectedDate]. The same repository read used by
   /// date navigation runs in place, so the screen receives a fresh
@@ -181,31 +306,69 @@ final class PlannerController extends Notifier<PlannerState> {
   /// selected-date round trip.
   Future<void> refresh() => _load(state.selectedDate, invalidateCache: true);
 
+  /// Cache-first day reads for preview windows and alternate presentations.
+  ///
+  /// [S1B-01] Requests are served in the exact input order. Dates already in
+  /// the canonical day cache are returned immediately with ZERO repository
+  /// reads; only true misses hit the repository. Every resolved miss is cached
+  /// (bounded at [_dayCacheLimit]) and the pending-deletion filter is applied
+  /// to each returned day.
+  ///
+  /// If the cache revision changes while a miss is in flight (a mutation or
+  /// pending-deletion transition invalidated the cache), the whole request is
+  /// retried under the newest revision. Cache hits are still free on the retry,
+  /// so the recursion cannot re-read already-valid dates forever.
   Future<List<PlannerDay>> readDays(Iterable<PlannerDate> dates) async {
     final requestedDates = dates.toList(growable: false);
+    if (requestedDates.isEmpty) {
+      return <PlannerDay>[];
+    }
     final cacheRevision = _dayCacheRevision;
-    final days = await Future.wait(
-      requestedDates.map(
-        (date) => _repository.readDay(
-          profileId: _profileId,
-          selectedDate: date,
-          today: _dateSource.today(),
-        ),
-      ),
-    );
-    // An Event/Task mutation may invalidate the cache while this adjacent-day
-    // preview read is in flight. Never let that older result repopulate it.
-    if (cacheRevision != _dayCacheRevision) {
-      // A pending-deletion transition or mutation invalidated this read while
-      // it was in flight. Re-read under the newest revision instead of
-      // returning stale rows to a pager FutureBuilder that could paint them.
-      return readDays(requestedDates);
+    final misses = <PlannerDate>[];
+    final resolved = <PlannerDay?>[];
+    for (final date in requestedDates) {
+      final cached = _dayCache[date];
+      if (cached != null) {
+        resolved.add(cached);
+      } else {
+        resolved.add(null);
+        misses.add(date);
+      }
     }
-    for (final day in days) {
-      _cacheDay(day);
+    if (misses.isNotEmpty) {
+      final fetched = await Future.wait(misses.map(_readDayCanonical));
+      // S1B-01 (revision contract): an Event/Task mutation may invalidate the
+      // cache while this read is in flight. Never repopulate the cache from
+      // that older result — discard it and retry under the newest revision.
+      // Otherwise the retry below could resolve from the just-repopulated
+      // stale entry and return stale rows to a pager FutureBuilder.
+      if (cacheRevision != _dayCacheRevision) {
+        return readDays(requestedDates);
+      }
+      var missIndex = 0;
+      for (var index = 0; index < resolved.length; index++) {
+        if (resolved[index] == null) {
+          final day = fetched[missIndex++];
+          resolved[index] = day;
+          _cacheDay(day);
+        }
+      }
+    } else {
+      // S1B-01 (deletion-revision contract): an all-cache-hit request still
+      // yields once so a pending-deletion revision bump that lands between
+      // the call and the awaited result is honored below. Without this, a
+      // cached date read before a tombstone transition could resolve
+      // unfiltered after the deletion started.
+      await Future<void>.value();
+      if (cacheRevision != _dayCacheRevision) {
+        return readDays(requestedDates);
+      }
     }
+    // Already-valid cache hits resolve with zero repository reads on any
+    // retry, so the recursion above cannot re-read valid dates forever.
     return <PlannerDay>[
-      for (final day in days) filterPendingEventDeletions(day),
+      for (final day in resolved)
+        if (day != null) filterPendingEventDeletions(day),
     ];
   }
 
@@ -452,12 +615,23 @@ final class PlannerController extends Notifier<PlannerState> {
     bool rethrowOnFailure = false,
   }) async {
     try {
-      final day = await _repository.readDay(
-        profileId: _profileId,
-        selectedDate: date,
-        today: _dateSource.today(),
-      );
+      final day = await _readDayCanonical(date);
       if (generation != _loadGeneration) {
+        return;
+      }
+      final visible = state.day;
+      final filteredFresh = filterPendingEventDeletions(day);
+      if (visible != null &&
+          visible.selectedDate == date &&
+          _daysSemanticallyEqual(visible, filteredFresh)) {
+        // S1B-04: a canonical refresh that is semantically identical to the
+        // currently visible day must not produce a second visible
+        // presentation correction. Preserve the visible/cache object
+        // identity; only touch LRU order.
+        final existing = _dayCache[date] ?? visible;
+        _dayCache.remove(date);
+        _dayCache[date] = existing;
+        _selectedCanonicalDay = existing;
         return;
       }
       _cacheDay(day);
@@ -465,9 +639,10 @@ final class PlannerController extends Notifier<PlannerState> {
       state = state.copyWith(
         status: PlannerLoadStatus.ready,
         selectedDate: date,
-        day: filterPendingEventDeletions(day),
+        day: filteredFresh,
         clearMessage: true,
       );
+      _prefetchRollingRunway();
     } on Object {
       if (generation != _loadGeneration) {
         return;
@@ -485,6 +660,173 @@ final class PlannerController extends Notifier<PlannerState> {
   void _invalidateDayCache() {
     _dayCacheRevision += 1;
     _dayCache.clear();
+    _inFlightDayReads.clear();
+  }
+
+  /// [S1B-02] Canonical repository read with same-date in-flight coalescing.
+  ///
+  /// Two callers requesting the same missing date within one cache revision
+  /// (e.g. a selected-date load racing the rolling prefetch, or the preview
+  /// window asking for a date `_loadDay` is already reading) share a single
+  /// repository future. The future removes itself on completion; callers are
+  /// still responsible for their own generation/revision guards before
+  /// adopting or caching the result.
+  Future<PlannerDay> _readDayCanonical(PlannerDate date) {
+    final existing = _inFlightDayReads[date];
+    if (existing != null) {
+      return existing;
+    }
+    final future = _repository.readDay(
+      profileId: _profileId,
+      selectedDate: date,
+      today: _dateSource.today(),
+    );
+    _inFlightDayReads[date] = future;
+    // Error-safe cleanup: a failing repository read must still remove the
+    // in-flight entry, and the cleanup chain itself must never surface an
+    // unhandled async error (a prefetch read failure is deliberately silent).
+    unawaited(
+      future.then<void>(
+        (_) {
+          if (identical(_inFlightDayReads[date], future)) {
+            // Discard the removed in-flight future value intentionally; the
+            // completion of [future] already notified every awaiting caller.
+            final removed = _inFlightDayReads.remove(date);
+            assert(identical(removed, future));
+          }
+        },
+        onError: (Object error, StackTrace stackTrace) {
+          if (identical(_inFlightDayReads[date], future)) {
+            // Discard the removed in-flight future value intentionally; the
+            // completion of [future] already notified every awaiting caller.
+            final removed = _inFlightDayReads.remove(date);
+            assert(identical(removed, future));
+          }
+        },
+      ),
+    );
+    return future;
+  }
+
+  /// [S1B-04] Complete render-relevant semantic equality for two days.
+  ///
+  /// Compares every visible field (Event title/time/location/color/Backup/
+  /// Task identity, task status/due/context labels, list membership AND
+  /// order) rather than relying on object identity or the intentionally
+  /// narrow `_dayContentSignature`. Two days that compare equal paint
+  /// identically, so a fresh canonical object equal to the visible day must
+  /// not restart presentation work.
+  static bool _daysSemanticallyEqual(PlannerDay a, PlannerDay b) {
+    if (a.selectedDate != b.selectedDate) {
+      return false;
+    }
+    if (!_eventsEqual(a.allDayEvents, b.allDayEvents) ||
+        !_eventsEqual(a.timedEvents, b.timedEvents) ||
+        !_eventsEqual(a.awaitingReportEvents, b.awaitingReportEvents)) {
+      return false;
+    }
+    if (!_tasksEqual(a.tasks, b.tasks) ||
+        !_tasksEqual(a.overdueTasks, b.overdueTasks) ||
+        !_tasksEqual(a.completedTasks, b.completedTasks)) {
+      return false;
+    }
+    if (a.changes.length != b.changes.length) {
+      return false;
+    }
+    for (var index = 0; index < a.changes.length; index++) {
+      final x = a.changes[index];
+      final y = b.changes[index];
+      if (x.id != y.id ||
+          x.title != y.title ||
+          x.label != y.label ||
+          x.isTask != y.isTask ||
+          x.eventId != y.eventId ||
+          x.originalDate != y.originalDate) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  static bool _eventsEqual(
+    List<PlannerCalendarItem> a,
+    List<PlannerCalendarItem> b,
+  ) {
+    if (a.length != b.length) {
+      return false;
+    }
+    for (var index = 0; index < a.length; index++) {
+      final x = a[index];
+      final y = b[index];
+      if (x.id != y.id ||
+          x.eventId != y.eventId ||
+          x.title != y.title ||
+          x.date != y.date ||
+          x.originalDate != y.originalDate ||
+          x.timing != y.timing ||
+          x.state != y.state ||
+          x.requiresReport != y.requiresReport ||
+          x.hasOutcomeReport != y.hasOutcomeReport ||
+          x.startLocal != y.startLocal ||
+          x.endLocal != y.endLocal ||
+          x.startUtc != y.startUtc ||
+          x.endUtc != y.endUtc ||
+          x.locationText != y.locationText ||
+          x.isRecurring != y.isRecurring ||
+          x.replacementId != y.replacementId ||
+          x.timeZoneId != y.timeZoneId ||
+          x.displayTimeZoneId != y.displayTimeZoneId ||
+          x.activityTypeId != y.activityTypeId ||
+          x.activityTypeLabel != y.activityTypeLabel ||
+          x.activityTypeColorValue != y.activityTypeColorValue ||
+          x.isBackupAppointment != y.isBackupAppointment ||
+          x.backupForEventId != y.backupForEventId ||
+          !_stringListsEqual(x.linkedTaskIds, y.linkedTaskIds)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  static bool _tasksEqual(List<PlannerTask> a, List<PlannerTask> b) {
+    if (a.length != b.length) {
+      return false;
+    }
+    for (var index = 0; index < a.length; index++) {
+      final x = a[index];
+      final y = b[index];
+      if (x.id != y.id ||
+          x.title != y.title ||
+          x.notes != y.notes ||
+          x.dueDate != y.dueDate ||
+          x.status != y.status ||
+          x.requiresReport != y.requiresReport ||
+          x.contributionRuleKey != y.contributionRuleKey ||
+          x.dueMinute != y.dueMinute ||
+          x.recurrence != y.recurrence ||
+          x.linkedActivityTypeId != y.linkedActivityTypeId ||
+          x.linkedActivityTypeStableKey != y.linkedActivityTypeStableKey ||
+          x.linkedActivityTypeLabelSnapshot !=
+              y.linkedActivityTypeLabelSnapshot ||
+          !_stringListsEqual(x.people, y.people) ||
+          !_stringListsEqual(x.linkedEventIds, y.linkedEventIds) ||
+          !_stringListsEqual(x.pathwayContextLabels, y.pathwayContextLabels)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  static bool _stringListsEqual(List<String> a, List<String> b) {
+    if (a.length != b.length) {
+      return false;
+    }
+    for (var index = 0; index < a.length; index++) {
+      if (a[index] != b[index]) {
+        return false;
+      }
+    }
+    return true;
   }
 
   void _cacheDay(PlannerDay day) {
@@ -517,6 +859,7 @@ final class PlannerController extends Notifier<PlannerState> {
   void _publishEventDeletionRevision() {
     _loadGeneration += 1;
     _dayCacheRevision += 1;
+    _inFlightDayReads.clear();
     final canonical = _selectedCanonicalDay?.selectedDate == state.selectedDate
         ? _selectedCanonicalDay
         : _dayCache[state.selectedDate];

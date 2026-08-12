@@ -372,9 +372,26 @@ class _PlannerInteractiveDayPagerState extends State<PlannerInteractiveDayPager>
   }
 
   /// True while the settle animation is running. During this
-  /// window a fresh pointer-down is rejected so a mid-settle
-  /// flick cannot chain into a second commit.
+  /// window a fresh pointer-down is buffered (S1B-07) rather than
+  /// silently dropped, so a deliberate rapid swipe is never lost.
   bool _settling = false;
+
+  /// S1B-07: the deliberate horizontal gesture that began while a settle
+  /// animation was still running. Its pointer-down is not rejected; instead
+  /// the session is buffered here, its moves accumulate `sessionDx`, and at
+  /// the end of the current commit's handoff the buffered gesture either
+  /// chains a follow-up commit (if it was released with a valid swipe) or
+  /// takes over as a live drag session (if the finger is still down).
+  /// One date step per committed swipe is preserved because each buffered
+  /// gesture resolves to exactly one [_animateCommit] delta.
+  _PageDragSession? _pendingDragSession;
+
+  /// S1B-07: commit directions awaiting settle handoffs, FIFO. Each entry is
+  /// pushed when a buffered gesture is released with a valid swipe while a
+  /// settle is still running, and one is popped per [_animateCommit] end, so
+  /// rapid swipes that land inside a single settle window chain one day step
+  /// EACH in input order (Law 14) instead of overwriting each other.
+  final List<int> _pendingCommitDirections = <int>[];
 
   /// Live drag-offset accessor for tests. Not part of the
   /// public production contract.
@@ -394,6 +411,10 @@ class _PlannerInteractiveDayPagerState extends State<PlannerInteractiveDayPager>
     }
     _dragSession = null;
     if (_settling) {
+      // S1B-07: a competing recognizer won the gesture; drop any buffered
+      // rapid-swipe candidate so it cannot chain after the settle.
+      _pendingDragSession = null;
+      _pendingCommitDirections.clear();
       return;
     }
     if (_liveDragOffset.abs() < 0.5) {
@@ -476,6 +497,18 @@ class _PlannerInteractiveDayPagerState extends State<PlannerInteractiveDayPager>
 
   void _onPointerDown(PointerDownEvent event) {
     if (_settling) {
+      // S1B-07: a deliberate new swipe landed inside the settle window.
+      // Buffer it instead of dropping it. A pinch or an externally cancelled
+      // gesture must still win, exactly like the non-settling path.
+      if (widget.onPinchPointerCount() >= 2 || widget.isSwipeCancelled()) {
+        _pendingDragSession = null;
+        _pendingCommitDirections.clear();
+        return;
+      }
+      _pendingDragSession = _PageDragSession(
+        startPosition: event.position,
+        startTime: event.timeStamp,
+      );
       return;
     }
     widget.onSwipePointerDown();
@@ -502,6 +535,31 @@ class _PlannerInteractiveDayPagerState extends State<PlannerInteractiveDayPager>
   }
 
   void _onPointerMove(PointerMoveEvent event) {
+    final pending = _pendingDragSession;
+    if (pending != null && _settling) {
+      // S1B-07: track the buffered gesture's travel so the chain decision at
+      // the end of the settle is based on real input, not a blind commit.
+      if (widget.isSwipeCancelled() || widget.onPinchPointerCount() >= 2) {
+        _pendingDragSession = null;
+        _pendingCommitDirections.clear();
+        return;
+      }
+      final dx = event.position.dx - pending.startPosition.dx;
+      final dy = event.position.dy - pending.startPosition.dy;
+      if (!pending.horizontalIntentLocked) {
+        if (dx.abs() >= kPlannerPagerDirectionLockDistance &&
+            dx.abs() > dy.abs() * kPlannerPagerHorizontalDominanceRatio) {
+          pending.horizontalIntentLocked = true;
+        }
+      }
+      if (pending.horizontalIntentLocked) {
+        pending.sessionDx = dx.clamp(
+          -widget.viewportWidth,
+          widget.viewportWidth,
+        );
+      }
+      return;
+    }
     final session = _dragSession;
     if (session == null) {
       return;
@@ -561,6 +619,33 @@ class _PlannerInteractiveDayPagerState extends State<PlannerInteractiveDayPager>
   void _onPointerUp(PointerUpEvent event) {
     widget.onSwipePointerUp();
     widget.onPinchClearCancel();
+    final pending = _pendingDragSession;
+    if (pending != null && _settling) {
+      // S1B-07: the buffered gesture was released while the settle was still
+      // running. Decide its commit now and chain it when the current commit
+      // completes its logical handoff.
+      _pendingDragSession = null;
+      if (pending.horizontalIntentLocked) {
+        final dx = pending.sessionDx;
+        final elapsedMicroseconds =
+            (event.timeStamp - pending.startTime).inMicroseconds;
+        final velocityX = elapsedMicroseconds == 0
+            ? 0.0
+            : (dx.abs() / (elapsedMicroseconds / 1000.0));
+        final distanceThreshold = _commitDistanceThreshold(
+          widget.viewportWidth,
+        );
+        final passesDistance =
+            dx.abs() >= distanceThreshold &&
+            dx.abs() >= kPlannerPagerMinDistance;
+        final passesVelocity =
+            velocityX >= _commitVelocityPixelsPerMillisecond && dx.abs() > 0;
+        if ((passesDistance || passesVelocity) && dx != 0) {
+          _pendingCommitDirections.add(dx < 0 ? 1 : -1);
+        }
+      }
+      return;
+    }
     final session = _dragSession;
     if (session == null) {
       return;
@@ -593,6 +678,8 @@ class _PlannerInteractiveDayPagerState extends State<PlannerInteractiveDayPager>
   void _onPointerCancel(PointerCancelEvent event) {
     widget.onSwipePointerUp();
     widget.onPinchClearCancel();
+    _pendingDragSession = null;
+    _pendingCommitDirections.clear();
     if (_dragSession == null) {
       return;
     }
@@ -649,6 +736,8 @@ class _PlannerInteractiveDayPagerState extends State<PlannerInteractiveDayPager>
     } on TickerCanceled {
       animation.removeListener(listener);
       _settling = false;
+      _pendingDragSession = null;
+      _pendingCommitDirections.clear();
       return;
     } catch (_) {
       animation.removeListener(listener);
@@ -671,6 +760,8 @@ class _PlannerInteractiveDayPagerState extends State<PlannerInteractiveDayPager>
       // A failed adjacent read leaves the current page authoritative. Return
       // the settled translation to center without preparing the date strip
       // or publishing a second callback.
+      _pendingDragSession = null;
+      _pendingCommitDirections.clear();
       if (mounted) {
         await _animateRecenter();
       }
@@ -687,6 +778,28 @@ class _PlannerInteractiveDayPagerState extends State<PlannerInteractiveDayPager>
       _setLiveDragOffset(0);
     });
     _settling = false;
+    // S1B-07: the settle lock is now released. If a deliberate rapid swipe
+    // landed during the settle, chain it (released) or hand it the live
+    // drag ownership (finger still down). Each chained gesture resolves to
+    // exactly one day step, so the input order is preserved.
+    if (_pendingCommitDirections.isNotEmpty) {
+      final chainedDirection = _pendingCommitDirections.removeAt(0);
+      unawaited(_animateCommit(chainedDirection));
+      return;
+    }
+    final buffered = _pendingDragSession;
+    if (buffered != null) {
+      _pendingDragSession = null;
+      _dragSession = buffered;
+      if (buffered.horizontalIntentLocked) {
+        // Claim the paging gesture (no cancel-listener feedback) and let the
+        // page follow the finger from wherever the settle left it.
+        widget.onSwipeCancel();
+        setState(() {
+          _setLiveDragOffset(buffered.sessionDx);
+        });
+      }
+    }
   }
 
   Future<void> _animateRecenter() async {

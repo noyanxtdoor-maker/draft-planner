@@ -1150,6 +1150,21 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
         'f${settings.contentFilters.hashCode}';
     if (_previewSignature != previewSignature) {
       _previewSignature = previewSignature;
+      // S1B-06: seed the presentation preview cache from the controller's
+      // canonical cache BEFORE starting the new preview future, so a date
+      // already available in the controller cache renders immediately
+      // (no blank/pop-in for an already-known date while the future churns).
+      // Dates still missing from the controller cache resolve normally from
+      // the future and are folded in below.
+      final controller = ref.read(plannerControllerProvider.notifier);
+      final cachedPrevious = controller.cachedDay(previousDate);
+      final cachedNext = controller.cachedDay(nextDate);
+      if (cachedPrevious != null) {
+        _previewDayCache[previousDate] = cachedPrevious;
+      }
+      if (cachedNext != null) {
+        _previewDayCache[nextDate] = cachedNext;
+      }
       // Capture the generation that THIS future was started
       // with. The FutureBuilder adopts the result only if the
       // generation still matches the most recent build's
@@ -1350,9 +1365,17 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                                 if (delta == 0) {
                                   return;
                                 }
+                                // S1B-03: cached pager commit handoff. When the
+                                // adjacent destination is already in the
+                                // controller's canonical day cache, the target
+                                // date + matching day publish atomically and
+                                // this future returns immediately so the pager
+                                // recenters and unlocks without waiting for a
+                                // canonical repository read (which continues in
+                                // the background under the generation guard).
                                 await ref
                                     .read(plannerControllerProvider.notifier)
-                                    .moveDays(delta);
+                                    .moveDaysForPager(delta);
                               },
                               currentTimeListenable:
                                   _activeCurrentTimeListenable,
