@@ -5531,7 +5531,7 @@ final class _MoveUndoSnackBarContentState
   }
 }
 
-final class _TimelineEventBlock extends StatelessWidget {
+final class _TimelineEventBlock extends StatefulWidget {
   const _TimelineEventBlock({
     required this.event,
     required this.provisional,
@@ -5583,7 +5583,111 @@ final class _TimelineEventBlock extends StatelessWidget {
   final bool squareBottom;
 
   @override
+  State<_TimelineEventBlock> createState() => _TimelineEventBlockState();
+}
+
+/// S2B-02: stable Event content subtrees. The heavy presentation subtree
+/// ([PlannerEventBlockContentView]: title/time/status/recurrence/colors) is
+/// scale-invariant for an ordinary pinch — only the rectangle changes. This
+/// State reuses the exact content widget instance while a COMPLETE render
+/// fingerprint (Event facts + content density tier + resolved colors) is
+/// unchanged, so same-tier pinch frames construct ~0 content widgets.
+/// The gesture/semantics wrapper still rebuilds each frame (its callbacks
+/// capture per-frame geometry), and any fact change or density-tier crossing
+/// rebuilds the content exactly once (pack 10/12).
+final class _TimelineEventBlockState extends State<_TimelineEventBlock> {
+  Object? _contentFingerprint;
+  Widget? _cachedContent;
+
+  /// Resolve the scale-invariant content subtree, reusing the exact cached
+  /// widget instance while the COMPLETE render fingerprint is unchanged.
+  /// [content] is derived from the live available height (the density tier),
+  /// so a pinch that stays in the same tier reuses the instance; a tier
+  /// crossing rebuilds exactly once. All other inputs are the widget facts
+  /// (title/time/status/recurrence/colors) that never change mid-pinch.
+  Widget _resolveContent({
+    required PlannerEventBlockContent content,
+    required Color accent,
+    required Color fill,
+    required Color? textColorOverride,
+  }) {
+    final fingerprint = (
+      widget.event.id,
+      widget.event.displayTitle,
+      widget.event.activityTypeLabel,
+      widget.event.activityTypeColorValue,
+      widget.event.isBackupAppointment,
+      widget.event.requiresReport,
+      widget.event.state,
+      widget.event.isRecurring,
+      widget.event.linkedTaskIds.length,
+      widget.provisional,
+      widget.use24HourTime,
+      widget.displayStartMinute,
+      widget.displayEndMinute,
+      widget.awaitingReport,
+      content.density,
+      content.titleMaxLines,
+      content.showTitle,
+      content.showTime,
+      content.showTimeInline,
+      content.showRecurrence,
+      content.showStatusIcons,
+      content.showResizeHandle,
+      content.showTimeOnly,
+      accent,
+      fill,
+      textColorOverride,
+    );
+    if (_contentFingerprint != fingerprint || _cachedContent == null) {
+      _contentFingerprint = fingerprint;
+      _cachedContent = PlannerEventBlockContentView(
+        event: widget.event,
+        accentColor: accent,
+        surfaceColor: fill,
+        textColorOverride: textColorOverride,
+        use24HourTime: widget.use24HourTime,
+        displayStartMinute: widget.displayStartMinute,
+        displayEndMinute: widget.displayEndMinute,
+        awaitingReport: widget.awaitingReport,
+        content: content,
+        titleKey: const Key('planner-event-block-title'),
+        timeKey: const Key('planner-event-block-time'),
+        recurrenceKey: Key(
+          'planner-event-recurring-${widget.event.id}',
+        ),
+        statusKey: Key(
+          'planner-event-block-status-${widget.event.id}',
+        ),
+      );
+    }
+    return _cachedContent!;
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final event = widget.event;
+    final provisional = widget.provisional;
+    final eventColorsByTypeId = widget.eventColorsByTypeId;
+    final use24HourTime = widget.use24HourTime;
+    final displayStartMinute = widget.displayStartMinute;
+    final displayEndMinute = widget.displayEndMinute;
+    final awaitingReport = widget.awaitingReport;
+    final selectionMode = widget.selectionMode;
+    final selected = widget.selected;
+    final selectedForDirectManipulation =
+        widget.selectedForDirectManipulation;
+    final interactive = widget.interactive;
+    final squareTop = widget.squareTop;
+    final squareBottom = widget.squareBottom;
+    final onToggleSelection = widget.onToggleSelection;
+    final onTap = widget.onTap;
+    final onDirectPointerDown = widget.onDirectPointerDown;
+    final onMoveStart = widget.onMoveStart;
+    final onMoveUpdate = widget.onMoveUpdate;
+    final onLongPressMoveUpdate = widget.onLongPressMoveUpdate;
+    final onMoveEnd = widget.onMoveEnd;
+    final onMoveCancel = widget.onMoveCancel;
     final resolvedAccent = PlannerEventColorResolver.accentColor(
       event,
       eventColorsByTypeId,
@@ -5612,20 +5716,13 @@ final class _TimelineEventBlock extends StatelessWidget {
           // (approved provisional surface) — never the Event Type title.
           showTimeOnly: provisional,
         );
-        final eventContent = PlannerEventBlockContentView(
-          event: event,
-          accentColor: accent,
-          surfaceColor: fill,
-          textColorOverride: textColorOverride,
-          use24HourTime: use24HourTime,
-          displayStartMinute: displayStartMinute,
-          displayEndMinute: displayEndMinute,
-          awaitingReport: awaitingReport,
+        // S2B-02: reuse the exact content subtree while the render
+        // fingerprint is unchanged (same tier + same facts).
+        final eventContent = _resolveContent(
           content: content,
-          titleKey: const Key('planner-event-block-title'),
-          timeKey: const Key('planner-event-block-time'),
-          recurrenceKey: Key('planner-event-recurring-${event.id}'),
-          statusKey: Key('planner-event-block-status-${event.id}'),
+          accent: accent,
+          fill: fill,
+          textColorOverride: textColorOverride,
         );
         final eventBody = InkWell(
           // R6-06: bulk mode has one tap owner around the complete visible
