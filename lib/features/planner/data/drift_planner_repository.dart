@@ -151,7 +151,30 @@ final class DriftPlannerRepository implements PlannerRepository {
                 (table) => OrderingTerm.asc(table.createdAtUtc),
               ]))
             .get();
-    final allTasks = await Future.wait(taskRows.map(_mapTask));
+    // S1A: when the Task context source supports it, load every Task's
+    // context in one/chunk set-based query instead of one query per Task.
+    // A missing map entry (a Task with no links) becomes an empty context so
+    // no per-Task fallback query is issued for the batched path.
+    final taskContextBatchSource =
+        taskContextSource is PlannerTaskContextBatchSource
+        ? taskContextSource as PlannerTaskContextBatchSource
+        : null;
+    final batchContexts = taskContextBatchSource == null
+        ? null
+        : await taskContextBatchSource.readContexts(
+            taskRows.map((row) => row.id),
+          );
+    final contextsByTask = batchContexts == null
+        ? null
+        : <String, PlannerTaskContext>{
+            for (final row in taskRows)
+              row.id: batchContexts[row.id] ?? const PlannerTaskContext(),
+          };
+    final allTasks = await Future.wait(
+      taskRows.map(
+        (row) => _mapTask(row, preloadedContext: contextsByTask?[row.id]),
+      ),
+    );
     final calendarItems = await calendarSource.readDay(
       profileId: profileId,
       date: selectedDate,
@@ -379,8 +402,12 @@ final class DriftPlannerRepository implements PlannerRepository {
     return saved;
   }
 
-  Future<PlannerTask> _mapTask(PlannerTaskRow row) async {
-    final context = await taskContextSource.readContext(row.id);
+  Future<PlannerTask> _mapTask(
+    PlannerTaskRow row, {
+    PlannerTaskContext? preloadedContext,
+  }) async {
+    final context =
+        preloadedContext ?? await taskContextSource.readContext(row.id);
     return PlannerTask(
       id: row.id,
       profileId: row.profileId,

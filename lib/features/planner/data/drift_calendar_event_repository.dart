@@ -65,13 +65,42 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
                 (table) => OrderingTerm.asc(table.createdAtUtc),
               ]))
             .get();
+    // S1A: the per-row reads below (reports, exceptions, Task links) are
+    // hoisted into bounded set-based batches for production Drift sources.
+    // Each per-Event lookup then becomes a map access with identical
+    // semantics; non-batch-capable test doubles keep the legacy per-Event
+    // read path untouched.
+    final reportBatchSource = reportSource is CalendarEventReportBatchSource
+        ? reportSource as CalendarEventReportBatchSource
+        : null;
+    final reportsByEvent = reportBatchSource == null
+        ? null
+        : await reportBatchSource.readSeriesReportsForEvents(
+            rows.map((row) => row.id),
+          );
+    final exceptionsByEvent = await _latestExceptionsForEvents(
+      rows.map((row) => row.id),
+    );
+    final taskContextBatchSource =
+        taskContextSource is CalendarEventTaskContextBatchSource
+        ? taskContextSource as CalendarEventTaskContextBatchSource
+        : null;
+    final taskContextSnapshot = taskContextBatchSource == null
+        ? null
+        : await taskContextBatchSource.readTaskContextSnapshot(
+            rows.map((row) => row.id),
+          );
     final items = <PlannerCalendarItem>[];
     for (final row in rows) {
-      final reports = await reportSource.readSeriesReports(row.id);
+      final reports = reportsByEvent == null
+          ? await reportSource.readSeriesReports(row.id)
+          : reportsByEvent[row.id] ?? const <CalendarEventReportSnapshot>[];
       final reportById = <String, CalendarEventReportSnapshot>{
         for (final report in reports) report.occurrenceId: report,
       };
-      final exceptions = await _latestExceptions(row.id);
+      final exceptions =
+          exceptionsByEvent[row.id] ??
+          const <String, CalendarEventExceptionRow>{};
       final candidates = row.timing == CalendarEventTiming.allDay.name
           ? <PlannerDate>[date]
           : <PlannerDate>[date.addDays(-1), date, date.addDays(1)];
@@ -86,6 +115,7 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
                 originalDate: originalDate,
               )],
           reportById: reportById,
+          taskContextSnapshot: taskContextSnapshot,
         );
         if (occurrence == null ||
             (occurrence.displayDate != date &&
@@ -109,6 +139,7 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
           originalDate: originalDate,
           exception: exception,
           reportById: reportById,
+          taskContextSnapshot: taskContextSnapshot,
         );
         // Planner Polish Delta 2: an occurrence-scoped MOVE writes an
         // exception whose effective date differs from its original date.
@@ -858,6 +889,49 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
     };
   }
 
+  /// Batch equivalent of [_latestExceptions] for a set of Event IDs.
+  ///
+  /// Fetches the exact same exception population the per-Event method would
+  /// fetch (no date filtering — that is a later, recurrence-safe phase) and
+  /// reproduces the same latest-wins rule: rows ordered by createdAtUtc
+  /// ascending, with the last row per occurrenceId winning.  Returns
+  /// Event ID -> (occurrenceId -> latest exception row).
+  Future<Map<String, Map<String, CalendarEventExceptionRow>>>
+  _latestExceptionsForEvents(Iterable<String> eventIds) async {
+    final ids = eventIds.toSet().toList();
+    if (ids.isEmpty) {
+      return const <String, Map<String, CalendarEventExceptionRow>>{};
+    }
+    final grouped = <String, Map<String, CalendarEventExceptionRow>>{};
+    for (final chunk in _chunks(ids, _batchChunkSize)) {
+      final rows =
+          await (database.select(database.calendarEventExceptions)
+                ..where((table) => table.eventId.isIn(chunk))
+                ..orderBy(<OrderingTerm Function(CalendarEventExceptions)>[
+                  (table) => OrderingTerm.asc(table.eventId),
+                  (table) => OrderingTerm.asc(table.createdAtUtc),
+                ]))
+              .get();
+      for (final row in rows) {
+        final byOccurrence = grouped.putIfAbsent(
+          row.eventId,
+          () => <String, CalendarEventExceptionRow>{},
+        );
+        byOccurrence[row.occurrenceId] = row;
+      }
+    }
+    return grouped;
+  }
+
+  static const int _batchChunkSize = 500;
+
+  static Iterable<List<String>> _chunks(List<String> values, int size) sync* {
+    for (var start = 0; start < values.length; start += size) {
+      final end = start + size < values.length ? start + size : values.length;
+      yield values.sublist(start, end);
+    }
+  }
+
   Future<ActivityTypeRow?> _readActivityType(
     String profileId,
     String activityTypeId,
@@ -877,6 +951,7 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
     required PlannerDate originalDate,
     required CalendarEventExceptionRow? exception,
     required Map<String, CalendarEventReportSnapshot> reportById,
+    CalendarEventTaskContextSnapshot? taskContextSnapshot,
   }) async {
     final rule = _ruleFromRow(row);
     final occurrenceId = CalendarEventOccurrenceIdentity.forDate(
@@ -991,10 +1066,15 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
       recurrence: rule,
       replacementEventId:
           exception?.replacementEventId ?? row.replacementEventId,
-      linkedTaskIds: await taskContextSource.readLinkedTaskIds(
-        eventId: row.id,
-        occurrenceId: occurrenceId,
-      ),
+      linkedTaskIds: taskContextSnapshot == null
+          ? await taskContextSource.readLinkedTaskIds(
+              eventId: row.id,
+              occurrenceId: occurrenceId,
+            )
+          : taskContextSnapshot.linkedTaskIds(
+              eventId: row.id,
+              occurrenceId: occurrenceId,
+            ),
       createdAtUtc: exception?.createdAtUtc ?? row.createdAtUtc,
       updatedAtUtc: exception?.createdAtUtc ?? row.updatedAtUtc,
     );

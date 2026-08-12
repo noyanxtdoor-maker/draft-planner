@@ -25,6 +25,22 @@ abstract interface class PlannerTaskContextSource {
   Future<PlannerTaskContext> readContext(String taskId);
 }
 
+/// Optional batch capability for [PlannerTaskContextSource].
+///
+/// Production Drift sources implement this so a Planner day read can load the
+/// Task context for every Task row in one/chunk set-based query instead of one
+/// query per Task.  Callers must fall back to the single-Task
+/// [PlannerTaskContextSource.readContext] contract when a source does not
+/// implement this capability.
+abstract interface class PlannerTaskContextBatchSource {
+  /// Returns Task contexts keyed by Task ID for the given Task IDs.  A Task
+  /// with no matching links has no map entry; callers treat a missing entry
+  /// as an empty [PlannerTaskContext].
+  Future<Map<String, PlannerTaskContext>> readContexts(
+    Iterable<String> taskIds,
+  );
+}
+
 final class EmptyPlannerTaskContextSource implements PlannerTaskContextSource {
   const EmptyPlannerTaskContextSource();
 

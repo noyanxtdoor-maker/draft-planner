@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:rmplanner/core/database/app_database.dart';
 import 'package:rmplanner/core/time/app_clock.dart';
 import 'package:rmplanner/features/planner/application/calendar_event_repository.dart';
+import 'package:rmplanner/features/planner/application/planner_repository.dart';
 import 'package:rmplanner/features/planner/application/task_event_link_repository.dart';
 import 'package:rmplanner/features/planner/domain/calendar_event.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
@@ -20,7 +21,11 @@ final class AllowTaskEventLinkWrites implements TaskEventLinkWriteGuard {
   Future<void> beforeCommit() async {}
 }
 
-final class DriftTaskEventLinkRepository implements TaskEventLinkRepository {
+final class DriftTaskEventLinkRepository
+    implements
+        TaskEventLinkRepository,
+        CalendarEventTaskContextBatchSource,
+        PlannerTaskContextBatchSource {
   const DriftTaskEventLinkRepository({
     required this.database,
     required this.clock,
@@ -43,6 +48,115 @@ final class DriftTaskEventLinkRepository implements TaskEventLinkRepository {
     return PlannerTaskContext(
       linkedEventIds: rows.map((row) => row.eventId).toSet().toList()..sort(),
     );
+  }
+
+  @override
+  Future<Map<String, PlannerTaskContext>> readContexts(
+    Iterable<String> taskIds,
+  ) async {
+    final ids = taskIds.toSet().toList();
+    if (ids.isEmpty) {
+      return const <String, PlannerTaskContext>{};
+    }
+    final eventIdsByTask = <String, Set<String>>{};
+    for (final chunk in _chunks(ids, _linkBatchChunkSize)) {
+      final rows =
+          await (database.select(database.taskEventLinks)..where(
+                (table) =>
+                    table.taskId.isIn(chunk) &
+                    table.status.equals(TaskEventLinkStatus.active.name),
+              ))
+              .get();
+      for (final row in rows) {
+        (eventIdsByTask[row.taskId] ??= <String>{}).add(row.eventId);
+      }
+    }
+    return <String, PlannerTaskContext>{
+      for (final entry in eventIdsByTask.entries)
+        entry.key: PlannerTaskContext(
+          linkedEventIds: entry.value.toList()..sort(),
+        ),
+    };
+  }
+
+  @override
+  Future<CalendarEventTaskContextSnapshot> readTaskContextSnapshot(
+    Iterable<String> eventIds,
+  ) async {
+    final ids = eventIds.toSet().toList();
+    if (ids.isEmpty) {
+      return const CalendarEventTaskContextSnapshot();
+    }
+    final seriesByEvent = <String, Set<String>>{};
+    final occurrenceByEvent =
+        <String, List<CalendarEventTaskContextOverride>>{};
+    final referencedTaskIds = <String>{};
+    for (final chunk in _chunks(ids, _linkBatchChunkSize)) {
+      final rows =
+          await (database.select(database.taskEventLinks)..where(
+                (table) =>
+                    table.eventId.isIn(chunk) &
+                    (table.status.equals(TaskEventLinkStatus.active.name) |
+                        table.status.equals(TaskEventLinkStatus.removed.name)),
+              ))
+              .get();
+      for (final row in rows) {
+        referencedTaskIds.add(row.taskId);
+        if (row.scope == TaskEventLinkScope.series.name &&
+            row.status == TaskEventLinkStatus.active.name) {
+          (seriesByEvent[row.eventId] ??= <String>{}).add(row.taskId);
+        } else if (row.scope == TaskEventLinkScope.occurrence.name) {
+          final occurrenceId = row.occurrenceId;
+          if (occurrenceId == null) {
+            continue;
+          }
+          (occurrenceByEvent[row.eventId] ??=
+                  <CalendarEventTaskContextOverride>[])
+              .add(
+                CalendarEventTaskContextOverride(
+                  taskId: row.taskId,
+                  occurrenceId: occurrenceId,
+                  status: TaskEventLinkStatus.values.byName(row.status),
+                ),
+              );
+        }
+      }
+    }
+    return CalendarEventTaskContextSnapshot(
+      seriesByEvent: seriesByEvent,
+      occurrenceByEvent: occurrenceByEvent,
+      existingTaskIds: await _existingTaskIds(referencedTaskIds),
+    );
+  }
+
+  /// Validates Task existence for the referenced Task IDs in one/chunk set
+  /// based query.  The legacy per-occurrence path validated only the
+  /// effective set; validating the (superset) referenced set yields the same
+  /// outcome because a Task in the effective set is always referenced.
+  Future<Set<String>> _existingTaskIds(Iterable<String> taskIds) async {
+    final ids = taskIds.toSet().toList();
+    if (ids.isEmpty) {
+      return const <String>{};
+    }
+    final existing = <String>{};
+    for (final chunk in _chunks(ids, _linkBatchChunkSize)) {
+      final rows = await (database.select(
+        database.plannerTasks,
+      )..where((table) => table.id.isIn(chunk))).get();
+      for (final row in rows) {
+        existing.add(row.id);
+      }
+    }
+    return existing;
+  }
+
+  static const int _linkBatchChunkSize = 500;
+
+  static Iterable<List<String>> _chunks(List<String> values, int size) sync* {
+    for (var start = 0; start < values.length; start += size) {
+      final end = start + size < values.length ? start + size : values.length;
+      yield values.sublist(start, end);
+    }
   }
 
   @override

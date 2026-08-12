@@ -27,6 +27,7 @@ final class DriftOutcomeReportingRepository
     implements
         OutcomeReportingRepository,
         CalendarEventReportSource,
+        CalendarEventReportBatchSource,
         TaskHistoricalEffectReader {
   const DriftOutcomeReportingRepository({
     required this.database,
@@ -70,20 +71,72 @@ final class DriftOutcomeReportingRepository
               ]))
             .get();
     return rows
-        .where(
-          (row) =>
-              row.occurrenceId != null &&
-              row.originalDate != null &&
-              row.outcome != null,
-        )
-        .map(
-          (row) => CalendarEventReportSnapshot(
-            occurrenceId: row.occurrenceId!,
-            originalDate: PlannerDate.parse(row.originalDate!),
-            status: CalendarEventStatus.values.byName(row.outcome!),
-          ),
-        )
+        .map(_reportSnapshotFromRow)
+        .whereType<CalendarEventReportSnapshot>()
         .toList(growable: false);
+  }
+
+  @override
+  Future<Map<String, List<CalendarEventReportSnapshot>>>
+  readSeriesReportsForEvents(Iterable<String> eventIds) async {
+    final ids = eventIds.toSet().toList();
+    if (ids.isEmpty) {
+      return const <String, List<CalendarEventReportSnapshot>>{};
+    }
+    final grouped = <String, List<CalendarEventReportSnapshot>>{};
+    for (final chunk in _chunks(ids, _reportBatchChunkSize)) {
+      final rows =
+          await (database.select(database.outcomeReports)
+                ..where(
+                  (table) =>
+                      table.eventId.isIn(chunk) &
+                      table.status.equals(OutcomeReportStatus.submitted.name) &
+                      table.effectiveSlotKey.isNotNull(),
+                )
+                ..orderBy(<OrderingTerm Function(OutcomeReports)>[
+                  (table) => OrderingTerm.asc(table.eventId),
+                  (table) => OrderingTerm.asc(table.activityDate),
+                ]))
+              .get();
+      for (final row in rows) {
+        final eventId = row.eventId;
+        final snapshot = eventId == null ? null : _reportSnapshotFromRow(row);
+        if (eventId == null || snapshot == null) {
+          continue;
+        }
+        (grouped[eventId] ??= <CalendarEventReportSnapshot>[]).add(snapshot);
+      }
+    }
+    return grouped;
+  }
+
+  /// Maps one [OutcomeReportRow] to a [CalendarEventReportSnapshot], or
+  /// returns null for rows that the legacy read path excluded (missing
+  /// occurrence identity or outcome).  Shared by the single-Event and batch
+  /// read paths so their filters and mapping stay identical.
+  static CalendarEventReportSnapshot? _reportSnapshotFromRow(
+    OutcomeReportRow row,
+  ) {
+    final occurrenceId = row.occurrenceId;
+    final originalDate = row.originalDate;
+    final outcome = row.outcome;
+    if (occurrenceId == null || originalDate == null || outcome == null) {
+      return null;
+    }
+    return CalendarEventReportSnapshot(
+      occurrenceId: occurrenceId,
+      originalDate: PlannerDate.parse(originalDate),
+      status: CalendarEventStatus.values.byName(outcome),
+    );
+  }
+
+  static const int _reportBatchChunkSize = 500;
+
+  static Iterable<List<String>> _chunks(List<String> values, int size) sync* {
+    for (var start = 0; start < values.length; start += size) {
+      final end = start + size < values.length ? start + size : values.length;
+      yield values.sublist(start, end);
+    }
   }
 
   @override
