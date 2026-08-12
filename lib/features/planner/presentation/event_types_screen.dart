@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rmplanner/app/router/route_names.dart';
+import 'package:rmplanner/app/theme/internal_screen.dart';
 import 'package:rmplanner/features/planner/application/event_type_providers.dart';
 import 'package:rmplanner/features/planner/domain/event_type.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
@@ -34,7 +35,7 @@ final class _EventTypesScreenState extends ConsumerState<EventTypesScreen> {
     final state = ref.watch(eventTypeControllerProvider);
     final controller = ref.read(eventTypeControllerProvider.notifier);
     return Scaffold(
-      appBar: AppBar(
+      appBar: InternalAppBar(
         title: const Text('Event Types'),
         actions: <Widget>[
           IconButton(
@@ -54,7 +55,7 @@ final class _EventTypesScreenState extends ConsumerState<EventTypesScreen> {
         child: state.isLoading
             ? const Center(child: CircularProgressIndicator())
             : ListView(
-                padding: const EdgeInsets.fromLTRB(12, 12, 12, 96),
+                padding: const EdgeInsets.fromLTRB(12, 10, 12, 96),
                 children: <Widget>[
                   if (state.message != null)
                     MaterialBanner(
@@ -117,7 +118,7 @@ final class _EventTypesScreenState extends ConsumerState<EventTypesScreen> {
 
   static String _subtitle(EventType type) {
     final mapping = type.indicatorKeys.isEmpty
-        ? 'No Life Indicator mapping'
+        ? 'No Life Goal mapping'
         : type.indicatorKeys.join(', ');
     final kind = type.isSystem ? 'System' : 'Custom';
     final archived = type.isArchived ? ' · Archived' : '';
@@ -202,8 +203,8 @@ final class _TypeSectionTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 14, 4, 6),
-      child: Text(title, style: Theme.of(context).textTheme.titleMedium),
+      padding: const EdgeInsets.fromLTRB(4, 12, 4, 6),
+      child: Text(title, style: InternalScreen.sectionHeading),
     );
   }
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rmplanner/app/theme/internal_screen.dart';
 import 'package:rmplanner/features/privacy/application/privacy_providers.dart';
 import 'package:rmplanner/features/privacy/domain/permission_summary.dart';
 
@@ -11,7 +12,7 @@ final class PermissionsScreen extends ConsumerWidget {
     final summaries = ref.watch(permissionSummariesProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Permissions')),
+      appBar: InternalAppBar(title: const Text('Permissions')),
       body: SafeArea(
         child: summaries.when(
           loading: () => const Center(child: CircularProgressIndicator()),
@@ -19,7 +20,7 @@ final class PermissionsScreen extends ConsumerWidget {
             onRetry: () => ref.invalidate(permissionSummariesProvider),
           ),
           data: (items) => ListView(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
             children: <Widget>[
               const Text(
                 'Permissions are requested only when you start the feature '

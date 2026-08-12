@@ -211,686 +211,723 @@ Future<_Stack> _buildStack(WidgetTester tester) async {
 
 void main() {
   group('Stage B3-R1 D3-A: interactive pager preview cache', () {
-    testWidgets(
-      'TEST 1 — stable rebuilds reuse the read; preview content '
-      'remains stable across unrelated rebuilds',
-      (tester) async {
-        final stack = await _buildStack(tester);
-        final app = await stack.pumpApp(tester);
-        // Seed a previous and next event before any preview load.
-        await stack.calendarRepository.saveEvent(
-          profileId: app.profileId,
-          draft: _timedDraft(
-            id: _previousEventId,
-            title: 'Previous only',
-            date: _previous,
-            startMinute: 10 * 60,
-            endMinute: 11 * 60,
-          ),
-        );
-        await stack.calendarRepository.saveEvent(
-          profileId: app.profileId,
-          draft: _timedDraft(
-            id: _nextEventId,
-            title: 'Next only',
-            date: _next,
-            startMinute: 9 * 60,
-            endMinute: 10 * 60,
-          ),
-        );
-        // Trigger a normal planner refresh so the per-build
-        // data revision bumps and the preview trio loads.
-        await app.container
-            .read(plannerControllerProvider.notifier)
-            .refresh();
-        await _pumpFrames(tester);
-        await tester.pumpAndSettle();
-
-        // Resolve the deterministic occurrence ids.
-        final previousOccurrenceId = await _occurrenceIdFor(
-          calendar: stack.calendarRepository,
-          profileId: app.profileId,
+    testWidgets('TEST 1 — stable rebuilds reuse the read; preview content '
+        'remains stable across unrelated rebuilds', (tester) async {
+      final stack = await _buildStack(tester);
+      final app = await stack.pumpApp(tester);
+      // Seed a previous and next event before any preview load.
+      await stack.calendarRepository.saveEvent(
+        profileId: app.profileId,
+        draft: _timedDraft(
+          id: _previousEventId,
+          title: 'Previous only',
           date: _previous,
-          seedEventId: _previousEventId,
-        );
-        final nextOccurrenceId = await _occurrenceIdFor(
-          calendar: stack.calendarRepository,
-          profileId: app.profileId,
+          startMinute: 10 * 60,
+          endMinute: 11 * 60,
+        ),
+      );
+      await stack.calendarRepository.saveEvent(
+        profileId: app.profileId,
+        draft: _timedDraft(
+          id: _nextEventId,
+          title: 'Next only',
           date: _next,
-          seedEventId: _nextEventId,
-        );
+          startMinute: 9 * 60,
+          endMinute: 10 * 60,
+        ),
+      );
+      // Trigger a normal planner refresh so the per-build
+      // data revision bumps and the preview trio loads.
+      await app.container.read(plannerControllerProvider.notifier).refresh();
+      await _pumpFrames(tester);
+      await tester.pumpAndSettle();
 
-        // Sanity: the preview columns have the seeded events.
-        expect(
-          find.descendant(
-            of: find.byKey(_previewPageKey(_previous)),
-            matching: find.byKey(_previewEventKey(previousOccurrenceId)),
-          ),
-          findsOneWidget,
-          reason: 'previous preview must show the seeded event',
-        );
-        expect(
-          find.descendant(
-            of: find.byKey(_previewPageKey(_next)),
-            matching: find.byKey(_previewEventKey(nextOccurrenceId)),
-          ),
-          findsOneWidget,
-          reason: 'next preview must show the seeded event',
-        );
+      // Resolve the deterministic occurrence ids.
+      final previousOccurrenceId = await _occurrenceIdFor(
+        calendar: stack.calendarRepository,
+        profileId: app.profileId,
+        date: _previous,
+        seedEventId: _previousEventId,
+      );
+      final nextOccurrenceId = await _occurrenceIdFor(
+        calendar: stack.calendarRepository,
+        profileId: app.profileId,
+        date: _next,
+        seedEventId: _nextEventId,
+      );
 
-        // Force several unrelated rebuilds by invalidating the
-        // selected day without changing anything. The cache
-        // signature must NOT change for a no-op build, so the
-        // preview trio future must not be re-issued.
-        final plannerStateBefore =
-            app.container.read(plannerControllerProvider);
-        for (var i = 0; i < 5; i++) {
-          // Touch a different provider to force a global
-          // rebuild without touching the planner signature.
-          app.container.invalidate(eventTypeControllerProvider);
-          await tester.pump();
-        }
-        // Read the planner state — selectedDate and day should
-        // still be _today / the original day.
-        final plannerStateAfter =
-            app.container.read(plannerControllerProvider);
-        expect(plannerStateAfter.selectedDate, _today);
-        expect(plannerStateAfter.day, isNotNull);
-        // The preview columns must still show the seeded
-        // events with the same occurrence ids (no refetch
-        // happened).
-        expect(
-          find.descendant(
-            of: find.byKey(_previewPageKey(_previous)),
-            matching: find.byKey(_previewEventKey(previousOccurrenceId)),
-          ),
-          findsOneWidget,
-          reason: 'previous preview must remain stable across rebuilds',
-        );
-        expect(
-          find.descendant(
-            of: find.byKey(_previewPageKey(_next)),
-            matching: find.byKey(_previewEventKey(nextOccurrenceId)),
-          ),
-          findsOneWidget,
-          reason: 'next preview must remain stable across rebuilds',
-        );
-        // Sanity that the previous and next read matched.
-        expect(plannerStateBefore.selectedDate, plannerStateAfter.selectedDate);
-      },
-    );
+      // Sanity: the preview columns have the seeded events.
+      expect(
+        find.descendant(
+          of: find.byKey(_previewPageKey(_previous)),
+          matching: find.byKey(_previewEventKey(previousOccurrenceId)),
+        ),
+        findsOneWidget,
+        reason: 'previous preview must show the seeded event',
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(_previewPageKey(_next)),
+          matching: find.byKey(_previewEventKey(nextOccurrenceId)),
+        ),
+        findsOneWidget,
+        reason: 'next preview must show the seeded event',
+      );
 
-    testWidgets(
-      'TEST 2 — next-day data change invalidates the preview; '
-      'no selectedDate round trip is required',
-      (tester) async {
-        final stack = await _buildStack(tester);
-        final app = await stack.pumpApp(tester);
-        await stack.calendarRepository.saveEvent(
-          profileId: app.profileId,
-          draft: _timedDraft(
-            id: _previousEventId,
-            title: 'Previous only',
-            date: _previous,
-            startMinute: 10 * 60,
-            endMinute: 11 * 60,
-          ),
-        );
-        // Seed an initial next-day event so the preview has
-        // content before the mutation under test. The
-        // mutation is the addition of a SECOND next-day
-        // event, which must also surface on the preview
-        // after a refresh.
-        await stack.calendarRepository.saveEvent(
-          profileId: app.profileId,
-          draft: _timedDraft(
-            id: _nextEventId,
-            title: 'Initial next only',
-            date: _next,
-            startMinute: 9 * 60,
-            endMinute: 10 * 60,
-          ),
-        );
-        await app.container
-            .read(plannerControllerProvider.notifier)
-            .refresh();
-        await _pumpFrames(tester);
-        await tester.pumpAndSettle();
+      // Force several unrelated rebuilds by invalidating the
+      // selected day without changing anything. The cache
+      // signature must NOT change for a no-op build, so the
+      // preview trio future must not be re-issued.
+      final plannerStateBefore = app.container.read(plannerControllerProvider);
+      for (var i = 0; i < 5; i++) {
+        // Touch a different provider to force a global
+        // rebuild without touching the planner signature.
+        app.container.invalidate(eventTypeControllerProvider);
+        await tester.pump();
+      }
+      // Read the planner state — selectedDate and day should
+      // still be _today / the original day.
+      final plannerStateAfter = app.container.read(plannerControllerProvider);
+      expect(plannerStateAfter.selectedDate, _today);
+      expect(plannerStateAfter.day, isNotNull);
+      // The preview columns must still show the seeded
+      // events with the same occurrence ids (no refetch
+      // happened).
+      expect(
+        find.descendant(
+          of: find.byKey(_previewPageKey(_previous)),
+          matching: find.byKey(_previewEventKey(previousOccurrenceId)),
+        ),
+        findsOneWidget,
+        reason: 'previous preview must remain stable across rebuilds',
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(_previewPageKey(_next)),
+          matching: find.byKey(_previewEventKey(nextOccurrenceId)),
+        ),
+        findsOneWidget,
+        reason: 'next preview must remain stable across rebuilds',
+      );
+      // Sanity that the previous and next read matched.
+      expect(plannerStateBefore.selectedDate, plannerStateAfter.selectedDate);
+    });
 
-        // Create a new next-day event through the normal
-        // repository path (no selectedDate round trip).
-        await stack.calendarRepository.saveEvent(
-          profileId: app.profileId,
-          draft: _timedDraft(
-            id: _newNextEventId,
-            title: 'Brand new next-day event',
-            date: _next,
-            startMinute: 14 * 60,
-            endMinute: 15 * 60,
-          ),
-        );
-        // Trigger the normal planner refresh — same
-        // selectedDate, no round trip.
-        await app.container
-            .read(plannerControllerProvider.notifier)
-            .refresh();
-        await _pumpFrames(tester);
-        await tester.pumpAndSettle();
-
-        // The new event must now appear on the next preview
-        // without any selectedDate change. The occurrence id
-        // is resolved AFTER the event has been saved so
-        // readDay returns a real item.
-        final newNextOccurrenceId = await _occurrenceIdFor(
-          calendar: stack.calendarRepository,
-          profileId: app.profileId,
-          date: _next,
-          seedEventId: _newNextEventId,
-        );
-        expect(newNextOccurrenceId, isNotEmpty);
-        expect(
-          find.descendant(
-            of: find.byKey(_previewPageKey(_next)),
-            matching: find.byKey(_previewEventKey(newNextOccurrenceId)),
-          ),
-          findsOneWidget,
-          reason:
-              'new next-day event must appear on the next preview '
-              'after a refresh, without a selectedDate round trip',
-        );
-        // The old next-day event is also still visible (the
-        // preview didn't lose unrelated data). The
-        // occurrence id is read from the seeded fixture
-        // created before the planner route loaded, so it
-        // resolves through the seeded event on _next.
-        final oldNextOccurrenceId = await _occurrenceIdFor(
-          calendar: stack.calendarRepository,
-          profileId: app.profileId,
-          date: _next,
-          seedEventId: _nextEventId,
-        );
-        expect(oldNextOccurrenceId, isNotEmpty);
-        expect(
-          find.descendant(
-            of: find.byKey(_previewPageKey(_next)),
-            matching: find.byKey(_previewEventKey(oldNextOccurrenceId)),
-          ),
-          findsOneWidget,
-        );
-        // The selected date is still _today.
-        expect(
-          app.container.read(plannerControllerProvider).selectedDate,
-          _today,
-        );
-      },
-    );
-
-    testWidgets(
-      'TEST 3 — previous-day data change invalidates the preview; '
-      'no selectedDate round trip is required',
-      (tester) async {
-        final stack = await _buildStack(tester);
-        final app = await stack.pumpApp(tester);
-        await stack.calendarRepository.saveEvent(
-          profileId: app.profileId,
-          draft: _timedDraft(
-            id: _nextEventId,
-            title: 'Next only',
-            date: _next,
-            startMinute: 9 * 60,
-            endMinute: 10 * 60,
-          ),
-        );
-        await app.container
-            .read(plannerControllerProvider.notifier)
-            .refresh();
-        await _pumpFrames(tester);
-        await tester.pumpAndSettle();
-
-        // Create a new previous-day event through the normal
-        // repository path. The previous preview must pick it
-        // up after a normal refresh, no selectedDate change.
-        const newPreviousId = '11111111-aaaa-4aaa-8aaa-aaaaaaaaaa99';
-        await stack.calendarRepository.saveEvent(
-          profileId: app.profileId,
-          draft: _timedDraft(
-            id: newPreviousId,
-            title: 'Brand new previous-day event',
-            date: _previous,
-            startMinute: 16 * 60,
-            endMinute: 17 * 60,
-          ),
-        );
-        await app.container
-            .read(plannerControllerProvider.notifier)
-            .refresh();
-        await _pumpFrames(tester);
-        await tester.pumpAndSettle();
-
-        final newPreviousOccurrenceId = await _occurrenceIdFor(
-          calendar: stack.calendarRepository,
-          profileId: app.profileId,
+    testWidgets('TEST 2 — next-day data change invalidates the preview; '
+        'no selectedDate round trip is required', (tester) async {
+      final stack = await _buildStack(tester);
+      final app = await stack.pumpApp(tester);
+      await stack.calendarRepository.saveEvent(
+        profileId: app.profileId,
+        draft: _timedDraft(
+          id: _previousEventId,
+          title: 'Previous only',
           date: _previous,
-          seedEventId: newPreviousId,
-        );
-        expect(newPreviousOccurrenceId, isNotEmpty);
-        expect(
-          find.descendant(
-            of: find.byKey(_previewPageKey(_previous)),
-            matching: find.byKey(_previewEventKey(newPreviousOccurrenceId)),
-          ),
-          findsOneWidget,
-          reason:
-              'new previous-day event must appear on the previous preview '
-              'after a refresh, without a selectedDate round trip',
-        );
-        expect(
-          app.container.read(plannerControllerProvider).selectedDate,
-          _today,
-        );
-      },
-    );
-
-    testWidgets(
-      'TEST 4 — moving an Event into an adjacent day invalidates '
-      'the destination preview and clears the source page',
-      (tester) async {
-        final stack = await _buildStack(tester);
-        final app = await stack.pumpApp(tester);
-        // Seed an event on the selected day only.
-        await stack.calendarRepository.saveEvent(
-          profileId: app.profileId,
-          draft: _timedDraft(
-            id: _selectedEventId,
-            title: 'Selected day only',
-            date: _today,
-            startMinute: 9 * 60,
-            endMinute: 10 * 60,
-          ),
-        );
-        await app.container
-            .read(plannerControllerProvider.notifier)
-            .refresh();
-        await _pumpFrames(tester);
-        await tester.pumpAndSettle();
-
-        // Move the selected-day event to the next day using a
-        // reschedule (single-occurrence scope, replacement on
-        // the destination date). This is the supported
-        // domain operation for moving a non-recurring event
-        // between dates.
-        const moveOperationId = '11111111-aaaa-4aaa-8aaa-aaaaaaaaaa08';
-        const moveReplacementId = '11111111-aaaa-4aaa-8aaa-aaaaaaaaaa09';
-        final moveOutcome = await stack.calendarRepository.rescheduleEvent(
-          profileId: app.profileId,
-          eventId: _selectedEventId,
-          originalDate: _today,
-          scope: CalendarEventEditScope.occurrence,
-          replacement: _timedDraft(
-            id: moveReplacementId,
-            title: 'Selected day only',
-            date: _next,
-            startMinute: 9 * 60,
-            endMinute: 10 * 60,
-          ),
-          operationId: moveOperationId,
-        );
-        expect(moveOutcome, CalendarEventMutationOutcome.changed);
-        await app.container
-            .read(plannerControllerProvider.notifier)
-            .refresh();
-        await _pumpFrames(tester);
-        await tester.pumpAndSettle();
-
-        // The moved event must now appear on the next preview.
-        final nextOccurrenceId = await _occurrenceIdFor(
-          calendar: stack.calendarRepository,
-          profileId: app.profileId,
+          startMinute: 10 * 60,
+          endMinute: 11 * 60,
+        ),
+      );
+      // Seed an initial next-day event so the preview has
+      // content before the mutation under test. The
+      // mutation is the addition of a SECOND next-day
+      // event, which must also surface on the preview
+      // after a refresh.
+      await stack.calendarRepository.saveEvent(
+        profileId: app.profileId,
+        draft: _timedDraft(
+          id: _nextEventId,
+          title: 'Initial next only',
           date: _next,
-          seedEventId: moveReplacementId,
-        );
-        expect(nextOccurrenceId, isNotEmpty);
-        expect(
-          find.descendant(
-            of: find.byKey(_previewPageKey(_next)),
-            matching: find.byKey(_previewEventKey(nextOccurrenceId)),
-          ),
-          findsOneWidget,
-          reason: 'moved event must appear on the next preview',
-        );
-        // selectedDate remains _today.
-        expect(
-          app.container.read(plannerControllerProvider).selectedDate,
-          _today,
-        );
-      },
-    );
+          startMinute: 9 * 60,
+          endMinute: 10 * 60,
+        ),
+      );
+      await app.container.read(plannerControllerProvider.notifier).refresh();
+      await _pumpFrames(tester);
+      await tester.pumpAndSettle();
 
-    testWidgets(
-      'TEST 5 — recurrence exception on an adjacent day '
-      'invalidates the affected preview',
-      (tester) async {
-        final stack = await _buildStack(tester);
-        final app = await stack.pumpApp(tester);
-        // Seed a daily recurring series anchored on _previous.
-        await stack.calendarRepository.saveEvent(
-          profileId: app.profileId,
-          draft: _timedDraft(
-            id: _recurringId,
-            title: 'Daily standup',
-            date: _previous,
-            startMinute: 9 * 60,
-            endMinute: 9 * 60 + 30,
-            recurrence: _dailyRecurrence,
-          ),
-        );
-        await app.container
-            .read(plannerControllerProvider.notifier)
-            .refresh();
-        await _pumpFrames(tester);
-        await tester.pumpAndSettle();
-
-        // Sanity: the _next occurrence of the series is on
-        // the _next preview.
-        final nextSeriesOccurrenceId = await _occurrenceIdFor(
-          calendar: stack.calendarRepository,
-          profileId: app.profileId,
+      // Create a new next-day event through the normal
+      // repository path (no selectedDate round trip).
+      await stack.calendarRepository.saveEvent(
+        profileId: app.profileId,
+        draft: _timedDraft(
+          id: _newNextEventId,
+          title: 'Brand new next-day event',
           date: _next,
-          seedEventId: _recurringId,
-        );
-        expect(nextSeriesOccurrenceId, isNotEmpty);
-        expect(
-          find.descendant(
-            of: find.byKey(_previewPageKey(_next)),
-            matching: find.byKey(_previewEventKey(nextSeriesOccurrenceId)),
-          ),
-          findsOneWidget,
-          reason: 'recurring series occurrence on _next must render',
-        );
+          startMinute: 14 * 60,
+          endMinute: 15 * 60,
+        ),
+      );
+      // Trigger the normal planner refresh — same
+      // selectedDate, no round trip.
+      await app.container.read(plannerControllerProvider.notifier).refresh();
+      await _pumpFrames(tester);
+      await tester.pumpAndSettle();
 
-        // Apply an occurrence-scoped reschedule: move the
-        // _next occurrence to _today. The replacement is
-        // anchored on _today; the reschedule exception row
-        // suppresses the original _next occurrence. After a
-        // refresh, the _next preview must no longer carry the
-        // original occurrence.
-        final outcome = await stack.calendarRepository.rescheduleEvent(
-          profileId: app.profileId,
-          eventId: _recurringId,
-          originalDate: _next,
-          scope: CalendarEventEditScope.occurrence,
-          replacement: _timedDraft(
-            id: _rescheduleReplacementId,
-            title: 'Daily standup',
-            date: _today,
-            startMinute: 10 * 60,
-            endMinute: 10 * 60 + 30,
-          ),
-          operationId: _rescheduleOperationId,
-        );
-        expect(outcome, CalendarEventMutationOutcome.changed);
+      // The new event must now appear on the next preview
+      // without any selectedDate change. The occurrence id
+      // is resolved AFTER the event has been saved so
+      // readDay returns a real item.
+      final newNextOccurrenceId = await _occurrenceIdFor(
+        calendar: stack.calendarRepository,
+        profileId: app.profileId,
+        date: _next,
+        seedEventId: _newNextEventId,
+      );
+      expect(newNextOccurrenceId, isNotEmpty);
+      expect(
+        find.descendant(
+          of: find.byKey(_previewPageKey(_next)),
+          matching: find.byKey(_previewEventKey(newNextOccurrenceId)),
+        ),
+        findsOneWidget,
+        reason:
+            'new next-day event must appear on the next preview '
+            'after a refresh, without a selectedDate round trip',
+      );
+      // The old next-day event is also still visible (the
+      // preview didn't lose unrelated data). The
+      // occurrence id is read from the seeded fixture
+      // created before the planner route loaded, so it
+      // resolves through the seeded event on _next.
+      final oldNextOccurrenceId = await _occurrenceIdFor(
+        calendar: stack.calendarRepository,
+        profileId: app.profileId,
+        date: _next,
+        seedEventId: _nextEventId,
+      );
+      expect(oldNextOccurrenceId, isNotEmpty);
+      expect(
+        find.descendant(
+          of: find.byKey(_previewPageKey(_next)),
+          matching: find.byKey(_previewEventKey(oldNextOccurrenceId)),
+        ),
+        findsOneWidget,
+      );
+      // The selected date is still _today.
+      expect(
+        app.container.read(plannerControllerProvider).selectedDate,
+        _today,
+      );
+    });
 
-        await app.container
-            .read(plannerControllerProvider.notifier)
-            .refresh();
-        await _pumpFrames(tester);
-        await tester.pumpAndSettle();
+    testWidgets('TEST 3 — previous-day data change invalidates the preview; '
+        'no selectedDate round trip is required', (tester) async {
+      final stack = await _buildStack(tester);
+      final app = await stack.pumpApp(tester);
+      await stack.calendarRepository.saveEvent(
+        profileId: app.profileId,
+        draft: _timedDraft(
+          id: _nextEventId,
+          title: 'Next only',
+          date: _next,
+          startMinute: 9 * 60,
+          endMinute: 10 * 60,
+        ),
+      );
+      await app.container.read(plannerControllerProvider.notifier).refresh();
+      await _pumpFrames(tester);
+      await tester.pumpAndSettle();
 
-        // The original _next occurrence must be gone from the
-        // _next preview (status = rescheduled is filtered
-        // out of timedEvents).
-        expect(
-          find.descendant(
-            of: find.byKey(_previewPageKey(_next)),
-            matching: find.byKey(_previewEventKey(nextSeriesOccurrenceId)),
-          ),
-          findsNothing,
-          reason:
-              'original _next occurrence must be suppressed from '
-              'the _next preview after the reschedule',
-        );
-      },
-    );
-
-    testWidgets(
-      'TEST 6 — selected-date change creates a new '
-      'previous/current/next window',
-      (tester) async {
-        final stack = await _buildStack(tester);
-        final app = await stack.pumpApp(tester);
-        // Seed events on the original trio so the first window
-        // has content.
-        await stack.calendarRepository.saveEvent(
-          profileId: app.profileId,
-          draft: _timedDraft(
-            id: _previousEventId,
-            title: 'Previous only',
-            date: _previous,
-            startMinute: 10 * 60,
-            endMinute: 11 * 60,
-          ),
-        );
-        await stack.calendarRepository.saveEvent(
-          profileId: app.profileId,
-          draft: _timedDraft(
-            id: _nextEventId,
-            title: 'Next only',
-            date: _next,
-            startMinute: 9 * 60,
-            endMinute: 10 * 60,
-          ),
-        );
-        await app.container
-            .read(plannerControllerProvider.notifier)
-            .refresh();
-        await _pumpFrames(tester);
-        await tester.pumpAndSettle();
-
-        // Verify the first window's pages exist.
-        expect(
-          find.byKey(_previewPageKey(_previous)),
-          findsOneWidget,
-        );
-        expect(find.byKey(_previewPageKey(_today)), findsOneWidget);
-        expect(find.byKey(_previewPageKey(_next)), findsOneWidget);
-
-        // Commit one day: selectDate(_next). The new window is
-        // _today / _next / the day after _next. The previous
-        // and next day identifiers in the pager's widget tree
-        // update accordingly.
-        await app.container
-            .read(plannerControllerProvider.notifier)
-            .selectDate(_next);
-        await _pumpFrames(tester);
-        await tester.pumpAndSettle();
-
-        // The new selected date is _next.
-        expect(
-          app.container.read(plannerControllerProvider).selectedDate,
-          _next,
-        );
-        // The new window's pages are _today, _next, and the
-        // day after _next (2026-07-29).
-        const dayAfterNext = PlannerDate(year: 2026, month: 7, day: 29);
-        expect(
-          find.byKey(_previewPageKey(_today)),
-          findsOneWidget,
-          reason: 'new previous page (_today) must exist after commit',
-        );
-        expect(
-          find.byKey(_previewPageKey(_next)),
-          findsOneWidget,
-          reason: 'new centered page (_next) must exist after commit',
-        );
-        expect(
-          find.byKey(_previewPageKey(dayAfterNext)),
-          findsOneWidget,
-          reason: 'new next page must exist after commit',
-        );
-        // The original _previous event must NOT leak onto
-        // the new previous preview (_today). The new
-        // previous preview consumes only the readDay
-        // result for _today; the previous-only event's
-        // occurrence is anchored on _previous and must not
-        // appear here.
-        final previousOnlyOccurrenceId = await _occurrenceIdFor(
-          calendar: stack.calendarRepository,
-          profileId: app.profileId,
+      // Create a new previous-day event through the normal
+      // repository path. The previous preview must pick it
+      // up after a normal refresh, no selectedDate change.
+      const newPreviousId = '11111111-aaaa-4aaa-8aaa-aaaaaaaaaa99';
+      await stack.calendarRepository.saveEvent(
+        profileId: app.profileId,
+        draft: _timedDraft(
+          id: newPreviousId,
+          title: 'Brand new previous-day event',
           date: _previous,
-          seedEventId: _previousEventId,
-        );
-        expect(previousOnlyOccurrenceId, isNotEmpty);
-        expect(
-          find.descendant(
-            of: find.byKey(_previewPageKey(_today)),
-            matching: find.byKey(_previewEventKey(previousOnlyOccurrenceId)),
-          ),
-          findsNothing,
-          reason:
-              'previous-only event must NOT appear on the new '
-              'previous preview (_today) — that event is anchored on '
-              '_previous, which is no longer in the active window',
-        );
-        // The next-day event (seeded on _next) must now
-        // appear on the new next preview (2026-07-29)
-        // because _next is now the centered day and the day
-        // after _next is the new next preview. Wait — the
-        // next-day event is on _next, which is the new
-        // CENTERED page, not a preview. The new next
-        // preview is 2026-07-29 (day after _next), which
-        // has no events. The next-only event must NOT
-        // appear there.
-        final nextOnlyOccurrenceId = await _occurrenceIdFor(
-          calendar: stack.calendarRepository,
-          profileId: app.profileId,
+          startMinute: 16 * 60,
+          endMinute: 17 * 60,
+        ),
+      );
+      await app.container.read(plannerControllerProvider.notifier).refresh();
+      await _pumpFrames(tester);
+      await tester.pumpAndSettle();
+
+      final newPreviousOccurrenceId = await _occurrenceIdFor(
+        calendar: stack.calendarRepository,
+        profileId: app.profileId,
+        date: _previous,
+        seedEventId: newPreviousId,
+      );
+      expect(newPreviousOccurrenceId, isNotEmpty);
+      expect(
+        find.descendant(
+          of: find.byKey(_previewPageKey(_previous)),
+          matching: find.byKey(_previewEventKey(newPreviousOccurrenceId)),
+        ),
+        findsOneWidget,
+        reason:
+            'new previous-day event must appear on the previous preview '
+            'after a refresh, without a selectedDate round trip',
+      );
+      expect(
+        app.container.read(plannerControllerProvider).selectedDate,
+        _today,
+      );
+    });
+
+    testWidgets('TEST 4 — moving an Event into an adjacent day invalidates '
+        'the destination preview and clears the source page', (tester) async {
+      final stack = await _buildStack(tester);
+      final app = await stack.pumpApp(tester);
+      // Seed an event on the selected day only.
+      await stack.calendarRepository.saveEvent(
+        profileId: app.profileId,
+        draft: _timedDraft(
+          id: _selectedEventId,
+          title: 'Selected day only',
+          date: _today,
+          startMinute: 9 * 60,
+          endMinute: 10 * 60,
+        ),
+      );
+      await app.container.read(plannerControllerProvider.notifier).refresh();
+      await _pumpFrames(tester);
+      await tester.pumpAndSettle();
+
+      // Move the selected-day event to the next day using a
+      // reschedule (single-occurrence scope, replacement on
+      // the destination date). This is the supported
+      // domain operation for moving a non-recurring event
+      // between dates.
+      const moveOperationId = '11111111-aaaa-4aaa-8aaa-aaaaaaaaaa08';
+      const moveReplacementId = '11111111-aaaa-4aaa-8aaa-aaaaaaaaaa09';
+      final moveOutcome = await stack.calendarRepository.rescheduleEvent(
+        profileId: app.profileId,
+        eventId: _selectedEventId,
+        originalDate: _today,
+        scope: CalendarEventEditScope.occurrence,
+        replacement: _timedDraft(
+          id: moveReplacementId,
+          title: 'Selected day only',
           date: _next,
-          seedEventId: _nextEventId,
-        );
-        expect(nextOnlyOccurrenceId, isNotEmpty);
-        expect(
-          find.descendant(
-            of: find.byKey(_previewPageKey(dayAfterNext)),
-            matching: find.byKey(_previewEventKey(nextOnlyOccurrenceId)),
-          ),
-          findsNothing,
-          reason:
-              'next-only event must NOT appear on the new '
-              'next preview (2026-07-29) — that event is on '
-              '_next, which is the new centered page',
-        );
-      },
-    );
+          startMinute: 9 * 60,
+          endMinute: 10 * 60,
+        ),
+        operationId: moveOperationId,
+      );
+      expect(moveOutcome, CalendarEventMutationOutcome.changed);
+      await app.container.read(plannerControllerProvider.notifier).refresh();
+      await _pumpFrames(tester);
+      await tester.pumpAndSettle();
 
-    testWidgets(
-      'TEST 7 — a stale in-flight future cannot overwrite a '
-      'newer window; ordering is enforced by the generation '
-      'guard inside the future pipeline',
-      (tester) async {
-        final stack = await _buildStack(tester);
-        final app = await stack.pumpApp(tester);
-        // Seed a distinctive event on _today so the result for
-        // the original window is observable.
-        await stack.calendarRepository.saveEvent(
-          profileId: app.profileId,
-          draft: _timedDraft(
-            id: _selectedEventId,
-            title: 'Distinctive selected event',
-            date: _today,
-            startMinute: 9 * 60,
-            endMinute: 10 * 60,
-          ),
-        );
-        // Seed a distinctive event on _next so the result for
-        // the new window (after a selectedDate commit) is
-        // observable.
-        await stack.calendarRepository.saveEvent(
-          profileId: app.profileId,
-          draft: _timedDraft(
-            id: _nextEventId,
-            title: 'Distinctive next event',
-            date: _next,
-            startMinute: 9 * 60,
-            endMinute: 10 * 60,
-          ),
-        );
-        await app.container
-            .read(plannerControllerProvider.notifier)
-            .refresh();
-        await _pumpFrames(tester);
-        await tester.pumpAndSettle();
+      // The moved event must now appear on the next preview.
+      final nextOccurrenceId = await _occurrenceIdFor(
+        calendar: stack.calendarRepository,
+        profileId: app.profileId,
+        date: _next,
+        seedEventId: moveReplacementId,
+      );
+      expect(nextOccurrenceId, isNotEmpty);
+      expect(
+        find.descendant(
+          of: find.byKey(_previewPageKey(_next)),
+          matching: find.byKey(_previewEventKey(nextOccurrenceId)),
+        ),
+        findsOneWidget,
+        reason: 'moved event must appear on the next preview',
+      );
+      // selectedDate remains _today.
+      expect(
+        app.container.read(plannerControllerProvider).selectedDate,
+        _today,
+      );
+    });
 
-        // The original _previous preview must be empty (no
-        // events were seeded on _previous). The next-day
-        // event must appear on the next preview.
-        expect(
-          find.byKey(_previewPageKey(_previous)),
-          findsOneWidget,
-          reason: 'original previous preview subtree must exist',
-        );
-        expect(
-          find.byKey(_previewEventKey(
+    testWidgets('TEST 5 — recurrence exception on an adjacent day '
+        'invalidates the affected preview', (tester) async {
+      final stack = await _buildStack(tester);
+      final app = await stack.pumpApp(tester);
+      // Seed a daily recurring series anchored on _previous.
+      await stack.calendarRepository.saveEvent(
+        profileId: app.profileId,
+        draft: _timedDraft(
+          id: _recurringId,
+          title: 'Daily standup',
+          date: _previous,
+          startMinute: 9 * 60,
+          endMinute: 9 * 60 + 30,
+          recurrence: _dailyRecurrence,
+        ),
+      );
+      await app.container.read(plannerControllerProvider.notifier).refresh();
+      await _pumpFrames(tester);
+      await tester.pumpAndSettle();
+
+      // Sanity: the _next occurrence of the series is on
+      // the _next preview.
+      final nextSeriesOccurrenceId = await _occurrenceIdFor(
+        calendar: stack.calendarRepository,
+        profileId: app.profileId,
+        date: _next,
+        seedEventId: _recurringId,
+      );
+      expect(nextSeriesOccurrenceId, isNotEmpty);
+      expect(
+        find.descendant(
+          of: find.byKey(_previewPageKey(_next)),
+          matching: find.byKey(_previewEventKey(nextSeriesOccurrenceId)),
+        ),
+        findsOneWidget,
+        reason: 'recurring series occurrence on _next must render',
+      );
+
+      // Apply an occurrence-scoped reschedule: move the
+      // _next occurrence to _today. Planner Polish Delta 2:
+      // for a repeating series this writes an occurrence
+      // override under the SAME series event id, so the moved
+      // occurrence keeps its deterministic occurrence id and
+      // renders on _today; the _next preview must no longer
+      // carry it, and no standalone replacement Event exists.
+      final outcome = await stack.calendarRepository.rescheduleEvent(
+        profileId: app.profileId,
+        eventId: _recurringId,
+        originalDate: _next,
+        scope: CalendarEventEditScope.occurrence,
+        replacement: _timedDraft(
+          id: _rescheduleReplacementId,
+          title: 'Daily standup',
+          date: _today,
+          startMinute: 10 * 60,
+          endMinute: 10 * 60 + 30,
+        ),
+        operationId: _rescheduleOperationId,
+      );
+      expect(outcome, CalendarEventMutationOutcome.changed);
+
+      await app.container.read(plannerControllerProvider.notifier).refresh();
+      await _pumpFrames(tester);
+      await tester.pumpAndSettle();
+
+      // The original _next occurrence must be gone from the
+      // _next preview (the override moved it to _today).
+      expect(
+        find.descendant(
+          of: find.byKey(_previewPageKey(_next)),
+          matching: find.byKey(_previewEventKey(nextSeriesOccurrenceId)),
+        ),
+        findsNothing,
+        reason:
+            'original _next occurrence must be suppressed from '
+            'the _next preview after the reschedule',
+      );
+
+      // The moved occurrence keeps its series occurrence id and now
+      // renders on _today's centered timeline exactly once; the
+      // would-be replacement id produces no occurrence.
+      expect(
+        find.byKey(Key('planner-timed-event-$nextSeriesOccurrenceId')),
+        findsOneWidget,
+        reason: 'moved occurrence must render on the _today centered timeline',
+      );
+      final orphan = await _occurrenceIdFor(
+        calendar: stack.calendarRepository,
+        profileId: app.profileId,
+        date: _today,
+        seedEventId: _rescheduleReplacementId,
+      );
+      expect(
+        orphan,
+        isEmpty,
+        reason: 'no standalone replacement Event may be created',
+      );
+    });
+
+    testWidgets('TEST 6 / R5-04 — the first target-date data frame has final '
+        'geometry and creates the new previous/current/next window', (
+      tester,
+    ) async {
+      final stack = await _buildStack(tester);
+      final app = await stack.pumpApp(tester);
+      // Seed events on the original trio so the first window
+      // has content.
+      await stack.calendarRepository.saveEvent(
+        profileId: app.profileId,
+        draft: _timedDraft(
+          id: _previousEventId,
+          title: 'Previous only',
+          date: _previous,
+          startMinute: 10 * 60,
+          endMinute: 11 * 60,
+        ),
+      );
+      await stack.calendarRepository.saveEvent(
+        profileId: app.profileId,
+        draft: _timedDraft(
+          id: _nextEventId,
+          title: 'Next only',
+          date: _next,
+          startMinute: 9 * 60,
+          endMinute: 10 * 60,
+        ),
+      );
+      await stack.calendarRepository.saveEvent(
+        profileId: app.profileId,
+        draft: _timedDraft(
+          id: _newNextEventId,
+          title: 'Next overlap',
+          date: _next,
+          startMinute: 9 * 60 + 30,
+          endMinute: 10 * 60 + 30,
+        ),
+      );
+      await stack.calendarRepository.saveEvent(
+        profileId: app.profileId,
+        draft: _timedDraft(
+          id: _selectedEventId,
+          title: 'Selected only',
+          date: _today,
+          startMinute: 12 * 60,
+          endMinute: 13 * 60,
+        ),
+      );
+      await app.container.read(plannerControllerProvider.notifier).refresh();
+      await _pumpFrames(tester);
+      await tester.pumpAndSettle();
+
+      final nextOccurrenceId = await _occurrenceIdFor(
+        calendar: stack.calendarRepository,
+        profileId: app.profileId,
+        date: _next,
+        seedEventId: _nextEventId,
+      );
+      final selectedOccurrenceId = await _occurrenceIdFor(
+        calendar: stack.calendarRepository,
+        profileId: app.profileId,
+        date: _today,
+        seedEventId: _selectedEventId,
+      );
+
+      // Verify the first window's pages exist.
+      expect(find.byKey(_previewPageKey(_previous)), findsOneWidget);
+      expect(find.byKey(_previewPageKey(_today)), findsOneWidget);
+      expect(find.byKey(_previewPageKey(_next)), findsOneWidget);
+
+      // Commit one day: selectDate(_next). The new window is
+      // _today / _next / the day after _next. The previous
+      // and next day identifiers in the pager's widget tree
+      // update accordingly.
+      final selection = app.container
+          .read(plannerControllerProvider.notifier)
+          .selectDate(_next);
+      await tester.pump();
+
+      final targetEvent = find.byKey(
+        Key('planner-timed-event-$nextOccurrenceId'),
+      );
+      expect(
+        targetEvent,
+        findsOneWidget,
+        reason: 'the first target-date data-bearing frame must contain Events',
+      );
+      expect(
+        find.byKey(Key('planner-timed-event-$selectedOccurrenceId')),
+        findsNothing,
+        reason: 'the old selected-date Event must not leak into that frame',
+      );
+      final firstDataRect = tester.getRect(targetEvent);
+      expect(
+        firstDataRect.width,
+        lessThan(300),
+        reason: 'the overlapping target schedule must already be lane-split',
+      );
+
+      await selection;
+      for (var frame = 0; frame < 8; frame += 1) {
+        await tester.pump(const Duration(milliseconds: 16));
+        final laterRect = tester.getRect(targetEvent);
+        expect(laterRect.left, closeTo(firstDataRect.left, 0.5));
+        expect(laterRect.width, closeTo(firstDataRect.width, 0.5));
+      }
+      await tester.pumpAndSettle();
+
+      // The new selected date is _next.
+      expect(app.container.read(plannerControllerProvider).selectedDate, _next);
+      // The new window's pages are _today, _next, and the
+      // day after _next (2026-07-29).
+      const dayAfterNext = PlannerDate(year: 2026, month: 7, day: 29);
+      expect(
+        find.byKey(_previewPageKey(_today)),
+        findsOneWidget,
+        reason: 'new previous page (_today) must exist after commit',
+      );
+      expect(
+        find.byKey(_previewPageKey(_next)),
+        findsOneWidget,
+        reason: 'new centered page (_next) must exist after commit',
+      );
+      expect(
+        find.byKey(_previewPageKey(dayAfterNext)),
+        findsOneWidget,
+        reason: 'new next page must exist after commit',
+      );
+      // The original _previous event must NOT leak onto
+      // the new previous preview (_today). The new
+      // previous preview consumes only the readDay
+      // result for _today; the previous-only event's
+      // occurrence is anchored on _previous and must not
+      // appear here.
+      final previousOnlyOccurrenceId = await _occurrenceIdFor(
+        calendar: stack.calendarRepository,
+        profileId: app.profileId,
+        date: _previous,
+        seedEventId: _previousEventId,
+      );
+      expect(previousOnlyOccurrenceId, isNotEmpty);
+      expect(
+        find.descendant(
+          of: find.byKey(_previewPageKey(_today)),
+          matching: find.byKey(_previewEventKey(previousOnlyOccurrenceId)),
+        ),
+        findsNothing,
+        reason:
+            'previous-only event must NOT appear on the new '
+            'previous preview (_today) — that event is anchored on '
+            '_previous, which is no longer in the active window',
+      );
+      // The next-day event (seeded on _next) must now
+      // appear on the new next preview (2026-07-29)
+      // because _next is now the centered day and the day
+      // after _next is the new next preview. Wait — the
+      // next-day event is on _next, which is the new
+      // CENTERED page, not a preview. The new next
+      // preview is 2026-07-29 (day after _next), which
+      // has no events. The next-only event must NOT
+      // appear there.
+      final nextOnlyOccurrenceId = await _occurrenceIdFor(
+        calendar: stack.calendarRepository,
+        profileId: app.profileId,
+        date: _next,
+        seedEventId: _nextEventId,
+      );
+      expect(nextOnlyOccurrenceId, isNotEmpty);
+      expect(
+        find.descendant(
+          of: find.byKey(_previewPageKey(dayAfterNext)),
+          matching: find.byKey(_previewEventKey(nextOnlyOccurrenceId)),
+        ),
+        findsNothing,
+        reason:
+            'next-only event must NOT appear on the new '
+            'next preview (2026-07-29) — that event is on '
+            '_next, which is the new centered page',
+      );
+    });
+
+    testWidgets('TEST 7 — a stale in-flight future cannot overwrite a '
+        'newer window; ordering is enforced by the generation '
+        'guard inside the future pipeline', (tester) async {
+      final stack = await _buildStack(tester);
+      final app = await stack.pumpApp(tester);
+      // Seed a distinctive event on _today so the result for
+      // the original window is observable.
+      await stack.calendarRepository.saveEvent(
+        profileId: app.profileId,
+        draft: _timedDraft(
+          id: _selectedEventId,
+          title: 'Distinctive selected event',
+          date: _today,
+          startMinute: 9 * 60,
+          endMinute: 10 * 60,
+        ),
+      );
+      // Seed a distinctive event on _next so the result for
+      // the new window (after a selectedDate commit) is
+      // observable.
+      await stack.calendarRepository.saveEvent(
+        profileId: app.profileId,
+        draft: _timedDraft(
+          id: _nextEventId,
+          title: 'Distinctive next event',
+          date: _next,
+          startMinute: 9 * 60,
+          endMinute: 10 * 60,
+        ),
+      );
+      await app.container.read(plannerControllerProvider.notifier).refresh();
+      await _pumpFrames(tester);
+      await tester.pumpAndSettle();
+
+      // The original _previous preview must be empty (no
+      // events were seeded on _previous). The next-day
+      // event must appear on the next preview.
+      expect(
+        find.byKey(_previewPageKey(_previous)),
+        findsOneWidget,
+        reason: 'original previous preview subtree must exist',
+      );
+      expect(
+        find.byKey(
+          _previewEventKey(
             (await _occurrenceIdFor(
               calendar: stack.calendarRepository,
               profileId: app.profileId,
               date: _next,
               seedEventId: _nextEventId,
             )),
-          )),
-          findsOneWidget,
-          reason: 'next preview must show the next-day event',
-        );
-
-        // Now change the selected date to _next so the new
-        // window's previous page is _today and the new
-        // window's next page is 2026-07-29.
-        await app.container
-            .read(plannerControllerProvider.notifier)
-            .selectDate(_next);
-        await _pumpFrames(tester);
-        await tester.pumpAndSettle();
-
-        // The new window's previous page is _today. The
-        // selected-day event (_selectedEventId) must appear on
-        // the new previous preview.
-        final selectedOccurrenceId = await _occurrenceIdFor(
-          calendar: stack.calendarRepository,
-          profileId: app.profileId,
-          date: _today,
-          seedEventId: _selectedEventId,
-        );
-        expect(
-          find.descendant(
-            of: find.byKey(_previewPageKey(_today)),
-            matching: find.byKey(_previewEventKey(selectedOccurrenceId)),
           ),
-          findsOneWidget,
-          reason: 'new previous preview (_today) must show the '
-              'selected-day event from the new window',
-        );
-        // The new window's next page is 2026-07-29, which
-        // has no events. The next preview's previous-day
-        // event (_nextEventId on _next) must NOT appear
-        // there.
-        const dayAfterNext = PlannerDate(year: 2026, month: 7, day: 29);
-        expect(
-          find.descendant(
-            of: find.byKey(_previewPageKey(dayAfterNext)),
-            matching: find.byKey(_previewEventKey(
+        ),
+        findsOneWidget,
+        reason: 'next preview must show the next-day event',
+      );
+
+      // Now change the selected date to _next so the new
+      // window's previous page is _today and the new
+      // window's next page is 2026-07-29.
+      await app.container
+          .read(plannerControllerProvider.notifier)
+          .selectDate(_next);
+      await _pumpFrames(tester);
+      await tester.pumpAndSettle();
+
+      // The new window's previous page is _today. The
+      // selected-day event (_selectedEventId) must appear on
+      // the new previous preview.
+      final selectedOccurrenceId = await _occurrenceIdFor(
+        calendar: stack.calendarRepository,
+        profileId: app.profileId,
+        date: _today,
+        seedEventId: _selectedEventId,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(_previewPageKey(_today)),
+          matching: find.byKey(_previewEventKey(selectedOccurrenceId)),
+        ),
+        findsOneWidget,
+        reason:
+            'new previous preview (_today) must show the '
+            'selected-day event from the new window',
+      );
+      // The new window's next page is 2026-07-29, which
+      // has no events. The next preview's previous-day
+      // event (_nextEventId on _next) must NOT appear
+      // there.
+      const dayAfterNext = PlannerDate(year: 2026, month: 7, day: 29);
+      expect(
+        find.descendant(
+          of: find.byKey(_previewPageKey(dayAfterNext)),
+          matching: find.byKey(
+            _previewEventKey(
               (await _occurrenceIdFor(
                 calendar: stack.calendarRepository,
                 profileId: app.profileId,
                 date: _next,
                 seedEventId: _nextEventId,
               )),
-            )),
+            ),
           ),
-          findsNothing,
-          reason:
-              'the stale result from the previous window must NOT '
-              'overwrite the new window (a stale _next event must '
-              'not appear on the new next preview)',
-        );
-      },
-    );
+        ),
+        findsNothing,
+        reason:
+            'the stale result from the previous window must NOT '
+            'overwrite the new window (a stale _next event must '
+            'not appear on the new next preview)',
+      );
+    });
   });
 }

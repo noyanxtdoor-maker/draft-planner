@@ -9,6 +9,8 @@ import 'package:rmplanner/features/indicators/domain/life_indicator.dart';
 import 'package:rmplanner/features/planner/data/calendar_event_time_zones.dart';
 import 'package:rmplanner/features/planner/data/drift_calendar_event_repository.dart';
 import 'package:rmplanner/features/planner/data/drift_outcome_reporting_repository.dart';
+import 'package:rmplanner/features/planner/domain/calendar_event.dart';
+import 'package:rmplanner/features/planner/domain/outcome_reporting.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 
 import '../../../support/test_dependencies.dart';
@@ -55,7 +57,7 @@ void main() {
       5,
       6,
     ]);
-    expect(active[3].title, 'Ministering Visit');
+    expect(active[3].title, 'Budget Review');
     expect(active.every((goal) => goal.iconId == null), isTrue);
 
     final activityRows = await (database.select(
@@ -593,6 +595,377 @@ void main() {
     },
   );
 
+  test(
+    'nextAvailableSlot resolves the exact first free slot per role',
+    () async {
+      final (database, repository, profileId) = await arrange();
+      addTearDown(database.close);
+
+      // With all six canonical slots active there is nothing free.
+      expect(
+        await repository.nextAvailableSlot(
+          profileId: profileId,
+          role: GoalRole.dailyWeekly,
+        ),
+        equals(null),
+      );
+      expect(
+        await repository.nextAvailableSlot(
+          profileId: profileId,
+          role: GoalRole.weekly,
+        ),
+        equals(null),
+      );
+      expect(
+        await repository.nextAvailableSlot(
+          profileId: profileId,
+          role: GoalRole.weeklyMonthly,
+        ),
+        equals(null),
+      );
+
+      final weekly = (await repository.readActiveGoals(
+        profileId,
+      )).where((goal) => goal.role == GoalRole.weekly).toList();
+      expect(weekly, hasLength(4));
+
+      // Archive slot 2 (Scripture Study) -> next free weekly slot is 2.
+      await repository.archiveGoal(
+        profileId: profileId,
+        goalId: weekly.firstWhere((goal) => goal.activeSlotIndex == 2).id,
+        operationId: 'slot-free-2',
+      );
+      expect(
+        await repository.nextAvailableSlot(
+          profileId: profileId,
+          role: GoalRole.weekly,
+        ),
+        2,
+      );
+
+      // Deleting it keeps slot 2 free for a replacement.
+      final slot2 = (await repository.readArchivedGoals(
+        profileId: profileId,
+      )).singleWhere((goal) => goal.activeSlotIndex == null);
+      await repository.deleteGoal(
+        profileId: profileId,
+        goalId: slot2.id,
+        operationId: 'slot-free-2-delete',
+      );
+      expect(
+        await repository.nextAvailableSlot(
+          profileId: profileId,
+          role: GoalRole.weekly,
+        ),
+        2,
+      );
+
+      // Archive slot 6 (Temple Visit) -> next free monthly slot is 6.
+      final temple = (await repository.readActiveGoals(
+        profileId,
+      )).singleWhere((goal) => goal.role == GoalRole.weeklyMonthly);
+      await repository.archiveGoal(
+        profileId: profileId,
+        goalId: temple.id,
+        operationId: 'slot-free-6',
+      );
+      expect(
+        await repository.nextAvailableSlot(
+          profileId: profileId,
+          role: GoalRole.weeklyMonthly,
+        ),
+        6,
+      );
+
+      // Archive slot 1 -> next free daily slot is 1.
+      final daily = (await repository.readActiveGoals(
+        profileId,
+      )).singleWhere((goal) => goal.role == GoalRole.dailyWeekly);
+      await repository.archiveGoal(
+        profileId: profileId,
+        goalId: daily.id,
+        operationId: 'slot-free-1',
+      );
+      expect(
+        await repository.nextAvailableSlot(
+          profileId: profileId,
+          role: GoalRole.dailyWeekly,
+        ),
+        1,
+      );
+    },
+  );
+
+  test(
+    'createGoal validates the previewed slot and rejects a stale expectation',
+    () async {
+      final (database, repository, profileId) = await arrange();
+      addTearDown(database.close);
+      const target = IndicatorAmount(scaledValue: 2, scale: 0, unit: 'count');
+
+      final freeSlot = await repository.nextAvailableSlot(
+        profileId: profileId,
+        role: GoalRole.weekly,
+      );
+      expect(freeSlot, equals(null)); // full before any archive
+
+      final exercise = (await repository.readActiveGoals(
+        profileId,
+      )).firstWhere((goal) => goal.title == 'Exercise');
+      await repository.archiveGoal(
+        profileId: profileId,
+        goalId: exercise.id,
+        operationId: 'stale-preview-archive',
+      );
+      final previewed = await repository.nextAvailableSlot(
+        profileId: profileId,
+        role: GoalRole.weekly,
+      );
+      expect(previewed, 3);
+
+      final created = await repository.createGoal(
+        profileId: profileId,
+        role: GoalRole.weekly,
+        title: 'Previewed Replacement',
+        targets: const GoalTargets(weekly: target),
+        expectedSlotIndex: previewed,
+        operationId: 'stale-preview-create',
+      );
+      expect(created.activeSlotIndex, previewed);
+
+      // A stale expectation from an older preview must be rejected instead
+      // of silently creating the Goal in a different slot.  After archiving
+      // the previewed Goal, slot 3 is again the next free weekly slot; an old
+      // preview pointing at slot 4 is stale and must throw.
+      await repository.archiveGoal(
+        profileId: profileId,
+        goalId: created.id,
+        operationId: 'stale-preview-archive-2',
+      );
+      await expectLater(
+        repository.createGoal(
+          profileId: profileId,
+          role: GoalRole.weekly,
+          title: 'Stale Expectation',
+          targets: const GoalTargets(weekly: target),
+          expectedSlotIndex: 4,
+          operationId: 'stale-preview-create-2',
+        ),
+        throwsA(isA<GoalValidationException>()),
+      );
+      // The Goal itself is not created when the slot expectation is stale.
+      expect(
+        (await repository.readActiveGoals(profileId)).map((goal) => goal.title),
+        isNot(contains('Stale Expectation')),
+      );
+    },
+  );
+
+  test(
+    'delete permanently hides an active Goal, frees its slot, and preserves history',
+    () async {
+      final (database, repository, profileId) = await arrange();
+      addTearDown(database.close);
+      final exercise = (await repository.readActiveGoals(
+        profileId,
+      )).firstWhere((goal) => goal.title == 'Exercise');
+
+      // Give the Goal some history to protect before deletion.
+      await repository.saveGoal(
+        profileId: profileId,
+        goalId: exercise.id,
+        title: 'Exercise Daily',
+        targets: const GoalTargets(
+          weekly: IndicatorAmount(scaledValue: 5, scale: 0, unit: 'count'),
+        ),
+        operationId: 'delete-history-rename',
+      );
+      await repository.archiveGoal(
+        profileId: profileId,
+        goalId: exercise.id,
+        operationId: 'delete-history-archive',
+      );
+      await repository.restoreGoal(
+        profileId: profileId,
+        goalId: exercise.id,
+        operationId: 'delete-history-restore',
+      );
+
+      await repository.deleteGoal(
+        profileId: profileId,
+        goalId: exercise.id,
+        operationId: 'delete-exercise',
+      );
+
+      // Hidden from every user-facing surface.
+      expect(
+        (await repository.readActiveGoals(profileId)).map((goal) => goal.id),
+        isNot(contains(exercise.id)),
+      );
+      expect(
+        (await repository.readArchivedGoals(
+          profileId: profileId,
+        )).map((goal) => goal.id),
+        isNot(contains(exercise.id)),
+      );
+      final deleted = await repository.readGoal(
+        profileId: profileId,
+        goalId: exercise.id,
+      );
+      expect(deleted?.status, GoalStatus.deleted);
+      expect(deleted?.activeSlotIndex, equals(null));
+      expect(deleted?.deletedAtUtc, isNot(equals(null)));
+
+      // The freed slot can host a replacement with the same Event Type.
+      expect(
+        await repository.nextAvailableSlot(
+          profileId: profileId,
+          role: GoalRole.weekly,
+        ),
+        3,
+      );
+      const target = IndicatorAmount(scaledValue: 2, scale: 0, unit: 'count');
+      final replacement = await repository.createGoal(
+        profileId: profileId,
+        role: GoalRole.weekly,
+        title: 'Replacement Exercise',
+        targets: const GoalTargets(weekly: target),
+        operationId: 'delete-replacement',
+      );
+      expect(replacement.activeSlotIndex, 3);
+      expect(
+        replacement.assignedEventTypeStableKey,
+        exercise.assignedEventTypeStableKey,
+      );
+      expect(replacement.indicatorKey, exercise.indicatorKey);
+      expect(replacement.title, 'Replacement Exercise');
+      expect(replacement.iconId, equals(null));
+
+      // Deleted Goals cannot be restored.
+      await expectLater(
+        repository.restoreGoal(
+          profileId: profileId,
+          goalId: exercise.id,
+          operationId: 'delete-restore-attempt',
+        ),
+        throwsA(isA<GoalValidationException>()),
+      );
+
+      // Historical records keep the original identity.
+      final history = await repository.readActivityHistory(profileId);
+      final exerciseHistory = history
+          .where((item) => item.activity.goalId == exercise.id)
+          .toList();
+      expect(exerciseHistory, isNotEmpty);
+      expect(
+        exerciseHistory.map((item) => item.activity.action),
+        containsAll(<GoalActivityAction>[
+          GoalActivityAction.created,
+          GoalActivityAction.renamed,
+          GoalActivityAction.archived,
+          GoalActivityAction.restored,
+          GoalActivityAction.deleted,
+        ]),
+      );
+      expect(
+        exerciseHistory.where(
+          (item) => item.activity.operationId == 'delete-exercise',
+        ),
+        hasLength(1),
+      );
+
+      // The replacement's history is isolated from the deleted Goal's.
+      final replacementHistory = history
+          .where((item) => item.activity.goalId == replacement.id)
+          .toList();
+      expect(replacementHistory, isNotEmpty);
+      expect(
+        replacementHistory
+            .map((item) => item.activity.operationId)
+            .where((operation) => operation.startsWith('delete-history')),
+        isEmpty,
+      );
+
+      // Re-running bootstrap must not resurrect the deleted Goal.
+      final active = await repository.readActiveGoals(profileId);
+      expect(active.map((goal) => goal.id), isNot(contains(exercise.id)));
+    },
+  );
+
+  test(
+    'delete permanently removes an archived Goal and frees its slot',
+    () async {
+      final (database, repository, profileId) = await arrange();
+      addTearDown(database.close);
+      final scripture = (await repository.readActiveGoals(
+        profileId,
+      )).firstWhere((goal) => goal.title == 'Scripture Study');
+      await repository.archiveGoal(
+        profileId: profileId,
+        goalId: scripture.id,
+        operationId: 'delete-archived-archive',
+      );
+
+      await repository.deleteGoal(
+        profileId: profileId,
+        goalId: scripture.id,
+        operationId: 'delete-archived',
+      );
+
+      expect(
+        (await repository.readArchivedGoals(
+          profileId: profileId,
+        )).map((goal) => goal.id),
+        isNot(contains(scripture.id)),
+      );
+      expect(
+        await repository.nextAvailableSlot(
+          profileId: profileId,
+          role: GoalRole.weekly,
+        ),
+        2,
+      );
+      await expectLater(
+        repository.restoreGoal(
+          profileId: profileId,
+          goalId: scripture.id,
+          operationId: 'delete-archived-restore',
+        ),
+        throwsA(isA<GoalValidationException>()),
+      );
+    },
+  );
+
+  test(
+    'a backup taken before deletion cannot resurrect the deleted Goal',
+    () async {
+      final (database, repository, profileId) = await arrange();
+      addTearDown(database.close);
+
+      final before = await repository.exportGoalBackup(profileId);
+      final exercise = (await repository.readActiveGoals(
+        profileId,
+      )).firstWhere((goal) => goal.title == 'Exercise');
+      await repository.deleteGoal(
+        profileId: profileId,
+        goalId: exercise.id,
+        operationId: 'backup-delete',
+      );
+
+      // Importing the older snapshot must not resurrect the deleted Goal.
+      await repository.importGoalBackup(profileId: profileId, backup: before);
+      final deleted = await repository.readGoal(
+        profileId: profileId,
+        goalId: exercise.id,
+      );
+      expect(deleted?.status, GoalStatus.deleted);
+      expect(
+        (await repository.readActiveGoals(profileId)).map((goal) => goal.id),
+        isNot(contains(exercise.id)),
+      );
+    },
+  );
+
   test('home indicator reads do not emit a write notification loop', () async {
     final (database, repository, profileId) = await arrange();
     addTearDown(database.close);
@@ -623,5 +996,160 @@ void main() {
     );
     await Future<void>.delayed(Duration.zero);
     expect(eventCount, 0);
+  });
+
+  test('Delta 4 A1: cancelling a contributing Event immediately removes only '
+      'that Event from Home Actual while preserving report history, manual '
+      'contributions, and retry idempotency', () async {
+    final (database, repository, profileId) = await arrange();
+    addTearDown(database.close);
+    final goal = (await repository.readActiveGoals(
+      profileId,
+    )).singleWhere((candidate) => candidate.role == GoalRole.dailyWeekly);
+    final indicatorKey = goal.indicatorKey!;
+    final reporting = DriftOutcomeReportingRepository(
+      database: database,
+      clock: clock,
+    );
+    final events = DriftCalendarEventRepository(
+      database: database,
+      clock: clock,
+      timeZones: IanaCalendarEventTimeZones(displayTimeZoneId: 'Asia/Manila'),
+      reportSource: reporting,
+    );
+    final changeGenerations = <int>[];
+    final changeSubscription = repository
+        .watchChanges(profileId)
+        .listen(changeGenerations.add);
+    addTearDown(changeSubscription.cancel);
+    const eventId = '10101010-1010-4010-8010-101010101010';
+    const eventReportId = '20202020-2020-4020-8020-202020202020';
+    const eventReportOperation = '30303030-3030-4030-8030-303030303030';
+    const manualReportId = '40404040-4040-4040-8040-404040404040';
+    const manualSourceId = '50505050-5050-4050-8050-505050505050';
+    const manualOperation = '60606060-6060-4060-8060-606060606060';
+    const cancelOperation = '70707070-7070-4070-8070-707070707070';
+    const contribution = IndicatorValue(
+      scaledValue: 1,
+      scale: 0,
+      unit: 'count',
+    );
+
+    await events.saveEvent(
+      profileId: profileId,
+      draft: CalendarEventDraft(
+        id: eventId,
+        title: 'Delta 4 contributing Event',
+        timing: CalendarEventTiming.timed,
+        startDate: periodStart,
+        startMinute: 9 * 60,
+        endMinute: 10 * 60,
+        timeZoneId: 'Asia/Manila',
+        requiresReport: true,
+        goalId: goal.id,
+        contributionRuleKey: 'life-indicator:$indicatorKey:1:0:count',
+      ),
+    );
+    final eventSource = await reporting.readEventSource(
+      profileId: profileId,
+      eventId: eventId,
+      originalDate: periodStart,
+    );
+    await reporting.submit(
+      profileId: profileId,
+      draft: OutcomeReportDraft(
+        id: eventReportId,
+        source: eventSource!,
+        activityDate: periodStart,
+        outcome: OutcomeKind.completedHappened,
+        contributions: <ContributionDraft>[
+          ContributionDraft(
+            ruleKey: 'event:$indicatorKey',
+            indicatorKey: indicatorKey,
+            value: contribution,
+          ),
+        ],
+      ),
+      operationId: eventReportOperation,
+    );
+    await reporting.submit(
+      profileId: profileId,
+      draft: OutcomeReportDraft(
+        id: manualReportId,
+        source: const OutcomeReportSource(
+          type: OutcomeSourceType.manual,
+          sourceId: manualSourceId,
+          label: 'Manual Job Application',
+          activityDate: periodStart,
+        ),
+        activityDate: periodStart,
+        outcome: OutcomeKind.completedHappened,
+        contributions: <ContributionDraft>[
+          ContributionDraft(
+            ruleKey: 'manual:$indicatorKey',
+            indicatorKey: indicatorKey,
+            value: contribution,
+          ),
+        ],
+      ),
+      operationId: manualOperation,
+    );
+
+    expect(
+      (await repository.readProgress(
+        profileId: profileId,
+        goalId: goal.id,
+        today: periodStart,
+      ))!.dailyActual.scaledValue,
+      2,
+    );
+
+    final lifecycleRefresh = repository.watchChanges(profileId).first;
+    final changed = await events.cancelEvent(
+      profileId: profileId,
+      eventId: eventId,
+      originalDate: periodStart,
+      scope: CalendarEventEditScope.occurrence,
+      operationId: cancelOperation,
+    );
+    await lifecycleRefresh;
+    final retry = await events.cancelEvent(
+      profileId: profileId,
+      eventId: eventId,
+      originalDate: periodStart,
+      scope: CalendarEventEditScope.occurrence,
+      operationId: cancelOperation,
+    );
+
+    expect(changed, CalendarEventMutationOutcome.changed);
+    expect(retry, CalendarEventMutationOutcome.unchanged);
+    expect(
+      (await repository.readProgress(
+        profileId: profileId,
+        goalId: goal.id,
+        today: periodStart,
+      ))!.dailyActual.scaledValue,
+      1,
+      reason:
+          'the manual contribution remains while the deleted Event '
+          'no longer qualifies for current Actual',
+    );
+    expect(await database.select(database.outcomeReports).get(), hasLength(2));
+    expect(
+      await database.select(database.activityLedgerEntries).get(),
+      hasLength(2),
+      reason:
+          'immutable factual history is retained; projection decides '
+          'whether the Event still counts',
+    );
+    await Future<void>.delayed(Duration.zero);
+    expect(changeGenerations.length, greaterThan(1));
+    expect(
+      changeGenerations.toSet(),
+      hasLength(changeGenerations.length),
+      reason:
+          'every committed lifecycle change needs a distinct Riverpod value; '
+          'a void or constant stream leaves Home stuck on stale Actuals',
+    );
   });
 }

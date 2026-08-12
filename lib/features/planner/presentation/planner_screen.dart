@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/gestures.dart';
@@ -9,13 +10,16 @@ import 'package:go_router/go_router.dart';
 import 'package:rmplanner/app/router/route_names.dart';
 import 'package:rmplanner/app/shell/global_drawer_controller.dart';
 import 'package:rmplanner/app/theme/app_theme.dart';
+import 'package:rmplanner/features/planner/application/calendar_event_creation_draft_provider.dart';
 import 'package:rmplanner/features/planner/application/calendar_event_providers.dart';
 import 'package:rmplanner/features/planner/application/event_type_providers.dart';
 import 'package:rmplanner/features/planner/application/planner_providers.dart';
+import 'package:rmplanner/features/planner/application/planner_tap_marker_provider.dart';
 import 'package:rmplanner/features/planner/domain/calendar_event.dart';
 import 'package:rmplanner/features/planner/domain/event_color_preferences.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 import 'package:rmplanner/features/planner/domain/planner_day.dart';
+import 'package:rmplanner/features/planner/domain/planner_display_geometry.dart';
 import 'package:rmplanner/features/planner/domain/planner_settings.dart';
 import 'package:rmplanner/features/planner/domain/planner_task.dart';
 import 'package:rmplanner/features/planner/domain/planner_timeline_layout.dart';
@@ -30,11 +34,16 @@ import 'package:rmplanner/features/planner/presentation/widgets/planner_event_bl
 import 'package:rmplanner/features/planner/presentation/widgets/planner_event_block_layout_policy.dart';
 import 'package:rmplanner/features/planner/presentation/widgets/planner_event_color_resolver.dart';
 import 'package:rmplanner/features/planner/presentation/widgets/planner_interactive_day_pager.dart'
-    show PlannerInteractiveDayPager, PlannerInteractiveDayPagerController;
+    show
+        PlannerCurrentTimeHorizontalGeometry,
+        PlannerInteractiveDayPager,
+        PlannerInteractiveDayPagerController,
+        PlannerLoadingDayTimeline;
 import 'package:rmplanner/features/planner/presentation/widgets/planner_shared_viewport.dart'
     show kPlannerTimelineBottomBoundaryExtent;
 import 'package:rmplanner/features/planner/presentation/widgets/planner_slide_down_date_picker.dart';
 import 'package:rmplanner/features/planner/presentation/widgets/planner_top_bar_icons.dart';
+import 'package:rmplanner/features/planner/presentation/widgets/repeating_event_scope_choices.dart';
 
 final class PlannerScreen extends ConsumerStatefulWidget {
   const PlannerScreen({super.key, this.currentTimeListenable});
@@ -55,9 +64,36 @@ final class PlannerScreen extends ConsumerStatefulWidget {
 }
 
 final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
+  // R7-03: symmetric in-viewport cross-date trigger strips inside the Event
+  // canvas. Both the previous and next strips share the same width and
+  // coordinate space; only the direction differs (previous = date - 1,
+  // next = date + 1). The previous strip sits just inside the Event canvas
+  // (after the time gutter) exactly mirroring the next strip at the right
+  // edge, so left/past and right/future behave identically.
+  static const double _crossDateTriggerWidth = 56;
+  static const double _crossDatePreviousBoundary =
+      PlannerCurrentTimeHorizontalGeometry.timeColumnWidth +
+      _crossDateTriggerWidth;
+  static const double _crossDateNextTriggerWidth = _crossDateTriggerWidth;
+  static const Duration _crossDateEdgeDwell = Duration(milliseconds: 200);
+
+  late final PlannerEventCreationDraftController _eventCreationDraftController;
   final ScrollController _dayScrollController = ScrollController();
   final GlobalKey _dayScrollKey = GlobalKey();
   final GlobalKey _timelineKey = GlobalKey();
+  // Live hour height during a two-finger pinch. The timeline reports
+  // every scale update here so the parent can rebuild the pager strip
+  // with the mid-gesture height; without it the strip stays at the
+  // settings height, clips the growing canvas, and the scroll extent
+  // (and thus the focal compensation) never expands.
+  //
+  // R7-05: published through a [ValueNotifier] consumed only by the pager
+  // strip, so a pinch frame rebuilds the pager subtree instead of the
+  // whole Planner (app bar, date strip, header, drag overlay). `null`
+  // means "use the saved setting".
+  final ValueNotifier<double?> _liveTimelineHourHeight = ValueNotifier<double?>(
+    null,
+  );
   final GlobalKey _filterButtonKey = GlobalKey();
   final GlobalKey _overflowButtonKey = GlobalKey();
   // External command surface owned by the screen for the
@@ -116,17 +152,28 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
   // in-flight future cannot overwrite the active preview
   // when a more recent data revision has already started a
   // newer future.
-  Future<List<PlannerDay>>? _previewLoad;
+  Future<_PlannerPreviewWindow>? _previewLoad;
   int? _previewGeneration;
+  int _previewLoadSerial = 0;
+  int? _activePreviewLoadSerial;
   String? _previewSignature;
   String? _previousDayContentSignature;
   String? _nextDayContentSignature;
+  // Date-keyed preview cache: each successfully read adjacent day is stored
+  // under its own `selectedDate`, and preview columns always resolve their day
+  // BY DATE (never by list index). This makes a page unable to paint another
+  // date's Events (no wrong-date flash during/after swipes) and lets a date
+  // that was read once retain its correct snapshot while a newer window is
+  // still loading (no empty-then-populate flicker).
+  final Map<PlannerDate, PlannerDay> _previewDayCache =
+      <PlannerDate, PlannerDay>{};
   // Bumped only when the authoritative selected date/day identity changes.
   // Unrelated parent rebuilds therefore keep the cached preview future
   // stable.
   int _dataRevision = 0;
   PlannerDate? _lastObservedSelectedDate;
   PlannerDay? _lastObservedDay;
+  int? _lastObservedEventDeletionRevision;
   bool _selectionActive = false;
   bool _datePickerOpen = false;
   // Owns the day-swipe candidate lifetime across the Listener
@@ -145,6 +192,27 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
   // physics swap and the gesture suppressions) can be wired
   // up once on first build.
   final _PinchCoordinator _pinchCoordinator = _PinchCoordinator();
+  // Delta 4.2E cross-date drag state lives above the day data so it survives
+  // authoritative date reloads while the pointer remains down. The session is
+  // transient only: hover transitions never write Calendar Event data.
+  _CrossDateDragSession? _crossDateDrag;
+  Future<void>? _crossDateNavigation;
+  Timer? _crossDateDwellTimer;
+  int? _crossDateDwellDirection;
+  bool _savedDragPointerRouteRegistered = false;
+  int _savedMoveCompletionRevision = 0;
+  // R7-05: per-frame saved-drag candidate state (pointer + snapped minutes)
+  // lives in a lightweight ValueNotifier consumed only by the screen-level
+  // drag overlay. A pointer frame updates this notifier without rebuilding
+  // the whole Planner (events, pager, strip, date header), so drag frames no
+  // longer trigger a full-screen setState. The [ValueNotifier] is disposed in
+  // [dispose].
+  final ValueNotifier<_SavedDragFrameState?> _savedDragFrameNotifier =
+      ValueNotifier<_SavedDragFrameState?>(null);
+  // R7-04: optimistic pending-move projection shown immediately at drop,
+  // before the canonical repository commit completes. Cleared on success
+  // (when the refresh lands) or rolled back on failure.
+  _PendingMoveProjection? _pendingMoveProjection;
   // Owns the current-time value for the planner's exact
   // current-time indicator. The timeline reads this via a
   // ValueListenableBuilder so only the indicator subtree rebuilds
@@ -184,6 +252,9 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
   @override
   void initState() {
     super.initState();
+    _eventCreationDraftController = ref.read(
+      plannerEventCreationDraftProvider.notifier,
+    );
     if (widget.currentTimeListenable == null) {
       currentTimeNotifier = ValueNotifier<DateTime>(DateTime.now());
       _scheduleCurrentTimeTicker();
@@ -249,6 +320,11 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
 
   @override
   void dispose() {
+    _eventCreationDraftController.clearCurrentAfterLifecycle();
+    _crossDateDwellTimer?.cancel();
+    _removeSavedDragPointerRoute();
+    _savedDragFrameNotifier.dispose();
+    _liveTimelineHourHeight.dispose();
     _currentTimeTicker?.cancel();
     _currentTimeTicker = null;
     currentTimeNotifier?.dispose();
@@ -273,7 +349,7 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
   /// only fires on a real state transition, so the rebuild
   /// cost is bounded.
   void _onPinchCoordinatorChanged() {
-    if (!mounted) {
+    if (!mounted || !context.mounted) {
       return;
     }
     setState(() {});
@@ -287,6 +363,14 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     final plannerSettings = eventTypeState.settings;
     final eventColorsByTypeId = eventTypeState.resolvedEventColorsByTypeId;
     _presentation ??= plannerSettings.preferredPresentation;
+    // Delta 4.1 D4.1-05: the "+" FAB is a normal-Planner affordance only.
+    // It is hidden while a creation session is engaged (generic Event
+    // placeholder, provisional draft, or the editor sheet) so it
+    // never overlaps the Save button or the draft editor, and it returns
+    // after Save/Cancel clears the session.
+    final creationSessionActive =
+        ref.watch(plannerTapMarkerProvider) != null ||
+        ref.watch(plannerEventCreationDraftProvider) != null;
 
     final scaffold = Scaffold(
       appBar: _buildAppBar(context, ref, state, plannerSettings, controller),
@@ -313,12 +397,14 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
           ],
         ),
       ),
-      floatingActionButton: ContextualCreateFab(
-        buttonKey: const Key('planner-create-button'),
-        destination: CreateActionDestination.planner,
-        onSelected: (action) =>
-            _handleCreateAction(context, ref, state.selectedDate, action),
-      ),
+      floatingActionButton: creationSessionActive
+          ? null
+          : ContextualCreateFab(
+              buttonKey: const Key('planner-create-button'),
+              destination: CreateActionDestination.planner,
+              onSelected: (action) =>
+                  _handleCreateAction(context, ref, state.selectedDate, action),
+            ),
     );
     return Stack(
       children: <Widget>[
@@ -444,7 +530,23 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
             // today; on-surface otherwise).
             child: PlannerCalendarButtonSurface(
               onTap: () {
+                // Delta 4.2R R5 + Delta 4.2R2 R2-09: Go-to-Today must feel
+                // immediate. Cancel any transient cross-date drag/hover
+                // session AND any live day-swipe candidate first so a
+                // lingering hover navigation or half-finished swipe can
+                // never fight the jump or oscillate through intermediate
+                // dates, then select TODAY directly (the pager recenters the
+                // new page instantly and the minute-ticking current-time
+                // notifier already carries the wall clock, so the indicator
+                // shows "now" at once).
+                if (_crossDateDrag != null) {
+                  _cancelCrossDateDrag();
+                }
+                _daySwipeCoordinator.cancel();
                 final today = ref.read(plannerDateSourceProvider).today();
+                if (state.selectedDate != today) {
+                  _dateStripController.prepareForImmediateSelection();
+                }
                 unawaited(
                   ref
                       .read(plannerControllerProvider.notifier)
@@ -758,6 +860,197 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     return '${months[date.month - 1]} ${date.day}';
   }
 
+  /// R7-04: screen-level drag overlay that renders the saved-drag ghost and
+  /// the candidate drag-time label ABOVE the pager strip. The ghost is
+  /// positioned from the timeline's global rect and the per-frame
+  /// [ValueNotifier] state, so it stays under the finger and is excluded
+  /// from the page transform during a cross-date transition. Rebuilds only
+  /// this overlay on pointer frames (R7-05 layer isolation).
+  Widget _buildSavedDragOverlay({
+    required double hourHeight,
+    required double timelineHeight,
+    required bool use24HourTime,
+    required PlannerDate selectedDate,
+    required Map<String, EventColorPreference> eventColorsByTypeId,
+  }) {
+    final session = _crossDateDrag;
+    if (session == null ||
+        !session.ghostActive ||
+        session.targetDate != selectedDate) {
+      return const SizedBox.shrink();
+    }
+    return ValueListenableBuilder<_SavedDragFrameState?>(
+      valueListenable: _savedDragFrameNotifier,
+      builder: (context, frame, _) {
+        if (frame == null) {
+          return const SizedBox.shrink();
+        }
+        final timeline = _parentTimelineRenderBox();
+        // The overlay is a Positioned.fill sibling of the day scroll view
+        // inside the same Stack, so it shares the day-scroll box's origin.
+        // Using that already-mounted box (rather than the overlay's own
+        // render object, which is not laid out on the very first build)
+        // lets the ghost render on the first drag frame.
+        final overlayBox = _dayScrollKey.currentContext?.findRenderObject();
+        if (timeline == null ||
+            !timeline.hasSize ||
+            overlayBox is! RenderBox ||
+            !overlayBox.hasSize) {
+          return const SizedBox.shrink();
+        }
+        final timelineTopLeft = timeline.localToGlobal(Offset.zero);
+        final overlayTopLeft = overlayBox.localToGlobal(Offset.zero);
+        final origin = timelineTopLeft - overlayTopLeft;
+        final pointerLocal = timeline.globalToLocal(frame.latestGlobalPointer);
+        final candidateY = PlannerTimelineGeometry.yForMinute(
+          minute: frame.currentStartMinute,
+          visibleStartMinute: kPlannerCivilDayStartMinute,
+          hourHeight: hourHeight,
+        );
+        final ghostWidth = math.min(
+          session.ghostSize.width,
+          math.max(
+            1.0,
+            timeline.size.width -
+                PlannerCurrentTimeHorizontalGeometry.timeColumnWidth,
+          ),
+        );
+        final desiredLeft = (pointerLocal.dx) - session.grabOffset.dx;
+        final ghostTop = origin.dy + candidateY;
+        final ghostHeight = math.min(
+          session.ghostSize.height,
+          math.max(1.0, timelineHeight - candidateY),
+        );
+        const indicatorHeight = 24.0;
+        final indicatorTop = (candidateY - indicatorHeight / 2)
+            .clamp(0.0, math.max(0.0, timelineHeight - indicatorHeight))
+            .toDouble();
+        return Stack(
+          clipBehavior: Clip.none,
+          children: <Widget>[
+            // Candidate drag-time label (R7-01: time text only).
+            Positioned(
+              key: const Key('planner-drag-time-indicator'),
+              left: origin.dx,
+              top: origin.dy + indicatorTop,
+              width: PlannerCurrentTimeHorizontalGeometry.timeColumnWidth - 4,
+              height: indicatorHeight,
+              child: IgnorePointer(
+                child: Text(
+                  formatPlannerEventMinute(
+                    frame.currentStartMinute,
+                    use24HourTime,
+                  ),
+                  key: const Key('planner-drag-time-label'),
+                  textAlign: TextAlign.right,
+                  maxLines: 1,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: AppTheme.rose,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ),
+            // Frozen drag-start snapshot ghost (R7-02).
+            Positioned(
+              key: const Key('planner-saved-event-drag-ghost'),
+              left: origin.dx + desiredLeft,
+              top: ghostTop,
+              width: ghostWidth,
+              height: ghostHeight,
+              child: IgnorePointer(
+                child: ExcludeSemantics(
+                  child: Opacity(
+                    opacity: 0.8,
+                    child: _TimelineEventBlock(
+                      event: session.event,
+                      provisional: false,
+                      eventColorsByTypeId: eventColorsByTypeId,
+                      use24HourTime: use24HourTime,
+                      displayStartMinute: session.originalStartMinute,
+                      displayEndMinute: session.originalEndMinute,
+                      awaitingReport: session.event.isAwaitingReport(
+                        DateTime.now(),
+                      ),
+                      selectionMode: false,
+                      selected: false,
+                      selectedForDirectManipulation: false,
+                      onToggleSelection: () {},
+                      interactive: false,
+                      onTap: () {},
+                      onDirectPointerDown: (_) {},
+                      onMoveStart: (_) {},
+                      onMoveUpdate: (_) {},
+                      onLongPressMoveUpdate: (_) {},
+                      onMoveEnd: () {},
+                      onMoveCancel: () {},
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// R7-04: apply the optimistic pending-move projection to the selected
+  /// day's timed Event list at render input. Replaces the moved occurrence
+  /// by identity (never duplicates it) and renders it at the candidate
+  /// minutes until the canonical refresh lands.
+  List<PlannerCalendarItem> _applyPendingMoveProjection(
+    List<PlannerCalendarItem> events,
+    PlannerDate selectedDate,
+  ) {
+    final pending = _pendingMoveProjection;
+    if (pending == null || pending.targetDate != selectedDate) {
+      return events;
+    }
+    final others = events
+        .where((event) => event.id != pending.event.id)
+        .toList(growable: false);
+    final projected = PlannerCalendarItem(
+      id: pending.event.id,
+      title: pending.event.title,
+      date: pending.targetDate,
+      timing: pending.event.timing,
+      state: pending.event.state,
+      requiresReport: pending.event.requiresReport,
+      hasOutcomeReport: pending.event.hasOutcomeReport,
+      startLocal: DateTime(
+        selectedDate.year,
+        selectedDate.month,
+        selectedDate.day,
+        pending.startMinute ~/ 60,
+        pending.startMinute % 60,
+      ),
+      endLocal: DateTime(
+        selectedDate.year,
+        selectedDate.month,
+        selectedDate.day,
+        pending.endMinute ~/ 60,
+        pending.endMinute % 60,
+      ),
+      startUtc: pending.event.startUtc,
+      endUtc: pending.event.endUtc,
+      locationText: pending.event.locationText,
+      isRecurring: pending.event.isRecurring,
+      replacementId: pending.event.replacementId,
+      linkedTaskIds: pending.event.linkedTaskIds,
+      eventId: pending.event.eventId,
+      originalDate: pending.event.originalDate,
+      timeZoneId: pending.event.timeZoneId,
+      displayTimeZoneId: pending.event.displayTimeZoneId,
+      activityTypeId: pending.event.activityTypeId,
+      activityTypeLabel: pending.event.activityTypeLabel,
+      activityTypeColorValue: pending.event.activityTypeColorValue,
+      isBackupAppointment: pending.event.isBackupAppointment,
+      backupForEventId: pending.event.backupForEventId,
+    );
+    return <PlannerCalendarItem>[...others, projected];
+  }
+
   Widget _buildContent(
     BuildContext context,
     WidgetRef ref,
@@ -766,8 +1059,23 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     Map<String, EventColorPreference> eventColorsByTypeId,
   ) {
     final day = state.day;
+    final provisionalDraft = ref.watch(plannerEventCreationDraftProvider);
+    final tapMarker = ref.watch(plannerTapMarkerProvider);
+    if (_lastObservedEventDeletionRevision != state.eventDeletionRevision) {
+      // R6-08: the screen owns an additional retained preview cache beyond the
+      // PlannerController's bounded canonical cache. Drop it on every pending-
+      // deletion transition so a previously completed FutureBuilder snapshot
+      // can never repaint a deleted occurrence after its tombstone clears.
+      _lastObservedEventDeletionRevision = state.eventDeletionRevision;
+      _previewDayCache.clear();
+      _previewSignature = null;
+      _previousDayContentSignature = null;
+      _nextDayContentSignature = null;
+      _dataRevision += 1;
+    }
+    final dragSession = _crossDateDrag;
     if (state.status == PlannerLoadStatus.loading && day == null) {
-      return const Center(child: CircularProgressIndicator());
+      return _buildLoadingDayContent(context, ref, state, settings);
     }
     if (state.status == PlannerLoadStatus.failure && day == null) {
       return _PlannerFailure(
@@ -850,6 +1158,8 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
       // cannot overwrite a newer window.
       final startGeneration = _dataRevision;
       _previewGeneration = startGeneration;
+      final loadSerial = ++_previewLoadSerial;
+      _activePreviewLoadSerial = loadSerial;
       _previewLoad = ref
           .read(plannerControllerProvider.notifier)
           .readDays(<PlannerDate>[previousDate, state.selectedDate, nextDate])
@@ -858,175 +1168,348 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
             // before exposing it to the FutureBuilder. The capture
             // is a synchronous microtask after the future
             // resolves, so it never builds widget state mid-frame.
-            if (_previewGeneration == startGeneration) {
+            if (_previewGeneration == startGeneration &&
+                _activePreviewLoadSerial == loadSerial) {
               _previousDayContentSignature = _dayContentSignature(days[0]);
               _nextDayContentSignature = _dayContentSignature(days[2]);
+              // Fold the freshly resolved days into the per-date
+              // preview cache. Lookups are keyed by each day's own
+              // `selectedDate`, so a stale or racing result can
+              // never paint one date's Events under another date's
+              // page key, and a date read once keeps its correct
+              // snapshot while a newer window is in flight.
+              for (final resolved in days) {
+                _previewDayCache[resolved.selectedDate] = resolved;
+              }
             }
-            return days;
+            return _PlannerPreviewWindow(serial: loadSerial, days: days);
           });
     }
 
-    final hourHeight = settings.timelineHourHeight;
-    final firstHour = settings.visibleStartHour;
-    final lastHour = settings.visibleEndHour;
-    final slotCount = lastHour - firstHour;
+    final hourHeight =
+        _liveTimelineHourHeight.value ?? settings.timelineHourHeight;
+    // The timeline canvas always spans the full civil day so times
+    // outside the configured planning window remain reachable (PMG
+    // parity). The configured window is a soft planning window used
+    // for the default initial scroll position and the maximum
+    // zoom-out fit target; it no longer clips the canvas.
+    final slotCount = kPlannerCivilDayEndHour - kPlannerCivilDayStartHour;
     final timelineHeight = slotCount * hourHeight;
-    final systemBottomInset = MediaQuery.viewPaddingOf(context).bottom;
-    final plannerBottomInset = (72.0 + systemBottomInset + 56.0 + 24.0).clamp(
-      120.0,
-      200.0,
-    );
+    // The timeline content is exactly bounded: the final civil-day
+    // 12 AM boundary (plus the small [kPlannerTimelineBottomBoundaryExtent]
+    // spacer that follows it) is the last scrollable content. The shell
+    // NavigationBar and the floating Add button live outside this
+    // viewport, so no large bottom padding is needed and no black/dead
+    // scroll region exists below the final boundary.
 
     // Refresh-indicator removed: the Planner does not support
     // pull-to-refresh. The previous RefreshIndicator intercepted
     // downward drags in the gesture arena and competed with the
     // two-finger pinch. Its onRefresh was a no-op
     // (selectDate(state.selectedDate)) and is no longer needed.
+    // R7-04: the SingleChildScrollView is wrapped in a Stack so the
+    // saved-drag ghost + candidate label overlay can render ABOVE the pager
+    // strip (excluded from the page transform) while the day scrolls
+    // underneath.
+    return Stack(
+      clipBehavior: Clip.none,
+      children: <Widget>[
+        KeyedSubtree(
+          key: _dayScrollKey,
+          child: SingleChildScrollView(
+            key: const Key('planner-day-scroll'),
+            controller: _dayScrollController,
+            // Two-pointer pinch owns the gesture; while a pinch
+            // is active the timeline must not accumulate a
+            // vertical scroll offset that would otherwise be
+            // driven by the SingleChildScrollView's
+            // VerticalDragGestureRecognizer. The dynamic swap
+            // from ClampingScrollPhysics to
+            // NeverScrollableScrollPhysics is driven by the
+            // [_pinchCoordinator] listener installed in
+            // [initState] and is the smallest coherent
+            // architecture that satisfies the "two-pointer
+            // pinch beats ordinary vertical scroll" contract
+            // without introducing a second timeline wrapper.
+            physics: _pinchCoordinator.isPinchActive
+                ? const NeverScrollableScrollPhysics()
+                : const ClampingScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(12, 14, 12, 0),
+            child: Column(
+              children: <Widget>[
+                if (state.message != null) ...<Widget>[
+                  _PlannerNotice(message: state.message!),
+                  const SizedBox(height: 12),
+                ],
+                FutureBuilder<_PlannerPreviewWindow>(
+                  future: _previewLoad,
+                  builder: (context, snapshot) {
+                    // The FutureBuilder is the single consumer of
+                    // the cached preview future. While the future
+                    // is in-flight the preview columns render
+                    // with `null` data (an empty read-only grid);
+                    // the centered current page is unaffected
+                    // because it is driven by `state.day`.
+                    // When the future resolves, the resolved list
+                    // is fed straight into the previous/next
+                    // preview columns. Stale results are dropped
+                    // by the generation guard inside the future
+                    // pipeline above — the FutureBuilder adopts
+                    // the latest in-flight future via the
+                    // signature key, and the resolution callback
+                    // only updates the captured previous/next
+                    // signatures when the in-flight generation
+                    // still matches the active build's
+                    // generation. Therefore an older in-flight
+                    // future cannot overwrite the active preview
+                    // when a more recent data revision has
+                    // already started a newer future.
+                    final previewWindow = snapshot.data;
+                    final previewDays =
+                        previewWindow?.serial == _activePreviewLoadSerial
+                        ? previewWindow?.days
+                        : null;
+                    // Resolve each adjacent page's day strictly by date.
+                    // Never trust list position: a page keyed for `previousDate`
+                    // must receive a day whose `selectedDate` IS that date.
+                    // While a new window is loading, fall back to the retained
+                    // per-date cache so previously seen dates do not flash
+                    // empty and no wrong-date Events ever paint.
+                    PlannerDay? dayFor(PlannerDate date) {
+                      if (previewDays != null) {
+                        for (final resolved in previewDays) {
+                          if (resolved.selectedDate == date) {
+                            return ref
+                                .read(plannerControllerProvider.notifier)
+                                .filterPendingEventDeletions(resolved);
+                          }
+                        }
+                      }
+                      final cached = _previewDayCache[date];
+                      return cached == null
+                          ? null
+                          : ref
+                                .read(plannerControllerProvider.notifier)
+                                .filterPendingEventDeletions(cached);
+                    }
+
+                    final previousDay = dayFor(previousDate);
+                    final nextDay = dayFor(nextDate);
+                    return LayoutBuilder(
+                      builder: (context, constraints) {
+                        final viewportWidth = constraints.maxWidth;
+                        // R7-05: the pager strip is the only live consumer of
+                        // the mid-pinch hour height. Scoping the notifier to
+                        // the pager keeps pinch frames off the whole Planner
+                        // screen build (app bar, date strip, header, drag
+                        // overlay all stay untouched during the gesture).
+                        return ValueListenableBuilder<double?>(
+                          valueListenable: _liveTimelineHourHeight,
+                          builder: (context, liveHourHeight, _) {
+                            final stripHourHeight =
+                                liveHourHeight ?? settings.timelineHourHeight;
+                            final stripTimelineHeight =
+                                slotCount * stripHourHeight;
+                            return PlannerInteractiveDayPager(
+                              key: const Key('planner-day-pager-viewport'),
+                              controller: _pagerController,
+                              selectedDate: state.selectedDate,
+                              previousDate: previousDate,
+                              nextDate: nextDate,
+                              previousDay: previousDay,
+                              currentDay: day,
+                              nextDay: nextDay,
+                              today: today,
+                              settings: settings,
+                              eventColorsByTypeId: eventColorsByTypeId,
+                              hourHeight: stripHourHeight,
+                              timelineHeight: stripTimelineHeight,
+                              viewportWidth: viewportWidth,
+                              viewportHeight: _dayViewportHeight(),
+                              onSwipePointerDown:
+                                  _daySwipeCoordinator.onPointerDown,
+                              onSwipePointerUp:
+                                  _daySwipeCoordinator.onPointerUp,
+                              onSwipeCancel: _daySwipeCoordinator.claim,
+                              isSwipeCancelled: () =>
+                                  _daySwipeCoordinator.isExternallyCancelled,
+                              preservedCurrentPageDate: dragSession?.sourceDate,
+                              onPinchPointerCount: () =>
+                                  _pinchCoordinator.pointerCount,
+                              onPinchClearCancel: _pinchCoordinator.clearCancel,
+                              onPagerCommitPrepared:
+                                  _dateStripController.prepareForPagerCommit,
+                              onDayChanged: (delta) async {
+                                // Selection mode and overflow menus own their own
+                                // gesture pipelines; day-swipe is a Day-view-only
+                                // affordance and must not interfere with those
+                                // interactions. The Day-view is the only context
+                                // where this widget tree is built (the other
+                                // presentations short-circuit above), so no extra
+                                // presentation guard is required.
+                                if (delta == 0) {
+                                  return;
+                                }
+                                await ref
+                                    .read(plannerControllerProvider.notifier)
+                                    .moveDays(delta);
+                              },
+                              currentTimeListenable:
+                                  _activeCurrentTimeListenable,
+                              currentPage: KeyedSubtree(
+                                key: const Key('timed-events-section'),
+                                child: _TimedEventTimeline(
+                                  events: <PlannerCalendarItem>[
+                                    // R7-07 RENDER FILTER LAW: the final render
+                                    // input re-filters active tombstones so a day
+                                    // snapshot from before the deletion can never
+                                    // paint a deleted Event, even for one frame.
+                                    ..._visibleEvents(
+                                      _applyPendingMoveProjection(
+                                        day.timedEvents,
+                                        state.selectedDate,
+                                      ),
+                                      settings,
+                                    ).where(
+                                      (event) =>
+                                          (settings.showCancelledItems ||
+                                              event.state !=
+                                                  PlannerEventState
+                                                      .cancelled) &&
+                                          !ref
+                                              .read(
+                                                plannerControllerProvider
+                                                    .notifier,
+                                              )
+                                              .isPendingEventDeletion(event),
+                                    ),
+                                    if (provisionalDraft?.date ==
+                                        state.selectedDate)
+                                      _provisionalPlannerItem(
+                                        provisionalDraft!,
+                                      ),
+                                  ],
+                                  selectedDate: state.selectedDate,
+                                  settings: settings,
+                                  eventColorsByTypeId: eventColorsByTypeId,
+                                  scrollController: _dayScrollController,
+                                  onCreate: (minute) => _createTimedEvent(
+                                    context,
+                                    ref,
+                                    state.selectedDate,
+                                    minute,
+                                    defaultDurationMinutes:
+                                        settings.defaultDurationMinutes,
+                                  ),
+                                  onMove: (event, targetDate, startMinute) =>
+                                      _moveEvent(
+                                        ref,
+                                        event,
+                                        targetDate,
+                                        startMinute,
+                                      ),
+                                  onResize: (event, startMinute, endMinute) =>
+                                      _resizeEvent(
+                                        ref,
+                                        event,
+                                        startMinute: startMinute,
+                                        endMinute: endMinute,
+                                      ),
+                                  selectionMode: _selectionMode,
+                                  selectedItems: _selectedItems,
+                                  onToggleSelection: _toggleEventSelection,
+                                  dragSession: dragSession,
+                                  moveCompletionRevision:
+                                      _savedMoveCompletionRevision,
+                                  activeMoveEventId:
+                                      dragSession?.ghostActive == true
+                                      ? dragSession?.event.id
+                                      : null,
+                                  activeMoveSourceDate: dragSession?.sourceDate,
+                                  activeMoveTargetDate: dragSession?.targetDate,
+                                  activeMoveOriginalStartMinute:
+                                      dragSession?.originalStartMinute,
+                                  onMoveSessionStart: _beginCrossDateDrag,
+                                  onMoveSessionCancel: _cancelCrossDateDrag,
+                                  hourHeight: hourHeight,
+                                  onZoomEnd: (value) =>
+                                      _persistZoom(ref, settings, value),
+                                  onZoomUpdate: _onZoomUpdateLive,
+                                  daySwipeCoordinator: _daySwipeCoordinator,
+                                  pinchCoordinator: _pinchCoordinator,
+                                  currentTimeListenable:
+                                      _activeCurrentTimeListenable,
+                                  tapMarker: tapMarker,
+                                  timelineKey: _timelineKey,
+                                ),
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    );
+                  },
+                ),
+                const SizedBox(
+                  key: Key('planner-timeline-bottom-boundary'),
+                  height: kPlannerTimelineBottomBoundaryExtent,
+                ),
+              ],
+            ),
+          ),
+        ),
+        Positioned.fill(
+          child: _buildSavedDragOverlay(
+            hourHeight: hourHeight,
+            timelineHeight: timelineHeight,
+            use24HourTime: settings.use24HourTime,
+            selectedDate: state.selectedDate,
+            eventColorsByTypeId: eventColorsByTypeId,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLoadingDayContent(
+    BuildContext context,
+    WidgetRef ref,
+    PlannerState state,
+    PlannerSettings settings,
+  ) {
+    final hourHeight =
+        _liveTimelineHourHeight.value ?? settings.timelineHourHeight;
+    final timelineHeight =
+        (kPlannerCivilDayEndHour - kPlannerCivilDayStartHour) * hourHeight;
+    final today = ref.watch(plannerDateSourceProvider).today();
+    _scheduleInitialScroll(
+      selectedDate: state.selectedDate,
+      settings: settings,
+      timedEvents: const <PlannerCalendarItem>[],
+    );
+
     return KeyedSubtree(
       key: _dayScrollKey,
       child: SingleChildScrollView(
         key: const Key('planner-day-scroll'),
         controller: _dayScrollController,
-        // Two-pointer pinch owns the gesture; while a pinch
-        // is active the timeline must not accumulate a
-        // vertical scroll offset that would otherwise be
-        // driven by the SingleChildScrollView's
-        // VerticalDragGestureRecognizer. The dynamic swap
-        // from ClampingScrollPhysics to
-        // NeverScrollableScrollPhysics is driven by the
-        // [_pinchCoordinator] listener installed in
-        // [initState] and is the smallest coherent
-        // architecture that satisfies the "two-pointer
-        // pinch beats ordinary vertical scroll" contract
-        // without introducing a second timeline wrapper.
         physics: _pinchCoordinator.isPinchActive
             ? const NeverScrollableScrollPhysics()
             : const ClampingScrollPhysics(),
-        // Preserve the established bottom range for manual viewport offsets
-        // across date commits, independent of the compact navigation rows.
-        padding: EdgeInsets.fromLTRB(12, 14, 12, plannerBottomInset),
+        padding: const EdgeInsets.fromLTRB(12, 14, 12, 0),
         child: Column(
           children: <Widget>[
-            if (state.message != null) ...<Widget>[
-              _PlannerNotice(message: state.message!),
-              const SizedBox(height: 12),
-            ],
-            FutureBuilder<List<PlannerDay>>(
-              future: _previewLoad,
-              builder: (context, snapshot) {
-                // The FutureBuilder is the single consumer of
-                // the cached preview future. While the future
-                // is in-flight the preview columns render
-                // with `null` data (an empty read-only grid);
-                // the centered current page is unaffected
-                // because it is driven by `state.day`.
-                // When the future resolves, the resolved list
-                // is fed straight into the previous/next
-                // preview columns. Stale results are dropped
-                // by the generation guard inside the future
-                // pipeline above — the FutureBuilder adopts
-                // the latest in-flight future via the
-                // signature key, and the resolution callback
-                // only updates the captured previous/next
-                // signatures when the in-flight generation
-                // still matches the active build's
-                // generation. Therefore an older in-flight
-                // future cannot overwrite the active preview
-                // when a more recent data revision has
-                // already started a newer future.
-                final previewDays = snapshot.data;
-                final previousDay =
-                    (previewDays != null && previewDays.length >= 3)
-                    ? previewDays[0]
-                    : null;
-                final nextDay = (previewDays != null && previewDays.length >= 3)
-                    ? previewDays[2]
-                    : null;
-                return LayoutBuilder(
-                  builder: (context, constraints) {
-                    final viewportWidth = constraints.maxWidth;
-                    return PlannerInteractiveDayPager(
-                      key: const Key('planner-day-pager-viewport'),
-                      controller: _pagerController,
-                      selectedDate: state.selectedDate,
-                      previousDate: previousDate,
-                      nextDate: nextDate,
-                      previousDay: previousDay,
-                      currentDay: day,
-                      nextDay: nextDay,
-                      today: today,
-                      settings: settings,
-                      eventColorsByTypeId: eventColorsByTypeId,
-                      hourHeight: hourHeight,
-                      timelineHeight: timelineHeight,
-                      viewportWidth: viewportWidth,
-                      onSwipePointerDown: _daySwipeCoordinator.onPointerDown,
-                      onSwipePointerUp: _daySwipeCoordinator.onPointerUp,
-                      onSwipeCancel: _daySwipeCoordinator.claim,
-                      onPinchPointerCount: () => _pinchCoordinator.pointerCount,
-                      onPinchClearCancel: _pinchCoordinator.clearCancel,
-                      onPagerCommitPrepared:
-                          _dateStripController.prepareForPagerCommit,
-                      onDayChanged: (delta) async {
-                        // Selection mode and overflow menus own their own
-                        // gesture pipelines; day-swipe is a Day-view-only
-                        // affordance and must not interfere with those
-                        // interactions. The Day-view is the only context
-                        // where this widget tree is built (the other
-                        // presentations short-circuit above), so no extra
-                        // presentation guard is required.
-                        if (delta == 0) {
-                          return;
-                        }
-                        await ref
-                            .read(plannerControllerProvider.notifier)
-                            .moveDays(delta);
-                      },
-                      currentTimeListenable: _activeCurrentTimeListenable,
-                      currentPage: KeyedSubtree(
-                        key: const Key('timed-events-section'),
-                        child: _TimedEventTimeline(
-                          events: _visibleEvents(day.timedEvents, settings)
-                              .where(
-                                (event) =>
-                                    settings.showCancelledItems ||
-                                    event.state != PlannerEventState.cancelled,
-                              )
-                              .toList(growable: false),
-                          selectedDate: state.selectedDate,
-                          settings: settings,
-                          eventColorsByTypeId: eventColorsByTypeId,
-                          scrollController: _dayScrollController,
-                          onCreate: (minute) => _createTimedEvent(
-                            context,
-                            ref,
-                            state.selectedDate,
-                            minute,
-                          ),
-                          onMove: (event, startMinute) =>
-                              _moveEvent(ref, event, startMinute),
-                          onResize: (event, startMinute, endMinute) =>
-                              _resizeEvent(
-                                ref,
-                                event,
-                                startMinute: startMinute,
-                                endMinute: endMinute,
-                              ),
-                          selectionMode: _selectionMode,
-                          selectedItems: _selectedItems,
-                          onToggleSelection: _toggleEventSelection,
-                          hourHeight: settings.timelineHourHeight,
-                          onZoomEnd: (value) =>
-                              _persistZoom(ref, settings, value),
-                          daySwipeCoordinator: _daySwipeCoordinator,
-                          pinchCoordinator: _pinchCoordinator,
-                          currentTimeListenable: _activeCurrentTimeListenable,
-                        ),
-                      ),
-                    );
-                  },
-                );
-              },
+            SizedBox(
+              key: const Key('planner-day-pager-viewport'),
+              height: timelineHeight,
+              child: PlannerLoadingDayTimeline(
+                selectedDate: state.selectedDate,
+                today: today,
+                settings: settings,
+                hourHeight: hourHeight,
+                viewportHeight: _dayViewportHeight(),
+                currentTimeListenable: _activeCurrentTimeListenable,
+              ),
             ),
             const SizedBox(
               key: Key('planner-timeline-bottom-boundary'),
@@ -1156,6 +1639,20 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     });
   }
 
+  /// Forward the mid-gesture hour height to the pager strip so the
+  /// scrollable extent grows in step with the timeline canvas. The
+  /// override is cleared once the settings save (started by
+  /// [_persistZoom]) lands, at which point the settings value equals
+  /// the live height and no snap can occur.
+  void _onZoomUpdateLive(double value) {
+    if (_liveTimelineHourHeight.value == value) {
+      return;
+    }
+    // R7-05: publish through the notifier so only the pager strip rebuilds
+    // on pinch frames; the whole Planner no longer rebuilds per frame.
+    _liveTimelineHourHeight.value = value;
+  }
+
   Future<void> _persistZoom(
     WidgetRef ref,
     PlannerSettings settings,
@@ -1165,9 +1662,12 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
         .read(eventTypeControllerProvider.notifier)
         .saveSettings(
           settings.copyWith(
-            timelineHourHeight: PlannerZoomPolicy.clamp(hourHeight),
+            timelineHourHeight: PlannerZoomPolicy.clampAbsolute(hourHeight),
           ),
         );
+    if (mounted) {
+      _liveTimelineHourHeight.value = null;
+    }
   }
 
   Future<void> _removeSelected(
@@ -1176,7 +1676,35 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     PlannerState state,
     PlannerSettings settings,
   ) async {
-    final count = _selectedItems.length;
+    final selectedItems = _selectedItems.toList(growable: false);
+    final count = selectedItems.length;
+    // Resolve every selected identity before the destructive confirmation is
+    // shown. Once the user confirms, the complete Event tombstone set can be
+    // published immediately in one coherent state update without waiting for
+    // another week read.
+    final days = await ref
+        .read(plannerControllerProvider.notifier)
+        .readDays(_weekDates(state.selectedDate, settings.weekStartDay));
+    if (!mounted || !context.mounted) {
+      return;
+    }
+    final events = <String, PlannerCalendarItem>{
+      for (final day in days)
+        for (final event in <PlannerCalendarItem>[
+          ...day.allDayEvents,
+          ...day.timedEvents,
+        ])
+          event.id: event,
+    };
+    final tasks = <String, PlannerTask>{
+      for (final day in days)
+        for (final task in <PlannerTask>[
+          ...day.tasks,
+          ...day.overdueTasks,
+          ...day.completedTasks,
+        ])
+          task.id: task,
+    };
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -1201,70 +1729,75 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     if (confirmed != true || !mounted) {
       return;
     }
-    final days = await ref
-        .read(plannerControllerProvider.notifier)
-        .readDays(_weekDates(state.selectedDate, settings.weekStartDay));
-    final events = <String, PlannerCalendarItem>{
-      for (final day in days)
-        for (final event in <PlannerCalendarItem>[
-          ...day.allDayEvents,
-          ...day.timedEvents,
-        ])
-          event.id: event,
-    };
-    final tasks = <String, PlannerTask>{
-      for (final day in days)
-        for (final task in <PlannerTask>[
-          ...day.tasks,
-          ...day.overdueTasks,
-          ...day.completedTasks,
-        ])
-          task.id: task,
-    };
     var failed = 0;
-    for (final selected in _selectedItems.toList(growable: false)) {
-      switch (selected.kind) {
-        case PlannerSelectionKind.event:
-          final event = events[selected.id];
-          if (event?.eventId == null || event?.originalDate == null) {
-            failed += 1;
-            continue;
-          }
-          final success = await ref
-              .read(calendarEventControllerProvider.notifier)
-              .cancelEvent(
-                eventId: event!.eventId!,
-                originalDate: event.originalDate!,
-                scope: CalendarEventEditScope.occurrence,
-                operationId: ref
-                    .read(plannerIdentifierSourceProvider)
-                    .nextUuid(),
-              );
-          if (!success) {
-            failed += 1;
-          }
-          break;
-        case PlannerSelectionKind.task:
-          final task = tasks[selected.id];
-          if (task == null) {
-            failed += 1;
-            continue;
-          }
-          final outcome = await ref
-              .read(plannerControllerProvider.notifier)
-              .changeStatus(
-                taskId: task.id,
-                target: PlannerTaskStatus.cancelled,
-                operationId: ref
-                    .read(plannerIdentifierSourceProvider)
-                    .nextUuid(),
-                reason: 'Removed from Planner selection mode',
-              );
-          if (outcome != TaskStatusChangeOutcome.changed &&
-              outcome != TaskStatusChangeOutcome.unchanged) {
-            failed += 1;
-          }
-          break;
+    final selectedEvents = <PlannerCalendarItem>[];
+    for (final selected in selectedItems.where(
+      (selection) => selection.kind == PlannerSelectionKind.event,
+    )) {
+      final event = events[selected.id];
+      if (event?.eventId == null || event?.originalDate == null) {
+        failed += 1;
+      } else {
+        selectedEvents.add(event!);
+      }
+    }
+    final planner = ref.read(plannerControllerProvider.notifier);
+    final allEventTargets = PlannerEventDeletionTargetSet(
+      occurrenceIds: selectedEvents.map((event) => event.id),
+    );
+    planner.beginPendingEventDeletion(allEventTargets);
+
+    final successfulOccurrenceIds = <String>{};
+    final failedOccurrenceIds = <String>{};
+    for (final event in selectedEvents) {
+      final success = await ref
+          .read(calendarEventControllerProvider.notifier)
+          .cancelEvent(
+            eventId: event.eventId!,
+            originalDate: event.originalDate!,
+            scope: CalendarEventEditScope.occurrence,
+            operationId: ref.read(plannerIdentifierSourceProvider).nextUuid(),
+            refreshPlanner: false,
+            managePendingDeletion: false,
+          );
+      (success ? successfulOccurrenceIds : failedOccurrenceIds).add(event.id);
+      if (!success) {
+        failed += 1;
+      }
+    }
+    if (failedOccurrenceIds.isNotEmpty) {
+      planner.rollbackPendingEventDeletion(
+        PlannerEventDeletionTargetSet(occurrenceIds: failedOccurrenceIds),
+      );
+    }
+    if (successfulOccurrenceIds.isNotEmpty) {
+      final canonicallyAbsent = await planner.confirmPendingEventDeletion(
+        PlannerEventDeletionTargetSet(occurrenceIds: successfulOccurrenceIds),
+      );
+      if (!canonicallyAbsent) {
+        failed += successfulOccurrenceIds.length;
+      }
+    }
+
+    for (final selected in selectedItems.where(
+      (selection) => selection.kind == PlannerSelectionKind.task,
+    )) {
+      final task = tasks[selected.id];
+      if (task == null) {
+        failed += 1;
+        continue;
+      }
+      final outcome = await ref
+          .read(plannerControllerProvider.notifier)
+          .changeStatus(
+            taskId: task.id,
+            target: PlannerTaskStatus.cancelled,
+            operationId: ref.read(plannerIdentifierSourceProvider).nextUuid(),
+            reason: 'Removed from Planner selection mode',
+          );
+      if (outcome != TaskStatusChangeOutcome.changed &&
+          outcome != TaskStatusChangeOutcome.unchanged) {
+        failed += 1;
       }
     }
     if (!mounted) {
@@ -1361,11 +1894,14 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
           timelineBox.localToGlobal(Offset.zero).dy -
           scrollBox.localToGlobal(Offset.zero).dy +
           _dayScrollController.offset;
-      final minuteOffset = targetMinute - settings.visibleStartHour * 60;
-      final desired = (timelineTop + minuteOffset - 120).clamp(
-        0.0,
-        _dayScrollController.position.maxScrollExtent,
+      // The canvas starts at 00:00, so the target minute-of-day maps
+      // to pixels through the current pixels-per-minute and the
+      // configured start is placed near the top of the viewport.
+      final pixelsPerMinute = PlannerTimelineGeometry.pixelsPerMinute(
+        settings.timelineHourHeight,
       );
+      final desired = (timelineTop + targetMinute * pixelsPerMinute - 120)
+          .clamp(0.0, _dayScrollController.position.maxScrollExtent);
       // jumpTo() is a synchronous scroll hint that does not block
       // the gesture pipeline; call it directly. The earlier
       // unawaited() wrapper was rejected by the analyzer because
@@ -1378,8 +1914,23 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     BuildContext context,
     WidgetRef ref,
     PlannerDate selectedDate,
-    int startMinute,
-  ) {
+    int startMinute, {
+    required int defaultDurationMinutes,
+  }) {
+    if (ref.read(plannerEventCreationDraftProvider) != null) {
+      return;
+    }
+    // Delta 4.2D: show the generic, non-persisted Event placeholder at the
+    // snapped Planner time BEFORE the Event Type selector opens. Its duration
+    // follows the Planner default and clips at midnight. It is cleared when
+    // the selector session ends; after type selection the type-specific
+    // provisional draft has already taken over.
+    final markerController = ref.read(plannerTapMarkerProvider.notifier);
+    markerController.show(
+      date: selectedDate,
+      startMinute: startMinute,
+      defaultDurationMinutes: defaultDurationMinutes,
+    );
     unawaited(
       launchCalendarEventCreation<void>(
         context,
@@ -1390,40 +1941,813 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
           date: selectedDate,
           startMinute: startMinute,
         ),
-      ),
+      ).whenComplete(markerController.clear),
     );
   }
 
-  Future<bool> _moveEvent(
+  /// Reads the usable day-scroll viewport height safely (the position may be
+  /// attached but not yet dimensioned during an early LayoutBuilder pass).
+  double _dayViewportHeight() {
+    if (!_dayScrollController.hasClients) {
+      return 0;
+    }
+    try {
+      return _dayScrollController.position.viewportDimension;
+    } on Object {
+      return 0;
+    }
+  }
+
+  void _beginCrossDateDrag(
+    PlannerCalendarItem event,
+    int pointerId,
+    Offset globalPosition,
+    Offset grabOffset,
+    Size ghostSize,
+    int startMinute,
+    int endMinute,
+    int snapMinutes,
+    double hourHeight,
+  ) {
+    if (event.eventId == null || event.id.startsWith('provisional:')) {
+      return;
+    }
+    final current = _crossDateDrag;
+    if (current?.event.id == event.id && current?.pointerId == pointerId) {
+      return;
+    }
+    _crossDateDwellTimer?.cancel();
+    _crossDateDwellTimer = null;
+    _crossDateDwellDirection = null;
+    _removeSavedDragPointerRoute();
+    _savedDragFrameNotifier.value = null;
+    setState(() {
+      _crossDateDrag = _CrossDateDragSession(
+        pointerId: pointerId,
+        event: event,
+        sourceDate: event.date,
+        targetDate: event.date,
+        originalStartMinute: startMinute,
+        originalEndMinute: endMinute,
+        currentStartMinute: startMinute,
+        currentEndMinute: endMinute,
+        durationMinutes: endMinute - startMinute,
+        grabOffset: grabOffset,
+        startGlobalPointer: globalPosition,
+        latestGlobalPointer: globalPosition,
+        ghostSize: ghostSize,
+        snapMinutes: snapMinutes,
+        hourHeight: hourHeight,
+        ghostActive: false,
+      );
+    });
+    GestureBinding.instance.pointerRouter.addGlobalRoute(
+      _handleSavedDragPointerEvent,
+    );
+    _savedDragPointerRouteRegistered = true;
+  }
+
+  void _handleSavedDragPointerEvent(PointerEvent event) {
+    final session = _crossDateDrag;
+    if (session == null || event.pointer != session.pointerId) {
+      return;
+    }
+    if (event is PointerMoveEvent) {
+      _updateSavedDragFromGlobal(event.position);
+    } else if (event is PointerUpEvent) {
+      unawaited(_finishSavedDrag());
+    } else if (event is PointerCancelEvent) {
+      _cancelCrossDateDrag();
+    }
+  }
+
+  RenderBox? _parentTimelineRenderBox() {
+    final renderObject = _timelineKey.currentContext?.findRenderObject();
+    if (renderObject is! RenderBox || !renderObject.hasSize) {
+      return null;
+    }
+    return renderObject;
+  }
+
+  void _updateSavedDragFromGlobal(Offset globalPosition) {
+    final session = _crossDateDrag;
+    final timeline = _parentTimelineRenderBox();
+    if (session == null || timeline == null) {
+      return;
+    }
+    final ghostActive =
+        session.ghostActive ||
+        (globalPosition - session.startGlobalPointer).distance >= kTouchSlop;
+    if (!ghostActive) {
+      // Pre-slop pointer updates are invisible; retain only the pointer so
+      // the drag can activate once it crosses slop.
+      _savedDragFrameNotifier.value = _SavedDragFrameState(
+        currentStartMinute: session.currentStartMinute,
+        currentEndMinute: session.currentEndMinute,
+        latestGlobalPointer: globalPosition,
+      );
+      return;
+    }
+    final pointerLocal = timeline.globalToLocal(globalPosition);
+    final pixelsPerMinute = PlannerTimelineGeometry.pixelsPerMinute(
+      session.hourHeight,
+    );
+    final rawStartMinute =
+        ((pointerLocal.dy - session.grabOffset.dy) / pixelsPerMinute).round();
+    // R7-02 body-drag law: candidateEnd = candidateStart + originalDuration,
+    // always. No independent end calculation.
+    final nextStart = snapPlannerMinute(rawStartMinute, session.snapMinutes)
+        .clamp(
+          kPlannerCivilDayStartMinute,
+          kPlannerCivilDayEndMinute - session.durationMinutes,
+        );
+    // R7-05: per-frame candidate updates go to a lightweight ValueNotifier
+    // consumed only by the screen-level drag overlay, so a pointer frame
+    // never rebuilds the whole Planner (events, pager, lane solver, strip,
+    // date header). The session's ghostActive flips once via setState.
+    _savedDragFrameNotifier.value = _SavedDragFrameState(
+      currentStartMinute: nextStart,
+      currentEndMinute: nextStart + session.durationMinutes,
+      latestGlobalPointer: globalPosition,
+    );
+    if (!session.ghostActive) {
+      setState(() {
+        _crossDateDrag = session.copyWith(ghostActive: true);
+      });
+    }
+    _updateCrossDateIntent(globalPosition);
+  }
+
+  int? _crossDateDirectionAt(Offset globalPosition) {
+    final timeline = _parentTimelineRenderBox();
+    if (timeline == null) {
+      return null;
+    }
+    final local = timeline.globalToLocal(globalPosition);
+    // R7-03: the previous strip is the same-width in-viewport strip just
+    // inside the Event canvas, structurally mirroring the next strip.
+    if (local.dx >= PlannerCurrentTimeHorizontalGeometry.timeColumnWidth &&
+        local.dx <= _crossDatePreviousBoundary) {
+      return -1;
+    }
+    if (local.dx >= timeline.size.width - _crossDateNextTriggerWidth) {
+      return 1;
+    }
+    return null;
+  }
+
+  void _updateCrossDateIntent(Offset globalPosition) {
+    final session = _crossDateDrag;
+    if (session == null || !session.ghostActive) {
+      return;
+    }
+    final direction = _crossDateDirectionAt(globalPosition);
+    if (session.latchedDirection != null) {
+      _cancelCrossDateDwell();
+      if (direction == null) {
+        // Center return rearms both directions.
+        setState(() {
+          _crossDateDrag = session.copyWith(clearLatchedDirection: true);
+        });
+      } else if (direction != session.latchedDirection) {
+        // R7-03: entering the OPPOSITE trigger while latched starts a fresh
+        // dwell for that direction (future->current and past->current
+        // reversal), removing the directional asymmetry.
+        _startCrossDateDwell(direction);
+      }
+      return;
+    }
+    if (direction == null) {
+      _cancelCrossDateDwell();
+      return;
+    }
+    if (_crossDateDwellTimer != null && _crossDateDwellDirection == direction) {
+      return;
+    }
+    _startCrossDateDwell(direction);
+  }
+
+  void _startCrossDateDwell(int direction) {
+    _cancelCrossDateDwell();
+    _crossDateDwellDirection = direction;
+    _crossDateDwellTimer = Timer(_crossDateEdgeDwell, () {
+      _crossDateDwellTimer = null;
+      _crossDateDwellDirection = null;
+      final active = _crossDateDrag;
+      final latestPointer =
+          _savedDragFrameNotifier.value?.latestGlobalPointer ??
+          active?.latestGlobalPointer;
+      if (!mounted ||
+          active == null ||
+          !active.ghostActive ||
+          latestPointer == null ||
+          _crossDateDirectionAt(latestPointer) != direction) {
+        return;
+      }
+      unawaited(_advanceSavedDragDate(direction));
+    });
+  }
+
+  Future<void> _advanceSavedDragDate(int dayDelta) async {
+    final session = _crossDateDrag;
+    if (session == null ||
+        !session.ghostActive ||
+        dayDelta == 0 ||
+        _crossDateNavigation != null) {
+      return;
+    }
+    final nextTarget = session.targetDate.addDays(dayDelta);
+    // R7-04: a cross-date advance routes through the pager's commit path so
+    // the Planner page layer animates under the finger-held ghost. The ghost
+    // lives in the screen-level drag overlay and is excluded from the page
+    // transform. If the pager is unavailable, fall back to a direct
+    // navigation.
+    final navigation =
+        _pagerController.commitDayChange(dayDelta) ??
+        ref.read(plannerControllerProvider.notifier).moveDays(dayDelta);
+    _crossDateNavigation = navigation;
+    try {
+      await navigation;
+    } on Object {
+      // PlannerController already publishes its retry-safe failure state.
+    }
+    final reachedTarget =
+        mounted &&
+        ref.read(plannerControllerProvider).selectedDate == nextTarget &&
+        ref.read(plannerControllerProvider).day?.selectedDate == nextTarget;
+    final active = _crossDateDrag;
+    if (reachedTarget &&
+        active != null &&
+        active.pointerId == session.pointerId) {
+      setState(() {
+        _crossDateDrag = active.copyWith(
+          targetDate: nextTarget,
+          latchedDirection: dayDelta,
+        );
+      });
+    }
+    if (identical(_crossDateNavigation, navigation)) {
+      _crossDateNavigation = null;
+    }
+  }
+
+  Future<void> _finishSavedDrag() async {
+    _cancelCrossDateDwell();
+    _removeSavedDragPointerRoute();
+    final pendingNavigation = _crossDateNavigation;
+    if (pendingNavigation != null) {
+      try {
+        await pendingNavigation;
+      } on Object {
+        // The active session below remains authoritative after a failed read.
+      }
+    }
+    final session = _crossDateDrag;
+    if (!mounted || session == null) {
+      return;
+    }
+    final frame = _savedDragFrameNotifier.value;
+    final candidateStart =
+        frame?.currentStartMinute ?? session.currentStartMinute;
+    final changed =
+        session.ghostActive &&
+        (session.targetDate != session.sourceDate ||
+            candidateStart != session.originalStartMinute);
+    if (!changed) {
+      _savedDragFrameNotifier.value = null;
+      setState(() => _crossDateDrag = null);
+      return;
+    }
+    final candidateEnd = candidateStart + session.durationMinutes;
+    // R7-04: publish an optimistic pending-move projection immediately so the
+    // moved Event appears at its candidate position before the repository
+    // commit completes. The projection is removed once the canonical refresh
+    // lands (success) or rolled back (failure).
+    _savedDragFrameNotifier.value = null;
+    setState(() {
+      _crossDateDrag = null;
+      _savedMoveCompletionRevision += 1;
+      _pendingMoveProjection = _PendingMoveProjection(
+        event: session.event,
+        sourceDate: session.sourceDate,
+        targetDate: session.targetDate,
+        startMinute: candidateStart,
+        endMinute: candidateEnd,
+      );
+    });
+    final commit = await _moveEvent(
+      ref,
+      session.event,
+      session.targetDate,
+      candidateStart,
+    );
+    if (!mounted) {
+      return;
+    }
+    if (commit == null) {
+      setState(() => _pendingMoveProjection = null);
+      if (session.targetDate != session.sourceDate) {
+        await ref
+            .read(plannerControllerProvider.notifier)
+            .selectDate(session.sourceDate);
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Event time was not changed. The original time is restored.',
+            ),
+          ),
+        );
+      }
+      return;
+    }
+    setState(() => _pendingMoveProjection = null);
+    if (mounted) {
+      _showPlannerMoveUndoCard(
+        context,
+        startMinute: candidateStart,
+        use24HourTime: ref
+            .read(eventTypeControllerProvider)
+            .settings
+            .use24HourTime,
+        commit: commit,
+      );
+    }
+  }
+
+  void _cancelCrossDateDwell() {
+    _crossDateDwellTimer?.cancel();
+    _crossDateDwellTimer = null;
+    _crossDateDwellDirection = null;
+  }
+
+  void _removeSavedDragPointerRoute() {
+    if (!_savedDragPointerRouteRegistered) {
+      return;
+    }
+    GestureBinding.instance.pointerRouter.removeGlobalRoute(
+      _handleSavedDragPointerEvent,
+    );
+    _savedDragPointerRouteRegistered = false;
+  }
+
+  void _cancelCrossDateDrag() {
+    final session = _crossDateDrag;
+    if (session == null) {
+      return;
+    }
+    _cancelCrossDateDwell();
+    _removeSavedDragPointerRoute();
+    _savedDragFrameNotifier.value = null;
+    setState(() {
+      _crossDateDrag = null;
+      _savedMoveCompletionRevision += 1;
+    });
+    if (session.targetDate != session.sourceDate ||
+        ref.read(plannerControllerProvider).selectedDate !=
+            session.sourceDate) {
+      final restore = ref
+          .read(plannerControllerProvider.notifier)
+          .selectDate(session.sourceDate);
+      _crossDateNavigation = restore;
+      unawaited(
+        restore.whenComplete(() {
+          if (identical(_crossDateNavigation, restore)) {
+            _crossDateNavigation = null;
+          }
+        }),
+      );
+    }
+  }
+
+  Future<_TimelineMoveCommit?> _moveEvent(
     WidgetRef ref,
     PlannerCalendarItem event,
+    PlannerDate targetDate,
     int startMinute,
   ) async {
-    final start = event.startLocal;
-    final end = event.endLocal;
-    if (start == null || end == null) {
-      return false;
+    if (event.eventId == null && event.id.startsWith('provisional:')) {
+      final draft = ref.read(plannerEventCreationDraftProvider);
+      final start = event.startLocal;
+      final end = event.endLocal;
+      if (draft == null ||
+          event.id != 'provisional:${draft.id}' ||
+          start == null ||
+          end == null) {
+        return null;
+      }
+      final duration = end.difference(start).inMinutes;
+      ref
+          .read(plannerEventCreationDraftProvider.notifier)
+          .updateTimes(
+            startMinute: startMinute,
+            endMinute: startMinute + duration,
+          );
+      return _TimelineMoveCommit(undo: () async => false);
     }
-    final duration = end.difference(start).inMinutes;
-    return _persistTimelineEdit(
+    final pendingNavigation = _crossDateNavigation;
+    if (pendingNavigation != null) {
+      await pendingNavigation;
+    }
+    final session = _crossDateDrag?.event.id == event.id
+        ? _crossDateDrag
+        : null;
+    final sourceEvent = session?.event ?? event;
+    final start = sourceEvent.startLocal;
+    final end = sourceEvent.endLocal;
+    if (start == null || end == null) {
+      _cancelCrossDateDrag();
+      return null;
+    }
+    final sourceDate = session?.sourceDate ?? sourceEvent.date;
+    final resolvedTargetDate = session?.targetDate ?? targetDate;
+    final originalStartMinute =
+        session?.originalStartMinute ?? start.hour * 60 + start.minute;
+    final originalEndMinute =
+        session?.originalEndMinute ?? plannerEndMinuteOfDay(start, end);
+    final duration = originalEndMinute - originalStartMinute;
+    if (resolvedTargetDate == sourceDate && !sourceEvent.isRecurring) {
+      final saved = await _persistTimelineEdit(
+        ref,
+        sourceEvent,
+        startMinute: startMinute,
+        endMinute: (startMinute + duration).clamp(1, 1440),
+      );
+      if (!saved) {
+        _cancelCrossDateDrag();
+        return null;
+      }
+      if (mounted && _crossDateDrag != null) {
+        setState(() => _crossDateDrag = null);
+      }
+      return _TimelineMoveCommit(
+        undo: () => _persistTimelineEdit(
+          ref,
+          sourceEvent,
+          startMinute: originalStartMinute,
+          endMinute: originalEndMinute,
+        ),
+      );
+    }
+    final commit = await _persistTimelineMove(
       ref,
-      event,
+      sourceEvent,
+      sourceDate: sourceDate,
+      targetDate: resolvedTargetDate,
+      originalStartMinute: originalStartMinute,
+      originalEndMinute: originalEndMinute,
       startMinute: startMinute,
       endMinute: (startMinute + duration).clamp(1, 1440),
     );
+    if (commit == null) {
+      _cancelCrossDateDrag();
+    } else {
+      if (mounted && _crossDateDrag != null) {
+        setState(() => _crossDateDrag = null);
+      }
+      if (mounted && commit.plannerRefreshPending) {
+        await ref.read(plannerControllerProvider.notifier).refresh();
+      }
+    }
+    return commit;
   }
 
-  Future<bool> _resizeEvent(
+  Future<_TimelineMoveCommit?> _persistTimelineMove(
+    WidgetRef ref,
+    PlannerCalendarItem event, {
+    required PlannerDate sourceDate,
+    required PlannerDate targetDate,
+    required int originalStartMinute,
+    required int originalEndMinute,
+    required int startMinute,
+    required int endMinute,
+  }) async {
+    final eventId = event.eventId;
+    final originalDate = event.originalDate;
+    if (eventId == null ||
+        originalDate == null ||
+        endMinute <= startMinute ||
+        endMinute > kPlannerCivilDayEndMinute) {
+      return null;
+    }
+    final controller = ref.read(calendarEventControllerProvider.notifier);
+    final existing = await controller.readEventDraft(eventId);
+    if (existing == null) {
+      return null;
+    }
+    final scope = event.isRecurring
+        ? await _selectTimelineEditScope(originalDate)
+        : CalendarEventEditScope.occurrence;
+    if (!mounted || scope == null) {
+      return null;
+    }
+    if (targetDate == sourceDate) {
+      final saved = await controller.editEvent(
+        eventId: eventId,
+        originalDate: originalDate,
+        scope: scope,
+        draft: _timelineEditDraft(
+          existing: existing,
+          event: event,
+          scope: scope,
+          startMinute: startMinute,
+          endMinute: endMinute,
+        ),
+        operationId: ref.read(plannerIdentifierSourceProvider).nextUuid(),
+      );
+      if (!saved) {
+        return null;
+      }
+      return _TimelineMoveCommit(
+        undo: () => controller.editEvent(
+          eventId: eventId,
+          originalDate: originalDate,
+          scope: scope,
+          draft: _timelineEditDraft(
+            existing: existing,
+            event: event,
+            scope: scope,
+            startMinute: originalStartMinute,
+            endMinute: originalEndMinute,
+          ),
+          operationId: ref.read(plannerIdentifierSourceProvider).nextUuid(),
+        ),
+      );
+    }
+
+    if (!event.isRecurring) {
+      final moved = existing.copyWith(
+        id: eventId,
+        title: event.title,
+        startDate: targetDate,
+        startMinute: startMinute,
+        endMinute: endMinute,
+        isBackupAppointment: event.isBackupAppointment,
+        backupForEventId: event.backupForEventId,
+      );
+      final saved = await controller.editEvent(
+        eventId: eventId,
+        originalDate: originalDate,
+        scope: CalendarEventEditScope.occurrence,
+        draft: moved,
+        operationId: ref.read(plannerIdentifierSourceProvider).nextUuid(),
+        refreshPlanner: false,
+      );
+      if (!saved) {
+        return null;
+      }
+      return _TimelineMoveCommit(
+        plannerRefreshPending: true,
+        undo: () => controller.editEvent(
+          eventId: eventId,
+          originalDate: targetDate,
+          scope: CalendarEventEditScope.occurrence,
+          draft: existing.copyWith(
+            id: eventId,
+            startDate: sourceDate,
+            startMinute: originalStartMinute,
+            endMinute: originalEndMinute,
+          ),
+          operationId: ref.read(plannerIdentifierSourceProvider).nextUuid(),
+        ),
+      );
+    }
+
+    final replacementId = ref.read(plannerIdentifierSourceProvider).nextUuid();
+    final replacement = _crossDateMoveDraft(
+      existing: existing,
+      event: event,
+      scope: scope,
+      replacementId: replacementId,
+      sourceDate: sourceDate,
+      targetDate: targetDate,
+      startMinute: startMinute,
+      endMinute: endMinute,
+    );
+    final saved = await controller.rescheduleEvent(
+      eventId: eventId,
+      originalDate: originalDate,
+      scope: scope,
+      replacement: replacement,
+      operationId: ref.read(plannerIdentifierSourceProvider).nextUuid(),
+      refreshPlanner: false,
+    );
+    if (!saved) {
+      return null;
+    }
+
+    return _TimelineMoveCommit(
+      plannerRefreshPending: true,
+      undo: () {
+        final undoReplacementId = ref
+            .read(plannerIdentifierSourceProvider)
+            .nextUuid();
+        if (event.isRecurring && scope == CalendarEventEditScope.occurrence) {
+          return controller.rescheduleEvent(
+            eventId: eventId,
+            originalDate: originalDate,
+            scope: scope,
+            replacement: existing.copyWith(
+              id: undoReplacementId,
+              title: event.title,
+              startDate: sourceDate,
+              startMinute: originalStartMinute,
+              endMinute: originalEndMinute,
+              isBackupAppointment: event.isBackupAppointment,
+              backupForEventId: event.backupForEventId,
+            ),
+            operationId: ref.read(plannerIdentifierSourceProvider).nextUuid(),
+          );
+        }
+        final inverse = switch (scope) {
+          CalendarEventEditScope.occurrence => existing.copyWith(
+            id: undoReplacementId,
+            startDate: sourceDate,
+            startMinute: originalStartMinute,
+            endMinute: originalEndMinute,
+          ),
+          CalendarEventEditScope.thisAndFuture => existing.copyWith(
+            id: undoReplacementId,
+            startDate: sourceDate,
+            startMinute: originalStartMinute,
+            endMinute: originalEndMinute,
+          ),
+          CalendarEventEditScope.series => existing.copyWith(
+            id: undoReplacementId,
+          ),
+        };
+        return controller.rescheduleEvent(
+          eventId: replacementId,
+          originalDate: targetDate,
+          scope: scope,
+          replacement: inverse,
+          operationId: ref.read(plannerIdentifierSourceProvider).nextUuid(),
+        );
+      },
+    );
+  }
+
+  CalendarEventDraft _timelineEditDraft({
+    required CalendarEventDraft existing,
+    required PlannerCalendarItem event,
+    required CalendarEventEditScope scope,
+    required int startMinute,
+    required int endMinute,
+  }) {
+    final originalDate = event.originalDate!;
+    return switch (scope) {
+      CalendarEventEditScope.occurrence => existing.copyWith(
+        startDate: originalDate,
+        startMinute: startMinute,
+        endMinute: endMinute,
+        title: event.title,
+        isBackupAppointment: event.isBackupAppointment,
+        backupForEventId: event.backupForEventId,
+      ),
+      CalendarEventEditScope.series => _seriesTimelineDraft(
+        existing: existing,
+        event: event,
+        startMinute: startMinute,
+        endMinute: endMinute,
+      ),
+      CalendarEventEditScope.thisAndFuture => existing.copyWith(
+        startDate: originalDate,
+        startMinute: startMinute,
+        endMinute: endMinute,
+      ),
+    };
+  }
+
+  CalendarEventDraft _crossDateMoveDraft({
+    required CalendarEventDraft existing,
+    required PlannerCalendarItem event,
+    required CalendarEventEditScope scope,
+    required String replacementId,
+    required PlannerDate sourceDate,
+    required PlannerDate targetDate,
+    required int startMinute,
+    required int endMinute,
+  }) {
+    return switch (scope) {
+      CalendarEventEditScope.occurrence => existing.copyWith(
+        id: replacementId,
+        title: event.title,
+        startDate: targetDate,
+        startMinute: startMinute,
+        endMinute: endMinute,
+        isBackupAppointment: event.isBackupAppointment,
+        backupForEventId: event.backupForEventId,
+      ),
+      CalendarEventEditScope.thisAndFuture => existing.copyWith(
+        id: replacementId,
+        startDate: targetDate,
+        startMinute: startMinute,
+        endMinute: endMinute,
+      ),
+      CalendarEventEditScope.series =>
+        _seriesTimelineDraft(
+          existing: existing,
+          event: event,
+          startMinute: startMinute,
+          endMinute: endMinute,
+        ).copyWith(
+          id: replacementId,
+          startDate: existing.startDate.addDays(
+            targetDate.asLocalDate.difference(sourceDate.asLocalDate).inDays,
+          ),
+        ),
+    };
+  }
+
+  Future<_TimelineMoveCommit?> _resizeEvent(
     WidgetRef ref,
     PlannerCalendarItem event, {
     required int startMinute,
     required int endMinute,
   }) async {
-    return _persistTimelineEdit(
+    if (event.eventId == null && event.id.startsWith('provisional:')) {
+      final draft = ref.read(plannerEventCreationDraftProvider);
+      if (draft == null || event.id != 'provisional:${draft.id}') {
+        return null;
+      }
+      ref
+          .read(plannerEventCreationDraftProvider.notifier)
+          .updateTimes(startMinute: startMinute, endMinute: endMinute);
+      return const _TimelineMoveCommit(undo: _noopTimelineUndo);
+    }
+    return _persistTimelineResize(
       ref,
       event,
       startMinute: startMinute,
       endMinute: endMinute,
+    );
+  }
+
+  /// Delta 4.2R2 R2-04: persists a saved Event resize and returns a commit
+  /// whose Undo restores the exact original start/end through the SAME
+  /// scope-captured save path (no second recurrence-scope dialog on Undo).
+  Future<_TimelineMoveCommit?> _persistTimelineResize(
+    WidgetRef ref,
+    PlannerCalendarItem event, {
+    required int startMinute,
+    required int endMinute,
+  }) async {
+    final eventId = event.eventId;
+    final originalDate = event.originalDate;
+    if (eventId == null ||
+        originalDate == null ||
+        endMinute <= startMinute ||
+        endMinute > 1440) {
+      return null;
+    }
+    final controller = ref.read(calendarEventControllerProvider.notifier);
+    final existing = await controller.readEventDraft(eventId);
+    if (existing == null) {
+      return null;
+    }
+    final scope = event.isRecurring
+        ? await _selectTimelineEditScope(originalDate)
+        : CalendarEventEditScope.occurrence;
+    if (!mounted || scope == null) {
+      return null;
+    }
+    final originalStartMinute =
+        event.startLocal!.hour * 60 + event.startLocal!.minute;
+    final originalEndMinute = plannerEndMinuteOfDay(
+      event.startLocal!,
+      event.endLocal!,
+    );
+    final saved = await controller.editEvent(
+      eventId: eventId,
+      originalDate: originalDate,
+      scope: scope,
+      draft: _timelineEditDraft(
+        existing: existing,
+        event: event,
+        scope: scope,
+        startMinute: startMinute,
+        endMinute: endMinute,
+      ),
+      operationId: ref.read(plannerIdentifierSourceProvider).nextUuid(),
+    );
+    if (!saved) {
+      return null;
+    }
+    return _TimelineMoveCommit(
+      undo: () => controller.editEvent(
+        eventId: eventId,
+        originalDate: originalDate,
+        scope: scope,
+        draft: _timelineEditDraft(
+          existing: existing,
+          event: event,
+          scope: scope,
+          startMinute: originalStartMinute,
+          endMinute: originalEndMinute,
+        ),
+        operationId: ref.read(plannerIdentifierSourceProvider).nextUuid(),
+      ),
     );
   }
 
@@ -1447,7 +2771,7 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
       return false;
     }
     final scope = event.isRecurring
-        ? await _selectTimelineEditScope()
+        ? await _selectTimelineEditScope(originalDate)
         : CalendarEventEditScope.occurrence;
     if (!mounted || scope == null) {
       return false;
@@ -1457,6 +2781,15 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
         startDate: originalDate,
         startMinute: startMinute,
         endMinute: endMinute,
+        // Owner fix: a move/resize must not drop an occurrence-scoped
+        // override.  The rendered occurrence (which merges any exception
+        // overrides) is the source of truth for the effective Backup state
+        // and title; drafting from the master row alone would silently
+        // revert a Backup toggled via "This event only" (or by an earlier
+        // edit) back to normal, and would erase an occurrence title.
+        title: event.title,
+        isBackupAppointment: event.isBackupAppointment,
+        backupForEventId: event.backupForEventId,
       ),
       CalendarEventEditScope.series => _seriesTimelineDraft(
         existing: existing,
@@ -1499,37 +2832,26 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     );
   }
 
-  Future<CalendarEventEditScope?> _selectTimelineEditScope() {
+  Future<CalendarEventEditScope?> _selectTimelineEditScope(
+    PlannerDate originalDate,
+  ) {
     return showDialog<CalendarEventEditScope>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         key: const Key('recurring-timeline-scope-dialog'),
-        title: const Text('Change repeating event?'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
-            _TimelineScopeButton(
-              key: const Key('recurring-timeline-scope-this'),
-              label: 'This event only',
-              onPressed: () => Navigator.of(
-                dialogContext,
-              ).pop(CalendarEventEditScope.occurrence),
-            ),
-            _TimelineScopeButton(
-              key: const Key('recurring-timeline-scope-all'),
-              label: 'All events',
-              onPressed: () => Navigator.of(
-                dialogContext,
-              ).pop(CalendarEventEditScope.series),
-            ),
-            _TimelineScopeButton(
-              key: const Key('recurring-timeline-scope-cancel'),
-              label: 'Cancel',
-              onPressed: () => Navigator.of(dialogContext).pop(),
-            ),
-          ],
+        title: const Text('Change repeating event'),
+        content: RepeatingEventScopeChoices(
+          originalDate: originalDate,
+          keyPrefix: 'recurring-timeline-scope',
+          onSelected: (scope) => Navigator.of(dialogContext).pop(scope),
         ),
+        actions: <Widget>[
+          TextButton(
+            key: const Key('recurring-timeline-scope-cancel'),
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Cancel'),
+          ),
+        ],
       ),
     );
   }
@@ -1559,31 +2881,367 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
   }
 }
 
+final class _PlannerPreviewWindow {
+  const _PlannerPreviewWindow({required this.serial, required this.days});
+
+  final int serial;
+  final List<PlannerDay> days;
+}
+
+/// R7-05: per-frame saved-drag candidate values consumed only by the
+/// screen-level drag overlay. Updated on every pointer frame via a
+/// [ValueNotifier] without rebuilding the whole Planner.
+final class _SavedDragFrameState {
+  const _SavedDragFrameState({
+    required this.currentStartMinute,
+    required this.currentEndMinute,
+    required this.latestGlobalPointer,
+  });
+
+  final int currentStartMinute;
+  final int currentEndMinute;
+  final Offset latestGlobalPointer;
+}
+
+/// R7-04: optimistic pending-move projection shown immediately at drop,
+/// before the canonical repository commit completes. Same Event identity
+/// (occurrence ID), same candidate date/time, no duplicate persisted Event;
+/// rolled back on failure.
+final class _PendingMoveProjection {
+  const _PendingMoveProjection({
+    required this.event,
+    required this.sourceDate,
+    required this.targetDate,
+    required this.startMinute,
+    required this.endMinute,
+  });
+
+  final PlannerCalendarItem event;
+  final PlannerDate sourceDate;
+  final PlannerDate targetDate;
+  final int startMinute;
+  final int endMinute;
+}
+
+final class _CrossDateDragSession {
+  const _CrossDateDragSession({
+    required this.pointerId,
+    required this.event,
+    required this.sourceDate,
+    required this.targetDate,
+    required this.originalStartMinute,
+    required this.originalEndMinute,
+    required this.currentStartMinute,
+    required this.currentEndMinute,
+    required this.durationMinutes,
+    required this.grabOffset,
+    required this.startGlobalPointer,
+    required this.latestGlobalPointer,
+    required this.ghostSize,
+    required this.snapMinutes,
+    required this.hourHeight,
+    required this.ghostActive,
+    this.latchedDirection,
+  });
+
+  final int pointerId;
+  final PlannerCalendarItem event;
+  final PlannerDate sourceDate;
+  final PlannerDate targetDate;
+  final int originalStartMinute;
+  final int originalEndMinute;
+  final int currentStartMinute;
+  final int currentEndMinute;
+  final int durationMinutes;
+  final Offset grabOffset;
+  final Offset startGlobalPointer;
+  final Offset latestGlobalPointer;
+  final Size ghostSize;
+  final int snapMinutes;
+  final double hourHeight;
+  final bool ghostActive;
+  final int? latchedDirection;
+
+  _CrossDateDragSession copyWith({
+    PlannerDate? targetDate,
+    int? currentStartMinute,
+    int? currentEndMinute,
+    Offset? latestGlobalPointer,
+    bool? ghostActive,
+    int? latchedDirection,
+    bool clearLatchedDirection = false,
+  }) {
+    return _CrossDateDragSession(
+      pointerId: pointerId,
+      event: event,
+      sourceDate: sourceDate,
+      targetDate: targetDate ?? this.targetDate,
+      originalStartMinute: originalStartMinute,
+      originalEndMinute: originalEndMinute,
+      currentStartMinute: currentStartMinute ?? this.currentStartMinute,
+      currentEndMinute: currentEndMinute ?? this.currentEndMinute,
+      durationMinutes: durationMinutes,
+      grabOffset: grabOffset,
+      startGlobalPointer: startGlobalPointer,
+      latestGlobalPointer: latestGlobalPointer ?? this.latestGlobalPointer,
+      ghostSize: ghostSize,
+      snapMinutes: snapMinutes,
+      hourHeight: hourHeight,
+      ghostActive: ghostActive ?? this.ghostActive,
+      latchedDirection: clearLatchedDirection
+          ? null
+          : latchedDirection ?? this.latchedDirection,
+    );
+  }
+}
+
+final class _TimelineMoveCommit {
+  const _TimelineMoveCommit({
+    required this.undo,
+    this.plannerRefreshPending = false,
+  });
+
+  final Future<bool> Function() undo;
+  final bool plannerRefreshPending;
+}
+
+/// No-op undo used by non-persisted (provisional draft) commits: the draft
+/// provider update is not a persisted transaction, so there is nothing to
+/// undo at the data layer (Cancel discards the draft entirely).
+Future<bool> _noopTimelineUndo() async => false;
+
+void _showPlannerMoveUndoCard(
+  BuildContext context, {
+  required int startMinute,
+  required bool use24HourTime,
+  required _TimelineMoveCommit commit,
+}) {
+  final movedTo = formatPlannerEventMinute(startMinute, use24HourTime);
+  final messenger = ScaffoldMessenger.of(context);
+  final undoTokens = _PlannerUndoCardTokens.resolve(context);
+  messenger
+    ..hideCurrentSnackBar()
+    ..showSnackBar(
+      SnackBar(
+        key: const Key('planner-move-undo-card'),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: undoTokens.surface,
+        elevation: 8,
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(15),
+          side: BorderSide(color: undoTokens.border),
+        ),
+        duration: const Duration(seconds: 10),
+        content: _MoveUndoSnackBarContent(
+          message: 'Moved to $movedTo',
+          durationSeconds: 10,
+          onUndo: commit.undo,
+        ),
+      ),
+    );
+}
+
+PlannerCalendarItem _provisionalPlannerItem(PlannerEventCreationDraft draft) {
+  final midnight = DateTime(draft.date.year, draft.date.month, draft.date.day);
+  return PlannerCalendarItem(
+    id: 'provisional:${draft.id}',
+    title: draft.title,
+    date: draft.date,
+    timing: PlannerEventTiming.timed,
+    state: PlannerEventState.scheduled,
+    requiresReport: false,
+    hasOutcomeReport: false,
+    startLocal: midnight.add(Duration(minutes: draft.startMinute)),
+    endLocal: midnight.add(Duration(minutes: draft.endMinute)),
+    originalDate: draft.date,
+    activityTypeId: draft.eventTypeId,
+    activityTypeLabel: draft.eventTypeLabel,
+    activityTypeColorValue: draft.eventTypeColorValue,
+  );
+}
+
 enum _PlannerOverflowAction { search, schedule, day, week, tasks }
 
 enum _TimelineResizeEdge { top, bottom }
 
-final class _TimelineScopeButton extends StatelessWidget {
-  const _TimelineScopeButton({
-    required this.label,
-    required this.onPressed,
-    super.key,
+/// Delta 4.2C direct-manipulation endpoint handle. The 44 x 44 touch target
+/// enters the ordinary vertical-drag arena immediately; Flutter's normal
+/// touch slop is the only activation threshold.
+///
+/// Delta 4.2R R7 (owner review): the VISIBLE affordance is a small
+/// BetterCalendar-style edge cap — a compact 14 dp mark straddling the exact
+/// endpoint, instead of the previous oversized full circle. The 44 dp touch
+/// target is unchanged (the visible cap must never be inflated to reach
+/// accessibility), so the visual footprint shrinks while the practical
+/// hitbox stays identical.
+///
+/// Delta 4.2R2 R2-03 (owner override): SAVED Events render a small
+/// partial-circle edge cap that visually belongs to the Event edge — a
+/// half-disc whose flat side lies on the Event's top edge (START, upper
+/// right) or bottom edge (END, bottom left), colored with the Event accent.
+/// The DRAFT keeps its accepted full-circle visual untouched (R2 owner
+/// override: do not redesign draft handles).
+final class _DirectEndpointHandle extends StatelessWidget {
+  const _DirectEndpointHandle({
+    required this.hitTargetKey,
+    required this.dotKey,
+    required this.edge,
+    required this.provisional,
+    required this.accentColor,
+    required this.onStart,
+    required this.onUpdate,
+    required this.onEnd,
+    required this.onCancel,
   });
 
-  final String label;
-  final VoidCallback onPressed;
+  /// Visible edge-cap diameter in logical pixels (owner-approved 12-16 dp).
+  static const double visibleCapSize = 14;
+
+  final Key hitTargetKey;
+  final Key dotKey;
+  final _TimelineResizeEdge edge;
+  final bool provisional;
+  final Color accentColor;
+  final ValueChanged<_TimelineResizeEdge> onStart;
+  final void Function(_TimelineResizeEdge edge, double deltaPixels) onUpdate;
+  final ValueChanged<_TimelineResizeEdge> onEnd;
+  final ValueChanged<_TimelineResizeEdge> onCancel;
 
   @override
   Widget build(BuildContext context) {
+    // The draft retains its approved endpoint-centered circle. Saved grips
+    // sit wholly inside their corner and their 44 dp targets expand inward.
+    final capOffset = (44 - visibleCapSize) / 2; // 15
+    final straddle = visibleCapSize / 2; // 7
     return SizedBox(
-      height: 56,
-      child: TextButton(
-        onPressed: onPressed,
-        style: TextButton.styleFrom(alignment: Alignment.centerLeft),
-        child: Text(label),
+      key: hitTargetKey,
+      width: 44,
+      height: 44,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: <Widget>[
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              dragStartBehavior: DragStartBehavior.down,
+              onVerticalDragStart: (_) {
+                unawaited(HapticFeedback.selectionClick());
+                onStart(edge);
+              },
+              onVerticalDragUpdate: (details) =>
+                  onUpdate(edge, details.primaryDelta ?? 0),
+              onVerticalDragEnd: (_) => onEnd(edge),
+              onVerticalDragCancel: () => onCancel(edge),
+            ),
+          ),
+          Positioned(
+            top: provisional
+                ? capOffset
+                : edge == _TimelineResizeEdge.top
+                ? 0
+                : null,
+            bottom: !provisional && edge == _TimelineResizeEdge.bottom
+                ? 0
+                : null,
+            left: provisional
+                ? edge == _TimelineResizeEdge.bottom
+                      ? -straddle
+                      : null
+                : edge == _TimelineResizeEdge.bottom
+                ? 0
+                : null,
+            right: provisional
+                ? edge == _TimelineResizeEdge.top
+                      ? -straddle
+                      : null
+                : edge == _TimelineResizeEdge.top
+                ? 0
+                : null,
+            child: IgnorePointer(
+              child: provisional
+                  // Draft handles are owner-accepted AS-IS (R2-02 override):
+                  // the full dark circle with the rose border stays.
+                  ? Container(
+                      key: dotKey,
+                      width: visibleCapSize,
+                      height: visibleCapSize,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF3A0610),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: AppTheme.rose, width: 2),
+                      ),
+                    )
+                  // Saved Events: the approved integrated Corner Tab Grip.
+                  : CustomPaint(
+                      key: dotKey,
+                      size: const Size.square(visibleCapSize),
+                      painter: _SavedEndpointCornerTabPainter(
+                        topRight: edge == _TimelineResizeEdge.top,
+                        color: accentColor,
+                      ),
+                    ),
+            ),
+          ),
+        ],
       ),
     );
   }
+}
+
+/// R4-01 approved Corner Tab Grip. The path occupies the saved Event corner
+/// and uses two connected scallops, so the Event and grip read as one
+/// silhouette instead of a circle pasted over the edge. Bottom-left is the
+/// exact 180-degree counterpart of upper-right.
+final class _SavedEndpointCornerTabPainter extends CustomPainter {
+  const _SavedEndpointCornerTabPainter({
+    required this.topRight,
+    required this.color,
+  });
+
+  final bool topRight;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.save();
+    if (!topRight) {
+      canvas
+        ..translate(size.width, size.height)
+        ..rotate(math.pi);
+    }
+    final width = size.width;
+    final height = size.height;
+    final tab = Path()
+      ..moveTo(0, 0)
+      ..lineTo(width, 0)
+      ..lineTo(width, height)
+      ..lineTo(width * 0.82, height)
+      ..cubicTo(
+        width * 0.62,
+        height,
+        width * 0.78,
+        height * 0.62,
+        width * 0.50,
+        height * 0.62,
+      )
+      ..cubicTo(
+        width * 0.18,
+        height * 0.62,
+        width * 0.38,
+        height * 0.18,
+        0,
+        height * 0.18,
+      )
+      ..close();
+    canvas.drawPath(tab, Paint()..color = color.withValues(alpha: 0.96));
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _SavedEndpointCornerTabPainter oldDelegate) =>
+      oldDelegate.topRight != topRight || oldDelegate.color != color;
 }
 
 /// Internal descriptor for a row inside the top-bar overflow popup.
@@ -1676,6 +3334,8 @@ class _DaySwipeCoordinator {
   bool _sawMultiPointer = false;
   bool _verticalDominant = false;
   bool _externalCancel = false;
+  bool _pagerClaimed = false;
+  bool _preclaimedPointerDown = false;
   final List<VoidCallback> _cancelListeners = <VoidCallback>[];
 
   void begin() {
@@ -1683,6 +3343,8 @@ class _DaySwipeCoordinator {
     _sawMultiPointer = false;
     _verticalDominant = false;
     _externalCancel = false;
+    _pagerClaimed = false;
+    _preclaimedPointerDown = false;
   }
 
   void onPointerDown() {
@@ -1691,9 +3353,12 @@ class _DaySwipeCoordinator {
     // by the previous gesture's last `cancel()` or `claim()`
     // call) cannot suppress a new swipe candidate. The
     // count itself is then incremented for this new pointer.
+    final preclaimed = _preclaimedPointerDown;
+    _preclaimedPointerDown = false;
     _sawMultiPointer = false;
     _verticalDominant = false;
-    _externalCancel = false;
+    _externalCancel = preclaimed;
+    _pagerClaimed = false;
     _pointerCount += 1;
     if (_pointerCount >= 2) {
       _sawMultiPointer = true;
@@ -1732,13 +3397,24 @@ class _DaySwipeCoordinator {
   /// Notifies every registered cancel listener so any live-finger
   /// observer (the interactive day pager) can recenter.
   void cancel() {
-    if (_externalCancel) {
+    if (_externalCancel && !_pagerClaimed) {
       return;
     }
     _externalCancel = true;
+    _pagerClaimed = false;
     for (final listener in List<VoidCallback>.of(_cancelListeners)) {
       listener();
     }
+  }
+
+  /// Marks a pointer that began on an already-selected Event before the
+  /// outer pager observes that same down event. If hit-test dispatch reaches
+  /// the pager first, [cancel] still drops its live session; if the Event
+  /// sees the down first, [onPointerDown] preserves this claim instead of
+  /// resetting it as stale state from an earlier gesture.
+  void preclaimPointerDown() {
+    _preclaimedPointerDown = true;
+    cancel();
   }
 
   /// Called by the interactive day pager once it has claimed
@@ -1750,6 +3426,7 @@ class _DaySwipeCoordinator {
   /// not feed back into the pager's own recenter.
   void claim() {
     _externalCancel = true;
+    _pagerClaimed = true;
   }
 
   /// Subscribe to [cancel] notifications. The listener fires once
@@ -1765,6 +3442,8 @@ class _DaySwipeCoordinator {
 
   bool get isActive =>
       _pointerCount == 0 && !_sawMultiPointer && !_verticalDominant;
+
+  bool get isExternallyCancelled => _externalCancel && !_pagerClaimed;
 }
 
 /// Mutable coordinator that tracks the Planner timeline's
@@ -1888,25 +3567,44 @@ final class _TimedEventTimeline extends StatefulWidget {
     required this.selectionMode,
     required this.selectedItems,
     required this.onToggleSelection,
+    required this.dragSession,
+    required this.moveCompletionRevision,
+    required this.activeMoveEventId,
+    required this.activeMoveSourceDate,
+    required this.activeMoveTargetDate,
+    required this.activeMoveOriginalStartMinute,
+    required this.onMoveSessionStart,
+    required this.onMoveSessionCancel,
     required this.hourHeight,
     required this.onZoomEnd,
+    required this.onZoomUpdate,
     required this.daySwipeCoordinator,
     required this.pinchCoordinator,
     required this.currentTimeListenable,
+    required this.tapMarker,
+    required this.timelineKey,
   });
 
   final List<PlannerCalendarItem> events;
   final PlannerDate selectedDate;
   final PlannerSettings settings;
   final Map<String, EventColorPreference> eventColorsByTypeId;
+  // Parent-owned GlobalKey attached to the timeline surface so the
+  // initial-scroll routine can measure the timeline's position inside
+  // the day scroll view.
+  final GlobalKey timelineKey;
   // Parent-owned SingleChildScrollView controller used for focal-time
   // preservation while pinching. Held here by reference so pinch
   // updates can reposition the viewport without rebuilding the screen.
   final ScrollController scrollController;
-  final ValueChanged<int> onCreate;
-  final Future<bool> Function(PlannerCalendarItem event, int startMinute)
+  final void Function(int minute) onCreate;
+  final Future<_TimelineMoveCommit?> Function(
+    PlannerCalendarItem event,
+    PlannerDate targetDate,
+    int startMinute,
+  )
   onMove;
-  final Future<bool> Function(
+  final Future<_TimelineMoveCommit?> Function(
     PlannerCalendarItem event,
     int startMinute,
     int endMinute,
@@ -1915,8 +3613,33 @@ final class _TimedEventTimeline extends StatefulWidget {
   final bool selectionMode;
   final Set<PlannerSelectionId> selectedItems;
   final ValueChanged<PlannerCalendarItem> onToggleSelection;
+  final _CrossDateDragSession? dragSession;
+  final int moveCompletionRevision;
+  final String? activeMoveEventId;
+  final PlannerDate? activeMoveSourceDate;
+  final PlannerDate? activeMoveTargetDate;
+  final int? activeMoveOriginalStartMinute;
+  final void Function(
+    PlannerCalendarItem event,
+    int pointerId,
+    Offset globalPosition,
+    Offset grabOffset,
+    Size ghostSize,
+    int startMinute,
+    int endMinute,
+    int snapMinutes,
+    double hourHeight,
+  )
+  onMoveSessionStart;
+  final VoidCallback onMoveSessionCancel;
   final double hourHeight;
   final ValueChanged<double> onZoomEnd;
+  // Live pinch hook: the parent rebuilds the pager strip with the
+  // mid-gesture hour height so the scrollable extent grows in step
+  // with the canvas (without it, the strip stays at the settings
+  // height, clips the canvas, and the focal compensation is clamped
+  // back on pointer-up).
+  final ValueChanged<double> onZoomUpdate;
   // Shared coordinator that lets the timeline's pinch, long-press
   // move, and vertical resize recognizers cancel an in-progress
   // day-swipe candidate before it commits. The detector lives on
@@ -1939,26 +3662,53 @@ final class _TimedEventTimeline extends StatefulWidget {
   // The notifier is owned and disposed by [_PlannerScreenState];
   // tests advance it by writing to it directly.
   final ValueListenable<DateTime> currentTimeListenable;
+  // Delta 4.2D: transient generic Event placeholder shown before Event Type
+  // selection. Only rendered when it belongs to the selected day.
+  final PlannerTapMarker? tapMarker;
 
   @override
   State<_TimedEventTimeline> createState() => _TimedEventTimelineState();
 }
 
 final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
-  static const double _timeColumnWidth = 56;
-  static const double _eventGap = 3;
+  // R4-07 restores the ordinary hour-label gutter to its compact width. The
+  // current-time composition is an independent full-width overlay below, so
+  // long live-time labels never make every Event lane permanently narrower.
+  static const double _timeColumnWidth =
+      PlannerCurrentTimeHorizontalGeometry.timeColumnWidth;
+
+  /// Minimum invisible touch height for an exact-duration Event block
+  /// (combined delta): the visible block keeps its true duration-derived
+  /// height while the Positioned hit area covers at least this much, so
+  /// very short blocks at wide zoom-out remain tappable without any
+  /// visible minimum-height inflation.
+  static const double kPlannerEventMinimumTouchHeight = 24;
+  // R7-06: the external free-space gap between touching Event rectangles is
+  // zero; the R6-05 one-pixel inner border is the only separator. Keeping
+  // this as a named constant preserves the R5 lane-width math structurally —
+  // only the gap value changed from the ~2 dp lane gap.
+  static const double _eventGap = 0;
   // Vertical extent of the current-time indicator Row. The Row is
   // centered on the exact current minute within the timeline, so
   // this value defines the band whose center marks the minute.
   // Tall enough to host the 11-px time label and the 8-px dot and
   // 2-px line, with crossAxisAlignment.center centering each on
   // the minute within normal logical-pixel rounding tolerance.
-  static const double _currentTimeIndicatorHeight = 12;
-
+  static const double _currentTimeIndicatorHeight =
+      PlannerCurrentTimeHorizontalGeometry.indicatorHeight;
+  static const double _currentTimeDotSize =
+      PlannerCurrentTimeHorizontalGeometry.dotSize;
   final Map<String, int> _previewStartMinutes = <String, int>{};
   final Map<String, int> _previewEndMinutes = <String, int>{};
+  // One canonical pointer stream owns both axes. The local grab offset keeps
+  // the same point of the Event under the finger across target-date rebuilds,
+  // scroll movement, and lane-geometry changes.
+  final Map<String, Offset> _movePointerGlobals = <String, Offset>{};
+  final Map<String, Offset> _moveGrabOffsets = <String, Offset>{};
+  final Map<String, int> _movePointerIds = <String, int>{};
   final Map<String, double> _resizeAccumulatedPixels = <String, double>{};
   final Set<String> _persisting = <String>{};
+  String? _directManipulationEventId;
   late double _hourHeight;
   // Pinch focal-time preservation: captured at two-finger scale start
   // and reapplied on every onScaleUpdate so the time under the focal
@@ -1973,6 +3723,29 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
   double? _zoomStartScrollOffset;
   double? _zoomFocalLocalY;
   double? _zoomFocalMinute;
+  // Viewport-derived pinch clamp inputs, captured once at two-finger
+  // scale start so the min/max hour-height bounds stay stable for the
+  // whole gesture. The SingleChildScrollView viewport dimension is the
+  // usable timeline viewport between the date strip and bottom nav;
+  // the configured-hours span drives the maximum-zoom-out fit target.
+  double _zoomStartViewportHeight = 0;
+  int _zoomStartConfiguredHours = 24;
+  // The scrollable's max extent at pinch start and the hour height it
+  // was measured at. The canvas grows with the hour height, so the
+  // extent used to clamp each update is derived from these two values
+  // (extent grows by 24 * delta-hour-height) instead of the stale
+  // live extent, which lags one layout behind the gesture and would
+  // truncate the focal compensation mid-pinch.
+  double _zoomStartMaxExtent = 0;
+  double _zoomStartHourHeight = 0;
+  // R6-04: raw pointer/scale callbacks may arrive faster than Flutter paints.
+  // Retain only the latest requested zoom geometry and apply it once at the
+  // start of the next frame. Pointer-up flushes the latest value before the
+  // one canonical settings save, so coalescing never changes final zoom.
+  double? _pendingPinchHourHeight;
+  double? _pendingPinchScrollOffset;
+  bool _pendingPinchHasScrollClient = false;
+  bool _pinchFrameScheduled = false;
 
   // Pinch two-pointer priority (Stage B3-R1 Slice D2):
   //
@@ -1992,6 +3765,8 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
   // one-finger gesture begins — stale pinch state cannot
   // trigger a delayed tap or swipe.
   bool _pinchActive = false;
+  final Map<int, Offset> _pinchPointerPositions = <int, Offset>{};
+  double? _pinchStartDistance;
   // Settle-time buffer: after the second pointer lifts and
   // the count returns to 0 or 1, the timeline keeps the
   // suppressions active for a single pump cycle so the gesture
@@ -2006,19 +3781,127 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
   @override
   void initState() {
     super.initState();
-    _hourHeight = PlannerZoomPolicy.clamp(widget.hourHeight);
+    _hourHeight = PlannerZoomPolicy.clampAbsolute(widget.hourHeight);
   }
 
   @override
   void didUpdateWidget(covariant _TimedEventTimeline oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (_zoomStartHeight == null && oldWidget.hourHeight != widget.hourHeight) {
-      _hourHeight = PlannerZoomPolicy.clamp(widget.hourHeight);
+      _hourHeight = PlannerZoomPolicy.clampAbsolute(widget.hourHeight);
+    }
+    final activeMoveContinues =
+        widget.activeMoveEventId != null &&
+        _directManipulationEventId == widget.activeMoveEventId &&
+        widget.events.any((event) => event.id == widget.activeMoveEventId);
+    if (oldWidget.moveCompletionRevision != widget.moveCompletionRevision ||
+        widget.selectionMode ||
+        (oldWidget.selectedDate != widget.selectedDate &&
+            !activeMoveContinues)) {
+      _directManipulationEventId = null;
+      _movePointerGlobals.clear();
+      _moveGrabOffsets.clear();
+      _movePointerIds.clear();
+      _resizeAccumulatedPixels.clear();
+      _previewStartMinutes.clear();
+      _previewEndMinutes.clear();
+    } else if (_directManipulationEventId case final selectedId?
+        when !widget.events.any((event) => event.id == selectedId)) {
+      _directManipulationEventId = null;
+      _movePointerGlobals.remove(selectedId);
+      _moveGrabOffsets.remove(selectedId);
+      _movePointerIds.remove(selectedId);
+      _resizeAccumulatedPixels.remove(selectedId);
+      _previewStartMinutes.remove(selectedId);
+      _previewEndMinutes.remove(selectedId);
     }
   }
 
-  int get _firstHour => widget.settings.visibleStartHour;
-  int get _lastHour => widget.settings.visibleEndHour;
+  @override
+  void dispose() {
+    _pendingPinchHourHeight = null;
+    _pendingPinchScrollOffset = null;
+    super.dispose();
+  }
+
+  bool _isProvisionalEvent(PlannerCalendarItem event) =>
+      event.eventId == null && event.id.startsWith('provisional:');
+
+  bool _isDirectlySelected(PlannerCalendarItem event) =>
+      _isProvisionalEvent(event) || _directManipulationEventId == event.id;
+
+  bool _deselectDirectManipulation() {
+    if (_directManipulationEventId == null) {
+      return false;
+    }
+    setState(() {
+      _directManipulationEventId = null;
+      _movePointerGlobals.clear();
+      _moveGrabOffsets.clear();
+      _movePointerIds.clear();
+      _resizeAccumulatedPixels.clear();
+      _previewStartMinutes.clear();
+      _previewEndMinutes.clear();
+    });
+    if (widget.activeMoveEventId != null) {
+      widget.onMoveSessionCancel();
+    }
+    return true;
+  }
+
+  void _handleEmptyTimeTap(int minute) {
+    if (_suppressOneFingerInteractions) {
+      return;
+    }
+    if (_deselectDirectManipulation()) {
+      return;
+    }
+    widget.onCreate(minute);
+  }
+
+  void _handleEventTap(PlannerCalendarItem event) {
+    if (_suppressOneFingerInteractions || _isProvisionalEvent(event)) {
+      return;
+    }
+    if (widget.selectionMode) {
+      widget.onToggleSelection(event);
+      return;
+    }
+    if (_directManipulationEventId != null &&
+        _directManipulationEventId != event.id) {
+      _deselectDirectManipulation();
+    }
+    _openCalendarEvent(context, event);
+  }
+
+  void _cancelManipulationPreviewForPinch() {
+    if (_previewStartMinutes.isEmpty &&
+        _previewEndMinutes.isEmpty &&
+        _movePointerGlobals.isEmpty &&
+        _moveGrabOffsets.isEmpty &&
+        _resizeAccumulatedPixels.isEmpty &&
+        widget.activeMoveEventId == null) {
+      return;
+    }
+    setState(() {
+      _previewStartMinutes.clear();
+      _previewEndMinutes.clear();
+      _movePointerGlobals.clear();
+      _moveGrabOffsets.clear();
+      _movePointerIds.clear();
+      _resizeAccumulatedPixels.clear();
+    });
+    widget.onMoveSessionCancel();
+  }
+
+  // The timeline canvas always spans the full civil day so times
+  // outside the configured planning window remain reachable (PMG
+  // parity). The configured window remains the current-time
+  // visibility window and the default initial-scroll anchor.
+  int get _canvasFirstHour => kPlannerCivilDayStartHour;
+  int get _canvasLastHour => kPlannerCivilDayEndHour;
+  int get _planWindowFirstHour => widget.settings.visibleStartHour;
+  int get _planWindowLastHour => widget.settings.visibleEndHour;
 
   /// True while the timeline must refuse to act on a one-finger
   /// gesture because a two-finger pinch is in progress (or the
@@ -2028,13 +3911,155 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
   /// circuit when it is true.
   bool get _suppressOneFingerInteractions => _pinchActive || _postPinchSuppress;
 
+  void _beginRawPinch() {
+    if (_pinchPointerPositions.length < 2) {
+      return;
+    }
+    final points = _pinchPointerPositions.values.take(2).toList();
+    final distance = (points[0] - points[1]).distance;
+    if (distance <= 0) {
+      return;
+    }
+    widget.daySwipeCoordinator.cancel();
+    _pinchStartDistance = distance;
+    _zoomStartHeight = _hourHeight;
+    _zoomStartViewportHeight = widget.scrollController.hasClients
+        ? widget.scrollController.position.viewportDimension
+        : 0;
+    _zoomStartConfiguredHours = _planWindowLastHour - _planWindowFirstHour;
+    _zoomStartScrollOffset = widget.scrollController.hasClients
+        ? widget.scrollController.offset
+        : 0;
+    _zoomStartMaxExtent = widget.scrollController.hasClients
+        ? widget.scrollController.position.maxScrollExtent
+        : 0;
+    _zoomStartHourHeight = _hourHeight;
+    _zoomFocalLocalY = (points[0].dy + points[1].dy) / 2;
+    final startPixelsPerMinute = _hourHeight / 60;
+    _zoomFocalMinute = startPixelsPerMinute > 0
+        ? (_zoomFocalLocalY ?? 0) / startPixelsPerMinute
+        : 0;
+    _pendingPinchHourHeight = null;
+    _pendingPinchScrollOffset = null;
+    _postPinchSuppress = false;
+  }
+
+  void _queuePinchFrame({
+    required double hourHeight,
+    required double scrollOffset,
+    required bool hasScrollClient,
+  }) {
+    _pendingPinchHourHeight = hourHeight;
+    _pendingPinchScrollOffset = scrollOffset;
+    _pendingPinchHasScrollClient = hasScrollClient;
+    if (_pinchFrameScheduled) {
+      return;
+    }
+    _pinchFrameScheduled = true;
+    WidgetsBinding.instance.scheduleFrameCallback((_) {
+      _pinchFrameScheduled = false;
+      if (!mounted) {
+        return;
+      }
+      _applyPendingPinchFrame();
+    });
+  }
+
+  void _applyPendingPinchFrame() {
+    final hourHeight = _pendingPinchHourHeight;
+    final scrollOffset = _pendingPinchScrollOffset;
+    final hasScrollClient = _pendingPinchHasScrollClient;
+    _pendingPinchHourHeight = null;
+    _pendingPinchScrollOffset = null;
+    if (hourHeight == null || scrollOffset == null) {
+      return;
+    }
+    setState(() {
+      _hourHeight = hourHeight;
+      if (hasScrollClient && widget.scrollController.hasClients) {
+        widget.scrollController.jumpTo(scrollOffset);
+      }
+    });
+    widget.onZoomUpdate(hourHeight);
+  }
+
+  void _updateRawPinch() {
+    final startDistance = _pinchStartDistance;
+    final start = _zoomStartHeight;
+    final focalMinute = _zoomFocalMinute;
+    final focalLocalY = _zoomFocalLocalY;
+    if (!_pinchActive ||
+        startDistance == null ||
+        start == null ||
+        focalMinute == null ||
+        focalLocalY == null ||
+        _pinchPointerPositions.length < 2) {
+      return;
+    }
+    final points = _pinchPointerPositions.values.take(2).toList();
+    final distance = (points[0] - points[1]).distance;
+    final adjustedScale = PlannerZoomPolicy.applyDeadZone(
+      distance / startDistance,
+    );
+    final newHourHeight = PlannerZoomPolicy.clampForViewport(
+      start * adjustedScale,
+      viewportHeight: _zoomStartViewportHeight,
+      configuredHours: _zoomStartConfiguredHours,
+    );
+    final newPixelsPerMinute = newHourHeight / 60;
+    final controller = widget.scrollController;
+    final desiredFocalContentY = focalMinute * newPixelsPerMinute;
+    final desiredOffset =
+        (desiredFocalContentY - focalLocalY + (_zoomStartScrollOffset ?? 0))
+            .toDouble();
+    final newMaxExtent =
+        _zoomStartMaxExtent + 24 * (newHourHeight - _zoomStartHourHeight);
+    final hasClients = controller.hasClients;
+    final clampedOffset = desiredOffset
+        .clamp(0.0, newMaxExtent.clamp(0, double.infinity))
+        .toDouble();
+    _queuePinchFrame(
+      hourHeight: newHourHeight,
+      scrollOffset: clampedOffset,
+      hasScrollClient: hasClients,
+    );
+  }
+
+  void _endRawPinch() {
+    if (_zoomStartHeight != null) {
+      _applyPendingPinchFrame();
+      _zoomStartHeight = null;
+      _zoomStartScrollOffset = null;
+      _zoomFocalLocalY = null;
+      _zoomFocalMinute = null;
+      _pinchStartDistance = null;
+      widget.onZoomEnd(_hourHeight);
+    }
+    _postPinchSuppress = true;
+    _pinchActive = false;
+    widget.pinchCoordinator.clearCancel();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _postPinchSuppress = false;
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    final slotCount = _lastHour - _firstHour;
+    final slotCount = _canvasLastHour - _canvasFirstHour;
     final timelineHeight = slotCount * _hourHeight;
-    final placements = PlannerTimelineLayout.arrange(
-      widget.events,
+    // Delta 4.2A: one canonical minute grid owns both logical and painted
+    // geometry. Zoom changes pixels-per-minute only; it never adds a visual
+    // height floor or a second set of display-only overlap lanes.
+    final viewportHeight = _safeViewportHeight();
+    final placements = PlannerDisplayGeometry.resolve(
+      events: widget.events,
       hourHeight: _hourHeight,
+      viewportHeight: viewportHeight,
+      configuredHours: _planWindowLastHour - _planWindowFirstHour,
+      previewStartMinutes: _previewStartMinutes,
+      previewEndMinutes: _previewEndMinutes,
     );
     // The current-time read happens inside the
     // ValueListenableBuilder so the indicator's visibility,
@@ -2054,6 +4079,7 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
       // physics to NeverScrollableScrollPhysics.
       behavior: HitTestBehavior.translucent,
       onPointerDown: (event) {
+        _pinchPointerPositions[event.pointer] = event.localPosition;
         final transitioned = widget.pinchCoordinator.onPointerDown();
         if (transitioned) {
           // The second pointer just landed; the pinch now owns
@@ -2071,30 +4097,45 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
           widget.pinchCoordinator.clearCancel();
           _pinchActive = true;
           _postPinchSuppress = true;
+          // Lock 1: the moment a second pointer lands, pinch owns the
+          // interaction. Discard any in-flight one-finger move/resize
+          // preview so its eventual recognizer end cannot commit it.
+          _cancelManipulationPreviewForPinch();
+          // Raw pointer tracking is deliberately outside the gesture arena:
+          // selected-body and endpoint drag recognizers cannot prevent pinch
+          // from establishing its two-pointer baseline.
+          _beginRawPinch();
+        }
+      },
+      onPointerMove: (event) {
+        if (_pinchPointerPositions.containsKey(event.pointer)) {
+          _pinchPointerPositions[event.pointer] = event.localPosition;
+          _updateRawPinch();
         }
       },
       onPointerUp: (event) {
+        final endingPinch = _pinchActive || _pinchStartDistance != null;
         final transitioned = widget.pinchCoordinator.onPointerUp();
-        if (transitioned) {
-          _pinchActive = false;
-          // _postPinchSuppress stays true until the next pump
-          // cycle, so a stale single-pointer drag that was
-          // already in flight cannot commit a vertical scroll
-          // or an empty-time tap immediately after the second
-          // finger lifted. The flag is cleared by the post-frame
-          // callback scheduled in onScaleEnd.
+        _pinchPointerPositions.remove(event.pointer);
+        if (transitioned && endingPinch) {
+          _endRawPinch();
         }
       },
       onPointerCancel: (event) {
+        final endingPinch = _pinchActive || _pinchStartDistance != null;
         final transitioned = widget.pinchCoordinator.onPointerUp();
-        if (transitioned) {
-          _pinchActive = false;
+        _pinchPointerPositions.remove(event.pointer);
+        if (transitioned && endingPinch) {
+          _endRawPinch();
         }
       },
       child: GestureDetector(
         key: const Key('planner-zoom-surface'),
         behavior: HitTestBehavior.translucent,
         onScaleStart: (details) {
+          if (_pinchStartDistance != null) {
+            return;
+          }
           // Pinch (two-pointer scale) owns the gesture. The
           // pinch baseline is captured as soon as the
           // recognizer fires with two pointers; Flutter's
@@ -2109,6 +4150,14 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
           if (details.pointerCount >= 2) {
             widget.daySwipeCoordinator.cancel();
             _zoomStartHeight = _hourHeight;
+            // Capture the usable timeline viewport and the configured
+            // planning-window span so the gesture's min/max hour-height
+            // clamps stay stable for the whole pinch.
+            _zoomStartViewportHeight = widget.scrollController.hasClients
+                ? widget.scrollController.position.viewportDimension
+                : 0;
+            _zoomStartConfiguredHours =
+                _planWindowLastHour - _planWindowFirstHour;
             // Capture focal-time anchors: the local Y from this
             // GestureDetector's coordinate space and the scroll
             // offset of the parent SingleChildScrollView. The
@@ -2120,18 +4169,22 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
             _zoomStartScrollOffset = widget.scrollController.hasClients
                 ? widget.scrollController.offset
                 : 0;
+            _zoomStartMaxExtent = widget.scrollController.hasClients
+                ? widget.scrollController.position.maxScrollExtent
+                : 0;
+            _zoomStartHourHeight = _hourHeight;
             _zoomFocalLocalY = details.localFocalPoint.dy;
-            final focalContentY =
-                (_zoomStartScrollOffset ?? 0) + (_zoomFocalLocalY ?? 0);
-            // Convert the content-Y to a focal minute using the
-            // *effective* current pixelsPerMinute (the start hour
-            // height). This is the minute whose time label was
-            // sitting under the focal point when the pinch began
-            // and is the value preserved by scroll recomputation
-            // on every subsequent scale update.
+            // The GestureDetector wraps the timeline canvas directly,
+            // so the local focal Y is already a canvas coordinate: it is
+            // the minute-of-day under the pinch midpoint expressed in
+            // pixels at the current scale. The scroll offset must NOT be
+            // added here — adding it double-counts the scroll and the
+            // compensation overshoots by `offset * (scale - 1)` at any
+            // non-zero scroll position (the initial-scroll jump made this
+            // visible on the physical planner).
             final startPixelsPerMinute = _hourHeight / 60;
             _zoomFocalMinute = startPixelsPerMinute > 0
-                ? focalContentY / startPixelsPerMinute
+                ? (_zoomFocalLocalY ?? 0) / startPixelsPerMinute
                 : 0;
             // Clear the one-pump settle flag from any previous
             // pinch: a fresh two-pointer pinch has just begun
@@ -2142,6 +4195,9 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
           }
         },
         onScaleUpdate: (details) {
+          if (_pinchStartDistance != null) {
+            return;
+          }
           final start = _zoomStartHeight;
           final focalMinute = _zoomFocalMinute;
           final focalLocalY = _zoomFocalLocalY;
@@ -2156,34 +4212,53 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
           // (not the current hour height) so the response is
           // monotonic and stable across the gesture lifetime.
           final adjustedScale = PlannerZoomPolicy.applyDeadZone(details.scale);
-          final newHourHeight = PlannerZoomPolicy.clamp(start * adjustedScale);
+          final newHourHeight = PlannerZoomPolicy.clampForViewport(
+            start * adjustedScale,
+            viewportHeight: _zoomStartViewportHeight,
+            configuredHours: _zoomStartConfiguredHours,
+          );
           final newPixelsPerMinute = newHourHeight / 60;
           final controller = widget.scrollController;
           // Compute the scroll offset that keeps the captured focal
           // minute directly beneath the same local Y on the timeline
-          // surface. Clamp to the controller's valid extent so we
-          // cannot overshoot the start or end of the scrollable.
+          // surface. The desired offset equals the new canvas position
+          // of the focal minute minus its viewport-relative position;
+          // because the scrollable's content includes the current
+          // offset, the captured start offset is re-added (this term
+          // cancels at offset zero, which is why the original
+          // implementation appeared correct before the initial-scroll
+          // jump existed). Clamp to the controller's valid extent so
+          // we cannot overshoot the start or end of the scrollable.
           final desiredFocalContentY = focalMinute * newPixelsPerMinute;
-          final desiredOffset = (desiredFocalContentY - focalLocalY).toDouble();
+          final desiredOffset =
+              (desiredFocalContentY -
+                      focalLocalY +
+                      (_zoomStartScrollOffset ?? 0))
+                  .toDouble();
+          // The canvas height is 24 slots, so the scrollable extent
+          // grows by exactly 24 * delta-hour-height as the pinch
+          // progresses. Clamping against this derived extent (rather
+          // than the live `maxScrollExtent`, which lags one layout
+          // behind the gesture) keeps the focal compensation intact
+          // even when a pinch-out runs past the pre-pinch extent.
+          final newMaxExtent =
+              _zoomStartMaxExtent + 24 * (newHourHeight - _zoomStartHourHeight);
           final hasClients = controller.hasClients;
-          final maxExtent = hasClients
-              ? controller.position.maxScrollExtent
-              : double.infinity;
-          final minExtent = hasClients
-              ? controller.position.minScrollExtent
-              : 0.0;
           final clampedOffset = desiredOffset
-              .clamp(minExtent, maxExtent)
+              .clamp(0.0, newMaxExtent.clamp(0, double.infinity))
               .toDouble();
-          setState(() {
-            _hourHeight = newHourHeight;
-            if (hasClients) {
-              controller.jumpTo(clampedOffset);
-            }
-          });
+          _queuePinchFrame(
+            hourHeight: newHourHeight,
+            scrollOffset: clampedOffset,
+            hasScrollClient: hasClients,
+          );
         },
         onScaleEnd: (_) {
+          if (_pinchStartDistance != null || _postPinchSuppress) {
+            return;
+          }
           if (_zoomStartHeight != null) {
+            _applyPendingPinchFrame();
             _zoomStartHeight = null;
             _zoomStartScrollOffset = null;
             _zoomFocalLocalY = null;
@@ -2211,167 +4286,291 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
             _postPinchSuppress = false;
           });
         },
-        child: SizedBox(
-          key: const Key('planner-time-grid'),
-          height: timelineHeight,
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              return Stack(
-                clipBehavior: Clip.none,
-                children: <Widget>[
-                  Positioned.fill(
-                    left: _timeColumnWidth,
-                    child: GestureDetector(
-                      key: const Key('planner-timeline-create-surface'),
-                      behavior: HitTestBehavior.opaque,
-                      onTapUp: (details) {
-                        // Empty-time create: suppressed while a
-                        // pinch is in progress or during the
-                        // one-pump settle window so a stale
-                        // finger landing does not open the
-                        // Event Type picker after the pinch
-                        // ends.
-                        if (_suppressOneFingerInteractions) {
-                          return;
-                        }
-                        final minute = snapPlannerMinute(
-                          _firstHour * 60 +
-                              (details.localPosition.dy / _hourHeight * 60)
-                                  .round(),
-                          widget.settings.snapMinutes,
-                        ).clamp(_firstHour * 60, _lastHour * 60 - 15);
-                        widget.onCreate(minute);
-                      },
-                    ),
-                  ),
-                  for (var index = 0; index <= slotCount; index++) ...<Widget>[
-                    Positioned(
-                      top: index == 0 ? 0 : index * _hourHeight - 7,
-                      left: 0,
-                      width: _timeColumnWidth,
-                      child: Text(
-                        _hourLabel(_firstHour + index),
-                        textAlign: TextAlign.right,
-                        style: Theme.of(
-                          context,
-                        ).textTheme.labelSmall?.copyWith(color: Colors.white54),
+        child: KeyedSubtree(
+          key: widget.timelineKey,
+          child: SizedBox(
+            key: const Key('planner-time-grid'),
+            height: timelineHeight,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return Stack(
+                  clipBehavior: Clip.none,
+                  children: <Widget>[
+                    Positioned.fill(
+                      child: GestureDetector(
+                        key: const Key('planner-timeline-create-surface'),
+                        behavior: HitTestBehavior.opaque,
+                        onTapUp: (details) {
+                          // Empty-time create: suppressed while a
+                          // pinch is in progress or during the
+                          // one-pump settle window so a stale
+                          // finger landing does not open the
+                          // Event Type picker after the pinch
+                          // ends.
+                          final minute =
+                              snapPlannerMinute(
+                                (details.localPosition.dy / _hourHeight * 60)
+                                    .round(),
+                                widget.settings.snapMinutes,
+                              ).clamp(
+                                kPlannerCivilDayStartMinute,
+                                kPlannerCivilDayEndMinute - 15,
+                              );
+                          _handleEmptyTimeTap(minute);
+                        },
                       ),
                     ),
-                    Positioned(
-                      key: Key('planner-full-hour-line-${_firstHour + index}'),
-                      top: index * _hourHeight,
-                      left: _timeColumnWidth,
-                      right: 0,
-                      child: const Divider(height: 1, color: AppTheme.outline),
-                    ),
-                  ],
-                  if (widget.events.isEmpty)
-                    const Positioned(
-                      top: 18,
-                      left: _timeColumnWidth + 14,
-                      right: 8,
-                      child: _EmptySectionMessage(
-                        'No timed Calendar Events. Tap the timeline to add one.',
+                    // PMG hidden-midnight model: the 12 AM top and bottom
+                    // boundaries are hidden (no label, no line). The first
+                    // visible hour line is 1 AM and the last visible hour
+                    // line is 11 PM; the 12 AM-1 AM and 11 PM-12 AM slots
+                    // remain fully usable because the canvas still spans the
+                    // full 0..1440 civil-day minutes and no fake 1 AM row
+                    // follows the final boundary.
+                    for (var index = 1; index < slotCount; index++) ...<Widget>[
+                      Positioned(
+                        // BetterCalendar / Delta 4.2A discipline: the boundary
+                        // line comes first and its label sits inside the hour
+                        // cell immediately below it at every zoom level.
+                        top: index * _hourHeight + 2,
+                        left: 0,
+                        width: _timeColumnWidth,
+                        child: GestureDetector(
+                          key: Key('planner-time-label-$index'),
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () {
+                            _handleEmptyTimeTap(index * 60);
+                          },
+                          child: Text(
+                            _hourLabel(index),
+                            // Hour labels must never wrap (the test fallback
+                            // font renders every glyph at fontSize width, which
+                            // would wrap short labels and push them below the
+                            // final line).
+                            maxLines: 1,
+                            softWrap: false,
+                            textAlign: TextAlign.right,
+                            style: Theme.of(context).textTheme.labelSmall
+                                ?.copyWith(color: Colors.white54),
+                          ),
+                        ),
                       ),
-                    ),
-                  Positioned.fill(
-                    key: const Key('planner-current-time-overlay'),
-                    child: IgnorePointer(
-                      child: ValueListenableBuilder<DateTime>(
-                        valueListenable: widget.currentTimeListenable,
-                        builder: (context, currentNow, _) {
-                          // Current-time overlay: nested-Stack pattern so
-                          // both ParentData relationships remain valid.
-                          //
-                          // * Outer [Positioned.fill] is a direct child of
-                          //   the main timeline [Stack] (Positioned MUST
-                          //   be laid out by a Stack).
-                          // * Inner [Stack] is the builder's return value;
-                          //   the inner [Positioned] for the indicator Row
-                          //   is a direct child of that inner [Stack],
-                          //   keeping ParentData valid when the indicator
-                          //   is visible.
-                          // * When hidden, the inner [Stack] contains no
-                          //   Positioned and is therefore safe to render.
-                          //
-                          // The ValueListenableBuilder rebuilds only this
-                          // overlay subtree on minute ticks; the pinch,
-                          // long-press, resize, day-swipe, and event-tap
-                          // recognizers are not in the rebuild path.
-                          final minuteFromVisibleStart =
-                              ((currentNow.hour - _firstHour) * 60) +
-                              currentNow.minute;
-                          final pixelsPerMinute =
+                      Positioned(
+                        key: Key('planner-full-hour-line-$index'),
+                        top: index * _hourHeight,
+                        left: _timeColumnWidth,
+                        right: 0,
+                        child: const Divider(
+                          height: 1,
+                          color: AppTheme.outline,
+                        ),
+                      ),
+                    ],
+                    if (widget.events.isEmpty && widget.tapMarker == null)
+                      const Positioned(
+                        top: 18,
+                        left: _timeColumnWidth + 14,
+                        right: 8,
+                        child: _EmptySectionMessage(
+                          'No timed Calendar Events. Tap the timeline to add one.',
+                        ),
+                      ),
+                    // Delta 4.2D generic pre-type Event placeholder. It uses
+                    // the same canonical minute-to-pixel geometry as saved
+                    // Events, stays non-interactive, and never enters the
+                    // persistence or saved-event overlap paths.
+                    if (widget.tapMarker != null &&
+                        widget.tapMarker!.date == widget.selectedDate)
+                      Builder(
+                        builder: (context) {
+                          // Delta 4.2R R10 + 4.2R2 R2-06: the pre-type
+                          // placeholder shares the adaptive readability floor
+                          // with saved Events and the provisional draft, so the
+                          // generic block never collapses to an unreadable
+                          // sliver at any zoom-out level (no intermediate-zoom
+                          // dead zone). The floor is display-only (logical
+                          // start/end untouched).
+                          final placeholderStart =
+                              widget.tapMarker!.startMinute;
+                          final placeholderEnd = widget.tapMarker!.endMinute;
+                          final placeholderCanonicalHeight =
+                              (placeholderEnd - placeholderStart) *
                               PlannerTimelineGeometry.pixelsPerMinute(
                                 _hourHeight,
                               );
-                          final resolvedMinuteY =
-                              minuteFromVisibleStart * pixelsPerMinute;
-                          final resolvedIndicatorTop =
-                              resolvedMinuteY - _currentTimeIndicatorHeight / 2;
-                          final indicatorVisible =
-                              widget.settings.showCurrentTime &&
-                              widget.selectedDate ==
-                                  PlannerDate.fromDateTime(currentNow);
-                          return Stack(
-                            clipBehavior: Clip.none,
-                            children: <Widget>[
-                              if (indicatorVisible)
-                                Positioned(
-                                  key: const Key(
-                                    'planner-current-time-indicator',
-                                  ),
-                                  top: resolvedIndicatorTop,
-                                  left: 0,
-                                  right: 0,
-                                  child: SizedBox(
-                                    height: _currentTimeIndicatorHeight,
-                                    child: Row(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.center,
-                                      children: <Widget>[
-                                        SizedBox(
-                                          width: _timeColumnWidth - 8,
-                                          child: Text(
-                                            formatPlannerCurrentTimeLabel(
-                                              currentNow,
-                                            ),
-                                            key: const Key(
-                                              'planner-current-time-label',
-                                            ),
-                                            textAlign: TextAlign.right,
-                                            maxLines: 1,
-                                            softWrap: false,
-                                            overflow: TextOverflow.visible,
-                                            style: const TextStyle(
-                                              color: AppTheme.rose,
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.w700,
-                                              height: 1.0,
-                                              letterSpacing: 0.2,
-                                            ),
-                                          ),
-                                        ),
-                                        Container(
-                                          key: const Key(
-                                            'planner-current-time-dot',
-                                          ),
-                                          width: 8,
-                                          height: 8,
-                                          margin: const EdgeInsets.only(
+                          final floorActive =
+                              placeholderCanonicalHeight <
+                                  kPlannerReadableEventHeightThreshold &&
+                              placeholderEnd - placeholderStart <=
+                                  kPlannerMaxZoomReadabilityDurationMinutes;
+                          final displayStart = floorActive
+                              ? (placeholderStart ~/ 60) * 60
+                              : placeholderStart;
+                          final displayEnd = floorActive
+                              ? displayStart + 60
+                              : placeholderEnd;
+                          final placeholderGeometry =
+                              PlannerTimelineGeometry.event(
+                                startMinute: displayStart,
+                                endMinute: displayEnd,
+                                visibleStartMinute: kPlannerCivilDayStartMinute,
+                                visibleEndMinute: kPlannerCivilDayEndMinute,
+                                hourHeight: _hourHeight,
+                              );
+                          return Positioned(
+                            key: const Key('planner-tap-placeholder'),
+                            top: placeholderGeometry.top,
+                            left: _timeColumnWidth,
+                            right: 0,
+                            height: placeholderGeometry.height,
+                            child: IgnorePointer(
+                              child: _TapEventPlaceholder(
+                                height: placeholderGeometry.height,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    // Current-time overlay: painted BEFORE the Event blocks so
+                    // the final z-order is hour grid -> current-time indicator
+                    // -> Event blocks. Event cards paint over the line where
+                    // they intersect and the indicator never crosses an Event
+                    // face (Phase 5 FINAL layer order). The overlay stays
+                    // non-interactive (IgnorePointer) so Event tap / drag /
+                    // resize / pinch and timeline scroll are never blocked.
+                    //
+                    // Nested-Stack pattern so both ParentData relationships
+                    // remain valid:
+                    //
+                    // * Outer [Positioned.fill] is a direct child of the main
+                    //   timeline [Stack] (Positioned MUST be laid out by a
+                    //   Stack).
+                    // * Inner [Stack] is the builder's return value; the inner
+                    //   [Positioned] for the indicator Row is a direct child of
+                    //   that inner [Stack], keeping ParentData valid when the
+                    //   indicator is visible.
+                    // * When hidden, the inner [Stack] contains no Positioned
+                    //   and is therefore safe to render.
+                    //
+                    // The ValueListenableBuilder rebuilds only this overlay
+                    // subtree on minute ticks; the pinch, long-press, resize,
+                    // day-swipe, and event-tap recognizers are not in the
+                    // rebuild path.
+                    Positioned.fill(
+                      key: const Key('planner-current-time-overlay'),
+                      child: IgnorePointer(
+                        child: ValueListenableBuilder<DateTime>(
+                          valueListenable: widget.currentTimeListenable,
+                          builder: (context, currentNow, _) {
+                            final minuteOfDay =
+                                currentNow.hour * 60 + currentNow.minute;
+                            final pixelsPerMinute =
+                                PlannerTimelineGeometry.pixelsPerMinute(
+                                  _hourHeight,
+                                );
+                            final resolvedMinuteY =
+                                minuteOfDay * pixelsPerMinute;
+                            final resolvedIndicatorTop =
+                                resolvedMinuteY -
+                                _currentTimeIndicatorHeight / 2;
+                            final indicatorVisible =
+                                widget.settings.showCurrentTime &&
+                                widget.selectedDate ==
+                                    PlannerDate.fromDateTime(currentNow) &&
+                                currentNow.hour >= _planWindowFirstHour &&
+                                currentNow.hour < _planWindowLastHour;
+                            return Stack(
+                              clipBehavior: Clip.none,
+                              children: <Widget>[
+                                if (indicatorVisible)
+                                  Positioned(
+                                    key: const Key(
+                                      'planner-current-time-indicator',
+                                    ),
+                                    top: resolvedIndicatorTop,
+                                    left: 0,
+                                    right: 0,
+                                    child: SizedBox(
+                                      height: _currentTimeIndicatorHeight,
+                                      child: Stack(
+                                        clipBehavior: Clip.none,
+                                        children: <Widget>[
+                                          Positioned(
                                             left: 0,
-                                            right: 0,
+                                            top: 0,
+                                            bottom: 0,
+                                            width:
+                                                PlannerCurrentTimeHorizontalGeometry
+                                                    .labelRight,
+                                            child: Align(
+                                              alignment: Alignment.centerRight,
+                                              child: FittedBox(
+                                                fit: BoxFit.scaleDown,
+                                                alignment:
+                                                    Alignment.centerRight,
+                                                child: Container(
+                                                  decoration: BoxDecoration(
+                                                    color: AppTheme.background,
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          4,
+                                                        ),
+                                                  ),
+                                                  child: Text(
+                                                    formatPlannerCurrentTimeLabel(
+                                                      currentNow,
+                                                    ),
+                                                    key: const Key(
+                                                      'planner-current-time-label',
+                                                    ),
+                                                    textAlign: TextAlign.right,
+                                                    maxLines: 1,
+                                                    softWrap: false,
+                                                    style: const TextStyle(
+                                                      color: AppTheme.rose,
+                                                      fontSize: 11,
+                                                      fontWeight:
+                                                          FontWeight.w700,
+                                                      height: 1.0,
+                                                      letterSpacing: 0.2,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
                                           ),
-                                          decoration: const BoxDecoration(
-                                            color: AppTheme.rose,
-                                            shape: BoxShape.circle,
+                                          Positioned(
+                                            key: const Key(
+                                              'planner-current-time-dot',
+                                            ),
+                                            left:
+                                                PlannerCurrentTimeHorizontalGeometry
+                                                    .dotLeft,
+                                            top:
+                                                (_currentTimeIndicatorHeight -
+                                                    _currentTimeDotSize) /
+                                                2,
+                                            width: _currentTimeDotSize,
+                                            height: _currentTimeDotSize,
+                                            child: const DecoratedBox(
+                                              decoration: BoxDecoration(
+                                                color: AppTheme.rose,
+                                                shape: BoxShape.circle,
+                                              ),
+                                            ),
                                           ),
-                                        ),
-                                        Expanded(
-                                          child: SizedBox(
+                                          Positioned(
                                             key: const Key(
                                               'planner-current-time-line',
                                             ),
+                                            left:
+                                                PlannerCurrentTimeHorizontalGeometry
+                                                    .lineLeft,
+                                            right: 0,
+                                            top:
+                                                (_currentTimeIndicatorHeight -
+                                                    2) /
+                                                2,
                                             height: 2,
                                             child: const DecoratedBox(
                                               decoration: BoxDecoration(
@@ -2379,22 +4578,51 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
                                               ),
                                             ),
                                           ),
-                                        ),
-                                      ],
+                                        ],
+                                      ),
                                     ),
                                   ),
-                                ),
-                            ],
-                          );
-                        },
+                              ],
+                            );
+                          },
+                        ),
                       ),
                     ),
-                  ),
-                  for (final placement in placements)
-                    _positionedEvent(placement, constraints.maxWidth),
-                ],
-              );
-            },
+                    // R7-04: the saved-drag ghost and drag-time label are
+                    // rendered in the screen-level drag overlay (outside the
+                    // pager strip) so they are excluded from the page
+                    // transform and stay under the finger during a cross-date
+                    // transition. Saved cards paint first; the provisional
+                    // draft then paints above every saved card, and the
+                    // selected/draft endpoint handles paint last above both
+                    // layers.
+                    for (final placement in placements.where(
+                      (placement) => !_isProvisionalEvent(placement.event),
+                    ))
+                      _positionedEvent(placement, constraints.maxWidth),
+                    for (final placement in placements.where(
+                      (placement) => _isProvisionalEvent(placement.event),
+                    ))
+                      _positionedEvent(placement, constraints.maxWidth),
+                    ...placements
+                        .where(
+                          (placement) =>
+                              _isDirectlySelected(placement.event) &&
+                              widget.activeMoveEventId != placement.event.id &&
+                              !widget.selectionMode &&
+                              widget.settings.quickEditEnabled &&
+                              !_persisting.contains(placement.event.id),
+                        )
+                        .expand(
+                          (placement) => _positionedEndpointHandles(
+                            placement,
+                            constraints.maxWidth,
+                          ),
+                        ),
+                  ],
+                );
+              },
+            ),
           ),
         ),
       ),
@@ -2402,156 +4630,457 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
   }
 
   Widget _positionedEvent(
-    PlannerTimelinePlacement placement,
+    PlannerDisplayPlacement placement,
     double totalWidth,
   ) {
     final event = placement.event;
     final originalStart = event.startLocal!;
     final originalEnd = event.endLocal!;
     final originalStartMinute = originalStart.hour * 60 + originalStart.minute;
-    final originalEndMinute = originalEnd.hour * 60 + originalEnd.minute;
+    final originalEndMinute = plannerEndMinuteOfDay(originalStart, originalEnd);
     final startMinute = _previewStartMinutes[event.id] ?? originalStartMinute;
     final endMinute = _previewEndMinutes[event.id] ?? originalEndMinute;
-    final visibleStart = _firstHour * 60;
-    final visibleEnd = _lastHour * 60;
-    final geometry = PlannerTimelineGeometry.event(
-      startMinute: startMinute,
-      endMinute: endMinute,
-      visibleStartMinute: visibleStart,
-      visibleEndMinute: visibleEnd,
-      hourHeight: _hourHeight,
+    final horizontal = _horizontalGeometry(placement, totalWidth);
+    final horizontalDragOffset = widget.activeMoveEventId == event.id
+        ? _activeMoveHorizontalOffset(event.id, horizontal.left)
+        : 0.0;
+    // Touch targets are separate from visible geometry (combined delta):
+    // the Positioned covers at least [kPlannerEventMinimumTouchHeight] so
+    // very short display blocks stay tappable at wide zoom-out, while the
+    // visible block keeps its display height. The transparent layer below
+    // the block forwards the same tap action and never enlarges the visible
+    // rectangle or affects overlap.
+    final touchHeight = math.max(
+      placement.height,
+      kPlannerEventMinimumTouchHeight,
     );
+    final provisional = _isProvisionalEvent(event);
+    final sourceDrag = widget.dragSession;
+    final isSavedDragOrigin =
+        !provisional &&
+        sourceDrag?.ghostActive == true &&
+        sourceDrag?.sourceDate == widget.selectedDate &&
+        sourceDrag?.event.id == event.id;
+    final interactive =
+        !widget.selectionMode &&
+        widget.settings.quickEditEnabled &&
+        !_persisting.contains(event.id);
+    return Positioned(
+      key: Key(
+        provisional
+            ? 'planner-provisional-event-block'
+            : 'planner-timed-event-${event.id}',
+      ),
+      top: placement.top,
+      left: horizontal.left + horizontalDragOffset,
+      width: horizontal.width,
+      height: touchHeight,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: <Widget>[
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: provisional ? null : () => _handleEventTap(event),
+              child: const SizedBox.expand(),
+            ),
+          ),
+          Positioned(
+            key: Key(
+              provisional
+                  ? 'planner-provisional-event-visible'
+                  : 'planner-timed-event-visible-${event.id}',
+            ),
+            top: 0,
+            left: 0,
+            right: 0,
+            height: placement.height,
+            child: Opacity(
+              opacity: isSavedDragOrigin ? 0.45 : 1,
+              child: _TimelineEventBlock(
+                event: event,
+                provisional: provisional,
+                eventColorsByTypeId: widget.eventColorsByTypeId,
+                use24HourTime: widget.settings.use24HourTime,
+                displayStartMinute: startMinute,
+                displayEndMinute: endMinute,
+                awaitingReport: event.isAwaitingReport(DateTime.now()),
+                selectionMode: widget.selectionMode,
+                selected: widget.selectedItems.contains(
+                  PlannerSelectionId(
+                    kind: PlannerSelectionKind.event,
+                    id: event.id,
+                  ),
+                ),
+                selectedForDirectManipulation: _isDirectlySelected(event),
+                onToggleSelection: () => widget.onToggleSelection(event),
+                interactive: interactive,
+                onTap: () => _handleEventTap(event),
+                onDirectPointerDown: (pointer) {
+                  _movePointerIds[event.id] = pointer.pointer;
+                  if (_isDirectlySelected(event)) {
+                    widget.daySwipeCoordinator.preclaimPointerDown();
+                  }
+                },
+                onMoveStart: (globalPosition) => _beginMove(
+                  event,
+                  globalPosition,
+                  eventLocalLeft: horizontal.left + horizontalDragOffset,
+                  eventLocalTop: placement.top,
+                  ghostSize: Size(horizontal.width, placement.height),
+                ),
+                onMoveUpdate: (globalPosition) => _updateMoveFromGlobal(
+                  event,
+                  originalStartMinute,
+                  originalEndMinute,
+                  globalPosition,
+                ),
+                onLongPressMoveUpdate: (globalPosition) =>
+                    _updateMoveFromGlobal(
+                      event,
+                      originalStartMinute,
+                      originalEndMinute,
+                      globalPosition,
+                    ),
+                onMoveEnd: () {
+                  if (_suppressOneFingerInteractions) {
+                    _clearPreview(event.id);
+                    widget.onMoveSessionCancel();
+                    return;
+                  }
+                  if (provisional) {
+                    unawaited(_finishMove(event, originalStartMinute));
+                  }
+                },
+                onMoveCancel: () {
+                  if (provisional) {
+                    _clearPreview(event.id);
+                  }
+                },
+                squareTop: placement.squareTop,
+                squareBottom: placement.squareBottom,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  ({double left, double width}) _horizontalGeometry(
+    PlannerDisplayPlacement placement,
+    double totalWidth,
+  ) {
+    // Delta 3 PMG-style free-space expansion: when the placement carries a
+    // span (first lane + lane count) the rectangle uses the shared grid basis
+    // and starts at `spanStart * (base lane width + gap)`, so an Event widens
+    // into free lanes and keeps one clean rectangle. The primary/backup split
+    // and the plain column/columnCount paths remain unchanged.
     final availableWidth = totalWidth - _timeColumnWidth;
     final splitWidth = placement.widthFactor != null;
-    final widthBasis = splitWidth
+    final spanWidth = placement.spanCount != null;
+    final widthBasis = splitWidth && !spanWidth
         ? availableWidth - _eventGap
         : availableWidth - _eventGap * (placement.columnCount - 1);
-    final columnWidth = splitWidth
+    final baseColumnWidth = widthBasis / placement.columnCount;
+    final width = spanWidth
+        ? baseColumnWidth * placement.spanCount! +
+              _eventGap * (placement.spanCount! - 1)
+        : splitWidth
         ? widthBasis * placement.widthFactor!
-        : widthBasis / placement.columnCount;
-    final left = splitWidth
+        : baseColumnWidth;
+    final left = spanWidth
+        ? _timeColumnWidth +
+              placement.spanStart! * (baseColumnWidth + _eventGap)
+        : splitWidth
         ? _timeColumnWidth +
               (widthBasis * placement.offsetFactor!) +
               (placement.column > 0 ? _eventGap : 0)
-        : _timeColumnWidth + placement.column * (columnWidth + _eventGap);
-    return Positioned(
-      key: Key('planner-timed-event-${event.id}'),
-      top: geometry.top,
-      left: left,
-      width: columnWidth,
-      height: geometry.height,
-      child: _TimelineEventBlock(
-        event: event,
-        eventColorsByTypeId: widget.eventColorsByTypeId,
-        use24HourTime: widget.settings.use24HourTime,
-        displayStartMinute: startMinute,
-        displayEndMinute: endMinute,
-        awaitingReport: event.isAwaitingReport(DateTime.now()),
-        selectionMode: widget.selectionMode,
-        selected: widget.selectedItems.contains(
-          PlannerSelectionId(kind: PlannerSelectionKind.event, id: event.id),
-        ),
-        onToggleSelection: () => widget.onToggleSelection(event),
-        interactive:
-            !widget.selectionMode &&
-            widget.settings.quickEditEnabled &&
-            !_persisting.contains(event.id),
-        onMoveUpdate: (deltaPixels) {
-          // Long-press move owns the gesture from its first move;
-          // cancel any pending horizontal day-swipe so the two
-          // recognizers never both claim a single-finger drag.
-          // Suppressed while a two-finger pinch is in progress
-          // (or in the one-pump settle window) so a stale
-          // single-pointer drag that overlapped the pinch cannot
-          // commit an Event move after the pinch ends.
-          if (_suppressOneFingerInteractions) {
-            return;
-          }
-          widget.daySwipeCoordinator.cancel();
-          final rawDelta = (deltaPixels / _hourHeight * 60).round();
-          final deltaMinutes =
-              (rawDelta / widget.settings.snapMinutes).round() *
-              widget.settings.snapMinutes;
-          final duration = originalEndMinute - originalStartMinute;
-          final nextStart = (originalStartMinute + deltaMinutes).clamp(
-            visibleStart,
-            visibleEnd - duration,
-          );
-          setState(() {
-            _previewStartMinutes[event.id] = nextStart;
-            _previewEndMinutes[event.id] = nextStart + duration;
-          });
-        },
-        onMoveEnd: () {
-          if (_suppressOneFingerInteractions) {
-            _clearPreview(event.id);
-            return;
-          }
-          unawaited(_finishMove(event, originalStartMinute));
-        },
-        onMoveCancel: () => _clearPreview(event.id),
-        onResizeStart: (_) {
-          // Vertical resize owns the gesture; cancel any pending
-          // horizontal day-swipe so a long-finger drag along the
-          // bottom edge never navigates between days. Suppressed
-          // during a two-finger pinch and its settle window so a
-          // stale single-pointer drag that overlapped the pinch
-          // cannot commit an Event resize after the pinch ends.
-          if (_suppressOneFingerInteractions) {
-            return;
-          }
-          widget.daySwipeCoordinator.cancel();
-          // Resize keeps the original start; ensure no stale start-preview
-          // from a previous move leaks into the resize calculation. The
-          // accumulator tracks the cumulative vertical drag distance from
-          // resize start, so each onResizeUpdate adds to it rather than
-          // overwriting the preview with the current incremental delta.
-          _previewStartMinutes.remove(event.id);
-          _previewEndMinutes.remove(event.id);
-          _resizeAccumulatedPixels[event.id] = 0;
-        },
-        onResizeUpdate: (edge, deltaPixels) {
-          // First vertical update also pins the gesture to resize.
-          if (_suppressOneFingerInteractions) {
-            return;
-          }
-          widget.daySwipeCoordinator.cancel();
-          final accumulated =
-              (_resizeAccumulatedPixels[event.id] ?? 0) + (deltaPixels);
-          _resizeAccumulatedPixels[event.id] = accumulated;
-          final rawDelta = (accumulated / _hourHeight * 60).round();
-          final deltaMinutes =
-              (rawDelta / widget.settings.snapMinutes).round() *
-              widget.settings.snapMinutes;
-          if (edge == _TimelineResizeEdge.top) {
-            final nextStart = (originalStartMinute + deltaMinutes).clamp(
-              visibleStart,
-              originalEndMinute - widget.settings.snapMinutes,
-            );
-            setState(() {
-              _previewStartMinutes[event.id] = nextStart;
-              _previewEndMinutes[event.id] = originalEndMinute;
-            });
-          } else {
-            final nextEnd = (originalEndMinute + deltaMinutes).clamp(
-              originalStartMinute + widget.settings.snapMinutes,
-              visibleEnd,
-            );
-            setState(() => _previewEndMinutes[event.id] = nextEnd);
-          }
-        },
-        onResizeEnd: (_) {
-          if (_suppressOneFingerInteractions) {
-            _clearPreview(event.id);
-            return;
-          }
-          unawaited(
-            _finishResize(event, originalStartMinute, originalEndMinute),
-          );
-        },
-        onResizeCancel: (_) => _clearPreview(event.id),
-      ),
+        : _timeColumnWidth + placement.column * (width + _eventGap);
+    return (left: left, width: width);
+  }
+
+  List<Widget> _positionedEndpointHandles(
+    PlannerDisplayPlacement placement,
+    double totalWidth,
+  ) {
+    final event = placement.event;
+    final originalStart = event.startLocal!;
+    final originalEnd = event.endLocal!;
+    final originalStartMinute = originalStart.hour * 60 + originalStart.minute;
+    final originalEndMinute = plannerEndMinuteOfDay(originalStart, originalEnd);
+    final horizontal = _horizontalGeometry(placement, totalWidth);
+    final provisional = _isProvisionalEvent(event);
+    final handleAccent = PlannerEventColorResolver.accentColor(
+      event,
+      widget.eventColorsByTypeId,
     );
+    final horizontalDragOffset = widget.activeMoveEventId == event.id
+        ? _activeMoveHorizontalOffset(event.id, horizontal.left)
+        : 0.0;
+
+    void finishResize(_TimelineResizeEdge edge) {
+      if (_suppressOneFingerInteractions) {
+        _clearPreview(event.id);
+        return;
+      }
+      unawaited(_finishResize(event, originalStartMinute, originalEndMinute));
+    }
+
+    return <Widget>[
+      Positioned(
+        top: provisional ? placement.top - 22 : placement.top,
+        // Keep the full 44 dp target inside the Event/page. Only the small
+        // decorative edge cap straddles the exact upper-right endpoint.
+        left: horizontal.left + horizontalDragOffset + horizontal.width - 44,
+        width: 44,
+        height: 44,
+        child: _DirectEndpointHandle(
+          hitTargetKey: Key(
+            provisional
+                ? 'planner-provisional-start-handle'
+                : 'planner-top-resize-hit-${event.id}',
+          ),
+          dotKey: Key(
+            provisional
+                ? 'planner-provisional-start-handle-dot'
+                : 'planner-selected-start-handle-dot-${event.id}',
+          ),
+          edge: _TimelineResizeEdge.top,
+          provisional: provisional,
+          accentColor: handleAccent,
+          onStart: (_) {
+            _beginResize(event);
+          },
+          onUpdate: (edge, deltaPixels) => _updateResizeByDelta(
+            event,
+            originalStartMinute,
+            originalEndMinute,
+            edge,
+            deltaPixels,
+          ),
+          onEnd: (edge) {
+            finishResize(edge);
+          },
+          onCancel: (_) {
+            _clearPreview(event.id);
+          },
+        ),
+      ),
+      Positioned(
+        top: provisional ? placement.bottom - 22 : placement.bottom - 44,
+        // Symmetric END target: full target inside the Event, decorative
+        // edge cap straddling the exact bottom-left endpoint.
+        left: horizontal.left + horizontalDragOffset,
+        width: 44,
+        height: 44,
+        child: _DirectEndpointHandle(
+          hitTargetKey: Key(
+            provisional
+                ? 'planner-provisional-resize-hit'
+                : 'planner-resize-hit-${event.id}',
+          ),
+          dotKey: Key(
+            provisional
+                ? 'planner-provisional-end-handle-dot'
+                : 'planner-selected-end-handle-dot-${event.id}',
+          ),
+          edge: _TimelineResizeEdge.bottom,
+          provisional: provisional,
+          accentColor: handleAccent,
+          onStart: (_) {
+            _beginResize(event);
+          },
+          onUpdate: (edge, deltaPixels) => _updateResizeByDelta(
+            event,
+            originalStartMinute,
+            originalEndMinute,
+            edge,
+            deltaPixels,
+          ),
+          onEnd: (edge) {
+            finishResize(edge);
+          },
+          onCancel: (_) {
+            _clearPreview(event.id);
+          },
+        ),
+      ),
+    ];
+  }
+
+  RenderBox? _timelineRenderBox() {
+    final renderObject = widget.timelineKey.currentContext?.findRenderObject();
+    if (renderObject is! RenderBox || !renderObject.hasSize) {
+      return null;
+    }
+    return renderObject;
+  }
+
+  double _activeMoveHorizontalOffset(String eventId, double naturalLeft) {
+    final pointer = _movePointerGlobals[eventId];
+    final grabOffset = _moveGrabOffsets[eventId];
+    final timeline = _timelineRenderBox();
+    if (pointer == null || grabOffset == null || timeline == null) {
+      return 0;
+    }
+    final pointerLocal = timeline.globalToLocal(pointer);
+    final desiredLeft = pointerLocal.dx - grabOffset.dx;
+    return desiredLeft - naturalLeft;
+  }
+
+  void _beginMove(
+    PlannerCalendarItem event,
+    Offset globalPosition, {
+    required double eventLocalLeft,
+    required double eventLocalTop,
+    required Size ghostSize,
+  }) {
+    if (_suppressOneFingerInteractions || widget.selectionMode) {
+      return;
+    }
+    widget.daySwipeCoordinator.cancel();
+    final start = event.startLocal;
+    final end = event.endLocal;
+    final timeline = _timelineRenderBox();
+    if (start == null || end == null || timeline == null) {
+      return;
+    }
+    final startMinute = start.hour * 60 + start.minute;
+    final endMinute = plannerEndMinuteOfDay(start, end);
+    final pointerLocal = timeline.globalToLocal(globalPosition);
+    final grabOffset = pointerLocal - Offset(eventLocalLeft, eventLocalTop);
+    if (!_isProvisionalEvent(event)) {
+      final pointerId = _movePointerIds[event.id];
+      if (pointerId == null) {
+        return;
+      }
+      setState(() {
+        _directManipulationEventId = event.id;
+        _resizeAccumulatedPixels.remove(event.id);
+      });
+      widget.onMoveSessionStart(
+        event,
+        pointerId,
+        globalPosition,
+        grabOffset,
+        ghostSize,
+        startMinute,
+        endMinute,
+        widget.settings.snapMinutes,
+        _hourHeight,
+      );
+      return;
+    }
+    setState(() {
+      _previewStartMinutes.remove(event.id);
+      _previewEndMinutes.remove(event.id);
+      _movePointerGlobals[event.id] = globalPosition;
+      _moveGrabOffsets[event.id] = grabOffset;
+      _resizeAccumulatedPixels.remove(event.id);
+    });
+  }
+
+  void _updateMoveFromGlobal(
+    PlannerCalendarItem event,
+    int originalStartMinute,
+    int originalEndMinute,
+    Offset globalPosition,
+  ) {
+    if (_suppressOneFingerInteractions || !_isProvisionalEvent(event)) {
+      return;
+    }
+    final grabOffset = _moveGrabOffsets[event.id];
+    final timeline = _timelineRenderBox();
+    if (grabOffset == null || timeline == null) {
+      return;
+    }
+    widget.daySwipeCoordinator.cancel();
+    final pointerLocal = timeline.globalToLocal(globalPosition);
+    final pixelsPerMinute = PlannerTimelineGeometry.pixelsPerMinute(
+      _hourHeight,
+    );
+    final duration = originalEndMinute - originalStartMinute;
+    final rawStartMinute = ((pointerLocal.dy - grabOffset.dy) / pixelsPerMinute)
+        .round();
+    final nextStart = snapPlannerMinute(
+      rawStartMinute,
+      widget.settings.snapMinutes,
+    ).clamp(kPlannerCivilDayStartMinute, kPlannerCivilDayEndMinute - duration);
+    setState(() {
+      _movePointerGlobals[event.id] = globalPosition;
+      _previewStartMinutes[event.id] = nextStart;
+      _previewEndMinutes[event.id] = nextStart + duration;
+    });
+  }
+
+  void _beginResize(PlannerCalendarItem event) {
+    if (_suppressOneFingerInteractions || widget.selectionMode) {
+      return;
+    }
+    widget.daySwipeCoordinator.cancel();
+    setState(() {
+      if (!_isProvisionalEvent(event)) {
+        _directManipulationEventId = event.id;
+      }
+      _previewStartMinutes.remove(event.id);
+      _previewEndMinutes.remove(event.id);
+      _resizeAccumulatedPixels[event.id] = 0;
+      _movePointerGlobals.remove(event.id);
+      _moveGrabOffsets.remove(event.id);
+      _movePointerIds.remove(event.id);
+    });
+  }
+
+  void _updateResizeByDelta(
+    PlannerCalendarItem event,
+    int originalStartMinute,
+    int originalEndMinute,
+    _TimelineResizeEdge edge,
+    double deltaPixels,
+  ) {
+    if (_suppressOneFingerInteractions) {
+      return;
+    }
+    widget.daySwipeCoordinator.cancel();
+    final accumulated = (_resizeAccumulatedPixels[event.id] ?? 0) + deltaPixels;
+    final rawDelta = (accumulated / _hourHeight * 60).round();
+    final deltaMinutes =
+        (rawDelta / widget.settings.snapMinutes).round() *
+        widget.settings.snapMinutes;
+    setState(() {
+      _resizeAccumulatedPixels[event.id] = accumulated;
+      if (edge == _TimelineResizeEdge.top) {
+        final nextStart = (originalStartMinute + deltaMinutes).clamp(
+          kPlannerCivilDayStartMinute,
+          originalEndMinute - widget.settings.snapMinutes,
+        );
+        _previewStartMinutes[event.id] = nextStart;
+        _previewEndMinutes[event.id] = originalEndMinute;
+      } else {
+        final nextEnd = (originalEndMinute + deltaMinutes).clamp(
+          originalStartMinute + widget.settings.snapMinutes,
+          kPlannerCivilDayEndMinute,
+        );
+        _previewStartMinutes[event.id] = originalStartMinute;
+        _previewEndMinutes[event.id] = nextEnd;
+      }
+    });
+  }
+
+  /// Reads the usable vertical viewport height of the parent day scroll view
+  /// without ever throwing during an early layout pass: the scroll position
+  /// may be attached but not yet dimensioned when a LayoutBuilder rebuild
+  /// runs inside the first frame.
+  double _safeViewportHeight() {
+    if (!widget.scrollController.hasClients) {
+      return 0;
+    }
+    try {
+      return widget.scrollController.position.viewportDimension;
+    } on Object {
+      return 0;
+    }
   }
 
   Future<void> _finishMove(
@@ -2559,19 +5088,48 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
     int originalStartMinute,
   ) async {
     final nextStart = _previewStartMinutes[event.id] ?? originalStartMinute;
-    if (nextStart == originalStartMinute) {
+    final sourceDate = widget.activeMoveEventId == event.id
+        ? widget.activeMoveSourceDate ?? event.date
+        : event.date;
+    final targetDate = widget.activeMoveEventId == event.id
+        ? widget.activeMoveTargetDate ?? widget.selectedDate
+        : widget.selectedDate;
+    final canonicalOriginalStart = widget.activeMoveEventId == event.id
+        ? widget.activeMoveOriginalStartMinute ?? originalStartMinute
+        : originalStartMinute;
+    if (nextStart == canonicalOriginalStart && targetDate == sourceDate) {
       _clearPreview(event.id);
+      widget.onMoveSessionCancel();
+      // Delta 4.2R2 R2-01: a release that moved nothing is NOT a commit, so
+      // it must not end direct manipulation. Long-press selects the Event and
+      // the next body press (no second hold) immediately moves it; exiting
+      // here would drop the selection and break that flow. Manipulation ends
+      // only on a successful commit, an explicit cancel, or an outside tap.
+      return;
+    }
+    if (_isProvisionalEvent(event)) {
+      await widget.onMove(event, targetDate, nextStart);
+      if (mounted) {
+        _clearPreview(event.id);
+      }
       return;
     }
     setState(() => _persisting.add(event.id));
-    final saved = await widget.onMove(event, nextStart);
+    final commit = await widget.onMove(event, targetDate, nextStart);
     if (mounted) {
       setState(() {
         _persisting.remove(event.id);
         _previewStartMinutes.remove(event.id);
         _previewEndMinutes.remove(event.id);
+        _movePointerGlobals.remove(event.id);
+        _moveGrabOffsets.remove(event.id);
+        _movePointerIds.remove(event.id);
+        // Delta 4.2R R3: after a successful move commit (including the
+        // recurrence-scope flow inside [onMove]), release the direct-
+        // manipulation selection and hide the endpoint handles.
+        _directManipulationEventId = null;
       });
-      if (!saved) {
+      if (commit == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
@@ -2579,6 +5137,42 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
             ),
           ),
         );
+      } else {
+        // PMG-style move confirmation + Undo (Part 16).  Undo reverses the
+        // canonical transaction by persisting the original start minute
+        // through the EXACT same save path (`widget.onMove`), so stored
+        // start/end/date, recurring occurrence identity, and outbox
+        // idempotency are all restored — never a UI-only reversal.  The
+        // captured `event` still carries the original times, so the undo
+        // call reproduces the pre-move geometry exactly.
+        final movedTo = formatPlannerEventMinute(
+          nextStart,
+          widget.settings.use24HourTime,
+        );
+        final messenger = ScaffoldMessenger.of(context);
+        final undoTokens = _PlannerUndoCardTokens.resolve(context);
+        messenger
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(
+              key: const Key('planner-move-undo-card'),
+              behavior: SnackBarBehavior.floating,
+              backgroundColor: undoTokens.surface,
+              elevation: 8,
+              margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(15),
+                side: BorderSide(color: undoTokens.border),
+              ),
+              duration: const Duration(seconds: 10),
+              content: _MoveUndoSnackBarContent(
+                message: 'Moved to $movedTo',
+                durationSeconds: 10,
+                onUndo: commit.undo,
+              ),
+            ),
+          );
       }
     }
   }
@@ -2592,18 +5186,32 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
     final nextEnd = _previewEndMinutes[event.id] ?? originalEndMinute;
     if (nextStart == originalStartMinute && nextEnd == originalEndMinute) {
       _clearPreview(event.id);
+      // Delta 4.2R2 R2-03: a resize release that changed nothing is not a
+      // commit, so the selection (and its endpoint handles) stays. Only a
+      // successful commit, an explicit cancel, or an outside tap exits
+      // direct-manipulation mode.
+      return;
+    }
+    if (_isProvisionalEvent(event)) {
+      await widget.onResize(event, nextStart, nextEnd);
+      if (mounted) {
+        _clearPreview(event.id);
+      }
       return;
     }
     setState(() => _persisting.add(event.id));
-    final saved = await widget.onResize(event, nextStart, nextEnd);
+    final commit = await widget.onResize(event, nextStart, nextEnd);
     if (mounted) {
       setState(() {
         _persisting.remove(event.id);
         _previewStartMinutes.remove(event.id);
         _previewEndMinutes.remove(event.id);
         _resizeAccumulatedPixels.remove(event.id);
+        // Delta 4.2R R3: after a successful resize commit (recurrence-scope
+        // flow included), release the direct-manipulation selection.
+        _directManipulationEventId = null;
       });
-      if (!saved) {
+      if (commit == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
@@ -2612,6 +5220,40 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
             ),
           ),
         );
+      } else {
+        // Delta 4.2R2 R2-04: a successful saved Event resize (START or END)
+        // shows the same floating countdown Undo card as a move, with
+        // concise current-range copy. Undo restores the exact original
+        // start/end through the same scope-captured save path as the move.
+        final resizedTo = formatPlannerEventRange(
+          nextStart,
+          nextEnd,
+          widget.settings.use24HourTime,
+        );
+        final messenger = ScaffoldMessenger.of(context);
+        final undoTokens = _PlannerUndoCardTokens.resolve(context);
+        messenger
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(
+              key: const Key('planner-resize-undo-card'),
+              behavior: SnackBarBehavior.floating,
+              backgroundColor: undoTokens.surface,
+              elevation: 8,
+              margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(15),
+                side: BorderSide(color: undoTokens.border),
+              ),
+              duration: const Duration(seconds: 10),
+              content: _MoveUndoSnackBarContent(
+                message: 'Resized to $resizedTo',
+                durationSeconds: 10,
+                onUndo: commit.undo,
+              ),
+            ),
+          );
       }
     }
   }
@@ -2620,6 +5262,9 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
     setState(() {
       _previewStartMinutes.remove(eventId);
       _previewEndMinutes.remove(eventId);
+      _movePointerGlobals.remove(eventId);
+      _moveGrabOffsets.remove(eventId);
+      _movePointerIds.remove(eventId);
       _resizeAccumulatedPixels.remove(eventId);
     });
   }
@@ -2638,9 +5283,227 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
   }
 }
 
+/// Generic, non-persisted Event block shown before Event Type selection.
+final class _TapEventPlaceholder extends StatelessWidget {
+  const _TapEventPlaceholder({required this.height});
+
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      key: const Key('planner-tap-placeholder-surface'),
+      color: AppTheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(
+          PlannerEventBlockLayoutPolicy.effectiveRadiusFor(height),
+        ),
+        side: const BorderSide(color: AppTheme.outline),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Align(
+          alignment: Alignment.topLeft,
+          child: Text(
+            'Event',
+            key: Key('planner-tap-placeholder-title'),
+            maxLines: 1,
+            overflow: TextOverflow.clip,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+              height: 17 / 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Theme-derived R4-02 component tokens. The surface is the active accent at
+/// five percent over the current neutral surface, so the same Undo card is
+/// ready for light/dark appearance and future accent choices without literal
+/// rose/blue card colors scattered through the widget.
+final class _PlannerUndoCardTokens {
+  const _PlannerUndoCardTokens({
+    required this.surface,
+    required this.primaryText,
+    required this.secondaryText,
+    required this.accent,
+    required this.border,
+    required this.iconContainer,
+  });
+
+  factory _PlannerUndoCardTokens.resolve(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return _PlannerUndoCardTokens(
+      surface: Color.alphaBlend(
+        colors.primary.withValues(alpha: 0.05),
+        colors.surface,
+      ),
+      primaryText: colors.onSurface,
+      secondaryText: colors.onSurfaceVariant,
+      accent: colors.primary,
+      border: colors.outlineVariant.withValues(alpha: 0.55),
+      iconContainer: colors.primary.withValues(alpha: 0.08),
+    );
+  }
+
+  final Color surface;
+  final Color primaryText;
+  final Color secondaryText;
+  final Color accent;
+  final Color border;
+  final Color iconContainer;
+}
+
+final class _MoveUndoSnackBarContent extends StatefulWidget {
+  const _MoveUndoSnackBarContent({
+    required this.message,
+    required this.durationSeconds,
+    required this.onUndo,
+  });
+
+  final String message;
+  final int durationSeconds;
+  final Future<bool> Function() onUndo;
+
+  @override
+  State<_MoveUndoSnackBarContent> createState() =>
+      _MoveUndoSnackBarContentState();
+}
+
+final class _MoveUndoSnackBarContentState
+    extends State<_MoveUndoSnackBarContent> {
+  Timer? _timer;
+  late int _secondsRemaining;
+  bool _undoStarted = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _secondsRemaining = widget.durationSeconds;
+    _scheduleNextTick();
+  }
+
+  void _scheduleNextTick() {
+    if (_secondsRemaining <= 0) {
+      return;
+    }
+    _timer = Timer(const Duration(seconds: 1), () {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _secondsRemaining -= 1);
+      _scheduleNextTick();
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  void _undo() {
+    if (_undoStarted) {
+      return;
+    }
+    _undoStarted = true;
+    _timer?.cancel();
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar(reason: SnackBarClosedReason.action);
+    unawaited(
+      widget.onUndo().then((undone) {
+        if (!undone) {
+          messenger.showSnackBar(
+            const SnackBar(content: Text('Event move could not be undone.')),
+          );
+        }
+      }),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = _PlannerUndoCardTokens.resolve(context);
+    return SizedBox(
+      key: const Key('planner-move-undo-content'),
+      height: 48,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: <Widget>[
+          Container(
+            key: const Key('planner-move-undo-icon-container'),
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: tokens.iconContainer,
+              shape: BoxShape.circle,
+              border: Border.all(color: tokens.border),
+            ),
+            child: Icon(Icons.history, size: 21, color: tokens.accent),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  widget.message,
+                  key: const Key('planner-move-undo-message'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: tokens.primaryText,
+                    fontSize: 15.5,
+                    fontWeight: FontWeight.w600,
+                    height: 1.15,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${_secondsRemaining}s remaining',
+                  key: const Key('planner-move-undo-countdown'),
+                  maxLines: 1,
+                  style: TextStyle(
+                    color: tokens.secondaryText,
+                    fontSize: 12.5,
+                    height: 1.15,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          TextButton(
+            key: const Key('planner-move-undo-action'),
+            onPressed: _undo,
+            style: TextButton.styleFrom(
+              minimumSize: const Size(50, 44),
+              padding: const EdgeInsets.symmetric(horizontal: 7),
+              foregroundColor: tokens.accent,
+              textStyle: const TextStyle(
+                fontSize: 14.5,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            child: const Text('Undo'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 final class _TimelineEventBlock extends StatelessWidget {
   const _TimelineEventBlock({
     required this.event,
+    required this.provisional,
     required this.eventColorsByTypeId,
     required this.use24HourTime,
     required this.displayStartMinute,
@@ -2648,18 +5511,22 @@ final class _TimelineEventBlock extends StatelessWidget {
     required this.awaitingReport,
     required this.selectionMode,
     required this.selected,
+    required this.selectedForDirectManipulation,
     required this.onToggleSelection,
     required this.interactive,
+    required this.onTap,
+    required this.onDirectPointerDown,
+    required this.onMoveStart,
     required this.onMoveUpdate,
+    required this.onLongPressMoveUpdate,
     required this.onMoveEnd,
     required this.onMoveCancel,
-    required this.onResizeStart,
-    required this.onResizeUpdate,
-    required this.onResizeEnd,
-    required this.onResizeCancel,
+    this.squareTop = false,
+    this.squareBottom = false,
   });
 
   final PlannerCalendarItem event;
+  final bool provisional;
   final Map<String, EventColorPreference> eventColorsByTypeId;
   final bool use24HourTime;
   final int displayStartMinute;
@@ -2667,16 +5534,22 @@ final class _TimelineEventBlock extends StatelessWidget {
   final bool awaitingReport;
   final bool selectionMode;
   final bool selected;
+  final bool selectedForDirectManipulation;
   final VoidCallback onToggleSelection;
   final bool interactive;
-  final ValueChanged<double> onMoveUpdate;
+  final VoidCallback onTap;
+  final ValueChanged<PointerDownEvent> onDirectPointerDown;
+  final ValueChanged<Offset> onMoveStart;
+  final ValueChanged<Offset> onMoveUpdate;
+  final ValueChanged<Offset> onLongPressMoveUpdate;
   final VoidCallback onMoveEnd;
   final VoidCallback onMoveCancel;
-  final ValueChanged<_TimelineResizeEdge> onResizeStart;
-  final void Function(_TimelineResizeEdge edge, double deltaPixels)
-  onResizeUpdate;
-  final ValueChanged<_TimelineResizeEdge> onResizeEnd;
-  final ValueChanged<_TimelineResizeEdge> onResizeCancel;
+
+  /// Delta 4.2R R12: square the corner on the edge that touches a truly
+  /// contiguous block below/above, so the shared boundary has no decorative
+  /// rounded-corner notch.
+  final bool squareTop;
+  final bool squareBottom;
 
   @override
   Widget build(BuildContext context) {
@@ -2688,8 +5561,14 @@ final class _TimelineEventBlock extends StatelessWidget {
       event,
       eventColorsByTypeId,
     );
-    final accent = resolvedAccent;
-    final fill = resolvedFill;
+    // Delta 4.1 D4.1-04: the unsaved draft is a strong pink provisional
+    // surface, clearly different from a saved Event-Type-colored card, with
+    // dark text so the time range stays legible on the light pink fill.
+    // Saved Events keep their resolved Event Type colors and the locked
+    // white-text rule untouched.
+    final accent = provisional ? AppTheme.rose : resolvedAccent;
+    final fill = provisional ? AppTheme.rose : resolvedFill;
+    final textColorOverride = provisional ? const Color(0xFF3A0610) : null;
     return LayoutBuilder(
       builder: (context, constraints) {
         final availableHeight = constraints.maxHeight.isFinite
@@ -2698,11 +5577,15 @@ final class _TimelineEventBlock extends StatelessWidget {
         final content = PlannerEventBlockContent.forHeight(
           availableHeight,
           interactive: interactive,
+          // Delta 4.1 D4.1-04: the unsaved draft block shows TIME ONLY
+          // (approved provisional surface) — never the Event Type title.
+          showTimeOnly: provisional,
         );
         final eventContent = PlannerEventBlockContentView(
           event: event,
           accentColor: accent,
           surfaceColor: fill,
+          textColorOverride: textColorOverride,
           use24HourTime: use24HourTime,
           displayStartMinute: displayStartMinute,
           displayEndMinute: displayEndMinute,
@@ -2714,9 +5597,11 @@ final class _TimelineEventBlock extends StatelessWidget {
           statusKey: Key('planner-event-block-status-${event.id}'),
         );
         final eventBody = InkWell(
-          onTap: selectionMode
-              ? onToggleSelection
-              : () => _openCalendarEvent(context, event),
+          // R6-06: bulk mode has one tap owner around the complete visible
+          // card below. Keeping a second InkWell action here would let one
+          // physical tap toggle twice or open Preview through a competing hit
+          // layer. Normal mode retains the approved Preview action.
+          onTap: provisional || selectionMode ? null : onTap,
           child: event.isBackupAppointment
               ? eventContent
               : DecoratedBox(
@@ -2740,136 +5625,211 @@ final class _TimelineEventBlock extends StatelessWidget {
               '${awaitingReport ? ', Unreported' : ''}'
               '${event.linkedTaskIds.isEmpty ? '' : ', ${event.linkedTaskIds.length} linked Task(s)'}',
           hint: interactive
-              ? 'Tap for details. Long-press and move to change time.'
+              ? provisional
+                    ? 'Unsaved Event. Drag the body to move it or drag an endpoint handle to resize it.'
+                    : selectedForDirectManipulation
+                    ? 'Tap for details. Drag the body to move it or drag an endpoint handle to resize it.'
+                    : 'Tap for details. Long-press to select and move.'
               : 'Tap for details.',
-          child: Stack(
-            children: <Widget>[
-              Positioned.fill(
-                child: RawGestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  gestures: interactive
-                      ? <Type, GestureRecognizerFactory>{
-                          LongPressGestureRecognizer:
-                              GestureRecognizerFactoryWithHandlers<
-                                LongPressGestureRecognizer
-                              >(
-                                () => LongPressGestureRecognizer(
-                                  duration: const Duration(milliseconds: 300),
-                                ),
-                                (recognizer) {
-                                  recognizer.onLongPressMoveUpdate =
-                                      (details) => onMoveUpdate(
-                                        details.offsetFromOrigin.dy,
-                                      );
-                                  recognizer.onLongPressStart = (_) =>
-                                      unawaited(HapticFeedback.mediumImpact());
-                                  recognizer.onLongPressEnd = (_) =>
-                                      onMoveEnd();
-                                  recognizer.onLongPressCancel = onMoveCancel;
-                                },
+          child: Builder(
+            builder: (context) {
+              final card = Stack(
+                children: <Widget>[
+                  Positioned.fill(
+                    child: Listener(
+                      behavior: HitTestBehavior.opaque,
+                      // Delta 4.2R2 R2-01/R2-02: a finger pressing a directly-
+                      // manipulable body pre-claims the day-swipe coordinator so
+                      // the raw-pointer day pager drops its swipe candidate. The
+                      // Event's own drag recognizers then win the gesture arena
+                      // (they are deeper than the day-scroll's recognizer), so
+                      // the body drag moves the Event and the timeline cannot
+                      // steal it. No physics swap happens here: swapping the
+                      // scrollable physics on pointer-down rebuilt the whole
+                      // gesture subtree mid-gesture and cancelled the recognizers
+                      // before the drag could start (owner-review regression).
+                      onPointerDown: interactive && !selectionMode
+                          ? onDirectPointerDown
+                          : null,
+                      child: RawGestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        gestures: interactive && !selectionMode
+                            ? <Type, GestureRecognizerFactory>{
+                                // Delta 4.2R2: the LongPress recognizer stays in
+                                // the map for BOTH selection states. RawGesture-
+                                // Detector reuses recognizers by type, so when a
+                                // long-press selects the Event (a rebuild changes
+                                // the map from {LongPress} to {LongPress, drags})
+                                // the LongPress recognizer that already won the
+                                // gesture arena survives with updated handlers and
+                                // the in-flight drag keeps moving the Event. The
+                                // previous code dropped LongPress on selection,
+                                // disposing the winning recognizer mid-gesture and
+                                // freezing the drag (owner-review R2-01/R2-02).
+                                LongPressGestureRecognizer:
+                                    GestureRecognizerFactoryWithHandlers<
+                                      LongPressGestureRecognizer
+                                    >(
+                                      () => LongPressGestureRecognizer(
+                                        duration: const Duration(
+                                          milliseconds: 300,
+                                        ),
+                                      ),
+                                      (recognizer) {
+                                        recognizer
+                                            .onLongPressStart = (details) {
+                                          unawaited(
+                                            HapticFeedback.mediumImpact(),
+                                          );
+                                          // Only begin a fresh manipulation
+                                          // session for a not-yet-selected saved
+                                          // Event (or the always-manipulable
+                                          // draft). A long-press on an Event that
+                                          // is already the active one must not
+                                          // restart the session mid-gesture.
+                                          if (provisional ||
+                                              !selectedForDirectManipulation) {
+                                            onMoveStart(details.globalPosition);
+                                          }
+                                        };
+                                        recognizer.onLongPressMoveUpdate =
+                                            (details) => onLongPressMoveUpdate(
+                                              details.globalPosition,
+                                            );
+                                        recognizer.onLongPressEnd = (_) =>
+                                            onMoveEnd();
+                                        recognizer.onLongPressCancel =
+                                            onMoveCancel;
+                                      },
+                                    ),
+                                if (selectedForDirectManipulation)
+                                  HorizontalDragGestureRecognizer:
+                                      GestureRecognizerFactoryWithHandlers<
+                                        HorizontalDragGestureRecognizer
+                                      >(HorizontalDragGestureRecognizer.new, (
+                                        recognizer,
+                                      ) {
+                                        recognizer.dragStartBehavior =
+                                            DragStartBehavior.down;
+                                        recognizer.onStart = (details) =>
+                                            onMoveStart(details.globalPosition);
+                                        recognizer.onUpdate = (details) =>
+                                            onMoveUpdate(
+                                              details.globalPosition,
+                                            );
+                                        recognizer.onEnd = (_) => onMoveEnd();
+                                        recognizer.onCancel = onMoveCancel;
+                                      }),
+                                if (selectedForDirectManipulation)
+                                  VerticalDragGestureRecognizer:
+                                      GestureRecognizerFactoryWithHandlers<
+                                        VerticalDragGestureRecognizer
+                                      >(VerticalDragGestureRecognizer.new, (
+                                        recognizer,
+                                      ) {
+                                        recognizer.dragStartBehavior =
+                                            DragStartBehavior.down;
+                                        recognizer.onStart = (details) =>
+                                            onMoveStart(details.globalPosition);
+                                        recognizer.onUpdate = (details) =>
+                                            onMoveUpdate(
+                                              details.globalPosition,
+                                            );
+                                        recognizer.onEnd = (_) => onMoveEnd();
+                                        recognizer.onCancel = onMoveCancel;
+                                      }),
+                              }
+                            : const <Type, GestureRecognizerFactory>{},
+                        child: Material(
+                          color: fill,
+                          shape: RoundedRectangleBorder(
+                            // Delta 4.2R R12: contiguous blocks square their
+                            // corners on the shared edge only; every other corner
+                            // keeps the approved small radius.
+                            borderRadius: BorderRadius.only(
+                              topLeft: Radius.circular(
+                                squareTop
+                                    ? 0
+                                    : PlannerEventBlockLayoutPolicy.effectiveRadiusFor(
+                                        availableHeight,
+                                      ),
                               ),
-                        }
-                      : const <Type, GestureRecognizerFactory>{},
-                  child: Material(
-                    color: fill,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(
-                        PlannerEventBlockLayoutPolicy.eventBorderRadius,
+                              topRight: Radius.circular(
+                                squareTop
+                                    ? 0
+                                    : PlannerEventBlockLayoutPolicy.effectiveRadiusFor(
+                                        availableHeight,
+                                      ),
+                              ),
+                              bottomLeft: Radius.circular(
+                                squareBottom
+                                    ? 0
+                                    : PlannerEventBlockLayoutPolicy.effectiveRadiusFor(
+                                        availableHeight,
+                                      ),
+                              ),
+                              bottomRight: Radius.circular(
+                                squareBottom
+                                    ? 0
+                                    : PlannerEventBlockLayoutPolicy.effectiveRadiusFor(
+                                        availableHeight,
+                                      ),
+                              ),
+                            ),
+                            // R6-05: a one-pixel inner outline makes touching
+                            // neighbors read as separate cards without changing
+                            // their canonical rectangles, minutes, or hit areas.
+                            side: provisional
+                                ? BorderSide.none
+                                : BorderSide(
+                                    color: AppTheme.background.withValues(
+                                      alpha: 0.72,
+                                    ),
+                                    width: 1,
+                                  ),
+                          ),
+                          clipBehavior: Clip.antiAlias,
+                          child: event.isBackupAppointment
+                              ? PlannerBackupStripeBackground(
+                                  accent: resolvedAccent,
+                                  surfaceColor: fill,
+                                  accentKey: Key(
+                                    'planner-backup-accent-strip-${event.id}',
+                                  ),
+                                  surfaceKey: Key(
+                                    'planner-backup-event-surface-${event.id}',
+                                  ),
+                                  child: eventBody,
+                                )
+                              : eventBody,
+                        ),
                       ),
                     ),
-                    clipBehavior: Clip.antiAlias,
-                    child: event.isBackupAppointment
-                        ? PlannerBackupStripeBackground(
-                            accent: resolvedAccent,
-                            surfaceColor: fill,
-                            accentKey: Key(
-                              'planner-backup-accent-strip-${event.id}',
-                            ),
-                            surfaceKey: Key(
-                              'planner-backup-event-surface-${event.id}',
-                            ),
-                            child: eventBody,
-                          )
-                        : eventBody,
                   ),
-                ),
-              ),
-              if (interactive &&
-                  availableHeight >=
-                      PlannerEventBlockLayoutPolicy.topResizeMinimumHeight)
-                Positioned(
-                  key: Key('planner-top-resize-hit-${event.id}'),
-                  left: 0,
-                  right: 0,
-                  top: 0,
-                  height: PlannerEventBlockLayoutPolicy.topResizeHitAreaHeight,
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.translucent,
-                    dragStartBehavior: DragStartBehavior.down,
-                    onVerticalDragStart: (_) =>
-                        onResizeStart(_TimelineResizeEdge.top),
-                    onVerticalDragUpdate: (details) => onResizeUpdate(
-                      _TimelineResizeEdge.top,
-                      details.primaryDelta ?? 0,
+                  if (selectionMode)
+                    Positioned(
+                      top: 4,
+                      right: 4,
+                      child: Icon(
+                        selected
+                            ? Icons.check_box
+                            : Icons.check_box_outline_blank,
+                        color: selected ? AppTheme.rose : Colors.white,
+                        size: 20,
+                      ),
                     ),
-                    onVerticalDragEnd: (_) =>
-                        onResizeEnd(_TimelineResizeEdge.top),
-                    onVerticalDragCancel: () =>
-                        onResizeCancel(_TimelineResizeEdge.top),
-                    child: const SizedBox.expand(),
-                  ),
-                ),
-              // Always-available resize hit area that overlaps the
-              // bottom edge of the block, even on short blocks that
-              // cannot fit a visible handle. Sized to the practical
-              // minimum touch target (40dp) but constrained to the
-              // bottom region so the Event tap area is preserved.
-              if (interactive)
-                Positioned(
-                  key: Key('planner-resize-hit-${event.id}'),
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  height: PlannerEventBlockLayoutPolicy.resizeHitAreaHeight
-                      .clamp(0.0, availableHeight),
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.translucent,
-                    dragStartBehavior: DragStartBehavior.down,
-                    onVerticalDragStart: (_) =>
-                        onResizeStart(_TimelineResizeEdge.bottom),
-                    onVerticalDragUpdate: (details) => onResizeUpdate(
-                      _TimelineResizeEdge.bottom,
-                      details.primaryDelta ?? 0,
-                    ),
-                    onVerticalDragEnd: (_) =>
-                        onResizeEnd(_TimelineResizeEdge.bottom),
-                    onVerticalDragCancel: () =>
-                        onResizeCancel(_TimelineResizeEdge.bottom),
-                    child: const SizedBox.expand(),
-                  ),
-                ),
-              if (selectionMode)
-                Positioned(
-                  top: 4,
-                  right: 4,
-                  child: Icon(
-                    selected ? Icons.check_box : Icons.check_box_outline_blank,
-                    color: selected ? AppTheme.rose : Colors.white,
-                    size: 20,
-                  ),
-                ),
-              if (awaitingReport &&
-                  PlannerEventBlockLayoutPolicy.classify(availableHeight) ==
-                      Density.tall)
-                const Positioned(
-                  left: 8,
-                  bottom: 2,
-                  child: Text(
-                    'Unreported',
-                    style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700),
-                  ),
-                ),
-            ],
+                ],
+              );
+              if (!selectionMode || provisional) {
+                return card;
+              }
+              return GestureDetector(
+                key: Key('planner-event-selection-target-${event.id}'),
+                behavior: HitTestBehavior.opaque,
+                onTap: onToggleSelection,
+                child: card,
+              );
+            },
           ),
         );
       },

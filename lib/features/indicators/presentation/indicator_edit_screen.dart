@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rmplanner/app/theme/internal_screen.dart';
 import 'package:rmplanner/features/indicators/application/indicator_providers.dart';
 import 'package:rmplanner/features/indicators/domain/life_indicator.dart';
 import 'package:rmplanner/features/planner/application/event_type_providers.dart';
@@ -90,13 +91,13 @@ final class _IndicatorEditScreenState
   Widget build(BuildContext context) {
     if (_loading) {
       return Scaffold(
-        appBar: AppBar(title: Text('Edit Indicator')),
+        appBar: InternalAppBar(title: Text('Edit Indicator')),
         body: Center(child: CircularProgressIndicator()),
       );
     }
     if (_error != null || _indicator == null || _eventType == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Edit Indicator')),
+        appBar: InternalAppBar(title: const Text('Edit Indicator')),
         body: Center(
           child: Text(
             _error == null
@@ -107,7 +108,7 @@ final class _IndicatorEditScreenState
       );
     }
     return Scaffold(
-      appBar: AppBar(
+      appBar: InternalAppBar(
         title: const Text('Edit Indicator'),
         actions: <Widget>[
           FilledButton(
@@ -127,7 +128,7 @@ final class _IndicatorEditScreenState
         child: Form(
           key: _formKey,
           child: ListView(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
             children: <Widget>[
               Text(
                 'WLI title and Event Type name are independent display labels. '
@@ -138,9 +139,7 @@ final class _IndicatorEditScreenState
               TextFormField(
                 key: const Key('indicator-display-name-field'),
                 controller: _indicatorController,
-                decoration: const InputDecoration(
-                  labelText: 'Weekly Life Indicator title',
-                ),
+                decoration: const InputDecoration(labelText: 'Life Goal title'),
                 textInputAction: TextInputAction.next,
                 validator: _requiredLabel,
               ),

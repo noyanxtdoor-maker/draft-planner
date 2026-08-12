@@ -139,26 +139,68 @@ abstract final class AppTheme {
           side: const BorderSide(color: outline),
         ),
       ),
+      // Compact internal dialogs: 86-90% width on phones, 18-20 sp title,
+      // 14-15 sp body, 18-22 dp corner radius.  Root screens do not use
+      // AlertDialog for main content, so this scopes to dialog surfaces.
+      dialogTheme: const DialogThemeData(
+        insetPadding: EdgeInsets.symmetric(horizontal: 22, vertical: 28),
+        titleTextStyle: TextStyle(
+          fontFamily: 'Roboto',
+          fontSize: 19,
+          height: 24 / 19,
+          fontWeight: FontWeight.w600,
+        ),
+        contentTextStyle: TextStyle(
+          fontFamily: 'Roboto',
+          fontSize: 14,
+          height: 20 / 14,
+          fontWeight: FontWeight.w400,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(20)),
+        ),
+      ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: surface,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 10,
+        ),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          minimumSize: const Size.fromHeight(52),
-          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+          minimumSize: const Size.fromHeight(48),
+          textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
       ),
-      navigationBarTheme: const NavigationBarThemeData(
+      // Pack 2 accent restraint (shared tokens -> component -> every root):
+      // the selected root uses a restrained accent (canonical rose), while
+      // unselected roots use a neutral gray.  No filled indicator or pink bar
+      // background; selection stays legible in dark mode.
+      navigationBarTheme: NavigationBarThemeData(
         height: 72,
-        backgroundColor: Color(0xFF101113),
+        backgroundColor: const Color(0xFF101113),
         indicatorColor: Colors.transparent,
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-        labelTextStyle: WidgetStatePropertyAll(AppTypography.bottomNavLabel),
+        iconTheme: WidgetStateProperty.resolveWith(
+          (states) => IconThemeData(
+            color: states.contains(WidgetState.selected)
+                ? AppTheme.rose
+                : const Color(0xFF9CA0A6),
+          ),
+        ),
+        labelTextStyle: WidgetStateProperty.resolveWith(
+          (states) => AppTypography.bottomNavLabel.copyWith(
+            color: states.contains(WidgetState.selected)
+                ? AppTheme.rose
+                : const Color(0xFF9CA0A6),
+          ),
+        ),
       ),
     );
   }

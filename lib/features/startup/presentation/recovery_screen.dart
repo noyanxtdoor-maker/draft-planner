@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rmplanner/app/theme/internal_screen.dart';
 import 'package:rmplanner/features/startup/application/startup_providers.dart';
 import 'package:rmplanner/features/startup/domain/startup_state.dart';
 
@@ -16,17 +17,17 @@ final class RecoveryScreen extends ConsumerWidget {
         : 'database_open_failed';
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Local data needs attention')),
+      appBar: const InternalAppBar(title: Text('Local data needs attention')),
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(20),
           children: <Widget>[
             Icon(
               Icons.health_and_safety_outlined,
               size: 64,
               color: Theme.of(context).colorScheme.primary,
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 18),
             Text(
               'Next Transfer did not erase or recreate your local data.',
               style: Theme.of(
@@ -58,7 +59,7 @@ final class RecoveryScreen extends ConsumerWidget {
               'Diagnostic code: $reason',
               style: Theme.of(context).textTheme.bodySmall,
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 18),
             ElevatedButton.icon(
               onPressed: () {
                 unawaited(

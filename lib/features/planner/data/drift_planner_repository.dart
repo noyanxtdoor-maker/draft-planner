@@ -4,6 +4,7 @@ import 'package:drift/drift.dart';
 import 'package:rmplanner/core/database/app_database.dart';
 import 'package:rmplanner/core/time/app_clock.dart';
 import 'package:rmplanner/features/planner/application/planner_repository.dart';
+import 'package:rmplanner/features/planner/data/task_goal_contribution_engine.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 import 'package:rmplanner/features/planner/domain/planner_day.dart';
 import 'package:rmplanner/features/planner/domain/planner_task.dart';
@@ -43,7 +44,14 @@ final class DriftPlannerRepository implements PlannerRepository {
     required PlannerTaskStatus target,
     required String operationId,
     String? reason,
+    bool confirmLinkedTypeTransfer = false,
   }) async {
+    // Status changes never silently move a completed Task's contribution to a
+    // different Event Type.  The explicit transfer flag is accepted here for
+    // repository symmetry with saveTask; relinking is performed by saveTask
+    // so a status transition remains a single, idempotent operation.
+    // The flag is intentionally unused here; relinking is handled by the
+    // atomic saveTask path, while status changes only change completion state.
     final hasEffects = await historicalEffectReader.hasReportOrLedgerEffect(
       taskId,
     );
@@ -62,16 +70,22 @@ final class DriftPlannerRepository implements PlannerRepository {
       if (current == null) {
         throw StateError('Task not found');
       }
+      final activeContribution = await _readActiveContribution(taskId);
       final outcome = TaskStatusPolicy.evaluate(
         task: current,
         target: target,
         hasReportOrLedgerEffect: hasEffects,
+        hasReversibleGoalContribution: activeContribution != null,
       );
       if (outcome != TaskStatusChangeOutcome.changed) {
         return outcome;
       }
 
       final changedAt = clock.nowUtc();
+      final linkedType = await _resolveStoredTaskLink(
+        profileId: profileId,
+        task: current,
+      );
       await database
           .into(database.taskStatusChanges)
           .insert(
@@ -83,6 +97,11 @@ final class DriftPlannerRepository implements PlannerRepository {
               fromStatus: current.status.name,
               toStatus: target.name,
               reason: Value<String?>(_normalizeOptional(reason)),
+              activityTypeId: Value<String?>(linkedType?.id),
+              activityTypeStableKeySnapshot: Value<String?>(
+                linkedType?.stableKey,
+              ),
+              activityTypeLabelSnapshot: Value<String?>(linkedType?.label),
               changedAtUtc: changedAt,
             ),
           );
@@ -96,6 +115,23 @@ final class DriftPlannerRepository implements PlannerRepository {
               updatedAtUtc: Value<DateTime>(changedAt),
             ),
           );
+      switch (target) {
+        case PlannerTaskStatus.completed:
+          await _reconcileContribution(
+            profileId: profileId,
+            task: current,
+            linkedType: linkedType,
+            changedAt: changedAt,
+          );
+        case PlannerTaskStatus.incomplete:
+          await _reverseContribution(activeContribution, changedAt);
+        case PlannerTaskStatus.skipped:
+        case PlannerTaskStatus.cancelled:
+          // These states do not create or remove a Goal contribution.  A
+          // completed -> cancelled correction is rejected by policy unless a
+          // caller first returns the task to incomplete.
+          break;
+      }
       await writeGuard.beforeCommit();
       return TaskStatusChangeOutcome.changed;
     });
@@ -210,6 +246,7 @@ final class DriftPlannerRepository implements PlannerRepository {
   Future<PlannerTask> saveTask({
     required String profileId,
     required PlannerTaskDraft draft,
+    bool confirmLinkedTypeTransfer = false,
   }) async {
     final normalized = draft.normalized();
     await database.transaction(() async {
@@ -223,6 +260,31 @@ final class DriftPlannerRepository implements PlannerRepository {
                 ..limit(1))
               .getSingleOrNull();
       final now = clock.nowUtc();
+      final linkedType = await _resolveTaskLink(
+        profileId: profileId,
+        draft: normalized,
+      );
+      final oldStableKey = _normalizeOptional(
+        existing?.linkedActivityTypeStableKey,
+      );
+      final newStableKey = linkedType?.stableKey;
+      final linkChanged = oldStableKey != newStableKey;
+      if (existing != null &&
+          existing.status == PlannerTaskStatus.completed.name &&
+          linkChanged &&
+          !confirmLinkedTypeTransfer) {
+        throw const PlannerTaskValidationException(
+          'This completed Task already contributed progress. Confirm the Event Type change to move that contribution.',
+        );
+      }
+      final oldContribution = existing == null
+          ? null
+          : await _readActiveContribution(existing.id);
+      if (existing != null &&
+          existing.status == PlannerTaskStatus.completed.name &&
+          linkChanged) {
+        await _reverseContribution(oldContribution, now);
+      }
       if (existing == null) {
         await database
             .into(database.plannerTasks)
@@ -239,6 +301,13 @@ final class DriftPlannerRepository implements PlannerRepository {
                 requiresReport: Value<bool>(normalized.requiresReport),
                 contributionRuleKey: Value<String?>(
                   normalized.contributionRuleKey,
+                ),
+                linkedActivityTypeId: Value<String?>(linkedType?.id),
+                linkedActivityTypeStableKey: Value<String?>(
+                  linkedType?.stableKey,
+                ),
+                linkedActivityTypeLabelSnapshot: Value<String?>(
+                  linkedType?.label,
                 ),
                 createdAtUtc: now,
                 updatedAtUtc: now,
@@ -262,9 +331,43 @@ final class DriftPlannerRepository implements PlannerRepository {
                 contributionRuleKey: Value<String?>(
                   normalized.contributionRuleKey,
                 ),
+                linkedActivityTypeId: Value<String?>(linkedType?.id),
+                linkedActivityTypeStableKey: Value<String?>(
+                  linkedType?.stableKey,
+                ),
+                linkedActivityTypeLabelSnapshot: Value<String?>(
+                  linkedType?.label,
+                ),
                 updatedAtUtc: Value<DateTime>(now),
               ),
             );
+      }
+      if (existing != null &&
+          existing.status == PlannerTaskStatus.completed.name) {
+        final savedTask = PlannerTask(
+          id: normalized.id,
+          profileId: profileId,
+          title: normalized.title,
+          notes: normalized.notes,
+          dueDate: normalized.dueDate,
+          dueMinute: normalized.dueMinute,
+          recurrence: normalized.recurrence,
+          people: normalized.people,
+          status: PlannerTaskStatus.completed,
+          requiresReport: normalized.requiresReport,
+          contributionRuleKey: normalized.contributionRuleKey,
+          createdAtUtc: existing.createdAtUtc,
+          updatedAtUtc: now,
+          linkedActivityTypeId: linkedType?.id,
+          linkedActivityTypeStableKey: linkedType?.stableKey,
+          linkedActivityTypeLabelSnapshot: linkedType?.label,
+        );
+        await _reconcileContribution(
+          profileId: profileId,
+          task: savedTask,
+          linkedType: linkedType,
+          changedAt: now,
+        );
       }
       await writeGuard.beforeCommit();
     });
@@ -294,8 +397,65 @@ final class DriftPlannerRepository implements PlannerRepository {
       updatedAtUtc: row.updatedAtUtc,
       linkedEventIds: context.linkedEventIds,
       pathwayContextLabels: context.pathwayContextLabels,
+      linkedActivityTypeId: row.linkedActivityTypeId,
+      linkedActivityTypeStableKey: row.linkedActivityTypeStableKey,
+      linkedActivityTypeLabelSnapshot: row.linkedActivityTypeLabelSnapshot,
     );
   }
+
+  Future<TaskGoalContributionLink?> _resolveTaskLink({
+    required String profileId,
+    required PlannerTaskDraft draft,
+  }) async {
+    return _contributionEngine.resolve(
+      profileId: profileId,
+      activityTypeId: draft.linkedActivityTypeId,
+      stableKey: draft.linkedActivityTypeStableKey,
+      labelSnapshot: draft.linkedActivityTypeLabelSnapshot,
+    );
+  }
+
+  Future<TaskGoalContributionLink?> _resolveStoredTaskLink({
+    required String profileId,
+    required PlannerTask task,
+  }) {
+    return _contributionEngine.resolve(
+      profileId: profileId,
+      activityTypeId: task.linkedActivityTypeId,
+      stableKey: task.linkedActivityTypeStableKey,
+      labelSnapshot: task.linkedActivityTypeLabelSnapshot,
+      allowArchived: true,
+    );
+  }
+
+  Future<TaskGoalContributionRow?> _readActiveContribution(String taskId) {
+    return _contributionEngine.readActive(taskId);
+  }
+
+  Future<void> _reverseContribution(
+    TaskGoalContributionRow? contribution,
+    DateTime changedAt,
+  ) async {
+    await _contributionEngine.reverse(contribution, changedAt);
+  }
+
+  Future<void> _reconcileContribution({
+    required String profileId,
+    required PlannerTask task,
+    required TaskGoalContributionLink? linkedType,
+    required DateTime changedAt,
+  }) async {
+    await _contributionEngine.reconcile(
+      profileId: profileId,
+      taskId: task.id,
+      dueDate: task.dueDate,
+      linkedType: linkedType,
+      changedAt: changedAt,
+    );
+  }
+
+  TaskGoalContributionEngine get _contributionEngine =>
+      TaskGoalContributionEngine(database: database);
 
   static String? _normalizeOptional(String? value) {
     final normalized = value?.trim();
@@ -328,19 +488,21 @@ final class DriftPlannerRepository implements PlannerRepository {
     };
   }
 
-  /// Normal Planner Day timeline keeps events that are still meaningful
-  /// at their scheduled date: scheduled, completed-happened, and
-  /// partially-completed occurrences. Cancelled, rescheduled, and
-  /// did-not-happen occurrences are surfaced only through the changes
-  /// list and awaiting-report surfaces.
+  /// Normal Planner Day timeline keeps every valid occurrence on the day
+  /// regardless of its report outcome. A report outcome (completed,
+  /// partially-completed, or did-not-attempt) is a status on the
+  /// occurrence, never an existence gate (Post-VS-11 planner polish
+  /// P-01A): reporting "Did Not Attempt" must never hide, delete, or
+  /// reschedule a valid Event. Only explicit lifecycle actions (cancelled,
+  /// rescheduled) remove a row from the timeline, and those surface through
+  /// the changes list and awaiting-report surfaces.
   static bool _isVisibleTimelineState(PlannerCalendarItem item) {
     return switch (item.state) {
       PlannerEventState.scheduled ||
       PlannerEventState.completedHappened ||
-      PlannerEventState.partiallyCompleted => true,
-      PlannerEventState.cancelled ||
-      PlannerEventState.rescheduled ||
-      PlannerEventState.didNotHappen => false,
+      PlannerEventState.partiallyCompleted ||
+      PlannerEventState.didNotHappen => true,
+      PlannerEventState.cancelled || PlannerEventState.rescheduled => false,
     };
   }
 }

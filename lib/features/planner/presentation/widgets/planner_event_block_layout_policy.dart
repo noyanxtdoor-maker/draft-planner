@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:rmplanner/features/planner/domain/event_color_math.dart';
+
 /// Adaptive layout strategy for Calendar Event blocks on the Day timeline.
 ///
 /// The Planner Day view renders blocks at heights derived from minute
@@ -21,8 +23,15 @@ abstract final class PlannerEventBlockLayoutPolicy {
   /// Compact silhouette constants for the rendered Event block. Keeping
   /// these in the layout policy makes the reference shape testable without
   /// coupling tests to Flutter's internal Material shape objects.
-  static const double eventBorderRadius = 4;
-  static const double eventAccentWidth = 4;
+  ///
+  /// PMG-style solid block geometry (Part 7): restrained ~3 dp base corner
+  /// radius, ~3 dp accent strip, and ~2 dp lane gap.  No shadow, no
+  /// elevation, no soft card surface.
+  static const double eventBorderRadius = 3;
+  static const double eventAccentWidth = 3;
+
+  /// Horizontal gap between adjacent Event lanes (PMG target ~2 dp).
+  static const double eventLaneGap = 2;
   // Backup Events use the same fixed accent width as normal Events. The
   // striped painter is clipped to this exact strip before it can paint any
   // diagonal segment outside its local bounds.
@@ -31,8 +40,10 @@ abstract final class PlannerEventBlockLayoutPolicy {
   static const double backupStripeSpacing = 5;
   static const double backupStripeWidth = 2.2;
   static const double contentHorizontalPadding = 8;
+  // Delta 3: the repeat icon is a small 12-14 dp top-right affordance, not
+  // a dominant badge — 'Meetin… ↻' before the icon disappears.
   static const double recurrenceRightInset = 8;
-  static const double recurrenceIconSize = 18;
+  static const double recurrenceIconSize = 14;
   static const double recurringContentRightPadding =
       recurrenceRightInset + recurrenceIconSize + 4;
 
@@ -55,7 +66,7 @@ abstract final class PlannerEventBlockLayoutPolicy {
   }
 
   static double recurrenceIconSizeFor(Density density) {
-    return density == Density.veryShort ? 14 : recurrenceIconSize;
+    return density == Density.veryShort ? 12 : recurrenceIconSize;
   }
 
   /// Approximate line height for title text at the block's font size.
@@ -148,6 +159,16 @@ abstract final class PlannerEventBlockLayoutPolicy {
     // Resize remains discoverable through the invisible edge hit zones below;
     // the approved timeline surface does not render a visible grip.
     return false;
+  }
+
+  /// Effective corner radius for a card of [height] display pixels.
+  ///
+  /// `min(3 dp, height / 4)` prevents pill shapes: very short overview cards
+  /// round only as far as their own height allows, and the radius NEVER
+  /// scales upward when zooming out (Part 7 lock).
+  static double effectiveRadiusFor(double height) {
+    final radius = height / 4;
+    return radius < eventBorderRadius ? radius : eventBorderRadius;
   }
 
   /// Minimum height that still admits a meaningful resize affordance.
@@ -288,14 +309,50 @@ enum Density { veryShort, short, medium, tall }
 abstract final class PlannerEventBlockColorPolicy {
   /// Returns the fully-opaque surface color derived from [base].
   ///
-  /// The lightening is a deterministic shift in HSL space that keeps
-  /// saturation high and lifts lightness so dark Event Type colors
-  /// remain readable on the dark Planner background.
+  /// Light-muted bases (the approved palette) keep their hue family with only
+  /// a restrained ~10% lightness reduction (the 8-12% perceptual darkening
+  /// band from Part 14) so the block never turns dark or muddy.  Dark custom
+  /// bases are lifted toward a readable light-muted surface, keeping the
+  /// legacy behavior for non-light accents.
   static Color surfaceColor(Color base) {
     final hsl = HSLColor.fromColor(base);
+    if (hsl.lightness >= 0.45) {
+      return Color(EventColorMath.lightMutedSurfaceArgb(base.toARGB32()));
+    }
     final lightness = (hsl.lightness * 0.6 + 0.32).clamp(0.0, 0.85);
     final saturation = (hsl.saturation * 0.85 + 0.1).clamp(0.0, 1.0);
     return hsl.withLightness(lightness).withSaturation(saturation).toColor();
+  }
+
+  /// Returns the restrained light-muted block surface derived from a
+  /// canonical Event Type accent color.
+  ///
+  /// The Planner Correction Pack locks the color pipeline so the block
+  /// surface always follows the current canonical Event Type color: when a
+  /// user changes an accent (recommended swatch or custom hex), the saved
+  /// surface is derived from that same accent so no stale old-color surface
+  /// can linger.  The derivation keeps the accent hue and applies only the
+  /// approved 8-12% perceptual darkening — it never blends toward
+  /// near-black, never applies the old 40-60% dark blend, and never turns a
+  /// light-muted color into a dark muddy card (Part 14 lock).
+  static Color mutedSurfaceFromAccent(Color accent) {
+    return Color(EventColorMath.lightMutedSurfaceArgb(accent.toARGB32()));
+  }
+
+  /// Resolves the persisted block surface for an accent change.
+  ///
+  /// The surface follows the canonical accent whenever the accent actually
+  /// changes (so a stale old-color surface can never linger), but an
+  /// unchanged accent keeps its existing curated surface untouched.
+  static int resolvedSurfaceArgb({
+    required int accentArgb,
+    required int currentAccentArgb,
+    required int currentSurfaceArgb,
+  }) {
+    if (accentArgb == currentAccentArgb) {
+      return currentSurfaceArgb;
+    }
+    return mutedSurfaceFromAccent(Color(accentArgb)).toARGB32();
   }
 
   /// Returns the border color used to outline the block.
@@ -303,18 +360,14 @@ abstract final class PlannerEventBlockColorPolicy {
     return base.withValues(alpha: 0.95);
   }
 
-  /// Returns the safer neutral text color for a fully opaque block surface.
+  /// Returns the Planner Event block text color.
   ///
-  /// Both candidates are measured rather than selected from a lightness
-  /// threshold, so custom bright surfaces switch to dark text without
-  /// changing the user's selected colors.
-  static Color textColor(Color surface) {
-    const darkText = Color(0xFF1B1B1F);
-    const lightText = Colors.white;
-    final lightContrast = contrastRatio(lightText, surface);
-    final darkContrast = contrastRatio(darkText, surface);
-    return lightContrast >= darkContrast ? lightText : darkText;
-  }
+  /// Locked white-text rule (exact-defaults delta): Planner Event title and
+  /// time are ALWAYS white / near-white for every Event Type. They are never
+  /// dynamically switched to black because of surface luminance. The approved
+  /// dark PMG-style Surface pairs keep white contrast high; if a custom
+  /// surface ever lowers contrast, the surface (not the text) is the fix.
+  static Color textColor(Color surface) => Colors.white;
 
   /// WCAG-style contrast ratio for two opaque colors.
   static double contrastRatio(Color foreground, Color background) {
@@ -339,29 +392,42 @@ final class PlannerEventBlockContent {
   const PlannerEventBlockContent({
     required this.density,
     required this.titleMaxLines,
+    required this.showTitle,
     required this.showTime,
     required this.showTimeInline,
     this.showRecurrence = true,
     required this.showStatusIcons,
     required this.showResizeHandle,
+    this.showTimeOnly = false,
   });
 
   factory PlannerEventBlockContent.forHeight(
     double height, {
     required bool interactive,
+    bool showTimeOnly = false,
   }) {
     final density = PlannerEventBlockLayoutPolicy.classify(height);
     return PlannerEventBlockContent(
       density: density,
       titleMaxLines: PlannerEventBlockLayoutPolicy.titleMaxLines(density),
+      // Exact-duration blocks can be a few logical pixels tall at wide
+      // zoom-out. A title smaller than the rendered text line would
+      // RenderFlex-overflow the hard-clipped rectangle, so micro blocks
+      // render the surface + accent only (their status badge stays
+      // clipped inside the exact rectangle).
+      showTitle: height >= PlannerEventBlockLayoutPolicy.titleLineHeight,
       showTime: PlannerEventBlockLayoutPolicy.showTime(density),
       // At the actual minimum zoom a 15-minute block can be about 11 px
       // tall. Keep the approved inline schedule for compact blocks that can
       // still contain it, but collapse smaller blocks to title-only and hide
       // the recurrence affordance so it cannot bleed outside the block.
+      // Delta 3: a 12-14 dp repeat icon needs only ~12 px, so a one-hour
+      // block at the widest zoom-out (>= ~17 px) always shows it — the
+      // previous 18 px threshold hid recurrence from exactly the view the
+      // owner records in.
       showTimeInline:
           height >= 15 && PlannerEventBlockLayoutPolicy.showTimeInline(density),
-      showRecurrence: height >= 18,
+      showRecurrence: height >= 12,
       // A medium block can be only a few pixels taller than the title/time
       // rows. Keep the status row until there is enough room for all three
       // rows and their measured gaps; compact blocks must never rely on
@@ -373,14 +439,23 @@ final class PlannerEventBlockContent {
         density,
         interactive,
       ),
+      // Approved provisional draft (Delta 4.1 D4.1-04): the unsaved pink
+      // block renders TIME ONLY — never the Event Type title — so it reads
+      // as a pure provisional surface.  Saved Events keep their normal
+      // title/time content.
+      showTimeOnly: showTimeOnly,
     );
   }
 
   final Density density;
   final int titleMaxLines;
+  final bool showTitle;
   final bool showTime;
   final bool showTimeInline;
   final bool showRecurrence;
   final bool showStatusIcons;
   final bool showResizeHandle;
+
+  /// Provisional-draft flag: the block shows only its time range.
+  final bool showTimeOnly;
 }

@@ -1,294 +1,208 @@
+import 'dart:async';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rmplanner/app/router/route_names.dart';
 import 'package:rmplanner/app/theme/app_theme.dart';
-import 'package:rmplanner/features/startup/application/startup_providers.dart';
-import 'package:rmplanner/features/startup/domain/local_profile.dart';
-import 'package:rmplanner/features/startup/domain/startup_state.dart';
 
-/// Catalog of global app destinations surfaced in the global drawer.
+/// How a drawer destination is opened (Pack 3, Phase 3).
 ///
-/// The catalog maps user-facing names onto real, currently implemented
-/// routes. Destinations whose destinations are not yet wired (for
-/// example the Contacts slice or Resources panes) are intentionally
-/// omitted or rendered as unavailable entries so that the drawer never
-/// exposes internal slice names like "VS-08" or "authorized build".
+/// Only real, currently implemented destinations exist in the catalog;
+/// unsupported destinations are omitted entirely (no placeholders, no
+/// "coming soon" rows, no fake badges).
+enum GlobalDrawerNavigation {
+  /// Root tabs (Planner / More / Home): `go` reveals the existing root and
+  /// never pushes a duplicate route.
+  selectRoot,
+
+  /// Shell-child pages under `/planner` or `/more`: `go` navigates inside
+  /// the existing shell (one shell instance, no second bottom nav), and the
+  /// Pack 2 root Back policy provides the direct-entry fallback.
+  openInShell,
+
+  /// Root-level child pages pushed above the shell (Activity History,
+  /// Messages, About): `push` so Back returns to the screen that was
+  /// beneath the drawer instead of dead-ending on the platform exit.
+  push,
+}
+
+/// A single canonical drawer destination.
 @immutable
 final class GlobalDrawerEntry {
   const GlobalDrawerEntry._({
     required this.id,
     required this.label,
     required this.icon,
-    this.routePath,
-    this.subtitle,
-    this.group = GlobalDrawerGroup.account,
-    this.availability = GlobalDrawerEntryAvailability.available,
+    required this.group,
+    required this.routePath,
+    this.navigation = GlobalDrawerNavigation.selectRoot,
   });
 
   final String id;
   final String label;
   final IconData icon;
-  final String? routePath;
-  final String? subtitle;
   final GlobalDrawerGroup group;
-  final GlobalDrawerEntryAvailability availability;
-
-  bool get isAvailable => availability == GlobalDrawerEntryAvailability.available;
+  final String routePath;
+  final GlobalDrawerNavigation navigation;
 }
 
-enum GlobalDrawerGroup { profile, planning, programs, account }
+enum GlobalDrawerGroup { planning, personal, account, support }
 
-enum GlobalDrawerEntryAvailability { available, unavailable }
-
+/// Canonical drawer information architecture (Pack 3, Phase 2), filtered to
+/// destinations that are actually implemented in the current build.
+///
+/// Destination deduplication: every feature has exactly one canonical route.
+/// Planning, Plan History, Life Goals, and Settings use the Pack 3
+/// approved labels; the obsolete "Weekly Planning" / "Weekly Plan History"
+/// labels are gone from the drawer.
 abstract final class GlobalDrawerCatalog {
   static const List<GlobalDrawerEntry> entries = <GlobalDrawerEntry>[
-    // Profile section is rendered separately because the data is
-    // provider-driven rather than static.
+    // A. Planning and Records -----------------------------------------
     GlobalDrawerEntry._(
       id: 'drawer-planner',
       label: 'Planner',
       icon: Icons.calendar_month_outlined,
+      group: GlobalDrawerGroup.planning,
       routePath: RoutePaths.planner,
-      group: GlobalDrawerGroup.planning,
+      navigation: GlobalDrawerNavigation.selectRoot,
     ),
     GlobalDrawerEntry._(
-      id: 'drawer-planner-settings',
-      label: 'Planner and Calendar',
-      icon: Icons.tune_outlined,
-      routePath: RoutePaths.plannerSettings,
-      subtitle: 'Timeline, Event Types, snapping, zoom, display',
-      group: GlobalDrawerGroup.planning,
-    ),
-    GlobalDrawerEntry._(
-      id: 'drawer-event-types',
-      label: 'Event Types',
-      icon: Icons.category_outlined,
-      routePath: RoutePaths.eventTypes,
-      subtitle: 'Color, indicator, report-required, backup mapping',
-      group: GlobalDrawerGroup.planning,
-    ),
-    GlobalDrawerEntry._(
-      id: 'drawer-weekly-planning',
-      label: 'Weekly Planning',
+      id: 'drawer-planning',
+      label: 'Planning',
       icon: Icons.calendar_view_week_outlined,
-      routePath: RoutePaths.weeklyPlanning,
-      subtitle: 'Targets and weekly review',
       group: GlobalDrawerGroup.planning,
+      routePath: RoutePaths.weeklyPlanning,
+      navigation: GlobalDrawerNavigation.openInShell,
     ),
     GlobalDrawerEntry._(
-      id: 'drawer-weekly-planning-history',
-      label: 'Weekly Plan History',
+      id: 'drawer-plan-history',
+      label: 'Plan History',
       icon: Icons.history_outlined,
-      routePath: RoutePaths.weeklyPlanningHistory,
       group: GlobalDrawerGroup.planning,
+      routePath: RoutePaths.weeklyPlanningHistory,
+      navigation: GlobalDrawerNavigation.openInShell,
     ),
     GlobalDrawerEntry._(
       id: 'drawer-activity-history',
       label: 'Activity History',
       icon: Icons.fact_check_outlined,
+      group: GlobalDrawerGroup.planning,
       routePath: RoutePaths.activityHistory,
-      subtitle: 'Outcome Reports and corrections',
-      group: GlobalDrawerGroup.planning,
+      navigation: GlobalDrawerNavigation.push,
     ),
     GlobalDrawerEntry._(
-      id: 'drawer-indicators',
-      label: 'Life Indicators',
+      id: 'drawer-life-indicators',
+      label: 'Life Goals',
       icon: Icons.insights_outlined,
-      routePath: RoutePaths.progress,
-      subtitle: 'Indicators and their progress',
       group: GlobalDrawerGroup.planning,
-      availability: GlobalDrawerEntryAvailability.unavailable,
+      routePath: RoutePaths.progress,
+      navigation: GlobalDrawerNavigation.openInShell,
     ),
+    // B. Personal Tools -----------------------------------------------
+    // Quick Notes and Personal Journal are omitted (no complete real
+    // module exists; Pack 3 locked policy 2/3).
     GlobalDrawerEntry._(
-      id: 'drawer-program-pathway',
-      label: 'BYU-Pathway Worldwide',
-      icon: Icons.school_outlined,
-      group: GlobalDrawerGroup.programs,
-      availability: GlobalDrawerEntryAvailability.unavailable,
+      id: 'drawer-messages',
+      label: 'Messages',
+      icon: Icons.chat_bubble_outline,
+      group: GlobalDrawerGroup.personal,
+      routePath: RoutePaths.messages,
+      navigation: GlobalDrawerNavigation.push,
     ),
-    GlobalDrawerEntry._(
-      id: 'drawer-program-myplan',
-      label: 'My Plan',
-      icon: Icons.assignment_outlined,
-      group: GlobalDrawerGroup.programs,
-      availability: GlobalDrawerEntryAvailability.unavailable,
-    ),
-    GlobalDrawerEntry._(
-      id: 'drawer-program-myplan-conf',
-      label: 'My Plan Conference',
-      icon: Icons.groups_outlined,
-      group: GlobalDrawerGroup.programs,
-      availability: GlobalDrawerEntryAvailability.unavailable,
-    ),
-    GlobalDrawerEntry._(
-      id: 'drawer-program-self-reliance',
-      label: 'Self-Reliance Resources',
-      icon: Icons.menu_book_outlined,
-      group: GlobalDrawerGroup.programs,
-      availability: GlobalDrawerEntryAvailability.unavailable,
-    ),
-    GlobalDrawerEntry._(
-      id: 'drawer-program-country',
-      label: 'Country Requirements',
-      icon: Icons.public_outlined,
-      group: GlobalDrawerGroup.programs,
-      availability: GlobalDrawerEntryAvailability.unavailable,
-    ),
-    GlobalDrawerEntry._(
-      id: 'drawer-program-links',
-      label: 'Official Links',
-      icon: Icons.link_outlined,
-      group: GlobalDrawerGroup.programs,
-      availability: GlobalDrawerEntryAvailability.unavailable,
-    ),
+    // C. Programs and Resources ---------------------------------------
+    // Entirely omitted: no approved canonical resource URLs exist in the
+    // repository (Pack 3 locked policy 9).
+    // D. Account and App ----------------------------------------------
+    // Sync and Backup / Export Data are omitted (no canonical screens or
+    // fake sync status exist; Pack 3 locked policy 8).
     GlobalDrawerEntry._(
       id: 'drawer-account-settings',
       label: 'Settings',
       icon: Icons.settings_outlined,
+      group: GlobalDrawerGroup.account,
       routePath: RoutePaths.settings,
-      subtitle: 'Planner and Calendar, Privacy and Data, app preferences',
-      group: GlobalDrawerGroup.account,
+      navigation: GlobalDrawerNavigation.openInShell,
     ),
+    // E. Support -------------------------------------------------------
+    // Report a Problem / Suggest a Feature are omitted (no approved real
+    // support transport; Pack 3 locked policy 4).  Release Notes are
+    // omitted (no real release-note source; locked policy 5).
     GlobalDrawerEntry._(
-      id: 'drawer-account-privacy',
-      label: 'Privacy and Data',
-      icon: Icons.shield_outlined,
-      routePath: RoutePaths.privacyCenter,
-      subtitle: 'Privacy Lock, permissions, local data, diagnostics',
-      group: GlobalDrawerGroup.account,
-    ),
-    GlobalDrawerEntry._(
-      id: 'drawer-account-permissions',
-      label: 'Permissions',
-      icon: Icons.lock_outline,
-      routePath: RoutePaths.permissions,
-      group: GlobalDrawerGroup.account,
-    ),
-    GlobalDrawerEntry._(
-      id: 'drawer-account-appearance',
-      label: 'Appearance',
-      icon: Icons.palette_outlined,
-      group: GlobalDrawerGroup.account,
-      availability: GlobalDrawerEntryAvailability.unavailable,
-    ),
-    GlobalDrawerEntry._(
-      id: 'drawer-account-accessibility',
-      label: 'Accessibility',
-      icon: Icons.accessibility_new_outlined,
-      group: GlobalDrawerGroup.account,
-      availability: GlobalDrawerEntryAvailability.unavailable,
-    ),
-    GlobalDrawerEntry._(
-      id: 'drawer-account-sync',
-      label: 'Sync and Backup',
-      icon: Icons.cloud_sync_outlined,
-      group: GlobalDrawerGroup.account,
-      availability: GlobalDrawerEntryAvailability.unavailable,
-    ),
-    GlobalDrawerEntry._(
-      id: 'drawer-account-export',
-      label: 'Export Data',
-      icon: Icons.ios_share_outlined,
-      group: GlobalDrawerGroup.account,
-      availability: GlobalDrawerEntryAvailability.unavailable,
-    ),
-    GlobalDrawerEntry._(
-      id: 'drawer-account-help',
-      label: 'Help and Support',
-      icon: Icons.help_outline,
-      group: GlobalDrawerGroup.account,
-      availability: GlobalDrawerEntryAvailability.unavailable,
-    ),
-    GlobalDrawerEntry._(
-      id: 'drawer-account-about',
+      id: 'drawer-about',
       label: 'About',
       icon: Icons.info_outline,
-      group: GlobalDrawerGroup.account,
-      availability: GlobalDrawerEntryAvailability.unavailable,
-    ),
-    GlobalDrawerEntry._(
-      id: 'drawer-account-country-language',
-      label: 'Country and Language',
-      icon: Icons.translate_outlined,
-      group: GlobalDrawerGroup.account,
-      availability: GlobalDrawerEntryAvailability.unavailable,
-    ),
-    GlobalDrawerEntry._(
-      id: 'drawer-account-notifications',
-      label: 'Notifications',
-      icon: Icons.notifications_outlined,
-      group: GlobalDrawerGroup.account,
-      availability: GlobalDrawerEntryAvailability.unavailable,
+      group: GlobalDrawerGroup.support,
+      routePath: RoutePaths.about,
+      navigation: GlobalDrawerNavigation.push,
     ),
   ];
 
-  /// The drawer groups in the order they appear in the drawer.
+  /// The drawer groups in the order they appear.
   static const List<GlobalDrawerGroup> groupOrder = <GlobalDrawerGroup>[
     GlobalDrawerGroup.planning,
-    GlobalDrawerGroup.programs,
+    GlobalDrawerGroup.personal,
     GlobalDrawerGroup.account,
+    GlobalDrawerGroup.support,
   ];
 
   static String labelFor(GlobalDrawerGroup group) {
     return switch (group) {
-      GlobalDrawerGroup.profile => 'Profile',
       GlobalDrawerGroup.planning => 'Planning and Records',
-      GlobalDrawerGroup.programs => 'Programs and Resources',
+      GlobalDrawerGroup.personal => 'Personal Tools',
       GlobalDrawerGroup.account => 'Account and App',
+      GlobalDrawerGroup.support => 'Support',
     };
   }
 }
 
-/// The global app drawer opened from the hamburger on every permanent
-/// screen.
+/// The canonical PMG-inspired global navigation drawer (Pack 3, Phase 1).
 ///
-/// The drawer slides from the left, respects the status bar and the
-/// bottom safe area, supports Android Back dismissal, highlights the
-/// current destination using the pink accent, and remains vertically
-/// scrollable. It is wired into the shared shell so Home, Planner,
-/// Pathways, and Contacts all open the same drawer.
-class GlobalAppDrawer extends ConsumerWidget {
+/// The drawer is a secondary navigation surface layered onto the existing
+/// shell: one shell, the bottom navigation untouched, a compact Next
+/// Transfer header, icon-and-label rows with no chevrons and no ordinary
+/// subtitles, and a restrained selected state that is never color-only.
+/// It opens over the current root, dims the background with the platform
+/// scrim, closes on tap-outside and Android Back, stays transient (never
+/// restored open after restart), and scrolls when contents overflow.
+class GlobalAppDrawer extends StatelessWidget {
   const GlobalAppDrawer({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final profileState = ref.watch(startupControllerProvider);
-    final currentLocation =
-        GoRouterState.of(context).matchedLocation;
-    final LocalProfile? profile = switch (profileState) {
-      StartupReady(:final profile) => profile,
-      _ => null,
-    };
+  Widget build(BuildContext context) {
+    final currentLocation = GoRouterState.of(context).matchedLocation;
+    // 84-88% of phone width, capped at ~360 dp on wider screens.
+    final width = math.min(MediaQuery.sizeOf(context).width * 0.86, 360.0);
     return Drawer(
       key: const Key('global-app-drawer'),
+      width: width,
       backgroundColor: AppTheme.surface,
       surfaceTintColor: AppTheme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.zero,
-      ),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
       child: SafeArea(
         top: false,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
-            _DrawerHeader(profile: profile),
+            const _DrawerHeader(),
             Expanded(
               child: ListView(
                 key: const Key('global-app-drawer-list'),
-                padding: const EdgeInsets.only(bottom: 16),
+                padding: const EdgeInsets.only(bottom: 20),
                 children: <Widget>[
-                  for (final group in GlobalDrawerCatalog.groupOrder) ...<Widget>[
-                    _DrawerGroupHeader(label: GlobalDrawerCatalog.labelFor(group)),
+                  for (final group
+                      in GlobalDrawerCatalog.groupOrder) ...<Widget>[
+                    _DrawerGroupHeader(
+                      label: GlobalDrawerCatalog.labelFor(group),
+                    ),
                     for (final entry in GlobalDrawerCatalog.entries.where(
                       (e) => e.group == group,
                     ))
                       _DrawerEntryTile(
                         entry: entry,
-                        isCurrent: entry.routePath != null &&
-                            currentLocation.startsWith(entry.routePath!),
+                        isCurrent: entry.routePath == currentLocation,
                       ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 8),
                   ],
                 ],
               ),
@@ -300,70 +214,52 @@ class GlobalAppDrawer extends ConsumerWidget {
   }
 }
 
+/// Compact Next Transfer brand header.  No profile block, no avatar, no
+/// ordinary subtitle, no fake account status (Pack 3, Phase 1 header rules).
 class _DrawerHeader extends StatelessWidget {
-  const _DrawerHeader({required this.profile});
-
-  final LocalProfile? profile;
+  const _DrawerHeader();
 
   @override
   Widget build(BuildContext context) {
-    final name = profile?.displayName?.trim();
-    final fallback = profile?.localName;
-    final resolvedName = (name == null || name.isEmpty) ? fallback : name;
-    final colorScheme = Theme.of(context).colorScheme;
-    final initialSource = resolvedName == null || resolvedName.isEmpty
-        ? 'N'
-        : resolvedName.characters.first.toUpperCase();
     return Container(
       key: const Key('global-app-drawer-header'),
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 18),
+      padding: const EdgeInsets.fromLTRB(20, 22, 20, 18),
       decoration: const BoxDecoration(
         color: AppTheme.background,
-        border: Border(
-          bottom: BorderSide(color: AppTheme.outline),
-        ),
+        border: Border(bottom: BorderSide(color: AppTheme.outline)),
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
         children: <Widget>[
-          CircleAvatar(
-            radius: 22,
-            backgroundColor: AppTheme.rose.withValues(alpha: 0.18),
-            child: Text(
-              initialSource,
+          Container(
+            width: 40,
+            height: 40,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: AppTheme.rose.withValues(alpha: 0.16),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Text(
+              'NT',
               style: TextStyle(
-                color: colorScheme.primary,
+                color: AppTheme.rose,
+                fontSize: 16,
                 fontWeight: FontWeight.w800,
-                fontSize: 20,
               ),
             ),
           ),
           const SizedBox(width: 14),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                Text(
-                  resolvedName == null || resolvedName.isEmpty
-                      ? 'Your profile'
-                      : resolvedName,
-                  key: const Key('global-app-drawer-name'),
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  profile == null
-                      ? 'Local profile'
-                      : 'Local profile · ready',
-                  key: const Key('global-app-drawer-state'),
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                ),
-              ],
+            child: Text(
+              'Next Transfer',
+              key: const Key('global-app-drawer-brand'),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontFamily: 'Roboto',
+                fontSize: 17,
+                height: 22 / 17,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
         ],
@@ -379,16 +275,22 @@ class _DrawerGroupHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 14, 20, 6),
-      child: Text(
-        label,
-        key: Key('drawer-group-${label.toLowerCase().replaceAll(" ", "-")}'),
-        style: Theme.of(context).textTheme.labelLarge?.copyWith(
-              color: AppTheme.rose,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0.6,
-            ),
+    return Semantics(
+      header: true,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 6),
+        child: Text(
+          label,
+          key: Key('drawer-group-${label.toLowerCase().replaceAll(' ', '-')}'),
+          style: const TextStyle(
+            fontFamily: 'Roboto',
+            fontSize: 12.5,
+            height: 16 / 12.5,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.5,
+            color: Color(0xFF9CA0A6),
+          ),
+        ),
       ),
     );
   }
@@ -400,55 +302,84 @@ class _DrawerEntryTile extends StatelessWidget {
   final GlobalDrawerEntry entry;
   final bool isCurrent;
 
+  void _open(BuildContext context) {
+    final currentLocation = GoRouterState.of(context).matchedLocation;
+    // Close the drawer first; the drawer route lives on the shell navigator.
+    Navigator.of(context).pop();
+    // Current-destination tap: close only, never add a route.
+    if (entry.routePath == currentLocation) {
+      return;
+    }
+    final router = GoRouter.of(context);
+    switch (entry.navigation) {
+      case GlobalDrawerNavigation.selectRoot:
+      case GlobalDrawerNavigation.openInShell:
+        router.go(entry.routePath);
+      case GlobalDrawerNavigation.push:
+        unawaited(router.push(entry.routePath));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final titleColor = isCurrent ? colorScheme.primary : colorScheme.onSurface;
-    final iconColor = isCurrent ? colorScheme.primary : colorScheme.onSurface;
-    final Widget leadingIcon = Icon(
-      entry.icon,
-      color: iconColor,
-      size: 22,
-    );
-    final Widget trailing = isCurrent
-        ? Icon(Icons.circle, color: colorScheme.primary, size: 10)
-        : const Icon(Icons.chevron_right, size: 18);
-    final onTap = entry.isAvailable && entry.routePath != null
-        ? () {
-            Navigator.of(context).pop();
-            GoRouter.of(context).go(entry.routePath!);
-          }
-        : () {
-            Navigator.of(context).pop();
-            ScaffoldMessenger.of(context)
-              ..hideCurrentSnackBar()
-              ..showSnackBar(
-                SnackBar(
-                  content: Text(
-                    '${entry.label} will open when its slice is delivered.',
+    final accent = AppTheme.rose;
+    return Semantics(
+      selected: isCurrent,
+      button: true,
+      label: entry.label,
+      child: InkWell(
+        key: Key(entry.id),
+        onTap: () => _open(context),
+        child: Container(
+          // A minimum row height keeps the 48+ dp touch target while the row
+          // grows at increased text scale instead of clipping (Pack 3
+          // accessibility requirement).
+          constraints: const BoxConstraints(minHeight: 52),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+          decoration: isCurrent
+              ? BoxDecoration(color: accent.withValues(alpha: 0.10))
+              : null,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: <Widget>[
+              // Reserved indicator slot: a left accent bar that appears
+              // only when selected, so the selection is never indicated by
+              // color alone and the row never shifts when selection changes.
+              SizedBox(
+                width: 4,
+                height: 22,
+                child: isCurrent
+                    ? DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: accent,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      )
+                    : null,
+              ),
+              const SizedBox(width: 10),
+              Icon(
+                entry.icon,
+                size: 23,
+                color: isCurrent ? accent : const Color(0xFFD6D8DB),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  entry.label,
+                  style: TextStyle(
+                    fontFamily: 'Roboto',
+                    fontSize: 15.5,
+                    height: 20 / 15.5,
+                    fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w500,
+                    color: isCurrent ? accent : const Color(0xFFECEDEF),
                   ),
                 ),
-              );
-          };
-    return ListTile(
-      key: Key(entry.id),
-      leading: leadingIcon,
-      title: Text(
-        entry.label,
-        style: TextStyle(
-          color: titleColor,
-          fontWeight: isCurrent ? FontWeight.w800 : FontWeight.w600,
+              ),
+            ],
+          ),
         ),
       ),
-      subtitle: entry.subtitle == null
-          ? null
-          : Text(
-              entry.subtitle!,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-      trailing: trailing,
-      onTap: onTap,
     );
   }
 }

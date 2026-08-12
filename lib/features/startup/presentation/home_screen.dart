@@ -29,20 +29,40 @@ String homeMonthGoalLabel(PlannerDate today, Locale locale) {
   return '$month Goal';
 }
 
-final class HomeScreen extends ConsumerWidget {
+final class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
+  @override
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+final class _HomeScreenState extends ConsumerState<HomeScreen> {
   // The Home quick control is intentionally serialized per canonical Goal.
   // This keeps rapid taps target-only and prevents duplicate writes from
   // racing against one another or reading a stale progress snapshot.
-  static final Map<String, Future<void>> _dailyTargetQueues =
-      <String, Future<void>>{};
+  final Map<String, Future<void>> _dailyTargetQueues = <String, Future<void>>{};
+
+  // Optimistic Today's Goal target overlay. The visible target reacts in the
+  // same frame as the tap while the canonical read-modify-write queue runs
+  // behind it; entries are pruned once the repository value catches up.
+  // Keys are the canonical Goal IDs (only the daily Goal uses the stepper).
+  final Map<String, int> _optimisticDailyTargets = <String, int>{};
+
+  /// Canonical daily target captured when the first pending tap landed.
+  /// Re-seeded whenever the canonical value moves independently, so an
+  /// external edit cannot make the optimistic value stale forever.
+  final Map<String, int> _optimisticBases = <String, int>{};
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final plannerToday = ref.watch(plannerDateSourceProvider).today();
     final periodStart = IndicatorPeriod.currentWeek(plannerToday).start;
     final canonicalPlan = ref.watch(goalPlanningProvider(periodStart));
+    _reconcileOptimisticTargets(canonicalPlan.asData?.value);
+    final planValue = canonicalPlan.asData?.value;
+    final optimisticDailyTarget = planValue?.daily == null
+        ? null
+        : _optimisticDailyTargets[planValue!.daily!.goal.id];
     final nextTempleVisit = ref.watch(nextTempleVisitProvider).asData?.value;
     return Scaffold(
       appBar: AppBar(
@@ -65,10 +85,12 @@ final class HomeScreen extends ConsumerWidget {
           ),
         ),
         actions: <Widget>[
+          // Pack 3: the Home bell opens the canonical local Messages screen,
+          // never Android notification permissions.
           IconButton(
-            key: const Key('home-notifications'),
-            tooltip: 'Notifications',
-            onPressed: () => context.push(RoutePaths.permissions),
+            key: const Key('home-messages'),
+            tooltip: 'Messages',
+            onPressed: () => context.push(RoutePaths.messages),
             icon: const Icon(Icons.notifications_none_outlined),
           ),
         ],
@@ -92,7 +114,10 @@ final class HomeScreen extends ConsumerWidget {
               ),
               children: <Widget>[
                 _SectionHeader(
-                  title: 'Weekly Life Indicators',
+                  // Planner Polish Delta 2: the visible Home heading is
+                  // "Life Goals".  Domain, provider, and database identifiers
+                  // keep the canonical WLI naming.
+                  title: 'Life Goals',
                   onViewAll: () => _openWeeklyPlanning(context, periodStart),
                   viewAllKey: const Key('home-wli-view-all'),
                 ),
@@ -100,6 +125,7 @@ final class HomeScreen extends ConsumerWidget {
                 _CanonicalHomePlan(
                   plan: canonicalPlan,
                   monthGoalLabel: _monthGoalLabel(context, plannerToday),
+                  optimisticDailyTarget: optimisticDailyTarget,
                   nextTempleVisit: nextTempleVisit,
                   onOpenWeeklyPlanning: () =>
                       _openWeeklyPlanning(context, periodStart),
@@ -115,6 +141,7 @@ final class HomeScreen extends ConsumerWidget {
                     periodStart: periodStart,
                   ),
                 ),
+                const SizedBox(height: 22),
                 const _MajorSectionSeparator(),
                 const SizedBox(height: 10),
                 _SectionHeader(
@@ -164,7 +191,35 @@ final class HomeScreen extends ConsumerWidget {
     return homeMonthGoalLabel(today, Localizations.localeOf(context));
   }
 
-  static void _adjustDailyTarget(
+  /// Drop optimistic entries whose canonical value has caught up. Called from
+  /// [build] after watching the canonical plan; mutating the maps without
+  /// [setState] is safe because the rendered value is identical either way.
+  void _reconcileOptimisticTargets(GoalPlanningSnapshot? plan) {
+    final daily = plan?.daily;
+    if (daily == null) {
+      return;
+    }
+    final goalId = daily.goal.id;
+    final optimistic = _optimisticDailyTargets[goalId];
+    if (optimistic == null) {
+      return;
+    }
+    final canonical = daily.dailyTarget.value?.scaledValue;
+    if (canonical != null && canonical == optimistic) {
+      _optimisticDailyTargets.remove(goalId);
+      _optimisticBases.remove(goalId);
+    }
+  }
+
+  /// Immediate Today's Goal stepper.
+  ///
+  /// The visible target changes on the same frame as the tap (optimistic
+  /// overlay) while the canonical read-modify-write queue persists safely
+  /// behind it. Taps are serialized per Goal, never lost, and never turn
+  /// into duplicate repository operations; the optimistic value is pruned
+  /// once the repository value catches up, and a failed write rolls the
+  /// display back to the canonical value.
+  void _adjustDailyTarget(
     WidgetRef ref,
     GoalProgress progress, {
     required int delta,
@@ -172,6 +227,24 @@ final class HomeScreen extends ConsumerWidget {
     required PlannerDate periodStart,
   }) {
     final goalId = progress.goal.id;
+    final canonical = progress.dailyTarget.value?.scaledValue ?? 0;
+    final storedBase = _optimisticBases[goalId];
+    final displayed = _optimisticDailyTargets[goalId];
+    // Re-seed the base whenever the canonical value moved independently of
+    // our pending taps (an external edit or a restored plan).
+    final base = storedBase != null && canonical == storedBase
+        ? storedBase
+        : canonical;
+    final updated = math.max(0, base + delta);
+    if (displayed != null && updated == displayed) {
+      // Clamped at the zero minimum; nothing visible to change.
+      return;
+    }
+    setState(() {
+      _optimisticBases[goalId] = base;
+      _optimisticDailyTargets[goalId] = updated;
+    });
+
     final previous = _dailyTargetQueues[goalId] ?? Future<void>.value();
     final next = previous.then<void>((_) async {
       final repository = ref.read(goalRepositoryProvider);
@@ -186,8 +259,8 @@ final class HomeScreen extends ConsumerWidget {
 
       final existingDaily = latest.dailyTarget.value;
       final current = existingDaily?.scaledValue ?? 0;
-      final updated = math.max(0, current + delta);
-      if (updated == current) {
+      final updatedCanonical = math.max(0, current + delta);
+      if (updatedCanonical == current) {
         return;
       }
 
@@ -202,7 +275,7 @@ final class HomeScreen extends ConsumerWidget {
         iconId: latest.goal.iconId,
         targets: GoalTargets(
           daily: IndicatorAmount(
-            scaledValue: updated,
+            scaledValue: updatedCanonical,
             scale: scale,
             unit: unit,
           ),
@@ -216,6 +289,16 @@ final class HomeScreen extends ConsumerWidget {
     });
     final handled = next.catchError((Object error, StackTrace stackTrace) {
       debugPrint('Home daily target update failed: $error');
+      // Honest rollback: the canonical store did not move, so drop the
+      // optimistic overlay and reconcile from the repository.
+      if (mounted) {
+        setState(() {
+          _optimisticDailyTargets.remove(goalId);
+          _optimisticBases.remove(goalId);
+        });
+      }
+      ref.invalidate(goalPlanningProvider(periodStart));
+      ref.invalidate(activeGoalsProvider);
     });
     _dailyTargetQueues[goalId] = handled;
     unawaited(
@@ -288,11 +371,13 @@ final class _CanonicalHomePlan extends StatelessWidget {
     required this.onOpenGoal,
     required this.onOpenTempleSchedule,
     required this.onAdjustDailyTarget,
+    this.optimisticDailyTarget,
   });
 
   final AsyncValue<GoalPlanningSnapshot> plan;
   final String monthGoalLabel;
   final PlannerDate? nextTempleVisit;
+  final int? optimisticDailyTarget;
   final VoidCallback onOpenWeeklyPlanning;
   final ValueChanged<GoalProgress> onOpenGoal;
   final VoidCallback onOpenTempleSchedule;
@@ -309,7 +394,7 @@ final class _CanonicalHomePlan extends StatelessWidget {
       error: (error, stackTrace) => const SizedBox(
         key: Key('home-canonical-plan-error'),
         height: 96,
-        child: Center(child: Text('Weekly Life Indicators unavailable.')),
+        child: Center(child: Text('Life Goals unavailable.')),
       ),
       data: (value) {
         final hasActiveGoals =
@@ -328,27 +413,40 @@ final class _CanonicalHomePlan extends StatelessWidget {
             _CanonicalIndicatorGrid(
               plan: value,
               monthGoalLabel: monthGoalLabel,
+              optimisticDailyTarget: optimisticDailyTarget,
               nextTempleVisit: nextTempleVisit,
               onOpenGoal: onOpenGoal,
               onOpenTempleSchedule: onOpenTempleSchedule,
               onAdjustDailyTarget: onAdjustDailyTarget,
             ),
-            const SizedBox(height: 8),
-            Center(
-              child: OutlinedButton(
-                key: const Key('weekly-targets-button'),
-                onPressed: onOpenWeeklyPlanning,
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size(160, 40),
-                  fixedSize: const Size(160, 40),
-                  textStyle: AppTypography.button,
-                  foregroundColor: Colors.white70,
-                  side: const BorderSide(color: AppTheme.outline),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(22),
+            const SizedBox(height: 16),
+            // The visible pill stays compact (118-134 x 34-38) while the outer
+            // hit area keeps a minimum 48 dp touch target.
+            SizedBox(
+              key: const Key('weekly-targets-hit-area'),
+              height: 48,
+              child: Center(
+                child: OutlinedButton(
+                  key: const Key('weekly-targets-button'),
+                  onPressed: onOpenWeeklyPlanning,
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(126, 36),
+                    fixedSize: const Size(126, 36),
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    textStyle: const TextStyle(
+                      fontFamily: 'Roboto',
+                      fontSize: 14,
+                      height: 18 / 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    foregroundColor: Colors.white70,
+                    side: const BorderSide(color: AppTheme.outline, width: 1),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(19),
+                    ),
                   ),
+                  child: const Text('Planning'),
                 ),
-                child: const Text('Planning'),
               ),
             ),
           ],
@@ -461,11 +559,13 @@ final class _CanonicalIndicatorGrid extends StatelessWidget {
     required this.onOpenGoal,
     required this.onOpenTempleSchedule,
     required this.onAdjustDailyTarget,
+    this.optimisticDailyTarget,
   });
 
   final GoalPlanningSnapshot plan;
   final String monthGoalLabel;
   final PlannerDate? nextTempleVisit;
+  final int? optimisticDailyTarget;
   final ValueChanged<GoalProgress> onOpenGoal;
   final VoidCallback onOpenTempleSchedule;
   final void Function(GoalProgress progress, int delta) onAdjustDailyTarget;
@@ -479,21 +579,27 @@ final class _CanonicalIndicatorGrid extends StatelessWidget {
       children: <Widget>[
         if (daily != null)
           SizedBox(
-            // The daily card carries two 48 dp controls in addition to its
-            // title/value pair.  Give that integrated surface enough vertical
-            // room for the control hit targets instead of squeezing them into
-            // the compact weekly-card height.
-            height: MediaQuery.sizeOf(context).width < 380
-                ? (136 * MediaQuery.textScalerOf(context).scale(1))
-                      .clamp(136.0, 220.0)
-                      .toDouble()
-                : 88,
+            // Goal 1 derives its outer geometry from Goal 6: the same card
+            // height, padding, border, radius, and icon alignment.  The
+            // Today's Goal inset is the only shaded surface and stays compact
+            // with 48 dp tap targets that do not inflate its visual size.
+            height: 60,
             child: _goalCard(
               context,
               daily,
               wide: true,
               asideLabel: "Today's Goal",
-              asideValue: _ratio(daily.dailyActual, daily.dailyTarget),
+              // The aside reflects the optimistic target immediately when a
+              // quick-control tap is pending; the canonical value otherwise.
+              asideValue: _dailyAsideValue(daily, optimisticDailyTarget),
+              // The minus control is hidden (a reserved, non-interactive slot)
+              // while the visible Daily Target is zero, so the plus never
+              // jumps and the optimistic overlay never exposes a minus that
+              // would target a negative value.
+              dailyTargetIsZero: _dailyTargetIsZero(
+                daily,
+                optimisticDailyTarget,
+              ),
               onDailyTargetMinus: () => onAdjustDailyTarget(daily, -1),
               onDailyTargetPlus: () => onAdjustDailyTarget(daily, 1),
             ),
@@ -552,6 +658,7 @@ final class _CanonicalIndicatorGrid extends StatelessWidget {
     VoidCallback? onSecondaryTap,
     VoidCallback? onDailyTargetMinus,
     VoidCallback? onDailyTargetPlus,
+    bool dailyTargetIsZero = false,
   }) {
     return _IndicatorCard(
       indicator: _summaryFor(progress),
@@ -563,6 +670,7 @@ final class _CanonicalIndicatorGrid extends StatelessWidget {
       onSecondaryTap: onSecondaryTap,
       onDailyTargetMinus: onDailyTargetMinus,
       onDailyTargetPlus: onDailyTargetPlus,
+      dailyTargetIsZero: dailyTargetIsZero,
       onTap: () => onOpenGoal(progress),
     );
   }
@@ -571,7 +679,11 @@ final class _CanonicalIndicatorGrid extends StatelessWidget {
     final target = progress.weeklyTarget;
     final unit = target.value?.unit ?? progress.weeklyActual.unit;
     return LifeIndicatorSummary(
-      key: progress.goal.indicatorKey ?? 'goal-${progress.goal.id}',
+      // The rendered Home identity belongs to the canonical Goal row, not
+      // the legacy indicator definition.  This is what lets a replacement
+      // Goal occupy the same role without inheriting the default Goal's
+      // identity or a stale indicator snapshot.
+      key: 'goal-${progress.goal.id}',
       label: progress.goal.title,
       unit: unit,
       position: progress.goal.activeSlotIndex ?? 0,
@@ -590,6 +702,27 @@ final class _CanonicalIndicatorGrid extends StatelessWidget {
 
   String _ratio(IndicatorAmount actual, IndicatorTarget target) {
     return '${actual.display}/${target.value?.display ?? '0'}';
+  }
+
+  /// Renders the Today's Goal ratio. When an optimistic target is pending it
+  /// is formatted with the canonical target's scale/unit so the visible value
+  /// changes on the same frame as the tap without fabricating progress.
+  String _dailyAsideValue(GoalProgress progress, int? optimisticTarget) {
+    final target = progress.dailyTarget.value;
+    final targetDisplay = optimisticTarget == null
+        ? target?.display ?? '0'
+        : IndicatorAmount(
+            scaledValue: optimisticTarget,
+            scale: target?.scale ?? 0,
+            unit: target?.unit ?? 'count',
+          ).display;
+    return '${progress.dailyActual.display}/$targetDisplay';
+  }
+
+  bool _dailyTargetIsZero(GoalProgress progress, int? optimisticTarget) {
+    final value =
+        optimisticTarget ?? progress.dailyTarget.value?.scaledValue ?? 0;
+    return value == 0;
   }
 
   String _formatNextVisit(BuildContext context, PlannerDate date) {
@@ -611,6 +744,7 @@ final class _IndicatorCard extends StatelessWidget {
     this.onSecondaryTap,
     this.onDailyTargetMinus,
     this.onDailyTargetPlus,
+    this.dailyTargetIsZero = false,
   });
 
   final LifeIndicatorSummary indicator;
@@ -623,31 +757,41 @@ final class _IndicatorCard extends StatelessWidget {
   final VoidCallback? onSecondaryTap;
   final VoidCallback? onDailyTargetMinus;
   final VoidCallback? onDailyTargetPlus;
+  final bool dailyTargetIsZero;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox.expand(
-      child: Card(
-        key: Key('home-indicator-${indicator.key}'),
-        margin: EdgeInsets.zero,
-        color: Colors.transparent,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-          side: const BorderSide(color: Color(0xFF414649)),
-        ),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(8),
-          onTap: onTap,
-          child: MediaQuery.withClampedTextScaling(
-            maxScaleFactor: 1,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              child: wide ? _wide(context) : _compact(context),
-            ),
+    final card = Card(
+      key: Key(
+        'home-indicator-goal-${goal?.id ?? indicator.goalId ?? indicator.key}',
+      ),
+      margin: EdgeInsets.zero,
+      color: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: const BorderSide(color: Color(0xFF414649)),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: onTap,
+        child: MediaQuery.withClampedTextScaling(
+          maxScaleFactor: 1,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            child: wide ? _wide(context) : _compact(context),
           ),
         ),
       ),
     );
+
+    // Keep the pre-Pack-1 selector as a render-box-sized compatibility alias
+    // for existing tests and automation.  It is not used for data binding or
+    // Goal lookup; the Card itself is always keyed by the Goal identity.
+    final legacyIndicatorKey = goal?.indicatorKey;
+    final keyedCard = legacyIndicatorKey == null
+        ? card
+        : SizedBox(key: Key('home-indicator-$legacyIndicatorKey'), child: card);
+    return SizedBox.expand(child: keyedCard);
   }
 
   Widget _compact(BuildContext context) {
@@ -697,29 +841,20 @@ final class _IndicatorCard extends StatelessWidget {
   Widget _wide(BuildContext context) {
     final hasDailyControls =
         onDailyTargetMinus != null && onDailyTargetPlus != null;
+    // A single horizontal composition is preserved at every supported phone
+    // width.  The left content flexes and the Today's Goal inset takes a
+    // proportional share of the inner width, so nothing stacks or overflows
+    // at 360, 393, or 411 dp.
     return LayoutBuilder(
       builder: (context, constraints) {
-        // At the narrowest supported width, stacking the daily content and
-        // its control surface preserves the full labels and both hit targets.
-        // The approved-width layout remains a single integrated row.
-        if (hasDailyControls && constraints.maxWidth < 325) {
-          return Column(
-            children: <Widget>[
-              Expanded(child: _wideContent(context)),
-              const SizedBox(height: 4),
-              Align(
-                alignment: Alignment.centerRight,
-                child: _WideAside(
-                  label: asideLabel!,
-                  value: asideValue!,
-                  onMinus: onDailyTargetMinus,
-                  onPlus: onDailyTargetPlus,
-                ),
-              ),
-            ],
-          );
-        }
-
+        // The Today's Goal inset needs a wider share of the Goal 1 card than
+        // the monthly aside: it must hold the left-pinned label, the progress
+        // value centered beneath it, and the minus/plus controls on the right.
+        // 0.58 of the inner width (capped 172-206 dp) keeps the label at
+        // readable scale on 360 dp phones while leaving the Goal title room.
+        final asideWidth = hasDailyControls
+            ? (constraints.maxWidth * 0.58).clamp(172.0, 206.0)
+            : null;
         return Row(
           children: <Widget>[
             Expanded(child: _wideContent(context)),
@@ -729,6 +864,8 @@ final class _IndicatorCard extends StatelessWidget {
               value: asideValue!,
               onMinus: onDailyTargetMinus,
               onPlus: onDailyTargetPlus,
+              minusEnabled: !dailyTargetIsZero,
+              width: asideWidth,
             ),
           ],
         );
@@ -750,8 +887,8 @@ final class _IndicatorCard extends StatelessWidget {
             children: <Widget>[
               Text(
                 indicator.label,
-                maxLines: onDailyTargetPlus == null ? 1 : 2,
-                overflow: TextOverflow.clip,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   fontFamily: 'Roboto',
                   fontSize: 14,
@@ -823,12 +960,16 @@ final class _WideAside extends StatelessWidget {
     required this.value,
     this.onMinus,
     this.onPlus,
+    this.minusEnabled = true,
+    this.width,
   });
 
   final String label;
   final String value;
   final VoidCallback? onMinus;
   final VoidCallback? onPlus;
+  final bool minusEnabled;
+  final double? width;
 
   @override
   Widget build(BuildContext context) {
@@ -837,19 +978,23 @@ final class _WideAside extends StatelessWidget {
       key: onPlus == null && onMinus == null
           ? null
           : const Key('home-daily-target-quick-control'),
-      width: hasControls ? 192 : 106,
-      height: hasControls ? 72 : 48,
+      width: width ?? (hasControls ? 165 : 106),
+      height: hasControls ? 52 : 48,
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: const Color(0xFF2A2A2B),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: hasControls ? 12 : 10),
+          padding: EdgeInsets.symmetric(
+            horizontal: hasControls ? 10 : 10,
+            vertical: hasControls ? 6 : 0,
+          ),
           child: _WideAsideContent(
             label: label,
             value: value,
             hasControls: hasControls,
+            minusEnabled: minusEnabled,
             onMinus: onMinus,
             onPlus: onPlus,
           ),
@@ -866,6 +1011,7 @@ final class _WideAsideContent extends StatelessWidget {
     required this.hasControls,
     required this.onMinus,
     required this.onPlus,
+    this.minusEnabled = true,
   });
 
   final String label;
@@ -873,6 +1019,7 @@ final class _WideAsideContent extends StatelessWidget {
   final bool hasControls;
   final VoidCallback? onMinus;
   final VoidCallback? onPlus;
+  final bool minusEnabled;
 
   @override
   Widget build(BuildContext context) {
@@ -893,70 +1040,147 @@ final class _WideAsideContent extends StatelessWidget {
             value,
             maxLines: 1,
             overflow: TextOverflow.clip,
-            style: const TextStyle(
+            style: TextStyle(
               fontFamily: 'Roboto',
               fontSize: 22,
               height: 24 / 22,
               fontWeight: FontWeight.w600,
-              color: AppTheme.rose,
+              // Pack 3 final polish: the August Goal progress value uses the
+              // same neutral primary text family as the Today's Goal inset.
+              color: Theme.of(context).colorScheme.onSurface,
             ),
           ),
         ],
       );
     }
 
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    // Approved Today's Goal inset layout:
+    //   Today's Goal        <- label pinned to the left
+    //      0/1        −   + <- value centered beneath the label, controls right
+    // The value is centered relative to the label/progress block (never the
+    // whole inset), the minus/plus controls sit on the right with deliberate
+    // gaps, and the minus hides behind a reserved, non-interactive,
+    // semantics-excluded slot while the Daily Target is zero so the plus never
+    // jumps.  The block scales down gracefully on narrow phones instead of
+    // overflowing.  Buttons keep 48 dp tap targets without inflating the
+    // inset.  The progress value uses neutral primary text; only the controls
+    // carry the accent.
+    return Row(
       children: <Widget>[
-        Text(
-          label,
-          maxLines: 1,
-          overflow: TextOverflow.clip,
-          style: const TextStyle(fontSize: 14, height: 18 / 14),
-        ),
-        Expanded(
-          child: Row(
-            children: <Widget>[
-              Text(
-                value,
-                maxLines: 1,
-                overflow: TextOverflow.clip,
-                style: const TextStyle(
-                  fontFamily: 'Roboto',
-                  fontSize: 22,
-                  height: 24 / 22,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.rose,
+        Flexible(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: <Widget>[
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.clip,
+                  style: const TextStyle(fontSize: 14, height: 15 / 14),
                 ),
-              ),
-              const Spacer(),
-              IconButton(
-                key: const Key('home-daily-target-minus'),
-                tooltip: 'Decrease daily target',
-                onPressed: onMinus,
-                constraints: const BoxConstraints.tightFor(
-                  width: 48,
-                  height: 48,
+                const SizedBox(height: 1),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.clip,
+                  style: TextStyle(
+                    fontFamily: 'Roboto',
+                    fontSize: 22,
+                    height: 21 / 22,
+                    fontWeight: FontWeight.w600,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
                 ),
-                padding: EdgeInsets.zero,
-                icon: const Icon(Icons.remove, size: 24, color: AppTheme.rose),
-              ),
-              IconButton(
-                key: const Key('home-daily-target-plus'),
-                tooltip: 'Increase daily target',
-                onPressed: onPlus,
-                constraints: const BoxConstraints.tightFor(
-                  width: 48,
-                  height: 48,
-                ),
-                padding: EdgeInsets.zero,
-                icon: const Icon(Icons.add, size: 24, color: AppTheme.rose),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
+        const SizedBox(width: 10),
+        if (minusEnabled)
+          _DailyTargetButton(
+            key: const Key('home-daily-target-minus'),
+            tooltip: 'Decrease daily target',
+            icon: Icons.remove,
+            onPressed: onMinus!,
+          )
+        else
+          // Reserved invisible slot: same footprint as the minus
+          // button so the plus keeps its exact position at zero.
+          const ExcludeSemantics(child: SizedBox(width: 40)),
+        const SizedBox(width: 6),
+        _DailyTargetButton(
+          key: const Key('home-daily-target-plus'),
+          tooltip: 'Increase daily target',
+          icon: Icons.add,
+          onPressed: onPlus!,
+        ),
       ],
+    );
+  }
+}
+
+/// The Today's Goal minus/plus control.
+///
+/// The visible icon stays compact (22 dp) so the inset does not grow to the
+/// size of its touch targets.  NOTE: Flutter hit-tests the layout footprint
+/// (40 x 20 inside the locked 60 dp shared card), so a tap that lands just
+/// outside the button falls through to the Goal card and opens Edit Goal.
+/// A true 48 x 48 hit area cannot coexist with the approved two-line inset
+/// inside the shared Goal 6 geometry; the owner approved the current
+/// footprint in the Pack 1A physical acceptance.
+final class _DailyTargetButton extends StatelessWidget {
+  const _DailyTargetButton({
+    required this.tooltip,
+    required this.icon,
+    required this.onPressed,
+    super.key,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: Semantics(
+        button: true,
+        label: tooltip,
+        child: SizedBox(
+          // A 40 dp layout footprint keeps the target/minus/plus row compact
+          // on narrow phones.  The 48 x 48 OverflowBox only enlarges the
+          // painted child; Flutter hit-tests the 40 x 20 layout box, so the
+          // effective tap area is the button footprint itself.
+          width: 40,
+          height: 24,
+          child: OverflowBox(
+            alignment: Alignment.center,
+            minWidth: 48,
+            maxWidth: 48,
+            minHeight: 48,
+            maxHeight: 48,
+            child: SizedBox(
+              width: 48,
+              height: 48,
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  customBorder: const CircleBorder(),
+                  onTap: onPressed,
+                  child: Center(
+                    child: Icon(icon, size: 22, color: AppTheme.rose),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

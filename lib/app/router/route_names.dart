@@ -42,6 +42,20 @@ abstract final class RouteNames {
   static const String privacyCenter = 'privacy-center';
   static const String permissions = 'permissions';
   static const String diagnosticPreview = 'diagnostic-preview';
+  static const String messages = 'messages';
+  static const String about = 'about';
+  static const String contacts = 'contacts';
+  static const String contactSearch = 'contact-search';
+  static const String contactCreate = 'contact-create';
+  static const String contactEdit = 'contact-edit';
+  static const String contactDetail = 'contact-detail';
+  static const String contactGroups = 'contact-groups';
+  static const String savedFilters = 'saved-filters';
+  static const String filterBuilder = 'filter-builder';
+  static const String multiSelect = 'multi-select';
+  static const String mergeContacts = 'merge-contacts';
+  static const String deviceImport = 'device-import';
+  static const String addPeople = 'add-people';
 }
 
 abstract final class RoutePaths {
@@ -79,6 +93,25 @@ abstract final class RoutePaths {
   static const String privacyCenter = '/privacy';
   static const String permissions = '/privacy/permissions';
   static const String diagnosticPreview = '/privacy/diagnostics';
+  static const String messages = '/messages';
+  static const String about = '/about';
+  static const String contacts = '/contacts';
+  static const String contactSearch = '/contacts/search';
+  static const String contactCreate = '/contacts/new';
+  static const String contactDetailPath = '/contacts/contact';
+  static const String contactGroups = '/contacts/groups';
+  static const String savedFilters = '/contacts/filters';
+  static const String filterBuilder = '/contacts/filter-builder';
+  static const String multiSelect = '/contacts/select';
+  static const String mergeContacts = '/contacts/merge';
+  static const String deviceImport = '/contacts/import';
+  static const String addPeople = '/contacts/add-people';
+
+  static String contactDetail(String contactId) =>
+      '$contactDetailPath/$contactId';
+
+  static String contactEdit(String contactId) =>
+      '$contactDetailPath/$contactId/edit';
 
   static String calendarEventDetail(String eventId, PlannerDate originalDate) {
     return '$calendarEvents/$eventId/${originalDate.iso8601}';
@@ -87,10 +120,11 @@ abstract final class RoutePaths {
   static String calendarEventEdit(
     String eventId,
     PlannerDate originalDate,
-    CalendarEventEditScope scope,
-  ) {
+    CalendarEventEditScope scope, {
+    bool deferScopeToSave = false,
+  }) {
     return '${calendarEventDetail(eventId, originalDate)}/edit'
-        '?scope=${scope.name}';
+        '?scope=${scope.name}${deferScopeToSave ? '&deferScope=1' : ''}';
   }
 
   static String calendarEventReschedule(

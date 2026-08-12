@@ -1,9 +1,21 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:rmplanner/app/router/route_names.dart';
 import 'package:rmplanner/app/theme/app_theme.dart';
+import 'package:rmplanner/app/theme/internal_screen.dart';
+import 'package:rmplanner/features/contacts/application/contact_providers.dart';
+import 'package:rmplanner/features/contacts/domain/contact.dart';
+import 'package:rmplanner/features/contacts/presentation/add_people_screen.dart';
+import 'package:rmplanner/features/contacts/presentation/widgets/contact_widgets.dart';
+import 'package:rmplanner/features/goals/application/goal_providers.dart';
+import 'package:rmplanner/features/goals/domain/goal.dart';
+import 'package:rmplanner/features/goals/presentation/widgets/goal_icon.dart';
 import 'package:rmplanner/features/indicators/domain/life_indicator.dart';
+import 'package:rmplanner/features/planner/application/calendar_event_creation_draft_provider.dart';
 import 'package:rmplanner/features/planner/application/calendar_event_providers.dart';
 import 'package:rmplanner/features/planner/application/event_type_providers.dart';
 import 'package:rmplanner/features/planner/application/outcome_reporting_providers.dart';
@@ -15,10 +27,14 @@ import 'package:rmplanner/features/planner/domain/calendar_event.dart';
 import 'package:rmplanner/features/planner/domain/event_type.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 import 'package:rmplanner/features/planner/domain/task_event_link.dart';
+import 'package:rmplanner/features/planner/presentation/calendar_event_custom_repeat_screen.dart';
 import 'package:rmplanner/features/planner/presentation/event_type_picker_dialog.dart';
 import 'package:rmplanner/features/planner/presentation/widgets/planner_slide_down_date_picker.dart';
+import 'package:rmplanner/features/planner/presentation/widgets/repeating_event_scope_choices.dart';
 
 enum CalendarEventFormMode { create, edit, reschedule }
+
+enum _CalendarEventRepeatChoice { none, daily, weekly, monthly, yearly, custom }
 
 final class CalendarEventFormScreen extends ConsumerStatefulWidget {
   const CalendarEventFormScreen.create({
@@ -27,6 +43,10 @@ final class CalendarEventFormScreen extends ConsumerStatefulWidget {
     this.initialStartMinute,
     this.initialIndicatorKey,
     this.initialEventTypeId,
+    this.initialDraftId,
+    this.initialDurationMinutes,
+    this.onClose,
+    this.initialContactIds = const <String>[],
     this.sheetPresentation = false,
     this.sheetScrollController,
     this.sheetController,
@@ -37,6 +57,7 @@ final class CalendarEventFormScreen extends ConsumerStatefulWidget {
        eventId = null,
        originalDate = null,
        scope = null,
+       deferRecurrenceScopeToSave = false,
        sourceTaskId = null;
 
   const CalendarEventFormScreen.createFromTask({
@@ -46,6 +67,7 @@ final class CalendarEventFormScreen extends ConsumerStatefulWidget {
     this.initialStartMinute,
     this.initialIndicatorKey,
     this.initialEventTypeId,
+    this.initialContactIds = const <String>[],
     this.sheetPresentation = false,
     this.sheetScrollController,
     this.sheetController,
@@ -55,12 +77,17 @@ final class CalendarEventFormScreen extends ConsumerStatefulWidget {
   }) : mode = CalendarEventFormMode.create,
        eventId = null,
        originalDate = null,
-       scope = null;
+       scope = null,
+       deferRecurrenceScopeToSave = false,
+       initialDraftId = null,
+       initialDurationMinutes = null,
+       onClose = null;
 
   const CalendarEventFormScreen.edit({
     required this.eventId,
     required this.originalDate,
     required this.scope,
+    this.deferRecurrenceScopeToSave = false,
     this.sheetPresentation = false,
     this.sheetScrollController,
     this.sheetController,
@@ -73,7 +100,11 @@ final class CalendarEventFormScreen extends ConsumerStatefulWidget {
        initialStartMinute = null,
        initialIndicatorKey = null,
        initialEventTypeId = null,
-       sourceTaskId = null;
+       initialDraftId = null,
+       initialDurationMinutes = null,
+       onClose = null,
+       sourceTaskId = null,
+       initialContactIds = const <String>[];
 
   const CalendarEventFormScreen.reschedule({
     required this.eventId,
@@ -91,7 +122,12 @@ final class CalendarEventFormScreen extends ConsumerStatefulWidget {
        initialStartMinute = null,
        initialIndicatorKey = null,
        initialEventTypeId = null,
-       sourceTaskId = null;
+       initialDraftId = null,
+       initialDurationMinutes = null,
+       onClose = null,
+       sourceTaskId = null,
+       deferRecurrenceScopeToSave = false,
+       initialContactIds = const <String>[];
 
   final CalendarEventFormMode mode;
   final PlannerDate? initialDate;
@@ -99,10 +135,26 @@ final class CalendarEventFormScreen extends ConsumerStatefulWidget {
   final int? initialStartMinute;
   final String? initialIndicatorKey;
   final String? initialEventTypeId;
+  final String? initialDraftId;
+
+  /// Delta 4.2R R9: the configured Planner default Event duration for
+  /// timeline creation. When set, the create form opens with exactly this
+  /// duration (matching the tap placeholder and the provisional draft); the
+  /// Event Type's own default is used when this is null.
+  final int? initialDurationMinutes;
+  final ValueChanged<bool>? onClose;
   final String? eventId;
   final PlannerDate? originalDate;
   final CalendarEventEditScope? scope;
+
+  /// Delta 4.1 edit flow: when true (opened from an Event preview on a
+  /// repeating Event), the form opens immediately and the recurrence scope
+  /// chooser is shown ONLY when the user commits a change on Save.  The
+  /// passed [scope] is then a placeholder that is ignored for recurring
+  /// Events; a non-recurring Event still saves with occurrence scope.
+  final bool deferRecurrenceScopeToSave;
   final String? sourceTaskId;
+  final List<String> initialContactIds;
   final bool sheetPresentation;
   final ScrollController? sheetScrollController;
   final DraggableScrollableController? sheetController;
@@ -130,30 +182,57 @@ final class _CalendarEventFormScreenState
   late PlannerDate _date;
   CalendarEventTiming _timing = CalendarEventTiming.timed;
   CalendarEventStatus _currentStatus = CalendarEventStatus.scheduled;
-  TimeOfDay _start = const TimeOfDay(hour: 9, minute: 0);
-  TimeOfDay _end = const TimeOfDay(hour: 10, minute: 0);
+  TimeOfDay _localStart = const TimeOfDay(hour: 9, minute: 0);
+  TimeOfDay _localEnd = const TimeOfDay(hour: 10, minute: 0);
   bool _requiresReport = false;
   bool _isBackupAppointment = false;
   String? _backupForEventId;
   String? _backupRelationshipProvenance;
+  _CalendarEventRepeatChoice _repeatChoice = _CalendarEventRepeatChoice.none;
   CalendarRecurrenceFrequency _frequency = CalendarRecurrenceFrequency.none;
+  CalendarRecurrencePattern? _recurrencePattern;
+  // Delta 4.1 edit flow: the recurrence frequency of the loaded source
+  // (master) draft, captured BEFORE the user edits the Repeat field.  Used to
+  // decide whether a Save on a deferred-scope edit needs the recurrence
+  // scope chooser at all.
+  CalendarRecurrenceFrequency _sourceFrequency =
+      CalendarRecurrenceFrequency.none;
   CalendarRecurrenceEndMode _endMode = CalendarRecurrenceEndMode.never;
   PlannerDate? _recurrenceEndDate;
+  bool _legacyRecurrenceEndControls = false;
+  bool _recurrenceEndDateCustomized = false;
   bool _loading = false;
   bool _saving = false;
   bool _configurationLoading = true;
+  bool _initializing = true;
   bool _durationWasEntered = false;
   EventType? _selectedEventType;
   List<IndicatorOption> _indicatorOptions = const <IndicatorOption>[];
   String? _linkedIndicatorKey;
   bool _indicatorLinkTouched = false;
+  String? _selectedGoalId;
+  // Locally-loaded active Goals for the Goal link picker.  Loaded once in
+  // [initState] with error handling so the form never hard-fails when no
+  // ready profile or Goal repository is available (tests, recovery flows).
+  List<Goal> _availableGoals = const <Goal>[];
+  // Tracks the in-flight (or completed) Goal load so the picker can await a
+  // load that is still running instead of showing a misleading empty state.
+  Future<void>? _goalsLoad;
   bool _locationExpanded = false;
   bool _addressExpanded = false;
   TaskEventCanonicalSource _canonicalSource = TaskEventCanonicalSource.task;
+  // Contact people linked to this Event draft.  Saved through the Contacts
+  // repository after the Event itself persists, keyed by [_draftId] (the
+  // same id survives `thisAndFuture` edits), so the Event draft stays fully
+  // intact across the Add People round trip.  Edit and reschedule modes
+  // load the existing series People so a save never erases saved links.
+  late List<String> _peopleContactIds;
 
   @override
   void initState() {
     super.initState();
+    _goalsLoad = _loadAvailableGoals();
+    unawaited(_goalsLoad!);
     final initialEventType = widget.initialEventType;
     if (widget.mode == CalendarEventFormMode.create &&
         initialEventType != null) {
@@ -170,18 +249,31 @@ final class _CalendarEventFormScreenState
       _linkId = ids.nextUuid();
     }
     _draftId = switch (widget.mode) {
-      CalendarEventFormMode.create ||
-      CalendarEventFormMode.reschedule => ids.nextUuid(),
+      CalendarEventFormMode.create || CalendarEventFormMode.reschedule =>
+        widget.initialDraftId ?? ids.nextUuid(),
       CalendarEventFormMode.edit
           when widget.scope == CalendarEventEditScope.thisAndFuture =>
         ids.nextUuid(),
       CalendarEventFormMode.edit => widget.eventId!,
     };
+    _peopleContactIds = List<String>.from(widget.initialContactIds);
+    _titleController.addListener(_publishProvisionalTitle);
+    if (widget.mode == CalendarEventFormMode.edit ||
+        widget.mode == CalendarEventFormMode.reschedule) {
+      unawaited(_loadExistingPeople());
+    }
     _date = widget.initialDate ?? widget.originalDate!;
     final initialStartMinute = widget.initialStartMinute;
     if (initialStartMinute != null) {
       _start = _timeFromMinute(initialStartMinute);
-      _end = _timeFromMinute((initialStartMinute + 60).clamp(1, 1439));
+      // Delta 4.2R R9: seed the end with the configured Planner default when
+      // provided (timeline creation) so the form never flashes a different
+      // duration than the placeholder/draft before configuration loads.
+      final initialDuration =
+          widget.initialDurationMinutes ?? widget.initialEventType?.defaultDurationMinutes ?? 60;
+      _end = _timeFromMinute(
+        (initialStartMinute + initialDuration).clamp(1, 1439),
+      );
     }
     if (_selectedEventType != null) {
       _applyEventTypeDefaults(
@@ -198,6 +290,7 @@ final class _CalendarEventFormScreenState
     } else if (widget.sourceTaskId != null) {
       unawaited(Future<void>.microtask(_loadSourceTask));
     }
+    _initializing = false;
     unawaited(Future<void>.microtask(_loadConfiguration));
   }
 
@@ -273,6 +366,9 @@ final class _CalendarEventFormScreenState
         if (selected?.isLockedWliType == true) {
           _requiresReport = true;
           _linkedIndicatorKey = selected!.exactIndicatorKey;
+        } else if (selected?.stableKey == SystemEventTypeKeys.contact) {
+          // Delta 2: Contact Events are always Report Required.
+          _requiresReport = true;
         }
         if (widget.mode == CalendarEventFormMode.create &&
             selected != null &&
@@ -280,8 +376,21 @@ final class _CalendarEventFormScreenState
           _applyEventTypeDefaults(
             selected,
             durationMinutes: preferTypeDuration
-                ? selected.defaultDurationMinutes
+                ? widget.initialDurationMinutes ??
+                      selected.defaultDurationMinutes
                 : eventTypeState.settings.defaultDurationMinutes,
+          );
+        }
+        if (widget.mode == CalendarEventFormMode.create &&
+            selected != null &&
+            widget.initialEventType != null &&
+            widget.initialDurationMinutes != null) {
+          // Delta 4.2R R9: the timeline draft sheet must open with the
+          // configured Planner default (not the Event Type default) so the
+          // form, the placeholder, and the draft block never disagree.
+          _applyEventTypeDefaults(
+            selected,
+            durationMinutes: widget.initialDurationMinutes,
           );
         }
       });
@@ -289,7 +398,12 @@ final class _CalendarEventFormScreenState
   }
 
   void _applyEventTypeDefaults(EventType type, {int? durationMinutes}) {
-    _requiresReport = type.isLockedWliType ? true : type.reportRequiredDefault;
+    // Planner Polish Delta 2: the Contact Event Type always requires a
+    // Current Status report, independent of Life Goal linkage.
+    _requiresReport =
+        type.isLockedWliType || type.stableKey == SystemEventTypeKeys.contact
+        ? true
+        : type.reportRequiredDefault;
     if (type.isLockedWliType) {
       _linkedIndicatorKey = type.exactIndicatorKey;
       _indicatorLinkTouched = false;
@@ -318,6 +432,17 @@ final class _CalendarEventFormScreenState
     if (!mounted || selected == null) {
       return;
     }
+    // Delta 2: a manually-enabled Report Required preference survives a type
+    // change away from a mandatory Contact type instead of being silently
+    // reset by the new type's default.
+    final manualReport =
+        _requiresReport &&
+        _selectedGoalId == null &&
+        _selectedEventType?.isLockedWliType != true &&
+        _selectedEventType?.stableKey != SystemEventTypeKeys.contact;
+    ref
+        .read(plannerEventCreationDraftProvider.notifier)
+        .updateEventType(selected);
     setState(() {
       _selectedEventType = selected;
       _applyEventTypeDefaults(selected);
@@ -325,6 +450,11 @@ final class _CalendarEventFormScreenState
         _linkedIndicatorKey = selected.exactIndicatorKey;
       } else if (!_indicatorLinkTouched) {
         _linkedIndicatorKey = selected.exactIndicatorKey;
+      }
+      if (manualReport &&
+          !selected.isLockedWliType &&
+          selected.stableKey != SystemEventTypeKeys.contact) {
+        _requiresReport = true;
       }
     });
   }
@@ -349,6 +479,71 @@ final class _CalendarEventFormScreenState
     super.dispose();
   }
 
+  TimeOfDay get _start {
+    final provisional = ref.read(plannerEventCreationDraftProvider);
+    if (!_initializing &&
+        provisional != null &&
+        provisional.id == widget.initialDraftId) {
+      return _timeFromMinute(provisional.startMinute);
+    }
+    return _localStart;
+  }
+
+  set _start(TimeOfDay value) {
+    _localStart = value;
+    final provisional = ref.read(plannerEventCreationDraftProvider);
+    if (!_initializing &&
+        provisional != null &&
+        provisional.id == widget.initialDraftId) {
+      final startMinute = value.hour * 60 + value.minute;
+      ref
+          .read(plannerEventCreationDraftProvider.notifier)
+          .updateTimes(
+            startMinute: startMinute,
+            endMinute: math.max(provisional.endMinute, startMinute + 15),
+          );
+    }
+  }
+
+  TimeOfDay get _end {
+    final provisional = ref.read(plannerEventCreationDraftProvider);
+    if (provisional != null && provisional.id == widget.initialDraftId) {
+      return _timeFromMinute(
+        provisional.endMinute == 1440 ? 0 : provisional.endMinute,
+      );
+    }
+    return _localEnd;
+  }
+
+  set _end(TimeOfDay value) {
+    _localEnd = value;
+    final provisional = ref.read(plannerEventCreationDraftProvider);
+    if (_initializing ||
+        provisional == null ||
+        provisional.id != widget.initialDraftId) {
+      return;
+    }
+    final localEndMinute = value.hour * 60 + value.minute;
+    final endMinute = localEndMinute == 0 && provisional.startMinute > 0
+        ? 1440
+        : localEndMinute;
+    ref
+        .read(plannerEventCreationDraftProvider.notifier)
+        .updateTimes(
+          startMinute: provisional.startMinute,
+          endMinute: endMinute,
+        );
+  }
+
+  void _publishProvisionalTitle() {
+    final provisional = ref.read(plannerEventCreationDraftProvider);
+    if (provisional != null && provisional.id == widget.initialDraftId) {
+      ref
+          .read(plannerEventCreationDraftProvider.notifier)
+          .updateTitle(_titleController.text);
+    }
+  }
+
   void _notesFocusChanged() {
     if (mounted) {
       setState(() {});
@@ -364,7 +559,7 @@ final class _CalendarEventFormScreenState
         onTap: _changeEventType,
         child: SizedBox(
           key: _eventTypeAnchorKey,
-          height: 60,
+          height: 52,
           child: InputDecorator(
             decoration: _measuredInputDecoration(
               labelText: _isContactEvent ? 'Contact Type' : 'Event Type',
@@ -387,9 +582,9 @@ final class _CalendarEventFormScreenState
   }
 
   Widget _buildRepeatField() {
-    return DropdownButtonFormField<CalendarRecurrenceFrequency>(
+    return DropdownButtonFormField<_CalendarEventRepeatChoice>(
       key: const Key('event-recurrence-frequency'),
-      initialValue: _frequency,
+      initialValue: _repeatChoice,
       isExpanded: true,
       icon: const Icon(Icons.keyboard_arrow_down, size: 24),
       decoration: _measuredInputDecoration(labelText: 'Repeat').copyWith(
@@ -399,20 +594,95 @@ final class _CalendarEventFormScreenState
         filled: false,
         contentPadding: EdgeInsets.zero,
       ),
-      items: <DropdownMenuItem<CalendarRecurrenceFrequency>>[
-        for (final value in CalendarRecurrenceFrequency.values)
-          DropdownMenuItem<CalendarRecurrenceFrequency>(
+      items: <DropdownMenuItem<_CalendarEventRepeatChoice>>[
+        for (final value in _CalendarEventRepeatChoice.values)
+          DropdownMenuItem<_CalendarEventRepeatChoice>(
             value: value,
-            child: Text(_frequencyLabel(value), style: AppTypography.body),
+            child: Text(_repeatChoiceLabel(value), style: AppTypography.body),
           ),
       ],
-      onChanged: (value) => setState(() {
-        _frequency = value ?? CalendarRecurrenceFrequency.none;
-        if (_frequency == CalendarRecurrenceFrequency.none) {
-          _endMode = CalendarRecurrenceEndMode.never;
+      onChanged: (value) {
+        if (value == null) {
+          return;
         }
-      }),
+        final previous = _repeatChoice;
+        if (value == _CalendarEventRepeatChoice.custom) {
+          setState(() => _repeatChoice = value);
+          unawaited(_openCustomRepeat(previous));
+          return;
+        }
+        setState(() => _configureRepeatChoice(value));
+      },
     );
+  }
+
+  void _configureRepeatChoice(_CalendarEventRepeatChoice choice) {
+    _repeatChoice = choice;
+    _recurrencePattern = null;
+    _legacyRecurrenceEndControls = false;
+    _recurrenceEndDateCustomized = false;
+    _frequency = switch (choice) {
+      _CalendarEventRepeatChoice.none => CalendarRecurrenceFrequency.none,
+      _CalendarEventRepeatChoice.daily => CalendarRecurrenceFrequency.daily,
+      _CalendarEventRepeatChoice.weekly => CalendarRecurrenceFrequency.weekly,
+      _CalendarEventRepeatChoice.monthly => CalendarRecurrenceFrequency.monthly,
+      _CalendarEventRepeatChoice.yearly => CalendarRecurrenceFrequency.yearly,
+      _CalendarEventRepeatChoice.custom => _frequency,
+    };
+    if (_frequency == CalendarRecurrenceFrequency.none) {
+      _endMode = CalendarRecurrenceEndMode.never;
+      _recurrenceEndDate = null;
+      return;
+    }
+    _endMode = CalendarRecurrenceEndMode.onDate;
+    _recurrenceEndDate = calendarDefaultRecurrenceEndDate(_date, _frequency);
+  }
+
+  Future<void> _openCustomRepeat(
+    _CalendarEventRepeatChoice previousChoice,
+  ) async {
+    final editingCustom =
+        previousChoice == _CalendarEventRepeatChoice.custom &&
+        _recurrencePattern != null;
+    final previousFrequency = _frequency;
+    final result = await Navigator.of(context).push<CalendarCustomRepeatResult>(
+      MaterialPageRoute<CalendarCustomRepeatResult>(
+        builder: (_) => CalendarEventCustomRepeatScreen(
+          startDate: _date,
+          initialFrequency: editingCustom
+              ? _frequency
+              : CalendarRecurrenceFrequency.weekly,
+          initialPattern: editingCustom ? _recurrencePattern : null,
+        ),
+      ),
+    );
+    if (!mounted) {
+      return;
+    }
+    if (result == null) {
+      setState(() => _repeatChoice = previousChoice);
+      return;
+    }
+    final preserveConcreteEnd =
+        editingCustom &&
+        previousFrequency == result.frequency &&
+        !_legacyRecurrenceEndControls &&
+        _endMode == CalendarRecurrenceEndMode.onDate &&
+        _recurrenceEndDate != null;
+    setState(() {
+      _repeatChoice = _CalendarEventRepeatChoice.custom;
+      _frequency = result.frequency;
+      _recurrencePattern = result.pattern;
+      _legacyRecurrenceEndControls = false;
+      _endMode = CalendarRecurrenceEndMode.onDate;
+      if (!preserveConcreteEnd) {
+        _recurrenceEndDate = calendarDefaultRecurrenceEndDate(
+          _date,
+          _frequency,
+        );
+        _recurrenceEndDateCustomized = false;
+      }
+    });
   }
 
   Future<void> _loadExisting() async {
@@ -460,23 +730,49 @@ final class _CalendarEventFormScreenState
         ? _timeFromMinute(draft.startMinute ?? 9 * 60)
         : TimeOfDay.fromDateTime(startWall);
     _end = endWall == null
-        ? _timeFromMinute(draft.endMinute ?? 10 * 60)
+        // A stored 24:00 end (final-hour 11 PM-12 AM slot) displays as
+        // 12:00 AM; it is saved back as minute 1440 via [_endMinuteOfDay].
+        ? _timeFromMinute(
+            (draft.endMinute ?? 10 * 60) == 1440
+                ? 0
+                : draft.endMinute ?? 10 * 60,
+          )
         : TimeOfDay.fromDateTime(endWall);
     _durationWasEntered = true;
     _requiresReport = draft.requiresReport;
-    _isBackupAppointment = draft.isBackupAppointment;
-    _backupForEventId = draft.backupForEventId;
-    _backupRelationshipProvenance = draft.backupRelationshipProvenance;
+    // Owner fix: prefill Backup from the effective occurrence (which merges
+    // occurrence-scoped overrides) so a Backup set via "This event only" —
+    // or by an earlier edit — still shows ON when the form is reopened.
+    // Reading the master draft alone would show OFF and a save would
+    // silently drop the Backup state.
+    _isBackupAppointment =
+        occurrence?.isBackupAppointment ?? draft.isBackupAppointment;
+    _backupForEventId = occurrence?.backupForEventId ?? draft.backupForEventId;
+    _backupRelationshipProvenance =
+        occurrence?.backupRelationshipProvenance ??
+        draft.backupRelationshipProvenance;
     _frequency =
         widget.mode == CalendarEventFormMode.reschedule &&
             widget.scope == CalendarEventEditScope.occurrence
         ? CalendarRecurrenceFrequency.none
         : draft.recurrence.frequency;
+    _recurrencePattern = _frequency == CalendarRecurrenceFrequency.none
+        ? null
+        : draft.recurrence.pattern;
+    _repeatChoice = _repeatChoiceFor(_frequency, _recurrencePattern);
+    if (widget.mode == CalendarEventFormMode.edit) {
+      _sourceFrequency = draft.recurrence.frequency;
+    }
     _endMode = _frequency == CalendarRecurrenceFrequency.none
         ? CalendarRecurrenceEndMode.never
         : draft.recurrence.endMode;
     _recurrenceEndDate = draft.recurrence.endDate;
+    _legacyRecurrenceEndControls =
+        _frequency != CalendarRecurrenceFrequency.none &&
+        _endMode != CalendarRecurrenceEndMode.onDate;
+    _recurrenceEndDateCustomized = _recurrenceEndDate != null;
     _countController.text = (draft.recurrence.occurrenceCount ?? 2).toString();
+    _selectedGoalId = draft.goalId;
     setState(() => _loading = false);
   }
 
@@ -499,10 +795,22 @@ final class _CalendarEventFormScreenState
 
   @override
   Widget build(BuildContext context) {
+    if (widget.initialDraftId != null) {
+      ref.watch(plannerEventCreationDraftProvider);
+    }
     final message =
         ref.watch(calendarEventControllerProvider) ??
         ref.watch(taskEventLinkControllerProvider);
     final lockedWli = _selectedEventType?.isLockedWliType == true;
+    // One canonical Life Goal relationship: a manual Goal link or the
+    // automatic fixed Goal assignment of a locked Event Type both count as
+    // linked, and both force Report Required ON (locked invariant).
+    // Planner Polish Delta 2: the Contact Event Type is also always Report
+    // Required and locks the toggle while selected.
+    final lifeIndicatorLinked = _selectedGoalId != null || lockedWli;
+    final contactMandatory =
+        _selectedEventType?.stableKey == SystemEventTypeKeys.contact;
+    final reportingLocked = lifeIndicatorLinked || contactMandatory;
     final bottomPadding = widget.sheetPresentation
         ? 24.0 + MediaQuery.of(context).viewInsets.bottom
         : 120.0;
@@ -516,9 +824,9 @@ final class _CalendarEventFormScreenState
                 key: const Key('calendar-event-form-scroll'),
                 controller: widget.sheetScrollController,
                 padding: EdgeInsets.fromLTRB(
-                  18,
-                  widget.sheetPresentation ? 18 : 16,
-                  18,
+                  16,
+                  widget.sheetPresentation ? 14 : 12,
+                  16,
                   bottomPadding,
                 ),
                 children: <Widget>[
@@ -564,7 +872,7 @@ final class _CalendarEventFormScreenState
                     const SizedBox(height: 16),
                   ],
                   _buildEventTypeField(),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 22),
                   TextFormField(
                     key: const Key('event-title-field'),
                     controller: _titleController,
@@ -572,7 +880,7 @@ final class _CalendarEventFormScreenState
                     maxLines: 1,
                     textInputAction: TextInputAction.next,
                   ),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 22),
                   TextFormField(
                     key: const Key('event-notes-field'),
                     controller: _notesController,
@@ -587,21 +895,19 @@ final class _CalendarEventFormScreenState
                     minLines: _notesFocusNode.hasFocus ? 4 : 1,
                     maxLines: _notesFocusNode.hasFocus ? 6 : 1,
                   ),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 24),
                   const _MeasuredFormSeparator(
                     key: Key('event-form-scheduling-separator'),
                   ),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 24),
                   const _MeasuredFormSectionHeader(label: 'Scheduling Details'),
-                  const SizedBox(height: 28),
+                  const SizedBox(height: 20),
                   _DateTile(
                     key: const Key('event-date-field'),
                     label: 'Date',
                     date: _date,
-                    onTap: () => _selectDate(
-                      initial: _date,
-                      onSelected: (value) => setState(() => _date = value),
-                    ),
+                    onTap: () =>
+                        _selectDate(initial: _date, onSelected: _setEventDate),
                   ),
                   if (_timing == CalendarEventTiming.timed) ...<Widget>[
                     const SizedBox(height: 8),
@@ -641,64 +947,95 @@ final class _CalendarEventFormScreenState
                         style: AppTypography.secondary,
                       ),
                     ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
                   _buildRepeatField(),
                   if (_frequency !=
                       CalendarRecurrenceFrequency.none) ...<Widget>[
                     const SizedBox(height: 20),
-                    DropdownButtonFormField<CalendarRecurrenceEndMode>(
-                      key: const Key('event-recurrence-end-mode'),
-                      initialValue: _endMode,
-                      decoration: _measuredInputDecoration(
-                        labelText: 'Recurrence end',
+                    if (_legacyRecurrenceEndControls) ...<Widget>[
+                      DropdownButtonFormField<CalendarRecurrenceEndMode>(
+                        key: const Key('event-recurrence-end-mode'),
+                        initialValue: _endMode,
+                        decoration: _measuredInputDecoration(
+                          labelText: 'Recurrence end',
+                        ),
+                        items:
+                            const <DropdownMenuItem<CalendarRecurrenceEndMode>>[
+                              DropdownMenuItem<CalendarRecurrenceEndMode>(
+                                value: CalendarRecurrenceEndMode.never,
+                                child: Text('No end'),
+                              ),
+                              DropdownMenuItem<CalendarRecurrenceEndMode>(
+                                value: CalendarRecurrenceEndMode.onDate,
+                                child: Text('End on date'),
+                              ),
+                              DropdownMenuItem<CalendarRecurrenceEndMode>(
+                                value: CalendarRecurrenceEndMode.afterCount,
+                                child: Text('End after count'),
+                              ),
+                            ],
+                        onChanged: (value) => setState(() {
+                          _endMode = value ?? CalendarRecurrenceEndMode.never;
+                          if (_endMode == CalendarRecurrenceEndMode.onDate &&
+                              _recurrenceEndDate == null) {
+                            _recurrenceEndDate =
+                                calendarDefaultRecurrenceEndDate(
+                                  _date,
+                                  _frequency,
+                                );
+                          }
+                        }),
                       ),
-                      items:
-                          const <DropdownMenuItem<CalendarRecurrenceEndMode>>[
-                            DropdownMenuItem<CalendarRecurrenceEndMode>(
-                              value: CalendarRecurrenceEndMode.never,
-                              child: Text('No end'),
-                            ),
-                            DropdownMenuItem<CalendarRecurrenceEndMode>(
-                              value: CalendarRecurrenceEndMode.onDate,
-                              child: Text('End on date'),
-                            ),
-                            DropdownMenuItem<CalendarRecurrenceEndMode>(
-                              value: CalendarRecurrenceEndMode.afterCount,
-                              child: Text('End after count'),
-                            ),
-                          ],
-                      onChanged: (value) => setState(
-                        () =>
-                            _endMode = value ?? CalendarRecurrenceEndMode.never,
-                      ),
-                    ),
-                    if (_endMode == CalendarRecurrenceEndMode.onDate)
+                      if (_endMode == CalendarRecurrenceEndMode.onDate)
+                        _DateTile(
+                          key: const Key('event-recurrence-legacy-end-date'),
+                          label: 'Last occurrence',
+                          date: _recurrenceEndDate ?? _date,
+                          onTap: () => _selectDate(
+                            initial: _recurrenceEndDate ?? _date,
+                            onSelected: (value) => setState(() {
+                              _recurrenceEndDate = value;
+                              _recurrenceEndDateCustomized = true;
+                            }),
+                          ),
+                        ),
+                      if (_endMode == CalendarRecurrenceEndMode.afterCount)
+                        TextFormField(
+                          key: const Key('event-recurrence-count'),
+                          controller: _countController,
+                          decoration: const InputDecoration(
+                            labelText: 'Number of occurrences',
+                          ),
+                          keyboardType: TextInputType.number,
+                          validator: (value) {
+                            final parsed = int.tryParse(value ?? '');
+                            return parsed == null || parsed < 1
+                                ? 'Enter at least 1'
+                                : null;
+                          },
+                        ),
+                    ] else
                       _DateTile(
-                        label: 'Last occurrence',
-                        date: _recurrenceEndDate ?? _date,
+                        key: const Key('event-recurrence-end-date'),
+                        label: 'End repeat',
+                        date:
+                            _recurrenceEndDate ??
+                            calendarDefaultRecurrenceEndDate(_date, _frequency),
                         onTap: () => _selectDate(
-                          initial: _recurrenceEndDate ?? _date,
-                          onSelected: (value) =>
-                              setState(() => _recurrenceEndDate = value),
+                          initial:
+                              _recurrenceEndDate ??
+                              calendarDefaultRecurrenceEndDate(
+                                _date,
+                                _frequency,
+                              ),
+                          onSelected: (value) => setState(() {
+                            _recurrenceEndDate = value;
+                            _recurrenceEndDateCustomized = true;
+                          }),
                         ),
-                      ),
-                    if (_endMode == CalendarRecurrenceEndMode.afterCount)
-                      TextFormField(
-                        key: const Key('event-recurrence-count'),
-                        controller: _countController,
-                        decoration: const InputDecoration(
-                          labelText: 'Number of occurrences',
-                        ),
-                        keyboardType: TextInputType.number,
-                        validator: (value) {
-                          final parsed = int.tryParse(value ?? '');
-                          return parsed == null || parsed < 1
-                              ? 'Enter at least 1'
-                              : null;
-                        },
                       ),
                   ],
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
                   SwitchListTile(
                     key: const Key('event-backup-appointment-switch'),
                     contentPadding: EdgeInsets.zero,
@@ -709,64 +1046,72 @@ final class _CalendarEventFormScreenState
                       setState(() => _isBackupAppointment = value);
                     },
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
                   _buildAddressLocationSection(),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 24),
                   const _MeasuredFormSeparator(
                     key: Key('event-form-people-separator'),
                   ),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 24),
                   _buildPeopleSection(),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 24),
                   const _MeasuredFormSeparator(
                     key: Key('event-form-indicator-separator'),
                   ),
-                  const SizedBox(height: 32),
-                  _buildIndicatorLinkSection(),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 24),
+                  _buildLifeIndicatorSection(),
+                  const SizedBox(height: 24),
                   _FormSectionLabel(
                     icon: Icons.fact_check_outlined,
                     label: 'Reporting & progress context',
-                    color: lockedWli ? const Color(0xFF8E9295) : null,
-                    iconColor: lockedWli ? const Color(0xFF85898C) : null,
+                    color: reportingLocked ? const Color(0xFF8E9295) : null,
+                    iconColor: reportingLocked ? const Color(0xFF85898C) : null,
                   ),
                   DecoratedBox(
                     decoration: BoxDecoration(
-                      color: lockedWli
+                      color: reportingLocked
                           ? const Color(0xFF26282A)
                           : Colors.transparent,
                     ),
                     child: SwitchListTile(
                       key: const Key('event-requires-report-switch'),
-                      contentPadding: lockedWli
+                      contentPadding: reportingLocked
                           ? const EdgeInsets.symmetric(horizontal: 12)
                           : EdgeInsets.zero,
-                      activeThumbColor: lockedWli
+                      activeThumbColor: reportingLocked
                           ? const Color(0xFF777B7E)
                           : null,
-                      activeTrackColor: lockedWli
+                      activeTrackColor: reportingLocked
                           ? const Color(0xFF4B4F52)
                           : null,
-                      inactiveThumbColor: lockedWli
+                      inactiveThumbColor: reportingLocked
                           ? const Color(0xFF777B7E)
                           : null,
-                      inactiveTrackColor: lockedWli
+                      inactiveTrackColor: reportingLocked
                           ? const Color(0xFF4B4F52)
                           : null,
                       title: Text(
-                        'Report required',
-                        style: lockedWli
+                        reportingLocked
+                            ? 'Report Required'
+                            : 'Optional — Report Required',
+                        style: reportingLocked
                             ? const TextStyle(color: Color(0xFF8E9295))
                             : null,
                       ),
-                      subtitle: lockedWli
+                      subtitle: lifeIndicatorLinked
                           ? const Text(
-                              'Locked for WLI reporting',
+                              'Required because this Event is linked to a '
+                              'Life Goal.',
+                              style: TextStyle(color: Color(0xFF6F7376)),
+                            )
+                          : contactMandatory
+                          ? const Text(
+                              'Required for Contact Events.',
                               style: TextStyle(color: Color(0xFF6F7376)),
                             )
                           : null,
                       value: _requiresReport,
-                      onChanged: lockedWli
+                      onChanged: reportingLocked
                           ? null
                           : (value) {
                               FocusScope.of(context).unfocus();
@@ -774,14 +1119,14 @@ final class _CalendarEventFormScreenState
                             },
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
                 ],
               ),
             ),
           );
     if (!widget.sheetPresentation) {
       return Scaffold(
-        appBar: AppBar(
+        appBar: InternalAppBar(
           title: Text(_formHeading),
           actions: <Widget>[_buildSaveButton()],
         ),
@@ -801,7 +1146,7 @@ final class _CalendarEventFormScreenState
             onVerticalDragUpdate: _handleSheetDragUpdate,
             child: Column(
               children: <Widget>[
-                const SizedBox(height: 14),
+                const SizedBox(height: 8),
                 Container(
                   key: const Key('calendar-event-sheet-handle'),
                   width: 32,
@@ -811,9 +1156,9 @@ final class _CalendarEventFormScreenState
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 12),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 18),
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Row(
                     children: <Widget>[
                       IconButton(
@@ -825,7 +1170,7 @@ final class _CalendarEventFormScreenState
                         ),
                         padding: EdgeInsets.zero,
                         iconSize: 28,
-                        onPressed: () => Navigator.of(context).pop(false),
+                        onPressed: () => _closeForm(false),
                         icon: const Icon(Icons.close),
                       ),
                       const Spacer(),
@@ -958,6 +1303,7 @@ final class _CalendarEventFormScreenState
   }
 
   Widget _buildPeopleSection() {
+    final csv = _peopleContactIds.join(',');
     return Column(
       key: const Key('event-people-section'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -966,16 +1312,54 @@ final class _CalendarEventFormScreenState
           key: Key('people-section-header'),
           label: 'People',
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 12),
+        if (_peopleContactIds.isEmpty)
+          const Padding(
+            padding: EdgeInsets.only(bottom: 4),
+            child: Text(
+              'No people linked yet.',
+              style: TextStyle(color: Color(0xFF9CA0A6), fontSize: 14),
+            ),
+          )
+        else
+          ref
+              .watch(contactSummariesByCsvProvider(csv))
+              .when(
+                loading: () => const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                  child: Center(
+                    child: SizedBox.square(
+                      dimension: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  ),
+                ),
+                error: (error, stack) => const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                  child: Text(
+                    'People could not be loaded.',
+                    style: TextStyle(color: Color(0xFF9CA0A6)),
+                  ),
+                ),
+                data: (byId) => Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    for (final id in _peopleContactIds)
+                      _PeopleChip(
+                        id: id,
+                        summary: byId[id],
+                        onRemove: () =>
+                            setState(() => _peopleContactIds.remove(id)),
+                      ),
+                  ],
+                ),
+              ),
+        const SizedBox(height: 8),
         Align(
           alignment: Alignment.centerRight,
           child: TextButton.icon(
             key: const Key('add-people-button'),
-            onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('People can be added from Contacts.'),
-              ),
-            ),
+            onPressed: () => unawaited(_openAddPeople()),
             style: _rightAlignedFormActionStyle(),
             icon: const Icon(Icons.add, size: 24),
             label: const Text('People'),
@@ -985,118 +1369,37 @@ final class _CalendarEventFormScreenState
     );
   }
 
-  Widget _buildIndicatorLinkSection() {
-    final linked = _indicatorOption(_linkedIndicatorKey);
-    final locked = _selectedEventType?.isLockedWliType == true;
-    final sectionLabel = locked
-        ? 'Linked to Weekly Life Indicator'
-        : 'Link to Weekly Life Indicator';
-    return Semantics(
-      container: true,
-      enabled: !locked,
-      label: sectionLabel,
-      child: Material(
-        color: locked ? const Color(0xFF26282A) : Colors.transparent,
-        child: InkWell(
-          key: const Key('weekly-life-indicator-link-section'),
-          onTap: locked ? null : _chooseIndicator,
-          borderRadius: BorderRadius.circular(4),
-          child: Padding(
-            padding: locked ? const EdgeInsets.all(12) : EdgeInsets.zero,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: <Widget>[
-                _MeasuredFormSectionHeader(
-                  label: sectionLabel,
-                  color: locked ? const Color(0xFF8E9295) : null,
-                  dividerColor: locked ? const Color(0xFF6F7376) : null,
-                ),
-                const SizedBox(height: 24),
-                if (locked)
-                  Row(
-                    children: <Widget>[
-                      const Icon(
-                        Icons.lock_outline,
-                        size: 22,
-                        color: Color(0xFF85898C),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            Text(
-                              linked?.label ??
-                                  _selectedEventType?.label ??
-                                  'Automatically linked',
-                              key: const Key(
-                                'weekly-life-indicator-link-value',
-                              ),
-                              style: const TextStyle(
-                                color: Color(0xFF8E9295),
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            const Text(
-                              'Automatically linked for this Event Type',
-                              key: Key(
-                                'weekly-life-indicator-link-locked-help',
-                              ),
-                              style: TextStyle(
-                                color: Color(0xFF6F7376),
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  )
-                else if (linked == null)
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton.icon(
-                      key: const Key('weekly-life-indicator-link-button'),
-                      onPressed: _chooseIndicator,
-                      style: _rightAlignedFormActionStyle(),
-                      icon: const Icon(Icons.add, size: 24),
-                      label: const Text('Link to Weekly Life Indicator'),
-                    ),
-                  )
-                else
-                  Row(
-                    children: <Widget>[
-                      Expanded(
-                        child: Text(
-                          linked.label,
-                          key: const Key('weekly-life-indicator-link-value'),
-                          style: const TextStyle(fontWeight: FontWeight.w700),
-                        ),
-                      ),
-                      TextButton(
-                        key: const Key('weekly-life-indicator-change'),
-                        onPressed: _chooseIndicator,
-                        style: _rightAlignedFormActionStyle(),
-                        child: const Text('Change'),
-                      ),
-                      IconButton(
-                        key: const Key('weekly-life-indicator-remove'),
-                        tooltip: 'Remove indicator link',
-                        onPressed: () => setState(() {
-                          _linkedIndicatorKey = null;
-                          _indicatorLinkTouched = true;
-                        }),
-                        icon: const Icon(Icons.close),
-                      ),
-                    ],
-                  ),
-              ],
-            ),
-          ),
-        ),
-      ),
+  Future<void> _openAddPeople() async {
+    final result = await context.push<List<String>>(
+      RoutePaths.addPeople,
+      extra: AddPeopleArgs(initialIds: _peopleContactIds),
     );
+    if (result != null && mounted) {
+      setState(() => _peopleContactIds = result);
+    }
+  }
+
+  /// Loads the existing series People for edit/reschedule so a People save
+  /// replaces, never erases, previously linked Contacts.
+  Future<void> _loadExistingPeople() async {
+    try {
+      final summaries = await ref.read(
+        eventPeopleProvider((
+          eventId: widget.eventId!,
+          occurrenceId: 'series',
+        )).future,
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _peopleContactIds = summaries
+            .map((summary) => summary.contact.id)
+            .toList(growable: false);
+      });
+    } on Object {
+      // No ready Contacts profile/repository: keep the draft list untouched.
+    }
   }
 
   IndicatorOption? _indicatorOption(String? key) {
@@ -1106,59 +1409,157 @@ final class _CalendarEventFormScreenState
     return _indicatorOptions.where((option) => option.key == key).firstOrNull;
   }
 
-  Future<void> _chooseIndicator() async {
-    if (_selectedEventType?.isLockedWliType == true) {
-      return;
+  Future<void> _loadAvailableGoals() async {
+    try {
+      final goals = await ref.read(activeGoalsProvider.future);
+      if (mounted) {
+        setState(() => _availableGoals = goals);
+      }
+    } on Object {
+      // No ready Local Profile / Goal repository in this environment: the
+      // Goal section simply shows as unavailable instead of failing the form.
     }
-    if (_indicatorOptions.isEmpty) {
+  }
+
+  /// Link to Life Indicator picker (approved selector).
+  ///
+  /// Selecting a Life Indicator turns Report Required ON immediately;
+  /// removing the link keeps Report Required ON (an intentional user
+  /// preference is never silently erased) but returns control of the toggle.
+  /// A locked Event Type auto-assigns its fixed Life Indicator, so the picker
+  /// is read-only for those types.
+  Future<void> _chooseLifeIndicator() async {
+    // The Goal list loads asynchronously after [initState]; if the user taps
+    // before it settles, await the in-flight load (or re-read) so the empty
+    // check below is truthful and no misleading snackbar is shown.
+    if (_goalsLoad != null) {
+      await _goalsLoad;
+      if (!mounted) {
+        return;
+      }
+    }
+    final goals = _availableGoals;
+    if (goals.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('No Weekly Life Indicators are available.'),
-          ),
+          const SnackBar(content: Text('No Life Goals are available.')),
         );
       }
       return;
     }
+    final type = _selectedEventType;
+    final fixed = type?.isLockedWliType == true;
+    Goal? fixedGoal;
+    if (fixed) {
+      fixedGoal = goals
+          .where((goal) => goal.indicatorKey == type?.exactIndicatorKey)
+          .firstOrNull;
+    }
+    final linkedId = _selectedGoalId ?? fixedGoal?.id;
     final selected = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
       builder: (sheetContext) => SafeArea(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxHeight: 420),
+          constraints: const BoxConstraints(maxHeight: 560),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
               const Padding(
-                padding: EdgeInsets.fromLTRB(20, 16, 20, 8),
+                padding: EdgeInsets.fromLTRB(20, 18, 20, 4),
                 child: Text(
-                  'Link to Weekly Life Indicator',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                  'Link to Life Goal',
+                  style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.fromLTRB(20, 0, 20, 10),
+                child: Text(
+                  'Choose the goal this Event should contribute to.',
+                  style: TextStyle(color: Color(0xFF9CA0A6), fontSize: 13),
                 ),
               ),
               Flexible(
                 child: ListView.builder(
-                  key: const Key('weekly-indicator-picker'),
+                  key: const Key('life-indicator-picker'),
                   shrinkWrap: true,
-                  itemCount: _indicatorOptions.length,
+                  itemCount: goals.length,
                   itemBuilder: (context, index) {
-                    final option = _indicatorOptions[index];
-                    return ListTile(
-                      key: Key('weekly-indicator-option-${option.key}'),
-                      leading: const Icon(Icons.track_changes_outlined),
-                      title: Text(option.label),
-                      subtitle: Text(option.unit),
-                      onTap: () => Navigator.of(sheetContext).pop(option.key),
+                    final goal = goals[index];
+                    final isSelected = goal.id == linkedId;
+                    return Container(
+                      margin: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isSelected
+                              ? AppTheme.rose
+                              : Colors.transparent,
+                        ),
+                      ),
+                      child: Material(
+                        color: isSelected
+                            ? const Color(0xFF2B2024)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(12),
+                        child: ListTile(
+                          key: Key('life-indicator-option-${goal.id}'),
+                          leading: GoalIcon(
+                            iconId: goal.iconId,
+                            size: 24,
+                            semanticLabel: goal.title,
+                          ),
+                          title: Text(
+                            goal.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          trailing: isSelected
+                              ? const Icon(
+                                  Icons.check,
+                                  color: AppTheme.rose,
+                                  size: 20,
+                                )
+                              : null,
+                          onTap: fixed
+                              ? null
+                              : () => Navigator.of(sheetContext).pop(goal.id),
+                        ),
+                      ),
                     );
                   },
                 ),
               ),
-              TextButton(
-                key: const Key('weekly-indicator-picker-cancel'),
-                onPressed: () => Navigator.of(sheetContext).pop(),
-                child: const Text('Cancel'),
+              if (!fixed && linkedId != null) ...<Widget>[
+                const Divider(height: 1),
+                ListTile(
+                  key: const Key('life-indicator-remove-link'),
+                  leading: const Icon(
+                    Icons.delete_outline,
+                    color: AppTheme.rose,
+                    size: 20,
+                  ),
+                  title: const Text(
+                    'Remove Life Goal link',
+                    style: TextStyle(color: AppTheme.rose),
+                  ),
+                  onTap: () => Navigator.of(sheetContext).pop('__none__'),
+                ),
+              ],
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: Center(
+                  child: TextButton(
+                    key: const Key('life-indicator-picker-cancel'),
+                    onPressed: () => Navigator.of(sheetContext).pop(),
+                    child: const Text('Cancel'),
+                  ),
+                ),
               ),
             ],
           ),
@@ -1169,9 +1570,139 @@ final class _CalendarEventFormScreenState
       return;
     }
     setState(() {
-      _linkedIndicatorKey = selected;
-      _indicatorLinkTouched = true;
+      if (selected == '__none__') {
+        _selectedGoalId = null;
+        return;
+      }
+      final goal = goals
+          .where((candidate) => candidate.id == selected)
+          .firstOrNull;
+      _selectedGoalId = selected;
+      // A Life Indicator link forces Report Required ON (locked invariant)
+      // and drives the canonical contribution rule through its indicator key.
+      _requiresReport = true;
+      if (goal?.indicatorKey != null) {
+        _linkedIndicatorKey = goal!.indicatorKey;
+      }
     });
+  }
+
+  /// Unified Life Indicator section (approved design).
+  ///
+  /// The Event has exactly ONE Life Indicator relationship.  A locked Event
+  /// Type auto-assigns its fixed Life Indicator (read-only row); otherwise
+  /// the row opens the Link to Life Indicator picker.  The linked state locks
+  /// the Report Required toggle below.
+  Widget _buildLifeIndicatorSection() {
+    final goals = _availableGoals;
+    final type = _selectedEventType;
+    final wliLocked = type?.isLockedWliType == true;
+    // Resolve the linked Life Indicator by its stable ID.  Active indicators
+    // come from the loaded list; a link to an archived indicator is resolved
+    // by ID so the archived name/icon still renders on existing Events while
+    // archived indicators stay hidden from new linking.
+    final linkedGoalId =
+        _selectedGoalId ??
+        (wliLocked
+            ? goals
+                  .where((goal) => goal.indicatorKey == type?.exactIndicatorKey)
+                  .firstOrNull
+                  ?.id
+            : null);
+    Goal? linkedGoal;
+    if (linkedGoalId != null) {
+      linkedGoal ??= goals.where((goal) => goal.id == linkedGoalId).firstOrNull;
+      linkedGoal ??= ref.watch(goalByIdProvider(linkedGoalId)).value;
+    }
+    final linked = linkedGoalId != null || wliLocked;
+    final subtitle = linked
+        ? (wliLocked
+              ? 'Linked automatically by Event Type'
+              : 'Linked to this Event')
+        : 'No Life Goal linked';
+    return Column(
+      key: const Key('event-life-indicator-section'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        const _MeasuredFormSectionHeader(
+          key: Key('life-indicator-section-header'),
+          label: 'Life Goal',
+        ),
+        const SizedBox(height: 12),
+        Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFF1C1E21),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFF2A2D31)),
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              key: const Key('life-indicator-link-section'),
+              onTap: wliLocked ? null : _chooseLifeIndicator,
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 14,
+                ),
+                child: Row(
+                  children: <Widget>[
+                    GoalIcon(
+                      iconId: linkedGoal?.iconId,
+                      size: 26,
+                      semanticLabel: linkedGoal?.title,
+                      fallbackIcon: Icons.track_changes_outlined,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Text(
+                            linkedGoal?.title ?? 'Life Goal',
+                            key: const Key('life-indicator-link-value'),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            subtitle,
+                            key: const Key('life-indicator-link-subtitle'),
+                            style: const TextStyle(
+                              color: Color(0xFF8E9295),
+                              fontSize: 13,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (wliLocked)
+                      const Icon(
+                        Icons.lock_outline,
+                        size: 16,
+                        color: Color(0xFF6F7376),
+                      )
+                    else
+                      const Icon(
+                        Icons.chevron_right,
+                        size: 20,
+                        color: Color(0xFF8E9295),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   bool get _isContactEvent {
@@ -1237,7 +1768,7 @@ final class _CalendarEventFormScreenState
       return;
     }
     final startMinute = _start.hour * 60 + _start.minute;
-    final endMinute = _end.hour * 60 + _end.minute;
+    final endMinute = _endMinuteOfDay;
     if (_timing == CalendarEventTiming.timed && endMinute < startMinute + 15) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -1250,6 +1781,32 @@ final class _CalendarEventFormScreenState
     if (selectedType?.isLockedWliType == true) {
       _requiresReport = true;
       _linkedIndicatorKey = selectedType!.exactIndicatorKey;
+    }
+    if (selectedType?.stableKey == SystemEventTypeKeys.contact) {
+      // Delta 2: Contact Events always require a report on every save path.
+      _requiresReport = true;
+    }
+    if (_selectedGoalId != null) {
+      // Locked invariant: a Life Indicator-linked Event is always Report
+      // Required, and its contribution rule follows the linked Goal.  The
+      // Goal is resolved by stable ID so an Event linked to an archived
+      // Life Indicator still derives the correct contribution rule.
+      _requiresReport = true;
+      var linkedGoal = _availableGoals
+          .where((goal) => goal.id == _selectedGoalId)
+          .firstOrNull;
+      if (linkedGoal == null) {
+        try {
+          linkedGoal = await ref.read(
+            goalByIdProvider(_selectedGoalId!).future,
+          );
+        } on Object {
+          // No ready profile/repository: keep the current indicator key.
+        }
+      }
+      if (linkedGoal?.indicatorKey != null) {
+        _linkedIndicatorKey = linkedGoal!.indicatorKey;
+      }
     }
     if (selectedType != null &&
         selectedType.indicatorKeys.length > 1 &&
@@ -1274,6 +1831,7 @@ final class _CalendarEventFormScreenState
       activityTypeId: _selectedEventType?.id,
       activityTypeMappingVersion: _selectedEventType?.mappingVersion,
       contributionRuleKey: _scheduledPotentialRule(),
+      goalId: _selectedGoalId,
       isBackupAppointment: _isBackupAppointment,
       backupForEventId: _isBackupAppointment ? _backupForEventId : null,
       backupRelationshipProvenance: _isBackupAppointment
@@ -1290,6 +1848,9 @@ final class _CalendarEventFormScreenState
         occurrenceCount: _endMode == CalendarRecurrenceEndMode.afterCount
             ? int.tryParse(_countController.text)
             : null,
+        pattern: _frequency == CalendarRecurrenceFrequency.none
+            ? null
+            : _recurrencePattern,
       ),
     );
     final controller = ref.read(calendarEventControllerProvider.notifier);
@@ -1305,13 +1866,7 @@ final class _CalendarEventFormScreenState
               canonicalSource: _canonicalSource,
             ),
       CalendarEventFormMode.create => await controller.saveEvent(draft),
-      CalendarEventFormMode.edit => await controller.editEvent(
-        eventId: widget.eventId!,
-        originalDate: widget.originalDate!,
-        scope: widget.scope!,
-        draft: draft,
-        operationId: _operationId,
-      ),
+      CalendarEventFormMode.edit => await _saveEdit(draft, controller),
       CalendarEventFormMode.reschedule => await controller.rescheduleEvent(
         eventId: widget.eventId!,
         originalDate: widget.originalDate!,
@@ -1328,8 +1883,147 @@ final class _CalendarEventFormScreenState
       if (!mounted) {
         return;
       }
-      Navigator.of(context).pop(true);
+      // Persist the People links.  Series-level removal freezes past
+      // occurrence participant snapshots before erasing links, so historical
+      // participation can never be rewritten by a future People edit.
+      try {
+        await ref
+            .read(contactRepositoryProvider)
+            .setEventPeople(
+              profileId: ref.read(contactProfileIdProvider),
+              eventId: _draftId,
+              occurrenceId: 'series',
+              originalDate: _date,
+              contactIds: _peopleContactIds,
+            );
+      } on Object {
+        // The Event itself is already saved; never fail the save silently.
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Event saved, but People could not be updated. Edit the '
+                'event to retry.',
+              ),
+            ),
+          );
+        }
+      }
+      if (!mounted) {
+        return;
+      }
+      _closeForm(true);
     }
+  }
+
+  /// Delta 4.1 edit flow: commit an Edit-mode save, resolving the recurrence
+  /// scope only when the user actually commits a change.
+  ///
+  /// When the form was opened with deferred scope from an Event preview on a
+  /// repeating Event:
+  ///  * a non-recurring source saves directly with occurrence scope;
+  ///  * a repeat-rule removal (e.g. Daily -> Does not repeat) is inherently a
+  ///    series-level operation and the repository resolves it to series
+  ///    scope, so no chooser is needed;
+  ///  * any other recurring save shows the recurrence scope chooser (This
+  ///    event only / All events / Cancel).  Cancel returns to the form with
+  ///    the draft values intact and persists nothing.
+  Future<bool> _saveEdit(
+    CalendarEventDraft draft,
+    CalendarEventController controller,
+  ) async {
+    if (!widget.deferRecurrenceScopeToSave) {
+      return controller.editEvent(
+        eventId: widget.eventId!,
+        originalDate: widget.originalDate!,
+        scope: widget.scope!,
+        draft: draft,
+        operationId: _operationId,
+      );
+    }
+    final sourceRecurring =
+        _sourceFrequency != CalendarRecurrenceFrequency.none;
+    if (!sourceRecurring) {
+      return controller.editEvent(
+        eventId: widget.eventId!,
+        originalDate: widget.originalDate!,
+        scope: CalendarEventEditScope.occurrence,
+        draft: draft,
+        operationId: _operationId,
+      );
+    }
+    if (!draft.recurrence.isRecurring) {
+      // Repeat-rule removal stays a series-level operation; the repository
+      // already resolves it to series scope, so no chooser is shown.
+      return controller.editEvent(
+        eventId: widget.eventId!,
+        originalDate: widget.originalDate!,
+        scope: CalendarEventEditScope.occurrence,
+        draft: draft,
+        operationId: _operationId,
+      );
+    }
+    final scope = await _selectSaveScope();
+    if (scope == null || !mounted) {
+      // The user canceled the scope chooser: keep the form and its draft
+      // values; nothing is persisted.
+      return false;
+    }
+    return controller.editEvent(
+      eventId: widget.eventId!,
+      originalDate: widget.originalDate!,
+      scope: scope,
+      draft: draft,
+      operationId: _operationId,
+    );
+  }
+
+  /// Recurrence scope chooser shown only when the user commits a Save on a
+  /// repeating Event (Delta 4.1 edit flow).  Reuses the owner-approved
+  /// chooser design from the Event preview.
+  Future<CalendarEventEditScope?> _selectSaveScope() {
+    return showModalBottomSheet<CalendarEventEditScope>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              Text(
+                'Change repeating event',
+                style: Theme.of(
+                  sheetContext,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 10),
+              RepeatingEventScopeChoices(
+                originalDate: widget.originalDate!,
+                keyPrefix: 'event-scope',
+                onSelected: (scope) => Navigator.of(sheetContext).pop(scope),
+              ),
+              const SizedBox(height: 6),
+              TextButton(
+                key: const Key('event-scope-cancel'),
+                onPressed: () => Navigator.of(sheetContext).pop(),
+                child: const Text('Cancel'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _closeForm(bool saved) {
+    final onClose = widget.onClose;
+    if (onClose != null) {
+      onClose(saved);
+      return;
+    }
+    Navigator.of(context).pop(saved);
   }
 
   Future<bool> _confirmMultipleMappings(EventType type) async {
@@ -1338,7 +2032,7 @@ final class _CalendarEventFormScreenState
     return await showDialog<bool>(
           context: context,
           builder: (dialogContext) => AlertDialog(
-            title: const Text('Confirm Life Indicator mappings'),
+            title: const Text('Confirm Life Goal mappings'),
             content: Text(
               '${type.label} is mapped to ${labels.join(', ')}. Continue?',
             ),
@@ -1356,6 +2050,21 @@ final class _CalendarEventFormScreenState
           ),
         ) ??
         false;
+  }
+
+  void _setEventDate(PlannerDate value) {
+    setState(() {
+      _date = value;
+      if (_frequency != CalendarRecurrenceFrequency.none &&
+          !_legacyRecurrenceEndControls &&
+          !_recurrenceEndDateCustomized) {
+        _recurrenceEndDate = calendarDefaultRecurrenceEndDate(
+          value,
+          _frequency,
+        );
+      }
+      ref.read(plannerEventCreationDraftProvider.notifier).updateDate(value);
+    });
   }
 
   Future<void> _selectDate({
@@ -1378,7 +2087,21 @@ final class _CalendarEventFormScreenState
     required TimeOfDay initial,
     required ValueChanged<TimeOfDay> onSelected,
   }) async {
-    final value = await showTimePicker(context: context, initialTime: initial);
+    final value = await showTimePicker(
+      context: context,
+      initialTime: initial,
+      // Work around a framework assertion in the stock time picker: in
+      // text-input mode the dialog hard-codes a 216 dp minimum height but
+      // lets the keyboard shrink its maximum below that, which yields
+      // non-normalized BoxConstraints and a debug-mode red banner. Stripping
+      // viewInsets keeps the dialog at full size so the constraint is always
+      // valid and the final-hour 11 PM-12 AM slot stays reachable.
+      builder: (context, child) => MediaQuery.removeViewInsets(
+        context: context,
+        removeBottom: true,
+        child: child!,
+      ),
+    );
     if (value != null) {
       final minute = _snapMinute(value.hour * 60 + value.minute);
       onSelected(_timeFromMinute(minute));
@@ -1387,7 +2110,7 @@ final class _CalendarEventFormScreenState
 
   void _setStartTime(TimeOfDay value) {
     final startMinute = value.hour * 60 + value.minute;
-    final endMinute = _end.hour * 60 + _end.minute;
+    final endMinute = _endMinuteOfDay;
     setState(() {
       _start = value;
       if (endMinute < startMinute + 15) {
@@ -1397,14 +2120,34 @@ final class _CalendarEventFormScreenState
   }
 
   void _setEndTime(TimeOfDay value) {
-    final endMinute = value.hour * 60 + value.minute;
     final startMinute = _start.hour * 60 + _start.minute;
+    // Final-hour 11 PM-12 AM support: a picked end of 12:00 AM is the
+    // next-day midnight boundary (minute 1440) whenever the Event starts
+    // after 00:00.  The display keeps 12:00 AM; saving maps it to 1440 so
+    // the Event never collapses or disappears.
+    final isMidnightEnd =
+        value.hour == 0 && value.minute == 0 && startMinute > 0;
+    final resolvedEnd = isMidnightEnd ? 1440 : value.hour * 60 + value.minute;
     setState(() {
-      _end = endMinute < startMinute + 15
+      _end = resolvedEnd < startMinute + 15
           ? _timeFromMinute((startMinute + 15).clamp(1, 1439))
           : value;
       _durationWasEntered = true;
     });
+  }
+
+  /// The end minute of day as a valid 1..1440 range, treating a displayed
+  /// 12:00 AM end as the final-hour 24:00 boundary when the Event starts
+  /// after 00:00.  Used by validation and every save path so an 11 PM-12 AM
+  /// Event is persisted with `endMinute == 1440` and never drops below the
+  /// 15-minute minimum.
+  int get _endMinuteOfDay {
+    final startMinute = _start.hour * 60 + _start.minute;
+    final endMinute = _end.hour * 60 + _end.minute;
+    if (endMinute == 0 && startMinute > 0) {
+      return 1440;
+    }
+    return endMinute;
   }
 
   static int _snapMinute(int minute) {
@@ -1415,13 +2158,30 @@ final class _CalendarEventFormScreenState
     return TimeOfDay(hour: value ~/ 60, minute: value % 60);
   }
 
-  static String _frequencyLabel(CalendarRecurrenceFrequency value) {
+  static _CalendarEventRepeatChoice _repeatChoiceFor(
+    CalendarRecurrenceFrequency frequency,
+    CalendarRecurrencePattern? pattern,
+  ) {
+    if (pattern != null) {
+      return _CalendarEventRepeatChoice.custom;
+    }
+    return switch (frequency) {
+      CalendarRecurrenceFrequency.none => _CalendarEventRepeatChoice.none,
+      CalendarRecurrenceFrequency.daily => _CalendarEventRepeatChoice.daily,
+      CalendarRecurrenceFrequency.weekly => _CalendarEventRepeatChoice.weekly,
+      CalendarRecurrenceFrequency.monthly => _CalendarEventRepeatChoice.monthly,
+      CalendarRecurrenceFrequency.yearly => _CalendarEventRepeatChoice.yearly,
+    };
+  }
+
+  static String _repeatChoiceLabel(_CalendarEventRepeatChoice value) {
     return switch (value) {
-      CalendarRecurrenceFrequency.none => 'Does not repeat',
-      CalendarRecurrenceFrequency.daily => 'Daily',
-      CalendarRecurrenceFrequency.weekly => 'Weekly',
-      CalendarRecurrenceFrequency.monthly => 'Monthly',
-      CalendarRecurrenceFrequency.yearly => 'Yearly',
+      _CalendarEventRepeatChoice.none => 'Does not repeat',
+      _CalendarEventRepeatChoice.daily => 'Every day',
+      _CalendarEventRepeatChoice.weekly => 'Every week',
+      _CalendarEventRepeatChoice.monthly => 'Every month',
+      _CalendarEventRepeatChoice.yearly => 'Every year',
+      _CalendarEventRepeatChoice.custom => 'Custom...',
     };
   }
 
@@ -1455,25 +2215,18 @@ final class _MeasuredFormSeparator extends StatelessWidget {
 }
 
 final class _MeasuredFormSectionHeader extends StatelessWidget {
-  const _MeasuredFormSectionHeader({
-    required this.label,
-    this.color,
-    this.dividerColor,
-    super.key,
-  });
+  const _MeasuredFormSectionHeader({required this.label, super.key});
 
   final String label;
-  final Color? color;
-  final Color? dividerColor;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        Text(label, style: AppTypography.sectionTitle.copyWith(color: color)),
-        const SizedBox(height: 6),
-        Divider(height: 1, thickness: 1, color: dividerColor),
+        Text(label, style: InternalScreen.sectionHeading),
+        const SizedBox(height: 5),
+        const Divider(height: 1, thickness: 1),
       ],
     );
   }
@@ -1505,7 +2258,7 @@ final class _FormSectionLabel extends StatelessWidget {
         Expanded(
           child: Text(
             label,
-            style: AppTypography.sectionTitle.copyWith(
+            style: InternalScreen.sectionHeading.copyWith(
               color: color ?? Theme.of(context).colorScheme.primary,
             ),
           ),
@@ -1553,7 +2306,7 @@ final class _DateTile extends StatelessWidget {
       borderRadius: BorderRadius.circular(4),
       onTap: onTap,
       child: SizedBox(
-        height: 60,
+        height: 52,
         child: InputDecorator(
           decoration: _outlinedFormDecoration(
             labelText: label,
@@ -1623,7 +2376,7 @@ final class _TimeTile extends StatelessWidget {
       borderRadius: BorderRadius.circular(4),
       onTap: onTap,
       child: SizedBox(
-        height: 60,
+        height: 52,
         child: InputDecorator(
           decoration: _outlinedFormDecoration(labelText: label),
           child: Text(
@@ -1647,6 +2400,64 @@ InputDecoration _outlinedFormDecoration({
     prefixIcon: prefixIcon,
     suffixIcon: suffixIcon,
   );
+}
+
+/// A selected Person chip in the Event form People section: primary-group
+/// color dot + display name + remove.  Draft selection only — persisted
+/// links live in the Contacts repository after the Event itself saves.
+final class _PeopleChip extends StatelessWidget {
+  const _PeopleChip({
+    required this.id,
+    required this.summary,
+    required this.onRemove,
+  });
+
+  final String id;
+  final ContactSummary? summary;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: Key('event-person-$id'),
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.fromLTRB(12, 6, 4, 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1C1E21),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFF2A2D31)),
+      ),
+      child: Row(
+        children: <Widget>[
+          Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: summary == null
+                  ? const Color(0xFF9CA0A6)
+                  : colorFromValue(summary!.colorValue),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              summary?.contact.displayName ?? 'Contact',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+            ),
+          ),
+          IconButton(
+            key: Key('remove-event-person-$id'),
+            tooltip: 'Remove',
+            onPressed: onRemove,
+            icon: const Icon(Icons.close, size: 20),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 InputDecoration _measuredInputDecoration({

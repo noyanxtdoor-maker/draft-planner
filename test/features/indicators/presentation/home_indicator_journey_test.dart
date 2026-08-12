@@ -69,7 +69,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Weekly Life Indicators'), findsOneWidget);
+      expect(find.text('Life Goals'), findsOneWidget);
+      expect(find.text('Weekly Life Indicators'), findsNothing);
       expect(find.byKey(const Key('home-start-weekly-planning')), findsNothing);
       for (final key in <String>[
         'job_applications',
@@ -101,21 +102,29 @@ void main() {
       expect(find.text('Daily Progress Goal'), findsOneWidget);
       expect(find.text('Save'), findsOneWidget);
 
-      await tester.tap(
-        find.descendant(
-          of: find.byKey(const Key('goal-period-daily')),
-          matching: find.byIcon(Icons.add_circle),
-        ),
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('goal-period-daily')),
+        240,
+        scrollable: find.byType(Scrollable).first,
       );
+      final dailyTargetPlus = find.descendant(
+        of: find.byKey(const Key('goal-period-daily')),
+        matching: find.byIcon(Icons.add_circle),
+      );
+      await tester.tap(dailyTargetPlus);
       await tester.pumpAndSettle();
       expect(find.text('1'), findsWidgets);
 
-      await tester.tap(
-        find.descendant(
-          of: find.byKey(const Key('goal-period-weekly')),
-          matching: find.byIcon(Icons.add_circle),
-        ),
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('goal-period-weekly')),
+        240,
+        scrollable: find.byType(Scrollable).first,
       );
+      final weeklyTargetPlus = find.descendant(
+        of: find.byKey(const Key('goal-period-weekly')),
+        matching: find.byIcon(Icons.add_circle),
+      );
+      await tester.tap(weeklyTargetPlus);
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('goal-edit-save')));
       await tester.pumpAndSettle();
@@ -153,7 +162,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Weekly Life Indicators'), findsOneWidget);
+    expect(find.text('Life Goals'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.byKey(const Key('home-pathway-documents')),
       220,
@@ -253,16 +262,19 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Weekly Life Indicators'), findsOneWidget);
+      expect(find.text('Life Goals'), findsOneWidget);
       expect(find.byKey(const Key('home-start-weekly-planning')), findsNothing);
       for (final key in indicatorKeys) {
         expect(find.byKey(Key('home-indicator-$key')), findsOneWidget);
       }
+      // Goal 1 (Today's Goal) derives its outer geometry from Goal 6: every
+      // Home indicator card shares the same 60 dp height and horizontal
+      // padding while only the wide cards span the full row width.
       expect(
         tester
             .getSize(find.byKey(const Key('home-indicator-job_applications')))
             .height,
-        88,
+        60,
       );
       expect(
         tester
@@ -294,23 +306,26 @@ void main() {
       expect(find.text("Today's Goal"), findsOneWidget);
       expect(find.text('Job Applications'), findsOneWidget);
       expect(find.text('0/1'), findsOneWidget);
+      // The Today's Goal inset is a compact proportional panel; its minus/plus
+      // buttons keep a 40 dp layout footprint (48 dp Material tap targets that
+      // overflow without inflating the inset).
       expect(
         tester
             .getSize(find.byKey(const Key('home-daily-target-quick-control')))
             .width,
-        192,
+        closeTo(195.46, 1),
       );
       expect(
         tester
             .getSize(find.byKey(const Key('home-daily-target-quick-control')))
             .height,
-        72,
+        48,
       );
       for (final key in <String>[
         'home-daily-target-minus',
         'home-daily-target-plus',
       ]) {
-        expect(tester.getSize(find.byKey(Key(key))), const Size(48, 48));
+        expect(tester.getSize(find.byKey(Key(key))), const Size(40, 24));
       }
       expect(find.text('Set Schedule'), findsOneWidget);
       expect(find.text('Planning'), findsOneWidget);
@@ -415,7 +430,7 @@ void main() {
         tester
             .getSize(find.byKey(const Key('home-indicator-job_applications')))
             .height,
-        configuration.size.width < 380 ? 136 : 88,
+        60,
       );
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
@@ -511,7 +526,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Weekly Life Indicators'), findsOneWidget);
+      expect(find.text('Life Goals'), findsOneWidget);
       expect(
         find.byKey(Key('home-indicator-goal-${daily.id}')),
         findsOneWidget,

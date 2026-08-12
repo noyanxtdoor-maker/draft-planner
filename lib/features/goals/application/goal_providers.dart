@@ -18,7 +18,7 @@ final goalProfileIdProvider = Provider<String>((ref) {
   return startup.profile.id;
 });
 
-final goalChangesProvider = StreamProvider.family<void, String>((
+final goalChangesProvider = StreamProvider.family<int, String>((
   ref,
   profileId,
 ) {
@@ -46,6 +46,17 @@ final activeGoalsProvider = FutureProvider<List<Goal>>((ref) {
   final profileId = ref.read(goalProfileIdProvider);
   ref.watch(goalChangesProvider(profileId));
   return ref.read(goalRepositoryProvider).readActiveGoals(profileId);
+});
+
+/// Resolves a single Life Indicator (Goal) by its stable ID regardless of
+/// status, so an Event linked to an archived indicator still renders its
+/// name and icon while archived indicators stay hidden from new linking.
+final goalByIdProvider = FutureProvider.family<Goal?, String>((ref, goalId) {
+  final profileId = ref.read(goalProfileIdProvider);
+  ref.watch(goalChangesProvider(profileId));
+  return ref
+      .read(goalRepositoryProvider)
+      .readGoal(profileId: profileId, goalId: goalId);
 });
 
 final goalCapacityProvider = FutureProvider<GoalCapacity>((ref) {

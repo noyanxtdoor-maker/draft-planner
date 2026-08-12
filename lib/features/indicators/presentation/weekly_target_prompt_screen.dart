@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rmplanner/app/theme/app_theme.dart';
+import 'package:rmplanner/app/theme/internal_screen.dart';
 import 'package:rmplanner/features/indicators/application/indicator_providers.dart';
 import 'package:rmplanner/features/indicators/domain/life_indicator.dart';
 import 'package:rmplanner/features/planner/application/planner_providers.dart';
@@ -33,7 +34,7 @@ final class WeeklyTargetPromptScreen extends ConsumerWidget {
     );
     final snapshot = ref.watch(indicatorPeriodSnapshotProvider(period));
     return Scaffold(
-      appBar: AppBar(title: const Text('Weekly Targets')),
+      appBar: InternalAppBar(title: const Text('Weekly Targets')),
       body: SafeArea(
         child: snapshot.when(
           loading: () => const Center(child: CircularProgressIndicator()),
@@ -47,7 +48,7 @@ final class WeeklyTargetPromptScreen extends ConsumerWidget {
             ),
           ),
           data: (value) => ListView(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
             children: <Widget>[
               Text(
                 '${period.start.iso8601} — ${period.end.iso8601}',
@@ -479,7 +480,7 @@ final class _GoalEditorScreenState extends ConsumerState<_GoalEditorScreen>
         }
       },
       child: Scaffold(
-        appBar: AppBar(title: const Text('Edit Goal')),
+        appBar: InternalAppBar(title: const Text('Edit Goal')),
         body: SafeArea(
           child: _loading
               ? const Center(child: CircularProgressIndicator())
@@ -643,17 +644,17 @@ final class _GoalPeriodNavigation extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 64,
+      height: 56,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 18),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
         child: Row(
           children: <Widget>[
             const Icon(
               Icons.calendar_month_outlined,
               color: AppTheme.rose,
-              size: 24,
+              size: 22,
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 12),
             Expanded(child: Text(label, style: AppTypography.body)),
             IconButton(
               onPressed: onPrevious,
@@ -703,8 +704,8 @@ final class _GoalControls extends StatelessWidget {
           Row(
             children: <Widget>[
               SizedBox(
-                width: 146,
-                height: 64,
+                width: 140,
+                height: 52,
                 child: InputDecorator(
                   decoration: InputDecoration(
                     labelText: 'Goal',
@@ -768,7 +769,7 @@ final class _RoundGoalButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox.square(
-      dimension: 56,
+      dimension: 48,
       child: Material(
         color: filled ? AppTheme.rose : Colors.transparent,
         shape: CircleBorder(
@@ -778,7 +779,7 @@ final class _RoundGoalButton extends StatelessWidget {
         ),
         child: IconButton(
           onPressed: onPressed,
-          icon: Icon(icon, size: 28),
+          icon: Icon(icon, size: 22),
           color: filled ? const Color(0xFF400018) : Colors.white70,
           padding: EdgeInsets.zero,
         ),

@@ -255,11 +255,7 @@ final class DriftStartupRepository implements StartupRepository {
           );
     }
     if (database.schemaVersion >= 17) {
-      await GoalBootstrap.ensure(
-        database,
-        profileId,
-        nowUtc: clock.nowUtc(),
-      );
+      await GoalBootstrap.ensure(database, profileId, nowUtc: clock.nowUtc());
     }
   }
 

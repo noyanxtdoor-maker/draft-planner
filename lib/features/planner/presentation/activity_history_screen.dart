@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rmplanner/app/theme/internal_screen.dart';
 import 'package:rmplanner/features/planner/application/outcome_reporting_providers.dart';
 import 'package:rmplanner/features/planner/domain/outcome_reporting.dart';
 
@@ -38,7 +39,7 @@ final class _ActivityHistoryScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Activity History')),
+      appBar: InternalAppBar(title: const Text('Activity History')),
       body: SafeArea(
         child: FutureBuilder<_ActivityHistoryData>(
           future: _load,
@@ -87,7 +88,7 @@ final class _ActivityHistoryScreenState
               },
               child: ListView(
                 key: const Key('activity-history-list'),
-                padding: const EdgeInsets.fromLTRB(12, 12, 12, 32),
+                padding: const EdgeInsets.fromLTRB(12, 10, 12, 24),
                 children: <Widget>[
                   const _HistoryNotice(),
                   const SizedBox(height: 12),
@@ -222,9 +223,11 @@ final class _ReportHistoryCard extends StatelessWidget {
 
   static String _outcomeLabel(OutcomeKind? outcome, bool isContactEvent) {
     return switch (outcome) {
-      OutcomeKind.completedHappened =>
-        isContactEvent ? 'Contacted' : 'Completed',
-      OutcomeKind.partiallyCompleted => 'Missed - Attempted',
+      // Planner Polish Delta 2 final matrix: the success outcome reads
+      // 'Completed' for BOTH Contact and generic Events.
+      OutcomeKind.completedHappened => 'Completed',
+      OutcomeKind.partiallyCompleted =>
+        isContactEvent ? 'Missed — Attempted' : 'Missed',
       OutcomeKind.didNotHappen => 'Did Not Attempt',
       null => 'Draft',
     };

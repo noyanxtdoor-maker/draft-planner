@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rmplanner/app/router/route_names.dart';
+import 'package:rmplanner/app/theme/internal_screen.dart';
 import 'package:rmplanner/features/indicators/application/indicator_providers.dart';
 import 'package:rmplanner/features/indicators/domain/life_indicator.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
@@ -26,7 +27,7 @@ final class IndicatorDetailScreen extends ConsumerWidget {
       end: periodStart.addDays(6),
     );
     return Scaffold(
-      appBar: AppBar(title: const Text('Indicator Detail')),
+      appBar: InternalAppBar(title: const Text('Indicator Detail')),
       body: SafeArea(
         child: FutureBuilder<IndicatorDetail?>(
           future: ref
@@ -38,23 +39,25 @@ final class IndicatorDetailScreen extends ConsumerWidget {
             }
             final detail = snapshot.data;
             if (detail == null) {
-              return const Center(child: Text('Life Indicator not found.'));
+              return const Center(child: Text('Life Goal not found.'));
             }
             final summary = detail.summary;
             return ListView(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
               children: <Widget>[
                 Text(
                   summary.label,
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w500,
+                    fontSize: 24,
+                    height: 30 / 24,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
                 Text(
                   '${period.start.iso8601} - ${period.end.iso8601}',
                   key: const Key('indicator-detail-period'),
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(height: 14),
                 _MetricRow(summary: summary),
                 const SizedBox(height: 14),
                 OutlinedButton.icon(
@@ -94,10 +97,12 @@ final class IndicatorDetailScreen extends ConsumerWidget {
                   icon: const Icon(Icons.add_task_outlined),
                   label: const Text('Schedule activity'),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 18),
                 Text(
                   'Contribution History',
-                  style: Theme.of(context).textTheme.titleLarge,
+                  style: InternalScreen.sectionHeading.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 if (detail.contributionHistory.isEmpty)

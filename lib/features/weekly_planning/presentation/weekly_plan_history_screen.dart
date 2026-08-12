@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rmplanner/app/router/route_names.dart';
+import 'package:rmplanner/app/theme/internal_screen.dart';
 import 'package:rmplanner/features/weekly_planning/application/weekly_planning_providers.dart';
 import 'package:rmplanner/features/weekly_planning/domain/weekly_plan.dart';
 
@@ -12,15 +13,24 @@ final class WeeklyPlanHistoryScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final history = ref.watch(weeklyPlanHistoryProvider);
     return Scaffold(
-      appBar: AppBar(
+      appBar: InternalAppBar(
         automaticallyImplyLeading: false,
         leading: IconButton(
           key: const Key('weekly-plan-history-back'),
           tooltip: 'Back to Planning',
-          onPressed: () => context.go(RoutePaths.weeklyPlanning),
+          // Pack 2 B5/B6: Back pops this pushed page so Planning (its logical
+          // parent) is revealed; a direct entry with no parent page falls
+          // back to the Planning route instead of exiting.
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go(RoutePaths.weeklyPlanning);
+            }
+          },
           icon: const Icon(Icons.arrow_back),
         ),
-        title: const Text('Prior Weeks'),
+        title: const Text('Plan History'),
       ),
       body: SafeArea(
         child: history.when(
@@ -30,7 +40,7 @@ final class WeeklyPlanHistoryScreen extends ConsumerWidget {
               ? const Center(child: Text('No Weekly Plans yet.'))
               : ListView.separated(
                   key: const Key('weekly-plan-history-list'),
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
                   itemCount: plans.length,
                   separatorBuilder: (context, index) =>
                       const SizedBox(height: 8),
@@ -44,9 +54,12 @@ final class WeeklyPlanHistoryScreen extends ConsumerWidget {
                         ),
                         subtitle: Text(_stateLabel(plan.storedState)),
                         trailing: const Icon(Icons.chevron_right),
-                        onTap: () => context.push(
-                          RoutePaths.weeklyPlanningFor(plan.period.start),
-                        ),
+                        // Pack 2 B5: selecting a prior week pops this page
+                        // and hands the chosen week to the Planning screen
+                        // beneath it as the push result.  The week becomes
+                        // local Planning state, so Back from Planning still
+                        // returns Home directly (no week-by-week unwinding).
+                        onTap: () => context.pop(plan.period.start),
                       ),
                     );
                   },

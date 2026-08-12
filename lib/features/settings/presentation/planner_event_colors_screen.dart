@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rmplanner/app/theme/internal_screen.dart';
 import 'package:rmplanner/features/planner/application/event_type_providers.dart';
 import 'package:rmplanner/features/planner/domain/event_color_preferences.dart';
 import 'package:rmplanner/features/planner/domain/event_type.dart';
+import 'package:rmplanner/features/planner/presentation/widgets/event_color_picker_components.dart';
+import 'package:rmplanner/features/planner/presentation/widgets/planner_event_block_layout_policy.dart';
 import 'package:rmplanner/features/planner/presentation/widgets/planner_event_color_preview.dart';
 import 'package:rmplanner/features/planner/presentation/widgets/planner_event_color_resolver.dart';
 import 'package:rmplanner/features/settings/presentation/event_color_picker_dialog.dart';
@@ -10,7 +13,7 @@ import 'package:rmplanner/features/settings/presentation/event_color_picker_dial
 const double _eventPreviewWidth = 183;
 const double _eventRowHeight = 44;
 const double _eventPreviewToControlsGap = 12;
-const double _eventControlsWidth = 150;
+const double _eventControlsWidth = 190;
 
 final class PlannerEventColorsScreen extends ConsumerStatefulWidget {
   const PlannerEventColorsScreen({super.key});
@@ -32,13 +35,13 @@ final class _PlannerEventColorsScreenState
     final controller = ref.read(eventTypeControllerProvider.notifier);
     final eventTypes = _orderedEventTypes(state.eventTypes);
     return Scaffold(
-      appBar: AppBar(title: const Text('Colors')),
+      appBar: InternalAppBar(title: const Text('Colors')),
       body: SafeArea(
         child: state.isLoading
             ? const Center(child: CircularProgressIndicator())
             : ListView(
                 key: const Key('planner-event-colors-list'),
-                padding: const EdgeInsets.fromLTRB(18, 18, 18, 32),
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
                 children: <Widget>[
                   if (state.message != null) ...<Widget>[
                     MaterialBanner(
@@ -50,13 +53,13 @@ final class _PlannerEventColorsScreenState
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 10),
                   ],
                   const _ColorsSectionHeader(
                     key: Key('planner-event-colors-events-section'),
                     label: 'Events',
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 10),
                   for (final type in eventTypes) ...<Widget>[
                     _EventColorRow(
                       key: Key('event-color-row-${type.stableKey}'),
@@ -76,11 +79,13 @@ final class _PlannerEventColorsScreenState
                         type,
                         EventColorRole.surface,
                       ),
+                      onRecommendedAccent: () =>
+                          _editRecommendedAccent(context, controller, type),
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 10),
                   ],
                   SizedBox(
-                    height: 56,
+                    height: 48,
                     child: OutlinedButton(
                       key: const Key('planner-event-colors-restore-defaults'),
                       onPressed: eventTypes.isEmpty
@@ -89,12 +94,12 @@ final class _PlannerEventColorsScreenState
                       child: const Text('Restore Event Defaults'),
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 18),
                   const _ColorsSectionHeader(
                     key: Key('planner-event-colors-groups-section'),
                     label: 'Contact Group Colors',
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 8),
                   for (final group in ContactGroupDefaults.ordered) ...<Widget>[
                     _GroupColorRow(
                       group: group,
@@ -108,9 +113,9 @@ final class _PlannerEventColorsScreenState
                     ),
                     const SizedBox(height: 2),
                   ],
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 8),
                   SizedBox(
-                    height: 56,
+                    height: 48,
                     child: OutlinedButton(
                       key: const Key('planner-group-colors-restore-defaults'),
                       onPressed: () =>
@@ -189,7 +194,11 @@ final class _PlannerEventColorsScreenState
           _liveEventColors[type.stableKey] = role == EventColorRole.accent
               ? EventColorPreference(
                   accentArgb: color.toARGB32(),
-                  surfaceArgb: current.surfaceArgb,
+                  surfaceArgb: PlannerEventBlockColorPolicy.resolvedSurfaceArgb(
+                    accentArgb: color.toARGB32(),
+                    currentAccentArgb: current.accentArgb,
+                    currentSurfaceArgb: current.surfaceArgb,
+                  ),
                 )
               : EventColorPreference(
                   accentArgb: current.accentArgb,
@@ -210,13 +219,51 @@ final class _PlannerEventColorsScreenState
     final updated = role == EventColorRole.accent
         ? EventColorPreference(
             accentArgb: chosen.toARGB32(),
-            surfaceArgb: current.surfaceArgb,
+            surfaceArgb: PlannerEventBlockColorPolicy.resolvedSurfaceArgb(
+              accentArgb: chosen.toARGB32(),
+              currentAccentArgb: current.accentArgb,
+              currentSurfaceArgb: current.surfaceArgb,
+            ),
           )
         : EventColorPreference(
             accentArgb: current.accentArgb,
             surfaceArgb: chosen.toARGB32(),
           );
     await controller.saveEventColor(type, updated);
+    if (mounted) {
+      setState(() {
+        _liveEventColors.remove(type.stableKey);
+      });
+    }
+  }
+
+  Future<void> _editRecommendedAccent(
+    BuildContext context,
+    EventTypeController controller,
+    EventType type,
+  ) async {
+    final state = ref.read(eventTypeControllerProvider);
+    final current = _preferenceFor(state, type);
+    final chosen = await showRecommendedEventColorsDialog(
+      context,
+      initialColor: Color(current.accentArgb),
+    );
+    if (!mounted || chosen == null) {
+      return;
+    }
+    await controller.saveEventColor(
+      type,
+      EventColorPreference(
+        accentArgb: chosen.toARGB32(),
+        // Recommended colors follow the same derivation as custom hex and
+        // Edit Event Type so the surface can never stay stale.
+        surfaceArgb: PlannerEventBlockColorPolicy.resolvedSurfaceArgb(
+          accentArgb: chosen.toARGB32(),
+          currentAccentArgb: current.accentArgb,
+          currentSurfaceArgb: current.surfaceArgb,
+        ),
+      ),
+    );
     if (mounted) {
       setState(() {
         _liveEventColors.remove(type.stableKey);
@@ -354,11 +401,12 @@ final class _ColorsSectionHeader extends StatelessWidget {
         Text(
           label,
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            fontSize: 18,
+            fontSize: 16,
+            height: 22 / 16,
             fontWeight: FontWeight.w600,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         const Divider(height: 1),
       ],
     );
@@ -371,6 +419,7 @@ final class _EventColorRow extends StatelessWidget {
     required this.preference,
     required this.onAccent,
     required this.onSurface,
+    required this.onRecommendedAccent,
     super.key,
   });
 
@@ -378,6 +427,7 @@ final class _EventColorRow extends StatelessWidget {
   final EventColorPreference preference;
   final VoidCallback onAccent;
   final VoidCallback onSurface;
+  final VoidCallback onRecommendedAccent;
 
   @override
   Widget build(BuildContext context) {
@@ -386,6 +436,7 @@ final class _EventColorRow extends StatelessWidget {
       preference: preference,
       onAccent: onAccent,
       onSurface: onSurface,
+      onRecommendedAccent: onRecommendedAccent,
     );
     return Semantics(
       container: true,
@@ -428,12 +479,14 @@ final class _EventColorControls extends StatelessWidget {
     required this.preference,
     required this.onAccent,
     required this.onSurface,
+    required this.onRecommendedAccent,
   });
 
   final EventType type;
   final EventColorPreference preference;
   final VoidCallback onAccent;
   final VoidCallback onSurface;
+  final VoidCallback onRecommendedAccent;
 
   @override
   Widget build(BuildContext context) {
@@ -457,6 +510,10 @@ final class _EventColorControls extends StatelessWidget {
             typeLabel: type.label,
             color: Color(preference.surfaceArgb),
             onPressed: onSurface,
+          ),
+          RecommendedEventColorsAction(
+            key: Key('event-color-recommended-${type.stableKey}'),
+            onPressed: onRecommendedAccent,
           ),
         ],
       ),

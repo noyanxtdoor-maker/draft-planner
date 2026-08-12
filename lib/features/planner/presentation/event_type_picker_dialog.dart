@@ -28,6 +28,8 @@ Future<EventTypePickerSelection?> showEventTypePicker({
   required WidgetRef ref,
   String? recommendedEventTypeId,
   String? recommendedIndicatorKey,
+  Set<String>? allowedStableKeys,
+  bool includeTask = true,
 }) async {
   final controller = ref.read(eventTypeControllerProvider.notifier);
   await controller.load();
@@ -52,7 +54,11 @@ Future<EventTypePickerSelection?> showEventTypePicker({
     ).showSnackBar(SnackBar(content: Text(state.message!)));
     return null;
   }
-  final types = _orderedPickerTypes(state.eventTypes, recommendedId);
+  final types = _orderedPickerTypes(
+    state.eventTypes,
+    recommendedId,
+    allowedStableKeys: allowedStableKeys,
+  );
   return showDialog<EventTypePickerSelection>(
     context: context,
     barrierDismissible: true,
@@ -63,6 +69,8 @@ Future<EventTypePickerSelection?> showEventTypePicker({
         builder: (context, constraints) {
           final media = MediaQuery.of(context);
           final topOffset = media.padding.top + kToolbarHeight + 13;
+          // Delta 4.2D restores the last known-good Next Transfer selector
+          // width. Filtering and selection semantics remain unchanged.
           final cardWidth = math.min(347.0, constraints.maxWidth - 32);
           final cardHeight = math.max(
             1.0,
@@ -79,6 +87,7 @@ Future<EventTypePickerSelection?> showEventTypePicker({
                   eventTypes: types,
                   recommendedEventTypeId: recommendedId,
                   eventColorsByTypeId: state.resolvedEventColorsByTypeId,
+                  includeTask: includeTask,
                 ),
               ),
             ),
@@ -191,6 +200,7 @@ List<EventType> _orderedPickerTypes(
   List<EventType> types,
   String? recommendedId, {
   bool targetOrder = true,
+  Set<String>? allowedStableKeys,
 }) {
   final mappedOrder = <String, int>{
     for (
@@ -200,32 +210,40 @@ List<EventType> _orderedPickerTypes(
     )
       SystemEventTypeKeys.approvedCreationOrder[index]: index,
   };
-  final ordered = types.where((type) => type.isCreationVisible).toList()
-    ..sort((left, right) {
-      if (targetOrder &&
-          left.id == recommendedId &&
-          right.id != recommendedId) {
-        return -1;
-      }
-      if (targetOrder &&
-          right.id == recommendedId &&
-          left.id != recommendedId) {
-        return 1;
-      }
-      final leftMapped = mappedOrder[left.stableKey];
-      final rightMapped = mappedOrder[right.stableKey];
-      if (leftMapped != null || rightMapped != null) {
-        if (leftMapped == null) {
-          return 1;
-        }
-        if (rightMapped == null) {
-          return -1;
-        }
-        return leftMapped.compareTo(rightMapped);
-      }
-      final position = left.position.compareTo(right.position);
-      return position == 0 ? left.label.compareTo(right.label) : position;
-    });
+  final ordered =
+      types
+          .where(
+            (type) =>
+                type.isCreationVisible &&
+                (allowedStableKeys == null ||
+                    allowedStableKeys.contains(type.stableKey)),
+          )
+          .toList()
+        ..sort((left, right) {
+          if (targetOrder &&
+              left.id == recommendedId &&
+              right.id != recommendedId) {
+            return -1;
+          }
+          if (targetOrder &&
+              right.id == recommendedId &&
+              left.id != recommendedId) {
+            return 1;
+          }
+          final leftMapped = mappedOrder[left.stableKey];
+          final rightMapped = mappedOrder[right.stableKey];
+          if (leftMapped != null || rightMapped != null) {
+            if (leftMapped == null) {
+              return 1;
+            }
+            if (rightMapped == null) {
+              return -1;
+            }
+            return leftMapped.compareTo(rightMapped);
+          }
+          final position = left.position.compareTo(right.position);
+          return position == 0 ? left.label.compareTo(right.label) : position;
+        });
   return ordered;
 }
 
@@ -234,11 +252,13 @@ final class _EventTypePickerSheet extends StatelessWidget {
     required this.eventTypes,
     required this.recommendedEventTypeId,
     required this.eventColorsByTypeId,
+    required this.includeTask,
   });
 
   final List<EventType> eventTypes;
   final String? recommendedEventTypeId;
   final Map<String, EventColorPreference> eventColorsByTypeId;
+  final bool includeTask;
 
   @override
   Widget build(BuildContext context) {
@@ -280,7 +300,7 @@ final class _EventTypePickerSheet extends StatelessWidget {
                       children: <Widget>[
                         for (final type in eventTypes)
                           _buildEventTypeRow(context, type),
-                        _buildTaskRow(context),
+                        if (includeTask) _buildTaskRow(context),
                       ],
                     ),
             ),

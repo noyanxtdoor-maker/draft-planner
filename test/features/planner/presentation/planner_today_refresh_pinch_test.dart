@@ -36,6 +36,7 @@ import 'package:rmplanner/features/planner/data/drift_event_type_repository.dart
 import 'package:rmplanner/features/planner/data/drift_outcome_reporting_repository.dart';
 import 'package:rmplanner/features/planner/data/drift_planner_repository.dart';
 import 'package:rmplanner/features/planner/data/drift_task_event_link_repository.dart';
+import 'package:rmplanner/features/planner/domain/calendar_event.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 import 'package:rmplanner/features/planner/domain/planner_view.dart'
     show PlannerZoomPolicy;
@@ -52,7 +53,8 @@ const PlannerDate _today = PlannerDate(year: 2026, month: 7, day: 31);
 const PlannerDate _yesterday = PlannerDate(year: 2026, month: 7, day: 30);
 const PlannerDate _tomorrow = PlannerDate(year: 2026, month: 8, day: 1);
 
-Future<(AppDatabase, DriftPlannerRepository)> _buildRepositories() async {
+Future<(AppDatabase, DriftPlannerRepository, DriftCalendarEventRepository)>
+_buildRepositories() async {
   final database = openMemoryDatabase();
   addTearDown(database.close);
   final timeZones = IanaCalendarEventTimeZones(
@@ -81,7 +83,7 @@ Future<(AppDatabase, DriftPlannerRepository)> _buildRepositories() async {
     taskContextSource: linkRepository,
     historicalEffectReader: outcomeReportingRepository,
   );
-  return (database, plannerRepository);
+  return (database, plannerRepository, calendarRepository);
 }
 
 List<Override> _plannerOverrides({
@@ -180,6 +182,14 @@ Future<void> _pumpPlanner({
   await tester.pumpAndSettle();
 
   // Now pump the real planner screen.
+  // Keep the injected Planner date source and the current-time source on the
+  // same civil date. A real device always has that invariant; without the
+  // fixed clock this historical-date fixture would correctly suppress the
+  // current-time indicator even when `today` is selected.
+  final currentTime = ValueNotifier<DateTime>(
+    DateTime(today.year, today.month, today.day, 9, 13),
+  );
+  addTearDown(currentTime.dispose);
   await tester.pumpWidget(
     ProviderScope(
       overrides: _plannerOverrides(
@@ -189,7 +199,9 @@ Future<void> _pumpPlanner({
         startupRepository: startup,
         today: today,
       ),
-      child: const MaterialApp(home: PlannerScreen()),
+      child: MaterialApp(
+        home: PlannerScreen(currentTimeListenable: currentTime),
+      ),
     ),
   );
   await tester.pumpAndSettle();
@@ -231,7 +243,7 @@ void main() {
     testWidgets(
       'TEST 1 — Today icon is pink/accent when selected date is today',
       (tester) async {
-        final (database, plannerRepository) = await _buildRepositories();
+        final (database, plannerRepository, _) = await _buildRepositories();
         await _pumpPlanner(
           tester: tester,
           database: database,
@@ -253,7 +265,7 @@ void main() {
     testWidgets(
       'TEST 2a — Today icon is white/on-surface when selected date is yesterday',
       (tester) async {
-        final (database, plannerRepository) = await _buildRepositories();
+        final (database, plannerRepository, _) = await _buildRepositories();
         await _pumpPlanner(
           tester: tester,
           database: database,
@@ -278,7 +290,7 @@ void main() {
     testWidgets(
       'TEST 2b — Today icon is white/on-surface when selected date is tomorrow',
       (tester) async {
-        final (database, plannerRepository) = await _buildRepositories();
+        final (database, plannerRepository, _) = await _buildRepositories();
         await _pumpPlanner(
           tester: tester,
           database: database,
@@ -297,7 +309,7 @@ void main() {
 
     testWidgets('TEST 3 — Tapping Go to today from yesterday returns to today '
         'and the icon becomes pink', (tester) async {
-      final (database, plannerRepository) = await _buildRepositories();
+      final (database, plannerRepository, _) = await _buildRepositories();
       await _pumpPlanner(
         tester: tester,
         database: database,
@@ -331,13 +343,155 @@ void main() {
         reason: 'planner controller must report today as selected',
       );
     });
+
+    testWidgets('R5-06: Today publishes the correct cached day and final '
+        'layout on the first data-bearing frame with no stale Event', (
+      tester,
+    ) async {
+      final (database, plannerRepository, calendarRepository) =
+          await _buildRepositories();
+      const todayEventId = '22222222-aaaa-4aaa-8aaa-aaaaaaaaaa01';
+      const farEventId = '22222222-aaaa-4aaa-8aaa-aaaaaaaaaa02';
+      final farAway = _today.addDays(7);
+      await _pumpPlanner(
+        tester: tester,
+        database: database,
+        plannerRepository: plannerRepository,
+        selected: _today,
+        today: _today,
+      );
+      final profileId =
+          (await database.select(database.localProfiles).getSingle()).id;
+      await calendarRepository.saveEvent(
+        profileId: profileId,
+        draft: const CalendarEventDraft(
+          id: todayEventId,
+          title: 'Today canonical Event',
+          timing: CalendarEventTiming.timed,
+          startDate: _today,
+          startMinute: 9 * 60,
+          endMinute: 10 * 60,
+          timeZoneId: _displayTimeZoneId,
+          requiresReport: false,
+        ),
+      );
+      await calendarRepository.saveEvent(
+        profileId: profileId,
+        draft: CalendarEventDraft(
+          id: farEventId,
+          title: 'Far stale Event',
+          timing: CalendarEventTiming.timed,
+          startDate: farAway,
+          startMinute: 11 * 60,
+          endMinute: 12 * 60,
+          timeZoneId: _displayTimeZoneId,
+          requiresReport: false,
+        ),
+      );
+
+      final plannerElement = tester.element(find.byType(PlannerScreen));
+      final plannerContainer = ProviderScope.containerOf(plannerElement);
+      final planner = plannerContainer.read(plannerControllerProvider.notifier);
+      // T0/T1: refresh Today through the canonical repository path so the
+      // controller's bounded day cache contains the authoritative Event.
+      await planner.refresh();
+      await tester.pumpAndSettle();
+      final todayOccurrence = (await calendarRepository.readDay(
+        profileId: profileId,
+        date: _today,
+      )).singleWhere((event) => event.eventId == todayEventId);
+      final farOccurrence = (await calendarRepository.readDay(
+        profileId: profileId,
+        date: farAway,
+      )).singleWhere((event) => event.eventId == farEventId);
+
+      // T2/T3: navigate away and prove the far schedule is authoritative.
+      await planner.selectDate(farAway);
+      await tester.pumpAndSettle();
+      expect(
+        _iconColor(tester, const Key('planner-calendar-button')),
+        isNot(AppTheme.rose),
+        reason: 'precondition: the icon is not pink away from today',
+      );
+      expect(
+        find.byKey(Key('planner-timed-event-${farOccurrence.id}')),
+        findsOneWidget,
+      );
+
+      // T4: user intent. T5 is the first rendered frame after the tap.
+      await tester.tap(find.byKey(const Key('planner-today-button')));
+      await tester.pump();
+      final state = plannerContainer.read(plannerControllerProvider);
+      expect(
+        state.selectedDate,
+        _today,
+        reason: 'the selected date must switch to today in the same frame',
+      );
+      expect(
+        state.day?.selectedDate,
+        _today,
+        reason:
+            'the first Today frame must carry Today data, not a placeholder',
+      );
+      final todayEvent = find.byKey(
+        Key('planner-timed-event-${todayOccurrence.id}'),
+      );
+      expect(
+        todayEvent,
+        findsOneWidget,
+        reason: 'the canonical Today Event must be present on the first frame',
+      );
+      expect(
+        find.byKey(Key('planner-timed-event-${farOccurrence.id}')),
+        findsNothing,
+        reason: 'the old far-date Event must never paint under Today',
+      );
+      final firstTodayRect = tester.getRect(todayEvent);
+      expect(find.text('Jul 31'), findsOneWidget);
+      expect(
+        find.byKey(const Key('planner-selected-date')),
+        findsOneWidget,
+        reason: 'the date strip must highlight Today on the first frame',
+      );
+      expect(
+        find.byKey(Key('planner-day-page-${farAway.iso8601}')),
+        findsNothing,
+        reason: 'the pager must not retain the old date page while loading',
+      );
+      expect(
+        find.byKey(const Key('planner-day-pager-viewport')),
+        findsOneWidget,
+        reason: 'data reconciliation must not replace the pager with a spinner',
+      );
+      expect(
+        find.byKey(const Key('planner-current-time-line')),
+        findsOneWidget,
+        reason: 'Today current-time ownership must activate immediately',
+      );
+
+      // T6: the canonical refresh may finish and unrelated frames may pump,
+      // but unchanged state/data must not mutate the first geometry.
+      for (var frame = 0; frame < 8; frame += 1) {
+        await tester.pump(const Duration(milliseconds: 16));
+        final laterRect = tester.getRect(todayEvent);
+        expect(laterRect.left, closeTo(firstTodayRect.left, 0.5));
+        expect(laterRect.width, closeTo(firstTodayRect.width, 0.5));
+      }
+      await tester.pumpAndSettle();
+      expect(
+        _iconColor(tester, const Key('planner-calendar-button')),
+        AppTheme.rose,
+        reason: 'the icon must be pink once today is fully loaded',
+      );
+      expect(tester.takeException(), isNull);
+    });
   });
 
   group('Stage B3-R1 Slice C: Planner has no pull-to-refresh', () {
     testWidgets(
       'TEST 4 — RefreshProgressIndicator is not present in the Day view',
       (tester) async {
-        final (database, plannerRepository) = await _buildRepositories();
+        final (database, plannerRepository, _) = await _buildRepositories();
         await _pumpPlanner(
           tester: tester,
           database: database,
@@ -356,7 +510,7 @@ void main() {
     testWidgets(
       'TEST 5 — Downward overscroll on the timeline does not trigger a refresh callback',
       (tester) async {
-        final (database, plannerRepository) = await _buildRepositories();
+        final (database, plannerRepository, _) = await _buildRepositories();
         await _pumpPlanner(
           tester: tester,
           database: database,
@@ -476,13 +630,12 @@ void main() {
       );
     });
 
-    test('TEST 8 — clamp honors the locked Stage B1 preset bounds', () {
-      expect(PlannerZoomPolicy.clamp(40), 44);
-      expect(PlannerZoomPolicy.clamp(43), 44);
-      expect(PlannerZoomPolicy.clamp(60), 60);
-      expect(PlannerZoomPolicy.clamp(88), 88);
-      expect(PlannerZoomPolicy.clamp(89), 88);
-      expect(PlannerZoomPolicy.clamp(130), 88);
+    test('TEST 8 — clampAbsolute honors the absolute safety range', () {
+      expect(PlannerZoomPolicy.clampAbsolute(10), 20);
+      expect(PlannerZoomPolicy.clampAbsolute(20), 20);
+      expect(PlannerZoomPolicy.clampAbsolute(60), 60);
+      expect(PlannerZoomPolicy.clampAbsolute(320), 320);
+      expect(PlannerZoomPolicy.clampAbsolute(400), 320);
     });
   });
 }

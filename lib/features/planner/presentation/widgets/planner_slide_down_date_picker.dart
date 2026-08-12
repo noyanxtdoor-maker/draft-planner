@@ -229,7 +229,6 @@ Future<DateTime?> showSharedPlannerDatePicker({
   DateTime? lastDate,
   String helpText = 'Select Planner date',
 }) {
-  final navigator = Navigator.of(context);
   return showGeneralDialog<DateTime?>(
     context: context,
     useRootNavigator: true,
@@ -243,8 +242,8 @@ Future<DateTime?> showSharedPlannerDatePicker({
           firstDate: firstDate ?? DateTime(1900),
           lastDate: lastDate ?? DateTime(2200, 12, 31),
           helpText: helpText,
-          onCancel: () => navigator.pop(),
-          onConfirm: (value) => navigator.pop(value),
+          onCancel: () => Navigator.of(dialogContext).pop(),
+          onConfirm: (value) => Navigator.of(dialogContext).pop(value),
         ),
       ],
     ),

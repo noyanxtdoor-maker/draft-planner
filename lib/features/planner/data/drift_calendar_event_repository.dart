@@ -4,6 +4,7 @@ import 'package:rmplanner/core/time/app_clock.dart';
 import 'package:rmplanner/features/planner/application/calendar_event_repository.dart';
 import 'package:rmplanner/features/planner/data/calendar_event_time_zones.dart';
 import 'package:rmplanner/features/planner/domain/calendar_event.dart';
+import 'package:rmplanner/features/planner/domain/event_type.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 import 'package:rmplanner/features/planner/domain/planner_day.dart';
 import 'package:uuid/uuid.dart';
@@ -109,7 +110,11 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
           exception: exception,
           reportById: reportById,
         );
-        if (occurrence != null) {
+        // Planner Polish Delta 2: an occurrence-scoped MOVE writes an
+        // exception whose effective date differs from its original date.
+        // Such an occurrence belongs only on its effective (new) day, so it
+        // must never leak onto the original date's collection.
+        if (occurrence != null && occurrence.displayDate == date) {
           items.add(_toPlannerItem(occurrence));
         }
       }
@@ -215,7 +220,15 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
         originalDate: originalDate,
         reports: reports,
       );
-      if (scope != CalendarEventEditScope.occurrence) {
+      final sourceRule = _ruleFromRow(row);
+      // Clearing Repeat is always a series-level mutation, even if the edit
+      // flow was entered through "This event only". An exception row has no
+      // recurrence columns and therefore cannot truthfully stop a series.
+      final resolvedScope =
+          sourceRule.isRecurring && !normalized.recurrence.isRecurring
+          ? CalendarEventEditScope.series
+          : scope;
+      if (resolvedScope != CalendarEventEditScope.occurrence) {
         await _preserveReports(
           profileId: profileId,
           row: row,
@@ -223,21 +236,53 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
           operationId: operationId,
         );
       }
-      switch (scope) {
+      switch (resolvedScope) {
         case CalendarEventEditScope.occurrence:
-          await _insertException(
-            profileId: profileId,
-            eventId: eventId,
-            originalDate: originalDate,
-            occurrenceId: current.id,
-            draft: normalized.copyWith(
-              id: eventId,
-              startDate: originalDate,
-              recurrence: const CalendarRecurrenceRule(),
-            ),
-            status: current.status,
-            operationId: operationId,
-          );
+          if (!_ruleFromRow(row).isRecurring) {
+            // Owner fix: editing a NON-recurring Event (the detail Edit
+            // screen and the timeline move/resize gestures all use
+            // occurrence scope for it) must write the master row, not an
+            // exception.  The exception table has no recurrence columns, so
+            // an edit that turns the Event into a repeating Event could
+            // never persist, and a Backup state set through edit landed only
+            // on the exception while the master stayed normal — a later
+            // move/resize drafts from the master row and silently reverted
+            // it.  A non-recurring Event has exactly one occurrence, so
+            // occurrence scope and series scope address the same record;
+            // the master row is the canonical owner of its date, schedule,
+            // recurrence, and Backup identity. This also lets an atomic
+            // cross-date timeline move retain the Event's stable identity.
+            await _writeEvent(
+              profileId: profileId,
+              eventId: eventId,
+              draft: normalized.copyWith(id: eventId),
+              existing: row,
+            );
+            // A scheduled field-override exception written by an earlier
+            // build no longer represents user intent now that the master row
+            // carries the full edited state, and it would otherwise keep
+            // masking the fresh master values.  Only scheduled
+            // (field-override) exceptions are removed; cancelled/rescheduled
+            // lifecycle rows stay untouched.
+            await _clearFieldOverrideExceptions(
+              eventId: eventId,
+              occurrenceId: current.id,
+            );
+          } else {
+            await _insertException(
+              profileId: profileId,
+              eventId: eventId,
+              originalDate: originalDate,
+              occurrenceId: current.id,
+              draft: normalized.copyWith(
+                id: eventId,
+                startDate: originalDate,
+                recurrence: const CalendarRecurrenceRule(),
+              ),
+              status: current.status,
+              operationId: operationId,
+            );
+          }
         case CalendarEventEditScope.thisAndFuture:
           if (originalDate == PlannerDate.parse(row.startDate)) {
             await _writeEvent(
@@ -271,13 +316,39 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
             draft: normalized.copyWith(id: eventId),
             existing: row,
           );
+          if (sourceRule.isRecurring && !normalized.recurrence.isRecurring) {
+            await _removeUnreportedExceptions(
+              eventId: eventId,
+              reports: reports,
+            );
+          } else if (sourceRule.isRecurring &&
+              row.startMinute != null &&
+              normalized.startMinute != null) {
+            // Delta 4.1 recurrence rebase: an "All events" move is a pure
+            // translation of the whole series.  The master row above already
+            // moved by the movement delta; every surviving time-based
+            // occurrence override belonging to this series must move by the
+            // SAME delta so each exception keeps its relative offset instead
+            // of being left behind at its old absolute override time.  Only
+            // scheduled (field-override) timed exceptions carrying persisted
+            // times are rebased — cancelled/rescheduled lifecycle rows
+            // (excluded or detached occurrences) and overrides with no time
+            // component are never shifted.
+            final deltaMinutes = normalized.startMinute! - row.startMinute!;
+            if (deltaMinutes != 0) {
+              await _rebaseSeriesTimeOverrides(
+                eventId: eventId,
+                deltaMinutes: deltaMinutes,
+              );
+            }
+          }
       }
       await _insertOperation(
         operationId: operationId,
         profileId: profileId,
         eventId: eventId,
         occurrenceId: current.id,
-        command: 'edit:${scope.name}',
+        command: 'edit:${resolvedScope.name}',
       );
       await writeGuard.beforeCommit();
       return CalendarEventMutationOutcome.changed;
@@ -385,6 +456,42 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
         originalDate: originalDate,
         reports: reports,
       );
+      // Planner Polish Delta 2: moving a repeating occurrence with "This
+      // event only" must keep it attached to the original series as an
+      // occurrence override — never as an unrelated standalone Event.  When
+      // the source series is recurring, an occurrence-scoped reschedule
+      // writes an exception row under the SAME series event id carrying the
+      // new effective date and times, so the occurrence keeps its series
+      // lineage, its deterministic occurrence id, and its repeat icon;
+      // future and past occurrences are untouched and no replacement Event
+      // row is created.  Non-recurring Events keep the replacement contract
+      // (there is no series identity to preserve for a single Event).
+      final sourceRule = _ruleFromRow(row);
+      if (scope == CalendarEventEditScope.occurrence &&
+          sourceRule.isRecurring) {
+        await _insertException(
+          profileId: profileId,
+          eventId: eventId,
+          originalDate: originalDate,
+          occurrenceId: current.id,
+          draft: normalized.copyWith(
+            id: eventId,
+            startDate: normalized.startDate,
+            recurrence: const CalendarRecurrenceRule(),
+          ),
+          status: current.status,
+          operationId: operationId,
+        );
+        await _insertOperation(
+          operationId: operationId,
+          profileId: profileId,
+          eventId: eventId,
+          occurrenceId: current.id,
+          command: 'reschedule:occurrence',
+        );
+        await writeGuard.beforeCommit();
+        return CalendarEventMutationOutcome.changed;
+      }
       if (scope != CalendarEventEditScope.occurrence) {
         await _preserveReports(
           profileId: profileId,
@@ -493,8 +600,12 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
           startMinute: timed && current.startUtc != null
               ? _originMinute(current.startUtc!, current.timeZoneId!)
               : null,
-          endMinute: timed && current.endUtc != null
-              ? _originMinute(current.endUtc!, current.timeZoneId!)
+          endMinute: timed && current.startUtc != null && current.endUtc != null
+              ? _originEndMinute(
+                  current.startUtc!,
+                  current.endUtc!,
+                  current.timeZoneId!,
+                )
               : null,
           timeZoneId: current.timeZoneId,
           locationText: current.locationText,
@@ -584,6 +695,18 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
       draft: draft,
       existing: existing,
     );
+    // Life Goal invariant (domain rule): a linked Event is always Report
+    // Required.  Normalize here so direct repository callers can never
+    // persist goalId != null with requiresReport == false.  Planner Polish
+    // Delta 2 adds the Contact Event rule: the Contact Event Type always
+    // requires a report, independent of Life Goal linkage.  The resolved
+    // activity-type snapshot is the canonical stable-key source (a draft may
+    // carry only an activityTypeId).
+    final effectiveRequiresReport =
+        draft.goalId != null ||
+            activityTypeSnapshot?.stableKey == SystemEventTypeKeys.contact
+        ? true
+        : draft.requiresReport;
     final now = clock.nowUtc();
     final values = CalendarEventsCompanion(
       title: Value<String>(draft.title),
@@ -594,7 +717,7 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
       endMinute: Value<int?>(draft.endMinute),
       timeZoneId: Value<String?>(draft.timeZoneId),
       locationText: Value<String?>(draft.locationText),
-      requiresReport: Value<bool>(draft.requiresReport),
+      requiresReport: Value<bool>(effectiveRequiresReport),
       activityTypeId: Value<String?>(draft.activityTypeId),
       activityTypeMappingVersion: Value<int?>(draft.activityTypeMappingVersion),
       activityTypeStableKeySnapshot: Value<String?>(
@@ -605,6 +728,7 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
         activityTypeSnapshot?.colorValue,
       ),
       contributionRuleKey: Value<String?>(draft.contributionRuleKey),
+      goalId: Value<String?>(draft.goalId),
       isBackupAppointment: Value<bool>(draft.isBackupAppointment),
       backupForEventId: Value<String?>(draft.backupForEventId),
       backupRelationshipProvenance: Value<String?>(
@@ -614,6 +738,9 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
       recurrenceEndMode: Value<String>(draft.recurrence.endMode.name),
       recurrenceEndDate: Value<String?>(draft.recurrence.endDate?.iso8601),
       recurrenceCount: Value<int?>(draft.recurrence.occurrenceCount),
+      recurrencePatternJson: Value<String?>(
+        calendarRecurrencePatternToJson(draft.recurrence.pattern),
+      ),
       status: Value<String>(draft.status.name),
       parentEventId: Value<String?>(parentEventId ?? existing?.parentEventId),
       replacementEventId: const Value<String?>(null),
@@ -634,7 +761,7 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
               endMinute: Value<int?>(draft.endMinute),
               timeZoneId: Value<String?>(draft.timeZoneId),
               locationText: Value<String?>(draft.locationText),
-              requiresReport: Value<bool>(draft.requiresReport),
+              requiresReport: Value<bool>(effectiveRequiresReport),
               activityTypeId: Value<String?>(draft.activityTypeId),
               activityTypeMappingVersion: Value<int?>(
                 draft.activityTypeMappingVersion,
@@ -649,6 +776,7 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
                 activityTypeSnapshot?.colorValue,
               ),
               contributionRuleKey: Value<String?>(draft.contributionRuleKey),
+              goalId: Value<String?>(draft.goalId),
               isBackupAppointment: Value<bool>(draft.isBackupAppointment),
               backupForEventId: Value<String?>(draft.backupForEventId),
               backupRelationshipProvenance: Value<String?>(
@@ -662,6 +790,9 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
                 draft.recurrence.endDate?.iso8601,
               ),
               recurrenceCount: Value<int?>(draft.recurrence.occurrenceCount),
+              recurrencePatternJson: Value<String?>(
+                calendarRecurrencePatternToJson(draft.recurrence.pattern),
+              ),
               status: Value<String>(draft.status.name),
               parentEventId: Value<String?>(parentEventId),
               createdAtUtc: now,
@@ -694,6 +825,7 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
       activityTypeLabelSnapshot: row.activityTypeLabelSnapshot,
       activityTypeColorValueSnapshot: row.activityTypeColorValueSnapshot,
       contributionRuleKey: row.contributionRuleKey,
+      goalId: row.goalId,
       isBackupAppointment: row.isBackupAppointment,
       backupForEventId: row.backupForEventId,
       backupRelationshipProvenance: row.backupRelationshipProvenance,
@@ -702,15 +834,12 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
   }
 
   CalendarRecurrenceRule _ruleFromRow(CalendarEventRow row) {
-    return CalendarRecurrenceRule(
-      frequency: CalendarRecurrenceFrequency.values.byName(
-        row.recurrenceFrequency,
-      ),
-      endMode: CalendarRecurrenceEndMode.values.byName(row.recurrenceEndMode),
-      endDate: row.recurrenceEndDate == null
-          ? null
-          : PlannerDate.parse(row.recurrenceEndDate!),
+    return calendarRecurrenceRuleFromStorage(
+      frequencyName: row.recurrenceFrequency,
+      endModeName: row.recurrenceEndMode,
+      endDateIso: row.recurrenceEndDate,
       occurrenceCount: row.recurrenceCount,
+      patternJson: row.recurrencePatternJson,
     );
   }
 
@@ -1005,9 +1134,13 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
         startMinute: occurrence.startUtc == null
             ? null
             : _originMinute(occurrence.startUtc!, occurrence.timeZoneId!),
-        endMinute: occurrence.endUtc == null
+        endMinute: occurrence.startUtc == null || occurrence.endUtc == null
             ? null
-            : _originMinute(occurrence.endUtc!, occurrence.timeZoneId!),
+            : _originEndMinute(
+                occurrence.startUtc!,
+                occurrence.endUtc!,
+                occurrence.timeZoneId!,
+              ),
         timeZoneId: occurrence.timeZoneId,
         locationText: occurrence.locationText,
         requiresReport: occurrence.requiresReport,
@@ -1043,6 +1176,15 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
       draft: draft,
       existing: existing,
     );
+    // Life Goal invariant (domain rule): a linked Event is always Report
+    // Required.  Normalize here so occurrence persistence can never write
+    // goalId != null with requiresReport == false.  Planner Polish Delta 2:
+    // the Contact Event Type always requires a report even without a Goal.
+    final effectiveRequiresReport =
+        draft.goalId != null ||
+            activityTypeSnapshot?.stableKey == SystemEventTypeKeys.contact
+        ? true
+        : draft.requiresReport;
     await database
         .into(database.calendarEventExceptions)
         .insert(
@@ -1063,7 +1205,7 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
             endMinute: Value<int?>(draft.endMinute),
             timeZoneId: Value<String?>(draft.timeZoneId),
             locationText: Value<String?>(draft.locationText),
-            requiresReport: Value<bool>(draft.requiresReport),
+            requiresReport: Value<bool>(effectiveRequiresReport),
             activityTypeId: Value<String?>(draft.activityTypeId),
             activityTypeMappingVersion: Value<int?>(
               draft.activityTypeMappingVersion,
@@ -1078,6 +1220,7 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
               activityTypeSnapshot?.colorValue,
             ),
             contributionRuleKey: Value<String?>(draft.contributionRuleKey),
+            goalId: Value<String?>(draft.goalId),
             isBackupAppointment: Value<bool>(draft.isBackupAppointment),
             backupForEventId: Value<String?>(draft.backupForEventId),
             backupRelationshipProvenance: Value<String?>(
@@ -1153,6 +1296,89 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
         );
   }
 
+  /// Removes scheduled (field-override) exceptions for one occurrence.  Used
+  /// when a NON-recurring Event edit rewrites the master row: the master now
+  /// owns the full edited state, so a stale override (for example old times
+  /// from a pre-fix build) must not keep masking the master values.  Lifecycle
+  /// exceptions (cancelled / rescheduled) are intentionally preserved.
+  Future<void> _clearFieldOverrideExceptions({
+    required String eventId,
+    required String occurrenceId,
+  }) async {
+    await (database.delete(database.calendarEventExceptions)..where(
+          (table) =>
+              table.eventId.equals(eventId) &
+              table.occurrenceId.equals(occurrenceId) &
+              table.status.equals(CalendarEventStatus.scheduled.name),
+        ))
+        .go();
+  }
+
+  /// Once a series becomes a single non-repeating Event, only exceptions
+  /// that preserve submitted historical occurrence truth may remain. Future
+  /// or otherwise unreported overrides would continue to project phantom
+  /// occurrences because exception identity intentionally bypasses rule
+  /// expansion.
+  Future<void> _removeUnreportedExceptions({
+    required String eventId,
+    required List<CalendarEventReportSnapshot> reports,
+  }) async {
+    final reportedOccurrenceIds = reports
+        .map((report) => report.occurrenceId)
+        .toSet();
+    final deletion = database.delete(database.calendarEventExceptions)
+      ..where((table) {
+        final eventMatches = table.eventId.equals(eventId);
+        if (reportedOccurrenceIds.isEmpty) {
+          return eventMatches;
+        }
+        return eventMatches & table.occurrenceId.isNotIn(reportedOccurrenceIds);
+      });
+    await deletion.go();
+  }
+
+  /// Delta 4.1 recurrence rebase: translates every surviving time-based
+  /// occurrence override of a series by [deltaMinutes] while preserving each
+  /// override's duration and its relative offset from the series baseline.
+  ///
+  /// Only `scheduled` (field-override) exceptions with `timed` timing and
+  /// persisted start/end minutes are rebased.  Lifecycle rows (cancelled
+  /// exclusions, rescheduled/detached occurrences) stay untouched, and
+  /// overrides belonging to other series are never selected (the query is
+  /// scoped by this series' event id).  The new start is clamped inside the
+  /// civil day with the full duration preserved, so an extreme delta cannot
+  /// produce an invalid end-before-start or an over-24h span.
+  Future<void> _rebaseSeriesTimeOverrides({
+    required String eventId,
+    required int deltaMinutes,
+  }) async {
+    final exceptions = await (database.select(
+      database.calendarEventExceptions,
+    )..where((table) => table.eventId.equals(eventId))).get();
+    for (final exception in exceptions) {
+      if (exception.timing != CalendarEventTiming.timed.name ||
+          exception.status != CalendarEventStatus.scheduled.name) {
+        continue;
+      }
+      final start = exception.startMinute;
+      final end = exception.endMinute;
+      if (start == null || end == null) {
+        continue;
+      }
+      final duration = end - start;
+      final nextStart = (start + deltaMinutes).clamp(0, 1440 - duration);
+      final nextEnd = nextStart + duration;
+      await (database.update(
+        database.calendarEventExceptions,
+      )..where((table) => table.id.equals(exception.id))).write(
+        CalendarEventExceptionsCompanion(
+          startMinute: Value<int>(nextStart),
+          endMinute: Value<int>(nextEnd),
+        ),
+      );
+    }
+  }
+
   Future<void> _truncateBefore(
     CalendarEventRow row,
     PlannerDate originalDate,
@@ -1202,6 +1428,7 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
         frequency: rule.frequency,
         endMode: CalendarRecurrenceEndMode.afterCount,
         occurrenceCount: sourceRule.occurrenceCount! - index,
+        pattern: rule.pattern,
       );
     }
     return replacement.copyWith(startDate: targetDate, recurrence: rule);
@@ -1211,11 +1438,38 @@ final class DriftCalendarEventRepository implements CalendarEventRepository {
     return left.frequency == right.frequency &&
         left.endMode == right.endMode &&
         left.endDate == right.endDate &&
-        left.occurrenceCount == right.occurrenceCount;
+        left.occurrenceCount == right.occurrenceCount &&
+        left.pattern == right.pattern;
   }
 
   int _originMinute(DateTime instant, String timeZoneId) {
     final wall = timeZones.utcToWall(value: instant, timeZoneId: timeZoneId);
     return wall.hour * 60 + wall.minute;
+  }
+
+  /// Normalized origin-zone END minute (1..1440) for a timed Event.
+  ///
+  /// A 24:00 local end normalizes to 00:00 of the next civil day; without
+  /// the normalization the snapshot/duplicate path would persist `endMinute
+  /// == 0`, which is before any start and would be rejected by validation —
+  /// the final-hour 11 PM-12 AM edit/move failure.  A valid timed Event
+  /// always ends after it starts, so an end wall-clock of exactly 00:00 with
+  /// positive duration can only be the final 24:00 boundary (including a
+  /// full-day Event from 00:00 to 24:00); a zero-duration end at 00:00 is
+  /// invalid and stays minute 0.
+  int _originEndMinute(
+    DateTime startInstant,
+    DateTime endInstant,
+    String timeZoneId,
+  ) {
+    final endWall = timeZones.utcToWall(
+      value: endInstant,
+      timeZoneId: timeZoneId,
+    );
+    final endMinute = endWall.hour * 60 + endWall.minute;
+    if (endMinute == 0 && endInstant.isAfter(startInstant)) {
+      return 1440;
+    }
+    return endMinute;
   }
 }

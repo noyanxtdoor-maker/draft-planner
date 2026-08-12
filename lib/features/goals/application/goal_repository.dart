@@ -2,7 +2,7 @@ import 'package:rmplanner/features/goals/domain/goal.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 
 abstract interface class GoalRepository {
-  Stream<void> watchChanges(String profileId);
+  Stream<int> watchChanges(String profileId);
 
   Future<void> ensureCanonicalGoals(String profileId);
 
@@ -12,6 +12,15 @@ abstract interface class GoalRepository {
 
   Future<GoalCapacity> readCapacity(String profileId);
 
+  /// The exact next available canonical slot for [role], or null when the
+  /// role is full.  This is the single slot-allocation function shared by
+  /// Create Goal preview, validation, and Save so a previewed assignment can
+  /// never diverge from the slot that Save will occupy.
+  Future<int?> nextAvailableSlot({
+    required String profileId,
+    required GoalRole role,
+  });
+
   Future<Goal> createGoal({
     required String profileId,
     required GoalRole role,
@@ -20,6 +29,7 @@ abstract interface class GoalRepository {
     String? indicatorKey,
     String? iconId,
     String? operationId,
+    int? expectedSlotIndex,
   });
 
   Future<Goal> saveGoal({
@@ -44,12 +54,26 @@ abstract interface class GoalRepository {
     String? operationId,
   });
 
+  /// Permanently deletes a Goal from the user-facing active and archived
+  /// experiences.  The row is tombstoned (status `deleted`) so historical
+  /// Event, outcome, ledger, contribution, and activity records keep their
+  /// original Goal identity.  The operation is idempotent by [operationId]
+  /// and the freed slot can be reused by a replacement Goal.
+  Future<void> deleteGoal({
+    required String profileId,
+    required String goalId,
+    String? operationId,
+  });
+
   Future<List<Goal>> readArchivedGoals({
     required String profileId,
     String? query,
   });
 
-  Future<List<GoalActivityHistoryItem>> readActivityHistory(String profileId);
+  Future<List<GoalActivityHistoryItem>> readActivityHistory(
+    String profileId, {
+    String? goalId,
+  });
 
   /// Exports only canonical Goal lifecycle data.  The map is JSON-compatible
   /// so the existing backup/sync layer can carry it without a second model.

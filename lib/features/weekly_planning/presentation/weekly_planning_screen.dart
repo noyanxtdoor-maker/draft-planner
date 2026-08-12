@@ -31,18 +31,33 @@ final class _WeeklyPlanningScreenState
     extends ConsumerState<WeeklyPlanningScreen> {
   late bool _managementMode = widget.initialManagementMode;
 
+  /// Pack 2 B5: the browsed week is local screen state only.  Week arrows
+  /// never push or replace routes, so a single Back returns Home and no
+  /// week-by-week history stack is ever created.  Null means "the route's
+  /// periodStart (or the current week) has not been overridden yet".
+  PlannerDate? _selectedWeek;
+
   void _setManagementMode(bool value) {
     if (mounted && _managementMode != value) {
       setState(() => _managementMode = value);
     }
   }
 
+  void _selectWeek(PlannerDate start) {
+    _setManagementMode(false);
+    if (mounted) {
+      setState(() => _selectedWeek = _mondayOf(start));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final periodStart = widget.periodStart;
-    final resolvedStart = periodStart == null
-        ? ref.watch(weeklyPlanningTodayProvider).asData?.value
-        : _mondayOf(periodStart);
+    final selected = _selectedWeek;
+    final resolvedStart =
+        selected ??
+        (widget.periodStart != null
+            ? _mondayOf(widget.periodStart!)
+            : ref.watch(weeklyPlanningTodayProvider).asData?.value);
     if (resolvedStart == null) {
       return Scaffold(
         appBar: _appBar(context),
@@ -63,6 +78,7 @@ final class _WeeklyPlanningScreenState
             plan: value,
             managementMode: _managementMode,
             onManagementModeChanged: _setManagementMode,
+            onWeekSelected: _selectWeek,
           ),
         ),
       ),
@@ -75,7 +91,16 @@ final class _WeeklyPlanningScreenState
       leading: IconButton(
         key: const Key('weekly-plan-back-home'),
         tooltip: 'Back to Home',
-        onPressed: () => context.go(RoutePaths.home),
+        // Pack 2 B6: toolbar Back agrees with Android Back.  When Planning
+        // was pushed on Home, popping reveals Home; a direct entry with no
+        // parent page falls back to the Home root instead of exiting.
+        onPressed: () {
+          if (context.canPop()) {
+            context.pop();
+          } else {
+            context.go(RoutePaths.home);
+          }
+        },
         icon: const Icon(Icons.arrow_back),
       ),
       title: const Text('Weekly Planning'),
@@ -88,12 +113,20 @@ final class _WeeklyPlanningScreenState
             icon: const Icon(Icons.archive_outlined),
           ),
         if (!_managementMode)
-          // Kept as a separate, read-only prior-plan entry point for the
-          // already-approved Planner history behavior.
+          // Pack 2 B5: Push keeps Planning beneath this page so Back returns
+          // to Planning.  The history page pops itself with the chosen week,
+          // which lands here as the push result so the week stays local state.
           IconButton(
             key: const Key('weekly-plan-history-button'),
-            tooltip: 'Prior weeks',
-            onPressed: () => context.go(RoutePaths.weeklyPlanningHistory),
+            tooltip: 'Plan History',
+            onPressed: () async {
+              final selected = await context.push<PlannerDate>(
+                RoutePaths.weeklyPlanningHistory,
+              );
+              if (selected != null && mounted) {
+                _selectWeek(selected);
+              }
+            },
             icon: const Icon(Icons.history),
           ),
       ],
@@ -106,11 +139,13 @@ final class _GoalPlanBody extends ConsumerStatefulWidget {
     required this.plan,
     required this.managementMode,
     required this.onManagementModeChanged,
+    required this.onWeekSelected,
   });
 
   final GoalPlanningSnapshot plan;
   final bool managementMode;
   final ValueChanged<bool> onManagementModeChanged;
+  final ValueChanged<PlannerDate> onWeekSelected;
 
   @override
   ConsumerState<_GoalPlanBody> createState() => _GoalPlanBodyState();
@@ -166,40 +201,53 @@ final class _GoalPlanBodyState extends ConsumerState<_GoalPlanBody>
               canGoForward:
                   plan.periodStart.compareTo(_mondayOf(_today(ref))) < 0,
               onPrevious: () =>
-                  _openWeek(context, plan.periodStart.addDays(-7)),
+                  widget.onWeekSelected(plan.periodStart.addDays(-7)),
               onNext: plan.periodStart.compareTo(_mondayOf(_today(ref))) < 0
-                  ? () => _openWeek(context, plan.periodStart.addDays(7))
+                  ? () => widget.onWeekSelected(plan.periodStart.addDays(7))
                   : null,
             ),
             const SizedBox(height: 8),
-            OutlinedButton.icon(
-              key: widget.managementMode
-                  ? const Key('weekly-plan-cancel-management')
-                  : const Key('weekly-plan-create-goal'),
-              onPressed: widget.managementMode
-                  ? _exitManagementMode
-                  : () => unawaited(_createGoal(context, capacity)),
-              icon: Icon(
-                widget.managementMode ? Icons.close : Icons.add,
-                size: 20,
-              ),
-              label: Text(widget.managementMode ? 'Cancel' : 'Create Goal'),
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size.fromHeight(48),
-                foregroundColor: widget.managementMode
-                    ? Colors.white70
-                    : AppTheme.rose,
-                side: BorderSide(
-                  color: widget.managementMode
-                      ? AppTheme.outline
-                      : AppTheme.rose,
+            if (widget.managementMode)
+              OutlinedButton.icon(
+                key: const Key('weekly-plan-cancel-management'),
+                onPressed: _exitManagementMode,
+                icon: const Icon(Icons.close, size: 20),
+                label: const Text('Cancel'),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(48),
+                  foregroundColor: Colors.white70,
+                  side: const BorderSide(color: AppTheme.outline),
+                  textStyle: AppTypography.button,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(9),
+                  ),
                 ),
-                textStyle: AppTypography.button,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(9),
-                ),
+              )
+            else
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: _ScaledGoalActionButton(
+                      key: const Key('weekly-plan-create-goal'),
+                      icon: Icons.add,
+                      label: 'Create Goal',
+                      onPressed: () =>
+                          unawaited(_createGoal(context, capacity)),
+                      foreground: AppTheme.rose,
+                      border: AppTheme.rose,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _ScaledGoalActionButton(
+                      key: const Key('weekly-plan-manage-goals'),
+                      icon: Icons.tune_outlined,
+                      label: 'Manage Goals',
+                      onPressed: _enterManagementMode,
+                    ),
+                  ),
+                ],
               ),
-            ),
             const SizedBox(height: 24),
             _GoalSection(
               title: 'Daily Progress Goal',
@@ -210,7 +258,6 @@ final class _GoalPlanBodyState extends ConsumerState<_GoalPlanBody>
                   ? const <GoalProgress>[]
                   : <GoalProgress>[plan.daily!],
               managementMode: widget.managementMode,
-              onArchiveSuccess: _exitManagementMode,
             ),
             const SizedBox(height: 24),
             _GoalSection(
@@ -219,7 +266,6 @@ final class _GoalPlanBodyState extends ConsumerState<_GoalPlanBody>
               emptyText: 'No active Weekly Goals',
               goals: plan.weekly,
               managementMode: widget.managementMode,
-              onArchiveSuccess: _exitManagementMode,
             ),
             Padding(
               padding: const EdgeInsets.only(top: 8),
@@ -238,7 +284,6 @@ final class _GoalPlanBodyState extends ConsumerState<_GoalPlanBody>
                   ? const <GoalProgress>[]
                   : <GoalProgress>[plan.monthly!],
               managementMode: widget.managementMode,
-              onArchiveSuccess: _exitManagementMode,
             ),
           ],
         ),
@@ -291,6 +336,10 @@ final class _GoalPlanBodyState extends ConsumerState<_GoalPlanBody>
     }
   }
 
+  void _enterManagementMode() {
+    widget.onManagementModeChanged(true);
+  }
+
   void _exitManagementMode() {
     widget.onManagementModeChanged(false);
   }
@@ -299,10 +348,51 @@ final class _GoalPlanBodyState extends ConsumerState<_GoalPlanBody>
     return ref.watch(weeklyPlanningTodayProvider).asData?.value ??
         PlannerDate.fromDateTime(DateTime.now());
   }
+}
 
-  void _openWeek(BuildContext context, PlannerDate start) {
-    _exitManagementMode();
-    context.go(RoutePaths.weeklyPlanningFor(_mondayOf(start)));
+/// An OutlinedButton whose icon + label row is wrapped in a FittedBox so the
+/// label can never overflow its half-width slot at large text scales.  The
+/// 48 dp minimum height is preserved by the button style itself.
+final class _ScaledGoalActionButton extends StatelessWidget {
+  const _ScaledGoalActionButton({
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+    this.foreground = Colors.white70,
+    this.border = AppTheme.outline,
+    super.key,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onPressed;
+  final Color foreground;
+  final Color border;
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton(
+      onPressed: onPressed,
+      style: OutlinedButton.styleFrom(
+        minimumSize: const Size.fromHeight(48),
+        foregroundColor: foreground,
+        side: BorderSide(color: border),
+        textStyle: AppTypography.button,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+      ),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Icon(icon, size: 20),
+            const SizedBox(width: 8),
+            Text(label),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -313,7 +403,6 @@ final class _GoalSection extends StatelessWidget {
     required this.emptyText,
     required this.goals,
     required this.managementMode,
-    required this.onArchiveSuccess,
   });
 
   final String title;
@@ -321,7 +410,6 @@ final class _GoalSection extends StatelessWidget {
   final String emptyText;
   final List<GoalProgress> goals;
   final bool managementMode;
-  final VoidCallback onArchiveSuccess;
 
   @override
   Widget build(BuildContext context) {
@@ -340,26 +428,17 @@ final class _GoalSection extends StatelessWidget {
           )
         else
           for (final progress in goals)
-            _GoalRow(
-              progress: progress,
-              managementMode: managementMode,
-              onArchiveSuccess: onArchiveSuccess,
-            ),
+            _GoalRow(progress: progress, managementMode: managementMode),
       ],
     );
   }
 }
 
 final class _GoalRow extends ConsumerWidget {
-  const _GoalRow({
-    required this.progress,
-    required this.managementMode,
-    required this.onArchiveSuccess,
-  });
+  const _GoalRow({required this.progress, required this.managementMode});
 
   final GoalProgress progress;
   final bool managementMode;
-  final VoidCallback onArchiveSuccess;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -376,7 +455,7 @@ final class _GoalRow extends ConsumerWidget {
     };
     final row = InkWell(
       key: Key('weekly-plan-goal-${goal.id}'),
-      onTap: () => context.push(RoutePaths.goalEdit(goal.id)),
+      onTap: () => context.push(RoutePaths.goalEdit(goal.id), extra: goal),
       child: Container(
         constraints: const BoxConstraints(minHeight: 80),
         decoration: const BoxDecoration(
@@ -409,21 +488,15 @@ final class _GoalRow extends ConsumerWidget {
                 ],
               ),
             ),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                if (managementMode)
+            if (managementMode)
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
                   IconButton(
                     key: Key('weekly-plan-goal-direct-archive-${goal.id}'),
                     tooltip: 'Archive goal',
                     onPressed: () {
-                      unawaited(
-                        _confirmArchive(context, ref, goal).then((archived) {
-                          if (archived) {
-                            onArchiveSuccess();
-                          }
-                        }),
-                      );
+                      unawaited(_confirmArchive(context, ref, goal));
                     },
                     constraints: const BoxConstraints.tightFor(
                       width: 48,
@@ -432,33 +505,68 @@ final class _GoalRow extends ConsumerWidget {
                     padding: EdgeInsets.zero,
                     icon: const Icon(Icons.archive_outlined, size: 24),
                   ),
-                PopupMenuButton<String>(
-                  key: Key('weekly-plan-goal-menu-${goal.id}'),
-                  tooltip: 'Goal actions',
-                  onSelected: (value) {
-                    if (value == 'edit') {
-                      unawaited(context.push(RoutePaths.goalEdit(goal.id)));
-                    } else {
-                      unawaited(
-                        _confirmArchive(context, ref, goal).then((archived) {
-                          if (archived && managementMode) {
-                            onArchiveSuccess();
-                          }
-                        }),
-                      );
-                    }
-                  },
-                  itemBuilder: (context) => const <PopupMenuEntry<String>>[
-                    PopupMenuItem(value: 'edit', child: Text('Edit Goal')),
-                    PopupMenuItem(
-                      value: 'archive',
-                      child: Text('Archive Goal'),
+                  IconButton(
+                    key: Key('weekly-plan-goal-direct-delete-${goal.id}'),
+                    tooltip: 'Delete goal permanently',
+                    onPressed: () {
+                      unawaited(_confirmDelete(context, ref, goal));
+                    },
+                    constraints: const BoxConstraints.tightFor(
+                      width: 48,
+                      height: 48,
                     ),
-                  ],
-                  icon: const Icon(Icons.more_vert, size: 24),
-                ),
-              ],
-            ),
+                    padding: EdgeInsets.zero,
+                    icon: Icon(
+                      Icons.delete_outline,
+                      size: 24,
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+                ],
+              )
+            else
+              PopupMenuButton<String>(
+                key: Key('weekly-plan-goal-menu-${goal.id}'),
+                tooltip: 'Goal actions',
+                onSelected: (value) {
+                  if (value == 'edit') {
+                    unawaited(
+                      context.push(RoutePaths.goalEdit(goal.id), extra: goal),
+                    );
+                  } else if (value == 'delete') {
+                    unawaited(_confirmDelete(context, ref, goal));
+                  } else {
+                    unawaited(_confirmArchive(context, ref, goal));
+                  }
+                },
+                itemBuilder: (context) => <PopupMenuEntry<String>>[
+                  const PopupMenuItem(value: 'edit', child: Text('Edit Goal')),
+                  const PopupMenuItem(
+                    value: 'archive',
+                    child: Text('Archive Goal'),
+                  ),
+                  PopupMenuItem(
+                    value: 'delete',
+                    child: Row(
+                      children: <Widget>[
+                        Icon(
+                          Icons.delete_outline,
+                          size: 20,
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          'Delete Goal',
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                icon: const Icon(Icons.more_vert, size: 24),
+              ),
           ],
         ),
       ),
@@ -512,6 +620,53 @@ final class _GoalRow extends ConsumerWidget {
     ref.invalidate(goalPlanningProvider);
     return true;
   }
+
+  Future<bool> _confirmDelete(
+    BuildContext context,
+    WidgetRef ref,
+    Goal goal,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete Goal permanently?'),
+        content: Text(
+          '“${goal.title}” will be removed and cannot be restored. '
+          'Existing completed activity and history will remain in your '
+          'records.',
+        ),
+        actions: <Widget>[
+          TextButton(
+            key: const Key('weekly-plan-delete-cancel'),
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            key: const Key('weekly-plan-delete-confirm'),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(dialogContext).colorScheme.error,
+              foregroundColor: Theme.of(dialogContext).colorScheme.onError,
+            ),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) {
+      return false;
+    }
+    await ref
+        .read(goalRepositoryProvider)
+        .deleteGoal(
+          profileId: ref.read(goalProfileIdProvider),
+          goalId: goal.id,
+        );
+    ref.invalidate(activeGoalsProvider);
+    ref.invalidate(goalCapacityProvider);
+    ref.invalidate(goalPlanningProvider);
+    return true;
+  }
 }
 
 final class _WeekNavigation extends StatelessWidget {
@@ -544,9 +699,12 @@ final class _WeekNavigation extends StatelessWidget {
       height: 64,
       child: Row(
         children: <Widget>[
+          // Pack 2 accent restraint: this is a decorative section marker, not
+          // a selected state, primary action, category accent, or warning, so
+          // it uses neutral secondary text instead of the highlight pink.
           const Icon(
             Icons.calendar_month_outlined,
-            color: AppTheme.rose,
+            color: Colors.white70,
             size: 28,
           ),
           const SizedBox(width: 16),

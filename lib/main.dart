@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rmplanner/app/next_transfer_app.dart';
 import 'package:rmplanner/core/database/app_database.dart';
@@ -8,6 +9,8 @@ import 'package:rmplanner/core/platform/app_environment.dart';
 import 'package:rmplanner/core/security/auth_token_store.dart';
 import 'package:rmplanner/core/security/privacy_gate.dart';
 import 'package:rmplanner/core/time/app_clock.dart';
+import 'package:rmplanner/features/contacts/application/contact_providers.dart';
+import 'package:rmplanner/features/contacts/data/drift_contact_repository.dart';
 import 'package:rmplanner/features/goals/application/goal_providers.dart';
 import 'package:rmplanner/features/goals/data/drift_goal_repository.dart';
 import 'package:rmplanner/features/indicators/application/indicator_providers.dart';
@@ -34,6 +37,14 @@ import 'package:rmplanner/features/weekly_planning/data/drift_weekly_planning_re
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Planner Polish Delta 2: the app is portrait-only on every route, sheet,
+  // and dialog, regardless of the Android auto-rotate setting.  The manifest
+  // `screenOrientation="portrait"` protects the native Activity before the
+  // first frame; this Flutter-level lock keeps the engine portrait for the
+  // whole session and prevents any rotation-driven re-layout.
+  await SystemChrome.setPreferredOrientations(<DeviceOrientation>[
+    DeviceOrientation.portraitUp,
+  ]);
 
   final environment = AppEnvironment.fromDartDefines();
   final diagnostics = SanitizedDiagnostics(
@@ -92,6 +103,11 @@ Future<void> main() async {
     timeZones: calendarEventTimeZones,
     indicators: indicatorRepository,
   );
+  final contactRepository = DriftContactRepository(
+    database: database,
+    clock: clock,
+    identifiers: const UuidIdentifierSource(),
+  );
   final taskEventLinkCoordinator = DriftTaskEventLinkCoordinator(
     database: database,
     calendarEvents: calendarEventRepository,
@@ -130,6 +146,7 @@ Future<void> main() async {
         plannerRepositoryProvider.overrideWithValue(plannerRepository),
         indicatorRepositoryProvider.overrideWithValue(indicatorRepository),
         goalRepositoryProvider.overrideWithValue(goalRepository),
+        contactRepositoryProvider.overrideWithValue(contactRepository),
         weeklyPlanningRepositoryProvider.overrideWithValue(
           weeklyPlanningRepository,
         ),

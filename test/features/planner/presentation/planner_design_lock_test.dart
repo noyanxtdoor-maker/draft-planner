@@ -311,7 +311,9 @@ void main() {
       hourHeight: hourHeight,
     );
     expect(geometry.logicalHeight, hourHeight / 4);
-    expect(geometry.height, greaterThanOrEqualTo(48));
+    // Combined-delta exact-duration geometry: the rendered height equals the
+    // true 15-minute slice with no minimum-height inflation.
+    expect(geometry.height, closeTo(hourHeight / 4, 1e-9));
     expect(geometry.top + geometry.logicalHeight, 4 * hourHeight);
   });
 
@@ -320,11 +322,11 @@ void main() {
     () {
       expect(
         PlannerEventBlockLayoutPolicy.eventBorderRadius,
-        lessThanOrEqualTo(6),
+        lessThanOrEqualTo(3),
       );
       expect(
         PlannerEventBlockLayoutPolicy.eventAccentWidth,
-        greaterThanOrEqualTo(4),
+        lessThanOrEqualTo(3),
       );
       expect(
         PlannerEventBlockLayoutPolicy.backupEventAccentWidth,

@@ -3,18 +3,26 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rmplanner/app/theme/app_theme.dart';
+import 'package:rmplanner/app/theme/internal_screen.dart';
 import 'package:rmplanner/features/goals/application/goal_providers.dart';
+import 'package:rmplanner/features/goals/domain/canonical_goal_slots.dart';
 import 'package:rmplanner/features/goals/domain/goal.dart';
+import 'package:rmplanner/features/goals/presentation/goal_archive_screen.dart';
 import 'package:rmplanner/features/goals/presentation/goal_icon_picker_screen.dart';
 import 'package:rmplanner/features/goals/presentation/widgets/goal_icon.dart';
 import 'package:rmplanner/features/goals/presentation/widgets/goal_icon_choice_row.dart';
 import 'package:rmplanner/features/indicators/domain/life_indicator.dart';
+import 'package:rmplanner/features/planner/application/event_type_providers.dart';
 import 'package:rmplanner/features/planner/application/planner_providers.dart';
+import 'package:rmplanner/features/planner/domain/event_color_preferences.dart';
+import 'package:rmplanner/features/planner/domain/event_type.dart';
+import 'package:rmplanner/features/planner/presentation/event_type_form_screen.dart';
 
 final class GoalEditScreen extends ConsumerStatefulWidget {
-  const GoalEditScreen({required this.goalId, super.key});
+  const GoalEditScreen({required this.goalId, this.initialGoal, super.key});
 
   final String goalId;
+  final Goal? initialGoal;
 
   @override
   ConsumerState<GoalEditScreen> createState() => _GoalEditScreenState();
@@ -25,6 +33,7 @@ final class _GoalEditScreenState extends ConsumerState<GoalEditScreen> {
   final _titleController = TextEditingController();
   Goal? _goal;
   GoalProgress? _progress;
+  List<GoalActivityHistoryItem> _history = const <GoalActivityHistoryItem>[];
   int? _daily;
   int? _weekly;
   int? _monthly;
@@ -37,6 +46,13 @@ final class _GoalEditScreenState extends ConsumerState<GoalEditScreen> {
   @override
   void initState() {
     super.initState();
+    final initialGoal = widget.initialGoal;
+    if (initialGoal != null) {
+      _goal = initialGoal;
+      _iconId = initialGoal.iconId;
+      _titleController.text = initialGoal.title;
+      _loading = false;
+    }
     _titleController.addListener(_draftChanged);
     unawaited(_load());
   }
@@ -62,36 +78,57 @@ final class _GoalEditScreenState extends ConsumerState<GoalEditScreen> {
         profileId: profileId,
         goalId: widget.goalId,
       );
-      final today = ref.read(plannerDateSourceProvider).today();
-      final progress = goal == null
-          ? null
-          : await repository.readProgress(
-              profileId: profileId,
-              goalId: widget.goalId,
-              today: today,
-            );
       if (!mounted) {
         return;
       }
       if (goal == null || !goal.isActive) {
-        setState(() {
-          _loading = false;
-          _error = 'This Goal is no longer active.';
-        });
+        if (_goal == null) {
+          setState(() {
+            _loading = false;
+            _error = 'This Goal is no longer active.';
+          });
+        }
         return;
       }
       _titleController.text = goal.title;
       setState(() {
         _goal = goal;
-        _progress = progress;
-        _daily = progress?.dailyTarget.value?.scaledValue;
-        _weekly = progress?.weeklyTarget.value?.scaledValue;
-        _monthly = progress?.monthlyTarget.value?.scaledValue;
         _iconId = goal.iconId;
         _loading = false;
       });
+
+      // The Goal identity and manually selected icon are the first-order edit
+      // surface. Render them as soon as the Goal row is available instead of
+      // making the user wait for the progress/history queries to finish.
+      // This also prevents a slow local database read from presenting an
+      // apparently empty Edit Goal screen after navigation.
+      try {
+        final today = ref.read(plannerDateSourceProvider).today();
+        final progress = await repository.readProgress(
+          profileId: profileId,
+          goalId: widget.goalId,
+          today: today,
+        );
+        final history = await repository.readActivityHistory(
+          profileId,
+          goalId: widget.goalId,
+        );
+        if (mounted) {
+          setState(() {
+            _progress = progress;
+            _history = history;
+            _daily = progress?.dailyTarget.value?.scaledValue;
+            _weekly = progress?.weeklyTarget.value?.scaledValue;
+            _monthly = progress?.monthlyTarget.value?.scaledValue;
+          });
+        }
+      } on Object catch (error) {
+        if (mounted) {
+          setState(() => _error = error.toString());
+        }
+      }
     } on Object catch (error) {
-      if (mounted) {
+      if (mounted && _goal == null) {
         setState(() {
           _loading = false;
           _error = error.toString();
@@ -110,7 +147,7 @@ final class _GoalEditScreenState extends ConsumerState<GoalEditScreen> {
     }
     if (_goal == null) {
       return Scaffold(
-        appBar: const _GoalEditAppBar(),
+        appBar: _GoalEditAppBar(),
         body: Center(child: Text(_error ?? 'Goal unavailable.')),
       );
     }
@@ -138,7 +175,7 @@ final class _GoalEditScreenState extends ConsumerState<GoalEditScreen> {
         }
       },
       child: Scaffold(
-        appBar: AppBar(
+        appBar: InternalAppBar(
           leading: IconButton(
             key: const Key('goal-edit-back'),
             tooltip: 'Back',
@@ -164,12 +201,20 @@ final class _GoalEditScreenState extends ConsumerState<GoalEditScreen> {
           child: Form(
             key: _formKey,
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(18, 8, 18, 24),
+              padding: InternalScreen.pagePadding,
               children: <Widget>[
-                Text(goal.title, style: AppTypography.pageTitle),
-                const SizedBox(height: 4),
+                Text(
+                  goal.title,
+                  style: AppTypography.pageTitle.copyWith(
+                    fontSize: 24,
+                    height: 30 / 24,
+                  ),
+                ),
+                const SizedBox(height: 2),
                 Text(goal.role.title, style: AppTypography.secondary),
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
+                _buildAssignedEventTypeSection(goal),
+                const SizedBox(height: 16),
                 TextFormField(
                   key: const Key('goal-title'),
                   controller: _titleController,
@@ -178,7 +223,7 @@ final class _GoalEditScreenState extends ConsumerState<GoalEditScreen> {
                       ? 'Enter a Goal name.'
                       : null,
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
                 Text('Icon', style: AppTypography.cardTitle),
                 const SizedBox(height: 3),
                 const Text(
@@ -192,7 +237,7 @@ final class _GoalEditScreenState extends ConsumerState<GoalEditScreen> {
                   fallbackIcon: goalIconFallbackForRole(goal.role),
                   onTap: _openIconPicker,
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
                 if (goal.role == GoalRole.dailyWeekly) ...<Widget>[
                   _EditTarget(
                     key: const Key('goal-period-daily'),
@@ -200,7 +245,7 @@ final class _GoalEditScreenState extends ConsumerState<GoalEditScreen> {
                     value: _daily,
                     onChanged: (value) => setState(() => _daily = value),
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 12),
                 ],
                 _EditTarget(
                   key: const Key('goal-period-weekly'),
@@ -209,7 +254,7 @@ final class _GoalEditScreenState extends ConsumerState<GoalEditScreen> {
                   onChanged: (value) => setState(() => _weekly = value),
                 ),
                 if (goal.role == GoalRole.weeklyMonthly) ...<Widget>[
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 12),
                   _EditTarget(
                     key: const Key('goal-period-monthly'),
                     label: 'Monthly Target',
@@ -217,9 +262,14 @@ final class _GoalEditScreenState extends ConsumerState<GoalEditScreen> {
                     onChanged: (value) => setState(() => _monthly = value),
                   ),
                 ],
-                const SizedBox(height: 24),
+                const SizedBox(height: 18),
                 _ProgressSummary(progress: _progress),
-                const SizedBox(height: 24),
+                const SizedBox(height: 18),
+                _GoalHistoryPreview(
+                  items: _history,
+                  onViewAll: () => _openGoalHistory(goal.id),
+                ),
+                const SizedBox(height: 18),
                 const Text(
                   'Changes are saved only when you tap Save.',
                   style: AppTypography.secondary,
@@ -228,6 +278,98 @@ final class _GoalEditScreenState extends ConsumerState<GoalEditScreen> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildAssignedEventTypeSection(Goal goal) {
+    final stableKey =
+        goal.assignedEventTypeStableKey ??
+        CanonicalGoalSlot.tryByIndicatorKey(
+          goal.indicatorKey,
+        )?.eventTypeStableKey;
+    final eventTypeState = ref.watch(eventTypeControllerProvider);
+    EventType? assignedType;
+    for (final candidate in eventTypeState.eventTypes) {
+      if (candidate.stableKey == stableKey) {
+        assignedType = candidate;
+        break;
+      }
+    }
+    final type = assignedType;
+    final preference = type == null
+        ? null
+        : eventTypeState.eventColors[type.stableKey] ??
+              PlannerEventColorDefaults.forEventType(type);
+    return Card(
+      key: const Key('goal-assigned-event-type'),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            const Text(
+              'Assigned Event Type',
+              style: InternalScreen.sectionHeading,
+            ),
+            const SizedBox(height: 6),
+            Row(
+              children: <Widget>[
+                CircleAvatar(
+                  radius: 12,
+                  backgroundColor: Color(
+                    preference?.accentArgb ?? AppTheme.rose.toARGB32(),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    assignedType?.label ?? 'Not assigned',
+                    style: AppTypography.cardTitle,
+                  ),
+                ),
+                TextButton(
+                  key: const Key('goal-edit-event-type'),
+                  onPressed: type == null
+                      ? null
+                      : () => _editAssignedEventType(type.id),
+                  child: const Text('Edit Event Type'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Events of this type contribute toward this Goal. '
+              'The assignment is fixed.',
+              style: AppTypography.secondary,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _editAssignedEventType(String eventTypeId) async {
+    await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) => EventTypeFormScreen.edit(
+          eventTypeId: eventTypeId,
+          fixedAssignmentLabel: _goal?.title ?? 'this Goal',
+        ),
+      ),
+    );
+    if (mounted) {
+      // The Event Type screen reloads its own provider after saving. Do not
+      // reload the Goal here: the user may have an unsaved Goal title, target,
+      // or icon edit that must survive this nested route.
+      setState(() {});
+    }
+  }
+
+  Future<void> _openGoalHistory(String goalId) async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => GoalArchiveScreen(initialTab: 1, historyGoalId: goalId),
       ),
     );
   }
@@ -360,16 +502,109 @@ final class _GoalEditScreenState extends ConsumerState<GoalEditScreen> {
   }
 }
 
+final class _GoalHistoryPreview extends StatelessWidget {
+  const _GoalHistoryPreview({required this.items, required this.onViewAll});
+
+  final List<GoalActivityHistoryItem> items;
+  final VoidCallback onViewAll;
+
+  @override
+  Widget build(BuildContext context) {
+    final visible = items.take(4).toList(growable: false);
+    return Card(
+      key: const Key('goal-activity-history-preview'),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                const Expanded(
+                  child: Text(
+                    'Activity History',
+                    style: InternalScreen.sectionHeading,
+                  ),
+                ),
+                TextButton(
+                  key: const Key('goal-view-all-history'),
+                  onPressed: onViewAll,
+                  child: const Text('View All'),
+                ),
+              ],
+            ),
+            const Divider(),
+            if (visible.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: Text(
+                  'No Goal activity yet.',
+                  style: AppTypography.secondary,
+                ),
+              )
+            else
+              for (final item in visible) _GoalHistoryRow(item: item),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+final class _GoalHistoryRow extends StatelessWidget {
+  const _GoalHistoryRow({required this.item});
+
+  final GoalActivityHistoryItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final activity = item.activity;
+    final title = switch (activity.action) {
+      GoalActivityAction.created =>
+        'Created “${activity.newValue ?? item.goalTitle}”',
+      GoalActivityAction.renamed =>
+        'Renamed “${activity.previousValue ?? ''}” to '
+            '“${activity.newValue ?? item.goalTitle}”',
+      GoalActivityAction.archived =>
+        'Archived “${activity.newValue ?? item.goalTitle}”',
+      GoalActivityAction.restored => 'Restored “${item.goalTitle}”',
+      GoalActivityAction.deleted =>
+        'Deleted “${activity.newValue ?? item.goalTitle}”',
+    };
+    final date = MaterialLocalizations.of(
+      context,
+    ).formatMediumDate(activity.occurredAtUtc.toLocal());
+    final time = MaterialLocalizations.of(
+      context,
+    ).formatTimeOfDay(TimeOfDay.fromDateTime(activity.occurredAtUtc.toLocal()));
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      dense: true,
+      leading: Icon(_goalActivityIcon(activity.action), color: AppTheme.rose),
+      title: Text(title, style: AppTypography.secondary),
+      subtitle: Text('$date · $time'),
+    );
+  }
+}
+
+IconData _goalActivityIcon(GoalActivityAction action) => switch (action) {
+  GoalActivityAction.created => Icons.add_circle_outline,
+  GoalActivityAction.renamed => Icons.edit_outlined,
+  GoalActivityAction.archived => Icons.archive_outlined,
+  GoalActivityAction.restored => Icons.restore,
+  GoalActivityAction.deleted => Icons.delete_outline,
+};
+
 final class _GoalEditAppBar extends StatelessWidget
     implements PreferredSizeWidget {
   const _GoalEditAppBar();
 
   @override
-  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+  Size get preferredSize => const Size.fromHeight(InternalScreen.appBarHeight);
 
   @override
   Widget build(BuildContext context) {
-    return AppBar(title: const Text('Edit Goal'));
+    return const InternalAppBar(title: Text('Edit Goal'));
   }
 }
 
@@ -428,12 +663,15 @@ final class _ProgressSummary extends StatelessWidget {
     }
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            const Text('Current Progress', style: AppTypography.sectionTitle),
-            const SizedBox(height: 8),
+            const Text(
+              'Current Progress',
+              style: InternalScreen.sectionHeading,
+            ),
+            const SizedBox(height: 6),
             Text(
               'Daily: ${progress!.dailyActual.display}   '
               'Weekly: ${progress!.weeklyActual.display}   '

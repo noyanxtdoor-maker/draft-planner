@@ -220,6 +220,18 @@ abstract final class EventColorPreferenceCodec {
 /// deterministic muted fallback for the current Next Transfer system types,
 /// which intentionally do not use those PMG labels.
 abstract final class PlannerEventColorDefaults {
+  // PMG tonal discipline (Parts 11-15): every accent is faded, desaturated,
+  // gray-mixed, and comfortable on black — never fresh, candy, or neon.  The
+  // surfaces are the same hue blended into a neutral charcoal veil at a
+  // medium-dark band (`EventColorMath.lightMutedSurfaceArgb`), so the blocks
+  // read as "faded color on black" with white text.
+  // Exact PMG-derived default Accent + Surface pairs (Surgical delta).
+  // Every surface below is the explicit dark PMG-style block body and must
+  // be rendered verbatim (never re-derived). Planner text stays white.
+  //   Job           <- PMG Teaching  #EBC766 / #4C4942
+  //   Scripture     <- PMG Finding   #DE9EDA / #4C464A
+  //   Exercise      <- PMG Sacrament #EAA15D / #474141
+  //   Temple Visit  <- PMG Baptism   #98CED8 / #454B4B
   static const EventColorPreference teaching = EventColorPreference(
     accentArgb: 0xFFEBC766,
     surfaceArgb: 0xFF4C4942,
@@ -229,16 +241,20 @@ abstract final class PlannerEventColorDefaults {
     surfaceArgb: 0xFF4C464A,
   );
   static const EventColorPreference exercise = EventColorPreference(
-    accentArgb: 0xFFD9A35F,
-    surfaceArgb: 0xFF4B4640,
+    accentArgb: 0xFFEAA15D,
+    surfaceArgb: 0xFF474141,
   );
   static const EventColorPreference service = EventColorPreference(
     accentArgb: 0xFFDEEDF2,
     surfaceArgb: 0xFF404447,
   );
+  // Work is deliberately separated from Service (which keeps its approved
+  // icy DEEDF2 family) into a muted steel/slate-blue family that stays
+  // low-glare and PMG-like while remaining distinguishable from Service at
+  // normal Planner scale (Post-VS-11 planner polish P-01D).
   static const EventColorPreference work = EventColorPreference(
-    accentArgb: 0xFFDEEDF2,
-    surfaceArgb: 0xFF404447,
+    accentArgb: 0xFFA9BEC9,
+    surfaceArgb: 0xFF43494D,
   );
   static const EventColorPreference other = EventColorPreference(
     accentArgb: 0xFF868A8D,
@@ -251,6 +267,18 @@ abstract final class PlannerEventColorDefaults {
   static const EventColorPreference studyOrPlan = EventColorPreference(
     accentArgb: 0xFFA272C8,
     surfaceArgb: 0xFF47444B,
+  );
+  static const EventColorPreference scriptureStudy = EventColorPreference(
+    accentArgb: 0xFFDE9EDA,
+    surfaceArgb: 0xFF4C464A,
+  );
+  static const EventColorPreference budgetReview = EventColorPreference(
+    accentArgb: 0xFFBFA384,
+    surfaceArgb: 0xFF8A7E72,
+  );
+  static const EventColorPreference ministeringVisit = EventColorPreference(
+    accentArgb: 0xFFB0A971,
+    surfaceArgb: 0xFF7D7B6A,
   );
   static const EventColorPreference contact = EventColorPreference(
     accentArgb: 0xFF76B181,
@@ -273,6 +301,16 @@ abstract final class PlannerEventColorDefaults {
     surfaceArgb: 0xFF494844,
   );
 
+  // Locked system-type pairs. The six fixed Goal-linked Event Types resolve
+  // through these canonical constants; Ministering Visit and Budget Review
+  // are NOT remapped by the exact-defaults delta and keep their prior pair.
+  static const EventColorPreference lockedJobApplication = teaching;
+  static const EventColorPreference lockedScriptureStudy = finding;
+  static const EventColorPreference lockedExercise = exercise;
+  static const EventColorPreference lockedBudgetReview = budgetReview;
+  static const EventColorPreference lockedMinisteringVisit = ministeringVisit;
+  static const EventColorPreference lockedTempleVisit = baptism;
+
   static const Map<String, EventColorPreference> _labelDefaults =
       <String, EventColorPreference>{
         'teaching': teaching,
@@ -283,6 +321,9 @@ abstract final class PlannerEventColorDefaults {
         'other': other,
         'meeting': meeting,
         'study or plan': studyOrPlan,
+        'scripture study': scriptureStudy,
+        'budget review': budgetReview,
+        'ministering visit': ministeringVisit,
         'contact': contact,
         'baptism': baptism,
         'travel': travel,
@@ -303,7 +344,7 @@ abstract final class PlannerEventColorDefaults {
   /// custom types receive the muted neutral pair instead of a bright full
   /// block.
   static EventColorPreference forEventType(EventType type) {
-    final byStableKey = _stableKeyDefaults[type.stableKey];
+    final byStableKey = pmgStableKeyDefaults[type.stableKey];
     if (byStableKey != null) {
       return byStableKey;
     }
@@ -314,29 +355,38 @@ abstract final class PlannerEventColorDefaults {
     return switch (type.icon) {
       EventTypeIcon.calendar => other,
       EventTypeIcon.temple => baptism,
-      EventTypeIcon.scripture => studyOrPlan,
+      EventTypeIcon.scripture => scriptureStudy,
       EventTypeIcon.exercise => contact,
-      EventTypeIcon.budget => meal,
+      EventTypeIcon.budget => budgetReview,
       EventTypeIcon.job => finding,
       EventTypeIcon.connection => contact,
       EventTypeIcon.appointment => meeting,
-      EventTypeIcon.work => service,
+      EventTypeIcon.work => work,
       EventTypeIcon.personal => travel,
     };
   }
 
-  static const Map<String, EventColorPreference> _stableKeyDefaults =
+  /// The exact locked default pair per system Event Type stable key.
+  ///
+  /// Exposed to the drift repository so the explicit PMG surfaces are never
+  /// re-derived by the legacy surface repair (the locked surfaces are
+  /// deliberately NOT derivation-consistent).
+  static const Map<String, EventColorPreference> pmgStableKeyDefaults =
       <String, EventColorPreference>{
-        SystemEventTypeKeys.scriptureStudy: studyOrPlan,
-        SystemEventTypeKeys.exercise: exercise,
-        SystemEventTypeKeys.meaningfulConnection: contact,
+        SystemEventTypeKeys.jobApplication: lockedJobApplication,
+        SystemEventTypeKeys.scriptureStudy: lockedScriptureStudy,
+        SystemEventTypeKeys.exercise: lockedExercise,
+        SystemEventTypeKeys.budgetReview: lockedBudgetReview,
+        SystemEventTypeKeys.meaningfulConnection: lockedMinisteringVisit,
+        SystemEventTypeKeys.contact: contact,
         SystemEventTypeKeys.meeting: meeting,
         SystemEventTypeKeys.studyOrPlan: studyOrPlan,
-        SystemEventTypeKeys.templeVisit: baptism,
+        SystemEventTypeKeys.templeVisit: lockedTempleVisit,
         SystemEventTypeKeys.travel: travel,
         SystemEventTypeKeys.meal: meal,
         SystemEventTypeKeys.service: service,
         SystemEventTypeKeys.work: work,
+        SystemEventTypeKeys.other: other,
       };
 
   static String _normalize(String value) {

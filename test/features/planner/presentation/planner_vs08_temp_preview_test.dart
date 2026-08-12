@@ -174,6 +174,7 @@ void main() {
       const content = PlannerEventBlockContent(
         density: Density.veryShort,
         titleMaxLines: 1,
+        showTitle: true,
         showTime: false,
         showTimeInline: false,
         showStatusIcons: false,

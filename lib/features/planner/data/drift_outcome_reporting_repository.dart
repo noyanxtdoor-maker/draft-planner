@@ -4,6 +4,7 @@ import 'package:rmplanner/core/time/app_clock.dart';
 import 'package:rmplanner/features/planner/application/calendar_event_repository.dart';
 import 'package:rmplanner/features/planner/application/outcome_reporting_repository.dart';
 import 'package:rmplanner/features/planner/application/planner_repository.dart';
+import 'package:rmplanner/features/planner/data/task_goal_contribution_engine.dart';
 import 'package:rmplanner/features/planner/domain/calendar_event.dart';
 import 'package:rmplanner/features/planner/domain/event_type.dart';
 import 'package:rmplanner/features/planner/domain/outcome_reporting.dart';
@@ -169,10 +170,19 @@ final class DriftOutcomeReportingRepository
     final isContactEvent =
         _isContactEvent(activityTypeStableKey) ||
         _isContactEvent(activityTypeLabel);
+    // The report source label must mirror the canonical display title:
+    // Quick-Created Events (six-icon pilot) store an empty title and surface
+    // the Event Type label instead.  Using the raw stored title here would
+    // produce an empty factual label and the canonical engine would reject
+    // the report ("A report requires a stable source and factual label.").
+    final sourceLabel = calendarEventDisplayTitle(
+      storedTitle: exception?.title ?? row.title,
+      eventTypeLabel: activityTypeLabel,
+    );
     return OutcomeReportSource(
       type: OutcomeSourceType.event,
       sourceId: occurrenceId,
-      label: exception?.title ?? row.title,
+      label: sourceLabel,
       activityDate: exception == null
           ? originalDate
           : PlannerDate.parse(exception.effectiveDate),
@@ -620,7 +630,7 @@ final class DriftOutcomeReportingRepository
               ..limit(1))
             .getSingleOrNull();
     if (definition == null) {
-      throw StateError('Life Indicator not found');
+      throw StateError('Life Goal not found');
     }
     final rows = await readLedgerHistory(
       profileId: profileId,
@@ -633,7 +643,7 @@ final class DriftOutcomeReportingRepository
     var total = 0;
     for (final entry in rows) {
       if (entry.value.unit != definition.unit) {
-        throw StateError('Ledger unit does not match its Life Indicator');
+        throw StateError('Ledger unit does not match its Life Goal');
       }
       total += _rescale(
         entry.value.scaledValue,
@@ -760,7 +770,7 @@ final class DriftOutcomeReportingRepository
       }
       if (definition.unit != contribution.value.unit) {
         throw const OutcomeReportValidationException(
-          'Contribution unit does not match its Life Indicator.',
+          'Contribution unit does not match its Life Goal.',
         );
       }
       IndicatorUnitPolicy.validate(contribution.value);
@@ -801,6 +811,14 @@ final class DriftOutcomeReportingRepository
     if (task.status == target) {
       return;
     }
+    final contributionEngine = TaskGoalContributionEngine(database: database);
+    final linkedType = await contributionEngine.resolve(
+      profileId: profileId,
+      activityTypeId: task.linkedActivityTypeId,
+      stableKey: task.linkedActivityTypeStableKey,
+      labelSnapshot: task.linkedActivityTypeLabelSnapshot,
+      allowArchived: true,
+    );
     final changeId = const Uuid().v5(
       Namespace.url.value,
       'com.nexttransfer.rmplanner:report-task-status:'
@@ -817,6 +835,11 @@ final class DriftOutcomeReportingRepository
             fromStatus: task.status,
             toStatus: target,
             reason: const Value<String>('Structured outcome report'),
+            activityTypeId: Value<String?>(linkedType?.id),
+            activityTypeStableKeySnapshot: Value<String?>(
+              linkedType?.stableKey,
+            ),
+            activityTypeLabelSnapshot: Value<String?>(linkedType?.label),
             changedAtUtc: now,
           ),
         );
@@ -830,6 +853,20 @@ final class DriftOutcomeReportingRepository
             updatedAtUtc: Value<DateTime>(now),
           ),
         );
+    if (target == PlannerTaskStatus.completed.name) {
+      await contributionEngine.reconcile(
+        profileId: profileId,
+        taskId: task.id,
+        dueDate: task.dueDate == null ? null : PlannerDate.parse(task.dueDate!),
+        linkedType: linkedType,
+        changedAt: now,
+      );
+    } else {
+      await contributionEngine.reverse(
+        await contributionEngine.readActive(task.id),
+        now,
+      );
+    }
   }
 
   OutcomeReportsCompanion _reportInsert({
@@ -1104,15 +1141,12 @@ final class DriftOutcomeReportingRepository
   }
 
   CalendarRecurrenceRule _recurrenceFromRow(CalendarEventRow row) {
-    return CalendarRecurrenceRule(
-      frequency: CalendarRecurrenceFrequency.values.byName(
-        row.recurrenceFrequency,
-      ),
-      endMode: CalendarRecurrenceEndMode.values.byName(row.recurrenceEndMode),
-      endDate: row.recurrenceEndDate == null
-          ? null
-          : PlannerDate.parse(row.recurrenceEndDate!),
+    return calendarRecurrenceRuleFromStorage(
+      frequencyName: row.recurrenceFrequency,
+      endModeName: row.recurrenceEndMode,
+      endDateIso: row.recurrenceEndDate,
       occurrenceCount: row.recurrenceCount,
+      patternJson: row.recurrencePatternJson,
     );
   }
 

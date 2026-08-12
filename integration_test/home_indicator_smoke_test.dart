@@ -33,7 +33,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Weekly Life Indicators'), findsOneWidget);
+    expect(find.text('Life Goals'), findsOneWidget);
     expect(find.byKey(const Key('home-active-period')), findsOneWidget);
     expect(find.text('Not set'), findsNWidgets(6));
     await tester.scrollUntilVisible(

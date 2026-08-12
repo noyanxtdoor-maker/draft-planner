@@ -76,6 +76,7 @@ final class CalendarEventController extends Notifier<String?> {
     required CalendarEventEditScope scope,
     required CalendarEventDraft draft,
     required String operationId,
+    bool refreshPlanner = true,
   }) async {
     return _runMutation(
       () => _repository.editEvent(
@@ -86,6 +87,7 @@ final class CalendarEventController extends Notifier<String?> {
         draft: draft,
         operationId: operationId,
       ),
+      refreshPlanner: refreshPlanner,
     );
   }
 
@@ -94,16 +96,56 @@ final class CalendarEventController extends Notifier<String?> {
     required PlannerDate originalDate,
     required CalendarEventEditScope scope,
     required String operationId,
+    bool refreshPlanner = true,
+    bool managePendingDeletion = true,
   }) async {
-    return _runMutation(
-      () => _repository.cancelEvent(
+    final targets = switch (scope) {
+      CalendarEventEditScope.series => PlannerEventDeletionTargetSet.series(
+        eventId,
+      ),
+      CalendarEventEditScope.occurrence ||
+      CalendarEventEditScope.thisAndFuture =>
+        PlannerEventDeletionTargetSet.occurrence(
+          eventId: eventId,
+          originalDate: originalDate,
+        ),
+    };
+    final planner = ref.read(plannerControllerProvider.notifier);
+    if (managePendingDeletion) {
+      planner.beginPendingEventDeletion(targets);
+    }
+    try {
+      await _repository.cancelEvent(
         profileId: _profileId,
         eventId: eventId,
         originalDate: originalDate,
         scope: scope,
         operationId: operationId,
-      ),
-    );
+      );
+      if (managePendingDeletion) {
+        final confirmed = await planner.confirmPendingEventDeletion(targets);
+        if (!confirmed) {
+          state = 'Calendar Event was not changed. You can safely retry.';
+          return false;
+        }
+      } else if (refreshPlanner) {
+        await _refreshPlanner();
+      }
+      state = null;
+      return true;
+    } on CalendarEventValidationException catch (error) {
+      if (managePendingDeletion) {
+        planner.rollbackPendingEventDeletion(targets);
+      }
+      state = error.message;
+      return false;
+    } on Object {
+      if (managePendingDeletion) {
+        planner.rollbackPendingEventDeletion(targets);
+      }
+      state = 'Calendar Event was not changed. You can safely retry.';
+      return false;
+    }
   }
 
   Future<bool> rescheduleEvent({
@@ -112,6 +154,7 @@ final class CalendarEventController extends Notifier<String?> {
     required CalendarEventEditScope scope,
     required CalendarEventDraft replacement,
     required String operationId,
+    bool refreshPlanner = true,
   }) async {
     return _runMutation(
       () => _repository.rescheduleEvent(
@@ -122,6 +165,7 @@ final class CalendarEventController extends Notifier<String?> {
         replacement: replacement,
         operationId: operationId,
       ),
+      refreshPlanner: refreshPlanner,
     );
   }
 
@@ -147,11 +191,14 @@ final class CalendarEventController extends Notifier<String?> {
   }
 
   Future<bool> _runMutation(
-    Future<CalendarEventMutationOutcome> Function() command,
-  ) async {
+    Future<CalendarEventMutationOutcome> Function() command, {
+    bool refreshPlanner = true,
+  }) async {
     try {
       await command();
-      await _refreshPlanner();
+      if (refreshPlanner) {
+        await _refreshPlanner();
+      }
       state = null;
       return true;
     } on CalendarEventValidationException catch (error) {

@@ -69,7 +69,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('main-bottom-navigation')), findsOneWidget);
-      expect(find.text('Weekly Life Indicators'), findsOneWidget);
+      expect(find.text('Life Goals'), findsOneWidget);
+      expect(find.text('Weekly Life Indicators'), findsNothing);
       expect(find.byKey(const Key('home-start-weekly-planning')), findsNothing);
       expect(find.text('Start Weekly Planning'), findsNothing);
       for (final key in <String>[

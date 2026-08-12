@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rmplanner/app/router/route_names.dart';
+import 'package:rmplanner/app/theme/internal_screen.dart';
 import 'package:rmplanner/features/planner/application/event_type_providers.dart';
 import 'package:rmplanner/features/planner/domain/planner_settings.dart';
 import 'package:rmplanner/features/planner/domain/planner_view.dart';
@@ -22,12 +25,12 @@ final class PlannerSettingsScreen extends ConsumerWidget {
         .firstOrNull
         ?.id;
     return Scaffold(
-      appBar: AppBar(title: const Text('Planner and Calendar')),
+      appBar: InternalAppBar(title: const Text('Planner and Calendar')),
       body: SafeArea(
         child: state.isLoading
             ? const Center(child: CircularProgressIndicator())
             : ListView(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 36),
+                padding: InternalScreen.pagePadding,
                 children: <Widget>[
                   if (state.message != null) ...<Widget>[
                     MaterialBanner(
@@ -58,6 +61,7 @@ final class PlannerSettingsScreen extends ConsumerWidget {
                       DropdownButtonFormField<String?>(
                         key: const Key('default-event-type-setting'),
                         initialValue: visibleDefaultEventTypeId,
+                        isExpanded: true,
                         decoration: const InputDecoration(
                           labelText: 'Default Event Type',
                         ),
@@ -81,29 +85,8 @@ final class PlannerSettingsScreen extends ConsumerWidget {
                         ),
                       ),
                       const SizedBox(height: 12),
-                      DropdownButtonFormField<int>(
-                        key: const Key('default-duration-setting'),
-                        initialValue: settings.defaultDurationMinutes,
-                        decoration: const InputDecoration(
-                          labelText: 'Default duration',
-                        ),
-                        items: const <DropdownMenuItem<int>>[
-                          DropdownMenuItem(
-                            value: 15,
-                            child: Text('15 minutes'),
-                          ),
-                          DropdownMenuItem(
-                            value: 30,
-                            child: Text('30 minutes'),
-                          ),
-                          DropdownMenuItem(
-                            value: 45,
-                            child: Text('45 minutes'),
-                          ),
-                          DropdownMenuItem(value: 60, child: Text('1 hour')),
-                          DropdownMenuItem(value: 90, child: Text('1.5 hours')),
-                          DropdownMenuItem(value: 120, child: Text('2 hours')),
-                        ],
+                      _DefaultDurationSetting(
+                        defaultDurationMinutes: settings.defaultDurationMinutes,
                         onChanged: (value) => controller.saveSettings(
                           settings.copyWith(defaultDurationMinutes: value),
                         ),
@@ -112,6 +95,7 @@ final class PlannerSettingsScreen extends ConsumerWidget {
                       DropdownButtonFormField<PlannerZoomPreset>(
                         key: const Key('planner-zoom-preset-setting'),
                         initialValue: _presetFor(settings.timelineHourHeight),
+                        isExpanded: true,
                         decoration: const InputDecoration(
                           labelText: 'Timeline zoom',
                         ),
@@ -140,12 +124,11 @@ final class PlannerSettingsScreen extends ConsumerWidget {
                   _Section(
                     title: 'Timeline',
                     children: <Widget>[
-                      const Text(
+                      Text(
                         'Visible Planner Hours',
-                        key: Key('visible-planner-hours-heading'),
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
+                        key: const Key('visible-planner-hours-heading'),
+                        style: InternalScreen.sectionHeading.copyWith(
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -169,7 +152,7 @@ final class PlannerSettingsScreen extends ConsumerWidget {
                       _HourSetting(
                         label: 'Visible start hour',
                         value: settings.visibleStartHour,
-                        values: List<int>.generate(13, (index) => index),
+                        values: List<int>.generate(24, (index) => index),
                         onChanged: (value) => controller.saveSettings(
                           settings.copyWith(visibleStartHour: value),
                         ),
@@ -178,7 +161,7 @@ final class PlannerSettingsScreen extends ConsumerWidget {
                       _HourSetting(
                         label: 'Visible end hour',
                         value: settings.visibleEndHour,
-                        values: List<int>.generate(12, (index) => index + 13),
+                        values: List<int>.generate(24, (index) => index + 1),
                         onChanged: (value) => controller.saveSettings(
                           settings.copyWith(visibleEndHour: value),
                         ),
@@ -187,6 +170,7 @@ final class PlannerSettingsScreen extends ConsumerWidget {
                       DropdownButtonFormField<int>(
                         key: const Key('time-snap-setting'),
                         initialValue: settings.snapMinutes,
+                        isExpanded: true,
                         decoration: const InputDecoration(
                           labelText: 'Time snapping',
                         ),
@@ -231,6 +215,7 @@ final class PlannerSettingsScreen extends ConsumerWidget {
                       DropdownButtonFormField<PlannerInitialScrollBehavior>(
                         key: const Key('initial-scroll-setting'),
                         initialValue: settings.initialScrollBehavior,
+                        isExpanded: true,
                         decoration: const InputDecoration(
                           labelText: 'Open timeline at',
                         ),
@@ -317,6 +302,100 @@ final class PlannerSettingsScreen extends ConsumerWidget {
   }
 }
 
+/// Delta 4.2R R8: Default Event Duration control.
+///
+/// Presets are 15 / 30 / 45 minutes and 1 hour (owner-approved list). Any
+/// other value is "Custom" and changes in exact 15-minute increments via a
+/// picker, so the stored preference can never leave the 15-minute product
+/// grid (validated again in [PlannerSettings.validate]).
+final class _DefaultDurationSetting extends StatelessWidget {
+  const _DefaultDurationSetting({
+    required this.defaultDurationMinutes,
+    required this.onChanged,
+  });
+
+  static const int _customSentinel = -1;
+  static const List<int> _presets = <int>[15, 30, 45, 60];
+
+  final int defaultDurationMinutes;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final isCustom = !_presets.contains(defaultDurationMinutes);
+    return DropdownButtonFormField<int>(
+      key: const Key('default-duration-setting'),
+      initialValue: isCustom ? _customSentinel : defaultDurationMinutes,
+      isExpanded: true,
+      decoration: const InputDecoration(labelText: 'Default duration'),
+      items: <DropdownMenuItem<int>>[
+        for (final preset in _presets)
+          DropdownMenuItem(
+            value: preset,
+            child: Text(_labelFor(preset)),
+          ),
+        DropdownMenuItem(
+          value: _customSentinel,
+          child: Text(
+            isCustom
+                ? 'Custom ($defaultDurationMinutes min)'
+                : 'Custom…',
+          ),
+        ),
+      ],
+      onChanged: (value) {
+        if (value == null) {
+          return;
+        }
+        if (value != _customSentinel) {
+          onChanged(value);
+          return;
+        }
+        _pickCustom(context);
+      },
+    );
+  }
+
+  static String _labelFor(int minutes) {
+    return switch (minutes) {
+      60 => '1 hour',
+      _ => '$minutes minutes',
+    };
+  }
+
+  void _pickCustom(BuildContext context) {
+    // 15-minute increments from 75 minutes up to the civil-day cap.
+    final options = <int>[
+      for (var minutes = 75; minutes <= 24 * 60; minutes += 15) minutes,
+    ];
+    unawaited(
+      showDialog<int>(
+        context: context,
+        builder: (dialogContext) => SimpleDialog(
+          key: const Key('default-duration-custom-dialog'),
+          title: const Text('Custom default duration'),
+          children: <Widget>[
+            for (final option in options)
+              SimpleDialogOption(
+                key: Key('default-duration-custom-$option'),
+                onPressed: () => Navigator.of(dialogContext).pop(option),
+                child: Text(
+                  option % 60 == 0
+                      ? '${option ~/ 60} hour${option ~/ 60 == 1 ? '' : 's'}'
+                      : '$option minutes',
+                ),
+              ),
+          ],
+        ),
+      ).then((selected) {
+        if (selected != null) {
+          onChanged(selected);
+        }
+      }),
+    );
+  }
+}
+
 final class _Section extends StatelessWidget {
   const _Section({required this.title, required this.children});
 
@@ -326,19 +405,19 @@ final class _Section extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      margin: const EdgeInsets.only(bottom: 14),
+      margin: const EdgeInsets.only(bottom: 12),
       child: Padding(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
             Text(
               title,
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+              style: InternalScreen.sectionHeading.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             ...children,
           ],
         ),
@@ -364,6 +443,7 @@ final class _HourSetting extends StatelessWidget {
   Widget build(BuildContext context) {
     return DropdownButtonFormField<int>(
       initialValue: value,
+      isExpanded: true,
       decoration: InputDecoration(labelText: label),
       items: <DropdownMenuItem<int>>[
         for (final hour in values)

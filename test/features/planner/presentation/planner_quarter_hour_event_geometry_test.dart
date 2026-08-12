@@ -9,7 +9,7 @@ void main() {
 
   test('TEST 1 — one active hour has four equal quarters', () {
     for (final hourHeight in <double>[
-      PlannerZoomPolicy.minimumHourHeight,
+      PlannerZoomPolicy.compactHourHeight,
       PlannerZoomPolicy.normalHourHeight,
       PlannerZoomPolicy.normalHourHeight * 1.5,
     ]) {
@@ -70,7 +70,9 @@ void main() {
       ),
     );
     expect(geometry.logicalHeight, closeTo(hourHeight / 4, 1e-9));
-    expect(geometry.height, greaterThanOrEqualTo(48));
+    // Exact-duration geometry: the rendered height equals the true
+    // 15-minute slice at every zoom (no minimum-height inflation).
+    expect(geometry.height, closeTo(hourHeight / 4, 1e-9));
     expect(
       geometry.top + geometry.logicalHeight,
       closeTo(10 * hourHeight - 6 * hourHeight, 1e-9),
@@ -132,7 +134,7 @@ void main() {
 
   test('TEST 5 — quarter-hour alignment survives supported zoom heights', () {
     for (final hourHeight in <double>[
-      PlannerZoomPolicy.minimumHourHeight,
+      PlannerZoomPolicy.compactHourHeight,
       PlannerZoomPolicy.normalHourHeight,
       PlannerZoomPolicy.normalHourHeight * 1.5,
     ]) {
@@ -144,7 +146,9 @@ void main() {
         hourHeight: hourHeight,
       );
       expect(geometry.logicalHeight, closeTo(hourHeight / 4, 1e-9));
-      expect(geometry.height, greaterThanOrEqualTo(48));
+      // Exact-duration geometry: rendered height equals the true quarter-hour
+      // slice at every zoom height (no 48 px minimum-height inflation).
+      expect(geometry.height, closeTo(hourHeight / 4, 1e-9));
       expect(
         geometry.top + geometry.logicalHeight,
         closeTo(
@@ -190,7 +194,9 @@ void main() {
         .toDouble();
 
     expect(geometry.logicalHeight, closeTo(15, 1e-9));
-    expect(geometry.height, greaterThanOrEqualTo(48));
+    // Exact-duration geometry: no 48 px minimum inflation, so the visible
+    // block stays exactly 15 px and the hit target can never exceed it.
+    expect(geometry.height, closeTo(15, 1e-9));
     expect(hitHeight, lessThanOrEqualTo(geometry.height));
     expect(
       geometry.top + geometry.logicalHeight,

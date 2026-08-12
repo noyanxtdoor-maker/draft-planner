@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:rmplanner/app/theme/app_theme.dart';
+import 'package:rmplanner/app/theme/internal_screen.dart';
 import 'package:rmplanner/features/goals/domain/goal_icon_registry.dart';
 import 'package:rmplanner/features/goals/presentation/widgets/goal_icon.dart';
 
@@ -66,9 +67,9 @@ final class _GoalIconPickerScreenState extends State<GoalIconPickerScreen> {
           )
         : const <GoalIconSuggestion>[];
     final textScale = MediaQuery.textScalerOf(context).scale(1);
-    final tileHeight = textScale >= 1.25 ? 136.0 : 124.0;
+    final tileHeight = textScale >= 1.25 ? 128.0 : 122.0;
     return Scaffold(
-      appBar: AppBar(
+      appBar: InternalAppBar(
         leading: IconButton(
           key: const Key('goal-icon-picker-back'),
           tooltip: 'Back',
@@ -89,11 +90,11 @@ final class _GoalIconPickerScreenState extends State<GoalIconPickerScreen> {
         child: MediaQuery.withClampedTextScaling(
           maxScaleFactor: 1.3,
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(18, 8, 18, 24),
+            padding: InternalScreen.pagePadding,
             children: <Widget>[
               Text(
                 'Choose an icon for your goal',
-                style: AppTypography.sectionTitle,
+                style: InternalScreen.sectionHeading,
               ),
               const SizedBox(height: 3),
               const Text(
@@ -119,10 +120,10 @@ final class _GoalIconPickerScreenState extends State<GoalIconPickerScreen> {
                 ),
               ),
               if (suggestions.isNotEmpty) ...<Widget>[
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
                 Text(
                   'Suggested for "${widget.args.goalTitle}"',
-                  style: AppTypography.sectionTitle,
+                  style: InternalScreen.sectionHeading,
                 ),
                 const SizedBox(height: 8),
                 _IconGrid(
@@ -135,8 +136,8 @@ final class _GoalIconPickerScreenState extends State<GoalIconPickerScreen> {
                   onSelected: _select,
                 ),
               ],
-              const SizedBox(height: 22),
-              Text('All Icons', style: AppTypography.sectionTitle),
+              const SizedBox(height: 18),
+              Text('All Icons', style: InternalScreen.sectionHeading),
               const SizedBox(height: 8),
               if (allIcons.isEmpty)
                 const Padding(

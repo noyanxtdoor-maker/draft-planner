@@ -615,23 +615,17 @@ void main() {
         'reschedule of a recurring Event moves the placement '
         'without leaving a duplicate on the original page', (tester) async {
       // Authoritative contract under test:
-      //   - `DriftPlannerRepository.readDay` only emits
-      //     `scheduled`, `completedHappened`, and
-      //     `partiallyCompleted` items into `timedEvents`;
-      //     cancelled / rescheduled / didNotHappen items
-      //     surface through the `changes` list, not the
-      //     timed canvas.
-      //   - `rescheduleEvent(scope: occurrence)` persists a
-      //     single exception row with `status = rescheduled`
-      //     on the original date, plus a brand-new replacement
-      //     Event row anchored on the new date.
-      //   - Therefore a real reschedule exception is the
-      //     only supported occurrence-scoped exception whose
-      //     effect is observable on the preview columns: the
-      //     original page must no longer render the original
-      //     occurrence (status = rescheduled is filtered out
-      //     of `timedEvents`), and the new date must render
-      //     exactly one replacement occurrence.
+      //   - `DriftCalendarEventRepository.readDay` emits the moved
+      //     occurrence only on its effective (new) date.
+      //   - `rescheduleEvent(scope: occurrence)` on a REPEATING series
+      //     writes an occurrence override under the SAME series event id
+      //     (Planner Polish Delta 2): the moved occurrence keeps its
+      //     deterministic occurrence id and its series lineage, and no
+      //     standalone replacement Event row is created.
+      //   - Therefore the original page must no longer render the moved
+      //     occurrence, the new date must render exactly one occurrence
+      //     with the ORIGINAL occurrence id, and future occurrences stay
+      //     untouched.
       final stack = await _buildStack(tester);
       // Pump the Planner route first so the FK row exists
       // for the seeded series and the reschedule.
@@ -680,10 +674,11 @@ void main() {
       );
 
       // Apply an occurrence-scoped reschedule that moves the
-      // _previous occurrence to _today. The replacement Event
-      // gets a brand-new UUID identity so the repository can
-      // anchor the new row on _today without colliding with
-      // the original series row.
+      // _previous occurrence to _today. Planner Polish Delta 2:
+      // for a repeating series this writes an occurrence override
+      // under the SAME series event id, so the moved occurrence
+      // keeps its deterministic occurrence id and series lineage;
+      // no standalone replacement Event row is created.
       final outcome = await stack.calendarRepository.rescheduleEvent(
         profileId: app.profileId,
         eventId: _recurringId,
@@ -708,70 +703,57 @@ void main() {
       // columns reflect the post-mutation readDay result.
       await _refresh(tester, app.container);
 
-      // The original _previous occurrence is now status =
-      // `rescheduled`, which the production
-      // `DriftPlannerRepository._isVisibleTimelineState`
-      // filters out of `timedEvents`. The preview column
-      // consumes only `pageDay.timedEvents`, so the original
-      // preview must no longer carry a placement for the
-      // original occurrence id.
+      // The moved occurrence KEEPS its deterministic occurrence id
+      // (eventId + originalDate) and now renders on _today's
+      // centered timeline exactly once.
+      expect(
+        find.byKey(Key('planner-timed-event-$originalPreviousOccurrenceId')),
+        findsOneWidget,
+        reason:
+            'moved occurrence must render on the _today centered '
+            'timeline exactly once',
+      );
+
+      // The original _previous preview must no longer carry the
+      // occurrence (the override moved it to _today).
       expect(
         find.descendant(
           of: find.byKey(_previewPageKey(_previous)),
           matching: find.byKey(_previewEventKey(originalPreviousOccurrenceId)),
         ),
         findsNothing,
-        reason:
-            'original occurrence on _previous must be suppressed '
-            'from the preview after a reschedule exception',
+        reason: 'moved occurrence must not leak to the _previous preview page',
       );
 
-      // The replacement row lives on _today, which is the
-      // CENTERED page (not a preview column). The centered
-      // current page is rendered by the production
-      // `_TimedEventTimeline` and uses a different
-      // per-Event key path. We assert the replacement
-      // occurrence renders on the centered timeline exactly
-      // once and uses the readDay-resolved occurrence id
-      // (never the raw row id).
-      final replacementOccurrenceId = await _occurrenceIdFor(
+      // The moved occurrence resolves on _today under the ORIGINAL series
+      // occurrence id (the daily series also has its own natural 9:00
+      // occurrence on _today, so membership, not first-match, is asserted).
+      final todayItems = await stack.calendarRepository.readDay(
+        profileId: app.profileId,
+        date: _today,
+      );
+      expect(
+        todayItems.any((item) => item.id == originalPreviousOccurrenceId),
+        isTrue,
+        reason: 'the moved occurrence keeps its series occurrence id',
+      );
+      // No standalone replacement Event exists under any id.
+      final orphan = await _occurrenceIdFor(
         calendar: stack.calendarRepository,
         profileId: app.profileId,
         date: _today,
         seedEventId: _rescheduleReplacementId,
       );
       expect(
-        replacementOccurrenceId,
-        isNotEmpty,
-        reason: 'replacement must have a deterministic occurrence id on _today',
-      );
-      expect(
-        replacementOccurrenceId,
-        isNot(originalPreviousOccurrenceId),
-        reason: 'replacement and original must not share an occurrence id',
-      );
-      expect(
-        find.byKey(Key('planner-timed-event-$replacementOccurrenceId')),
-        findsOneWidget,
-        reason:
-            'replacement occurrence must render on the _today '
-            'centered timeline exactly once',
-      );
-      // The replacement must not also appear on the
-      // _previous or _next preview columns.
-      expect(
-        find.descendant(
-          of: find.byKey(_previewPageKey(_previous)),
-          matching: find.byKey(_previewEventKey(replacementOccurrenceId)),
-        ),
-        findsNothing,
-        reason: 'replacement must not leak to the _previous preview page',
+        orphan,
+        isEmpty,
+        reason: 'no standalone replacement Event may be created',
       );
 
       // The _next page (28) is one day past the original
-      // _previous (26) anchor; the daily series still
-      // produces a real occurrence there. The reschedule
-      // must not leak the replacement into _next.
+      // _previous (26) anchor; the daily series still produces a
+      // real, unmodified occurrence there, distinct from the moved
+      // occurrence and rendered exactly once on the _next preview.
       final nextOccurrenceId = await _occurrenceIdFor(
         calendar: stack.calendarRepository,
         profileId: app.profileId,
@@ -785,21 +767,11 @@ void main() {
       );
       expect(
         nextOccurrenceId,
-        isNot(replacementOccurrenceId),
+        isNot(originalPreviousOccurrenceId),
         reason:
             'unmodified _next occurrence must remain distinct from '
-            'the _today replacement',
+            'the moved occurrence',
       );
-      expect(
-        find.descendant(
-          of: find.byKey(_previewPageKey(_next)),
-          matching: find.byKey(_previewEventKey(replacementOccurrenceId)),
-        ),
-        findsNothing,
-        reason: 'replacement must not leak to the _next preview page',
-      );
-      // And the original _next occurrence is still rendered
-      // exactly once on the _next preview.
       expect(
         find.descendant(
           of: find.byKey(_previewPageKey(_next)),
@@ -894,7 +866,10 @@ void main() {
         reason: 'short Event must render on the preview',
       );
       final shortSize = tester.getSize(shortFinder);
-      expect(shortSize.height, greaterThanOrEqualTo(48));
+      // Combined-delta exact-duration geometry: at the preview's 60 px/hour
+      // scale a 30-minute Event renders exactly 30 logical pixels tall (the
+      // old 48 px minimum-height inflation is removed).
+      expect(shortSize.height, closeTo(30.0, 0.01));
 
       // Both overlapping Events render side-by-side on the
       // same preview page because the production layout

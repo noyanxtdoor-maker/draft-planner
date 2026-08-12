@@ -44,6 +44,98 @@ void main() {
     );
   });
 
+  test('system types resolve the exact locked Accent + Surface pairs', () {
+    EventType systemType(String stableKey) {
+      return EventType(
+        id: stableKey,
+        stableKey: stableKey,
+        label: stableKey,
+        icon: EventTypeIcon.calendar,
+        colorValue: 0xFFE91E63,
+        isSystem: true,
+        isArchived: false,
+        reportRequiredDefault: false,
+        defaultDurationMinutes: 60,
+        position: 0,
+        mappingVersion: 1,
+        indicatorKeys: const <String>{},
+      );
+    }
+
+    const expected = <String, EventColorPreference>{
+      SystemEventTypeKeys.jobApplication: EventColorPreference(
+        accentArgb: 0xFFEBC766,
+        surfaceArgb: 0xFF4C4942,
+      ),
+      SystemEventTypeKeys.scriptureStudy: EventColorPreference(
+        accentArgb: 0xFFDE9EDA,
+        surfaceArgb: 0xFF4C464A,
+      ),
+      SystemEventTypeKeys.exercise: EventColorPreference(
+        accentArgb: 0xFFEAA15D,
+        surfaceArgb: 0xFF474141,
+      ),
+      SystemEventTypeKeys.templeVisit: EventColorPreference(
+        accentArgb: 0xFF98CED8,
+        surfaceArgb: 0xFF454B4B,
+      ),
+      SystemEventTypeKeys.contact: EventColorPreference(
+        accentArgb: 0xFF76B181,
+        surfaceArgb: 0xFF494E48,
+      ),
+      SystemEventTypeKeys.meeting: EventColorPreference(
+        accentArgb: 0xFFE27386,
+        surfaceArgb: 0xFF463D40,
+      ),
+      SystemEventTypeKeys.studyOrPlan: EventColorPreference(
+        accentArgb: 0xFFA272C8,
+        surfaceArgb: 0xFF47444B,
+      ),
+      SystemEventTypeKeys.service: EventColorPreference(
+        accentArgb: 0xFFDEEDF2,
+        surfaceArgb: 0xFF404447,
+      ),
+      // P-01D: Work is separated from Service into a muted steel/slate-blue
+      // family; Service keeps its approved icy pair unchanged.
+      SystemEventTypeKeys.work: EventColorPreference(
+        accentArgb: 0xFFA9BEC9,
+        surfaceArgb: 0xFF43494D,
+      ),
+      SystemEventTypeKeys.travel: EventColorPreference(
+        accentArgb: 0xFFECC7D8,
+        surfaceArgb: 0xFF4F4D4E,
+      ),
+      SystemEventTypeKeys.meal: EventColorPreference(
+        accentArgb: 0xFFE1CFB9,
+        surfaceArgb: 0xFF4B4744,
+      ),
+      SystemEventTypeKeys.other: EventColorPreference(
+        accentArgb: 0xFF868A8D,
+        surfaceArgb: 0xFF494949,
+      ),
+    };
+    for (final entry in expected.entries) {
+      expect(
+        PlannerEventColorDefaults.forEventType(systemType(entry.key)),
+        entry.value,
+        reason: '${entry.key} must resolve the exact locked pair',
+      );
+    }
+    // Ministering Visit and Budget Review are NOT remapped by this delta.
+    expect(
+      PlannerEventColorDefaults.forEventType(
+        systemType(SystemEventTypeKeys.meaningfulConnection),
+      ),
+      PlannerEventColorDefaults.lockedMinisteringVisit,
+    );
+    expect(
+      PlannerEventColorDefaults.forEventType(
+        systemType(SystemEventTypeKeys.budgetReview),
+      ),
+      PlannerEventColorDefaults.lockedBudgetReview,
+    );
+  });
+
   test('current system types receive the approved deterministic pairs', () {
     expect(
       PlannerEventColorDefaults.forEventType(

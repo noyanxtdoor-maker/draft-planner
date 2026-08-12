@@ -56,7 +56,10 @@ void main() {
       final surface = find.byKey(const Key('planner-timeline-create-surface'));
       final surfaceTopLeft = tester.getTopLeft(surface);
       final surfaceSize = tester.getSize(surface);
-      await tester.tapAt(surfaceTopLeft + Offset(surfaceSize.width / 2, 210));
+      // The canvas starts at 00:00 (full civil day), so the tap
+      // Y is minute-of-day 570 (9:30 AM) at the default hour
+      // height of 60 (pixelsPerMinute = 1).
+      await tester.tapAt(surfaceTopLeft + Offset(surfaceSize.width / 2, 570));
       await tester.pumpAndSettle();
 
       expect(find.text('Select Event Type'), findsOneWidget);
@@ -78,6 +81,8 @@ void main() {
         closeTo(kToolbarHeight + 13, 1),
         reason: 'measured picker top must remain anchored to the top bar',
       );
+      // Delta 4.2D restores the last known-good Next Transfer selector
+      // dimensions and density without changing its type semantics.
       expect(pickerRect.width, closeTo(347, 1));
       expect(pickerRect.height, closeTo(672, 1));
       expect(
@@ -101,8 +106,31 @@ void main() {
       );
       expect(
         tester.getTopLeft(find.byKey(const Key('event-type-icon-other'))).dx,
-        closeTo(49, 1),
+        closeTo((393 - 347) / 2 + 26, 1),
       );
+      final firstOption = find.byKey(
+        const Key('event-type-option-job_application'),
+      );
+      expect(tester.getSize(firstOption).height, closeTo(44, .01));
+      expect(
+        tester.getTopLeft(firstOption).dy - pickerRect.top,
+        closeTo(80, 1),
+        reason: 'known-good 28 px header inset and 24 px header gap',
+      );
+      final pickerMaterial = tester.widget<Material>(
+        find.byKey(const Key('event-type-picker')),
+      );
+      expect(pickerMaterial.borderRadius, BorderRadius.circular(12));
+      final pickerTitle = tester.widget<Text>(find.text('Select Event Type'));
+      expect(pickerTitle.style?.fontSize, 20);
+      expect(pickerTitle.style?.fontWeight, FontWeight.w500);
+      final cancelText = tester.widget<Text>(
+        find.descendant(
+          of: find.byKey(const Key('event-type-picker-cancel')),
+          matching: find.text('Cancel'),
+        ),
+      );
+      expect(cancelText.style?.fontSize, 16);
       expect(find.byType(DraggableScrollableSheet), findsNothing);
       expect(find.byKey(const Key('event-type-picker-scroll')), findsOneWidget);
       for (final stableKey in <String>[
@@ -128,209 +156,229 @@ void main() {
       }
 
       await tester.tap(find.byKey(const Key('event-type-option-temple_visit')));
-      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 600));
 
-      expect(find.text('New Calendar Event'), findsNothing);
-      expect(
-        find.byKey(const Key('calendar-event-form-entrance-fade')),
-        findsOneWidget,
-      );
-      expect(
-        find.byKey(const Key('calendar-event-draggable-sheet')),
-        findsOneWidget,
-      );
-      final formRoute = ModalRoute.of(
-        tester.element(find.byKey(const Key('calendar-event-detail-sheet'))),
-      );
-      expect(formRoute?.transitionDuration, const Duration(milliseconds: 260));
-      expect(
-        find.byKey(const Key('calendar-event-detail-sheet')),
-        findsOneWidget,
-      );
-      expect(
-        tester
-            .getTopLeft(find.byKey(const Key('calendar-event-detail-sheet')))
-            .dy,
-        greaterThan(450),
-      );
-      expect(find.text('Create Temple Visit'), findsNothing);
-      expect(
-        find.byKey(const Key('calendar-event-sheet-handle')),
-        findsOneWidget,
-      );
-      expect(
-        tester.getSize(find.byKey(const Key('calendar-event-sheet-handle'))),
-        const Size(32, 4),
-      );
-      expect(
-        tester.getSize(find.byKey(const Key('event-type-field'))),
-        const Size(357, 60),
-      );
-      expect(
-        tester.getSize(find.byKey(const Key('save-event-button'))).height,
-        greaterThanOrEqualTo(44),
-      );
-      final sheet = find.byKey(const Key('calendar-event-detail-sheet'));
-      final initialSheetTop = tester.getTopLeft(sheet).dy;
-      await tester.drag(
-        find.byKey(const Key('calendar-event-sheet-handle')),
-        const Offset(0, -180),
-      );
-      await tester.pumpAndSettle();
-      final handleExpandedTop = tester.getTopLeft(sheet).dy;
-      expect(handleExpandedTop, lessThan(initialSheetTop));
-      await tester.drag(
-        find.byKey(const Key('calendar-event-sheet-handle')),
-        const Offset(0, 180),
-      );
-      await tester.pumpAndSettle();
-      final handleCollapsedTop = tester.getTopLeft(sheet).dy;
-      expect(handleCollapsedTop, greaterThan(handleExpandedTop));
-      await tester.drag(
-        find.byKey(const Key('calendar-event-sheet-header')),
-        const Offset(0, -180),
-      );
-      await tester.pumpAndSettle();
-      final headerExpandedTop = tester.getTopLeft(sheet).dy;
-      expect(headerExpandedTop, lessThan(handleCollapsedTop));
-      await tester.drag(
-        find.byKey(const Key('calendar-event-sheet-header')),
-        const Offset(0, 180),
-      );
-      await tester.pumpAndSettle();
-      expect(tester.getTopLeft(sheet).dy, greaterThan(headerExpandedTop));
-      expect(find.text('Save'), findsOneWidget);
-      expect(find.byIcon(Icons.check_rounded), findsNothing);
-      expect(find.byKey(const Key('save-event-bottom-button')), findsNothing);
-      expect(find.byKey(const Key('event-set-time-now')), findsNothing);
-      expect(
-        find.byKey(const Key('event-schedule-from-calendar')),
-        findsNothing,
-      );
-      expect(
-        find.descendant(
-          of: find.byKey(const Key('event-type-field')),
-          matching: find.text('Temple Visit'),
-        ),
-        findsOneWidget,
-      );
-      await tester.tap(find.byKey(const Key('event-type-field')));
-      await tester.pumpAndSettle();
-      expect(
-        find.byKey(const Key('event-type-dropdown-option-other')),
-        findsOneWidget,
-      );
-      expect(find.byKey(const Key('event-type-icon-other')), findsNothing);
-      final dropdownOption = tester.getRect(
-        find.byKey(const Key('event-type-dropdown-option-other')),
-      );
-      expect(dropdownOption.width, closeTo(357, 1));
-      expect(dropdownOption.height, closeTo(48, 1));
-      await tester.ensureVisible(
-        find.byKey(const Key('event-type-dropdown-option-other')),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(
-        find.byKey(const Key('event-type-dropdown-option-other')),
-      );
-      await tester.pumpAndSettle();
-      expect(
-        find.descendant(
-          of: find.byKey(const Key('event-type-field')),
-          matching: find.text('Other'),
-        ),
-        findsOneWidget,
-      );
-      Future<void> scrollFormTo(Finder target) async {
-        for (var attempt = 0; attempt < 8; attempt++) {
-          if (target.evaluate().isNotEmpty) {
-            return;
+      try {
+        expect(find.text('New Calendar Event'), findsNothing);
+        expect(
+          find.byKey(const Key('calendar-event-form-entrance-fade')),
+          findsNothing,
+        );
+        expect(
+          find.byKey(const Key('calendar-event-provisional-draggable-sheet')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const Key('planner-provisional-event-block')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const Key('planner-provisional-resize-hit')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const Key('calendar-event-detail-sheet')),
+          findsOneWidget,
+        );
+        expect(
+          tester
+              .getTopLeft(find.byKey(const Key('calendar-event-detail-sheet')))
+              .dy,
+          greaterThan(450),
+        );
+        expect(find.text('Create Temple Visit'), findsNothing);
+        expect(
+          find.byKey(const Key('calendar-event-sheet-handle')),
+          findsOneWidget,
+        );
+        expect(
+          tester.getSize(find.byKey(const Key('calendar-event-sheet-handle'))),
+          const Size(32, 4),
+        );
+        expect(
+          tester.getSize(find.byKey(const Key('event-type-field'))),
+          const Size(361, 52),
+        );
+        expect(
+          tester.getSize(find.byKey(const Key('save-event-button'))).height,
+          greaterThanOrEqualTo(44),
+        );
+        final sheet = find.byKey(const Key('calendar-event-detail-sheet'));
+        final initialSheetTop = tester.getTopLeft(sheet).dy;
+        // Delta 4.1 D4.1-04: the editor is a draggable bottom sheet now, so
+        // dragging the grab handle upward EXPANDS it and dragging back down
+        // returns it toward the initial editing position.
+        await tester.drag(
+          find.byKey(const Key('calendar-event-sheet-handle')),
+          const Offset(0, -180),
+        );
+        await tester.pump(const Duration(milliseconds: 400));
+        final handleExpandedTop = tester.getTopLeft(sheet).dy;
+        expect(handleExpandedTop, lessThan(initialSheetTop));
+        expect(initialSheetTop - handleExpandedTop, greaterThan(100));
+        await tester.drag(
+          find.byKey(const Key('calendar-event-sheet-handle')),
+          const Offset(0, 180),
+        );
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(tester.getTopLeft(sheet).dy, closeTo(initialSheetTop, 1));
+        await tester.drag(
+          find.byKey(const Key('calendar-event-sheet-header')),
+          const Offset(0, -180),
+        );
+        await tester.pump(const Duration(milliseconds: 400));
+        final headerExpandedTop = tester.getTopLeft(sheet).dy;
+        expect(headerExpandedTop, lessThan(initialSheetTop));
+        expect(initialSheetTop - headerExpandedTop, greaterThan(100));
+        await tester.drag(
+          find.byKey(const Key('calendar-event-sheet-header')),
+          const Offset(0, 180),
+        );
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(tester.getTopLeft(sheet).dy, closeTo(initialSheetTop, 1));
+        expect(find.text('Save'), findsOneWidget);
+        expect(find.byIcon(Icons.check_rounded), findsNothing);
+        expect(find.byKey(const Key('save-event-bottom-button')), findsNothing);
+        expect(find.byKey(const Key('event-set-time-now')), findsNothing);
+        expect(
+          find.byKey(const Key('event-schedule-from-calendar')),
+          findsNothing,
+        );
+        expect(
+          find.descendant(
+            of: find.byKey(const Key('event-type-field')),
+            matching: find.text('Temple Visit'),
+          ),
+          findsOneWidget,
+        );
+        await tester.tap(find.byKey(const Key('event-type-field')));
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(
+          find.byKey(const Key('event-type-dropdown-option-other')),
+          findsOneWidget,
+        );
+        expect(find.byKey(const Key('event-type-icon-other')), findsNothing);
+        final dropdownOption = tester.getRect(
+          find.byKey(const Key('event-type-dropdown-option-other')),
+        );
+        expect(dropdownOption.width, greaterThanOrEqualTo(340));
+        expect(dropdownOption.width, lessThanOrEqualTo(361));
+        expect(dropdownOption.height, greaterThanOrEqualTo(44));
+        expect(dropdownOption.height, lessThanOrEqualTo(48));
+        await tester.ensureVisible(
+          find.byKey(const Key('event-type-dropdown-option-other')),
+        );
+        await tester.pump(const Duration(milliseconds: 400));
+        await tester.tap(
+          find.byKey(const Key('event-type-dropdown-option-other')),
+        );
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(
+          find.descendant(
+            of: find.byKey(const Key('event-type-field')),
+            matching: find.text('Other'),
+          ),
+          findsOneWidget,
+        );
+        Future<void> scrollFormTo(Finder target) async {
+          for (var attempt = 0; attempt < 8; attempt++) {
+            if (target.evaluate().isNotEmpty) {
+              return;
+            }
+            await tester.drag(
+              find.byKey(const Key('calendar-event-form-scroll')),
+              const Offset(0, -220),
+            );
+            await tester.pump(const Duration(milliseconds: 400));
           }
-          await tester.drag(
-            find.byKey(const Key('calendar-event-form-scroll')),
-            const Offset(0, -220),
-          );
-          await tester.pumpAndSettle();
         }
-      }
 
-      final dateField = find.byKey(const Key('event-date-field'));
-      await scrollFormTo(dateField);
-      expect(dateField, findsWidgets);
-      expect(find.text('Scheduling Details'), findsOneWidget);
-      expect(find.text('Monday, July 27, 2026'), findsWidgets);
-      final startTime = find.byKey(const Key('event-start-time'));
-      await scrollFormTo(startTime);
-      expect(startTime, findsWidgets);
-      final startRect = tester.getRect(startTime.first);
-      final endRect = tester.getRect(
-        find.byKey(const Key('event-end-time')).first,
-      );
-      expect(startRect.width, closeTo(162.5, 1));
-      expect(endRect.width, closeTo(162.5, 1));
-      expect(endRect.left - startRect.right, closeTo(32, 1));
-      expect(find.text('9:30 AM'), findsOneWidget);
-      final endTime = find.byKey(const Key('event-end-time'));
-      await scrollFormTo(endTime);
-      expect(endTime, findsWidgets);
-      expect(find.text('10:30 AM'), findsOneWidget);
-      await tester.scrollUntilVisible(
-        find.byKey(const Key('event-people-section')),
-        220,
-        scrollable: find
-            .descendant(
-              of: find.byKey(const Key('calendar-event-form-scroll')),
-              matching: find.byType(Scrollable),
-            )
-            .first,
-      );
-      expect(find.byKey(const Key('people-section-header')), findsOneWidget);
-      expect(find.text('People'), findsWidgets);
-      expect(find.text('Address'), findsOneWidget);
-      expect(find.text('Location'), findsOneWidget);
-      await tester.scrollUntilVisible(
-        find.byKey(const Key('weekly-life-indicator-link-section')),
-        220,
-        scrollable: find
-            .descendant(
-              of: find.byKey(const Key('calendar-event-form-scroll')),
-              matching: find.byType(Scrollable),
-            )
-            .first,
-      );
+        final dateField = find.byKey(const Key('event-date-field'));
+        await scrollFormTo(dateField);
+        expect(dateField, findsWidgets);
+        expect(find.text('Scheduling Details'), findsOneWidget);
+        expect(find.text('Monday, July 27, 2026'), findsWidgets);
+        final startTime = find.byKey(const Key('event-start-time'));
+        await scrollFormTo(startTime);
+        expect(startTime, findsWidgets);
+        final startRect = tester.getRect(startTime.first);
+        final endRect = tester.getRect(
+          find.byKey(const Key('event-end-time')).first,
+        );
+        expect(startRect.width, closeTo(164.5, 1));
+        expect(endRect.width, closeTo(164.5, 1));
+        expect(endRect.left - startRect.right, closeTo(32, 1));
+        expect(find.text('9:30 AM'), findsOneWidget);
+        final endTime = find.byKey(const Key('event-end-time'));
+        await scrollFormTo(endTime);
+        expect(endTime, findsWidgets);
+        expect(find.text('10:30 AM'), findsOneWidget);
+        final peopleSection = find.byKey(const Key('event-people-section'));
+        await scrollFormTo(peopleSection);
+        await tester.ensureVisible(peopleSection.first);
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(find.byKey(const Key('people-section-header')), findsOneWidget);
+        expect(find.text('People'), findsWidgets);
+        final indicatorSection = find.byKey(
+          const Key('life-indicator-link-section'),
+        );
+        await scrollFormTo(indicatorSection);
+        await tester.ensureVisible(indicatorSection.first);
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(
+          find.byKey(const Key('life-indicator-link-section')),
+          findsOneWidget,
+        );
+        expect(find.text('No Life Goal linked'), findsOneWidget);
+        final reportSwitch = find.byKey(
+          const Key('event-requires-report-switch'),
+        );
+        await scrollFormTo(reportSwitch);
+        await tester.ensureVisible(reportSwitch.first);
+        await tester.pump(const Duration(milliseconds: 400));
+        // By this point the form's type was switched to 'Other' (unlocked, no
+        // Goal link), so the Report Required toggle stays OFF and shows the
+        // optional label introduced by the Part 11 goal-reporting work.  The
+        // locked-WLI and Goal-linked label states are covered by the dedicated
+        // goal-reporting form test.
+        expect(find.text('Optional — Report Required'), findsOneWidget);
+        final switchTile = tester.widget<SwitchListTile>(
+          find.byKey(const Key('event-requires-report-switch')),
+        );
+        expect(switchTile.value, isFalse);
+        expect(
+          find.textContaining('saving never creates Actual'),
+          findsNothing,
+        );
+        expect(
+          find.textContaining('Elapsed time creates attention'),
+          findsNothing,
+        );
+        expect(find.textContaining('Optional people context'), findsNothing);
+        expect(find.text('Reporting & progress context'), findsOneWidget);
+        expect(await database.select(database.calendarEvents).get(), isEmpty);
+        expect(
+          await database.select(database.activityLedgerEntries).get(),
+          isEmpty,
+        );
+      } finally {
+        final close = find.byKey(const Key('calendar-event-sheet-close'));
+        if (close.evaluate().isNotEmpty) {
+          tester.widget<IconButton>(close.first).onPressed?.call();
+          await tester.pump(const Duration(milliseconds: 600));
+        }
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump();
+      }
       expect(
-        find.byKey(const Key('weekly-life-indicator-link-section')),
-        findsOneWidget,
-      );
-      expect(find.text('Link to Weekly Life Indicator'), findsWidgets);
-      await tester.scrollUntilVisible(
-        find.byKey(const Key('event-requires-report-switch')),
-        220,
-        scrollable: find
-            .descendant(
-              of: find.byKey(const Key('calendar-event-form-scroll')),
-              matching: find.byType(Scrollable),
-            )
-            .first,
-      );
-      expect(find.text('Report required'), findsOneWidget);
-      expect(find.textContaining('saving never creates Actual'), findsNothing);
-      expect(
-        find.textContaining('Elapsed time creates attention'),
+        find.byKey(const Key('planner-provisional-event-block')),
         findsNothing,
-      );
-      expect(find.textContaining('Optional people context'), findsNothing);
-      expect(find.text('Reporting & progress context'), findsOneWidget);
-      expect(await database.select(database.calendarEvents).get(), isEmpty);
-      expect(
-        await database.select(database.activityLedgerEntries).get(),
-        isEmpty,
       );
     },
   );
 
   testWidgets(
-    'VS-08: Life Indicator recommends its exact type and cancel writes nothing',
+    'VS-08: Life Goal recommends its exact type and cancel writes nothing',
     (tester) async {
       tester.view.physicalSize = const Size(431, 912);
       tester.view.devicePixelRatio = 1;

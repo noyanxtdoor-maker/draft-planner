@@ -37,8 +37,8 @@ final class GoalIconChoiceRow extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: Container(
-          constraints: const BoxConstraints(minHeight: 78),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          constraints: const BoxConstraints(minHeight: 64),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           decoration: BoxDecoration(
             color: AppTheme.surface,
             borderRadius: BorderRadius.circular(12),
@@ -48,7 +48,7 @@ final class GoalIconChoiceRow extends StatelessWidget {
             children: <Widget>[
               GoalIcon(
                 iconId: iconId,
-                size: 42,
+                size: 36,
                 semanticLabel: definition?.semanticsLabel ?? 'No icon selected',
                 fallbackIcon: fallbackIcon,
               ),

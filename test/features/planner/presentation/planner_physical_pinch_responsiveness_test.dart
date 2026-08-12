@@ -365,6 +365,17 @@ double _centerYInGrid(WidgetTester tester, Finder child) {
   return rect.center.dy - gridRect.top;
 }
 
+/// Returns a focal point that is hit-testable by both pinch pointers. The
+/// midpoint of the full 24-hour canvas can sit below the clipped viewport on
+/// compact test devices even though the canvas itself continues off-screen.
+Offset _visibleZoomCenter(WidgetTester tester) {
+  final canvas = tester.getRect(find.byKey(const Key('planner-zoom-surface')));
+  final viewport = tester.getRect(find.byKey(const Key('planner-day-scroll')));
+  final visible = canvas.intersect(viewport);
+  expect(visible.height, greaterThan(60));
+  return visible.center;
+}
+
 void main() {
   group('Stage B3-R1 Slice D2: physical pinch responsiveness', () {
     testWidgets('TEST 1 — modest pinch-out responds during the gesture '
@@ -395,9 +406,7 @@ void main() {
       final blockBefore = tester.widget<Positioned>(blockFinder);
       // Default hour height is 60 → a 60-min Event is 60 px tall.
       expect(blockBefore.height, closeTo(60.0, 0.5));
-      final gridCenter = tester.getCenter(
-        find.byKey(const Key('planner-zoom-surface')),
-      );
+      final gridCenter = _visibleZoomCenter(tester);
       final gestures = await _drivePinchOutOpen(
         tester,
         upper: Offset(gridCenter.dx, gridCenter.dy - 30),
@@ -453,9 +462,7 @@ void main() {
       expect(blockFinder, findsOneWidget);
       final blockBefore = tester.widget<Positioned>(blockFinder);
       expect(blockBefore.height, closeTo(60.0, 0.5));
-      final gridCenter = tester.getCenter(
-        find.byKey(const Key('planner-zoom-surface')),
-      );
+      final gridCenter = _visibleZoomCenter(tester);
       final gestures = await _drivePinchInOpen(
         tester,
         upper: Offset(gridCenter.dx, gridCenter.dy - 30),
@@ -470,12 +477,25 @@ void main() {
             'modest pinch-in must scale the Event height '
             'down during the gesture',
       );
+      final scrollable = tester.state<ScrollableState>(
+        find.descendant(
+          of: find.byKey(const Key('planner-day-scroll')),
+          matching: find.byType(Scrollable),
+        ),
+      );
+      final viewportHeight = scrollable.position.viewportDimension;
       expect(
         blockMid.height!,
-        greaterThanOrEqualTo(PlannerZoomPolicy.minimumHourHeight - 1),
+        greaterThanOrEqualTo(
+          PlannerZoomPolicy.minimumHourHeightFor(
+                viewportHeight: viewportHeight,
+                configuredHours: 16, // default 6 AM - 10 PM planning window
+              ) -
+              1,
+        ),
         reason:
-            'minimum hour height must be respected during '
-            'pinch-in',
+            'viewport-derived minimum hour height must be respected '
+            'during pinch-in',
       );
       await gestures.first.up();
       await gestures.second.up();
@@ -513,9 +533,7 @@ void main() {
             'baseline physics must be ClampingScrollPhysics '
             'with no pointers down',
       );
-      final gridCenter = tester.getCenter(
-        find.byKey(const Key('planner-zoom-surface')),
-      );
+      final gridCenter = _visibleZoomCenter(tester);
       final first = await tester.startGesture(
         Offset(gridCenter.dx, gridCenter.dy - 30),
         pointer: 1,
@@ -742,9 +760,7 @@ void main() {
             'baseline physics must be ClampingScrollPhysics '
             'with no pointers down',
       );
-      final gridCenter = tester.getCenter(
-        find.byKey(const Key('planner-zoom-surface')),
-      );
+      final gridCenter = _visibleZoomCenter(tester);
       // Two-finger pinch-out with moderate travel.
       final gestures = await _drivePinchOutOpen(
         tester,
@@ -779,9 +795,7 @@ void main() {
         selected: _selected,
         current: DateTime(2026, 7, 27, 12, 0),
       );
-      final gridCenter = tester.getCenter(
-        find.byKey(const Key('planner-zoom-surface')),
-      );
+      final gridCenter = _visibleZoomCenter(tester);
       // Two fingers move horizontally in opposite directions
       // (a horizontal pinch with zero vertical travel). This
       // must NOT navigate the day.
@@ -836,11 +850,8 @@ void main() {
         Key('planner-timed-event-${_occurrenceIdFor(_scheduledEventId)}'),
       );
       final blockBefore = tester.widget<Positioned>(blockFinder);
-      final topBefore = blockBefore.top!;
       final heightBefore = blockBefore.height!;
-      final gridCenter = tester.getCenter(
-        find.byKey(const Key('planner-zoom-surface')),
-      );
+      final gridCenter = _visibleZoomCenter(tester);
       // Pinch with both fingers ON the Event block.
       final first = await tester.startGesture(
         Offset(gridCenter.dx, gridCenter.dy),
@@ -875,17 +886,26 @@ void main() {
           .get();
       expect(operations, isEmpty);
       // Confirm the Event block is still present and the
-      // domain minutes are intact.
+      // domain minutes are intact. The block's canvas top must
+      // equal the exact scaled geometry: minute-of-day (9 AM =
+      // 540) times the new pixels-per-minute, where the new hour
+      // height is read back from the live grid (24 civil-day
+      // slots per the PMG parity canvas).
       expect(blockFinder, findsOneWidget);
       final topAfter = tester.widget<Positioned>(blockFinder).top!;
+      final gridHeight = tester
+          .getSize(find.byKey(const Key('planner-time-grid')))
+          .height;
+      final hourHeightAfter = gridHeight / 24;
+      final expectedTop = 540 * (hourHeightAfter / 60);
       expect(
-        (topAfter - topBefore).abs(),
-        lessThan(150),
+        (topAfter - expectedTop).abs(),
+        lessThanOrEqualTo(1.5),
         reason:
-            'block top may move because pinch changes hour '
-            'height, but must not diverge by more than the '
-            'visual range of one hour at the destination '
-            'density',
+            'block top must equal the scaled minute-of-day '
+            'geometry (got $topAfter, expected $expectedTop); '
+            'the pinch may change hour height but must never '
+            'move or resize the Event in domain terms',
       );
       // Note: heightBefore != heightAfter is allowed because
       // pinch changes hour height; the assertion is that no
@@ -903,9 +923,7 @@ void main() {
         selected: _selected,
         current: DateTime(2026, 7, 27, 12, 0),
       );
-      final gridCenter = tester.getCenter(
-        find.byKey(const Key('planner-zoom-surface')),
-      );
+      final gridCenter = _visibleZoomCenter(tester);
       final createFinder = find.byKey(
         const Key('planner-timeline-create-surface'),
       );
@@ -968,9 +986,7 @@ void main() {
           .widget<Text>(find.byKey(const Key('planner-current-time-label')))
           .data;
       expect(labelTextBefore, '12:30 PM');
-      final gridCenter = tester.getCenter(
-        find.byKey(const Key('planner-zoom-surface')),
-      );
+      final gridCenter = _visibleZoomCenter(tester);
       final gestures = await _drivePinchOutOpen(
         tester,
         upper: Offset(gridCenter.dx, gridCenter.dy - 30),
@@ -1060,9 +1076,7 @@ void main() {
       final beforeLinks = await count(database.taskEventLinks);
       final beforeLedger = await count(database.activityLedgerEntries);
 
-      final gridCenter = tester.getCenter(
-        find.byKey(const Key('planner-zoom-surface')),
-      );
+      final gridCenter = _visibleZoomCenter(tester);
       final createRect = tester.getRect(
         find.byKey(const Key('planner-timeline-create-surface')),
       );

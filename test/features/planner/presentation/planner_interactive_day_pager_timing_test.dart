@@ -95,6 +95,14 @@ Future<void> _pumpFrames(WidgetTester tester) async {
   }
 }
 
+Offset _visibleTimelineCenter(WidgetTester tester) {
+  final canvas = tester.getRect(find.byKey(const Key('planner-zoom-surface')));
+  final viewport = tester.getRect(find.byKey(const Key('planner-day-scroll')));
+  final visible = canvas.intersect(viewport);
+  expect(visible.height, greaterThan(60));
+  return visible.center;
+}
+
 /// Drive a partial left or right drag (no release). The
 /// gesture stays alive so the test can observe the live
 /// state. The returned function releases the pointer.
@@ -103,9 +111,7 @@ Future<Future<void> Function()> _beginDrag(
   required double dx,
   int steps = 4,
 }) async {
-  final center = tester.getCenter(
-    find.byKey(const Key('planner-day-pager-viewport')),
-  );
+  final center = _visibleTimelineCenter(tester);
   final gesture = await tester.startGesture(center, pointer: 1);
   final perStep = dx / steps;
   for (var i = 1; i <= steps; i++) {
@@ -127,9 +133,7 @@ Future<void> _driveSwipe(
   int steps = 8,
   Duration stepDuration = const Duration(milliseconds: 16),
 }) async {
-  final center = tester.getCenter(
-    find.byKey(const Key('planner-day-pager-viewport')),
-  );
+  final center = _visibleTimelineCenter(tester);
   final gesture = await tester.startGesture(center, pointer: 1);
   final perStep = dx / steps;
   for (var i = 1; i <= steps; i++) {
@@ -142,267 +146,235 @@ Future<void> _driveSwipe(
 
 void main() {
   group('Stage B3-R1 D3-A: pager selected-date timing matrix', () {
-    testWidgets(
-      'TEST 1 — live left drag does not change selectedDate, '
-      'title, Today icon, or date-strip',
-      (tester) async {
-        final container = await _pumpApp(tester);
-        await _pumpFrames(tester);
-        final selectedBefore =
-            container.read(plannerControllerProvider).selectedDate;
-        final titleBefore =
-            find.text(_dateLabel(_selected))..evaluate();
-        expect(titleBefore, findsWidgets);
-        final release = await _beginDrag(tester, dx: -200);
-        // Live: no selectedDate change yet.
-        expect(
-          container.read(plannerControllerProvider).selectedDate,
-          selectedBefore,
-          reason: 'live left drag must not change selectedDate',
-        );
-        // Title still on _selected.
-        expect(find.text(_dateLabel(_selected)), findsWidgets);
-        await release();
-      },
-    );
+    testWidgets('TEST 1 — live left drag does not change selectedDate, '
+        'title, Today icon, or date-strip', (tester) async {
+      final container = await _pumpApp(tester);
+      await _pumpFrames(tester);
+      final selectedBefore = container
+          .read(plannerControllerProvider)
+          .selectedDate;
+      final titleBefore = find.text(_dateLabel(_selected))..evaluate();
+      expect(titleBefore, findsWidgets);
+      final release = await _beginDrag(tester, dx: -200);
+      // Live: no selectedDate change yet.
+      expect(
+        container.read(plannerControllerProvider).selectedDate,
+        selectedBefore,
+        reason: 'live left drag must not change selectedDate',
+      );
+      // Title still on _selected.
+      expect(find.text(_dateLabel(_selected)), findsWidgets);
+      await release();
+    });
 
-    testWidgets(
-      'TEST 2 — live right drag does not change selectedDate, '
-      'title, Today icon, or date-strip',
-      (tester) async {
-        final container = await _pumpApp(tester);
-        await _pumpFrames(tester);
-        final selectedBefore =
-            container.read(plannerControllerProvider).selectedDate;
-        final release = await _beginDrag(tester, dx: 200);
-        expect(
-          container.read(plannerControllerProvider).selectedDate,
-          selectedBefore,
-          reason: 'live right drag must not change selectedDate',
-        );
-        expect(find.text(_dateLabel(_selected)), findsWidgets);
-        await release();
-      },
-    );
+    testWidgets('TEST 2 — live right drag does not change selectedDate, '
+        'title, Today icon, or date-strip', (tester) async {
+      final container = await _pumpApp(tester);
+      await _pumpFrames(tester);
+      final selectedBefore = container
+          .read(plannerControllerProvider)
+          .selectedDate;
+      final release = await _beginDrag(tester, dx: 200);
+      expect(
+        container.read(plannerControllerProvider).selectedDate,
+        selectedBefore,
+        reason: 'live right drag must not change selectedDate',
+      );
+      expect(find.text(_dateLabel(_selected)), findsWidgets);
+      await release();
+    });
 
-    testWidgets(
-      'TEST 3 — cancel animation does not change date; after '
-      'recenter the title, Today icon, and date strip remain on '
-      'the original date',
-      (tester) async {
-        final container = await _pumpApp(tester);
-        await _pumpFrames(tester);
-        final release = await _beginDrag(tester, dx: -50);
-        // Cancel settles back to the original date.
-        expect(
-          container.read(plannerControllerProvider).selectedDate,
-          _selected,
-          reason: 'cancelled swipe must not commit',
-        );
-        expect(find.text(_dateLabel(_selected)), findsWidgets);
-        await release();
-        await tester.pumpAndSettle();
-        expect(
-          container.read(plannerControllerProvider).selectedDate,
-          _selected,
-        );
-        expect(find.text(_dateLabel(_selected)), findsWidgets);
-      },
-    );
+    testWidgets('TEST 3 — cancel animation does not change date; after '
+        'recenter the title, Today icon, and date strip remain on '
+        'the original date', (tester) async {
+      final container = await _pumpApp(tester);
+      await _pumpFrames(tester);
+      final release = await _beginDrag(tester, dx: -50);
+      // Cancel settles back to the original date.
+      expect(
+        container.read(plannerControllerProvider).selectedDate,
+        _selected,
+        reason: 'cancelled swipe must not commit',
+      );
+      expect(find.text(_dateLabel(_selected)), findsWidgets);
+      await release();
+      await tester.pumpAndSettle();
+      expect(container.read(plannerControllerProvider).selectedDate, _selected);
+      expect(find.text(_dateLabel(_selected)), findsWidgets);
+    });
 
-    testWidgets(
-      'TEST 4 — successful left commit updates selectedDate '
-      'exactly once; title, Today icon, and date-strip update '
-      'after settlement; no speculative update during drag',
-      (tester) async {
-        final container = await _pumpApp(tester);
-        await _pumpFrames(tester);
-        // During the drag, selectedDate must remain _selected.
-        final release = await _beginDrag(tester, dx: -200);
-        expect(
-          container.read(plannerControllerProvider).selectedDate,
-          _selected,
-          reason: 'left drag in progress must not change selectedDate',
-        );
-        await release();
-        await tester.pumpAndSettle();
-        expect(
-          container.read(plannerControllerProvider).selectedDate,
-          _next,
-          reason: 'settled left swipe must commit +1 day',
-        );
-        // Title now reads the next-day label.
-        expect(find.text(_dateLabel(_next)), findsWidgets);
-      },
-    );
+    testWidgets('TEST 4 — successful left commit updates selectedDate '
+        'exactly once; title, Today icon, and date-strip update '
+        'after settlement; no speculative update during drag', (tester) async {
+      final container = await _pumpApp(tester);
+      await _pumpFrames(tester);
+      // During the drag, selectedDate must remain _selected.
+      final release = await _beginDrag(tester, dx: -200);
+      expect(
+        container.read(plannerControllerProvider).selectedDate,
+        _selected,
+        reason: 'left drag in progress must not change selectedDate',
+      );
+      await release();
+      await tester.pumpAndSettle();
+      expect(
+        container.read(plannerControllerProvider).selectedDate,
+        _next,
+        reason: 'settled left swipe must commit +1 day',
+      );
+      // Title now reads the next-day label.
+      expect(find.text(_dateLabel(_next)), findsWidgets);
+    });
 
-    testWidgets(
-      'TEST 5 — successful right commit updates selectedDate '
-      'exactly once; title updates after settlement',
-      (tester) async {
-        final container = await _pumpApp(tester);
-        await _pumpFrames(tester);
-        await _driveSwipe(tester, dx: 320);
-        expect(
-          container.read(plannerControllerProvider).selectedDate,
-          _previous,
-          reason: 'settled right swipe must commit -1 day',
-        );
-        expect(find.text(_dateLabel(_previous)), findsWidgets);
-      },
-    );
+    testWidgets('TEST 5 — successful right commit updates selectedDate '
+        'exactly once; title updates after settlement', (tester) async {
+      final container = await _pumpApp(tester);
+      await _pumpFrames(tester);
+      await _driveSwipe(tester, dx: 320);
+      expect(
+        container.read(plannerControllerProvider).selectedDate,
+        _previous,
+        reason: 'settled right swipe must commit -1 day',
+      );
+      expect(find.text(_dateLabel(_previous)), findsWidgets);
+    });
 
-    testWidgets(
-      'TEST 6 — pinch cancellation does not update date',
-      (tester) async {
-        final container = await _pumpApp(tester);
-        await _pumpFrames(tester);
-        // Start a horizontal gesture, then add a second
-        // pointer to invoke the pinch-cancellation path.
-        final center = tester.getCenter(
-          find.byKey(const Key('planner-day-pager-viewport')),
-        );
-        final first = await tester.startGesture(
-          center + const Offset(-20, 0),
-          pointer: 1,
-        );
-        await first.moveBy(const Offset(-30, 0));
-        await tester.pump(const Duration(milliseconds: 16));
-        final second = await tester.startGesture(
-          center + const Offset(20, 0),
-          pointer: 2,
-        );
-        await tester.pump(const Duration(milliseconds: 16));
-        await first.up();
-        await second.up();
-        await _pumpFrames(tester);
-        expect(
-          container.read(plannerControllerProvider).selectedDate,
-          _selected,
-          reason: 'pinch-cancelled drag must not commit a date change',
-        );
-        expect(find.text(_dateLabel(_selected)), findsWidgets);
-      },
-    );
+    testWidgets('TEST 6 — pinch cancellation does not update date', (
+      tester,
+    ) async {
+      final container = await _pumpApp(tester);
+      await _pumpFrames(tester);
+      // Start a horizontal gesture, then add a second
+      // pointer to invoke the pinch-cancellation path.
+      final center = _visibleTimelineCenter(tester);
+      final first = await tester.startGesture(
+        center + const Offset(-20, 0),
+        pointer: 1,
+      );
+      await first.moveBy(const Offset(-30, 0));
+      await tester.pump(const Duration(milliseconds: 16));
+      final second = await tester.startGesture(
+        center + const Offset(20, 0),
+        pointer: 2,
+      );
+      await tester.pump(const Duration(milliseconds: 16));
+      await first.up();
+      await second.up();
+      await _pumpFrames(tester);
+      expect(
+        container.read(plannerControllerProvider).selectedDate,
+        _selected,
+        reason: 'pinch-cancelled drag must not commit a date change',
+      );
+      expect(find.text(_dateLabel(_selected)), findsWidgets);
+    });
 
-    testWidgets(
-      'TEST 7 — velocity commit updates selectedDate exactly once',
-      (tester) async {
-        final container = await _pumpApp(tester);
-        await _pumpFrames(tester);
-        // Velocity commit: a small distance but high
-        // velocity. The down event lands at T=0; the up
-        // event is timestamped at T=1 ms so the velocity
-        // calculation sees 50 px / 1 ms = 50 000 px/s.
-        final center = tester.getCenter(
-          find.byKey(const Key('planner-day-pager-viewport')),
-        );
-        final gesture = await tester.startGesture(center, pointer: 1);
-        await gesture.moveBy(const Offset(-50, 0));
-        await gesture.up(timeStamp: const Duration(milliseconds: 1));
-        await tester.pump(const Duration(milliseconds: 1));
-        await _pumpFrames(tester);
-        expect(
-          container.read(plannerControllerProvider).selectedDate,
-          _next,
-          reason: 'high-velocity release must commit +1 day',
-        );
-        expect(find.text(_dateLabel(_next)), findsWidgets);
-      },
-    );
+    testWidgets('TEST 7 — velocity commit updates selectedDate exactly once', (
+      tester,
+    ) async {
+      final container = await _pumpApp(tester);
+      await _pumpFrames(tester);
+      // Velocity commit: a small distance but high
+      // velocity. The down event lands at T=0; the up
+      // event is timestamped at T=1 ms so the velocity
+      // calculation sees 50 px / 1 ms = 50 000 px/s.
+      final center = _visibleTimelineCenter(tester);
+      final gesture = await tester.startGesture(center, pointer: 1);
+      await gesture.moveBy(const Offset(-50, 0));
+      await gesture.up(timeStamp: const Duration(milliseconds: 1));
+      await tester.pump(const Duration(milliseconds: 1));
+      await _pumpFrames(tester);
+      expect(
+        container.read(plannerControllerProvider).selectedDate,
+        _next,
+        reason: 'high-velocity release must commit +1 day',
+      );
+      expect(find.text(_dateLabel(_next)), findsWidgets);
+    });
 
-    testWidgets(
-      'TEST 8 — title arrow remains in locked position '
-      '(planner-date-chevron key is present)',
-      (tester) async {
-        await _pumpApp(tester);
-        await _pumpFrames(tester);
-        expect(
-          find.byKey(const Key('planner-date-chevron')),
-          findsOneWidget,
-          reason: 'title chevron key must remain present',
-        );
-        expect(
-          find.byKey(const Key('planner-date-label')),
-          findsOneWidget,
-          reason: 'title label key must remain present',
-        );
-        // Chevron is a `keyboard_arrow_down_rounded` icon.
-        expect(
-          find.byIcon(Icons.keyboard_arrow_down_rounded),
-          findsOneWidget,
-        );
-      },
-    );
+    testWidgets('TEST 8 — title arrow remains in locked position '
+        '(planner-date-chevron key is present)', (tester) async {
+      await _pumpApp(tester);
+      await _pumpFrames(tester);
+      expect(
+        find.byKey(const Key('planner-date-chevron')),
+        findsOneWidget,
+        reason: 'title chevron key must remain present',
+      );
+      expect(
+        find.byKey(const Key('planner-date-label')),
+        findsOneWidget,
+        reason: 'title label key must remain present',
+      );
+      // Chevron is a `keyboard_arrow_down_rounded` icon.
+      expect(find.byIcon(Icons.keyboard_arrow_down_rounded), findsOneWidget);
+    });
 
-    testWidgets(
-      'TEST 9 — toolbar controls remain present (Today icon '
-      'is today_outlined size 22, filter, checklist, overflow)',
-      (tester) async {
-        await _pumpApp(tester);
-        await _pumpFrames(tester);
-        // Today icon: semantics label "Go to today" exists.
-        expect(
-          find.bySemanticsLabel('Go to today'),
-          findsOneWidget,
-          reason: 'Today icon semantics label must be present',
-        );
-        // Filter button.
-        expect(
-          find.byKey(const Key('planner-filter-button')),
-          findsOneWidget,
-        );
-        // Checklist (selection mode trigger).
-        expect(
-          find.byKey(const Key('planner-selection-button')),
-          findsOneWidget,
-        );
-        // Overflow button.
-        expect(
-          find.byKey(const Key('planner-overflow-button')),
-          findsOneWidget,
-        );
-      },
-    );
+    testWidgets('TEST 9 — toolbar controls remain present (Today icon '
+        'is today_outlined size 22, filter, checklist, overflow)', (
+      tester,
+    ) async {
+      await _pumpApp(tester);
+      await _pumpFrames(tester);
+      // Today icon: semantics label "Go to today" exists.
+      expect(
+        find.bySemanticsLabel('Go to today'),
+        findsOneWidget,
+        reason: 'Today icon semantics label must be present',
+      );
+      // Filter button.
+      expect(find.byKey(const Key('planner-filter-button')), findsOneWidget);
+      // Checklist (selection mode trigger).
+      expect(find.byKey(const Key('planner-selection-button')), findsOneWidget);
+      // Overflow button.
+      expect(find.byKey(const Key('planner-overflow-button')), findsOneWidget);
+    });
 
-    testWidgets(
-      'TEST 10 — locked navigation remains: slide-down picker, '
-      'no Home calendar/shield, bottom nav unchanged, no '
-      'pull-to-refresh',
-      (tester) async {
-        await _pumpApp(tester);
-        await _pumpFrames(tester);
-        // Slide-down picker opens via the title tap.
-        await tester.tap(find.byKey(const Key('planner-date-label')));
-        await tester.pumpAndSettle();
-        expect(
-          find.byKey(const Key('planner-date-picker-panel')),
-          findsOneWidget,
-          reason: 'slide-down picker must open from the title',
-        );
-        // Close it.
-        await tester.tapAt(const Offset(10, 10));
-        await tester.pumpAndSettle();
-        // No RefreshIndicator on the planner scroll (the
-        // lock from Slice C: the Planner does not
-        // support pull-to-refresh).
-        expect(
-          find.descendant(
-            of: find.byKey(const Key('planner-day-scroll')),
-            matching: find.byType(RefreshIndicator),
-          ),
-          findsNothing,
-          reason: 'Planner must not host a pull-to-refresh indicator',
-        );
-      },
-    );
+    testWidgets('TEST 10 — locked navigation remains: slide-down picker, '
+        'no Home calendar/shield, bottom nav unchanged, no '
+        'pull-to-refresh', (tester) async {
+      await _pumpApp(tester);
+      await _pumpFrames(tester);
+      // Slide-down picker opens via the title tap.
+      await tester.tap(find.byKey(const Key('planner-date-label')));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('planner-date-picker-panel')),
+        findsOneWidget,
+        reason: 'slide-down picker must open from the title',
+      );
+      // Close it.
+      await tester.tapAt(const Offset(10, 10));
+      await tester.pumpAndSettle();
+      // No RefreshIndicator on the planner scroll (the
+      // lock from Slice C: the Planner does not
+      // support pull-to-refresh).
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('planner-day-scroll')),
+          matching: find.byType(RefreshIndicator),
+        ),
+        findsNothing,
+        reason: 'Planner must not host a pull-to-refresh indicator',
+      );
+    });
   });
 }
 
 String _dateLabel(PlannerDate date) {
   const months = <String>[
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
   return '${months[date.month - 1]} ${date.day}';
 }

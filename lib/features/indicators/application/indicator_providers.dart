@@ -48,7 +48,7 @@ final indicatorPeriodSnapshotProvider =
     ) {
       final startup = ref.read(startupControllerProvider);
       if (startup is! StartupReady) {
-        throw StateError('Life Indicators require a ready Local Profile');
+        throw StateError('Life Goals require a ready Local Profile');
       }
       return ref
           .read(indicatorRepositoryProvider)
@@ -141,7 +141,7 @@ final class HomeIndicatorController extends Notifier<HomeIndicatorState> {
         status: HomeIndicatorLoadStatus.failure,
         snapshot: previous,
         message:
-            'Life Indicators could not be refreshed. Existing local data '
+            'Life Goals could not be refreshed. Existing local data '
             'was not changed.',
       );
     }

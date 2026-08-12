@@ -9,6 +9,9 @@ import 'package:rmplanner/core/platform/app_environment.dart';
 import 'package:rmplanner/core/security/auth_token_store.dart';
 import 'package:rmplanner/core/security/privacy_gate.dart';
 import 'package:rmplanner/core/time/app_clock.dart';
+import 'package:rmplanner/features/contacts/application/contact_providers.dart';
+import 'package:rmplanner/features/contacts/application/contact_repository.dart';
+import 'package:rmplanner/features/contacts/data/drift_contact_repository.dart';
 import 'package:rmplanner/features/goals/application/goal_providers.dart';
 import 'package:rmplanner/features/goals/data/drift_goal_repository.dart';
 import 'package:rmplanner/features/indicators/application/indicator_providers.dart';
@@ -249,7 +252,15 @@ final class TestPrivacyDependencies {
     ),
     IdentifierSource? plannerIdentifierSource,
     WeeklyPlanningRepository? weeklyPlanningRepository,
+    ContactRepository? contactRepository,
   }) {
+    final resolvedContactRepository =
+        contactRepository ??
+        DriftContactRepository(
+          database: repository.database,
+          clock: FixedClock(DateTime.utc(2026, 7, 27, 12)),
+          identifiers: const UuidIdentifierSource(),
+        );
     final linkRepository = DriftTaskEventLinkRepository(
       database: repository.database,
       clock: FixedClock(DateTime.utc(2026, 7, 27, 12)),
@@ -334,6 +345,7 @@ final class TestPrivacyDependencies {
         weeklyPlanningRepositoryProvider.overrideWithValue(
           resolvedWeeklyPlanningRepository,
         ),
+        contactRepositoryProvider.overrideWithValue(resolvedContactRepository),
         taskEventLinkRepositoryProvider.overrideWithValue(linkRepository),
         taskEventLinkCoordinatorProvider.overrideWithValue(linkCoordinator),
         plannerDateSourceProvider.overrideWithValue(plannerDateSource),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rmplanner/app/theme/internal_screen.dart';
 import 'package:rmplanner/core/diagnostics/sanitized_diagnostics.dart';
 import 'package:rmplanner/features/startup/application/startup_providers.dart';
 
@@ -19,10 +20,10 @@ final class _DiagnosticPreviewScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Diagnostic export preview')),
+      appBar: InternalAppBar(title: const Text('Diagnostic export preview')),
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
           children: <Widget>[
             const Text(
               'Nothing is exported automatically. Raw calendar imports, '

@@ -2,9 +2,8 @@
 //
 // The Day view's current-time indicator must:
 //
-//   1. render in stable visible order: time text, then the dot, then
-//      the horizontal line (proved by RenderBox geometry, not only
-//      widget-tree child order);
+//   1. extend from a far-left dot through the time-label gutter and
+//      continue across the Event area, with the time chip above the line;
 //   2. place the dot and line center Y on the exact current minute
 //      per the documented formula:
 //        minuteFromVisibleStart = (now.hour - firstHour) * 60 + now.minute
@@ -44,7 +43,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
-import 'package:rmplanner/app/next_transfer_app.dart' show appEnvironmentProvider;
+import 'package:rmplanner/app/next_transfer_app.dart'
+    show appEnvironmentProvider;
 import 'package:rmplanner/core/database/app_database.dart';
 import 'package:rmplanner/core/diagnostics/sanitized_diagnostics.dart';
 import 'package:rmplanner/core/platform/app_environment.dart';
@@ -62,8 +62,11 @@ import 'package:rmplanner/features/planner/data/drift_planner_repository.dart';
 import 'package:rmplanner/features/planner/data/drift_task_event_link_repository.dart';
 import 'package:rmplanner/features/planner/domain/calendar_event.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
-import 'package:rmplanner/features/planner/domain/planner_view.dart' show PlannerZoomPolicy;
+import 'package:rmplanner/features/planner/domain/planner_view.dart'
+    show PlannerZoomPolicy;
 import 'package:rmplanner/features/planner/presentation/planner_screen.dart';
+import 'package:rmplanner/features/planner/presentation/widgets/planner_interactive_day_pager.dart'
+    show PlannerCurrentTimeHorizontalGeometry;
 import 'package:rmplanner/features/privacy/application/privacy_providers.dart';
 import 'package:rmplanner/features/startup/application/startup_providers.dart';
 import 'package:rmplanner/features/startup/data/drift_startup_repository.dart';
@@ -74,9 +77,6 @@ import '../../../support/test_dependencies.dart';
 /// alongside the production widget. The import above pulls it into
 /// scope; this local alias keeps the test call sites readable.
 String formatTime(DateTime now) => formatPlannerCurrentTimeLabel(now);
-
-/// Default 12-hour visible window used by `PlannerSettings.defaults`.
-const int _firstHour = 6;
 
 /// Fixed day used as "today" for the focused current-time tests.
 /// Chosen inside the 6→22 visible window so the 4:03 PM sample time
@@ -95,7 +95,7 @@ const String _displayTimeZoneId = 'Asia/Manila';
 /// so the production Timer never runs during these tests.
 class _CurrentTimeController {
   _CurrentTimeController(DateTime initial)
-      : notifier = ValueNotifier<DateTime>(initial);
+    : notifier = ValueNotifier<DateTime>(initial);
 
   final ValueNotifier<DateTime> notifier;
   DateTime get value => notifier.value;
@@ -105,7 +105,7 @@ class _CurrentTimeController {
 }
 
 Future<(AppDatabase, DriftPlannerRepository, DriftCalendarEventRepository)>
-    _buildRepositories() async {
+_buildRepositories() async {
   final database = openMemoryDatabase();
   addTearDown(database.close);
   final timeZones = IanaCalendarEventTimeZones(
@@ -268,9 +268,7 @@ Future<_PumpedPlanner> _pumpPlanner({
         selected: selected,
         startupRepository: startup,
       ),
-      child: const MaterialApp(
-        home: _StartupPrewarm(),
-      ),
+      child: const MaterialApp(home: _StartupPrewarm()),
     ),
   );
   // Pre-warm: explicitly call `initialize()` on the startup
@@ -397,6 +395,10 @@ class _StartupPrewarm extends ConsumerWidget {
 /// `PlannerDate.fromDateTime` both see the same local date.
 final DateTime _fourOhThree = DateTime(2026, 7, 31, 16, 3);
 final DateTime _fourOhFour = DateTime(2026, 7, 31, 16, 4);
+final DateTime _nineOhFive = DateTime(2026, 7, 31, 9, 5);
+final DateTime _elevenFiftyNineAm = DateTime(2026, 7, 31, 11, 59);
+final DateTime _noon = DateTime(2026, 7, 31, 12, 0);
+final DateTime _threeOhOne = DateTime(2026, 7, 31, 15, 1);
 final DateTime _july31LateNight = DateTime(2026, 7, 31, 23, 59);
 final DateTime _august1Midnight = DateTime(2026, 8, 1, 0, 0);
 
@@ -404,10 +406,75 @@ void main() {
   // Allow plenty of room for the 6→22 hour timeline at the default
   // 60-px hour height (60 px × 16 hours = 960 px) plus the day header.
   group('Stage B2B-R3A: Planner current-time indicator', () {
+    testWidgets('TEST 1 — R5-05 dot stays on the 56 dp gutter after the label '
+        'and the bounded line continues through the Event area', (
+      tester,
+    ) async {
+      final (database, plannerRepo, _) = await _buildRepositories();
+      await _pumpPlanner(
+        tester: tester,
+        database: database,
+        plannerRepository: plannerRepo,
+        selected: _selectedToday,
+        current: _fourOhThree,
+      );
+
+      final indicator = find.byKey(const Key('planner-current-time-indicator'));
+      expect(indicator, findsOneWidget);
+
+      final label = find.byKey(const Key('planner-current-time-label'));
+      final dot = find.byKey(const Key('planner-current-time-dot'));
+      final line = find.byKey(const Key('planner-current-time-line'));
+      expect(label, findsOneWidget);
+      expect(dot, findsOneWidget);
+      expect(line, findsOneWidget);
+
+      // The label is the only Text inside the indicator Row.
+      final labelText = tester.widget<Text>(
+        find.descendant(of: indicator, matching: find.byType(Text)),
+      );
+      expect(labelText.data, '4:03 PM');
+
+      // R5-05: the dot is anchored to the fixed time-gutter boundary. Label
+      // width can change, but dot and line X cannot.
+      final labelRect = tester.getRect(label);
+      final dotRect = tester.getRect(dot);
+      final lineRect = tester.getRect(line);
+      final gridRect = tester.getRect(
+        find.byKey(const Key('planner-time-grid')),
+      );
+
+      expect(
+        dotRect.center.dx - gridRect.left,
+        closeTo(PlannerCurrentTimeHorizontalGeometry.dotCenterX, 0.5),
+        reason: 'the dot center must stay on the 56 dp gutter anchor',
+      );
+      expect(
+        dotRect.left - labelRect.right,
+        closeTo(PlannerCurrentTimeHorizontalGeometry.labelToDotGap, 0.5),
+        reason: 'the label must end before the fixed dot without overlap',
+      );
+      expect(
+        lineRect.left,
+        greaterThan(dotRect.right),
+        reason: 'the line must begin only after the dot, never touching it',
+      );
+      expect(
+        lineRect.left - dotRect.right,
+        closeTo(PlannerCurrentTimeHorizontalGeometry.dotToLineGap, 0.5),
+        reason: 'the bounded line begins after the fixed dot',
+      );
+      expect(
+        lineRect.right,
+        closeTo(gridRect.right, 0.5),
+        reason: 'the line must continue through the Event area',
+      );
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets(
-      'TEST 1 — renders in exact visible order: time text, dot, line '
-      'with the label ending at or before the dot X and the line '
-      'starting at or after the dot X',
+      'TEST 1B — R5-05 fixes the dot to the 56 dp gutter while the label '
+      'stays bounded and non-overlapping',
       (tester) async {
         final (database, plannerRepo, _) = await _buildRepositories();
         await _pumpPlanner(
@@ -418,56 +485,124 @@ void main() {
           current: _fourOhThree,
         );
 
-        final indicator = find.byKey(
-          const Key('planner-current-time-indicator'),
-        );
-        expect(indicator, findsOneWidget);
-
         final label = find.byKey(const Key('planner-current-time-label'));
         final dot = find.byKey(const Key('planner-current-time-dot'));
-        final line = find.byKey(const Key('planner-current-time-line'));
-        expect(label, findsOneWidget);
-        expect(dot, findsOneWidget);
-        expect(line, findsOneWidget);
-
-        // The label is the only Text inside the indicator Row.
-        final labelText = tester.widget<Text>(
-          find.descendant(of: indicator, matching: find.byType(Text)),
+        final hourLine = find.byKey(const Key('planner-full-hour-line-6'));
+        final gridRect = tester.getRect(
+          find.byKey(const Key('planner-time-grid')),
         );
-        expect(labelText.data, '4:03 PM');
-
-        // Visible geometric order: time → dot → line. We assert
-        // X-axis geometry so the test fails if a refactor
-        // reordered the children without producing the right
-        // visual arrangement.
         final labelRect = tester.getRect(label);
         final dotRect = tester.getRect(dot);
-        final lineRect = tester.getRect(line);
+        final hourLineRect = tester.getRect(hourLine);
 
+        expect(labelRect.left, greaterThanOrEqualTo(gridRect.left));
         expect(
           labelRect.right,
-          lessThanOrEqualTo(dotRect.center.dx),
-          reason: 'time label must end at or before the dot center X',
+          lessThan(dotRect.left),
+          reason: 'the label must end before the dot, never overlapping it',
         );
         expect(
-          dotRect.center.dx,
-          lessThan(lineRect.right),
-          reason: 'dot center X must precede the line right edge',
+          dotRect.left - labelRect.right,
+          closeTo(PlannerCurrentTimeHorizontalGeometry.labelToDotGap, 0.5),
+          reason: 'the bounded label must end before the dot',
         );
         expect(
-          lineRect.left,
-          greaterThanOrEqualTo(dotRect.right),
-          reason: 'line must begin at or after the dot right edge',
+          dotRect.center.dx - gridRect.left,
+          closeTo(PlannerCurrentTimeHorizontalGeometry.dotCenterX, 0.5),
+          reason: 'the dot center is the fixed gutter anchor',
+        );
+        expect(
+          hourLineRect.left - gridRect.left,
+          closeTo(56, 0.5),
+          reason: 'R4-07 must not keep R3’s widened 80 dp hour gutter',
         );
         expect(tester.takeException(), isNull);
       },
     );
 
+    testWidgets('TEST 1C — R5-05 long labels keep one fixed dot X at normal, '
+        'intermediate, and maximum zoom', (tester) async {
+      final (database, plannerRepo, _) = await _buildRepositories();
+      final pumped = await _pumpPlanner(
+        tester: tester,
+        database: database,
+        plannerRepository: plannerRepo,
+        selected: _selectedToday,
+        current: _nineOhFive,
+      );
+      final plannerElement = tester.element(find.byType(PlannerScreen));
+      final container = ProviderScope.containerOf(plannerElement);
+      final settingsController = container.read(
+        eventTypeControllerProvider.notifier,
+      );
+      final baseSettings = container.read(eventTypeControllerProvider).settings;
+      final samples = <(DateTime, String)>[
+        (_nineOhFive, '9:05 AM'),
+        (_elevenFiftyNineAm, '11:59 AM'),
+        (_noon, '12:00 PM'),
+        (_threeOhOne, '3:01 PM'),
+        (_july31LateNight, '11:59 PM'),
+      ];
+      const zoomHeights = <double>[
+        PlannerZoomPolicy.normalHourHeight,
+        PlannerZoomPolicy.expandedHourHeight,
+        PlannerZoomPolicy.absoluteMaximumHourHeight,
+      ];
+
+      double? firstDotCenterX;
+      for (final hourHeight in zoomHeights) {
+        await settingsController.saveSettings(
+          baseSettings.copyWith(
+            visibleStartHour: 0,
+            visibleEndHour: 24,
+            timelineHourHeight: hourHeight,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        for (final sample in samples) {
+          pumped.currentTime.value = sample.$1;
+          await tester.pump();
+
+          final label = find.byKey(const Key('planner-current-time-label'));
+          final dot = find.byKey(const Key('planner-current-time-dot'));
+          final line = find.byKey(const Key('planner-current-time-line'));
+          final grid = find.byKey(const Key('planner-time-grid'));
+          expect(label, findsOneWidget);
+          expect(tester.widget<Text>(label).data, sample.$2);
+
+          final gridRect = tester.getRect(grid);
+          final labelRect = tester.getRect(label);
+          final dotRect = tester.getRect(dot);
+          final lineRect = tester.getRect(line);
+          final dotCenterX = dotRect.center.dx - gridRect.left;
+          firstDotCenterX ??= dotCenterX;
+          expect(labelRect.left, greaterThanOrEqualTo(gridRect.left));
+          expect(
+            dotRect.left - labelRect.right,
+            closeTo(PlannerCurrentTimeHorizontalGeometry.labelToDotGap, 0.5),
+          );
+          expect(
+            dotCenterX,
+            closeTo(PlannerCurrentTimeHorizontalGeometry.dotCenterX, 0.5),
+          );
+          expect(dotCenterX, closeTo(firstDotCenterX, 0.5));
+          expect(
+            lineRect.left - dotRect.right,
+            closeTo(PlannerCurrentTimeHorizontalGeometry.dotToLineGap, 0.5),
+          );
+          expect(lineRect.right, closeTo(gridRect.right, 0.5));
+          expect(lineRect.width, greaterThan(100));
+          expect(tester.takeException(), isNull);
+        }
+      }
+    });
+
     testWidgets(
       'TEST 2 — exact current-minute Y matches the production formula: '
-      '((hour - firstHour) * 60 + minute) * (hourHeight / 60) within a '
-      'small logical-pixel tolerance, with the dot and line center Y on '
-      'that line and the label center Y within the same tolerance',
+      '(hour * 60 + minute) * (hourHeight / 60) within a small logical-'
+      'pixel tolerance, with the dot and line center Y on that line and '
+      'the label center Y within the same tolerance',
       (tester) async {
         final (database, plannerRepo, _) = await _buildRepositories();
         await _pumpPlanner(
@@ -478,15 +613,16 @@ void main() {
           current: _fourOhThree,
         );
 
-        // Production formula. Defaults: hourHeight = 60,
-        // visibleStartHour = 6, visibleEndHour = 22.
+        // Production formula. Defaults: hourHeight = 60. The
+        // canvas spans the full civil day, so the minute-of-day
+        // anchors the indicator (visibleStartHour only gates the
+        // visibility rule, not the geometry).
         const hourHeight = PlannerZoomPolicy.normalHourHeight;
-        const firstHour = _firstHour;
         const hour = 16;
         const minute = 3;
-        const minuteFromVisibleStart = (hour - firstHour) * 60 + minute;
+        const minuteOfDay = hour * 60 + minute;
         const pixelsPerMinute = hourHeight / 60;
-        const resolvedMinuteY = minuteFromVisibleStart * pixelsPerMinute;
+        const resolvedMinuteY = minuteOfDay * pixelsPerMinute;
 
         // Small logical-pixel tolerance for layout rounding. The
         // production Row centers its children with
@@ -506,13 +642,15 @@ void main() {
         expect(
           (dotCenterY - resolvedMinuteY).abs(),
           lessThanOrEqualTo(tolerance),
-          reason: 'dot center Y must land on the exact current minute '
+          reason:
+              'dot center Y must land on the exact current minute '
               '(got $dotCenterY, expected $resolvedMinuteY)',
         );
         expect(
           (lineCenterY - resolvedMinuteY).abs(),
           lessThanOrEqualTo(tolerance),
-          reason: 'line center Y must land on the exact current minute '
+          reason:
+              'line center Y must land on the exact current minute '
               '(got $lineCenterY, expected $resolvedMinuteY)',
         );
         // Label sits in the same Row with crossAxisAlignment.center,
@@ -521,18 +659,19 @@ void main() {
         expect(
           (labelCenterY - resolvedMinuteY).abs(),
           lessThanOrEqualTo(tolerance),
-          reason: 'label center Y must align with the dot and line '
+          reason:
+              'label center Y must align with the dot and line '
               '(got $labelCenterY, expected $resolvedMinuteY)',
         );
         // 4:03 must NOT round to 4:00, 4:05, or 4:15. The dot
-        // and line Y for those would be 600, 605, and 615 px
+        // and line Y for those would be 960, 965, and 975 px
         // respectively at the default 60-px hour height; the
-        // expected resolvedMinuteY is 603. Asserting that the
+        // expected resolvedMinuteY is 963. Asserting that the
         // measured Y is not any of those integer-minute
         // neighbours guards the exact-minute contract.
         expect(
           dotCenterY,
-          isNot(anyOf(600.0, 605.0, 615.0)),
+          isNot(anyOf(960.0, 965.0, 975.0)),
           reason: '4:03 must not round to 4:00, 4:05, or 4:15',
         );
         expect(tester.takeException(), isNull);
@@ -541,102 +680,86 @@ void main() {
 
     group('TEST 3 — formatter output', () {
       test('produces 12:00 AM for 00:00', () {
-        expect(
-          formatTime(DateTime(2026, 7, 31, 0, 0)),
-          '12:00 AM',
-        );
+        expect(formatTime(DateTime(2026, 7, 31, 0, 0)), '12:00 AM');
       });
       test('produces 1:05 AM for 01:05', () {
-        expect(
-          formatTime(DateTime(2026, 7, 31, 1, 5)),
-          '1:05 AM',
-        );
+        expect(formatTime(DateTime(2026, 7, 31, 1, 5)), '1:05 AM');
       });
       test('produces 12:00 PM for 12:00', () {
-        expect(
-          formatTime(DateTime(2026, 7, 31, 12, 0)),
-          '12:00 PM',
-        );
+        expect(formatTime(DateTime(2026, 7, 31, 12, 0)), '12:00 PM');
       });
       test('produces 4:03 PM for 16:03', () {
-        expect(
-          formatTime(DateTime(2026, 7, 31, 16, 3)),
-          '4:03 PM',
-        );
+        expect(formatTime(DateTime(2026, 7, 31, 16, 3)), '4:03 PM');
       });
       test('produces 11:59 PM for 23:59', () {
-        expect(
-          formatTime(DateTime(2026, 7, 31, 23, 59)),
-          '11:59 PM',
-        );
+        expect(formatTime(DateTime(2026, 7, 31, 23, 59)), '11:59 PM');
       });
     });
 
-    testWidgets(
-      'TEST 4 — indicator is visible today, hidden on previous day, '
-      'hidden on next day',
-      (tester) async {
-        // today = 2026-07-31 → visible
-        // previous = 2026-07-30 → hidden
-        // next = 2026-08-01 → hidden
-        final (database, plannerRepo, _) = await _buildRepositories();
+    testWidgets('TEST 4 — indicator is visible today, hidden on previous day, '
+        'hidden on next day', (tester) async {
+      // today = 2026-07-31 → visible
+      // previous = 2026-07-30 → hidden
+      // next = 2026-08-01 → hidden
+      final (database, plannerRepo, _) = await _buildRepositories();
 
-        // Today.
-        const today = _selectedToday;
-        await _pumpPlanner(
-          tester: tester,
-          database: database,
-          plannerRepository: plannerRepo,
-          selected: today,
-          current: _fourOhThree,
-        );
-        expect(
-          find.byKey(const Key('planner-current-time-indicator')),
-          findsOneWidget,
-          reason: 'indicator must be visible on the selected "today"',
-        );
-        // Unmount the planner before re-pumping with a different
-        // selected date so the prior test notifier's listeners
-        // detach before any dispose runs. The notifier itself
-        // is cleaned up by the addTearDown registered in
-        // _pumpPlanner; no manual dispose is needed here.
-        await tester.pumpWidget(const SizedBox.shrink());
+      // Today.
+      const today = _selectedToday;
+      await _pumpPlanner(
+        tester: tester,
+        database: database,
+        plannerRepository: plannerRepo,
+        selected: today,
+        current: _fourOhThree,
+      );
+      expect(
+        find.byKey(const Key('planner-current-time-indicator')),
+        findsOneWidget,
+        reason: 'indicator must be visible on the selected "today"',
+      );
+      // Unmount the planner before re-pumping with a different
+      // selected date so the prior test notifier's listeners
+      // detach before any dispose runs. The notifier itself
+      // is cleaned up by the addTearDown registered in
+      // _pumpPlanner; no manual dispose is needed here.
+      await tester.pumpWidget(const SizedBox.shrink());
 
-        // Previous day.
-        const previous = PlannerDate(year: 2026, month: 7, day: 30);
-        await _pumpPlanner(
-          tester: tester,
-          database: database,
-          plannerRepository: plannerRepo,
-          selected: previous,
-          current: _fourOhThree,
-        );
-        expect(
-          find.byKey(const Key('planner-current-time-indicator')),
-          findsNothing,
-          reason: 'indicator must be hidden when the selected date is '
-              'yesterday relative to the clock',
-        );
-        await tester.pumpWidget(const SizedBox.shrink());
+      // Previous day.
+      const previous = PlannerDate(year: 2026, month: 7, day: 30);
+      await _pumpPlanner(
+        tester: tester,
+        database: database,
+        plannerRepository: plannerRepo,
+        selected: previous,
+        current: _fourOhThree,
+      );
+      expect(
+        find.byKey(const Key('planner-current-time-indicator')),
+        findsNothing,
+        reason:
+            'indicator must be hidden when the selected date is '
+            'yesterday relative to the clock',
+      );
+      await tester.pumpWidget(const SizedBox.shrink());
 
-        // Next day.
-        const next = PlannerDate(year: 2026, month: 8, day: 1);
-        await _pumpPlanner(
-          tester: tester,
-          database: database,
-          plannerRepository: plannerRepo,
-          selected: next,
-          current: _fourOhThree,
-        );
-        expect(
-          find.byKey(const Key('planner-current-time-indicator')),
-          findsNothing,
-          reason: 'indicator must be hidden when the selected date is '
-              'tomorrow relative to the clock',
-        );
-        expect(tester.takeException(), isNull);
-      },
-    );
+      // Next day.
+      const next = PlannerDate(year: 2026, month: 8, day: 1);
+      await _pumpPlanner(
+        tester: tester,
+        database: database,
+        plannerRepository: plannerRepo,
+        selected: next,
+        current: _fourOhThree,
+      );
+      expect(
+        find.byKey(const Key('planner-current-time-indicator')),
+        findsNothing,
+        reason:
+            'indicator must be hidden when the selected date is '
+            'tomorrow relative to the clock',
+      );
+      expect(tester.takeException(), isNull);
+    });
 
     testWidgets(
       'TEST 5 — swipe away from today hides the indicator; swipe back '
@@ -706,7 +829,8 @@ void main() {
         expect(
           find.byKey(const Key('planner-current-time-indicator')),
           findsOneWidget,
-          reason: 'swiping back to today must re-show the indicator '
+          reason:
+              'swiping back to today must re-show the indicator '
               'on the centered page (or, if the centered page is '
               'off-today, on the relevant preview)',
         );
@@ -714,207 +838,197 @@ void main() {
         // Zoom density: capture the timeline-grid height before and
         // after the swipe cycle. The grid height is the active
         // hour-height × visible slot count and must be unchanged.
-        final gridHeightAfter =
-            tester.getSize(find.byKey(const Key('planner-time-grid'))).height;
-        // Visible slot count is 22-6 = 16, default hour height 60
-        // → 960 px.
+        final gridHeightAfter = tester
+            .getSize(find.byKey(const Key('planner-time-grid')))
+            .height;
+        // The canvas spans the full civil day: 24 slots at the
+        // default 60-px hour height → 1440 px.
         expect(
           gridHeightAfter,
-          16 * PlannerZoomPolicy.normalHourHeight,
+          24 * PlannerZoomPolicy.normalHourHeight,
           reason: 'zoom density must be unchanged across swipes',
         );
         expect(tester.takeException(), isNull);
       },
     );
 
-    testWidgets(
-      'TEST 6 — pinch-out increases effective hour height and the '
-      'indicator Y scales proportionally; label, dot, and line remain '
-      'aligned; the selected date is unchanged',
-      (tester) async {
-        final (database, plannerRepo, _) = await _buildRepositories();
-        await _pumpPlanner(
-          tester: tester,
-          database: database,
-          plannerRepository: plannerRepo,
-          selected: _selectedToday,
-          current: _fourOhThree,
-        );
+    testWidgets('TEST 6 — pinch-out increases effective hour height and the '
+        'indicator Y scales proportionally; label, dot, and line remain '
+        'aligned; the selected date is unchanged', (tester) async {
+      final (database, plannerRepo, _) = await _buildRepositories();
+      await _pumpPlanner(
+        tester: tester,
+        database: database,
+        plannerRepository: plannerRepo,
+        selected: _selectedToday,
+        current: _fourOhThree,
+      );
 
-        // Default 60-px hour height: dot/line center Y at minute
-        // 4:03 PM = 16*60-6*60+3 = 603.
-        const firstHour = _firstHour;
-        const defaultHourHeight = PlannerZoomPolicy.normalHourHeight;
-        const baseMinuteFromVisibleStart = (16 - firstHour) * 60 + 3;
-        const basePixelsPerMinute = defaultHourHeight / 60;
-        const baseResolvedY = baseMinuteFromVisibleStart * basePixelsPerMinute;
+      // Default 60-px hour height: dot/line center Y at minute
+      // 4:03 PM = 16*60+3 = 963 (minute-of-day on the full civil-
+      // day canvas).
+      const defaultHourHeight = PlannerZoomPolicy.normalHourHeight;
+      const baseMinuteOfDay = 16 * 60 + 3;
+      const basePixelsPerMinute = defaultHourHeight / 60;
+      const baseResolvedY = baseMinuteOfDay * basePixelsPerMinute;
 
-        final dot = find.byKey(const Key('planner-current-time-dot'));
-        final line = find.byKey(const Key('planner-current-time-line'));
-        final label = find.byKey(const Key('planner-current-time-label'));
+      final dot = find.byKey(const Key('planner-current-time-dot'));
+      final line = find.byKey(const Key('planner-current-time-line'));
+      final label = find.byKey(const Key('planner-current-time-label'));
 
-        final baseDotY = _centerYInGrid(tester, dot);
-        final baseLineY = _centerYInGrid(tester, line);
-        final baseLabelY = _centerYInGrid(tester, label);
-        expect(
-          (baseDotY - baseResolvedY).abs(),
-          lessThanOrEqualTo(0.5),
-        );
-        expect(
-          (baseLineY - baseResolvedY).abs(),
-          lessThanOrEqualTo(0.5),
-        );
-        expect(
-          (baseLabelY - baseResolvedY).abs(),
-          lessThanOrEqualTo(0.5),
-        );
+      final baseDotY = _centerYInGrid(tester, dot);
+      final baseLineY = _centerYInGrid(tester, line);
+      final baseLabelY = _centerYInGrid(tester, label);
+      expect((baseDotY - baseResolvedY).abs(), lessThanOrEqualTo(0.5));
+      expect((baseLineY - baseResolvedY).abs(), lessThanOrEqualTo(0.5));
+      expect((baseLabelY - baseResolvedY).abs(), lessThanOrEqualTo(0.5));
 
-        // Pinch out: two fingers start 80 px apart vertically and
-        // move to 200 px apart (total spread 120 px). That gap
-        // comfortably crosses the ScaleGestureRecognizer's
-        // kScaleSlop threshold so onScaleUpdate dispatches with
-        // scale > 1 and the timeline's hour-height clamp widens.
-        final gridRect =
-            tester.getRect(find.byKey(const Key('planner-time-grid')));
-        final gridCenter = gridRect.center;
-        final upperFinger = gridCenter + const Offset(0, -40);
-        final lowerFinger = gridCenter + const Offset(0, 40);
+      // Pinch out: two fingers start 80 px apart vertically and
+      // move to 200 px apart (total spread 120 px). That gap
+      // comfortably crosses the ScaleGestureRecognizer's
+      // kScaleSlop threshold so onScaleUpdate dispatches with
+      // scale > 1 and the timeline's hour-height clamp widens.
+      final gridRect = tester.getRect(
+        find.byKey(const Key('planner-time-grid')),
+      );
+      final gridCenter = gridRect.center;
+      final upperFinger = gridCenter + const Offset(0, -40);
+      final lowerFinger = gridCenter + const Offset(0, 40);
 
-        final first = await tester.startGesture(upperFinger, pointer: 1);
-        final second = await tester.startGesture(lowerFinger, pointer: 2);
-        await tester.pump();
-        // Move each finger outward by 60 px in two stages so the
-        // recognizer dispatches a clean onScaleUpdate with
-        // scale > 1.
-        await first.moveBy(const Offset(0, -60));
-        await second.moveBy(const Offset(0, 60));
-        await tester.pump();
-        await first.moveBy(const Offset(0, -60));
-        await second.moveBy(const Offset(0, 60));
-        await tester.pumpAndSettle();
-        await first.up();
-        await second.up();
-        await tester.pumpAndSettle();
+      final first = await tester.startGesture(upperFinger, pointer: 1);
+      final second = await tester.startGesture(lowerFinger, pointer: 2);
+      await tester.pump();
+      // Move each finger outward by 60 px in two stages so the
+      // recognizer dispatches a clean onScaleUpdate with
+      // scale > 1.
+      await first.moveBy(const Offset(0, -60));
+      await second.moveBy(const Offset(0, 60));
+      await tester.pump();
+      await first.moveBy(const Offset(0, -60));
+      await second.moveBy(const Offset(0, 60));
+      await tester.pumpAndSettle();
+      await first.up();
+      await second.up();
+      await tester.pumpAndSettle();
 
-        // Effective hour height must increase.
-        final newGridHeight =
-            tester.getSize(find.byKey(const Key('planner-time-grid'))).height;
-        expect(
-          newGridHeight,
-          greaterThan(16 * PlannerZoomPolicy.normalHourHeight),
-          reason: 'pinch-out must increase the effective hour height',
-        );
-        final newHourHeight = newGridHeight / 16;
-        final newPixelsPerMinute = newHourHeight / 60;
-        final newResolvedY = baseMinuteFromVisibleStart * newPixelsPerMinute;
+      // Effective hour height must increase.
+      final newGridHeight = tester
+          .getSize(find.byKey(const Key('planner-time-grid')))
+          .height;
+      expect(
+        newGridHeight,
+        greaterThan(24 * PlannerZoomPolicy.normalHourHeight),
+        reason: 'pinch-out must increase the effective hour height',
+      );
+      final newHourHeight = newGridHeight / 24;
+      final newPixelsPerMinute = newHourHeight / 60;
+      final newResolvedY = baseMinuteOfDay * newPixelsPerMinute;
 
-        // Indicator Y must scale proportionally. Use a 1.5-px
-        // tolerance to absorb layout rounding from the
-        // Positioned math (PixelRatio rounding in headless mode).
-        final newDotY = _centerYInGrid(tester, dot);
-        final newLineY = _centerYInGrid(tester, line);
-        final newLabelY = _centerYInGrid(tester, label);
-        expect(
-          (newDotY - newResolvedY).abs(),
-          lessThanOrEqualTo(1.5),
-          reason: 'dot Y must scale with pinch zoom',
-        );
-        expect(
-          (newLineY - newResolvedY).abs(),
-          lessThanOrEqualTo(1.5),
-          reason: 'line Y must scale with pinch zoom',
-        );
-        expect(
-          (newLabelY - newResolvedY).abs(),
-          lessThanOrEqualTo(1.5),
-          reason: 'label Y must scale with pinch zoom',
-        );
-        // Alignment: label center Y ≈ dot center Y ≈ line center Y
-        // within a small tolerance.
-        expect(
-          (newLabelY - newDotY).abs(),
-          lessThanOrEqualTo(0.5),
-          reason: 'label center Y must align with dot center Y after pinch',
-        );
-        expect(
-          (newLineY - newDotY).abs(),
-          lessThanOrEqualTo(0.5),
-          reason: 'line center Y must align with dot center Y after pinch',
-        );
-        // Selected date unchanged.
-        expect(
-          _selectedDateIso(tester),
-          _selectedToday.iso8601,
-          reason: 'pinch must not change the selected date',
-        );
-        expect(tester.takeException(), isNull);
-      },
-    );
+      // Indicator Y must scale proportionally. Use a 1.5-px
+      // tolerance to absorb layout rounding from the
+      // Positioned math (PixelRatio rounding in headless mode).
+      final newDotY = _centerYInGrid(tester, dot);
+      final newLineY = _centerYInGrid(tester, line);
+      final newLabelY = _centerYInGrid(tester, label);
+      expect(
+        (newDotY - newResolvedY).abs(),
+        lessThanOrEqualTo(1.5),
+        reason: 'dot Y must scale with pinch zoom',
+      );
+      expect(
+        (newLineY - newResolvedY).abs(),
+        lessThanOrEqualTo(1.5),
+        reason: 'line Y must scale with pinch zoom',
+      );
+      expect(
+        (newLabelY - newResolvedY).abs(),
+        lessThanOrEqualTo(1.5),
+        reason: 'label Y must scale with pinch zoom',
+      );
+      // Alignment: label center Y ≈ dot center Y ≈ line center Y
+      // within a small tolerance.
+      expect(
+        (newLabelY - newDotY).abs(),
+        lessThanOrEqualTo(0.5),
+        reason: 'label center Y must align with dot center Y after pinch',
+      );
+      expect(
+        (newLineY - newDotY).abs(),
+        lessThanOrEqualTo(0.5),
+        reason: 'line center Y must align with dot center Y after pinch',
+      );
+      // Selected date unchanged.
+      expect(
+        _selectedDateIso(tester),
+        _selectedToday.iso8601,
+        reason: 'pinch must not change the selected date',
+      );
+      expect(tester.takeException(), isNull);
+    });
 
-    testWidgets(
-      'TEST 7 — overlay is non-interactive: an Event body that sits '
-      'under the current-time indicator still opens its detail screen; '
-      'the selected date is unchanged; no exception is raised',
-      (tester) async {
-        const eventId = 'c1c1c1c1-c1c1-4c1c-8c1c-c1c1c1c1c1c1';
-        // Event body that spans 4:00 PM → 5:00 PM, so the 4:03 PM
-        // indicator runs through the body interior — the tap point
-        // must be inside the body, not on a hit area outside it.
-        final (database, plannerRepo, calendarRepo) =
-            await _buildRepositories();
-        await _pumpPlanner(
-          tester: tester,
-          database: database,
-          plannerRepository: plannerRepo,
-          selected: _selectedToday,
-          current: _fourOhThree,
-          eventDraft: _timedDraft(
-            id: eventId,
-            date: _selectedToday,
-            startMinute: 16 * 60,
-            endMinute: 17 * 60,
-          ),
-        );
+    testWidgets('TEST 7 — overlay is non-interactive: an Event body that sits '
+        'under the current-time indicator still opens its detail screen; '
+        'the selected date is unchanged; no exception is raised', (
+      tester,
+    ) async {
+      const eventId = 'c1c1c1c1-c1c1-4c1c-8c1c-c1c1c1c1c1c1';
+      // Event body that spans 4:00 PM → 5:00 PM, so the 4:03 PM
+      // indicator runs through the body interior — the tap point
+      // must be inside the body, not on a hit area outside it.
+      final (database, plannerRepo, calendarRepo) = await _buildRepositories();
+      await _pumpPlanner(
+        tester: tester,
+        database: database,
+        plannerRepository: plannerRepo,
+        selected: _selectedToday,
+        current: _fourOhThree,
+        eventDraft: _timedDraft(
+          id: eventId,
+          date: _selectedToday,
+          startMinute: 16 * 60,
+          endMinute: 17 * 60,
+        ),
+      );
 
-        final blockFinder = find.byKey(
-          Key('planner-timed-event-${_occurrenceId(eventId, _selectedToday)}'),
-        );
-        expect(
-          blockFinder,
-          findsOneWidget,
-          reason: 'fixture event body must be rendered',
-        );
+      final blockFinder = find.byKey(
+        Key('planner-timed-event-${_occurrenceId(eventId, _selectedToday)}'),
+      );
+      expect(
+        blockFinder,
+        findsOneWidget,
+        reason: 'fixture event body must be rendered',
+      );
 
-        final blockRect = tester.getRect(blockFinder);
-        // Tap at a point well inside the body, near the top, but
-        // not on the resize hit area. A y offset of 10 px from the
-        // top of the body keeps the gesture in the body interior
-        // where the indicator overlay sits.
-        await tester.tapAt(Offset(blockRect.center.dx, blockRect.top + 10));
-        await tester.pumpAndSettle();
-        expect(tester.takeException(), isNull);
+      final blockRect = tester.getRect(blockFinder);
+      // Tap at a point well inside the body, near the top, but
+      // not on the resize hit area. A y offset of 10 px from the
+      // top of the body keeps the gesture in the body interior
+      // where the indicator overlay sits.
+      await tester.tapAt(Offset(blockRect.center.dx, blockRect.top + 10));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
 
-        // Selected date unchanged.
-        expect(
-          _selectedDateIso(tester),
-          _selectedToday.iso8601,
-          reason: 'tapping the event body under the overlay must not '
-              'change the selected date',
-        );
+      // Selected date unchanged.
+      expect(
+        _selectedDateIso(tester),
+        _selectedToday.iso8601,
+        reason:
+            'tapping the event body under the overlay must not '
+            'change the selected date',
+      );
 
-        // The detail screen pushes a route. We can't assert on the
-        // pushed widget (varies by build), but the absence of
-        // exceptions — combined with the documented tap pipeline
-        // in `_TimelineEventBlock` — confirms the overlay's
-        // `IgnorePointer` did not absorb the gesture. The same
-        // pattern is used by the focused swipe Test 7 to prove
-        // the body-tap route survives the swipe wrapper.
-        expect(tester.takeException(), isNull);
-        // Sanity: the event row itself was not mutated.
-        final events = await database.select(database.calendarEvents).get();
-        expect(events, hasLength(1));
-      },
-    );
+      // The detail screen pushes a route. We can't assert on the
+      // pushed widget (varies by build), but the absence of
+      // exceptions — combined with the documented tap pipeline
+      // in `_TimelineEventBlock` — confirms the overlay's
+      // `IgnorePointer` did not absorb the gesture. The same
+      // pattern is used by the focused swipe Test 7 to prove
+      // the body-tap route survives the swipe wrapper.
+      expect(tester.takeException(), isNull);
+      // Sanity: the event row itself was not mutated.
+      final events = await database.select(database.calendarEvents).get();
+      expect(events, hasLength(1));
+    });
 
     testWidgets(
       'TEST 8 — minute-boundary update: the label text changes, the dot '
@@ -930,13 +1044,12 @@ void main() {
           current: _fourOhThree,
         );
 
-        const firstHour = _firstHour;
         const hourHeight = PlannerZoomPolicy.normalHourHeight;
-        const baseMinuteFromVisibleStart = (16 - firstHour) * 60 + 3;
+        const baseMinuteOfDay = 16 * 60 + 3;
         const basePixelsPerMinute = hourHeight / 60;
-        const baseResolvedY = baseMinuteFromVisibleStart * basePixelsPerMinute;
-        const nextMinuteFromVisibleStart = (16 - firstHour) * 60 + 4;
-        const nextResolvedY = nextMinuteFromVisibleStart * basePixelsPerMinute;
+        const baseResolvedY = baseMinuteOfDay * basePixelsPerMinute;
+        const nextMinuteOfDay = 16 * 60 + 4;
+        const nextResolvedY = nextMinuteOfDay * basePixelsPerMinute;
         const expectedDelta = nextResolvedY - baseResolvedY; // exactly 1 px
 
         final dot = find.byKey(const Key('planner-current-time-dot'));
@@ -948,14 +1061,8 @@ void main() {
         final beforeLineY = _centerYInGrid(tester, line);
         final beforeLabelText = tester.widget<Text>(label).data;
         expect(beforeLabelText, '4:03 PM');
-        expect(
-          (beforeDotY - baseResolvedY).abs(),
-          lessThanOrEqualTo(0.5),
-        );
-        expect(
-          (beforeLineY - baseResolvedY).abs(),
-          lessThanOrEqualTo(0.5),
-        );
+        expect((beforeDotY - baseResolvedY).abs(), lessThanOrEqualTo(0.5));
+        expect((beforeLineY - baseResolvedY).abs(), lessThanOrEqualTo(0.5));
 
         // Advance the test-owned listenable to 4:04 PM. This is
         // the only mechanism the tests use to trigger a minute
@@ -1002,8 +1109,10 @@ void main() {
         // would have created its own notifier + Timer had the
         // seam not been wired; verifying the listenable is the
         // only one we own proves the seam is functioning.
-        expect(identical(pumped.currentTime.notifier, pumped.currentTime.notifier),
-            isTrue);
+        expect(
+          identical(pumped.currentTime.notifier, pumped.currentTime.notifier),
+          isTrue,
+        );
       },
     );
 
@@ -1015,7 +1124,11 @@ void main() {
       (tester) async {
         final (database, plannerRepo, _) = await _buildRepositories();
 
-        // Start: 31 July 11:59 PM, selected = 31 July.
+        // Start: 31 July 11:59 PM, selected = 31 July. The Correction Pack
+        // locks the range rule: the indicator shows only when the current
+        // time is inside the configured Planner range. This test configures
+        // the full 24-hour range so midnight semantics are exercised while
+        // the range rule stays honored.
         final pumped = await _pumpPlanner(
           tester: tester,
           database: database,
@@ -1023,17 +1136,28 @@ void main() {
           selected: _selectedToday,
           current: _july31LateNight,
         );
+        final plannerElement = tester.element(find.byType(PlannerScreen));
+        final container = ProviderScope.containerOf(plannerElement);
+        final settingsController = container.read(
+          eventTypeControllerProvider.notifier,
+        );
+        await settingsController.saveSettings(
+          container
+              .read(eventTypeControllerProvider)
+              .settings
+              .copyWith(visibleStartHour: 0, visibleEndHour: 24),
+        );
+        await tester.pumpAndSettle();
         expect(
           find.byKey(const Key('planner-current-time-indicator')),
           findsOneWidget,
-          reason: 'indicator must be visible at 31 July 11:59 PM with '
-              'selected date = 31 July',
+          reason:
+              'indicator must be visible at 31 July 11:59 PM with '
+              'selected date = 31 July inside the full-day range',
         );
         expect(
           tester
-              .widget<Text>(
-                find.byKey(const Key('planner-current-time-label')),
-              )
+              .widget<Text>(find.byKey(const Key('planner-current-time-label')))
               .data,
           '11:59 PM',
         );
@@ -1047,7 +1171,8 @@ void main() {
         expect(
           find.byKey(const Key('planner-current-time-indicator')),
           findsNothing,
-          reason: 'indicator must hide when the clock rolls past '
+          reason:
+              'indicator must hide when the clock rolls past '
               'midnight while the selected date is still 31 July',
         );
 
@@ -1087,158 +1212,164 @@ void main() {
         );
         expect(
           tester
-              .widget<Text>(
-                find.byKey(const Key('planner-current-time-label')),
-              )
+              .widget<Text>(find.byKey(const Key('planner-current-time-label')))
               .data,
           '12:00 AM',
         );
-        // Dot and line center Y at minute 0 = (0-6)*60*1 = -360;
-        // the Positioned stacks it at the top of the visible
-        // window. The key check is that the indicator is
-        // positioned at the start of the visible window: the
-        // Row's top is at resolvedIndicatorTop = -360 - 6 = -366,
-        // which the Stack allows (clipBehavior: Clip.none). The
-        // dot and line center Y must be at -360 in the grid
-        // local coordinate space, within a small tolerance.
+        // Dot and line center Y at minute 0 with the full-day range:
+        // minuteFromVisibleStart = (0 - 0) * 60 + 0 = 0, so the dot sits at
+        // the very top of the visible window (grid-local Y ≈ 0), within a
+        // small tolerance.
         final dot = find.byKey(const Key('planner-current-time-dot'));
         final dotY = _centerYInGrid(tester, dot);
         expect(
           dotY,
-          lessThan(0),
-          reason: 'midnight indicator must sit at the top of the '
+          greaterThanOrEqualTo(-1.5),
+          reason:
+              'midnight indicator must sit at the top of the '
               'visible window (got $dotY)',
         );
         expect(
-          (dotY - (-360.0)).abs(),
+          (dotY - 0.0).abs(),
           lessThanOrEqualTo(1.5),
-          reason: 'midnight dot Y must be at -360 in the grid local '
+          reason:
+              'midnight dot Y must be at 0 in the grid local '
               'coordinate space (got $dotY)',
         );
         expect(tester.takeException(), isNull);
       },
     );
 
-    testWidgets(
-      'TEST 10 — no domain or Actual writes across initial render, '
-      'minute update, swipe away, swipe back, and pinch geometry',
-      (tester) async {
-        final (database, plannerRepo, _) = await _buildRepositories();
-        final pumped = await _pumpPlanner(
-          tester: tester,
-          database: database,
-          plannerRepository: plannerRepo,
-          selected: _selectedToday,
-          current: _fourOhThree,
-        );
+    testWidgets('TEST 10 — no domain or Actual writes across initial render, '
+        'minute update, swipe away, swipe back, and pinch geometry', (
+      tester,
+    ) async {
+      final (database, plannerRepo, _) = await _buildRepositories();
+      final pumped = await _pumpPlanner(
+        tester: tester,
+        database: database,
+        plannerRepository: plannerRepo,
+        selected: _selectedToday,
+        current: _fourOhThree,
+      );
 
-        // Baseline counts: no fixture events were seeded, so every
-        // domain table should be empty.
-        Future<List<Object>> calendarEvents() =>
-            database.select(database.calendarEvents).get();
-        Future<List<Object>> calendarEventExceptions() =>
-            database.select(database.calendarEventExceptions).get();
-        Future<List<Object>> calendarEventOperations() =>
-            database.select(database.calendarEventOperations).get();
-        Future<List<Object>> outcomeReports() =>
-            database.select(database.outcomeReports).get();
-        Future<List<Object>> plannerTasks() =>
-            database.select(database.plannerTasks).get();
-        Future<List<Object>> taskEventLinks() =>
-            database.select(database.taskEventLinks).get();
-        Future<List<Object>> activityLedgerEntries() =>
-            database.select(database.activityLedgerEntries).get();
+      // Baseline counts: no fixture events were seeded, so every
+      // domain table should be empty.
+      Future<List<Object>> calendarEvents() =>
+          database.select(database.calendarEvents).get();
+      Future<List<Object>> calendarEventExceptions() =>
+          database.select(database.calendarEventExceptions).get();
+      Future<List<Object>> calendarEventOperations() =>
+          database.select(database.calendarEventOperations).get();
+      Future<List<Object>> outcomeReports() =>
+          database.select(database.outcomeReports).get();
+      Future<List<Object>> plannerTasks() =>
+          database.select(database.plannerTasks).get();
+      Future<List<Object>> taskEventLinks() =>
+          database.select(database.taskEventLinks).get();
+      Future<List<Object>> activityLedgerEntries() =>
+          database.select(database.activityLedgerEntries).get();
 
-        Future<({int events, int exceptions, int operations, int reports,
-            int tasks, int links, int ledger})> snapshot() async {
-          final values = await Future.wait(<Future<List<Object>>>[
-            calendarEvents(),
-            calendarEventExceptions(),
-            calendarEventOperations(),
-            outcomeReports(),
-            plannerTasks(),
-            taskEventLinks(),
-            activityLedgerEntries(),
-          ]);
-          return (
-            events: values[0].length,
-            exceptions: values[1].length,
-            operations: values[2].length,
-            reports: values[3].length,
-            tasks: values[4].length,
-            links: values[5].length,
-            ledger: values[6].length,
-          );
-        }
+      Future<
+        ({
+          int events,
+          int exceptions,
+          int operations,
+          int reports,
+          int tasks,
+          int links,
+          int ledger,
+        })
+      >
+      snapshot() async {
+        final values = await Future.wait(<Future<List<Object>>>[
+          calendarEvents(),
+          calendarEventExceptions(),
+          calendarEventOperations(),
+          outcomeReports(),
+          plannerTasks(),
+          taskEventLinks(),
+          activityLedgerEntries(),
+        ]);
+        return (
+          events: values[0].length,
+          exceptions: values[1].length,
+          operations: values[2].length,
+          reports: values[3].length,
+          tasks: values[4].length,
+          links: values[5].length,
+          ledger: values[6].length,
+        );
+      }
 
-        final before = await snapshot();
+      final before = await snapshot();
 
-        // 1. Initial indicator render.
-        expect(
-          find.byKey(const Key('planner-current-time-indicator')),
-          findsOneWidget,
-        );
-        // 2. Deterministic minute update.
-        pumped.currentTime.value = _fourOhFour;
-        await tester.pumpAndSettle();
-        // 3. Swipe away (left one day).
-        final scrollRect = tester.getRect(
-          find.byKey(const Key('planner-day-scroll')),
-        );
-        final center = scrollRect.center;
-        final left = await tester.startGesture(center, pointer: 1);
-        const steps = 8;
-        const dxLeft = -300.0;
-        final perLeft = dxLeft / steps;
-        for (var i = 1; i <= steps; i++) {
-          await left.moveBy(Offset(perLeft, 0));
-          await tester.pump(const Duration(milliseconds: 16));
-        }
-        await left.up();
-        await tester.pumpAndSettle();
-        // 4. Swipe back (right one day).
-        final right = await tester.startGesture(center, pointer: 1);
-        const dxRight = 300.0;
-        final perRight = dxRight / steps;
-        for (var i = 1; i <= steps; i++) {
-          await right.moveBy(Offset(perRight, 0));
-          await tester.pump(const Duration(milliseconds: 16));
-        }
-        await right.up();
-        await tester.pumpAndSettle();
-        // 5. Pinch geometry update: two fingers move apart by 60 px
-        // total, then lift. The pinch fires onScaleEnd which calls
-        // onZoomEnd; that path must not write to any domain table.
-        final gridRect =
-            tester.getRect(find.byKey(const Key('planner-time-grid')));
-        final gridCenter = gridRect.center;
-        final first = await tester.startGesture(
-          gridCenter + const Offset(0, -30),
-          pointer: 1,
-        );
-        final second = await tester.startGesture(
-          gridCenter + const Offset(0, 30),
-          pointer: 2,
-        );
-        await tester.pump();
-        await first.moveBy(const Offset(0, -30));
-        await second.moveBy(const Offset(0, 30));
-        await tester.pump();
-        await first.up();
-        await second.up();
-        await tester.pumpAndSettle();
+      // 1. Initial indicator render.
+      expect(
+        find.byKey(const Key('planner-current-time-indicator')),
+        findsOneWidget,
+      );
+      // 2. Deterministic minute update.
+      pumped.currentTime.value = _fourOhFour;
+      await tester.pumpAndSettle();
+      // 3. Swipe away (left one day).
+      final scrollRect = tester.getRect(
+        find.byKey(const Key('planner-day-scroll')),
+      );
+      final center = scrollRect.center;
+      final left = await tester.startGesture(center, pointer: 1);
+      const steps = 8;
+      const dxLeft = -300.0;
+      final perLeft = dxLeft / steps;
+      for (var i = 1; i <= steps; i++) {
+        await left.moveBy(Offset(perLeft, 0));
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      await left.up();
+      await tester.pumpAndSettle();
+      // 4. Swipe back (right one day).
+      final right = await tester.startGesture(center, pointer: 1);
+      const dxRight = 300.0;
+      final perRight = dxRight / steps;
+      for (var i = 1; i <= steps; i++) {
+        await right.moveBy(Offset(perRight, 0));
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      await right.up();
+      await tester.pumpAndSettle();
+      // 5. Pinch geometry update: two fingers move apart by 60 px
+      // total, then lift. The pinch fires onScaleEnd which calls
+      // onZoomEnd; that path must not write to any domain table.
+      final gridRect = tester.getRect(
+        find.byKey(const Key('planner-time-grid')),
+      );
+      final gridCenter = gridRect.center;
+      final first = await tester.startGesture(
+        gridCenter + const Offset(0, -30),
+        pointer: 1,
+      );
+      final second = await tester.startGesture(
+        gridCenter + const Offset(0, 30),
+        pointer: 2,
+      );
+      await tester.pump();
+      await first.moveBy(const Offset(0, -30));
+      await second.moveBy(const Offset(0, 30));
+      await tester.pump();
+      await first.up();
+      await second.up();
+      await tester.pumpAndSettle();
 
-        final after = await snapshot();
-        expect(after.events, before.events);
-        expect(after.exceptions, before.exceptions);
-        expect(after.operations, before.operations);
-        expect(after.reports, before.reports);
-        expect(after.tasks, before.tasks);
-        expect(after.links, before.links);
-        expect(after.ledger, before.ledger);
-        expect(tester.takeException(), isNull);
-      },
-    );
+      final after = await snapshot();
+      expect(after.events, before.events);
+      expect(after.exceptions, before.exceptions);
+      expect(after.operations, before.operations);
+      expect(after.reports, before.reports);
+      expect(after.tasks, before.tasks);
+      expect(after.links, before.links);
+      expect(after.ledger, before.ledger);
+      expect(tester.takeException(), isNull);
+    });
   });
 }
 

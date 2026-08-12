@@ -85,6 +85,212 @@ void main() {
     );
   });
 
+  test('Delta 4.2F: new repeat choices receive their locked concrete ends', () {
+    const start = PlannerDate(year: 2026, month: 8, day: 9);
+
+    expect(
+      calendarDefaultRecurrenceEndDate(
+        start,
+        CalendarRecurrenceFrequency.daily,
+      ),
+      const PlannerDate(year: 2026, month: 10, day: 9),
+    );
+    expect(
+      calendarDefaultRecurrenceEndDate(
+        start,
+        CalendarRecurrenceFrequency.weekly,
+      ),
+      const PlannerDate(year: 2026, month: 11, day: 9),
+    );
+    expect(
+      calendarDefaultRecurrenceEndDate(
+        start,
+        CalendarRecurrenceFrequency.monthly,
+      ),
+      const PlannerDate(year: 2027, month: 2, day: 9),
+    );
+    expect(
+      calendarDefaultRecurrenceEndDate(
+        start,
+        CalendarRecurrenceFrequency.yearly,
+      ),
+      const PlannerDate(year: 2028, month: 8, day: 9),
+    );
+  });
+
+  test('Delta 4.2F: custom pattern JSON is versioned and fail-safe', () {
+    const pattern = CalendarRecurrencePattern(
+      interval: 2,
+      weeklyWeekdays: <int>{DateTime.tuesday, DateTime.sunday},
+      monthlyMode: CalendarRecurrenceMonthlyMode.nthWeekday,
+    );
+
+    final encoded = calendarRecurrencePatternToJson(pattern);
+
+    expect(encoded, contains('"version":1'));
+    expect(calendarRecurrencePatternFromJson(encoded), pattern);
+    expect(calendarRecurrencePatternFromJson('{not-json'), isNull);
+    expect(
+      calendarRecurrencePatternFromJson(
+        '{"version":2,"interval":2,"weekdays":[],"monthlyMode":"dayOfMonth"}',
+      ),
+      isNull,
+    );
+  });
+
+  test('Delta 4.2F: custom daily interval preserves deterministic indexes', () {
+    const start = PlannerDate(year: 2026, month: 8, day: 9);
+    const rule = CalendarRecurrenceRule(
+      frequency: CalendarRecurrenceFrequency.daily,
+      pattern: CalendarRecurrencePattern(interval: 3),
+    );
+
+    expect(
+      rule.occurrenceAt(startDate: start, index: 2),
+      const PlannerDate(year: 2026, month: 8, day: 15),
+    );
+    expect(
+      rule.occurrenceIndexOn(
+        startDate: start,
+        targetDate: const PlannerDate(year: 2026, month: 8, day: 12),
+      ),
+      1,
+    );
+    expect(
+      rule.occurrenceIndexOn(
+        startDate: start,
+        targetDate: const PlannerDate(year: 2026, month: 8, day: 13),
+      ),
+      isNull,
+    );
+  });
+
+  test('Delta 4.2F: custom week supports Sunday plus Tuesday', () {
+    const start = PlannerDate(year: 2026, month: 8, day: 9);
+    const rule = CalendarRecurrenceRule(
+      frequency: CalendarRecurrenceFrequency.weekly,
+      pattern: CalendarRecurrencePattern(
+        weeklyWeekdays: <int>{DateTime.sunday, DateTime.tuesday},
+      ),
+    );
+
+    expect(start.weekday, DateTime.sunday);
+    expect(
+      rule.occurrenceAt(startDate: start, index: 1),
+      const PlannerDate(year: 2026, month: 8, day: 11),
+    );
+    expect(
+      rule.occurrenceAt(startDate: start, index: 2),
+      const PlannerDate(year: 2026, month: 8, day: 16),
+    );
+    expect(
+      rule.occurrenceIndexOn(
+        startDate: start,
+        targetDate: const PlannerDate(year: 2026, month: 8, day: 18),
+      ),
+      3,
+    );
+    expect(
+      rule.occurrenceIndexOn(
+        startDate: start,
+        targetDate: const PlannerDate(year: 2026, month: 8, day: 17),
+      ),
+      isNull,
+    );
+  });
+
+  test('Delta 4.2F: selecting all weekdays repeats on every next day', () {
+    const start = PlannerDate(year: 2026, month: 8, day: 9);
+    const rule = CalendarRecurrenceRule(
+      frequency: CalendarRecurrenceFrequency.weekly,
+      pattern: CalendarRecurrencePattern(
+        weeklyWeekdays: <int>{
+          DateTime.monday,
+          DateTime.tuesday,
+          DateTime.wednesday,
+          DateTime.thursday,
+          DateTime.friday,
+          DateTime.saturday,
+          DateTime.sunday,
+        },
+      ),
+    );
+
+    for (var index = 1; index <= 9; index++) {
+      expect(
+        rule.occurrenceAt(startDate: start, index: index),
+        start.addDays(index),
+      );
+      expect(
+        rule.occurrenceIndexOn(
+          startDate: start,
+          targetDate: start.addDays(index),
+        ),
+        index,
+      );
+    }
+  });
+
+  test('Delta 4.2F: custom month supports day and nth-weekday modes', () {
+    const start = PlannerDate(year: 2026, month: 8, day: 9);
+    const byDay = CalendarRecurrenceRule(
+      frequency: CalendarRecurrenceFrequency.monthly,
+      pattern: CalendarRecurrencePattern(interval: 2),
+    );
+    const byNthWeekday = CalendarRecurrenceRule(
+      frequency: CalendarRecurrenceFrequency.monthly,
+      pattern: CalendarRecurrencePattern(
+        monthlyMode: CalendarRecurrenceMonthlyMode.nthWeekday,
+      ),
+    );
+
+    expect(
+      byDay.occurrenceAt(startDate: start, index: 1),
+      const PlannerDate(year: 2026, month: 10, day: 9),
+    );
+    expect(
+      byDay.occurrenceIndexOn(
+        startDate: start,
+        targetDate: const PlannerDate(year: 2026, month: 9, day: 9),
+      ),
+      isNull,
+    );
+    expect(
+      byNthWeekday.occurrenceAt(startDate: start, index: 1),
+      const PlannerDate(year: 2026, month: 9, day: 13),
+    );
+    expect(
+      byNthWeekday.occurrenceIndexOn(
+        startDate: start,
+        targetDate: const PlannerDate(year: 2026, month: 10, day: 11),
+      ),
+      2,
+    );
+  });
+
+  test('Delta 4.2F: a missing fifth weekday month is skipped', () {
+    const start = PlannerDate(year: 2026, month: 3, day: 30);
+    const rule = CalendarRecurrenceRule(
+      frequency: CalendarRecurrenceFrequency.monthly,
+      pattern: CalendarRecurrencePattern(
+        monthlyMode: CalendarRecurrenceMonthlyMode.nthWeekday,
+      ),
+    );
+
+    expect(start.weekday, DateTime.monday);
+    expect(
+      rule.occurrenceAt(startDate: start, index: 1),
+      const PlannerDate(year: 2026, month: 6, day: 29),
+    );
+    expect(
+      rule.occurrenceIndexOn(
+        startDate: start,
+        targetDate: const PlannerDate(year: 2026, month: 6, day: 29),
+      ),
+      1,
+    );
+  });
+
   test(
     'AC-E-014,019,024: occurrence and exception identities are stable UUIDs',
     () {
@@ -142,12 +348,14 @@ void main() {
       ),
       'Unreported',
     );
+    // Delta 2 final matrix: the success state reads 'Completed' for BOTH
+    // Contact and generic Events.
     expect(
       calendarEventOutcomeLabel(
         status: CalendarEventStatus.completedHappened,
         isContactEvent: true,
       ),
-      'Contacted',
+      'Completed',
     );
     expect(
       calendarEventOutcomeLabel(
@@ -161,7 +369,32 @@ void main() {
         status: CalendarEventStatus.partiallyCompleted,
         isContactEvent: true,
       ),
-      'Missed - Attempted',
+      'Missed — Attempted',
+    );
+    expect(
+      calendarEventOutcomeLabel(
+        status: CalendarEventStatus.partiallyCompleted,
+        isContactEvent: false,
+      ),
+      'Missed',
+    );
+    // Delta 2: the generic status helper reads 'Missed' by default and the
+    // richer label only for Contact contexts; legacy Did Not Attempt stays
+    // historically readable for non-Contact records.
+    expect(
+      calendarEventStatusLabel(CalendarEventStatus.partiallyCompleted),
+      'Missed',
+    );
+    expect(
+      calendarEventStatusLabel(
+        CalendarEventStatus.partiallyCompleted,
+        isContactEvent: true,
+      ),
+      'Missed — Attempted',
+    );
+    expect(
+      calendarEventStatusLabel(CalendarEventStatus.didNotHappen),
+      'Did Not Attempt',
     );
     expect(
       calendarEventOutcomeLabel(

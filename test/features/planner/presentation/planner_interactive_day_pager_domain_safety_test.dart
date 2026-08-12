@@ -45,16 +45,14 @@ const _selectedEventId = 'cccccccc-bbbb-4bbb-8bbb-bbbb2222bbbb';
 const _nextEventId = 'cccccccc-cccc-4ccc-8ccc-cccc3333cccc';
 
 class _SafetyHarness {
-  _SafetyHarness({
-    required this.database,
-    required this.calendarRepository,
-  });
+  _SafetyHarness({required this.database, required this.calendarRepository});
   final db.AppDatabase database;
   final DriftCalendarEventRepository calendarRepository;
 
   Future<void> seedEvents() async {
-    final profile = await buildTestRepository(database: database)
-        .completeOnboarding();
+    final profile = await buildTestRepository(
+      database: database,
+    ).completeOnboarding();
     await calendarRepository.saveEvent(
       profileId: profile.id,
       draft: _draft(id: _previousEventId, date: _previous),
@@ -95,15 +93,12 @@ class _SafetyHarness {
   Future<Map<String, int>> snapshotCounts() async {
     return <String, int>{
       'calendar_events': await _count('calendar_events'),
-      'calendar_event_exceptions':
-          await _count('calendar_event_exceptions'),
-      'calendar_event_operations':
-          await _count('calendar_event_operations'),
+      'calendar_event_exceptions': await _count('calendar_event_exceptions'),
+      'calendar_event_operations': await _count('calendar_event_operations'),
       'outcome_reports': await _count('outcome_reports'),
       'planner_tasks': await _count('planner_tasks'),
       'task_event_links': await _count('task_event_links'),
-      'activity_ledger_entries':
-          await _count('activity_ledger_entries'),
+      'activity_ledger_entries': await _count('activity_ledger_entries'),
     };
   }
 
@@ -120,10 +115,7 @@ class _SafetyHarness {
   }
 }
 
-CalendarEventDraft _draft({
-  required String id,
-  required PlannerDate date,
-}) {
+CalendarEventDraft _draft({required String id, required PlannerDate date}) {
   return CalendarEventDraft(
     id: id,
     title: 'Domain-safety fixture $id',
@@ -227,9 +219,11 @@ Future<void> _driveSwipe(
   required double dx,
   int steps = 8,
 }) async {
-  final center = tester.getCenter(
-    find.byKey(const Key('planner-day-pager-viewport')),
-  );
+  final canvas = tester.getRect(find.byKey(const Key('planner-zoom-surface')));
+  final viewport = tester.getRect(find.byKey(const Key('planner-day-scroll')));
+  final visible = canvas.intersect(viewport);
+  expect(visible.height, greaterThan(60));
+  final center = visible.center;
   final gesture = await tester.startGesture(center, pointer: 1);
   final perStep = dx / steps;
   for (var i = 1; i <= steps; i++) {
@@ -253,21 +247,25 @@ void main() {
       await action();
       final after = await harness.snapshotCounts();
       final afterOps = await harness.latestOperationTimestamp();
-      expect(after, before,
-          reason: 'navigation must not mutate any Drift table');
-      expect(afterOps, beforeOps,
-          reason: 'no operation identifier may be consumed');
+      expect(
+        after,
+        before,
+        reason: 'navigation must not mutate any Drift table',
+      );
+      expect(
+        afterOps,
+        beforeOps,
+        reason: 'no operation identifier may be consumed',
+      );
       // Selected date is still _selected (most scenarios
       // assert this; the few that commit explicitly
       // re-assert after the action).
-      expect(
-        container.read(plannerControllerProvider).selectedDate,
-        isNotNull,
-      );
+      expect(container.read(plannerControllerProvider).selectedDate, isNotNull);
     }
 
-    testWidgets('SCENARIO 1 — below-threshold cancelled swipe is safe',
-        (tester) async {
+    testWidgets('SCENARIO 1 — below-threshold cancelled swipe is safe', (
+      tester,
+    ) async {
       final harness = await _buildHarness();
       addTearDown(harness.database.close);
       await harness.seedEvents();
@@ -294,14 +292,17 @@ void main() {
       await _driveSwipe(tester, dx: -320);
       final after = await harness.snapshotCounts();
       final afterOps = await harness.latestOperationTimestamp();
+      expect(container.read(plannerControllerProvider).selectedDate, _next);
       expect(
-        container.read(plannerControllerProvider).selectedDate,
-        _next,
+        after,
+        before,
+        reason: 'next-day commit must not mutate any Drift table',
       );
-      expect(after, before,
-          reason: 'next-day commit must not mutate any Drift table');
-      expect(afterOps, beforeOps,
-          reason: 'no operation identifier may be consumed');
+      expect(
+        afterOps,
+        beforeOps,
+        reason: 'no operation identifier may be consumed',
+      );
     });
 
     testWidgets('SCENARIO 3 — previous-day commit is safe', (tester) async {
@@ -314,12 +315,12 @@ void main() {
       await _driveSwipe(tester, dx: 320);
       final after = await harness.snapshotCounts();
       final afterOps = await harness.latestOperationTimestamp();
+      expect(container.read(plannerControllerProvider).selectedDate, _previous);
       expect(
-        container.read(plannerControllerProvider).selectedDate,
-        _previous,
+        after,
+        before,
+        reason: 'previous-day commit must not mutate any Drift table',
       );
-      expect(after, before,
-          reason: 'previous-day commit must not mutate any Drift table');
       expect(afterOps, beforeOps);
     });
 
@@ -330,9 +331,15 @@ void main() {
       final container = await _pumpPlanner(tester, harness);
       final before = await harness.snapshotCounts();
       final beforeOps = await harness.latestOperationTimestamp();
-      final center = tester.getCenter(
-        find.byKey(const Key('planner-day-pager-viewport')),
+      final canvas = tester.getRect(
+        find.byKey(const Key('planner-zoom-surface')),
       );
+      final viewport = tester.getRect(
+        find.byKey(const Key('planner-day-scroll')),
+      );
+      final visible = canvas.intersect(viewport);
+      expect(visible.height, greaterThan(60));
+      final center = visible.center;
       final gesture = await tester.startGesture(center, pointer: 1);
       await gesture.moveBy(const Offset(-50, 0));
       await gesture.up(timeStamp: const Duration(milliseconds: 1));
@@ -340,10 +347,7 @@ void main() {
       await _pumpFrames(tester);
       final after = await harness.snapshotCounts();
       final afterOps = await harness.latestOperationTimestamp();
-      expect(
-        container.read(plannerControllerProvider).selectedDate,
-        _next,
-      );
+      expect(container.read(plannerControllerProvider).selectedDate, _next);
       expect(after, before);
       expect(afterOps, beforeOps);
     });
@@ -356,9 +360,15 @@ void main() {
       final before = await harness.snapshotCounts();
       final beforeOps = await harness.latestOperationTimestamp();
       // Two pointers near the pager center; pinch up.
-      final center = tester.getCenter(
-        find.byKey(const Key('planner-day-pager-viewport')),
+      final canvas = tester.getRect(
+        find.byKey(const Key('planner-zoom-surface')),
       );
+      final viewport = tester.getRect(
+        find.byKey(const Key('planner-day-scroll')),
+      );
+      final visible = canvas.intersect(viewport);
+      expect(visible.height, greaterThan(60));
+      final center = visible.center;
       final first = await tester.startGesture(
         center + const Offset(-20, -40),
         pointer: 1,
@@ -385,71 +395,68 @@ void main() {
       expect(afterOps, beforeOps);
     });
 
-    testWidgets(
-      'SCENARIOS 6-15 — remaining navigation-only and '
-      'date-picker paths are safe',
-      (tester) async {
-        // One combined scenario covers the rest of the
-        // matrix: Today icon, date-picker OK, date-strip
-        // change, preview refresh. Each sub-action is
-        // verified to leave the Drift tables untouched.
-        final harness = await _buildHarness();
-        addTearDown(harness.database.close);
-        await harness.seedEvents();
-        final container = await _pumpPlanner(tester, harness);
-        final before = await harness.snapshotCounts();
-        final beforeOps = await harness.latestOperationTimestamp();
+    testWidgets('SCENARIOS 6-15 — remaining navigation-only and '
+        'date-picker paths are safe', (tester) async {
+      // One combined scenario covers the rest of the
+      // matrix: Today icon, date-picker OK, date-strip
+      // change, preview refresh. Each sub-action is
+      // verified to leave the Drift tables untouched.
+      final harness = await _buildHarness();
+      addTearDown(harness.database.close);
+      await harness.seedEvents();
+      final container = await _pumpPlanner(tester, harness);
+      final before = await harness.snapshotCounts();
+      final beforeOps = await harness.latestOperationTimestamp();
 
-        // Today icon → selects _today (already selected).
-        // Open the date picker, tap a day cell, confirm.
-        await tester.tap(find.byKey(const Key('planner-date-label')));
-        await tester.pumpAndSettle();
-        expect(
-          find.byKey(const Key('planner-date-picker-panel')),
-          findsOneWidget,
-        );
-        // Tap the day cell "27" in the picker panel.
-        final dayCell = find.descendant(
-          of: find.byKey(const Key('planner-date-picker-panel')),
-          matching: find.text('27'),
-        );
-        expect(dayCell, findsOneWidget);
-        await tester.tap(dayCell);
-        await tester.pumpAndSettle();
-        expect(find.text('OK'), findsOneWidget);
-        await tester.tap(find.text('OK'));
-        await tester.pumpAndSettle();
+      // Today icon → selects _today (already selected).
+      // Open the date picker, tap a day cell, confirm.
+      await tester.tap(find.byKey(const Key('planner-date-label')));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('planner-date-picker-panel')),
+        findsOneWidget,
+      );
+      // Tap the day cell "27" in the picker panel.
+      final dayCell = find.descendant(
+        of: find.byKey(const Key('planner-date-picker-panel')),
+        matching: find.text('27'),
+      );
+      expect(dayCell, findsOneWidget);
+      await tester.tap(dayCell);
+      await tester.pumpAndSettle();
+      expect(find.text('OK'), findsOneWidget);
+      await tester.tap(find.text('OK'));
+      await tester.pumpAndSettle();
 
-        // Date-strip change via the WeekStrip.
-        // The WeekStrip is rendered as a row of day
-        // buttons; tapping a non-today day cell is the
-        // supported date-strip change path.
-        // The WeekStrip is keyed by its surrounding
-        // structure; we tap the next-day text inside it.
-        // If the strip uses an explicit key, tap it; if
-        // not, skip this sub-action (still safe).
-        // For determinism, we just verify the picker
-        // navigation left the tables untouched.
-        expect(
-          container.read(plannerControllerProvider).selectedDate,
-          _selected,
-        );
+      // Date-strip change via the WeekStrip.
+      // The WeekStrip is rendered as a row of day
+      // buttons; tapping a non-today day cell is the
+      // supported date-strip change path.
+      // The WeekStrip is keyed by its surrounding
+      // structure; we tap the next-day text inside it.
+      // If the strip uses an explicit key, tap it; if
+      // not, skip this sub-action (still safe).
+      // For determinism, we just verify the picker
+      // navigation left the tables untouched.
+      expect(container.read(plannerControllerProvider).selectedDate, _selected);
 
-        // Preview refresh: a normal `refresh()` after a
-        // no-op does not touch any table.
-        await container
-            .read(plannerControllerProvider.notifier)
-            .refresh();
-        await _pumpFrames(tester);
+      // Preview refresh: a normal `refresh()` after a
+      // no-op does not touch any table.
+      await container.read(plannerControllerProvider.notifier).refresh();
+      await _pumpFrames(tester);
 
-        final after = await harness.snapshotCounts();
-        final afterOps = await harness.latestOperationTimestamp();
-        expect(after, before,
-            reason:
-                'picker / strip / refresh navigation must not mutate any table');
-        expect(afterOps, beforeOps,
-            reason: 'no operation identifier may be consumed');
-      },
-    );
+      final after = await harness.snapshotCounts();
+      final afterOps = await harness.latestOperationTimestamp();
+      expect(
+        after,
+        before,
+        reason: 'picker / strip / refresh navigation must not mutate any table',
+      );
+      expect(
+        afterOps,
+        beforeOps,
+        reason: 'no operation identifier may be consumed',
+      );
+    });
   });
 }

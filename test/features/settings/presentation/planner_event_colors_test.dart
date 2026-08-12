@@ -59,7 +59,6 @@ void main() {
       'Study or Plan',
       'Service',
       'Work',
-      'Travel',
     ]) {
       expect(find.text(label), findsOneWidget);
     }
@@ -72,16 +71,22 @@ void main() {
     ]) {
       expect(find.text(label), findsNothing);
     }
+    final colorsList = find.byKey(const Key('planner-event-colors-list'));
+    await tester.drag(colorsList, const Offset(0, -2000));
+    await tester.pumpAndSettle();
+    expect(find.text('Travel'), findsOneWidget);
+    await tester.drag(colorsList, const Offset(0, 2000));
+    await tester.pumpAndSettle();
     expect(
       find.byKey(const Key('event-color-row-job_application')),
       findsOneWidget,
     );
     expect(
       tester.getSize(find.byKey(const Key('event-color-row-job_application'))),
-      const Size(357, 44),
+      const Size(361, 44),
     );
     final preview = find.byType(PlannerEventColorPreview).first;
-    expect(tester.getSize(preview), const Size(183, 40));
+    expect(tester.getSize(preview), const Size(159, 40));
     final previewRect = tester.getRect(preview);
     for (final key in <Key>[
       const Key('event-color-swatch-Job Application-accent'),
@@ -234,7 +239,7 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(
       tester.getSize(find.byType(PlannerEventColorPreview).first),
-      const Size(162, 40),
+      const Size(126, 40),
     );
     tester.view.physicalSize = const Size(393, 844);
     tester.platformDispatcher.textScaleFactorTestValue = 1.15;

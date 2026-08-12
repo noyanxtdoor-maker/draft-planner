@@ -60,6 +60,7 @@ abstract interface class PlannerRepository {
   Future<PlannerTask> saveTask({
     required String profileId,
     required PlannerTaskDraft draft,
+    bool confirmLinkedTypeTransfer = false,
   });
 
   Future<TaskStatusChangeOutcome> changeTaskStatus({
@@ -68,5 +69,6 @@ abstract interface class PlannerRepository {
     required PlannerTaskStatus target,
     required String operationId,
     String? reason,
+    bool confirmLinkedTypeTransfer = false,
   });
 }

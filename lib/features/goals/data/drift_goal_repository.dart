@@ -6,10 +6,13 @@ import 'package:rmplanner/core/database/app_database.dart';
 import 'package:rmplanner/core/ids/identifier_source.dart';
 import 'package:rmplanner/core/time/app_clock.dart';
 import 'package:rmplanner/features/goals/application/goal_repository.dart';
+import 'package:rmplanner/features/goals/domain/canonical_goal_slots.dart';
 import 'package:rmplanner/features/goals/domain/goal.dart';
 import 'package:rmplanner/features/indicators/domain/life_indicator.dart';
+import 'package:rmplanner/features/planner/domain/calendar_event.dart';
 import 'package:rmplanner/features/planner/domain/outcome_reporting.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
+import 'package:rmplanner/features/planner/domain/planner_task.dart';
 
 /// Deterministic migration/bootstrap for the six approved WLI-backed Goals.
 /// It is deliberately independent of display labels: slot and indicator key
@@ -40,46 +43,43 @@ final class GoalBootstrap {
               ]))
             .get();
     final now = (nowUtc ?? DateTime.now().toUtc()).toUtc();
-    for (final definition in definitions) {
-      final goalId = stableId(profileId, definition.position + 1);
-      final existingById =
-          await (database.select(database.goals)
-                ..where(
-                  (table) =>
-                      table.profileId.equals(profileId) &
-                      table.id.equals(goalId),
-                )
-                ..limit(1))
-              .getSingleOrNull();
-      final existing =
-          existingById ??
-          await (database.select(database.goals)
-                ..where(
-                  (table) =>
-                      table.profileId.equals(profileId) &
-                      table.indicatorKey.equals(definition.indicatorKey),
-                )
-                ..limit(1))
-              .getSingleOrNull();
-      final role = roleForPosition(definition.position);
-      final migratedDefaultSlot4 =
-          definition.position == 3 &&
-          definition.label == 'Meaningful Connections';
-      final migratedTitle = migratedDefaultSlot4
-          ? 'Ministering Visit'
-          : definition.label;
-      var goal = existing;
-      if (goal == null) {
+    final existingGoals = await (database.select(
+      database.goals,
+    )..where((table) => table.profileId.equals(profileId))).get();
+    final definitionsByIndicator = <String, LifeIndicatorDefinitionRow>{
+      for (final definition in definitions) definition.indicatorKey: definition,
+    };
+    for (final slot in CanonicalGoalSlot.all) {
+      final goalId = stableId(profileId, slot.slotIndex);
+      final definition = definitionsByIndicator[slot.indicatorKey];
+      GoalRow? goal;
+      for (final row in existingGoals) {
+        if (row.assignedEventTypeStableKey == slot.eventTypeStableKey) {
+          goal = row;
+          break;
+        }
+      }
+      goal ??= existingGoals.where((row) => row.id == goalId).firstOrNull;
+      goal ??= existingGoals
+          .where((row) => row.indicatorKey == slot.indicatorKey)
+          .firstOrNull;
+      if (goal == null && definition != null) {
+        final title = definition.label == 'Meaningful Connections'
+            ? slot.defaultTitle
+            : definition.label;
         await database
             .into(database.goals)
             .insert(
               GoalsCompanion.insert(
                 id: goalId,
                 profileId: profileId,
-                indicatorKey: Value<String?>(definition.indicatorKey),
-                role: role.storageName,
-                activeSlotIndex: Value<int?>(definition.position + 1),
-                title: migratedTitle,
+                indicatorKey: Value<String?>(slot.indicatorKey),
+                assignedEventTypeStableKey: Value<String?>(
+                  slot.eventTypeStableKey,
+                ),
+                role: slot.role.storageName,
+                activeSlotIndex: Value<int?>(slot.slotIndex),
+                title: title,
                 iconId: const Value<String?>(null),
                 status: GoalStatus.active.name,
                 createdAtUtc: now,
@@ -93,29 +93,7 @@ final class GoalBootstrap {
                   ..where(
                     (table) =>
                         table.profileId.equals(profileId) &
-                        table.indicatorKey.equals(definition.indicatorKey),
-                  )
-                  ..limit(1))
-                .getSingleOrNull();
-      } else if (migratedDefaultSlot4 &&
-          goal.title == 'Meaningful Connections') {
-        await (database.update(database.goals)..where(
-              (table) =>
-                  table.profileId.equals(profileId) & table.id.equals(goal!.id),
-            ))
-            .write(
-              GoalsCompanion(
-                title: Value<String>(migratedTitle),
-                updatedAtUtc: Value<DateTime>(now),
-              ),
-            );
-        final currentGoalId = goal.id;
-        goal =
-            await (database.select(database.goals)
-                  ..where(
-                    (table) =>
-                        table.profileId.equals(profileId) &
-                        table.id.equals(currentGoalId),
+                        table.id.equals(goalId),
                   )
                   ..limit(1))
                 .getSingleOrNull();
@@ -123,6 +101,48 @@ final class GoalBootstrap {
       if (goal == null) {
         continue;
       }
+      final migratedTitle = goal.title == 'Meaningful Connections'
+          ? slot.defaultTitle
+          : goal.title;
+      // A permanently deleted Goal must never be resurrected by the
+      // bootstrap.  Its row stays untouched so historical records keep their
+      // original identity and the slot stays free for a replacement.
+      if (goal.status != GoalStatus.deleted.name &&
+          (goal.assignedEventTypeStableKey != slot.eventTypeStableKey ||
+              goal.indicatorKey != slot.indicatorKey ||
+              goal.role != slot.role.storageName ||
+              (goal.status == GoalStatus.active.name &&
+                  goal.activeSlotIndex != slot.slotIndex) ||
+              goal.title != migratedTitle)) {
+        await (database.update(database.goals)..where(
+              (table) =>
+                  table.profileId.equals(profileId) & table.id.equals(goal!.id),
+            ))
+            .write(
+              GoalsCompanion(
+                indicatorKey: Value<String?>(slot.indicatorKey),
+                assignedEventTypeStableKey: Value<String?>(
+                  slot.eventTypeStableKey,
+                ),
+                role: Value<String>(slot.role.storageName),
+                activeSlotIndex: goal.status == GoalStatus.active.name
+                    ? Value<int?>(slot.slotIndex)
+                    : const Value<int?>(null),
+                title: Value<String>(migratedTitle),
+                updatedAtUtc: Value<DateTime>(now),
+              ),
+            );
+        goal =
+            await (database.select(database.goals)
+                  ..where(
+                    (table) =>
+                        table.profileId.equals(profileId) &
+                        table.id.equals(goal!.id),
+                  )
+                  ..limit(1))
+                .getSingleOrNull();
+      }
+      if (goal == null) continue;
       final title = goal.title;
       final operationId = '$goalId:created';
       final activity =
@@ -168,17 +188,20 @@ final class GoalBootstrap {
                 action: GoalActivityAction.created.name,
                 payloadJson: jsonEncode(<String, Object?>{
                   'goalId': goal.id,
-                  'role': role.storageName,
-                  'slot': definition.position + 1,
+                  'role': slot.role.storageName,
+                  'slot': slot.slotIndex,
                   'title': title,
                   'iconId': goal.iconId,
+                  'assignedEventTypeStableKey': slot.eventTypeStableKey,
                 }),
                 createdAtUtc: now,
               ),
               mode: InsertMode.insertOrIgnore,
             );
       }
-      if (definition.position == 3 && definition.label != goal.title) {
+      if (definition != null &&
+          definition.position == 3 &&
+          definition.label != goal.title) {
         await (database.update(database.lifeIndicatorDefinitions)..where(
               (table) =>
                   table.id.equals(definition.id) &
@@ -206,7 +229,12 @@ final class DriftGoalRepository implements GoalRepository {
   final IdentifierSource identifiers;
 
   @override
-  Stream<void> watchChanges(String profileId) {
+  Stream<int> watchChanges(String profileId) {
+    // Riverpod 3 suppresses consecutive equal AsyncData values. A void
+    // change stream therefore refreshes dependants only once; use a distinct
+    // generation for every committed Drift table update so Home projections
+    // react to each Event lifecycle change, including deletion.
+    var generation = 0;
     return database
         .tableUpdates(
           TableUpdateQuery.onAllTables(<ResultSetImplementation>[
@@ -216,10 +244,17 @@ final class DriftGoalRepository implements GoalRepository {
             database.indicatorGoalRevisions,
             database.weeklyIndicatorTargetRevisions,
             database.activityLedgerEntries,
+            database.outcomeReports,
+            database.calendarEvents,
+            database.calendarEventExceptions,
             database.lifeIndicatorDefinitions,
+            database.plannerTasks,
+            database.taskStatusChanges,
+            database.taskGoalContributions,
+            database.activityTypes,
           ]),
         )
-        .map((_) {});
+        .map((_) => ++generation);
   }
 
   @override
@@ -307,6 +342,15 @@ final class DriftGoalRepository implements GoalRepository {
   }
 
   @override
+  Future<int?> nextAvailableSlot({
+    required String profileId,
+    required GoalRole role,
+  }) async {
+    await ensureCanonicalGoals(profileId);
+    return _freeSlotOrNull(profileId, role);
+  }
+
+  @override
   Future<GoalCapacity> readCapacity(String profileId) async {
     await ensureCanonicalGoals(profileId);
     final rows =
@@ -333,6 +377,7 @@ final class DriftGoalRepository implements GoalRepository {
     String? indicatorKey,
     String? iconId,
     String? operationId,
+    int? expectedSlotIndex,
   }) async {
     final normalizedTitle = title.trim();
     if (normalizedTitle.isEmpty) {
@@ -347,12 +392,20 @@ final class DriftGoalRepository implements GoalRepository {
       }
       final goalId = identifiers.nextUuid();
       final slot = await _freeSlot(profileId, role);
+      if (expectedSlotIndex != null && slot != expectedSlotIndex) {
+        throw const GoalValidationException(
+          'The available Goal slot changed. Review the assigned Event Type '
+          'and try again.',
+        );
+      }
+      final canonicalSlot = CanonicalGoalSlot.bySlot(slot);
       final now = clock.nowUtc();
       final goal = Goal(
         id: goalId,
         profileId: profileId,
-        indicatorKey: indicatorKey,
-        role: role,
+        indicatorKey: canonicalSlot.indicatorKey,
+        assignedEventTypeStableKey: canonicalSlot.eventTypeStableKey,
+        role: canonicalSlot.role,
         activeSlotIndex: slot,
         title: normalizedTitle,
         iconId: iconId,
@@ -360,6 +413,7 @@ final class DriftGoalRepository implements GoalRepository {
         createdAtUtc: now,
         updatedAtUtc: now,
         archivedAtUtc: null,
+        deletedAtUtc: null,
       );
       await database.into(database.goals).insert(_goalCompanion(goal));
       await _writeTargets(
@@ -380,8 +434,10 @@ final class DriftGoalRepository implements GoalRepository {
         action: GoalActivityAction.created.name,
         payload: <String, Object?>{
           'goalId': goalId,
-          'role': role.storageName,
+          'role': canonicalSlot.role.storageName,
           'slot': slot,
+          'indicatorKey': canonicalSlot.indicatorKey,
+          'assignedEventTypeStableKey': canonicalSlot.eventTypeStableKey,
           'title': normalizedTitle,
           'iconId': iconId,
           'targets': _targetsPayload(targets),
@@ -481,12 +537,71 @@ final class DriftGoalRepository implements GoalRepository {
     String? operationId,
   }) async {
     await ensureCanonicalGoals(profileId);
+    // Archive keeps the stable ID, Event links, and the fixed Event Type
+    // assignment (restoreGoal validates slot occupancy on the way back), so
+    // archiving is the supported reassignment path for slot replacements.
     await _mutateLifecycle(
       profileId: profileId,
       goalId: goalId,
       action: GoalActivityAction.archived,
       operationId: operationId,
     );
+  }
+
+  @override
+  Future<void> deleteGoal({
+    required String profileId,
+    required String goalId,
+    String? operationId,
+  }) async {
+    await ensureCanonicalGoals(profileId);
+    final effectiveOperationId = operationId ?? identifiers.nextUuid();
+    await database.transaction(() async {
+      final prior = await _goalForOperation(profileId, effectiveOperationId);
+      if (prior != null) {
+        return;
+      }
+      final row = await _goalRow(profileId, goalId);
+      if (row == null ||
+          row.status == GoalStatus.deleted.name ||
+          (row.status != GoalStatus.active.name &&
+              row.status != GoalStatus.archived.name)) {
+        throw const GoalValidationException('Goal was not found.');
+      }
+      final goal = _mapGoal(row);
+      final now = clock.nowUtc();
+      await (database.update(database.goals)..where(
+            (table) =>
+                table.profileId.equals(profileId) & table.id.equals(goalId),
+          ))
+          .write(
+            GoalsCompanion(
+              status: Value<String>(GoalStatus.deleted.name),
+              activeSlotIndex: const Value<int?>(null),
+              archivedAtUtc: const Value<DateTime?>(null),
+              deletedAtUtc: Value<DateTime?>(now),
+              updatedAtUtc: Value<DateTime>(now),
+            ),
+          );
+      final deleted = _mapGoal((await _goalRow(profileId, goalId))!);
+      await _writeActivity(
+        goal: deleted,
+        action: GoalActivityAction.deleted,
+        operationId: effectiveOperationId,
+        newValue: deleted.title,
+      );
+      await _writeOutbox(
+        profileId: profileId,
+        goalId: goalId,
+        operationId: effectiveOperationId,
+        action: GoalActivityAction.deleted.name,
+        payload: <String, Object?>{
+          'goalId': goalId,
+          'title': goal.title,
+          'iconId': goal.iconId,
+        },
+      );
+    });
   }
 
   @override
@@ -507,7 +622,36 @@ final class DriftGoalRepository implements GoalRepository {
         throw const GoalValidationException('Archived Goal was not found.');
       }
       final goal = _mapGoal(row);
-      final slot = await _freeSlot(profileId, goal.role);
+      final canonicalSlot =
+          CanonicalGoalSlot.tryByEventTypeKey(
+            goal.assignedEventTypeStableKey,
+          ) ??
+          CanonicalGoalSlot.tryByIndicatorKey(goal.indicatorKey) ??
+          (goal.activeSlotIndex == null
+              ? null
+              : CanonicalGoalSlot.tryByEventTypeKey(
+                  CanonicalGoalSlot.bySlot(
+                    goal.activeSlotIndex!,
+                  ).eventTypeStableKey,
+                ));
+      if (canonicalSlot == null) {
+        throw const GoalValidationException(
+          'Archived Goal is missing its fixed Event Type assignment.',
+        );
+      }
+      final occupant =
+          await (database.select(database.goals)..where(
+                (table) =>
+                    table.profileId.equals(profileId) &
+                    table.status.equals(GoalStatus.active.name) &
+                    table.activeSlotIndex.equals(canonicalSlot.slotIndex) &
+                    table.id.isNotIn(<String>[goalId]),
+              ))
+              .getSingleOrNull();
+      if (occupant != null) {
+        throw GoalCapacityException(canonicalSlot.role);
+      }
+      final slot = canonicalSlot.slotIndex;
       final now = clock.nowUtc();
       await (database.update(database.goals)..where(
             (table) =>
@@ -595,8 +739,9 @@ final class DriftGoalRepository implements GoalRepository {
 
   @override
   Future<List<GoalActivityHistoryItem>> readActivityHistory(
-    String profileId,
-  ) async {
+    String profileId, {
+    String? goalId,
+  }) async {
     final rows =
         await (database.select(database.goalActivities)
               ..where((table) => table.profileId.equals(profileId))
@@ -610,6 +755,7 @@ final class DriftGoalRepository implements GoalRepository {
     )..where((table) => table.profileId.equals(profileId))).get();
     final byId = <String, Goal>{for (final row in goals) row.id: _mapGoal(row)};
     return rows
+        .where((row) => goalId == null || row.goalId == goalId)
         .map(
           (row) => GoalActivityHistoryItem(
             activity: _mapActivity(row),
@@ -705,6 +851,7 @@ final class DriftGoalRepository implements GoalRepository {
           <String, Object?>{
             'id': row.id,
             'indicatorKey': row.indicatorKey,
+            'assignedEventTypeStableKey': row.assignedEventTypeStableKey,
             'role': row.role,
             'activeSlotIndex': row.activeSlotIndex,
             'title': row.title,
@@ -713,6 +860,7 @@ final class DriftGoalRepository implements GoalRepository {
             'createdAtUtc': row.createdAtUtc.toUtc().toIso8601String(),
             'updatedAtUtc': row.updatedAtUtc.toUtc().toIso8601String(),
             'archivedAtUtc': row.archivedAtUtc?.toUtc().toIso8601String(),
+            'deletedAtUtc': row.deletedAtUtc?.toUtc().toIso8601String(),
           },
       ],
       'goalActivities': <Map<String, Object?>>[
@@ -748,13 +896,25 @@ final class DriftGoalRepository implements GoalRepository {
     required Map<String, Object?> backup,
   }) async {
     await ensureCanonicalGoals(profileId);
+    await _importGoalBackupInternal(
+      profileId: profileId,
+      backup: backup,
+      wrapInTransaction: true,
+    );
+  }
+
+  Future<void> _importGoalBackupInternal({
+    required String profileId,
+    required Map<String, Object?> backup,
+    required bool wrapInTransaction,
+  }) async {
     final incomingGoals = _backupMaps(backup['goals']);
     final incomingActivities = _backupMaps(backup['goalActivities']);
     final incomingTargets = _backupMaps(
       backup['goalTargets'] ?? backup['targets'],
     );
     final incomingOutbox = _backupMaps(backup['goalOutboxOperations']);
-    await database.transaction(() async {
+    Future<void> operation() async {
       final currentRows = await (database.select(
         database.goals,
       )..where((table) => table.profileId.equals(profileId))).get();
@@ -781,6 +941,12 @@ final class DriftGoalRepository implements GoalRepository {
           await database
               .into(database.goals)
               .insert(_goalCompanion(record.toGoal(profileId)));
+        } else if (existing.status == GoalStatus.deleted.name &&
+            record.status != GoalStatus.deleted) {
+          // Deletion wins over an older backup: restoring an older snapshot
+          // must never resurrect a Goal that was permanently deleted after
+          // that snapshot was taken.
+          continue;
         } else {
           await (database.update(database.goals)..where(
                 (table) =>
@@ -790,6 +956,9 @@ final class DriftGoalRepository implements GoalRepository {
               .write(
                 GoalsCompanion(
                   indicatorKey: Value<String?>(record.indicatorKey),
+                  assignedEventTypeStableKey: Value<String?>(
+                    record.assignedEventTypeStableKey,
+                  ),
                   role: Value<String>(record.role.storageName),
                   activeSlotIndex: Value<int?>(record.activeSlotIndex),
                   title: Value<String>(record.title),
@@ -797,6 +966,7 @@ final class DriftGoalRepository implements GoalRepository {
                   status: Value<String>(record.status.name),
                   updatedAtUtc: Value<DateTime>(record.updatedAtUtc),
                   archivedAtUtc: Value<DateTime?>(record.archivedAtUtc),
+                  deletedAtUtc: Value<DateTime?>(record.deletedAtUtc),
                 ),
               );
         }
@@ -912,20 +1082,278 @@ final class DriftGoalRepository implements GoalRepository {
               mode: InsertMode.insertOrIgnore,
             );
       }
-    });
+    }
+
+    if (wrapInTransaction) {
+      await database.transaction(operation);
+    } else {
+      await operation();
+    }
   }
 
   @override
-  Future<Map<String, Object?>> exportBackup(String profileId) {
-    return exportGoalBackup(profileId);
+  Future<Map<String, Object?>> exportBackup(String profileId) async {
+    final goalBackup = await exportGoalBackup(profileId);
+    final tasks =
+        await (database.select(database.plannerTasks)
+              ..where((table) => table.profileId.equals(profileId))
+              ..orderBy(<OrderingTerm Function(PlannerTasks)>[
+                (table) => OrderingTerm.asc(table.updatedAtUtc),
+                (table) => OrderingTerm.asc(table.id),
+              ]))
+            .get();
+    final statusChanges =
+        await (database.select(database.taskStatusChanges)
+              ..where((table) => table.profileId.equals(profileId))
+              ..orderBy(<OrderingTerm Function(TaskStatusChanges)>[
+                (table) => OrderingTerm.asc(table.changedAtUtc),
+                (table) => OrderingTerm.asc(table.id),
+              ]))
+            .get();
+    final contributions =
+        await (database.select(database.taskGoalContributions)
+              ..where((table) => table.profileId.equals(profileId))
+              ..orderBy(<OrderingTerm Function(TaskGoalContributions)>[
+                (table) => OrderingTerm.asc(table.updatedAtUtc),
+                (table) => OrderingTerm.asc(table.id),
+              ]))
+            .get();
+    return <String, Object?>{
+      ...goalBackup,
+      'format': 'rmplanner.backup.v2',
+      'schemaVersion': 2,
+      'plannerTasks': <Map<String, Object?>>[
+        for (final row in tasks)
+          <String, Object?>{
+            'id': row.id,
+            'title': row.title,
+            'notes': row.notes,
+            'dueDate': row.dueDate,
+            'dueMinute': row.dueMinute,
+            'recurrenceFrequency': row.recurrenceFrequency,
+            'peopleJson': row.peopleJson,
+            'status': row.status,
+            'requiresReport': row.requiresReport,
+            'contributionRuleKey': row.contributionRuleKey,
+            'linkedActivityTypeId': row.linkedActivityTypeId,
+            'linkedActivityTypeStableKey': row.linkedActivityTypeStableKey,
+            'linkedActivityTypeLabelSnapshot':
+                row.linkedActivityTypeLabelSnapshot,
+            'createdAtUtc': row.createdAtUtc.toUtc().toIso8601String(),
+            'updatedAtUtc': row.updatedAtUtc.toUtc().toIso8601String(),
+          },
+      ],
+      'taskStatusChanges': <Map<String, Object?>>[
+        for (final row in statusChanges)
+          <String, Object?>{
+            'id': row.id,
+            'taskId': row.taskId,
+            'operationId': row.operationId,
+            'fromStatus': row.fromStatus,
+            'toStatus': row.toStatus,
+            'reason': row.reason,
+            'activityTypeId': row.activityTypeId,
+            'activityTypeStableKeySnapshot': row.activityTypeStableKeySnapshot,
+            'activityTypeLabelSnapshot': row.activityTypeLabelSnapshot,
+            'changedAtUtc': row.changedAtUtc.toUtc().toIso8601String(),
+          },
+      ],
+      'taskGoalContributions': <Map<String, Object?>>[
+        for (final row in contributions)
+          <String, Object?>{
+            'id': row.id,
+            'taskId': row.taskId,
+            'activityTypeId': row.activityTypeId,
+            'activityTypeStableKeySnapshot': row.activityTypeStableKeySnapshot,
+            'activityTypeLabelSnapshot': row.activityTypeLabelSnapshot,
+            'indicatorKey': row.indicatorKey,
+            'valueScaled': row.valueScaled,
+            'valueScale': row.valueScale,
+            'unit': row.unit,
+            'activityDate': row.activityDate,
+            'state': row.state,
+            'createdAtUtc': row.createdAtUtc.toUtc().toIso8601String(),
+            'updatedAtUtc': row.updatedAtUtc.toUtc().toIso8601String(),
+          },
+      ],
+    };
   }
 
   @override
   Future<void> importBackup({
     required String profileId,
     required Map<String, Object?> backup,
-  }) {
-    return importGoalBackup(profileId: profileId, backup: backup);
+  }) async {
+    final incomingTasks = [
+      for (final map in _strictBackupMaps(
+        backup['plannerTasks'],
+        key: 'plannerTasks',
+      ))
+        _PlannerTaskBackupRecord.fromMap(map),
+    ];
+    final incomingStatusChanges = [
+      for (final map in _strictBackupMaps(
+        backup['taskStatusChanges'],
+        key: 'taskStatusChanges',
+      ))
+        _TaskStatusChangeBackupRecord.fromMap(map),
+    ];
+    final incomingContributions = [
+      for (final map in _strictBackupMaps(
+        backup['taskGoalContributions'],
+        key: 'taskGoalContributions',
+      ))
+        _TaskGoalContributionBackupRecord.fromMap(map),
+    ];
+    _validateUniquePlannerBackupIds(
+      incomingTasks: incomingTasks,
+      incomingStatusChanges: incomingStatusChanges,
+      incomingContributions: incomingContributions,
+    );
+    await database.transaction(() async {
+      await ensureCanonicalGoals(profileId);
+      await _importGoalBackupInternal(
+        profileId: profileId,
+        backup: backup,
+        wrapInTransaction: false,
+      );
+      await _importPlannerBackup(
+        profileId: profileId,
+        tasks: incomingTasks,
+        statusChanges: incomingStatusChanges,
+        contributions: incomingContributions,
+      );
+    });
+  }
+
+  Future<void> _importPlannerBackup({
+    required String profileId,
+    required List<_PlannerTaskBackupRecord> tasks,
+    required List<_TaskStatusChangeBackupRecord> statusChanges,
+    required List<_TaskGoalContributionBackupRecord> contributions,
+  }) async {
+    final currentTaskRows = await database.select(database.plannerTasks).get();
+    final tasksById = <String, PlannerTaskRow>{
+      for (final row in currentTaskRows) row.id: row,
+    };
+    for (final task in tasks) {
+      final existing = tasksById[task.id];
+      if (existing != null && existing.profileId != profileId) {
+        throw const GoalValidationException(
+          'Planner backup references a Task owned by another profile.',
+        );
+      }
+    }
+    final validTaskIds = <String>{
+      for (final row in currentTaskRows)
+        if (row.profileId == profileId) row.id,
+      ...tasks.map((task) => task.id),
+    };
+    final currentStatusRows = await database
+        .select(database.taskStatusChanges)
+        .get();
+    final statusById = <String, TaskStatusChangeRow>{
+      for (final row in currentStatusRows) row.id: row,
+    };
+    final statusByOperation = <String, TaskStatusChangeRow>{
+      for (final row in currentStatusRows) row.operationId: row,
+    };
+    for (final change in statusChanges) {
+      if (!validTaskIds.contains(change.taskId)) {
+        throw const GoalValidationException(
+          'Planner backup status history references an unknown Task.',
+        );
+      }
+      final existingById = statusById[change.id];
+      if (existingById != null && existingById.profileId != profileId) {
+        throw const GoalValidationException(
+          'Planner backup references status history owned by another profile.',
+        );
+      }
+      final existingByOperation = statusByOperation[change.operationId];
+      if (existingByOperation != null &&
+          (existingByOperation.profileId != profileId ||
+              existingByOperation.id != change.id)) {
+        throw const GoalValidationException(
+          'Planner backup contains a conflicting Task status operation.',
+        );
+      }
+    }
+
+    final currentContributionRows = await database
+        .select(database.taskGoalContributions)
+        .get();
+    final contributionById = <String, TaskGoalContributionRow>{
+      for (final row in currentContributionRows) row.id: row,
+    };
+    final contributionByTask = <String, TaskGoalContributionRow>{
+      for (final row in currentContributionRows) row.taskId: row,
+    };
+    for (final contribution in contributions) {
+      if (!validTaskIds.contains(contribution.taskId)) {
+        throw const GoalValidationException(
+          'Planner backup contribution references an unknown Task.',
+        );
+      }
+      final existingById = contributionById[contribution.id];
+      if (existingById != null && existingById.profileId != profileId) {
+        throw const GoalValidationException(
+          'Planner backup references a contribution owned by another profile.',
+        );
+      }
+      final existingByTask = contributionByTask[contribution.taskId];
+      if (existingByTask != null &&
+          (existingByTask.profileId != profileId ||
+              existingByTask.id != contribution.id)) {
+        throw const GoalValidationException(
+          'Planner backup contains conflicting contributions for a Task.',
+        );
+      }
+    }
+
+    for (final task in tasks) {
+      final existing = tasksById[task.id];
+      if (existing == null) {
+        await database
+            .into(database.plannerTasks)
+            .insert(task.toCompanion(profileId));
+      } else if (!task.updatedAtUtc.isBefore(existing.updatedAtUtc)) {
+        await (database.update(database.plannerTasks)..where(
+              (table) =>
+                  table.id.equals(task.id) & table.profileId.equals(profileId),
+            ))
+            .write(task.toUpdateCompanion());
+      }
+    }
+
+    for (final change in statusChanges) {
+      final existingById = statusById[change.id];
+      final existingByOperation = statusByOperation[change.operationId];
+      if (existingById != null || existingByOperation != null) {
+        continue;
+      }
+      await database
+          .into(database.taskStatusChanges)
+          .insert(change.toCompanion(profileId));
+    }
+
+    for (final contribution in contributions) {
+      final existingById = contributionById[contribution.id];
+      final existingByTask = contributionByTask[contribution.taskId];
+      final existing = existingById ?? existingByTask;
+      if (existing == null) {
+        await database
+            .into(database.taskGoalContributions)
+            .insert(contribution.toCompanion(profileId));
+      } else if (!contribution.updatedAtUtc.isBefore(existing.updatedAtUtc)) {
+        await (database.update(database.taskGoalContributions)..where(
+              (table) =>
+                  table.id.equals(existing.id) &
+                  table.profileId.equals(profileId),
+            ))
+            .write(contribution.toUpdateCompanion());
+      }
+    }
   }
 
   @override
@@ -1024,13 +1452,82 @@ final class DriftGoalRepository implements GoalRepository {
                   table.activityDate.isSmallerOrEqualValue(period.end.iso8601),
             ))
             .get();
+    final taskContributions =
+        await (database.select(database.taskGoalContributions)..where(
+              (table) =>
+                  table.profileId.equals(goal.profileId) &
+                  table.indicatorKey.equals(key) &
+                  table.activityDate.isBiggerOrEqualValue(
+                    period.start.iso8601,
+                  ) &
+                  table.activityDate.isSmallerOrEqualValue(period.end.iso8601) &
+                  table.state.equals('active'),
+            ))
+            .get();
+    final activeRows = <ActivityLedgerEntryRow>[];
+    for (final row in rows) {
+      if (await _eventContributionSourceIsActive(row)) {
+        activeRows.add(row);
+      }
+    }
     final scale =
-        rows.firstOrNull?.valueScale ?? IndicatorUnitPolicy.allowedScale(unit);
+        activeRows.firstOrNull?.valueScale ??
+        taskContributions.firstOrNull?.valueScale ??
+        IndicatorUnitPolicy.allowedScale(unit);
     return IndicatorAmount(
-      scaledValue: rows.fold<int>(0, (sum, row) => sum + row.valueScaled),
+      scaledValue:
+          activeRows.fold<int>(0, (sum, row) => sum + row.valueScaled) +
+          taskContributions.fold<int>(0, (sum, row) => sum + row.valueScaled),
       scale: scale,
       unit: unit,
     );
+  }
+
+  /// Event-backed ledger facts remain immutable history, but they stop
+  /// contributing to current Goal projections when their canonical source
+  /// Event (or only that recurring occurrence) is cancelled. Task and manual
+  /// sources are intentionally unaffected.
+  Future<bool> _eventContributionSourceIsActive(
+    ActivityLedgerEntryRow ledger,
+  ) async {
+    final report =
+        await (database.select(database.outcomeReports)
+              ..where((table) => table.id.equals(ledger.sourceReportId))
+              ..limit(1))
+            .getSingleOrNull();
+    if (report == null || report.sourceType != OutcomeSourceType.event.name) {
+      return true;
+    }
+    final eventId = report.eventId;
+    final occurrenceId = report.occurrenceId;
+    if (eventId == null || occurrenceId == null) {
+      return false;
+    }
+    final event =
+        await (database.select(database.calendarEvents)
+              ..where(
+                (table) =>
+                    table.id.equals(eventId) &
+                    table.profileId.equals(ledger.profileId),
+              )
+              ..limit(1))
+            .getSingleOrNull();
+    if (event == null || event.status == CalendarEventStatus.cancelled.name) {
+      return false;
+    }
+    final exception =
+        await (database.select(database.calendarEventExceptions)
+              ..where(
+                (table) =>
+                    table.eventId.equals(eventId) &
+                    table.occurrenceId.equals(occurrenceId),
+              )
+              ..orderBy(<OrderingTerm Function(CalendarEventExceptions)>[
+                (table) => OrderingTerm.desc(table.createdAtUtc),
+              ])
+              ..limit(1))
+            .getSingleOrNull();
+    return exception?.status != CalendarEventStatus.cancelled.name;
   }
 
   Future<IndicatorGoalRevisionRow?> _target(
@@ -1119,6 +1616,17 @@ final class DriftGoalRepository implements GoalRepository {
   }
 
   Future<int> _freeSlot(String profileId, GoalRole role) async {
+    final slot = await _freeSlotOrNull(profileId, role);
+    if (slot == null) {
+      throw GoalCapacityException(role);
+    }
+    return slot;
+  }
+
+  /// The single canonical slot-allocation function.  Create Goal preview,
+  /// validation, and Save all resolve through this so a Goal is never created
+  /// in a slot different from the one that was previewed.
+  Future<int?> _freeSlotOrNull(String profileId, GoalRole role) async {
     final used =
         (await (database.select(database.goals)..where(
                   (table) =>
@@ -1136,11 +1644,7 @@ final class DriftGoalRepository implements GoalRepository {
     final available = slots.where(
       (slot) => used.every((row) => row.activeSlotIndex != slot),
     );
-    final slot = available.firstOrNull;
-    if (slot == null) {
-      throw GoalCapacityException(role);
-    }
-    return slot;
+    return available.firstOrNull;
   }
 
   Future<void> _writeTargets({
@@ -1422,16 +1926,20 @@ final class DriftGoalRepository implements GoalRepository {
       id: row.id,
       profileId: row.profileId,
       indicatorKey: row.indicatorKey,
+      assignedEventTypeStableKey: row.assignedEventTypeStableKey,
       role: _roleFromName(row.role),
       activeSlotIndex: row.activeSlotIndex,
       title: row.title,
       iconId: row.iconId,
-      status: row.status == GoalStatus.archived.name
-          ? GoalStatus.archived
-          : GoalStatus.active,
+      status: switch (row.status) {
+        'archived' => GoalStatus.archived,
+        'deleted' => GoalStatus.deleted,
+        _ => GoalStatus.active,
+      },
       createdAtUtc: row.createdAtUtc.toUtc(),
       updatedAtUtc: row.updatedAtUtc.toUtc(),
       archivedAtUtc: row.archivedAtUtc?.toUtc(),
+      deletedAtUtc: row.deletedAtUtc?.toUtc(),
     );
   }
 
@@ -1456,6 +1964,9 @@ final class DriftGoalRepository implements GoalRepository {
       id: goal.id,
       profileId: goal.profileId,
       indicatorKey: Value<String?>(goal.indicatorKey),
+      assignedEventTypeStableKey: Value<String?>(
+        goal.assignedEventTypeStableKey,
+      ),
       role: goal.role.storageName,
       activeSlotIndex: Value<int?>(goal.activeSlotIndex),
       title: goal.title,
@@ -1464,6 +1975,7 @@ final class DriftGoalRepository implements GoalRepository {
       createdAtUtc: goal.createdAtUtc,
       updatedAtUtc: goal.updatedAtUtc,
       archivedAtUtc: Value<DateTime?>(goal.archivedAtUtc),
+      deletedAtUtc: Value<DateTime?>(goal.deletedAtUtc),
     );
   }
 
@@ -1641,9 +2153,13 @@ GoalStatus _backupStatus(Map<String, Object?> map) {
     return GoalStatus.archived;
   }
   final value = _backupString(map['status']);
-  return value == GoalStatus.archived.name
-      ? GoalStatus.archived
-      : GoalStatus.active;
+  if (value == GoalStatus.archived.name) {
+    return GoalStatus.archived;
+  }
+  if (value == GoalStatus.deleted.name) {
+    return GoalStatus.deleted;
+  }
+  return GoalStatus.active;
 }
 
 bool _slotSupportsRole(GoalRole role, int slot) {
@@ -1685,6 +2201,7 @@ final class _BackupGoalRecord {
   const _BackupGoalRecord({
     required this.id,
     required this.indicatorKey,
+    required this.assignedEventTypeStableKey,
     required this.role,
     required this.activeSlotIndex,
     required this.title,
@@ -1693,10 +2210,12 @@ final class _BackupGoalRecord {
     required this.createdAtUtc,
     required this.updatedAtUtc,
     required this.archivedAtUtc,
+    required this.deletedAtUtc,
   });
 
   final String id;
   final String? indicatorKey;
+  final String? assignedEventTypeStableKey;
   final GoalRole role;
   final int? activeSlotIndex;
   final String title;
@@ -1705,11 +2224,13 @@ final class _BackupGoalRecord {
   final DateTime createdAtUtc;
   final DateTime updatedAtUtc;
   final DateTime? archivedAtUtc;
+  final DateTime? deletedAtUtc;
 
   factory _BackupGoalRecord.fromGoal(Goal goal) {
     return _BackupGoalRecord(
       id: goal.id,
       indicatorKey: goal.indicatorKey,
+      assignedEventTypeStableKey: goal.assignedEventTypeStableKey,
       role: goal.role,
       activeSlotIndex: goal.activeSlotIndex,
       title: goal.title,
@@ -1718,6 +2239,7 @@ final class _BackupGoalRecord {
       createdAtUtc: goal.createdAtUtc,
       updatedAtUtc: goal.updatedAtUtc,
       archivedAtUtc: goal.archivedAtUtc,
+      deletedAtUtc: goal.deletedAtUtc,
     );
   }
 
@@ -1745,10 +2267,31 @@ final class _BackupGoalRecord {
         'Goal "$title" has an incompatible active slot.',
       );
     }
+    final indicatorKey = _backupString(map['indicatorKey']);
+    final requestedAssignment = _backupString(
+      map['assignedEventTypeStableKey'],
+    );
+    final canonical =
+        CanonicalGoalSlot.tryByEventTypeKey(requestedAssignment) ??
+        CanonicalGoalSlot.tryByIndicatorKey(indicatorKey) ??
+        (slot == null
+            ? null
+            : CanonicalGoalSlot.tryByEventTypeKey(
+                CanonicalGoalSlot.bySlot(slot).eventTypeStableKey,
+              ));
+    if (canonical == null ||
+        canonical.role != role ||
+        (indicatorKey != null && indicatorKey != canonical.indicatorKey) ||
+        (slot != null && slot != canonical.slotIndex)) {
+      throw GoalValidationException(
+        'Goal "$title" has an invalid fixed Event Type assignment.',
+      );
+    }
     final created = _backupDate(map['createdAtUtc'], fallbackNowUtc);
     return _BackupGoalRecord(
       id: id,
-      indicatorKey: _backupString(map['indicatorKey']),
+      indicatorKey: canonical.indicatorKey,
+      assignedEventTypeStableKey: canonical.eventTypeStableKey,
       role: role,
       activeSlotIndex: slot,
       title: title,
@@ -1759,6 +2302,9 @@ final class _BackupGoalRecord {
       archivedAtUtc: status == GoalStatus.archived
           ? _backupDateOrNull(map['archivedAtUtc']) ?? created
           : null,
+      deletedAtUtc: status == GoalStatus.deleted
+          ? _backupDateOrNull(map['deletedAtUtc']) ?? created
+          : null,
     );
   }
 
@@ -1767,6 +2313,7 @@ final class _BackupGoalRecord {
       id: id,
       profileId: profileId,
       indicatorKey: indicatorKey,
+      assignedEventTypeStableKey: assignedEventTypeStableKey,
       role: role,
       activeSlotIndex: activeSlotIndex,
       title: title,
@@ -1775,6 +2322,7 @@ final class _BackupGoalRecord {
       createdAtUtc: createdAtUtc,
       updatedAtUtc: updatedAtUtc,
       archivedAtUtc: archivedAtUtc,
+      deletedAtUtc: deletedAtUtc,
     );
   }
 }
@@ -1788,4 +2336,453 @@ DateTime? _backupDateOrNull(Object? value) {
     return parsed?.toUtc();
   }
   return null;
+}
+
+List<Map<String, Object?>> _strictBackupMaps(
+  Object? value, {
+  required String key,
+}) {
+  if (value == null) {
+    return const <Map<String, Object?>>[];
+  }
+  if (value is! List) {
+    throw GoalValidationException('Planner backup field "$key" is invalid.');
+  }
+  final maps = <Map<String, Object?>>[];
+  for (final row in value) {
+    if (row is! Map) {
+      throw GoalValidationException(
+        'Planner backup field "$key" contains an invalid row.',
+      );
+    }
+    maps.add(<String, Object?>{
+      for (final entry in row.entries)
+        if (entry.key is String) entry.key as String: entry.value,
+    });
+  }
+  return maps;
+}
+
+void _validateUniquePlannerBackupIds({
+  required List<_PlannerTaskBackupRecord> incomingTasks,
+  required List<_TaskStatusChangeBackupRecord> incomingStatusChanges,
+  required List<_TaskGoalContributionBackupRecord> incomingContributions,
+}) {
+  final taskIds = <String>{};
+  for (final task in incomingTasks) {
+    if (!taskIds.add(task.id)) {
+      throw const GoalValidationException(
+        'Planner backup contains duplicate Task IDs.',
+      );
+    }
+  }
+  final statusIds = <String>{};
+  final statusOperations = <String>{};
+  for (final change in incomingStatusChanges) {
+    if (!statusIds.add(change.id) ||
+        !statusOperations.add(change.operationId)) {
+      throw const GoalValidationException(
+        'Planner backup contains duplicate Task status operations.',
+      );
+    }
+  }
+  final contributionIds = <String>{};
+  final contributionTasks = <String>{};
+  for (final contribution in incomingContributions) {
+    if (!contributionIds.add(contribution.id) ||
+        !contributionTasks.add(contribution.taskId)) {
+      throw const GoalValidationException(
+        'Planner backup contains duplicate Task contributions.',
+      );
+    }
+  }
+}
+
+final class _PlannerTaskBackupRecord {
+  const _PlannerTaskBackupRecord({
+    required this.id,
+    required this.title,
+    required this.notes,
+    required this.dueDate,
+    required this.dueMinute,
+    required this.recurrenceFrequency,
+    required this.peopleJson,
+    required this.status,
+    required this.requiresReport,
+    required this.contributionRuleKey,
+    required this.linkedActivityTypeId,
+    required this.linkedActivityTypeStableKey,
+    required this.linkedActivityTypeLabelSnapshot,
+    required this.createdAtUtc,
+    required this.updatedAtUtc,
+  });
+
+  final String id;
+  final String title;
+  final String? notes;
+  final String? dueDate;
+  final int? dueMinute;
+  final String recurrenceFrequency;
+  final String peopleJson;
+  final String status;
+  final bool requiresReport;
+  final String? contributionRuleKey;
+  final String? linkedActivityTypeId;
+  final String? linkedActivityTypeStableKey;
+  final String? linkedActivityTypeLabelSnapshot;
+  final DateTime createdAtUtc;
+  final DateTime updatedAtUtc;
+
+  factory _PlannerTaskBackupRecord.fromMap(Map<String, Object?> map) {
+    final id = _requiredBackupString(map, 'id');
+    final title = _requiredBackupString(map, 'title');
+    final dueDate = _backupString(map['dueDate']);
+    if (dueDate != null) {
+      _validatePlannerDate(dueDate, field: 'dueDate');
+    }
+    final dueMinute = _backupInt(map['dueMinute']);
+    if (dueMinute != null && (dueMinute < 0 || dueMinute > 1439)) {
+      throw const GoalValidationException(
+        'Planner backup contains an invalid Task due time.',
+      );
+    }
+    final recurrenceFrequency = _backupEnumName(
+      map['recurrenceFrequency'],
+      field: 'recurrenceFrequency',
+      allowed: PlannerTaskRecurrence.values.map((value) => value.name),
+      fallback: PlannerTaskRecurrence.none.name,
+    );
+    final status = _backupEnumName(
+      map['status'],
+      field: 'status',
+      allowed: PlannerTaskStatus.values.map((value) => value.name),
+      fallback: PlannerTaskStatus.incomplete.name,
+    );
+    final stableKey = _backupString(map['linkedActivityTypeStableKey']);
+    _validateCanonicalTaskType(stableKey);
+    return _PlannerTaskBackupRecord(
+      id: id,
+      title: title,
+      notes: _backupString(map['notes']),
+      dueDate: dueDate,
+      dueMinute: dueMinute,
+      recurrenceFrequency: recurrenceFrequency,
+      peopleJson: _backupPeopleJson(map['peopleJson'] ?? map['people']),
+      status: status,
+      requiresReport: _backupBool(
+        map['requiresReport'],
+        field: 'requiresReport',
+        fallback: false,
+      ),
+      contributionRuleKey: _backupString(map['contributionRuleKey']),
+      linkedActivityTypeId: _backupString(map['linkedActivityTypeId']),
+      linkedActivityTypeStableKey: stableKey,
+      linkedActivityTypeLabelSnapshot: _backupString(
+        map['linkedActivityTypeLabelSnapshot'],
+      ),
+      createdAtUtc: _requiredBackupDate(map, 'createdAtUtc'),
+      updatedAtUtc: _requiredBackupDate(map, 'updatedAtUtc'),
+    );
+  }
+
+  PlannerTasksCompanion toCompanion(String profileId) {
+    return PlannerTasksCompanion.insert(
+      id: id,
+      profileId: profileId,
+      title: title,
+      notes: Value<String?>(notes),
+      dueDate: Value<String?>(dueDate),
+      dueMinute: Value<int?>(dueMinute),
+      recurrenceFrequency: Value<String>(recurrenceFrequency),
+      peopleJson: Value<String>(peopleJson),
+      status: Value<String>(status),
+      requiresReport: Value<bool>(requiresReport),
+      contributionRuleKey: Value<String?>(contributionRuleKey),
+      linkedActivityTypeId: Value<String?>(linkedActivityTypeId),
+      linkedActivityTypeStableKey: Value<String?>(linkedActivityTypeStableKey),
+      linkedActivityTypeLabelSnapshot: Value<String?>(
+        linkedActivityTypeLabelSnapshot,
+      ),
+      createdAtUtc: createdAtUtc,
+      updatedAtUtc: updatedAtUtc,
+    );
+  }
+
+  PlannerTasksCompanion toUpdateCompanion() {
+    return PlannerTasksCompanion(
+      title: Value<String>(title),
+      notes: Value<String?>(notes),
+      dueDate: Value<String?>(dueDate),
+      dueMinute: Value<int?>(dueMinute),
+      recurrenceFrequency: Value<String>(recurrenceFrequency),
+      peopleJson: Value<String>(peopleJson),
+      status: Value<String>(status),
+      requiresReport: Value<bool>(requiresReport),
+      contributionRuleKey: Value<String?>(contributionRuleKey),
+      linkedActivityTypeId: Value<String?>(linkedActivityTypeId),
+      linkedActivityTypeStableKey: Value<String?>(linkedActivityTypeStableKey),
+      linkedActivityTypeLabelSnapshot: Value<String?>(
+        linkedActivityTypeLabelSnapshot,
+      ),
+      updatedAtUtc: Value<DateTime>(updatedAtUtc),
+    );
+  }
+}
+
+final class _TaskStatusChangeBackupRecord {
+  const _TaskStatusChangeBackupRecord({
+    required this.id,
+    required this.taskId,
+    required this.operationId,
+    required this.fromStatus,
+    required this.toStatus,
+    required this.reason,
+    required this.activityTypeId,
+    required this.activityTypeStableKeySnapshot,
+    required this.activityTypeLabelSnapshot,
+    required this.changedAtUtc,
+  });
+
+  final String id;
+  final String taskId;
+  final String operationId;
+  final String fromStatus;
+  final String toStatus;
+  final String? reason;
+  final String? activityTypeId;
+  final String? activityTypeStableKeySnapshot;
+  final String? activityTypeLabelSnapshot;
+  final DateTime changedAtUtc;
+
+  factory _TaskStatusChangeBackupRecord.fromMap(Map<String, Object?> map) {
+    final stableKey = _backupString(map['activityTypeStableKeySnapshot']);
+    _validateCanonicalTaskType(stableKey);
+    return _TaskStatusChangeBackupRecord(
+      id: _requiredBackupString(map, 'id'),
+      taskId: _requiredBackupString(map, 'taskId'),
+      operationId:
+          _backupString(map['operationId']) ?? _requiredBackupString(map, 'id'),
+      fromStatus: _backupEnumName(
+        map['fromStatus'],
+        field: 'fromStatus',
+        allowed: PlannerTaskStatus.values.map((value) => value.name),
+        fallback: PlannerTaskStatus.incomplete.name,
+      ),
+      toStatus: _backupEnumName(
+        map['toStatus'],
+        field: 'toStatus',
+        allowed: PlannerTaskStatus.values.map((value) => value.name),
+        fallback: PlannerTaskStatus.incomplete.name,
+      ),
+      reason: _backupString(map['reason']),
+      activityTypeId: _backupString(map['activityTypeId']),
+      activityTypeStableKeySnapshot: stableKey,
+      activityTypeLabelSnapshot: _backupString(
+        map['activityTypeLabelSnapshot'],
+      ),
+      changedAtUtc: _requiredBackupDate(map, 'changedAtUtc'),
+    );
+  }
+
+  TaskStatusChangesCompanion toCompanion(String profileId) {
+    return TaskStatusChangesCompanion.insert(
+      id: id,
+      profileId: profileId,
+      taskId: taskId,
+      operationId: operationId,
+      fromStatus: fromStatus,
+      toStatus: toStatus,
+      reason: Value<String?>(reason),
+      activityTypeId: Value<String?>(activityTypeId),
+      activityTypeStableKeySnapshot: Value<String?>(
+        activityTypeStableKeySnapshot,
+      ),
+      activityTypeLabelSnapshot: Value<String?>(activityTypeLabelSnapshot),
+      changedAtUtc: changedAtUtc,
+    );
+  }
+}
+
+final class _TaskGoalContributionBackupRecord {
+  const _TaskGoalContributionBackupRecord({
+    required this.id,
+    required this.taskId,
+    required this.activityTypeId,
+    required this.activityTypeStableKeySnapshot,
+    required this.activityTypeLabelSnapshot,
+    required this.indicatorKey,
+    required this.valueScaled,
+    required this.valueScale,
+    required this.unit,
+    required this.activityDate,
+    required this.state,
+    required this.createdAtUtc,
+    required this.updatedAtUtc,
+  });
+
+  final String id;
+  final String taskId;
+  final String? activityTypeId;
+  final String? activityTypeStableKeySnapshot;
+  final String? activityTypeLabelSnapshot;
+  final String indicatorKey;
+  final int valueScaled;
+  final int valueScale;
+  final String unit;
+  final String activityDate;
+  final String state;
+  final DateTime createdAtUtc;
+  final DateTime updatedAtUtc;
+
+  factory _TaskGoalContributionBackupRecord.fromMap(Map<String, Object?> map) {
+    final stableKey = _backupString(map['activityTypeStableKeySnapshot']);
+    _validateCanonicalTaskType(stableKey);
+    final indicatorKey = _requiredBackupString(map, 'indicatorKey');
+    if (CanonicalGoalSlot.tryByIndicatorKey(indicatorKey) == null) {
+      throw const GoalValidationException(
+        'Planner backup contains a non-canonical Task contribution.',
+      );
+    }
+    final activityDate = _requiredBackupString(map, 'activityDate');
+    _validatePlannerDate(activityDate, field: 'activityDate');
+    final state = _backupEnumName(
+      map['state'],
+      field: 'state',
+      allowed: const <String>['active', 'reversed'],
+      fallback: 'active',
+    );
+    final valueScaled = _backupInt(map['valueScaled']) ?? 1;
+    final valueScale = _backupInt(map['valueScale']) ?? 0;
+    if (valueScaled < 0 || valueScale < 0) {
+      throw const GoalValidationException(
+        'Planner backup contains an invalid Task contribution amount.',
+      );
+    }
+    return _TaskGoalContributionBackupRecord(
+      id: _requiredBackupString(map, 'id'),
+      taskId: _requiredBackupString(map, 'taskId'),
+      activityTypeId: _backupString(map['activityTypeId']),
+      activityTypeStableKeySnapshot: stableKey,
+      activityTypeLabelSnapshot: _backupString(
+        map['activityTypeLabelSnapshot'],
+      ),
+      indicatorKey: indicatorKey,
+      valueScaled: valueScaled,
+      valueScale: valueScale,
+      unit: _backupString(map['unit']) ?? 'count',
+      activityDate: activityDate,
+      state: state,
+      createdAtUtc: _requiredBackupDate(map, 'createdAtUtc'),
+      updatedAtUtc: _requiredBackupDate(map, 'updatedAtUtc'),
+    );
+  }
+
+  TaskGoalContributionsCompanion toCompanion(String profileId) {
+    return TaskGoalContributionsCompanion.insert(
+      id: id,
+      profileId: profileId,
+      taskId: taskId,
+      activityTypeId: Value<String?>(activityTypeId),
+      activityTypeStableKeySnapshot: Value<String?>(
+        activityTypeStableKeySnapshot,
+      ),
+      activityTypeLabelSnapshot: Value<String?>(activityTypeLabelSnapshot),
+      indicatorKey: indicatorKey,
+      valueScaled: Value<int>(valueScaled),
+      valueScale: Value<int>(valueScale),
+      unit: Value<String>(unit),
+      activityDate: activityDate,
+      state: Value<String>(state),
+      createdAtUtc: createdAtUtc,
+      updatedAtUtc: updatedAtUtc,
+    );
+  }
+
+  TaskGoalContributionsCompanion toUpdateCompanion() {
+    return TaskGoalContributionsCompanion(
+      taskId: Value<String>(taskId),
+      activityTypeId: Value<String?>(activityTypeId),
+      activityTypeStableKeySnapshot: Value<String?>(
+        activityTypeStableKeySnapshot,
+      ),
+      activityTypeLabelSnapshot: Value<String?>(activityTypeLabelSnapshot),
+      indicatorKey: Value<String>(indicatorKey),
+      valueScaled: Value<int>(valueScaled),
+      valueScale: Value<int>(valueScale),
+      unit: Value<String>(unit),
+      activityDate: Value<String>(activityDate),
+      state: Value<String>(state),
+      updatedAtUtc: Value<DateTime>(updatedAtUtc),
+    );
+  }
+}
+
+String _backupEnumName(
+  Object? value, {
+  required String field,
+  required Iterable<String> allowed,
+  required String fallback,
+}) {
+  final name = _backupString(value) ?? fallback;
+  if (!allowed.contains(name)) {
+    throw GoalValidationException('Planner backup has an invalid "$field".');
+  }
+  return name;
+}
+
+bool _backupBool(
+  Object? value, {
+  required String field,
+  required bool fallback,
+}) {
+  if (value == null) return fallback;
+  if (value is bool) return value;
+  throw GoalValidationException('Planner backup has an invalid "$field".');
+}
+
+DateTime _requiredBackupDate(Map<String, Object?> map, String field) {
+  final value = _backupDateOrNull(map[field]);
+  if (value == null) {
+    throw GoalValidationException('Planner backup is missing "$field".');
+  }
+  return value;
+}
+
+String _backupPeopleJson(Object? value) {
+  if (value == null) return '[]';
+  Object? decoded = value;
+  if (value is String) {
+    try {
+      decoded = jsonDecode(value);
+    } on FormatException {
+      throw const GoalValidationException(
+        'Planner backup contains invalid Task people data.',
+      );
+    }
+  }
+  if (decoded is! List || decoded.any((person) => person is! String)) {
+    throw const GoalValidationException(
+      'Planner backup contains invalid Task people data.',
+    );
+  }
+  return jsonEncode(decoded);
+}
+
+void _validateCanonicalTaskType(String? stableKey) {
+  if (stableKey != null &&
+      CanonicalGoalSlot.tryByEventTypeKey(stableKey) == null) {
+    throw const GoalValidationException(
+      'Planner backup contains a non-canonical linked Event Type.',
+    );
+  }
+}
+
+void _validatePlannerDate(String value, {required String field}) {
+  try {
+    PlannerDate.parse(value);
+  } on Object {
+    throw GoalValidationException(
+      'Planner backup contains an invalid "$field".',
+    );
+  }
 }

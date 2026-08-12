@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
+import 'package:rmplanner/app/router/route_names.dart';
 import 'package:rmplanner/core/diagnostics/sanitized_diagnostics.dart';
 import 'package:rmplanner/core/platform/app_environment.dart';
 import 'package:rmplanner/features/privacy/application/privacy_providers.dart';
@@ -39,20 +41,19 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Open the global app drawer via the Home hamburger. Stage
-      // B3-R1 Slice D removed the Home top-bar shield action so
-      // the privacy surface is reached through the global drawer
-      // (matching the production navigation path).
+      // Open the global app drawer via the Home hamburger. Pack 3
+      // centralizes Privacy and Data inside Settings, so the drawer no
+      // longer lists it as a top-level destination: drawer -> Settings ->
+      // Privacy and Data.
       await tester.tap(find.byKey(const Key('home-hamburger')));
       await tester.pumpAndSettle();
-      // The drawer's inner ListView lazily builds its children,
-      // so the Privacy and Data entry is unmounted when scrolled
-      // out of the visible region. Use scrollUntilVisible (which
-      // keeps scrolling until the tile is on screen) with a
-      // generous scroll step so the whole list reveals the
-      // "Account and App" group in one pass.
+      // The drawer's inner ListView lazily builds its children, so the
+      // Settings entry is unmounted when scrolled out of the visible
+      // region. Use scrollUntilVisible (which keeps scrolling until the
+      // tile is on screen) with a generous scroll step so the whole list
+      // reveals the "Account and App" group in one pass.
       await tester.scrollUntilVisible(
-        find.byKey(const Key('drawer-account-privacy')),
+        find.byKey(const Key('drawer-account-settings')),
         300,
         scrollable: find.descendant(
           of: find.byKey(const Key('global-app-drawer-list')),
@@ -60,7 +61,9 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('drawer-account-privacy')));
+      await tester.tap(find.byKey(const Key('drawer-account-settings')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('settings-privacy-data')));
       await tester.pumpAndSettle();
       expect(find.text('Privacy controls'), findsOneWidget);
       expect(
@@ -97,29 +100,21 @@ void main() {
       expect(find.byKey(const Key('main-bottom-navigation')), findsOneWidget);
       expect(await privacy.gate.isUnlockRequired(), isFalse);
 
-      // Open the global app drawer via the Home hamburger. Stage
-      // B3-R1 Slice D removed the Home top-bar shield action so
-      // the privacy surface is reached through the global drawer
-      // (matching the production navigation path).
+      // Open the global app drawer via the Home hamburger. Pack 3
+      // centralizes Permissions inside Settings.
+      final context = tester.element(find.byType(Scaffold).first);
+      final location = GoRouter.of(context).state.uri.toString();
+      expect(location, RoutePaths.home, reason: 'unlock must land on Home');
       await tester.tap(find.byKey(const Key('home-hamburger')));
       await tester.pumpAndSettle();
-      await tester.scrollUntilVisible(
-        find.byKey(const Key('drawer-account-privacy')),
-        300,
-        scrollable: find.descendant(
-          of: find.byKey(const Key('global-app-drawer-list')),
-          matching: find.byType(Scrollable),
-        ),
+      expect(
+        find.byKey(const Key('global-app-drawer')),
+        findsOneWidget,
+        reason: 'the drawer must reopen after the lock/unlock cycle',
       );
+      await tester.tap(find.byKey(const Key('drawer-account-settings')));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('drawer-account-privacy')));
-      await tester.pumpAndSettle();
-      await tester.scrollUntilVisible(
-        find.text('Permissions'),
-        240,
-        scrollable: find.byType(Scrollable).first,
-      );
-      await tester.tap(find.text('Permissions'));
+      await tester.tap(find.byKey(const Key('settings-permissions')));
       await tester.pumpAndSettle();
       expect(find.text('Not requested'), findsWidgets);
       await tester.scrollUntilVisible(
@@ -142,6 +137,10 @@ void main() {
       expect(privacy.permissionGateway.settingsOpened, isTrue);
 
       await tester.pageBack();
+      await tester.pumpAndSettle();
+      // Back from Permissions lands on Settings; open the canonical Privacy
+      // Center to continue the remaining privacy-surface checks.
+      await tester.tap(find.byKey(const Key('settings-privacy-data')));
       await tester.pumpAndSettle();
       await tester.scrollUntilVisible(
         find.text('Diagnostic export preview'),
@@ -215,14 +214,12 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // Open the global app drawer via the Home hamburger. Stage
-    // B3-R1 Slice D removed the Home top-bar shield action so
-    // the privacy surface is reached through the global drawer
-    // (matching the production navigation path).
+    // Open the global app drawer via the Home hamburger. Pack 3
+    // centralizes Privacy and Data inside Settings.
     await tester.tap(find.byKey(const Key('home-hamburger')));
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
-      find.byKey(const Key('drawer-account-privacy')),
+      find.byKey(const Key('drawer-account-settings')),
       300,
       scrollable: find.descendant(
         of: find.byKey(const Key('global-app-drawer-list')),
@@ -230,7 +227,9 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('drawer-account-privacy')));
+    await tester.tap(find.byKey(const Key('drawer-account-settings')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('settings-privacy-data')));
     await tester.pumpAndSettle();
 
     expect(find.text('Privacy controls'), findsOneWidget);

@@ -5,6 +5,18 @@ import 'package:rmplanner/app/router/app_route_observer.dart';
 import 'package:rmplanner/app/router/route_names.dart';
 import 'package:rmplanner/app/router/startup_route_guard.dart';
 import 'package:rmplanner/app/shell/main_shell.dart';
+import 'package:rmplanner/features/contacts/presentation/add_people_screen.dart';
+import 'package:rmplanner/features/contacts/presentation/contact_detail_screen.dart';
+import 'package:rmplanner/features/contacts/presentation/contact_form_screen.dart';
+import 'package:rmplanner/features/contacts/presentation/contact_groups_screen.dart';
+import 'package:rmplanner/features/contacts/presentation/contact_multi_select_screen.dart';
+import 'package:rmplanner/features/contacts/presentation/contact_search_screen.dart';
+import 'package:rmplanner/features/contacts/presentation/contacts_screen.dart';
+import 'package:rmplanner/features/contacts/presentation/device_contact_import_screen.dart';
+import 'package:rmplanner/features/contacts/presentation/filter_builder_screen.dart';
+import 'package:rmplanner/features/contacts/presentation/merge_contacts_screen.dart';
+import 'package:rmplanner/features/contacts/presentation/saved_filters_screen.dart';
+import 'package:rmplanner/features/goals/domain/goal.dart';
 import 'package:rmplanner/features/goals/presentation/goal_archive_screen.dart';
 import 'package:rmplanner/features/goals/presentation/goal_create_screen.dart';
 import 'package:rmplanner/features/goals/presentation/goal_edit_screen.dart';
@@ -34,6 +46,8 @@ import 'package:rmplanner/features/settings/presentation/colors_screen.dart';
 import 'package:rmplanner/features/settings/presentation/more_screen.dart';
 import 'package:rmplanner/features/settings/presentation/planner_event_colors_screen.dart';
 import 'package:rmplanner/features/settings/presentation/settings_screen.dart';
+import 'package:rmplanner/features/shell/about_screen.dart';
+import 'package:rmplanner/features/shell/messages_screen.dart';
 import 'package:rmplanner/features/startup/application/startup_providers.dart';
 import 'package:rmplanner/features/startup/presentation/home_screen.dart';
 import 'package:rmplanner/features/startup/presentation/link_recovery_screen.dart';
@@ -98,6 +112,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             name: RouteNames.more,
             path: RoutePaths.more,
             builder: (context, state) => const MoreScreen(),
+          ),
+          GoRoute(
+            name: RouteNames.contacts,
+            path: RoutePaths.contacts,
+            builder: (context, state) => const ContactsScreen(),
           ),
           GoRoute(
             name: RouteNames.settings,
@@ -210,8 +229,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             name: RouteNames.goalEdit,
             path: '${RoutePaths.goalEditPath}/:goalId/edit',
-            builder: (context, state) =>
-                GoalEditScreen(goalId: state.pathParameters['goalId']!),
+            builder: (context, state) => GoalEditScreen(
+              goalId: state.pathParameters['goalId']!,
+              initialGoal: state.extra is Goal ? state.extra as Goal : null,
+            ),
             routes: <RouteBase>[
               GoRoute(
                 name: RouteNames.goalEditIconPicker,
@@ -252,8 +273,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: RoutePaths.taskCreate,
         builder: (context, state) {
           final rawDate = state.uri.queryParameters['date'];
+          final rawContacts = state.uri.queryParameters['contacts'];
           return TaskFormScreen.create(
             initialDueDate: rawDate == null ? null : PlannerDate.parse(rawDate),
+            initialContactIds: rawContacts == null
+                ? const <String>[]
+                : rawContacts
+                      .split(',')
+                      .where((id) => id.isNotEmpty)
+                      .toList(growable: false),
           );
         },
       ),
@@ -305,6 +333,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) {
           final rawDate = state.uri.queryParameters['date'];
           final rawStart = state.uri.queryParameters['startMinute'];
+          final rawContacts = state.uri.queryParameters['contacts'];
           return CalendarEventCreateGateScreen(
             initialDate: rawDate == null
                 ? PlannerDate.fromDateTime(DateTime.now())
@@ -312,6 +341,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             initialStartMinute: int.tryParse(rawStart ?? ''),
             initialIndicatorKey: state.uri.queryParameters['indicator'],
             initialEventTypeId: state.uri.queryParameters['eventType'],
+            initialContactIds: rawContacts == null
+                ? const <String>[]
+                : rawContacts
+                      .split(',')
+                      .where((id) => id.isNotEmpty)
+                      .toList(growable: false),
           );
         },
       ),
@@ -338,6 +373,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 scope: rawScope == null
                     ? CalendarEventEditScope.occurrence
                     : CalendarEventEditScope.values.byName(rawScope),
+                // Delta 4.1 edit flow: the detail screen opens the Edit form
+                // first, so for a repeating Event the recurrence scope
+                // chooser is deferred until the user commits a change on
+                // Save.  The form only asks when this flag is set.
+                deferRecurrenceScopeToSave:
+                    state.uri.queryParameters['deferScope'] == '1',
               );
             },
           ),
@@ -383,6 +424,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const ActivityHistoryScreen(),
       ),
       GoRoute(
+        name: RouteNames.messages,
+        path: RoutePaths.messages,
+        builder: (context, state) => const MessagesScreen(),
+      ),
+      GoRoute(
+        name: RouteNames.about,
+        path: RoutePaths.about,
+        builder: (context, state) => const AboutScreen(),
+      ),
+      GoRoute(
         name: RouteNames.plannerSettings,
         path: RoutePaths.plannerSettings,
         builder: (context, state) => const PlannerSettingsScreen(),
@@ -418,6 +469,79 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: RouteNames.diagnosticPreview,
         path: RoutePaths.diagnosticPreview,
         builder: (context, state) => const DiagnosticPreviewScreen(),
+      ),
+      GoRoute(
+        name: RouteNames.contactSearch,
+        path: RoutePaths.contactSearch,
+        builder: (context, state) => const ContactSearchScreen(),
+      ),
+      GoRoute(
+        name: RouteNames.contactCreate,
+        path: RoutePaths.contactCreate,
+        builder: (context, state) => ContactFormScreen.create(),
+      ),
+      GoRoute(
+        name: RouteNames.contactDetail,
+        path: '${RoutePaths.contactDetailPath}/:contactId',
+        builder: (context, state) =>
+            ContactDetailScreen(contactId: state.pathParameters['contactId']!),
+      ),
+      GoRoute(
+        name: RouteNames.contactEdit,
+        path: '${RoutePaths.contactDetailPath}/:contactId/edit',
+        builder: (context, state) => ContactFormScreen.edit(
+          contactId: state.pathParameters['contactId']!,
+        ),
+      ),
+      GoRoute(
+        name: RouteNames.contactGroups,
+        path: RoutePaths.contactGroups,
+        builder: (context, state) => const ContactGroupsScreen(),
+      ),
+      GoRoute(
+        name: RouteNames.savedFilters,
+        path: RoutePaths.savedFilters,
+        builder: (context, state) => const SavedFiltersScreen(),
+      ),
+      GoRoute(
+        name: RouteNames.filterBuilder,
+        path: RoutePaths.filterBuilder,
+        builder: (context, state) {
+          final extra = state.extra is FilterBuilderArgs
+              ? state.extra! as FilterBuilderArgs
+              : const FilterBuilderArgs();
+          return FilterBuilderScreen(args: extra);
+        },
+      ),
+      GoRoute(
+        name: RouteNames.multiSelect,
+        path: RoutePaths.multiSelect,
+        builder: (context, state) {
+          final extra = state.extra is MultiSelectArgs
+              ? state.extra! as MultiSelectArgs
+              : const MultiSelectArgs();
+          return ContactMultiSelectScreen(args: extra);
+        },
+      ),
+      GoRoute(
+        name: RouteNames.mergeContacts,
+        path: RoutePaths.mergeContacts,
+        builder: (context, state) => const MergeContactsScreen(),
+      ),
+      GoRoute(
+        name: RouteNames.deviceImport,
+        path: RoutePaths.deviceImport,
+        builder: (context, state) => const DeviceContactImportScreen(),
+      ),
+      GoRoute(
+        name: RouteNames.addPeople,
+        path: RoutePaths.addPeople,
+        builder: (context, state) {
+          final extra = state.extra is AddPeopleArgs
+              ? state.extra! as AddPeopleArgs
+              : const AddPeopleArgs();
+          return AddPeopleScreen(args: extra);
+        },
       ),
     ],
     errorBuilder: (context, state) =>

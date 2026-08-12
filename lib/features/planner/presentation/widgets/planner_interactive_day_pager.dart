@@ -62,7 +62,6 @@
 // copied from that source.
 
 import 'dart:async';
-
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 
@@ -70,6 +69,7 @@ import 'package:rmplanner/app/theme/app_theme.dart';
 import 'package:rmplanner/features/planner/domain/event_color_preferences.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 import 'package:rmplanner/features/planner/domain/planner_day.dart';
+import 'package:rmplanner/features/planner/domain/planner_display_geometry.dart';
 import 'package:rmplanner/features/planner/domain/planner_settings.dart';
 import 'package:rmplanner/features/planner/domain/planner_timeline_layout.dart';
 import 'package:rmplanner/features/planner/presentation/widgets/planner_event_block_content.dart';
@@ -122,6 +122,13 @@ const double kPlannerPagerAbsoluteMinDistance = 72.0;
 /// Settle animation duration, per Phase 9.
 const Duration kPlannerPagerSettleDuration = Duration(milliseconds: 240);
 
+/// R7-04: settle duration for a cross-date drag advance. A short horizontal
+/// transition of the Planner date/page layer runs UNDER the finger-held
+/// ghost (which lives in the screen-level drag overlay and is excluded from
+/// the page transform). Kept within the approved 160-220 ms band and the
+/// existing easeOutCubic motion discipline.
+const Duration kPlannerCrossDateSettleDuration = Duration(milliseconds: 200);
+
 /// Narrow command surface that the parent Planner screen uses to
 /// invoke the pager from outside its widget tree.
 ///
@@ -160,6 +167,25 @@ class PlannerInteractiveDayPagerController {
   /// not know about the State type.
   VoidCallback? _recenter;
 
+  /// R7-04: the most recently attached cross-date commit callback. The pager
+  /// holds a private implementation in
+  /// [_PlannerInteractiveDayPagerState]; the controller does not know about
+  /// the State type.
+  Future<void> Function(int delta)? _commitDayChange;
+
+  /// R7-04: advance the Planner page layer by [delta] days through the
+  /// pager's commit path (animate the strip under the ghost, await the
+  /// authoritative day load, then recenter). Returns `null` when the pager
+  /// has not been attached yet so the caller can fall back to a direct
+  /// navigation.
+  Future<void>? commitDayChange(int delta) {
+    final commit = _commitDayChange;
+    if (commit == null) {
+      return null;
+    }
+    return commit(delta);
+  }
+
   /// The pager's [recenterFromExternalCancel] entry point.
   ///
   /// The parent registers this method with the
@@ -177,22 +203,26 @@ class PlannerInteractiveDayPagerController {
     _recenter?.call();
   }
 
-  /// Wire the controller's recenter callback. Called from the
-  /// pager's [State.initState] and [State.didUpdateWidget] when
-  /// the same controller instance is provided; called from
-  /// [State.dispose] when the widget is torn down. The
-  /// controller does not own any timers or listeners, so there
-  /// is nothing to release in [dispose].
-  void _attach(VoidCallback callback) {
+  /// Wire the controller's recenter + cross-date commit callbacks. Called
+  /// from the pager's [State.initState] and [State.didUpdateWidget] when
+  /// the same controller instance is provided; called from [State.dispose]
+  /// when the widget is torn down. The controller does not own any timers
+  /// or listeners, so there is nothing to release in [dispose].
+  void _attach(
+    VoidCallback callback, {
+    Future<void> Function(int delta)? commitDayChange,
+  }) {
     _recenter = callback;
+    _commitDayChange = commitDayChange;
   }
 
-  /// Drop the recenter callback. Called from [State.dispose].
-  /// Subsequent calls to [recenterFromExternalCancel] are
-  /// silent no-ops until a new pager attaches.
+  /// Drop the recenter + commit callbacks. Called from [State.dispose].
+  /// Subsequent calls to [recenterFromExternalCancel] / [commitDayChange]
+  /// are silent no-ops until a new pager attaches.
   void _detach(VoidCallback callback) {
     if (identical(_recenter, callback)) {
       _recenter = null;
+      _commitDayChange = null;
     }
   }
 
@@ -201,17 +231,40 @@ class PlannerInteractiveDayPagerController {
   /// call this when they create a controller explicitly.
   void dispose() {
     _recenter = null;
+    _commitDayChange = null;
     _progress.dispose();
   }
 }
 
-/// Vertical extent of the current-time indicator Row. Must
-/// match the locked constant in the existing planner code.
-const double kPlannerPagerCurrentTimeIndicatorHeight = 12;
+/// Shared R5-05 horizontal geometry for the centered timeline and read-only
+/// pager previews. The dot center is the fixed 56 dp time-gutter / Event-
+/// canvas boundary; label width can never move it.
+abstract final class PlannerCurrentTimeHorizontalGeometry {
+  static const double indicatorHeight = 12;
+  static const double timeColumnWidth = 56;
+  static const double dotSize = 10;
+  static const double labelToDotGap = 2;
+  static const double dotToLineGap = 6;
+  static const double dotCenterX = timeColumnWidth;
+  static const double dotLeft = dotCenterX - dotSize / 2;
+  static const double labelRight = dotLeft - labelToDotGap;
+  static const double lineLeft = dotLeft + dotSize + dotToLineGap;
+}
 
-/// Time-column width (must match the locked constant in the
-/// existing `_TimedEventTimeline` widget).
-const double kPlannerPagerTimeColumnWidth = 56;
+const double kPlannerPagerCurrentTimeIndicatorHeight =
+    PlannerCurrentTimeHorizontalGeometry.indicatorHeight;
+const double kPlannerPagerCurrentTimeDotSize =
+    PlannerCurrentTimeHorizontalGeometry.dotSize;
+const double kPlannerPagerCurrentTimeDotToLineGap =
+    PlannerCurrentTimeHorizontalGeometry.dotToLineGap;
+const double kPlannerPagerTimeColumnWidth =
+    PlannerCurrentTimeHorizontalGeometry.timeColumnWidth;
+const double kPlannerPagerCurrentTimeLabelToDotGap =
+    PlannerCurrentTimeHorizontalGeometry.labelToDotGap;
+
+/// How far the final hour label (12 AM at a midnight end) sits above its
+/// line. The micro label is 18 dp tall, so 20 dp keeps the whole label
+/// inside the preview while the pager clip never cuts its descenders.
 
 /// Format a `DateTime` to the 12-hour AM/PM string the
 /// centered column's current-time label uses. Replicated
@@ -271,6 +324,9 @@ class _PageDragSession {
 typedef SwipeCoordinatorOnDown = void Function();
 typedef SwipeCoordinatorOnUp = void Function();
 typedef SwipeCoordinatorCancel = void Function();
+typedef SwipeCoordinatorIsCancelled = bool Function();
+
+bool _pagerSwipeNeverCancelled() => false;
 
 /// Reports the active pointer count after the parent's pinch
 /// coordinator has been updated. Values `>= 2` indicate pinch
@@ -359,7 +415,10 @@ class _PlannerInteractiveDayPagerState extends State<PlannerInteractiveDayPager>
       vsync: this,
       duration: kPlannerPagerSettleDuration,
     );
-    widget.controller._attach(recenterFromExternalCancel);
+    widget.controller._attach(
+      recenterFromExternalCancel,
+      commitDayChange: _commitDayChange,
+    );
     widget.onPinchClearCancel();
   }
 
@@ -368,7 +427,10 @@ class _PlannerInteractiveDayPagerState extends State<PlannerInteractiveDayPager>
     super.didUpdateWidget(oldWidget);
     if (!identical(oldWidget.controller, widget.controller)) {
       oldWidget.controller._detach(recenterFromExternalCancel);
-      widget.controller._attach(recenterFromExternalCancel);
+      widget.controller._attach(
+        recenterFromExternalCancel,
+        commitDayChange: _commitDayChange,
+      );
     }
     if (oldWidget.viewportWidth != widget.viewportWidth) {
       // Keep the transform aligned to the visible window when
@@ -382,7 +444,16 @@ class _PlannerInteractiveDayPagerState extends State<PlannerInteractiveDayPager>
       // Parent has rebuilt with the new date — reset the
       // transform so the (now-different) currentPage is
       // recentered without a second visible slide.
-      if (!_settling && _dragSession == null) {
+      //
+      // Delta 4.2R2 R2-09: even a live drag session is dropped on an
+      // authoritative date change (e.g. Go-to-Today tapped mid-swipe) so
+      // the pager snaps to the centered resting position immediately
+      // instead of keeping a stale horizontal offset that would make the
+      // jump feel delayed. Normal swipe commits publish the new date only
+      // after their own settle animation, so this path does not disturb
+      // ordinary day navigation.
+      if (!_settling) {
+        _dragSession = null;
         _setLiveDragOffset(0);
       }
     }
@@ -408,6 +479,10 @@ class _PlannerInteractiveDayPagerState extends State<PlannerInteractiveDayPager>
       return;
     }
     widget.onSwipePointerDown();
+    if (widget.isSwipeCancelled()) {
+      _dragSession = null;
+      return;
+    }
     final pinchCount = widget.onPinchPointerCount();
     if (pinchCount >= 2) {
       // Pinch owns the gesture. Drop any in-progress drag
@@ -429,6 +504,13 @@ class _PlannerInteractiveDayPagerState extends State<PlannerInteractiveDayPager>
   void _onPointerMove(PointerMoveEvent event) {
     final session = _dragSession;
     if (session == null) {
+      return;
+    }
+    if (widget.isSwipeCancelled()) {
+      _dragSession = null;
+      if (_liveDragOffset != 0) {
+        unawaited(_animateRecenter());
+      }
       return;
     }
     // A second pointer may have arrived between the previous
@@ -518,7 +600,19 @@ class _PlannerInteractiveDayPagerState extends State<PlannerInteractiveDayPager>
     unawaited(_animateRecenter());
   }
 
-  Future<void> _animateCommit(int delta) async {
+  /// R7-04: advance the Planner page layer by [delta] through the same
+  /// commit path as a settled swipe, but with the shorter cross-date
+  /// transition duration. The ghost (rendered in the screen-level drag
+  /// overlay) is excluded from this page transform and stays under the
+  /// finger while the strip slides.
+  Future<void> _commitDayChange(int delta) {
+    return _animateCommit(
+      delta,
+      settleDuration: kPlannerCrossDateSettleDuration,
+    );
+  }
+
+  Future<void> _animateCommit(int delta, {Duration? settleDuration}) async {
     assert(delta == 1 || delta == -1);
     // Target the resting translation for the destination page
     // before the parent rebuild swaps the previous/current/next
@@ -533,6 +627,9 @@ class _PlannerInteractiveDayPagerState extends State<PlannerInteractiveDayPager>
     final from = _liveDragOffset;
     _settling = true;
     final settle = _settle!;
+    if (settleDuration != null) {
+      settle.duration = settleDuration;
+    }
     final tween = Tween<double>(begin: from, end: target);
     final curved = CurvedAnimation(parent: settle, curve: Curves.easeOutCubic);
     final animation = tween.animate(curved);
@@ -549,6 +646,10 @@ class _PlannerInteractiveDayPagerState extends State<PlannerInteractiveDayPager>
     try {
       settle.reset();
       await settle.forward().orCancel;
+    } on TickerCanceled {
+      animation.removeListener(listener);
+      _settling = false;
+      return;
     } catch (_) {
       animation.removeListener(listener);
       rethrow;
@@ -614,6 +715,10 @@ class _PlannerInteractiveDayPagerState extends State<PlannerInteractiveDayPager>
     try {
       settle.reset();
       await settle.forward().orCancel;
+    } on TickerCanceled {
+      animation.removeListener(listener);
+      _settling = false;
+      return;
     } catch (_) {
       animation.removeListener(listener);
       rethrow;
@@ -630,6 +735,10 @@ class _PlannerInteractiveDayPagerState extends State<PlannerInteractiveDayPager>
 
   @override
   Widget build(BuildContext context) {
+    final preservedCurrentPageDate = widget.preservedCurrentPageDate;
+    final preservingCurrentPage =
+        preservedCurrentPageDate != null &&
+        preservedCurrentPageDate != widget.selectedDate;
     return Listener(
       behavior: HitTestBehavior.translucent,
       onPointerDown: _onPointerDown,
@@ -660,20 +769,23 @@ class _PlannerInteractiveDayPagerState extends State<PlannerInteractiveDayPager>
                         children: <Widget>[
                           _PagerPreviewColumn(
                             key: Key(
-                              'planner-day-page-${widget.previousDate.iso8601}',
+                              preservingCurrentPage
+                                  ? 'planner-drag-preview-previous-${widget.previousDate.iso8601}'
+                                  : 'planner-day-page-${widget.previousDate.iso8601}',
                             ),
                             pageDate: widget.previousDate,
                             pageDay: widget.previousDay,
                             settings: widget.settings,
                             eventColorsByTypeId: widget.eventColorsByTypeId,
                             hourHeight: widget.hourHeight,
+                            viewportHeight: widget.viewportHeight,
                             width: viewportWidth,
                             isToday: widget.today == widget.previousDate,
                             currentTimeListenable: widget.currentTimeListenable,
                           ),
                           KeyedSubtree(
                             key: Key(
-                              'planner-day-page-${widget.selectedDate.iso8601}',
+                              'planner-day-page-${(preservedCurrentPageDate ?? widget.selectedDate).iso8601}',
                             ),
                             child: SizedBox(
                               width: viewportWidth,
@@ -683,13 +795,16 @@ class _PlannerInteractiveDayPagerState extends State<PlannerInteractiveDayPager>
                           ),
                           _PagerPreviewColumn(
                             key: Key(
-                              'planner-day-page-${widget.nextDate.iso8601}',
+                              preservingCurrentPage
+                                  ? 'planner-drag-preview-next-${widget.nextDate.iso8601}'
+                                  : 'planner-day-page-${widget.nextDate.iso8601}',
                             ),
                             pageDate: widget.nextDate,
                             pageDay: widget.nextDay,
                             settings: widget.settings,
                             eventColorsByTypeId: widget.eventColorsByTypeId,
                             hourHeight: widget.hourHeight,
+                            viewportHeight: widget.viewportHeight,
                             width: viewportWidth,
                             isToday: widget.today == widget.nextDate,
                             currentTimeListenable: widget.currentTimeListenable,
@@ -726,9 +841,12 @@ class PlannerInteractiveDayPager extends StatefulWidget {
     required this.hourHeight,
     required this.timelineHeight,
     required this.viewportWidth,
+    this.viewportHeight = 0,
     required this.onSwipePointerDown,
     required this.onSwipePointerUp,
     required this.onSwipeCancel,
+    this.isSwipeCancelled = _pagerSwipeNeverCancelled,
+    this.preservedCurrentPageDate,
     required this.onPinchPointerCount,
     required this.onPinchClearCancel,
     required this.onDayChanged,
@@ -756,6 +874,12 @@ class PlannerInteractiveDayPager extends StatefulWidget {
   final double timelineHeight;
   final double viewportWidth;
 
+  /// The usable vertical viewport height of the day scroll view.  Shared by
+  /// every page so the PMG overview visual floor (and its smooth zoom
+  /// interpolation) is identical across the centered page and both preview
+  /// pages during a swipe.
+  final double viewportHeight;
+
   /// Authoritative current-time source shared with the
   /// centered timeline. The preview columns use this
   /// listenable to render the current-time indicator so the
@@ -778,6 +902,12 @@ class PlannerInteractiveDayPager extends StatefulWidget {
   final SwipeCoordinatorOnDown onSwipePointerDown;
   final SwipeCoordinatorOnUp onSwipePointerUp;
   final SwipeCoordinatorCancel onSwipeCancel;
+  final SwipeCoordinatorIsCancelled isSwipeCancelled;
+
+  /// Keeps the interactive current-page subtree mounted while a selected
+  /// Event crosses a date boundary with its pointer still down. Ordinary day
+  /// paging leaves this null and retains the existing per-selected-date key.
+  final PlannerDate? preservedCurrentPageDate;
 
   final PinchCoordinatorOnCount onPinchPointerCount;
   final PinchCoordinatorClearCancel onPinchClearCancel;
@@ -824,6 +954,52 @@ class PlannerInteractiveDayPager extends StatefulWidget {
 /// the day's Calendar Events using the same vertical layout as
 /// the centered timeline, without any recognizers that could
 /// open Event details or commit a mutation.
+/// Date-aware empty timeline used while the selected day's canonical data is
+/// reconciling.
+///
+/// R4-05/R4-08 deliberately keep this as presentation state: no empty
+/// [PlannerDay] is fabricated and the previous date's model is never painted
+/// beneath the new header. The ordinary hour grid and today's current-time
+/// indicator still recenter immediately while the repository read completes.
+class PlannerLoadingDayTimeline extends StatelessWidget {
+  const PlannerLoadingDayTimeline({
+    super.key,
+    required this.selectedDate,
+    required this.today,
+    required this.settings,
+    required this.hourHeight,
+    required this.viewportHeight,
+    required this.currentTimeListenable,
+  });
+
+  final PlannerDate selectedDate;
+  final PlannerDate today;
+  final PlannerSettings settings;
+  final double hourHeight;
+  final double viewportHeight;
+  final ValueListenable<DateTime> currentTimeListenable;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return _PagerPreviewColumn(
+          key: Key('planner-loading-day-${selectedDate.iso8601}'),
+          pageDate: selectedDate,
+          pageDay: null,
+          settings: settings,
+          eventColorsByTypeId: const <String, EventColorPreference>{},
+          hourHeight: hourHeight,
+          viewportHeight: viewportHeight,
+          width: constraints.maxWidth,
+          isToday: selectedDate == today,
+          currentTimeListenable: currentTimeListenable,
+        );
+      },
+    );
+  }
+}
+
 class _PagerPreviewColumn extends StatelessWidget {
   const _PagerPreviewColumn({
     super.key,
@@ -832,6 +1008,7 @@ class _PagerPreviewColumn extends StatelessWidget {
     required this.settings,
     required this.eventColorsByTypeId,
     required this.hourHeight,
+    this.viewportHeight = 0,
     required this.width,
     required this.isToday,
     required this.currentTimeListenable,
@@ -842,6 +1019,7 @@ class _PagerPreviewColumn extends StatelessWidget {
   final PlannerSettings settings;
   final Map<String, EventColorPreference> eventColorsByTypeId;
   final double hourHeight;
+  final double viewportHeight;
   final double width;
   final bool isToday;
 
@@ -854,12 +1032,15 @@ class _PagerPreviewColumn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final firstHour = settings.visibleStartHour;
-    final lastHour = settings.visibleEndHour;
+    // The preview grid mirrors the centered timeline: the canvas spans
+    // the full civil day, and the configured planning window is a soft
+    // window (PMG parity) that only gates the current-time indicator.
+    final firstHour = kPlannerCivilDayStartHour;
+    final lastHour = kPlannerCivilDayEndHour;
     final slotCount = lastHour - firstHour;
     final pixelsPerMinute = PlannerTimelineGeometry.pixelsPerMinute(hourHeight);
-    final visibleStart = firstHour * 60;
-    final visibleEnd = lastHour * 60;
+    final visibleStart = kPlannerCivilDayStartMinute;
+    final visibleEnd = kPlannerCivilDayEndMinute;
     final events = (pageDay?.timedEvents ?? const <PlannerCalendarItem>[])
         .where(
           (event) =>
@@ -869,9 +1050,11 @@ class _PagerPreviewColumn extends StatelessWidget {
                   event.state != PlannerEventState.cancelled),
         )
         .toList(growable: false);
-    final placements = PlannerTimelineLayout.arrange(
-      events,
+    final placements = PlannerDisplayGeometry.resolve(
+      events: events,
       hourHeight: hourHeight,
+      viewportHeight: viewportHeight,
+      configuredHours: settings.visibleEndHour - settings.visibleStartHour,
     );
     final contentWidth = width - kPlannerPagerTimeColumnWidth - 8.0;
     return SizedBox(
@@ -880,13 +1063,24 @@ class _PagerPreviewColumn extends StatelessWidget {
       child: Stack(
         clipBehavior: Clip.none,
         children: <Widget>[
-          for (var index = 0; index <= slotCount; index++) ...<Widget>[
+          // PMG hidden-midnight model: the 12 AM top and bottom boundaries
+          // are hidden (no label, no line); 1 AM is the first visible label
+          // and 11 PM the last. The 12 AM-1 AM and 11 PM-12 AM slots remain
+          // fully usable because the canvas still spans 0..1440 minutes.
+          for (var index = 1; index < slotCount; index++) ...<Widget>[
             Positioned(
-              top: index == 0 ? 0 : index * hourHeight - 7,
+              // Match the centered timeline: the boundary line comes first
+              // and its label sits immediately below it inside the hour cell.
+              top: index * hourHeight + 2,
               left: 0,
               width: kPlannerPagerTimeColumnWidth,
               child: Text(
-                _hourLabel(firstHour + index, settings.use24HourTime),
+                _hourLabel(index, settings.use24HourTime),
+                // Hour labels must never wrap (the test fallback font
+                // renders every glyph at fontSize width, which would wrap
+                // short labels and push them below the final line).
+                maxLines: 1,
+                softWrap: false,
                 textAlign: TextAlign.right,
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
                   color: const Color(0xB3FFFFFF),
@@ -894,39 +1088,20 @@ class _PagerPreviewColumn extends StatelessWidget {
               ),
             ),
             Positioned(
-              key: Key('planner-pager-full-hour-line-${firstHour + index}'),
+              key: Key('planner-pager-full-hour-line-$index'),
               top: index * hourHeight,
               left: kPlannerPagerTimeColumnWidth,
               right: 0,
               child: const Divider(height: 1, color: AppTheme.outline),
             ),
           ],
-          for (final placement in placements)
-            _positionedPreviewEvent(
-              placement: placement,
-              contentWidth: contentWidth,
-              pixelsPerMinute: pixelsPerMinute,
-              visibleStart: visibleStart,
-              visibleEnd: visibleEnd,
-            ),
-          // Preview columns are read-only. The actual
-          // pointer suppression lives on each preview
-          // block (every `_positionedPreviewEvent` wraps
-          // its `DecoratedBox` in `IgnorePointer`) and on
-          // the current-time `Row`. A bare
-          // `Positioned.fill(child: IgnorePointer(child:
-          // SizedBox.expand()))` would only disable its
-          // own subtree — it does NOT block pointer events
-          // from reaching the Event blocks drawn behind
-          // it in this Stack, so it is intentionally not
-          // used as a structural guard.
-          //
-          // Current-time indicator: read from the same
-          // authoritative source as the centered timeline
-          // so a focused test can drive minute, hour, and
-          // date transitions deterministically. The
-          // ValueListenableBuilder rebuilds only this
-          // subtree on a minute tick.
+          // Current-time indicator: painted BEFORE the Event blocks so the
+          // final z-order (hour grid -> current-time indicator -> Event
+          // blocks) matches the centered timeline and cards cover the line
+          // at intersections. Read from the same authoritative source as the
+          // centered timeline so a focused test can drive minute, hour, and
+          // date transitions deterministically. The ValueListenableBuilder
+          // rebuilds only this subtree on a minute tick.
           if (settings.showCurrentTime && isToday)
             ValueListenableBuilder<DateTime>(
               valueListenable: currentTimeListenable,
@@ -939,32 +1114,30 @@ class _PagerPreviewColumn extends StatelessWidget {
                 );
               },
             ),
+          for (final placement in placements)
+            _positionedPreviewEvent(
+              placement: placement,
+              contentWidth: contentWidth,
+            ),
         ],
       ),
     );
   }
 
   Widget _positionedPreviewEvent({
-    required PlannerTimelinePlacement placement,
+    required PlannerDisplayPlacement placement,
     required double contentWidth,
-    required double pixelsPerMinute,
-    required int visibleStart,
-    required int visibleEnd,
   }) {
     final event = placement.event;
     final start = event.startLocal!;
     final end = event.endLocal!;
     final startMinute = start.hour * 60 + start.minute;
-    final endMinute = end.hour * 60 + end.minute;
-    final geometry = PlannerTimelineGeometry.event(
-      startMinute: startMinute,
-      endMinute: endMinute,
-      visibleStartMinute: visibleStart,
-      visibleEndMinute: visibleEnd,
-      hourHeight: hourHeight,
-    );
+    final endMinute = plannerEndMinuteOfDay(start, end);
+    // The preview uses the same exact canonical placement as the centered
+    // timeline.
+    final displayHeight = placement.height;
     final content = PlannerEventBlockContent.forHeight(
-      geometry.height,
+      displayHeight,
       interactive: false,
     );
     final resolvedAccent = PlannerEventColorResolver.accentColor(
@@ -1004,15 +1177,26 @@ class _PagerPreviewColumn extends StatelessWidget {
             ),
             child: eventContent,
           );
-    final columnGap = (placement.columnCount > 1 ? 3.0 : 0.0);
+    final columnGap = (placement.columnCount > 1
+        ? PlannerEventBlockLayoutPolicy.eventLaneGap
+        : 0.0);
     final splitWidth = placement.widthFactor != null;
-    final widthBasis = splitWidth
+    final spanWidth = placement.spanCount != null;
+    final widthBasis = splitWidth && !spanWidth
         ? contentWidth - columnGap
         : contentWidth - columnGap * (placement.columnCount - 1);
-    final blockWidth = splitWidth
+    final baseColumnWidth = widthBasis / placement.columnCount;
+    final blockWidth = spanWidth
+        ? baseColumnWidth * placement.spanCount! +
+              columnGap * (placement.spanCount! - 1)
+        : splitWidth
         ? widthBasis * placement.widthFactor!
-        : widthBasis / placement.columnCount;
-    final left = splitWidth
+        : baseColumnWidth;
+    final left = spanWidth
+        ? kPlannerPagerTimeColumnWidth +
+              5 +
+              placement.spanStart! * (baseColumnWidth + columnGap)
+        : splitWidth
         ? kPlannerPagerTimeColumnWidth +
               5 +
               (widthBasis * placement.offsetFactor!) +
@@ -1022,16 +1206,45 @@ class _PagerPreviewColumn extends StatelessWidget {
               placement.column * (blockWidth + columnGap);
     return Positioned(
       key: Key('planner-pager-preview-event-${event.id}'),
-      top: geometry.top,
+      top: placement.top,
       left: left,
       width: blockWidth,
-      height: geometry.height,
+      height: displayHeight,
       child: IgnorePointer(
         child: Material(
           color: surface,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(
-              PlannerEventBlockLayoutPolicy.eventBorderRadius,
+            // Delta 4.2R R12: contiguous blocks square the shared edge so no
+            // decorative rounded-corner notch fakes a vertical gap.
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(
+                placement.squareTop
+                    ? 0
+                    : PlannerEventBlockLayoutPolicy.effectiveRadiusFor(
+                        displayHeight,
+                      ),
+              ),
+              topRight: Radius.circular(
+                placement.squareTop
+                    ? 0
+                    : PlannerEventBlockLayoutPolicy.effectiveRadiusFor(
+                        displayHeight,
+                      ),
+              ),
+              bottomLeft: Radius.circular(
+                placement.squareBottom
+                    ? 0
+                    : PlannerEventBlockLayoutPolicy.effectiveRadiusFor(
+                        displayHeight,
+                      ),
+              ),
+              bottomRight: Radius.circular(
+                placement.squareBottom
+                    ? 0
+                    : PlannerEventBlockLayoutPolicy.effectiveRadiusFor(
+                        displayHeight,
+                      ),
+              ),
             ),
           ),
           clipBehavior: Clip.antiAlias,
@@ -1070,9 +1283,8 @@ class _PagerPreviewColumn extends StatelessWidget {
         now.hour >= settings.visibleEndHour) {
       return const SizedBox.shrink();
     }
-    final minuteFromVisibleStart =
-        ((now.hour - settings.visibleStartHour) * 60) + now.minute;
-    final resolvedMinuteY = minuteFromVisibleStart * pixelsPerMinute;
+    final minuteOfDay = now.hour * 60 + now.minute;
+    final resolvedMinuteY = minuteOfDay * pixelsPerMinute;
     final resolvedIndicatorTop =
         resolvedMinuteY - kPlannerPagerCurrentTimeIndicatorHeight / 2;
     return Positioned(
@@ -1083,43 +1295,66 @@ class _PagerPreviewColumn extends StatelessWidget {
       child: IgnorePointer(
         child: SizedBox(
           height: kPlannerPagerCurrentTimeIndicatorHeight,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
+          child: Stack(
+            clipBehavior: Clip.none,
             children: <Widget>[
-              SizedBox(
-                width: kPlannerPagerTimeColumnWidth - 8,
-                child: Text(
-                  _formatCurrentTimeLabel(now),
-                  key: const Key('planner-current-time-label'),
-                  textAlign: TextAlign.right,
-                  maxLines: 1,
-                  softWrap: false,
-                  overflow: TextOverflow.visible,
-                  style: const TextStyle(
-                    color: AppTheme.rose,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    height: 1.0,
-                    letterSpacing: 0.2,
+              Positioned(
+                left: 0,
+                top: 0,
+                bottom: 0,
+                width: PlannerCurrentTimeHorizontalGeometry.labelRight,
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerRight,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: AppTheme.background,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        _formatCurrentTimeLabel(now),
+                        key: const Key('planner-current-time-label'),
+                        textAlign: TextAlign.right,
+                        maxLines: 1,
+                        softWrap: false,
+                        style: const TextStyle(
+                          color: AppTheme.rose,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          height: 1.0,
+                          letterSpacing: 0.2,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ),
-              Container(
+              Positioned(
                 key: const Key('planner-current-time-dot'),
-                width: 8,
-                height: 8,
-                decoration: const BoxDecoration(
-                  color: AppTheme.rose,
-                  shape: BoxShape.circle,
+                left: PlannerCurrentTimeHorizontalGeometry.dotLeft,
+                top:
+                    (kPlannerPagerCurrentTimeIndicatorHeight -
+                        kPlannerPagerCurrentTimeDotSize) /
+                    2,
+                width: kPlannerPagerCurrentTimeDotSize,
+                height: kPlannerPagerCurrentTimeDotSize,
+                child: const DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: AppTheme.rose,
+                    shape: BoxShape.circle,
+                  ),
                 ),
               ),
-              const Expanded(
-                child: SizedBox(
-                  key: Key('planner-current-time-line'),
-                  height: 2,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(color: AppTheme.rose),
-                  ),
+              Positioned(
+                key: const Key('planner-current-time-line'),
+                left: PlannerCurrentTimeHorizontalGeometry.lineLeft,
+                right: 0,
+                top: (kPlannerPagerCurrentTimeIndicatorHeight - 2) / 2,
+                height: 2,
+                child: const DecoratedBox(
+                  decoration: BoxDecoration(color: AppTheme.rose),
                 ),
               ),
             ],

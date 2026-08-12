@@ -251,6 +251,14 @@ Future<void> _pumpPlannerWithSeededEvents(
   }
 }
 
+Offset _visibleTimelineCenter(WidgetTester tester) {
+  final canvas = tester.getRect(find.byKey(const Key('planner-zoom-surface')));
+  final viewport = tester.getRect(find.byKey(const Key('planner-day-scroll')));
+  final visible = canvas.intersect(viewport);
+  expect(visible.height, greaterThan(60));
+  return visible.center;
+}
+
 /// Begin a partial horizontal drag (no release). The pager
 /// remains in the live-drag state with the adjacent preview
 /// column partially visible. Returns the live gesture handle.
@@ -259,9 +267,7 @@ Future<TestGesture> _beginPartialDrag(
   required double dx,
   int steps = 6,
 }) async {
-  final pagerCenter = tester.getCenter(
-    find.byKey(const Key('planner-day-pager-viewport')),
-  );
+  final pagerCenter = _visibleTimelineCenter(tester);
   final gesture = await tester.startGesture(pagerCenter, pointer: 1);
   final perStep = dx / steps;
   for (var i = 1; i <= steps; i++) {
@@ -565,9 +571,7 @@ void main() {
       await _pumpPlannerWithSeededEvents(tester, harness: harness);
       final beforeCounts = await harness.snapshotCounts();
       final beforeOps = await harness.latestOperationTimestamp();
-      final pagerCenter = tester.getCenter(
-        find.byKey(const Key('planner-day-pager-viewport')),
-      );
+      final pagerCenter = _visibleTimelineCenter(tester);
       final gesture = await tester.startGesture(pagerCenter, pointer: 1);
       const dx = -260.0;
       const steps = 6;
@@ -677,9 +681,7 @@ void main() {
       final harness = _buildHarness();
       addTearDown(harness.database.close);
       await _pumpPlannerWithSeededEvents(tester, harness: harness);
-      final pagerCenter = tester.getCenter(
-        find.byKey(const Key('planner-day-pager-viewport')),
-      );
+      final pagerCenter = _visibleTimelineCenter(tester);
       final swipe = await tester.startGesture(pagerCenter, pointer: 1);
       await swipe.moveBy(const Offset(-30, 0));
       await tester.pump(const Duration(milliseconds: 16));
@@ -747,9 +749,7 @@ void main() {
       final harness = _buildHarness();
       addTearDown(harness.database.close);
       await _pumpPlannerWithSeededEvents(tester, harness: harness);
-      final pagerCenter = tester.getCenter(
-        find.byKey(const Key('planner-day-pager-viewport')),
-      );
+      final pagerCenter = _visibleTimelineCenter(tester);
       final swipe = await tester.startGesture(pagerCenter, pointer: 1);
       const dx = -260.0;
       const steps = 6;
@@ -794,9 +794,7 @@ void main() {
           find.byKey(const Key('planner-selected-date')),
         );
         final beforeDate = beforeSemantics.label;
-        final pagerCenter = tester.getCenter(
-          find.byKey(const Key('planner-day-pager-viewport')),
-        );
+        final pagerCenter = _visibleTimelineCenter(tester);
         final first = await tester.startGesture(pagerCenter, pointer: 1);
         await first.moveBy(const Offset(-80, 0));
         await tester.pump(const Duration(milliseconds: 16));

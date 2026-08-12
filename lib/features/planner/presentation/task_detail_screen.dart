@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rmplanner/app/router/route_names.dart';
+import 'package:rmplanner/app/theme/internal_screen.dart';
 import 'package:rmplanner/features/planner/application/planner_providers.dart';
 import 'package:rmplanner/features/planner/domain/planner_task.dart';
 import 'package:rmplanner/features/planner/presentation/calendar_event_creation.dart';
@@ -33,7 +34,7 @@ final class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
+      appBar: InternalAppBar(
         title: const Text('Task'),
         actions: <Widget>[
           IconButton(
@@ -55,18 +56,20 @@ final class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
               return const Center(child: Text('Task not found.'));
             }
             return ListView(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(16),
               children: <Widget>[
                 Text(
                   task.title,
                   key: const Key('task-detail-title'),
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w800,
+                    fontSize: 24,
+                    height: 30 / 24,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 4),
                 Text(_statusLabel(task.status)),
-                const SizedBox(height: 16),
+                const SizedBox(height: 14),
                 _DetailRow(
                   icon: Icons.event_outlined,
                   label: task.dueDate == null
@@ -92,11 +95,11 @@ final class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                     icon: Icons.layers_outlined,
                     label: task.pathwayContextLabels.join(', '),
                   ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
                 Text(
                   'Calendar Event links',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
+                  style: InternalScreen.sectionHeading.copyWith(
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -112,11 +115,11 @@ final class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                   icon: const Icon(Icons.event_available_outlined),
                   label: const Text('Create Calendar Event from Task'),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
                 Text(
                   'Task status',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
+                  style: InternalScreen.sectionHeading.copyWith(
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -154,7 +157,7 @@ final class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                   icon: const Icon(Icons.history),
                   label: const Text('View Activity History'),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
                 const Text(
                   'Changing a Task status never completes a linked Calendar '
                   'Event and never directly changes Actual.',

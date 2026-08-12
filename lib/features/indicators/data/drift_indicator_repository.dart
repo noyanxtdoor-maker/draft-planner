@@ -459,7 +459,7 @@ final class DriftIndicatorRepository implements IndicatorRepository {
           .where((row) => row.indicatorKey == indicatorKey)
           .firstOrNull;
       if (definition == null) {
-        throw StateError('Life Indicator not found.');
+        throw StateError('Life Goal not found.');
       }
       final duplicate = definitions.any(
         (row) =>
@@ -467,7 +467,7 @@ final class DriftIndicatorRepository implements IndicatorRepository {
             row.label.trim().toLowerCase() == normalizedLabel.toLowerCase(),
       );
       if (duplicate) {
-        throw StateError('Life Indicator names must be unique.');
+        throw StateError('Life Goal names must be unique.');
       }
       await (database.update(database.lifeIndicatorDefinitions)..where(
             (table) =>
@@ -582,7 +582,7 @@ final class DriftIndicatorRepository implements IndicatorRepository {
               ..limit(1))
             .getSingleOrNull();
     if (definition == null) {
-      throw StateError('Life Indicator not found');
+      throw StateError('Life Goal not found');
     }
     return definition;
   }
@@ -754,15 +754,12 @@ final class DriftIndicatorRepository implements IndicatorRepository {
       database.calendarEvents,
     )..where((table) => table.profileId.equals(profileId))).get();
     for (final row in eventRows) {
-      final recurrence = CalendarRecurrenceRule(
-        frequency: CalendarRecurrenceFrequency.values.byName(
-          row.recurrenceFrequency,
-        ),
-        endMode: CalendarRecurrenceEndMode.values.byName(row.recurrenceEndMode),
-        endDate: row.recurrenceEndDate == null
-            ? null
-            : PlannerDate.parse(row.recurrenceEndDate!),
+      final recurrence = calendarRecurrenceRuleFromStorage(
+        frequencyName: row.recurrenceFrequency,
+        endModeName: row.recurrenceEndMode,
+        endDateIso: row.recurrenceEndDate,
         occurrenceCount: row.recurrenceCount,
+        patternJson: row.recurrencePatternJson,
       );
       final start = PlannerDate.parse(row.startDate);
       for (
@@ -847,15 +844,12 @@ final class DriftIndicatorRepository implements IndicatorRepository {
     PlannerDate? earliest;
     for (final row in rows) {
       final start = PlannerDate.parse(row.startDate);
-      final recurrence = CalendarRecurrenceRule(
-        frequency: CalendarRecurrenceFrequency.values.byName(
-          row.recurrenceFrequency,
-        ),
-        endMode: CalendarRecurrenceEndMode.values.byName(row.recurrenceEndMode),
-        endDate: row.recurrenceEndDate == null
-            ? null
-            : PlannerDate.parse(row.recurrenceEndDate!),
+      final recurrence = calendarRecurrenceRuleFromStorage(
+        frequencyName: row.recurrenceFrequency,
+        endModeName: row.recurrenceEndMode,
+        endDateIso: row.recurrenceEndDate,
         occurrenceCount: row.recurrenceCount,
+        patternJson: row.recurrencePatternJson,
       );
       final firstDate = recurrence.isRecurring
           ? (start.compareTo(today) > 0 ? start : today)

@@ -143,9 +143,15 @@ void main() {
     const today = PlannerDate(year: 2026, month: 8, day: 15);
     harness.selectFromToday(today);
     await tester.pump();
-    await pumpStripAnimation(tester);
+    final immediateOffset = readStripOffset(tester);
+    await tester.pump(const Duration(milliseconds: 16));
 
     expectSelected(tester, today);
+    expect(
+      readStripOffset(tester),
+      closeTo(immediateOffset, 0.01),
+      reason: 'Today must jump once, not animate through intermediate dates',
+    );
   });
 
   testWidgets('TEST 8 — picker confirmation selects the confirmed date', (
@@ -257,6 +263,7 @@ final class _DateStripHarness extends StatefulWidget {
 }
 
 final class _DateStripHarnessState extends State<_DateStripHarness> {
+  final PlannerDateStripController controller = PlannerDateStripController();
   PlannerDate selectedDate = _selectedDate;
   int selectionCount = 0;
   int pagerCommitCount = 0;
@@ -278,6 +285,7 @@ final class _DateStripHarnessState extends State<_DateStripHarness> {
   }
 
   void selectFromToday(PlannerDate date) {
+    controller.prepareForImmediateSelection();
     setState(() => selectedDate = date);
   }
 
@@ -293,6 +301,7 @@ final class _DateStripHarnessState extends State<_DateStripHarness> {
       selectedDate: selectedDate,
       firstDate: widget.firstDate,
       lastDate: widget.lastDate,
+      controller: controller,
       onSelected: _select,
     );
   }

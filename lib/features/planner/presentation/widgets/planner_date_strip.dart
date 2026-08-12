@@ -30,6 +30,7 @@ const PlannerDate kPlannerDateStripLastDate = PlannerDate(
 /// animation or a frame showing the old selection.
 final class PlannerDateStripController {
   void Function(int)? _preparePagerCommit;
+  VoidCallback? _prepareImmediateSelection;
 
   void prepareForPagerCommit(int delta) {
     if (delta != -1 && delta != 1) {
@@ -38,13 +39,31 @@ final class PlannerDateStripController {
     _preparePagerCommit?.call(delta);
   }
 
-  void _attach(void Function(int) callback) {
-    _preparePagerCommit = callback;
+  /// Marks the next externally selected date as an immediate visual jump.
+  ///
+  /// R4-08 uses this only for Go-to-Today. The strip must center the new date
+  /// with one `jumpTo`, never animate through intermediate dates.
+  void prepareForImmediateSelection() {
+    _prepareImmediateSelection?.call();
   }
 
-  void _detach(void Function(int) callback) {
-    if (identical(_preparePagerCommit, callback)) {
+  void _attach({
+    required void Function(int) preparePagerCommit,
+    required VoidCallback prepareImmediateSelection,
+  }) {
+    _preparePagerCommit = preparePagerCommit;
+    _prepareImmediateSelection = prepareImmediateSelection;
+  }
+
+  void _detach({
+    required void Function(int) preparePagerCommit,
+    required VoidCallback prepareImmediateSelection,
+  }) {
+    if (identical(_preparePagerCommit, preparePagerCommit)) {
       _preparePagerCommit = null;
+    }
+    if (identical(_prepareImmediateSelection, prepareImmediateSelection)) {
+      _prepareImmediateSelection = null;
     }
   }
 }
@@ -102,6 +121,7 @@ final class _PlannerDateStripState extends State<PlannerDateStrip>
   bool _pendingAnimatedVisibility = false;
   bool _pendingCenterVisibility = false;
   bool _pagerCommitPrepared = false;
+  bool _immediateSelectionPrepared = false;
   int? _selectionFromIndex;
   int? _selectionToIndex;
   bool _selectionStartScheduled = false;
@@ -114,7 +134,10 @@ final class _PlannerDateStripState extends State<PlannerDateStrip>
       vsync: this,
       duration: _selectionAnimationDuration,
     )..addStatusListener(_onSelectionAnimationStatus);
-    widget.controller?._attach(_prepareForPagerCommit);
+    widget.controller?._attach(
+      preparePagerCommit: _prepareForPagerCommit,
+      prepareImmediateSelection: _prepareForImmediateSelection,
+    );
     _scheduleSelectedDateVisibility(animate: false, center: true);
   }
 
@@ -122,30 +145,44 @@ final class _PlannerDateStripState extends State<PlannerDateStrip>
   void didUpdateWidget(covariant PlannerDateStrip oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!identical(oldWidget.controller, widget.controller)) {
-      oldWidget.controller?._detach(_prepareForPagerCommit);
-      widget.controller?._attach(_prepareForPagerCommit);
+      oldWidget.controller?._detach(
+        preparePagerCommit: _prepareForPagerCommit,
+        prepareImmediateSelection: _prepareForImmediateSelection,
+      );
+      widget.controller?._attach(
+        preparePagerCommit: _prepareForPagerCommit,
+        prepareImmediateSelection: _prepareForImmediateSelection,
+      );
     }
     if (oldWidget.selectedDate != widget.selectedDate) {
       final pagerCommit = _pagerCommitPrepared;
+      final immediateSelection = _immediateSelectionPrepared;
       _pagerCommitPrepared = false;
+      _immediateSelectionPrepared = false;
       final oldIndex = _serialDay(
         oldWidget.selectedDate,
       ).clamp(0, _itemCount - 1).toInt();
       final newIndex = _selectedIndex();
       final tapAnimationOwnsTransition =
           _selectionFromIndex != null && _selectionToIndex == newIndex;
-      if (pagerCommit) {
+      if (pagerCommit || immediateSelection) {
         _stopSelectionAnimation();
       } else if (!tapAnimationOwnsTransition && oldIndex != newIndex) {
         _startSelectionAnimation(from: oldIndex, to: newIndex);
       }
-      _scheduleSelectedDateVisibility(animate: !pagerCommit, center: false);
+      _scheduleSelectedDateVisibility(
+        animate: !pagerCommit && !immediateSelection,
+        center: immediateSelection,
+      );
     }
   }
 
   @override
   void dispose() {
-    widget.controller?._detach(_prepareForPagerCommit);
+    widget.controller?._detach(
+      preparePagerCommit: _prepareForPagerCommit,
+      prepareImmediateSelection: _prepareForImmediateSelection,
+    );
     _selectionController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -280,6 +317,15 @@ final class _PlannerDateStripState extends State<PlannerDateStrip>
     if ((target - _scrollController.position.pixels).abs() >= 0.5) {
       _scrollController.jumpTo(target);
     }
+  }
+
+  void _prepareForImmediateSelection() {
+    if (!mounted) {
+      return;
+    }
+    _pagerCommitPrepared = false;
+    _immediateSelectionPrepared = true;
+    _stopSelectionAnimation();
   }
 
   void _scheduleSelectedDateVisibility({

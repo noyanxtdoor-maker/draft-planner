@@ -71,7 +71,7 @@ void main() {
       historyButton.onPressed!();
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));
-      expect(find.text('Prior Weeks'), findsOneWidget);
+      expect(find.text('Plan History'), findsOneWidget);
 
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(milliseconds: 1));
@@ -128,7 +128,7 @@ void main() {
   );
 
   testWidgets(
-    'Pack 1: limit dialog cancel is local and Manage Goals activates archive mode',
+    'Pack 1: limit dialog is local and Manage Goals mode stays active until Cancel',
     (tester) async {
       tester.view.physicalSize = const Size(393, 874);
       tester.view.devicePixelRatio = 1;
@@ -191,14 +191,29 @@ void main() {
         find.byKey(const Key('weekly-plan-management-mode')),
         findsOneWidget,
       );
+
+      // Management mode hides Create Goal, Manage Goals, the top-right
+      // actions, and every row three-dot menu; direct Archive/Trash actions
+      // and the X Cancel control are shown instead.
+      expect(find.byKey(const Key('weekly-plan-create-goal')), findsNothing);
+      expect(find.byKey(const Key('weekly-plan-manage-goals')), findsNothing);
+      expect(
+        find.byKey(Key('weekly-plan-goal-menu-${firstGoal.id}')),
+        findsNothing,
+      );
       expect(
         find.byKey(Key('weekly-plan-goal-direct-archive-${firstGoal.id}')),
         findsOneWidget,
       );
       expect(
-        find.byKey(Key('weekly-plan-goal-menu-${firstGoal.id}')),
+        find.byKey(Key('weekly-plan-goal-direct-delete-${firstGoal.id}')),
         findsOneWidget,
       );
+      expect(
+        find.byKey(const Key('weekly-plan-cancel-management')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('goal-archive-button')), findsNothing);
 
       // Canceling the shared archive confirmation preserves management mode.
       await tester.tap(
@@ -213,26 +228,18 @@ void main() {
         findsOneWidget,
       );
 
-      // Existing three-dot actions remain available and route transitions exit
-      // the transient mode rather than persisting it in the Goal model.
-      await tester.tap(
+      // X Cancel exits management mode and the three-dot menus return.
+      await tester.tap(find.byKey(const Key('weekly-plan-cancel-management')));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('weekly-plan-management-mode')),
+        findsNothing,
+      );
+      expect(
         find.byKey(Key('weekly-plan-goal-menu-${firstGoal.id}')),
+        findsOneWidget,
       );
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Edit Goal'));
-      await tester.pumpAndSettle();
-      expect(find.text('Edit Goal'), findsOneWidget);
-      expect(
-        find.byKey(const Key('weekly-plan-management-mode')),
-        findsNothing,
-      );
-      await tester.pageBack();
-      await tester.pumpAndSettle();
-      expect(find.text('Weekly Planning'), findsOneWidget);
-      expect(
-        find.byKey(const Key('weekly-plan-management-mode')),
-        findsNothing,
-      );
+      expect(find.byKey(const Key('weekly-plan-manage-goals')), findsOneWidget);
 
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(milliseconds: 1));

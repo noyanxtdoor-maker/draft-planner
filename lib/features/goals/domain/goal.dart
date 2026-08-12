@@ -39,15 +39,16 @@ extension GoalRolePresentation on GoalRole {
   };
 }
 
-enum GoalStatus { active, archived }
+enum GoalStatus { active, archived, deleted }
 
-enum GoalActivityAction { created, renamed, archived, restored }
+enum GoalActivityAction { created, renamed, archived, restored, deleted }
 
 final class Goal {
   const Goal({
     required this.id,
     required this.profileId,
     required this.indicatorKey,
+    required this.assignedEventTypeStableKey,
     required this.role,
     required this.activeSlotIndex,
     required this.title,
@@ -56,11 +57,13 @@ final class Goal {
     required this.createdAtUtc,
     required this.updatedAtUtc,
     required this.archivedAtUtc,
+    required this.deletedAtUtc,
   });
 
   final String id;
   final String profileId;
   final String? indicatorKey;
+  final String? assignedEventTypeStableKey;
   final GoalRole role;
   final int? activeSlotIndex;
   final String title;
@@ -69,8 +72,11 @@ final class Goal {
   final DateTime createdAtUtc;
   final DateTime updatedAtUtc;
   final DateTime? archivedAtUtc;
+  final DateTime? deletedAtUtc;
 
   bool get isActive => status == GoalStatus.active;
+
+  bool get isDeleted => status == GoalStatus.deleted;
 }
 
 final class GoalActivity {

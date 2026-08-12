@@ -79,7 +79,7 @@ void main() {
 
       await tester.tap(find.byKey(const Key('weekly-plan-history-button')));
       await tester.pumpAndSettle();
-      expect(find.text('Prior Weeks'), findsOneWidget);
+      expect(find.text('Plan History'), findsOneWidget);
     },
   );
 }

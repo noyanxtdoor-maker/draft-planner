@@ -784,7 +784,9 @@ void main() {
         expect(
           (await versionTen.customSelect('PRAGMA user_version').getSingle())
               .read<int>('user_version'),
-          18,
+          // Delta 4.2R R8 bumped the schema to 24 for the data-only
+          // 60 -> 30 default-duration migration.
+          24,
         );
         final taskColumns = await versionTen
             .customSelect('PRAGMA table_info(planner_tasks)')
@@ -938,7 +940,8 @@ void main() {
         final version = await current
             .customSelect('PRAGMA user_version')
             .getSingle();
-        expect(version.read<int>('user_version'), 18);
+        // Delta 4.2R R8: current schema is 24 (30-minute default migration).
+        expect(version.read<int>('user_version'), 24);
         await current.close();
       } finally {
         sqliteDatabase.close();

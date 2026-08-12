@@ -154,40 +154,60 @@ void main() {
     expect(repaired.link.eventId, replacementId);
   });
 
-  test('BR-F-004,007,009,010: reschedule transfers occurrence context in the '
-      'same transaction and preserves history', () async {
-    await _create(links);
-    final calendar = DriftCalendarEventRepository(
-      database: database,
-      clock: FixedClock(DateTime.utc(2026, 8, 1, 12)),
-      timeZones: IanaCalendarEventTimeZones(displayTimeZoneId: 'Asia/Manila'),
-      taskContextSource: links,
-      linkContextTransfer: links,
-    );
-    const replacementId = '30000000-0000-4000-8000-000000000003';
-    await calendar.rescheduleEvent(
-      profileId: profileId,
-      eventId: eventId,
-      originalDate: date,
-      scope: CalendarEventEditScope.occurrence,
-      replacement: _draft(replacementId),
-      operationId: '50000000-0000-4000-8000-000000000006',
-    );
-    expect(
-      await links.readLinkedTaskIds(
-        eventId: replacementId,
-        occurrenceId: CalendarEventOccurrenceIdentity.forDate(
-          eventId: replacementId,
-          originalDate: date,
+  test(
+    'BR-F-004,007,009,010 + D2: reschedule of a repeating Event keeps the '
+    'occurrence override on the same series — the linked Task context stays '
+    'attached to the original event and history records the mutation',
+    () async {
+      await _create(links);
+      final calendar = DriftCalendarEventRepository(
+        database: database,
+        clock: FixedClock(DateTime.utc(2026, 8, 1, 12)),
+        timeZones: IanaCalendarEventTimeZones(displayTimeZoneId: 'Asia/Manila'),
+        taskContextSource: links,
+        linkContextTransfer: links,
+      );
+      const replacementId = '30000000-0000-4000-8000-000000000003';
+      await calendar.rescheduleEvent(
+        profileId: profileId,
+        eventId: eventId,
+        originalDate: date,
+        scope: CalendarEventEditScope.occurrence,
+        replacement: _draft(replacementId),
+        operationId: '50000000-0000-4000-8000-000000000006',
+      );
+      // Planner Polish Delta 2: the seeded series is weekly, so an
+      // occurrence-scoped reschedule writes an override under the SAME series
+      // event id. The canonical Task link therefore remains bound to the
+      // original event + occurrence id — no standalone replacement Event exists
+      // to transfer onto.
+      expect(
+        await links.readLinkedTaskIds(
+          eventId: eventId,
+          occurrenceId: CalendarEventOccurrenceIdentity.forDate(
+            eventId: eventId,
+            originalDate: date,
+          ),
         ),
-      ),
-      <String>[taskId],
-    );
-    expect(
-      await database.select(database.taskEventLinkHistory).get(),
-      isNotEmpty,
-    );
-  });
+        <String>[taskId],
+      );
+      expect(
+        await links.readLinkedTaskIds(
+          eventId: replacementId,
+          occurrenceId: CalendarEventOccurrenceIdentity.forDate(
+            eventId: replacementId,
+            originalDate: date,
+          ),
+        ),
+        isEmpty,
+        reason: 'no standalone replacement Event may exist',
+      );
+      expect(
+        await database.select(database.taskEventLinkHistory).get(),
+        isNotEmpty,
+      );
+    },
+  );
 
   test('AC-F-018 / BR-F-010: failed create-from-task rolls back Event, link, '
       'and history together', () async {

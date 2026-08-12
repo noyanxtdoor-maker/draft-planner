@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rmplanner/app/router/route_names.dart';
+import 'package:rmplanner/app/theme/internal_screen.dart';
 import 'package:rmplanner/features/planner/application/planner_providers.dart';
 import 'package:rmplanner/features/planner/application/task_event_link_providers.dart';
 import 'package:rmplanner/features/planner/domain/calendar_event.dart';
@@ -81,7 +82,7 @@ final class _TaskEventLinkScreenState
   Widget build(BuildContext context) {
     final message = ref.watch(taskEventLinkControllerProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Task and Event links')),
+      appBar: InternalAppBar(title: const Text('Task and Event links')),
       body: SafeArea(
         child: FutureBuilder<_LinkPageData>(
           future: _load,
@@ -110,21 +111,21 @@ final class _TaskEventLinkScreenState
                   ),
                 Text(
                   'Current links',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+                  style: InternalScreen.sectionHeading.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 if (data.links.isEmpty)
                   const Text('No active links.')
                 else
                   for (final view in data.links) _linkTile(view),
-                const SizedBox(height: 24),
+                const SizedBox(height: 18),
                 Text(
                   widget.isTaskOrigin ? 'Link a Calendar Event' : 'Link a Task',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+                  style: InternalScreen.sectionHeading.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<TaskEventCanonicalSource>(

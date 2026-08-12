@@ -102,6 +102,7 @@ abstract final class SystemEventTypeKeys {
   static const String budgetReview = 'budget_review';
   static const String jobApplication = 'job_application';
   static const String meaningfulConnection = 'meaningful_connection';
+  static const String contact = 'contact';
   static const String appointment = 'appointment';
   static const String work = 'work';
   static const String travel = 'travel';
@@ -112,8 +113,8 @@ abstract final class SystemEventTypeKeys {
     jobApplication,
     scriptureStudy,
     exercise,
-    meaningfulConnection,
     budgetReview,
+    meaningfulConnection,
     templeVisit,
   };
 
@@ -121,9 +122,10 @@ abstract final class SystemEventTypeKeys {
     jobApplication,
     scriptureStudy,
     exercise,
-    meaningfulConnection,
     budgetReview,
+    meaningfulConnection,
     templeVisit,
+    contact,
     meeting,
     studyOrPlan,
     service,
@@ -153,6 +155,7 @@ abstract final class SystemEventTypeIds {
   static const String jobApplication = '4b5de2bd-a9fb-5bf1-924a-cd9c5790dfd8';
   static const String meaningfulConnection =
       '86a4b5d2-d67f-5437-8a68-1202af4d58a7';
+  static const String contact = '6e54f5c9-30e1-5fb0-9a4f-4c53a4f835d1';
   static const String appointment = 'dc4880b7-80c7-54c2-b84f-28241bccb25c';
   static const String work = 'd14bc2d7-7ab6-5c70-afd6-a27770e567a4';
   static const String travel = 'f6bce8fa-f599-52e3-f8aa-739b0f1c7637';

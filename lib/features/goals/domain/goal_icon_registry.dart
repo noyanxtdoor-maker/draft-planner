@@ -399,11 +399,7 @@ final class GoalIconRegistry {
       'font',
       'font-face',
     };
-    const allowedStrokeColors = <String>{
-      '#9dc8cf',
-      '#d7a06e',
-      'none',
-    };
+    const allowedStrokeColors = <String>{'#9dc8cf', '#d7a06e', 'none'};
     var accentStrokeCount = 0;
     for (final element in document.descendantElements) {
       final elementName = element.localName.toLowerCase();
@@ -423,9 +419,9 @@ final class GoalIconRegistry {
         }
         if (attributeName != 'xmlns' &&
             (attributeLower.contains('javascript:') ||
-            attributeLower.contains('data:') ||
-            attributeLower.contains('://') ||
-            attributeLower.contains('url('))) {
+                attributeLower.contains('data:') ||
+                attributeLower.contains('://') ||
+                attributeLower.contains('url('))) {
           errors.add('SVG contains an external or executable URL.');
         }
         if (attributeName == 'stroke') {
@@ -440,7 +436,8 @@ final class GoalIconRegistry {
         if (attributeName == 'stroke-width' && attributeValue != '1.8') {
           errors.add('SVG contains an unsupported stroke width.');
         }
-        if (attributeName == 'background' || attributeName == 'background-color') {
+        if (attributeName == 'background' ||
+            attributeName == 'background-color') {
           errors.add('SVG must not include a baked background.');
         }
       }

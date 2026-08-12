@@ -1,12 +1,14 @@
 // Issue 5 + Issue 6 focused tests.
 //
-// Issue 5: scheduled, completedHappened, and partiallyCompleted Calendar
-// Events must remain on the Planner Day timeline. Cancelled, rescheduled,
-// and didNotHappen Events are excluded from the timeline collections
-// but still surface as Planner Changes. The general "Events" content
-// filter continues to control Calendar Event visibility, but the
-// "show completed items" toggle must not remove a reported Event, and
-// "completed Tasks" must be controlled only by the
+// Issue 5: scheduled, completedHappened, partiallyCompleted, and
+// didNotHappen Calendar Events must remain on the Planner Day timeline
+// (Post-VS-11 planner polish P-01A: a report outcome is never an existence
+// gate, so "Did Not Attempt" never hides a valid occurrence). Only explicit
+// lifecycle actions — cancelled and rescheduled — are excluded from the
+// timeline collections but still surface as Planner Changes. The general
+// "Events" content filter continues to control Calendar Event visibility,
+// but the "show completed items" toggle must not remove a reported Event,
+// and "completed Tasks" must be controlled only by the
 // `contentFilters.completedTasks` flag.
 //
 // Issue 6: the top and bottom resize hit areas must be present on
@@ -21,11 +23,13 @@
 //
 // All resize tests persist a real Drift-backed Calendar Event through
 // `DriftCalendarEventRepository.saveEvent`, and verify write counts
-// against the underlying Drift tables (one `calendarEventExceptions`
-// row + one `calendarEventOperations` row per drag that actually
-// changed the end minute). The `SequenceIdentifierSource` is sized
-// to the exact number of `plannerIdentifierSource` operations the
-// resize flow requires (one per `onResizeEnd` that persists).
+// against the underlying Drift tables. Owner fix: a NON-recurring Event
+// owns its schedule on the canonical master row, so its move/resize is a
+// master-row update (no `calendarEventExceptions` row) plus one
+// `calendarEventOperations` row per drag that actually changed the
+// schedule. The `SequenceIdentifierSource` is sized to the exact number
+// of `plannerIdentifierSource` operations the resize flow requires (one
+// per `onResizeEnd` that persists).
 
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
@@ -42,6 +46,7 @@ import 'package:rmplanner/features/planner/domain/calendar_event.dart';
 import 'package:rmplanner/features/planner/domain/outcome_reporting.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 import 'package:rmplanner/features/planner/domain/planner_day.dart';
+import 'package:rmplanner/features/planner/presentation/widgets/planner_event_report_status.dart';
 
 import '../../../support/test_dependencies.dart';
 
@@ -92,6 +97,17 @@ void main() {
     );
   }
 
+  Future<void> selectForDirectManipulation(
+    WidgetTester tester,
+    String occurrenceId,
+  ) async {
+    final block = find.byKey(Key('planner-timed-event-$occurrenceId'));
+    await tester.ensureVisible(block);
+    await tester.pumpAndSettle();
+    await tester.longPress(block);
+    await tester.pumpAndSettle();
+  }
+
   /// Drive a vertical drag on the resize hit area of an Event
   /// block. The recognizer on the resize hit is a
   /// `VerticalDragGestureRecognizer` whose `kTouchSlop` is 18
@@ -109,9 +125,10 @@ void main() {
   }) async {
     final hitCenter = tester.getCenter(hit);
     final gesture = await tester.startGesture(hitCenter);
-    // First move crosses kTouchSlop (18 logical pixels) so
-    // the vertical drag recognizer dispatches `onStart` and
-    // the first `onUpdate` for this crossing event.
+    // Delta 4.2C: the selected endpoint handle activates after ordinary
+    // touch slop with no additional hold.
+    await tester.pump(const Duration(milliseconds: 20));
+    // The first move crosses touch slop.
     final claimDelta = totalDeltaY.isNegative ? -24.0 : 24.0;
     await gesture.moveBy(Offset(0, claimDelta));
     await tester.pump();
@@ -295,9 +312,10 @@ void main() {
         final timelineEventIds = day.timedEvents.map((e) => e.eventId).toSet();
         expect(timelineEventIds, isNot(contains(cancelledEventId)));
         expect(timelineEventIds, isNot(contains(rescheduledEventId)));
-        // The didNotHappen row is still scheduled at the data layer
-        // because no outcome report has been written yet, so it
-        // remains in the timeline.
+        // The didNotHappen row remains in the timeline. P-01A: a report
+        // outcome (including "Did Not Attempt") never removes a valid
+        // occurrence; the dedicated report-persistence tests prove it stays
+        // even AFTER a real Did-Not-Attempt report is submitted.
         expect(
           day.timedEvents.where((e) => e.eventId == didNotHappenEventId),
           isNotEmpty,
@@ -392,9 +410,23 @@ void main() {
         matching: find.byKey(const Key('planner-event-block-content')),
       );
       expect(statusRow, findsOneWidget);
+      // The four-state reporting icon renders as one compact badge at the
+      // right of the block. A reported completed Event shows the check
+      // badge, never the Unreported warning, and never a redundant label.
+      final badge = find.descendant(
+        of: blockKey,
+        matching: find.byType(PlannerEventStatusBadge),
+      );
+      expect(badge, findsOneWidget);
+      // The badge is the canonical sheet-accurate icon component: a green
+      // check for a completed Event, never the Unreported warning.
+      expect(
+        tester.widget<PlannerEventStatusBadge>(badge).kind,
+        PlannerReportStatusKind.completed,
+      );
       expect(
         find.descendant(of: statusRow, matching: find.text('Completed')),
-        findsOneWidget,
+        findsNothing,
       );
       // Unreported must NOT render for a reported event.
       expect(
@@ -812,26 +844,43 @@ void main() {
         final laterHit = find.byKey(
           Key('planner-top-resize-hit-${occurrenceIdFor(completedEventId)}'),
         );
-        expect(earlierHit, findsOneWidget);
-        expect(laterHit, findsOneWidget);
+        expect(earlierHit, findsNothing);
+        expect(laterHit, findsNothing);
 
+        await selectForDirectManipulation(
+          tester,
+          occurrenceIdFor(scheduledEventId),
+        );
+        expect(earlierHit, findsOneWidget);
+        expect(laterHit, findsNothing);
         await driveResizeDrag(tester, earlierHit, totalDeltaY: -60);
+
+        await selectForDirectManipulation(
+          tester,
+          occurrenceIdFor(completedEventId),
+        );
+        expect(earlierHit, findsNothing);
+        expect(laterHit, findsOneWidget);
         await driveResizeDrag(tester, laterHit, totalDeltaY: 30);
 
-        final exceptions = await database
-            .select(database.calendarEventExceptions)
-            .get();
-        expect(exceptions, hasLength(2));
-        final earlierException = exceptions.firstWhere(
-          (row) => row.eventId == scheduledEventId,
+        // Owner fix: a non-recurring Event owns its schedule on the master
+        // row, so both resizes are persisted as canonical row updates and no
+        // exception row is created.
+        final events = await database.select(database.calendarEvents).get();
+        final earlierEvent = events.firstWhere(
+          (row) => row.id == scheduledEventId,
         );
-        expect(earlierException.startMinute, 9 * 60);
-        expect(earlierException.endMinute, 12 * 60);
-        final laterException = exceptions.firstWhere(
-          (row) => row.eventId == completedEventId,
+        expect(earlierEvent.startMinute, 9 * 60);
+        expect(earlierEvent.endMinute, 12 * 60);
+        final laterEvent = events.firstWhere(
+          (row) => row.id == completedEventId,
         );
-        expect(laterException.startMinute, 13 * 60 + 30);
-        expect(laterException.endMinute, 15 * 60);
+        expect(laterEvent.startMinute, 13 * 60 + 30);
+        expect(laterEvent.endMinute, 15 * 60);
+        expect(
+          await database.select(database.calendarEventExceptions).get(),
+          isEmpty,
+        );
         expect(
           await database.select(database.calendarEventOperations).get(),
           hasLength(2),
@@ -898,19 +947,60 @@ void main() {
         // area is not. No pre-existing layout warning may be
         // masked — the visible content must fit without a
         // RenderFlex overflow.
-        expect(
-          find.byKey(
-            Key('planner-resize-hit-${occurrenceIdFor(scheduledEventId)}'),
-          ),
-          findsOneWidget,
+        final occurrenceId = occurrenceIdFor(scheduledEventId);
+        final block = find.byKey(Key('planner-timed-event-$occurrenceId'));
+        final endHandle = find.byKey(Key('planner-resize-hit-$occurrenceId'));
+        final startHandle = find.byKey(
+          Key('planner-top-resize-hit-$occurrenceId'),
         );
+        expect(endHandle, findsNothing);
+        expect(startHandle, findsNothing);
+
+        await selectForDirectManipulation(tester, occurrenceId);
+
+        // R4-01: selecting even a short saved Event exposes exactly the
+        // upper-right START and bottom-left END Corner Tab Grips. The visible
+        // 14 dp tabs and their 44 dp hit targets anchor inward at each corner.
+        expect(startHandle, findsOneWidget);
+        expect(endHandle, findsOneWidget);
         // The visible handle is NOT shown for short density
         // (height ≈ 30 ⇒ veryShort).
+        final startDot = find.byKey(
+          Key('planner-selected-start-handle-dot-$occurrenceId'),
+        );
+        final endDot = find.byKey(
+          Key('planner-selected-end-handle-dot-$occurrenceId'),
+        );
+        expect(startDot, findsOneWidget);
+        expect(endDot, findsOneWidget);
+        final blockRect = tester.getRect(block);
+        final startDotRect = tester.getRect(startDot);
+        final endDotRect = tester.getRect(endDot);
+        expect(startDotRect.right, closeTo(blockRect.right, .01));
+        expect(startDotRect.top, closeTo(blockRect.top, .01));
+        expect(endDotRect.left, closeTo(blockRect.left, .01));
+        expect(endDotRect.bottom, closeTo(blockRect.bottom, .01));
+        final startHitRect = tester.getRect(startHandle);
+        final endHitRect = tester.getRect(endHandle);
+        expect(startHitRect.right, closeTo(blockRect.right, .01));
+        expect(startHitRect.top, closeTo(blockRect.top, .01));
+        expect(endHitRect.left, closeTo(blockRect.left, .01));
+        expect(endHitRect.bottom, closeTo(blockRect.bottom, .01));
+        expect(startHitRect.size, const Size.square(44));
+        expect(endHitRect.size, const Size.square(44));
+
+        final timelineRect = tester.getRect(
+          find.byKey(const Key('planner-time-grid')),
+        );
+        await tester.tapAt(Offset(timelineRect.left + 20, blockRect.center.dy));
+        await tester.pumpAndSettle();
+        expect(startHandle, findsNothing);
+        expect(endHandle, findsNothing);
+        expect(find.text('Select Event Type'), findsNothing);
         expect(
-          find.byKey(
-            Key('planner-resize-handle-${occurrenceIdFor(scheduledEventId)}'),
-          ),
-          findsNothing,
+          await database.select(database.calendarEventOperations).get(),
+          isEmpty,
+          reason: 'tap-outside deselection must not persist anything',
         );
       },
     );
@@ -960,6 +1050,10 @@ void main() {
         await tester.tap(find.text('Planner'));
         await tester.pumpAndSettle();
 
+        await selectForDirectManipulation(
+          tester,
+          occurrenceIdFor(scheduledEventId),
+        );
         expect(
           find.byKey(
             Key('planner-resize-hit-${occurrenceIdFor(scheduledEventId)}'),
@@ -1042,6 +1136,10 @@ void main() {
       await tester.tap(find.text('Planner'));
       await tester.pumpAndSettle();
 
+      await selectForDirectManipulation(
+        tester,
+        occurrenceIdFor(scheduledEventId),
+      );
       final blockKey = find.byKey(
         Key('planner-timed-event-${occurrenceIdFor(scheduledEventId)}'),
       );
@@ -1050,8 +1148,9 @@ void main() {
       );
       final before = tester.widget<Positioned>(blockKey);
       // Original 9:00–10:00 with visibleStart=6:00 and
-      // hourHeight=60 ⇒ top = (540-360) * 1 = 180, height 60.
-      expect(before.top, 180);
+      // hourHeight=60 ⇒ the 9:00 Event top = minute-of-day 540 on the
+      // full civil-day canvas (PMG parity), height 60.
+      expect(before.top, 540);
       expect(before.height, 60);
 
       // Drag the hit area straight down by 60 px (1 hour).
@@ -1069,21 +1168,19 @@ void main() {
       // production code clears in `_finishResize` after
       // persistence, so reading the widget here would
       // always show the original geometry.
-      final exceptions = await database
-          .select(database.calendarEventExceptions)
-          .get();
-      expect(exceptions, hasLength(1));
-      expect(exceptions.single.eventId, scheduledEventId);
-      expect(exceptions.single.startMinute, 9 * 60);
-      // The cumulative 60-px drag → +60 min past the
-      // original 10:00 end ⇒ 11:00 (660).
-      expect(exceptions.single.endMinute, 10 * 60 + 60);
-      // The Event row itself is unchanged in shape: only
-      // exceptions are written, not the canonical row.
+      // Owner fix: a non-recurring Event owns its schedule on the master
+      // row, so the resize updates the canonical row (no exception row).
       final events = await database.select(database.calendarEvents).get();
       expect(events, hasLength(1));
+      expect(events.single.id, scheduledEventId);
       expect(events.single.startMinute, 9 * 60);
-      expect(events.single.endMinute, 10 * 60);
+      // The cumulative 60-px drag → +60 min past the
+      // original 10:00 end ⇒ 11:00 (660).
+      expect(events.single.endMinute, 10 * 60 + 60);
+      expect(
+        await database.select(database.calendarEventExceptions).get(),
+        isEmpty,
+      );
       final ops = await database.select(database.calendarEventOperations).get();
       expect(ops, hasLength(1));
       expect(ops.single.command, 'edit:occurrence');
@@ -1138,6 +1235,10 @@ void main() {
       await tester.tap(find.text('Planner'));
       await tester.pumpAndSettle();
 
+      await selectForDirectManipulation(
+        tester,
+        occurrenceIdFor(scheduledEventId),
+      );
       final blockKey = find.byKey(
         Key('planner-timed-event-${occurrenceIdFor(scheduledEventId)}'),
       );
@@ -1152,13 +1253,14 @@ void main() {
       expect(after.height, 90);
       expect(identifiers.nextUuid, throwsStateError);
 
-      // The single persisted exception row carries the snapped
-      // end-minute.
-      final rows = await database
-          .select(database.calendarEventExceptions)
-          .get();
+      // Owner fix: the snapped end-minute lands on the canonical master row.
+      final rows = await database.select(database.calendarEvents).get();
       expect(rows, hasLength(1));
       expect(rows.single.endMinute, 10 * 60 + 30);
+      expect(
+        await database.select(database.calendarEventExceptions).get(),
+        isEmpty,
+      );
     });
 
     testWidgets('minimum duration is enforced: a huge upward drag clamps to '
@@ -1213,6 +1315,10 @@ void main() {
       await tester.tap(find.text('Planner'));
       await tester.pumpAndSettle();
 
+      await selectForDirectManipulation(
+        tester,
+        occurrenceIdFor(scheduledEventId),
+      );
       final blockKey = find.byKey(
         Key('planner-timed-event-${occurrenceIdFor(scheduledEventId)}'),
       );
@@ -1239,11 +1345,13 @@ void main() {
 
       // Verify the persisted end is at the snap-minimum:
       // start 9:00 + 15-min minimum = 9:15 (555 min).
-      final rows = await database
-          .select(database.calendarEventExceptions)
-          .get();
+      final rows = await database.select(database.calendarEvents).get();
       expect(rows, hasLength(1));
       expect(rows.single.endMinute, 9 * 60 + 15);
+      expect(
+        await database.select(database.calendarEventExceptions).get(),
+        isEmpty,
+      );
     });
 
     testWidgets('a reported completed Event keeps its resize hit area, '
@@ -1350,6 +1458,10 @@ void main() {
       await tester.tap(find.text('Planner'));
       await tester.pumpAndSettle();
 
+      await selectForDirectManipulation(
+        tester,
+        occurrenceIdFor(completedEventId),
+      );
       final blockKey = find.byKey(
         Key('planner-timed-event-${occurrenceIdFor(completedEventId)}'),
       );
@@ -1364,14 +1476,23 @@ void main() {
 
       // The "Completed" status must be visible on the reported
       // Event before the resize (height 60 ⇒ medium density
-      // with status icons).
+      // with status icons) as the compact trailing check badge.
       final contentBefore = find.descendant(
         of: blockKey,
         matching: find.byKey(const Key('planner-event-block-content')),
       );
+      final badgeBefore = find.descendant(
+        of: blockKey,
+        matching: find.byType(PlannerEventStatusBadge),
+      );
+      expect(badgeBefore, findsOneWidget);
+      expect(
+        tester.widget<PlannerEventStatusBadge>(badgeBefore).kind,
+        PlannerReportStatusKind.completed,
+      );
       expect(
         find.descendant(of: contentBefore, matching: find.text('Completed')),
-        findsOneWidget,
+        findsNothing,
       );
 
       // Drag the hit area down by 30 px ⇒ +30 min ⇒ height 90.
@@ -1382,23 +1503,36 @@ void main() {
       // The single identifier was consumed by the one
       // persistence write.
       expect(identifiers.nextUuid, throwsStateError);
-      // Verify the persisted exception row carries the
-      // snapped end-minute (10:00 + 30 min = 10:30).
-      final persistedRows = await database
-          .select(database.calendarEventExceptions)
+      // Owner fix: the snapped end-minute lands on the canonical master row
+      // (10:00 + 30 min = 10:30) with no exception row.
+      final persistedEvents = await database
+          .select(database.calendarEvents)
           .get();
-      expect(persistedRows, hasLength(1));
-      expect(persistedRows.single.endMinute, 10 * 60 + 30);
+      expect(persistedEvents, hasLength(1));
+      expect(persistedEvents.single.endMinute, 10 * 60 + 30);
+      expect(
+        await database.select(database.calendarEventExceptions).get(),
+        isEmpty,
+      );
 
       // Completed status must still be visible after the
-      // resize.
+      // resize as the compact trailing check badge.
       final contentAfter = find.descendant(
         of: blockKey,
         matching: find.byKey(const Key('planner-event-block-content')),
       );
+      final badgeAfter = find.descendant(
+        of: blockKey,
+        matching: find.byType(PlannerEventStatusBadge),
+      );
+      expect(badgeAfter, findsOneWidget);
+      expect(
+        tester.widget<PlannerEventStatusBadge>(badgeAfter).kind,
+        PlannerReportStatusKind.completed,
+      );
       expect(
         find.descendant(of: contentAfter, matching: find.text('Completed')),
-        findsOneWidget,
+        findsNothing,
       );
 
       // The Event Type must remain unchanged (still "general").
@@ -1430,14 +1564,11 @@ void main() {
           (await database.select(database.activityLedgerEntries).get()).length;
       expect(ledgerCount, 0);
 
-      // The single resize persisted exactly one edit-occurrence
-      // exception with the new end minute (10:00 + 30 min
-      // = 10:30 ⇒ 630).
-      final exceptions = await database
-          .select(database.calendarEventExceptions)
-          .get();
-      expect(exceptions, hasLength(1));
-      expect(exceptions.single.endMinute, 10 * 60 + 30);
+      // The single resize persisted exactly one canonical master-row update
+      // with the new end minute (10:00 + 30 min = 10:30 ⇒ 630).
+      final resized = await database.select(database.calendarEvents).get();
+      expect(resized, hasLength(1));
+      expect(resized.single.endMinute, 10 * 60 + 30);
     });
 
     testWidgets('resizing a 60-minute Event down to 15 minutes does not '
@@ -1488,6 +1619,10 @@ void main() {
       await tester.tap(find.text('Planner'));
       await tester.pumpAndSettle();
 
+      await selectForDirectManipulation(
+        tester,
+        occurrenceIdFor(scheduledEventId),
+      );
       final blockKey = find.byKey(
         Key('planner-timed-event-${occurrenceIdFor(scheduledEventId)}'),
       );
@@ -1496,11 +1631,27 @@ void main() {
       );
 
       // Huge upward drag (-500 px) clamps the stored schedule to
-      // 15 minutes while the low-zoom block remains readable at
-      // the approved visual minimum.
+      // 15 minutes. Delta 4.2R3 R3-04: at this fixture's 60 px/hour mapping
+      // a 15-minute canonical height (15 px) is below the readability pixel
+      // threshold (28 px), so the DISPLAY footprint engages the overview
+      // one-hour row (60 px) while the stored/logical duration stays exactly
+      // 15 minutes. The outer Positioned is the separate invisible touch
+      // layer, which never shrinks the usable touch height.
+      final before = tester.widget<Positioned>(blockKey);
+      final originalHeight = before.height!;
       await driveResizeDrag(tester, hit, totalDeltaY: -500);
-      final after = tester.widget<Positioned>(blockKey);
-      expect(after.height, greaterThanOrEqualTo(48));
+      final visibleAfter = tester.widget<Positioned>(
+        find.byKey(
+          Key(
+            'planner-timed-event-visible-${occurrenceIdFor(scheduledEventId)}',
+          ),
+        ),
+      );
+      // Display-only overview footprint (whole hour row) — the canonical
+      // 15-minute logical duration is asserted below on the stored row.
+      expect(visibleAfter.height, closeTo(originalHeight, 0.01));
+      final touchAfter = tester.widget<Positioned>(blockKey);
+      expect(touchAfter.height, closeTo(originalHeight, 0.01));
       expect(identifiers.nextUuid, throwsStateError);
       // RenderFlex overflow should have been raised.
       expect(tester.takeException(), isNull);
@@ -1508,13 +1659,15 @@ void main() {
       // persisted resize.
       expect(identifiers.nextUuid, throwsStateError);
 
-      // The persisted end is at the snap-minimum (start +
-      // 15 min).
-      final rows = await database
-          .select(database.calendarEventExceptions)
-          .get();
+      // The persisted end is at the snap-minimum (start + 15 min) on the
+      // canonical master row.
+      final rows = await database.select(database.calendarEvents).get();
       expect(rows, hasLength(1));
       expect(rows.single.endMinute, 9 * 60 + 15);
+      expect(
+        await database.select(database.calendarEventExceptions).get(),
+        isEmpty,
+      );
     });
 
     testWidgets('tapping the body of the Event still opens details (the bottom '
@@ -1576,6 +1729,139 @@ void main() {
       // happened (the test framework surfaces no exception
       // and the detail page is on top).
       expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('Owner fix: edit-save canonical ownership', () {
+    testWidgets('moving an Event whose Backup state lives on an occurrence '
+        'override keeps it Backup — the move drafts the merged occurrence, '
+        'not the stale master row', (tester) async {
+      tester.view.physicalSize = const Size(862, 1824);
+      tester.view.devicePixelRatio = 2;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final database = openMemoryDatabase();
+      addTearDown(database.close);
+      final privacy = TestPrivacyDependencies(database: database);
+      final startup = buildTestRepository(
+        database: database,
+        privacyGate: privacy.gate,
+      );
+      final profile = await startup.completeOnboarding();
+      final (plannerRepository, calendarRepository) = await buildRepositories(
+        database,
+      );
+      // A normal (non-recurring, non-Backup) master row plus a pre-fix
+      // scheduled field-override exception that carries Backup = true.
+      await calendarRepository.saveEvent(
+        profileId: profile.id,
+        draft: timedDraft(
+          id: scheduledEventId,
+          title: 'Movable Backup',
+          startMinute: 9 * 60,
+          endMinute: 10 * 60,
+        ),
+      );
+      final occurrenceId = CalendarEventOccurrenceIdentity.forDate(
+        eventId: scheduledEventId,
+        originalDate: selected,
+      );
+      await database
+          .into(database.calendarEventExceptions)
+          .insert(
+            CalendarEventExceptionsCompanion.insert(
+              id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+              profileId: profile.id,
+              eventId: scheduledEventId,
+              occurrenceId: occurrenceId,
+              originalDate: selected.iso8601,
+              effectiveDate: selected.iso8601,
+              title: 'Movable Backup',
+              timing: CalendarEventTiming.timed.name,
+              startMinute: const Value<int?>(9 * 60),
+              endMinute: const Value<int?>(10 * 60),
+              requiresReport: const Value<bool>(false),
+              isBackupAppointment: const Value<bool>(true),
+              status: CalendarEventStatus.scheduled.name,
+              createdAtUtc: DateTime.utc(2026, 7, 27, 12),
+            ),
+          );
+
+      final identifiers = SequenceIdentifierSource(<String>[
+        'a6666666-6666-4666-8666-666666666666',
+      ]);
+      await tester.pumpWidget(
+        privacy.buildApp(
+          environment: const AppEnvironment(
+            name: AppEnvironmentName.production,
+            label: 'PRODUCTION',
+          ),
+          diagnostics: SanitizedDiagnostics(),
+          startupRepository: startup,
+          plannerRepository: plannerRepository,
+          plannerDateSource: const FixedPlannerDateSource(selected),
+          plannerIdentifierSource: identifiers,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Planner'));
+      await tester.pumpAndSettle();
+
+      final blockKey = find.byKey(
+        Key('planner-timed-event-${occurrenceIdFor(scheduledEventId)}'),
+      );
+      expect(blockKey, findsOneWidget);
+
+      // Delta 4.2 Lock 1: long-press selects first. A subsequent body drag
+      // after normal touch slop drives the real move path.
+      await tester.longPress(blockKey);
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(Key('planner-top-resize-hit-$occurrenceId')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(Key('planner-resize-hit-$occurrenceId')),
+        findsOneWidget,
+      );
+
+      final gesture = await tester.startGesture(tester.getCenter(blockKey));
+      await tester.pump(const Duration(milliseconds: 20));
+      await gesture.moveBy(const Offset(0, 24));
+      await tester.pump();
+      await gesture.moveBy(const Offset(0, 36));
+      await tester.pump();
+      await gesture.up();
+      final moveCard = find.byKey(const Key('planner-move-undo-card'));
+      for (var frame = 0; frame < 30; frame += 1) {
+        await tester.pump(const Duration(milliseconds: 50));
+        if (moveCard.evaluate().isNotEmpty) {
+          await tester.pump(const Duration(milliseconds: 300));
+          break;
+        }
+      }
+      expect(moveCard, findsOneWidget);
+
+      // Owner fix: the move drafts the merged occurrence, so Backup survives
+      // and is persisted onto the canonical master row (10:00), with the
+      // stale field-override exception removed.
+      final events = await database.select(database.calendarEvents).get();
+      expect(events, hasLength(1));
+      expect(events.single.id, scheduledEventId);
+      expect(
+        events.single.isBackupAppointment,
+        isTrue,
+        reason: 'a moved Backup Event must stay Backup',
+      );
+      expect(events.single.startMinute, 10 * 60);
+      expect(events.single.endMinute, 11 * 60);
+      expect(
+        await database.select(database.calendarEventExceptions).get(),
+        isEmpty,
+      );
+      expect(identifiers.nextUuid, throwsStateError);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
     });
   });
 

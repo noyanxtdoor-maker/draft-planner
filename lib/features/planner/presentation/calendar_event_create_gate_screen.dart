@@ -15,6 +15,7 @@ final class CalendarEventCreateGateScreen extends ConsumerStatefulWidget {
     this.initialIndicatorKey,
     this.initialEventTypeId,
     this.sourceTaskId,
+    this.initialContactIds = const <String>[],
     super.key,
   });
 
@@ -23,6 +24,7 @@ final class CalendarEventCreateGateScreen extends ConsumerStatefulWidget {
   final String? initialIndicatorKey;
   final String? initialEventTypeId;
   final String? sourceTaskId;
+  final List<String> initialContactIds;
 
   @override
   ConsumerState<CalendarEventCreateGateScreen> createState() =>
@@ -80,6 +82,7 @@ final class _CalendarEventCreateGateScreenState
           startMinute: widget.initialStartMinute,
           indicatorKey: widget.initialIndicatorKey,
           sourceTaskId: widget.sourceTaskId,
+          initialContactIds: widget.initialContactIds,
         ),
       EventTypePickerTask() => await router.push<bool>(
         '${RoutePaths.taskCreate}?date=${widget.initialDate.iso8601}',

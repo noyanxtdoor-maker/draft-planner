@@ -180,14 +180,19 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
       expect(find.text('Edit Goal'), findsOneWidget);
-      expect(find.text('Wallet'), findsOneWidget);
+      await _pumpRoute(tester);
 
-      final editChoiceRow = find.byKey(const Key('goal-icon-choice-row'));
+      final editChoiceRow = find.byKey(
+        const Key('goal-icon-choice-row'),
+        skipOffstage: false,
+      );
       await tester.scrollUntilVisible(
         editChoiceRow,
         200,
         scrollable: find.byType(Scrollable).last,
       );
+      await tester.pump();
+      expect(find.text('Wallet'), findsOneWidget);
       await tester.tap(editChoiceRow);
       await _pumpUi(tester);
       await tester.ensureVisible(find.text('Temple'));
@@ -196,12 +201,14 @@ void main() {
       await tester.pump();
       await tester.tap(find.byKey(const Key('goal-icon-picker-save')));
       await tester.pump();
-      expect(find.text('Temple'), findsOneWidget);
+      expect(find.text('Temple', skipOffstage: false), findsOneWidget);
 
-      await tester.enterText(
-        find.byKey(const Key('goal-title')),
-        'Renamed Goal',
+      final goalTitle = find.byKey(
+        const Key('goal-title'),
+        skipOffstage: false,
       );
+      await tester.ensureVisible(goalTitle);
+      await tester.enterText(goalTitle, 'Renamed Goal');
       await tester.tap(find.byKey(const Key('goal-edit-save')));
       await _pumpUi(tester);
       await tester.pump(const Duration(milliseconds: 700));

@@ -25,6 +25,9 @@ final class PlannerTaskDraft {
     this.dueMinute,
     this.recurrence = PlannerTaskRecurrence.none,
     this.people = const <String>[],
+    this.linkedActivityTypeId,
+    this.linkedActivityTypeStableKey,
+    this.linkedActivityTypeLabelSnapshot,
   });
 
   final String id;
@@ -36,6 +39,9 @@ final class PlannerTaskDraft {
   final int? dueMinute;
   final PlannerTaskRecurrence recurrence;
   final List<String> people;
+  final String? linkedActivityTypeId;
+  final String? linkedActivityTypeStableKey;
+  final String? linkedActivityTypeLabelSnapshot;
 
   PlannerTaskDraft normalized() {
     final normalizedTitle = title.trim();
@@ -71,6 +77,13 @@ final class PlannerTaskDraft {
       dueMinute: normalizedDueMinute,
       recurrence: normalizedRecurrence,
       people: List<String>.unmodifiable(normalizedPeople),
+      linkedActivityTypeId: _normalizeOptional(linkedActivityTypeId),
+      linkedActivityTypeStableKey: _normalizeOptional(
+        linkedActivityTypeStableKey,
+      ),
+      linkedActivityTypeLabelSnapshot: _normalizeOptional(
+        linkedActivityTypeLabelSnapshot,
+      ),
     );
   }
 
@@ -97,6 +110,9 @@ final class PlannerTask {
     this.people = const <String>[],
     this.linkedEventIds = const <String>[],
     this.pathwayContextLabels = const <String>[],
+    this.linkedActivityTypeId,
+    this.linkedActivityTypeStableKey,
+    this.linkedActivityTypeLabelSnapshot,
   });
 
   final String id;
@@ -114,6 +130,9 @@ final class PlannerTask {
   final DateTime updatedAtUtc;
   final List<String> linkedEventIds;
   final List<String> pathwayContextLabels;
+  final String? linkedActivityTypeId;
+  final String? linkedActivityTypeStableKey;
+  final String? linkedActivityTypeLabelSnapshot;
 
   bool isOverdueOn(PlannerDate date) {
     final due = dueDate;
@@ -134,6 +153,9 @@ final class TaskStatusChange {
     required this.toStatus,
     required this.changedAtUtc,
     this.reason,
+    this.activityTypeId,
+    this.activityTypeStableKeySnapshot,
+    this.activityTypeLabelSnapshot,
   });
 
   final String id;
@@ -142,6 +164,9 @@ final class TaskStatusChange {
   final PlannerTaskStatus fromStatus;
   final PlannerTaskStatus toStatus;
   final String? reason;
+  final String? activityTypeId;
+  final String? activityTypeStableKeySnapshot;
+  final String? activityTypeLabelSnapshot;
   final DateTime changedAtUtc;
 }
 
@@ -157,13 +182,15 @@ abstract final class TaskStatusPolicy {
     required PlannerTask task,
     required PlannerTaskStatus target,
     required bool hasReportOrLedgerEffect,
+    bool hasReversibleGoalContribution = false,
   }) {
     if (task.status == target) {
       return TaskStatusChangeOutcome.unchanged;
     }
     if (target == PlannerTaskStatus.incomplete &&
         task.status != PlannerTaskStatus.incomplete &&
-        hasReportOrLedgerEffect) {
+        hasReportOrLedgerEffect &&
+        !hasReversibleGoalContribution) {
       return TaskStatusChangeOutcome.correctionRequired;
     }
     if (task.status == PlannerTaskStatus.incomplete ||

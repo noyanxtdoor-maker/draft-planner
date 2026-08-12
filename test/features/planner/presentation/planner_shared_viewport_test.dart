@@ -30,6 +30,7 @@ import 'package:rmplanner/features/planner/data/drift_outcome_reporting_reposito
 import 'package:rmplanner/features/planner/data/drift_planner_repository.dart';
 import 'package:rmplanner/features/planner/data/drift_task_event_link_repository.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
+import 'package:rmplanner/features/planner/domain/planner_timeline_layout.dart';
 import 'package:rmplanner/features/planner/domain/planner_view.dart'
     show PlannerZoomPolicy;
 import 'package:rmplanner/features/planner/presentation/widgets/planner_shared_viewport.dart';
@@ -139,6 +140,14 @@ PlannerSharedViewport _captureViewport(WidgetTester tester) {
   );
 }
 
+Offset _visibleTimelineCenter(WidgetTester tester) {
+  final canvas = tester.getRect(find.byKey(const Key('planner-zoom-surface')));
+  final viewport = tester.getRect(find.byKey(const Key('planner-day-scroll')));
+  final visible = canvas.intersect(viewport);
+  expect(visible.height, greaterThan(60));
+  return visible.center;
+}
+
 /// Drive a horizontal swipe at the pager center. Negative `dx`
 /// is a left swipe (next day); positive `dx` is a right swipe
 /// (previous day).
@@ -147,9 +156,7 @@ Future<void> _driveSwipe(
   required double dx,
   int steps = 8,
 }) async {
-  final center = tester.getCenter(
-    find.byKey(const Key('planner-day-pager-viewport')),
-  );
+  final center = _visibleTimelineCenter(tester);
   final gesture = await tester.startGesture(center, pointer: 1);
   final perStep = dx / steps;
   for (var i = 1; i <= steps; i++) {
@@ -173,9 +180,7 @@ Future<void> _driveBelowThreshold(
   WidgetTester tester, {
   required double dx,
 }) async {
-  final center = tester.getCenter(
-    find.byKey(const Key('planner-day-pager-viewport')),
-  );
+  final center = _visibleTimelineCenter(tester);
   final gesture = await tester.startGesture(center, pointer: 1);
   for (var i = 0; i < 4; i++) {
     await gesture.moveBy(Offset(dx / 4, 0));
@@ -203,9 +208,7 @@ Future<void> _drivePinch(
   WidgetTester tester, {
   required double totalGap,
 }) async {
-  final center = tester.getCenter(
-    find.byKey(const Key('planner-day-pager-viewport')),
-  );
+  final center = _visibleTimelineCenter(tester);
   final first = await tester.startGesture(
     center + const Offset(-20, -40),
     pointer: 1,
@@ -216,10 +219,10 @@ Future<void> _drivePinch(
   );
   await tester.pump();
   // Separation increases → zoom in (taller hours).
-  await first.moveBy(Offset(0, totalGap / 2));
+  await first.moveBy(Offset(0, -totalGap / 2));
   await second.moveBy(Offset(0, totalGap / 2));
   await tester.pump();
-  await first.moveBy(Offset(0, totalGap / 4));
+  await first.moveBy(Offset(0, -totalGap / 4));
   await second.moveBy(Offset(0, totalGap / 4));
   await tester.pump();
   await first.up();
@@ -273,528 +276,516 @@ Future<void> _selectDayViaPicker(
 
 void main() {
   group('Stage B3-R1 D3-A2: shared viewport matrix', () {
-    testWidgets(
-      'TEST 1 — model geometry: pixelsPerMinute, '
-      'visibleStartMinute, visibleEndMinute',
-      (tester) async {
-        await _pumpApp(tester);
-        await _pumpFrames(tester);
-        // Scroll to a known offset.
-        final scrollFinder = find.byKey(const Key('planner-day-scroll'));
-        final scroll = tester.widget<SingleChildScrollView>(scrollFinder);
-        final controller = scroll.controller!;
-        // Jump a deterministic amount within the timeline's
-        // scrollable extent.
-        controller.jumpTo(220);
-        await tester.pump();
-        final viewport = _captureViewport(tester);
-        // pixelsPerMinute = hourHeight / 60 (clamped). Verify
-        // the formula relationship by re-deriving it from the
-        // live hourHeight (the model clamps hourHeight via
-        // PlannerZoomPolicy.clamp, but at the defaults the
-        // clamp is a no-op).
-        final expectedPpm = viewport.hourHeight / 60.0;
-        expect(
-          (viewport.pixelsPerMinute - expectedPpm).abs() < 1e-9,
-          isTrue,
-          reason:
-              'pixelsPerMinute must equal hourHeight / 60 '
-              '(was ${viewport.pixelsPerMinute}, expected '
-              '$expectedPpm)',
-        );
-        // visibleStartMinute is derived from the live
-        // scroll offset and the visible hour window. Verify
-        // the relationship by recomputing from the same
-        // sources the model uses.
-        final container = ProviderScope.containerOf(
-          tester.element(find.byType(MaterialApp).first),
-        );
-        final settings = container.read(eventTypeControllerProvider).settings;
-        final expectedStartMinute =
-            (settings.visibleStartHour * 60 +
-                    (viewport.pixelsPerMinute > 0
-                        ? viewport.verticalOffset / viewport.pixelsPerMinute
-                        : 0))
-                .round()
-                .clamp(0, settings.visibleEndHour * 60 - 1);
-        expect(
-          (viewport.visibleStartMinute - expectedStartMinute).abs() <= 1,
-          isTrue,
-          reason:
-              'visibleStartMinute must equal '
-              '(visibleStartHour*60 + offset/pixelsPerMinute) '
-              'clamped (was ${viewport.visibleStartMinute}, '
-              'expected $expectedStartMinute)',
-        );
-        // Verify the visibleEndMinute = visibleStartMinute +
-        // viewportHeight / pixelsPerMinute, clamped.
-        final expectedEndMinute = (viewport.visibleStartMinute +
-                (viewport.pixelsPerMinute > 0
-                    ? (viewport.viewportHeight / viewport.pixelsPerMinute)
-                        .round()
-                    : 0))
-            .clamp(
-          viewport.visibleStartMinute,
-          settings.visibleEndHour * 60,
-        );
-        expect(
-          (viewport.visibleEndMinute - expectedEndMinute).abs() <= 1,
-          isTrue,
-          reason:
-              'visibleEndMinute must equal '
-              '(visibleStartMinute + viewportHeight/pixelsPerMinute) '
-              'clamped (was ${viewport.visibleEndMinute}, '
-              'expected $expectedEndMinute)',
-        );
-        expect(
-          viewport.visibleEndMinute >= viewport.visibleStartMinute,
-          isTrue,
-          reason: 'visibleEndMinute must not be less than start',
-        );
-        expect(
-          viewport.pixelsPerMinute.isFinite && viewport.pixelsPerMinute > 0,
-          isTrue,
-          reason: 'pixelsPerMinute must be finite and positive',
-        );
-      },
-    );
+    testWidgets('TEST 1 — model geometry: pixelsPerMinute, '
+        'visibleStartMinute, visibleEndMinute', (tester) async {
+      await _pumpApp(tester);
+      await _pumpFrames(tester);
+      // Scroll to a known offset.
+      final scrollFinder = find.byKey(const Key('planner-day-scroll'));
+      final scroll = tester.widget<SingleChildScrollView>(scrollFinder);
+      final controller = scroll.controller!;
+      // Jump a deterministic amount within the timeline's
+      // scrollable extent (bounded: no dead scroll region,
+      // so the extent is a few hundred logical pixels).
+      controller.jumpTo(180);
+      await tester.pump();
+      final viewport = _captureViewport(tester);
+      // pixelsPerMinute = hourHeight / 60 (clamped). Verify
+      // the formula relationship by re-deriving it from the
+      // live hourHeight (the model clamps hourHeight via
+      // PlannerZoomPolicy.clampAbsolute, but at the defaults
+      // the clamp is a no-op).
+      final expectedPpm = viewport.hourHeight / 60.0;
+      expect(
+        (viewport.pixelsPerMinute - expectedPpm).abs() < 1e-9,
+        isTrue,
+        reason:
+            'pixelsPerMinute must equal hourHeight / 60 '
+            '(was ${viewport.pixelsPerMinute}, expected '
+            '$expectedPpm)',
+      );
+      // visibleStartMinute is derived from the live scroll
+      // offset and the civil-day canvas (00:00-24:00). Verify
+      // the relationship by recomputing from the same sources
+      // the model uses.
+      final expectedStartMinute =
+          (kPlannerCivilDayStartMinute +
+                  (viewport.pixelsPerMinute > 0
+                      ? viewport.verticalOffset / viewport.pixelsPerMinute
+                      : 0))
+              .round()
+              .clamp(
+                kPlannerCivilDayStartMinute,
+                kPlannerCivilDayEndMinute - 1,
+              );
+      expect(
+        (viewport.visibleStartMinute - expectedStartMinute).abs() <= 1,
+        isTrue,
+        reason:
+            'visibleStartMinute must equal '
+            '(0 + offset/pixelsPerMinute) clamped to the civil '
+            'day (was ${viewport.visibleStartMinute}, '
+            'expected $expectedStartMinute)',
+      );
+      // Verify the visibleEndMinute = visibleStartMinute +
+      // viewportHeight / pixelsPerMinute, clamped.
+      final expectedEndMinute =
+          (viewport.visibleStartMinute +
+                  (viewport.pixelsPerMinute > 0
+                      ? (viewport.viewportHeight / viewport.pixelsPerMinute)
+                            .round()
+                      : 0))
+              .clamp(viewport.visibleStartMinute, kPlannerCivilDayEndMinute);
+      expect(
+        (viewport.visibleEndMinute - expectedEndMinute).abs() <= 1,
+        isTrue,
+        reason:
+            'visibleEndMinute must equal '
+            '(visibleStartMinute + viewportHeight/pixelsPerMinute) '
+            'clamped to the civil day (was '
+            '${viewport.visibleEndMinute}, expected '
+            '$expectedEndMinute)',
+      );
+      expect(
+        viewport.visibleEndMinute >= viewport.visibleStartMinute,
+        isTrue,
+        reason: 'visibleEndMinute must not be less than start',
+      );
+      expect(
+        viewport.pixelsPerMinute.isFinite && viewport.pixelsPerMinute > 0,
+        isTrue,
+        reason: 'pixelsPerMinute must be finite and positive',
+      );
+    });
 
-    testWidgets(
-      'TEST 2 — next-day commit preserves the vertical offset',
-      (tester) async {
-        final container = await _pumpApp(tester);
-        await _pumpFrames(tester);
-        final scrollFinder = find.byKey(const Key('planner-day-scroll'));
-        final controller =
-            tester.widget<SingleChildScrollView>(scrollFinder).controller!;
-        controller.jumpTo(360);
-        await tester.pump();
-        final before = controller.offset;
-        // Left swipe past the distance threshold.
-        await _driveSwipe(tester, dx: -320);
-        expect(
-          container.read(plannerControllerProvider).selectedDate,
-          _next,
-          reason: 'left swipe must commit +1 day',
-        );
-        expect(
-          controller.hasClients,
-          isTrue,
-          reason: 'scroll controller must still be attached',
-        );
-        final after = controller.offset;
-        expect(
-          (after - before).abs() < 1.0,
-          isTrue,
-          reason:
-              'vertical offset must be preserved within one '
-              'logical pixel after a next-day commit '
-              '(before $before, after $after)',
-        );
-      },
-    );
+    testWidgets('TEST 2 — next-day commit preserves the vertical offset', (
+      tester,
+    ) async {
+      final container = await _pumpApp(tester);
+      await _pumpFrames(tester);
+      final scrollFinder = find.byKey(const Key('planner-day-scroll'));
+      final controller = tester
+          .widget<SingleChildScrollView>(scrollFinder)
+          .controller!;
+      controller.jumpTo(200);
+      await tester.pump();
+      final before = controller.offset;
+      // Left swipe past the distance threshold.
+      await _driveSwipe(tester, dx: -320);
+      expect(
+        container.read(plannerControllerProvider).selectedDate,
+        _next,
+        reason: 'left swipe must commit +1 day',
+      );
+      expect(
+        controller.hasClients,
+        isTrue,
+        reason: 'scroll controller must still be attached',
+      );
+      final after = controller.offset;
+      expect(
+        (after - before).abs() < 1.0,
+        isTrue,
+        reason:
+            'vertical offset must be preserved within one '
+            'logical pixel after a next-day commit '
+            '(before $before, after $after)',
+      );
+    });
 
-    testWidgets(
-      'TEST 3 — previous-day commit preserves the vertical offset',
-      (tester) async {
-        final container = await _pumpApp(tester);
-        await _pumpFrames(tester);
-        final scrollFinder = find.byKey(const Key('planner-day-scroll'));
-        final controller =
-            tester.widget<SingleChildScrollView>(scrollFinder).controller!;
-        controller.jumpTo(300);
-        await tester.pump();
-        final before = controller.offset;
-        // Right swipe past the distance threshold.
-        await _driveSwipe(tester, dx: 320);
-        expect(
-          container.read(plannerControllerProvider).selectedDate,
-          _previous,
-          reason: 'right swipe must commit -1 day',
-        );
-        final after = controller.offset;
-        expect(
-          (after - before).abs() < 1.0,
-          isTrue,
-          reason:
-              'vertical offset must be preserved within one '
-              'logical pixel after a previous-day commit '
-              '(before $before, after $after)',
-        );
-      },
-    );
+    testWidgets('TEST 3 — previous-day commit preserves the vertical offset', (
+      tester,
+    ) async {
+      final container = await _pumpApp(tester);
+      await _pumpFrames(tester);
+      final scrollFinder = find.byKey(const Key('planner-day-scroll'));
+      final controller = tester
+          .widget<SingleChildScrollView>(scrollFinder)
+          .controller!;
+      controller.jumpTo(200);
+      await tester.pump();
+      final before = controller.offset;
+      // Right swipe past the distance threshold.
+      await _driveSwipe(tester, dx: 320);
+      expect(
+        container.read(plannerControllerProvider).selectedDate,
+        _previous,
+        reason: 'right swipe must commit -1 day',
+      );
+      final after = controller.offset;
+      expect(
+        (after - before).abs() < 1.0,
+        isTrue,
+        reason:
+            'vertical offset must be preserved within one '
+            'logical pixel after a previous-day commit '
+            '(before $before, after $after)',
+      );
+    });
 
-    testWidgets(
-      'TEST 4 — cancel preserves the vertical offset',
-      (tester) async {
-        final container = await _pumpApp(tester);
-        await _pumpFrames(tester);
-        final scrollFinder = find.byKey(const Key('planner-day-scroll'));
-        final controller =
-            tester.widget<SingleChildScrollView>(scrollFinder).controller!;
-        controller.jumpTo(280);
-        await tester.pump();
-        final before = controller.offset;
-        // Below-threshold swipe cancels and recenters.
-        await _driveBelowThreshold(tester, dx: -50);
-        expect(
-          container.read(plannerControllerProvider).selectedDate,
-          _selected,
-          reason: 'a cancelled swipe must not commit',
-        );
-        final after = controller.offset;
-        expect(
-          (after - before).abs() < 1.0,
-          isTrue,
-          reason:
-              'vertical offset must be preserved within one '
-              'logical pixel after a cancel '
-              '(before $before, after $after)',
-        );
-      },
-    );
+    testWidgets('TEST 4 — cancel preserves the vertical offset', (
+      tester,
+    ) async {
+      final container = await _pumpApp(tester);
+      await _pumpFrames(tester);
+      final scrollFinder = find.byKey(const Key('planner-day-scroll'));
+      final controller = tester
+          .widget<SingleChildScrollView>(scrollFinder)
+          .controller!;
+      controller.jumpTo(200);
+      await tester.pump();
+      final before = controller.offset;
+      // Below-threshold swipe cancels and recenters.
+      await _driveBelowThreshold(tester, dx: -50);
+      expect(
+        container.read(plannerControllerProvider).selectedDate,
+        _selected,
+        reason: 'a cancelled swipe must not commit',
+      );
+      final after = controller.offset;
+      expect(
+        (after - before).abs() < 1.0,
+        isTrue,
+        reason:
+            'vertical offset must be preserved within one '
+            'logical pixel after a cancel '
+            '(before $before, after $after)',
+      );
+    });
 
-    testWidgets(
-      'TEST 5 — commit preserves the hour height after a pinch',
-      (tester) async {
-        final container = await _pumpApp(tester);
-        await _pumpFrames(tester);
-        // Pinch to a non-default hour height.
-        await _drivePinch(tester, totalGap: 80);
-        final before = _captureViewport(tester).hourHeight;
-        // Confirm the pinch actually moved off the default.
-        final defaultHourHeight = PlannerZoomPolicy.normalHourHeight;
-        expect(
-          (before - defaultHourHeight).abs() > 1,
-          isTrue,
-          reason:
-              'pinch must move the hour height off the '
-              'default $defaultHourHeight (was $before)',
-        );
-        // Left swipe to commit one day. The hour height must
-        // remain unchanged.
-        await _driveSwipe(tester, dx: -320);
-        expect(
-          container.read(plannerControllerProvider).selectedDate,
-          _next,
-          reason: 'left swipe must commit +1 day',
-        );
-        final after = _captureViewport(tester).hourHeight;
-        expect(
-          (after - before).abs() < 0.5,
-          isTrue,
-          reason:
-              'hour height must be preserved within 0.5 '
-              'logical pixel after a commit (before $before, '
-              'after $after)',
-        );
-      },
-    );
-
-    testWidgets(
-      'TEST 6 — cancel preserves the hour height after a pinch',
-      (tester) async {
-        final container = await _pumpApp(tester);
-        await _pumpFrames(tester);
-        await _drivePinch(tester, totalGap: 80);
-        final before = _captureViewport(tester).hourHeight;
-        // Below-threshold swipe cancels.
-        await _driveBelowThreshold(tester, dx: -50);
-        expect(
-          container.read(plannerControllerProvider).selectedDate,
-          _selected,
-          reason: 'a cancelled swipe must not commit',
-        );
-        final after = _captureViewport(tester).hourHeight;
-        expect(
-          (after - before).abs() < 0.5,
-          isTrue,
-          reason:
-              'hour height must be preserved within 0.5 '
-              'logical pixel after a cancel (before $before, '
-              'after $after)',
-        );
-      },
-    );
-
-    testWidgets(
-      'TEST 7 — visible minute range preserved across a commit',
-      (tester) async {
-        final container = await _pumpApp(tester);
-        await _pumpFrames(tester);
-        final scrollFinder = find.byKey(const Key('planner-day-scroll'));
-        final controller =
-            tester.widget<SingleChildScrollView>(scrollFinder).controller!;
-        controller.jumpTo(420);
+    testWidgets('TEST 5 — commit preserves the hour height after a pinch', (
+      tester,
+    ) async {
+      final container = await _pumpApp(tester);
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
         await tester.pump();
-        final before = _captureViewport(tester);
-        await _driveSwipe(tester, dx: -320);
-        expect(
-          container.read(plannerControllerProvider).selectedDate,
-          _next,
-          reason: 'left swipe must commit +1 day',
-        );
-        final after = _captureViewport(tester);
-        // The visible-minute range can drift by a small amount
-        // due to the rebuild reflow that follows the date
-        // commit (the FutureBuilder invalidates, the preview
-        // columns re-render, and the SingleChildScrollView's
-        // padding is re-applied to a fresh layout pass). An
-        // explicit 60-minute tolerance (~one hour) accommodates
-        // this reflow while still catching gross regressions.
-        expect(
-          (after.visibleStartMinute - before.visibleStartMinute).abs() <= 60,
-          isTrue,
-          reason:
-              'visibleStartMinute must stay within 60 minutes '
-              'across the commit (before '
-              '${before.visibleStartMinute}, after '
-              '${after.visibleStartMinute})',
-        );
-        expect(
-          (after.visibleEndMinute - before.visibleEndMinute).abs() <= 60,
-          isTrue,
-          reason:
-              'visibleEndMinute must stay within 60 minutes '
-              'across the commit (before '
-              '${before.visibleEndMinute}, after '
-              '${after.visibleEndMinute})',
-        );
-      },
-    );
+      });
+      await _pumpFrames(tester);
+      // Pinch to a non-default hour height.
+      await _drivePinch(tester, totalGap: 80);
+      final before = _captureViewport(tester).hourHeight;
+      // Confirm the pinch actually moved off the default.
+      final defaultHourHeight = PlannerZoomPolicy.normalHourHeight;
+      expect(
+        (before - defaultHourHeight).abs() > 1,
+        isTrue,
+        reason:
+            'pinch must move the hour height off the '
+            'default $defaultHourHeight (was $before)',
+      );
+      // Left swipe to commit one day. The hour height must
+      // remain unchanged.
+      await _driveSwipe(tester, dx: -320);
+      expect(
+        container.read(plannerControllerProvider).selectedDate,
+        _next,
+        reason: 'left swipe must commit +1 day',
+      );
+      final after = _captureViewport(tester).hourHeight;
+      expect(
+        (after - before).abs() < 0.5,
+        isTrue,
+        reason:
+            'hour height must be preserved within 0.5 '
+            'logical pixel after a commit (before $before, '
+            'after $after)',
+      );
+    });
 
-    testWidgets(
-      'TEST 8 — go to today preserves the viewport',
-      (tester) async {
-        // Today = _selected; we navigate to yesterday first,
-        // then tap Today and verify the viewport is preserved.
-        // To do that we make the date source think today is
-        // _selected and we set our current selection to
-        // _previous.
-        final container = await _pumpApp(tester);
-        await _pumpFrames(tester);
-        await container
-            .read(plannerControllerProvider.notifier)
-            .selectDate(_previous);
-        await _pumpFrames(tester);
-        final scrollFinder = find.byKey(const Key('planner-day-scroll'));
-        final controller =
-            tester.widget<SingleChildScrollView>(scrollFinder).controller!;
-        controller.jumpTo(360);
-        await tester.pump();
-        final before = _captureViewport(tester);
-        // Tap the Today button (the calendar icon).
-        final today = find.byKey(const Key('planner-today-button'));
-        expect(today, findsOneWidget);
-        await tester.tap(today);
-        await _pumpFrames(tester);
-        expect(
-          container.read(plannerControllerProvider).selectedDate,
-          _selected,
-          reason: 'Today must navigate to today',
-        );
-        final after = _captureViewport(tester);
-        expect(
-          (after.verticalOffset - before.verticalOffset).abs() < 1.0,
-          isTrue,
-          reason:
-              'Today must preserve the vertical offset '
-              '(before ${before.verticalOffset}, after '
-              '${after.verticalOffset})',
-        );
-        expect(
-          (after.hourHeight - before.hourHeight).abs() < 0.5,
-          isTrue,
-          reason:
-              'Today must preserve the hour height '
-              '(before ${before.hourHeight}, after '
-              '${after.hourHeight})',
-        );
-      },
-    );
+    testWidgets('TEST 6 — cancel preserves the hour height after a pinch', (
+      tester,
+    ) async {
+      final container = await _pumpApp(tester);
+      await _pumpFrames(tester);
+      await _drivePinch(tester, totalGap: 80);
+      final before = _captureViewport(tester).hourHeight;
+      // Below-threshold swipe cancels.
+      await _driveBelowThreshold(tester, dx: -50);
+      expect(
+        container.read(plannerControllerProvider).selectedDate,
+        _selected,
+        reason: 'a cancelled swipe must not commit',
+      );
+      final after = _captureViewport(tester).hourHeight;
+      expect(
+        (after - before).abs() < 0.5,
+        isTrue,
+        reason:
+            'hour height must be preserved within 0.5 '
+            'logical pixel after a cancel (before $before, '
+            'after $after)',
+      );
+    });
 
-    testWidgets(
-      'TEST 9 — date picker preserves the viewport',
-      (tester) async {
-        final container = await _pumpApp(tester);
-        await _pumpFrames(tester);
-        final scrollFinder = find.byKey(const Key('planner-day-scroll'));
-        final controller =
-            tester.widget<SingleChildScrollView>(scrollFinder).controller!;
-        controller.jumpTo(320);
-        await tester.pump();
-        // Establish a non-default zoom so the viewport fields
-        // we capture actually carry a useful hour-height value
-        // distinct from the planner default. The selected date
-        // is intentionally left untouched by the pinch path
-        // (the pinch coordinator only writes to the
-        // hour-height setting, never to selectedDate).
-        await _drivePinch(tester, totalGap: 80);
-        // Scroll back to the deterministic offset AFTER the
-        // pinch so the captured viewport reflects the same
-        // position the production tree would land on after a
-        // user pinch + idle.
-        controller.jumpTo(320);
-        await tester.pump();
-        final before = _captureViewport(tester);
-        final beforeHourHeight = before.hourHeight;
-        expect(
-          (beforeHourHeight - PlannerZoomPolicy.normalHourHeight).abs() > 1,
-          isTrue,
-          reason:
-              'TEST 9 setup: the pinch must move the hour '
-              'height off the default before the picker '
-              'change (was $beforeHourHeight, default '
-              '${PlannerZoomPolicy.normalHourHeight})',
-        );
-        // Drive a real date change through the slide-down
-        // Planner date picker: open → tap a different day
-        // cell → OK. _next is selected via the day cell "28"
-        // inside the picker panel. The controller's
-        // selectDate is NOT called by the test body.
-        await _selectDayViaPicker(tester, dayLabel: '28');
-        await _pumpFrames(tester);
-        expect(
-          container.read(plannerControllerProvider).selectedDate,
-          _next,
-          reason:
-              'a real picker OK must commit the day tapped '
-              'inside the panel; picker step landed at '
-              '${container.read(plannerControllerProvider).selectedDate}',
-        );
-        final after = _captureViewport(tester);
-        expect(
-          (after.verticalOffset - before.verticalOffset).abs() < 1.0,
-          isTrue,
-          reason:
-              'picker date change must preserve the vertical '
-              'offset (before ${before.verticalOffset}, after '
-              '${after.verticalOffset})',
-        );
-        expect(
-          (after.hourHeight - before.hourHeight).abs() < 0.5,
-          isTrue,
-          reason:
-              'picker date change must preserve the hour '
-              'height (before ${before.hourHeight}, after '
-              '${after.hourHeight})',
-        );
-        expect(
-          (after.visibleStartMinute - before.visibleStartMinute).abs() <= 60,
-          isTrue,
-          reason:
-              'picker date change must keep visibleStartMinute '
-              'within 60 minutes (before '
-              '${before.visibleStartMinute}, after '
-              '${after.visibleStartMinute})',
-        );
-        expect(
-          (after.visibleEndMinute - before.visibleEndMinute).abs() <= 60,
-          isTrue,
-          reason:
-              'picker date change must keep visibleEndMinute '
-              'within 60 minutes (before '
-              '${before.visibleEndMinute}, after '
-              '${after.visibleEndMinute})',
-        );
-      },
-    );
+    testWidgets('TEST 7 — visible minute range preserved across a commit', (
+      tester,
+    ) async {
+      final container = await _pumpApp(tester);
+      await _pumpFrames(tester);
+      final scrollFinder = find.byKey(const Key('planner-day-scroll'));
+      final controller = tester
+          .widget<SingleChildScrollView>(scrollFinder)
+          .controller!;
+      controller.jumpTo(200);
+      await tester.pump();
+      final before = _captureViewport(tester);
+      await _driveSwipe(tester, dx: -320);
+      expect(
+        container.read(plannerControllerProvider).selectedDate,
+        _next,
+        reason: 'left swipe must commit +1 day',
+      );
+      final after = _captureViewport(tester);
+      // The visible-minute range can drift by a small amount
+      // due to the rebuild reflow that follows the date
+      // commit (the FutureBuilder invalidates, the preview
+      // columns re-render, and the SingleChildScrollView's
+      // padding is re-applied to a fresh layout pass). An
+      // explicit 60-minute tolerance (~one hour) accommodates
+      // this reflow while still catching gross regressions.
+      expect(
+        (after.visibleStartMinute - before.visibleStartMinute).abs() <= 60,
+        isTrue,
+        reason:
+            'visibleStartMinute must stay within 60 minutes '
+            'across the commit (before '
+            '${before.visibleStartMinute}, after '
+            '${after.visibleStartMinute})',
+      );
+      expect(
+        (after.visibleEndMinute - before.visibleEndMinute).abs() <= 60,
+        isTrue,
+        reason:
+            'visibleEndMinute must stay within 60 minutes '
+            'across the commit (before '
+            '${before.visibleEndMinute}, after '
+            '${after.visibleEndMinute})',
+      );
+    });
 
-    testWidgets(
-      'TEST 10 — date strip preserves the viewport',
-      (tester) async {
-        final container = await _pumpApp(tester);
-        await _pumpFrames(tester);
-        final scrollFinder = find.byKey(const Key('planner-day-scroll'));
-        final controller =
-            tester.widget<SingleChildScrollView>(scrollFinder).controller!;
-        controller.jumpTo(380);
-        await tester.pump();
-        final before = _captureViewport(tester);
-        // Tap a specific date on the date strip. _previous
-        // should be one of the date-strip buttons.
-        final previousButton = find.byKey(
-          Key('planner-day-${_previous.iso8601}'),
-        );
-        if (previousButton.evaluate().isNotEmpty) {
-          await tester.tap(previousButton);
-        } else {
-          // _previous is not on the current strip; use _next
-          // instead.
-          await tester.tap(find.byKey(
-            Key('planner-day-${_next.iso8601}'),
-          ));
-        }
-        await _pumpFrames(tester);
-        final newDate = container.read(plannerControllerProvider).selectedDate;
-        expect(
-          newDate != _selected,
-          isTrue,
-          reason: 'date strip tap must change the selected date',
-        );
-        final after = _captureViewport(tester);
-        // The post-tap rebuild reflow can shift the offset by
-        // a few pixels (the FutureBuilder invalidates and the
-        // timeline layout re-passes). An explicit 20-pixel
-        // tolerance covers this reflow while still catching
-        // gross regressions.
-        expect(
-          (after.verticalOffset - before.verticalOffset).abs() < 20.0,
-          isTrue,
-          reason:
-              'date strip tap must preserve the vertical '
-              'offset within 20 pixels (before '
-              '${before.verticalOffset}, after '
-              '${after.verticalOffset})',
-        );
-      },
-    );
+    testWidgets('TEST 8 — go to today preserves the viewport', (tester) async {
+      // Today = _selected; we navigate to yesterday first,
+      // then tap Today and verify the viewport is preserved.
+      // To do that we make the date source think today is
+      // _selected and we set our current selection to
+      // _previous.
+      final container = await _pumpApp(tester);
+      await _pumpFrames(tester);
+      await container
+          .read(plannerControllerProvider.notifier)
+          .selectDate(_previous);
+      await _pumpFrames(tester);
+      final scrollFinder = find.byKey(const Key('planner-day-scroll'));
+      final controller = tester
+          .widget<SingleChildScrollView>(scrollFinder)
+          .controller!;
+      controller.jumpTo(200);
+      await tester.pump();
+      final before = _captureViewport(tester);
+      // Tap the Today button (the calendar icon).
+      final today = find.byKey(const Key('planner-today-button'));
+      expect(today, findsOneWidget);
+      await tester.tap(today);
+      await _pumpFrames(tester);
+      expect(
+        container.read(plannerControllerProvider).selectedDate,
+        _selected,
+        reason: 'Today must navigate to today',
+      );
+      final after = _captureViewport(tester);
+      expect(
+        (after.verticalOffset - before.verticalOffset).abs() < 1.0,
+        isTrue,
+        reason:
+            'Today must preserve the vertical offset '
+            '(before ${before.verticalOffset}, after '
+            '${after.verticalOffset})',
+      );
+      expect(
+        (after.hourHeight - before.hourHeight).abs() < 0.5,
+        isTrue,
+        reason:
+            'Today must preserve the hour height '
+            '(before ${before.hourHeight}, after '
+            '${after.hourHeight})',
+      );
+    });
 
-    testWidgets(
-      'TEST 11 — current time does not force scroll',
-      (tester) async {
-        final container = await _pumpApp(tester);
-        await _pumpFrames(tester);
-        // Navigate to a date whose current-time indicator
-        // would be far outside the visible range. Today is
-        // _selected (clock is 2026-07-27T12), but the
-        // visible range is roughly 6am-9pm local (15 h * 60
-        // = 900 minutes), and the timeline hourHeight /
-        // hourHeight-clamp means the visible minute range
-        // covers a wide span anyway. We scroll to a minute
-        // far from 12:00 (e.g. the very top), then navigate
-        // back to today via _previous and verify the offset
-        // did not auto-snap.
-        await container
-            .read(plannerControllerProvider.notifier)
-            .selectDate(_previous);
-        await _pumpFrames(tester);
-        final scrollFinder = find.byKey(const Key('planner-day-scroll'));
-        final controller =
-            tester.widget<SingleChildScrollView>(scrollFinder).controller!;
-        controller.jumpTo(0);
-        await tester.pump();
-        final before = controller.offset;
-        // Today button — should navigate to _selected
-        // (today = _selected, fixed clock).
-        final today = find.byKey(const Key('planner-today-button'));
-        await tester.tap(today);
-        await _pumpFrames(tester);
-        expect(
-          container.read(plannerControllerProvider).selectedDate,
-          _selected,
-          reason: 'Today must navigate to today',
-        );
-        final after = controller.offset;
-        expect(
-          (after - before).abs() < 1.0,
-          isTrue,
-          reason:
-              'navigating onto today must not force a '
-              'vertical scroll (before $before, after $after)',
-        );
-      },
-    );
+    testWidgets('TEST 9 — date picker preserves the viewport', (tester) async {
+      final container = await _pumpApp(tester);
+      await _pumpFrames(tester);
+      final scrollFinder = find.byKey(const Key('planner-day-scroll'));
+      final controller = tester
+          .widget<SingleChildScrollView>(scrollFinder)
+          .controller!;
+      controller.jumpTo(200);
+      await tester.pump();
+      // Establish a non-default zoom so the viewport fields
+      // we capture actually carry a useful hour-height value
+      // distinct from the planner default. The selected date
+      // is intentionally left untouched by the pinch path
+      // (the pinch coordinator only writes to the
+      // hour-height setting, never to selectedDate).
+      await _drivePinch(tester, totalGap: 80);
+      // Scroll back to the deterministic offset AFTER the
+      // pinch so the captured viewport reflects the same
+      // position the production tree would land on after a
+      // user pinch + idle.
+      controller.jumpTo(200);
+      await tester.pump();
+      final before = _captureViewport(tester);
+      final beforeHourHeight = before.hourHeight;
+      expect(
+        (beforeHourHeight - PlannerZoomPolicy.normalHourHeight).abs() > 1,
+        isTrue,
+        reason:
+            'TEST 9 setup: the pinch must move the hour '
+            'height off the default before the picker '
+            'change (was $beforeHourHeight, default '
+            '${PlannerZoomPolicy.normalHourHeight})',
+      );
+      // Drive a real date change through the slide-down
+      // Planner date picker: open → tap a different day
+      // cell → OK. _next is selected via the day cell "28"
+      // inside the picker panel. The controller's
+      // selectDate is NOT called by the test body.
+      await _selectDayViaPicker(tester, dayLabel: '28');
+      await _pumpFrames(tester);
+      expect(
+        container.read(plannerControllerProvider).selectedDate,
+        _next,
+        reason:
+            'a real picker OK must commit the day tapped '
+            'inside the panel; picker step landed at '
+            '${container.read(plannerControllerProvider).selectedDate}',
+      );
+      final after = _captureViewport(tester);
+      expect(
+        (after.verticalOffset - before.verticalOffset).abs() < 1.0,
+        isTrue,
+        reason:
+            'picker date change must preserve the vertical '
+            'offset (before ${before.verticalOffset}, after '
+            '${after.verticalOffset})',
+      );
+      expect(
+        (after.hourHeight - before.hourHeight).abs() < 0.5,
+        isTrue,
+        reason:
+            'picker date change must preserve the hour '
+            'height (before ${before.hourHeight}, after '
+            '${after.hourHeight})',
+      );
+      expect(
+        (after.visibleStartMinute - before.visibleStartMinute).abs() <= 60,
+        isTrue,
+        reason:
+            'picker date change must keep visibleStartMinute '
+            'within 60 minutes (before '
+            '${before.visibleStartMinute}, after '
+            '${after.visibleStartMinute})',
+      );
+      expect(
+        (after.visibleEndMinute - before.visibleEndMinute).abs() <= 60,
+        isTrue,
+        reason:
+            'picker date change must keep visibleEndMinute '
+            'within 60 minutes (before '
+            '${before.visibleEndMinute}, after '
+            '${after.visibleEndMinute})',
+      );
+    });
+
+    testWidgets('TEST 10 — date strip preserves the viewport', (tester) async {
+      final container = await _pumpApp(tester);
+      await _pumpFrames(tester);
+      final scrollFinder = find.byKey(const Key('planner-day-scroll'));
+      final controller = tester
+          .widget<SingleChildScrollView>(scrollFinder)
+          .controller!;
+      controller.jumpTo(200);
+      await tester.pump();
+      final before = _captureViewport(tester);
+      // Tap a specific date on the date strip. _previous
+      // should be one of the date-strip buttons.
+      final previousButton = find.byKey(
+        Key('planner-day-${_previous.iso8601}'),
+      );
+      if (previousButton.evaluate().isNotEmpty) {
+        await tester.tap(previousButton);
+      } else {
+        // _previous is not on the current strip; use _next
+        // instead.
+        await tester.tap(find.byKey(Key('planner-day-${_next.iso8601}')));
+      }
+      await _pumpFrames(tester);
+      final newDate = container.read(plannerControllerProvider).selectedDate;
+      expect(
+        newDate != _selected,
+        isTrue,
+        reason: 'date strip tap must change the selected date',
+      );
+      final after = _captureViewport(tester);
+      // The post-tap rebuild reflow can shift the offset by
+      // a few pixels (the FutureBuilder invalidates and the
+      // timeline layout re-passes). An explicit 20-pixel
+      // tolerance covers this reflow while still catching
+      // gross regressions.
+      expect(
+        (after.verticalOffset - before.verticalOffset).abs() < 20.0,
+        isTrue,
+        reason:
+            'date strip tap must preserve the vertical '
+            'offset within 20 pixels (before '
+            '${before.verticalOffset}, after '
+            '${after.verticalOffset})',
+      );
+    });
+
+    testWidgets('TEST 11 — current time does not force scroll', (tester) async {
+      final container = await _pumpApp(tester);
+      await _pumpFrames(tester);
+      // Navigate to a date whose current-time indicator
+      // would be far outside the visible range. Today is
+      // _selected (clock is 2026-07-27T12), but the
+      // visible range is roughly 6am-9pm local (15 h * 60
+      // = 900 minutes), and the timeline hourHeight /
+      // hourHeight-clamp means the visible minute range
+      // covers a wide span anyway. We scroll to a minute
+      // far from 12:00 (e.g. the very top), then navigate
+      // back to today via _previous and verify the offset
+      // did not auto-snap.
+      await container
+          .read(plannerControllerProvider.notifier)
+          .selectDate(_previous);
+      await _pumpFrames(tester);
+      final scrollFinder = find.byKey(const Key('planner-day-scroll'));
+      final controller = tester
+          .widget<SingleChildScrollView>(scrollFinder)
+          .controller!;
+      controller.jumpTo(0);
+      await tester.pump();
+      final before = controller.offset;
+      // Today button — should navigate to _selected
+      // (today = _selected, fixed clock).
+      final today = find.byKey(const Key('planner-today-button'));
+      await tester.tap(today);
+      await _pumpFrames(tester);
+      expect(
+        container.read(plannerControllerProvider).selectedDate,
+        _selected,
+        reason: 'Today must navigate to today',
+      );
+      final after = controller.offset;
+      expect(
+        (after - before).abs() < 1.0,
+        isTrue,
+        reason:
+            'navigating onto today must not force a '
+            'vertical scroll (before $before, after $after)',
+      );
+    });
 
     testWidgets(
       'TEST 12 — repeated navigation preserves viewport (drift check)',
@@ -802,9 +793,10 @@ void main() {
         final container = await _pumpApp(tester);
         await _pumpFrames(tester);
         final scrollFinder = find.byKey(const Key('planner-day-scroll'));
-        final controller =
-            tester.widget<SingleChildScrollView>(scrollFinder).controller!;
-        controller.jumpTo(400);
+        final controller = tester
+            .widget<SingleChildScrollView>(scrollFinder)
+            .controller!;
+        controller.jumpTo(200);
         await tester.pump();
         final baseline = _captureViewport(tester);
         // Swipe next.

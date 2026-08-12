@@ -27,7 +27,9 @@ final class PlannerSettings {
 
   const PlannerSettings.defaults()
     : defaultEventTypeId = null,
-      defaultDurationMinutes = 60,
+      // Delta 4.2R R8 owner override: new Events default to 30 minutes
+      // (replacing the temporary Delta 4.2 60-minute default).
+      defaultDurationMinutes = 30,
       defaultReminderMinutes = null,
       visibleStartHour = 6,
       visibleEndHour = 22,
@@ -107,7 +109,7 @@ final class PlannerSettings {
       preferredPresentation:
           preferredPresentation ?? this.preferredPresentation,
       contentFilters: contentFilters ?? this.contentFilters,
-      timelineHourHeight: PlannerZoomPolicy.clamp(
+      timelineHourHeight: PlannerZoomPolicy.clampAbsolute(
         timelineHourHeight ?? this.timelineHourHeight,
       ),
     );
@@ -118,6 +120,15 @@ final class PlannerSettings {
       throw ArgumentError.value(
         defaultDurationMinutes,
         'defaultDurationMinutes',
+      );
+    }
+    // Delta 4.2R R8: the default duration lives on the 15-minute product
+    // grid — Custom values change in exact 15-minute increments only.
+    if (defaultDurationMinutes % 15 != 0) {
+      throw ArgumentError.value(
+        defaultDurationMinutes,
+        'defaultDurationMinutes',
+        'Default duration must be a multiple of 15 minutes.',
       );
     }
     if (visibleStartHour < 0 ||
@@ -133,8 +144,8 @@ final class PlannerSettings {
     if (weekStartDay < DateTime.monday || weekStartDay > DateTime.sunday) {
       throw ArgumentError.value(weekStartDay, 'weekStartDay');
     }
-    if (timelineHourHeight < PlannerZoomPolicy.minimumHourHeight ||
-        timelineHourHeight > PlannerZoomPolicy.maximumHourHeight) {
+    if (timelineHourHeight < PlannerZoomPolicy.absoluteMinimumHourHeight ||
+        timelineHourHeight > PlannerZoomPolicy.absoluteMaximumHourHeight) {
       throw ArgumentError.value(timelineHourHeight, 'timelineHourHeight');
     }
   }

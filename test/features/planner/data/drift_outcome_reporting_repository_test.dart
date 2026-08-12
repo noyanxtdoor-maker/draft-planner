@@ -542,6 +542,76 @@ void main() {
       PlannerTaskStatus.incomplete,
     );
   });
+
+  test('Quick-Created empty-title Events resolve a factual source label and '
+      'submit successfully', () async {
+    // Six-icon Quick Create stores an empty title and surfaces the Event
+    // Type label snapshot instead.  The reporting source must apply the same
+    // canonical display-title fallback, otherwise the engine rejects the
+    // report with "A report requires a stable source and factual label."
+    await events.saveEvent(
+      profileId: profileId,
+      draft: const CalendarEventDraft(
+        id: _eventId,
+        title: '',
+        timing: CalendarEventTiming.timed,
+        startDate: _date,
+        startMinute: 8 * 60,
+        endMinute: 9 * 60,
+        timeZoneId: 'Asia/Manila',
+        requiresReport: true,
+        activityTypeId: 'e4e41e9e-c028-5c73-b2a9-9d08ff3ca092',
+        activityTypeStableKeySnapshot: 'exercise',
+        activityTypeLabelSnapshot: 'Exercise',
+        activityTypeColorValueSnapshot: 4287024251,
+        contributionRuleKey: 'life-indicator:exercise:1:0:count',
+      ),
+    );
+    final source = await reports.readEventSource(
+      profileId: profileId,
+      eventId: _eventId,
+      originalDate: _date,
+    );
+    expect(source, isNotNull);
+    expect(source!.label, 'Exercise');
+    expect(source.eventTypeLabel, 'Exercise');
+
+    final draft = OutcomeReportDraft(
+      id: _reportId,
+      source: source,
+      activityDate: _date,
+      outcome: OutcomeKind.completedHappened,
+      contributions: const <ContributionDraft>[
+        ContributionDraft(
+          ruleKey: 'life-indicator:exercise:1:0:count',
+          indicatorKey: 'exercise',
+          value: IndicatorValue(scaledValue: 1, scale: 0, unit: 'count'),
+        ),
+      ],
+    );
+    final submitted = await reports.submit(
+      profileId: profileId,
+      draft: draft,
+      operationId: _operationId,
+    );
+    expect(submitted.unchanged, isFalse);
+    expect(submitted.report.source.label, 'Exercise');
+    expect(submitted.report.outcome, OutcomeKind.completedHappened);
+    expect(await database.select(database.outcomeReports).get(), hasLength(1));
+    // Exactly one contribution for the Goal-linked Quick-Created Event.
+    expect(
+      await database.select(database.activityLedgerEntries).get(),
+      hasLength(1),
+    );
+    expect(
+      (await events.readOccurrence(
+        profileId: profileId,
+        eventId: _eventId,
+        originalDate: _date,
+      ))!.status,
+      CalendarEventStatus.completedHappened,
+    );
+  });
 }
 
 final class _FailingOutcomeReportingWriteGuard

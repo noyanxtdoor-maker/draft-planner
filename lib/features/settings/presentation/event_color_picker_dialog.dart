@@ -72,17 +72,17 @@ final class _EventColorPickerDialogState
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                    padding: const EdgeInsets.fromLTRB(18, 16, 18, 0),
                     child: Text(
                       'Choose Color',
                       key: const Key('planner-event-color-picker-title'),
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontSize: 20,
+                        fontSize: 19,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 10),
                   Semantics(
                     label:
                         '${widget.eventTypeLabel} ${widget.role.name} color, '
@@ -100,7 +100,7 @@ final class _EventColorPickerDialogState
                       ),
                     ),
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 10),
                   LayoutBuilder(
                     builder: (context, constraints) {
                       final squareSize = (constraints.maxWidth - 42).clamp(
@@ -151,11 +151,11 @@ final class _EventColorPickerDialogState
                       );
                     },
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
+                    padding: const EdgeInsets.fromLTRB(18, 0, 18, 10),
                     child: SizedBox(
-                      height: 56,
+                      height: 48,
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: <Widget>[

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rmplanner/app/router/route_names.dart';
+import 'package:rmplanner/app/theme/internal_screen.dart';
 import 'package:rmplanner/features/privacy/application/privacy_providers.dart';
 import 'package:rmplanner/features/privacy/domain/deletion_impact.dart';
 import 'package:rmplanner/features/privacy/domain/privacy_settings.dart';
@@ -15,16 +16,16 @@ final class PrivacyCenterScreen extends ConsumerWidget {
     final controller = ref.read(privacyControllerProvider.notifier);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Privacy and Data')),
+      appBar: InternalAppBar(title: const Text('Privacy and Data')),
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
           children: <Widget>[
             Text(
               'Privacy controls',
-              style: Theme.of(
-                context,
-              ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
+              style: InternalScreen.sectionHeading.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
             ),
             const SizedBox(height: 8),
             const Text(
@@ -97,7 +98,7 @@ final class PrivacyCenterScreen extends ConsumerWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 18),
             _SectionTitle(title: 'Where data lives'),
             const SizedBox(height: 8),
             const _BoundaryTile(
@@ -141,7 +142,7 @@ final class PrivacyCenterScreen extends ConsumerWidget {
               'secure token storage, private attachments, and sensitive '
               'logging restrictions remain independent protections.',
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 18),
             _SectionTitle(title: 'Review and control'),
             const SizedBox(height: 8),
             Card(
@@ -242,9 +243,9 @@ final class _SectionTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       title,
-      style: Theme.of(
-        context,
-      ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+      style: InternalScreen.sectionHeading.copyWith(
+        fontWeight: FontWeight.w700,
+      ),
     );
   }
 }

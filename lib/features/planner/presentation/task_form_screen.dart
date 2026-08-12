@@ -2,24 +2,38 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:rmplanner/app/router/route_names.dart';
 import 'package:rmplanner/app/theme/app_theme.dart';
+import 'package:rmplanner/app/theme/internal_screen.dart';
+import 'package:rmplanner/features/contacts/application/contact_providers.dart';
+import 'package:rmplanner/features/contacts/domain/contact.dart';
+import 'package:rmplanner/features/contacts/presentation/add_people_screen.dart';
+import 'package:rmplanner/features/contacts/presentation/widgets/contact_widgets.dart';
+import 'package:rmplanner/features/goals/domain/canonical_goal_slots.dart';
 import 'package:rmplanner/features/planner/application/event_type_providers.dart';
 import 'package:rmplanner/features/planner/application/planner_providers.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 import 'package:rmplanner/features/planner/domain/planner_task.dart';
+import 'package:rmplanner/features/planner/presentation/event_type_picker_dialog.dart';
 import 'package:rmplanner/features/planner/presentation/widgets/planner_slide_down_date_picker.dart';
 import 'package:rmplanner/features/privacy/application/privacy_providers.dart';
 import 'package:rmplanner/features/privacy/domain/permission_summary.dart';
 
 final class TaskFormScreen extends ConsumerStatefulWidget {
-  const TaskFormScreen.create({required this.initialDueDate, super.key})
-    : taskId = null;
+  const TaskFormScreen.create({
+    required this.initialDueDate,
+    this.initialContactIds = const <String>[],
+    super.key,
+  }) : taskId = null;
 
   const TaskFormScreen.edit({required this.taskId, super.key})
-    : initialDueDate = null;
+    : initialDueDate = null,
+      initialContactIds = const <String>[];
 
   final String? taskId;
   final PlannerDate? initialDueDate;
+  final List<String> initialContactIds;
 
   @override
   ConsumerState<TaskFormScreen> createState() => _TaskFormScreenState();
@@ -35,6 +49,9 @@ final class _TaskFormScreenState extends ConsumerState<TaskFormScreen>
   int? _dueMinute;
   PlannerTaskRecurrence _recurrence = PlannerTaskRecurrence.none;
   List<String> _people = <String>[];
+  // Contact records linked to this Task (VS-11).  Distinct from the legacy
+  // free-text [_people] list; follow-up creation pre-links a Contact here.
+  late List<String> _contactIds;
   bool _requiresReport = false;
   bool _setDueDate = false;
   bool _notificationsUnavailable = false;
@@ -42,6 +59,9 @@ final class _TaskFormScreenState extends ConsumerState<TaskFormScreen>
   bool _loading = false;
   bool _saving = false;
   String? _error;
+  String? _linkedActivityTypeId;
+  String? _linkedActivityTypeStableKey;
+  String? _linkedActivityTypeLabelSnapshot;
 
   @override
   void initState() {
@@ -49,6 +69,10 @@ final class _TaskFormScreenState extends ConsumerState<TaskFormScreen>
     WidgetsBinding.instance.addObserver(this);
     _stableTaskId =
         widget.taskId ?? ref.read(plannerIdentifierSourceProvider).nextUuid();
+    _contactIds = List<String>.from(widget.initialContactIds);
+    if (widget.taskId != null) {
+      unawaited(_loadTaskContacts());
+    }
     _dueDate = widget.initialDueDate;
     _setDueDate = widget.initialDueDate != null;
     _dueMinute = widget.initialDueDate == null ? null : 18 * 60;
@@ -113,6 +137,9 @@ final class _TaskFormScreenState extends ConsumerState<TaskFormScreen>
       _people = List<String>.unmodifiable(task.people);
       _setDueDate = task.dueDate != null;
       _requiresReport = task.requiresReport;
+      _linkedActivityTypeId = task.linkedActivityTypeId;
+      _linkedActivityTypeStableKey = task.linkedActivityTypeStableKey;
+      _linkedActivityTypeLabelSnapshot = task.linkedActivityTypeLabelSnapshot;
       _loading = false;
     });
     if (_setDueDate) {
@@ -132,7 +159,7 @@ final class _TaskFormScreenState extends ConsumerState<TaskFormScreen>
             ? const Center(child: CircularProgressIndicator())
             : Column(
                 children: <Widget>[
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 8),
                   Container(
                     key: const Key('task-form-drag-handle'),
                     width: 32,
@@ -143,7 +170,7 @@ final class _TaskFormScreenState extends ConsumerState<TaskFormScreen>
                     ),
                   ),
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(18, 20, 18, 12),
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
                     child: Row(
                       children: <Widget>[
                         IconButton(
@@ -155,7 +182,7 @@ final class _TaskFormScreenState extends ConsumerState<TaskFormScreen>
                             minWidth: 48,
                             minHeight: 48,
                           ),
-                          icon: const Icon(Icons.close, size: 30),
+                          icon: const Icon(Icons.close, size: 28),
                         ),
                         const Spacer(),
                         _buildSaveButton(),
@@ -168,10 +195,10 @@ final class _TaskFormScreenState extends ConsumerState<TaskFormScreen>
                       child: ListView(
                         key: const Key('task-form-scroll'),
                         padding: EdgeInsets.fromLTRB(
-                          18,
-                          8,
-                          18,
-                          28 + MediaQuery.of(context).viewInsets.bottom,
+                          16,
+                          6,
+                          16,
+                          20 + MediaQuery.of(context).viewInsets.bottom,
                         ),
                         children: <Widget>[
                           if (_error != null) ...<Widget>[
@@ -206,6 +233,8 @@ final class _TaskFormScreenState extends ConsumerState<TaskFormScreen>
                             keyboardType: TextInputType.multiline,
                             decoration: _inputDecoration('Description'),
                           ),
+                          const SizedBox(height: 18),
+                          _buildGoalEventTypeField(),
                           const SizedBox(height: 18),
                           SwitchListTile(
                             key: const Key('task-set-due-date-switch'),
@@ -288,6 +317,84 @@ final class _TaskFormScreenState extends ConsumerState<TaskFormScreen>
                                 ),
                               ),
                           ],
+                          const SizedBox(height: 18),
+                          Row(
+                            children: <Widget>[
+                              const Expanded(
+                                child: Text(
+                                  'Contacts',
+                                  style: TextStyle(
+                                    fontFamily: 'Roboto',
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF9CA0A6),
+                                  ),
+                                ),
+                              ),
+                              TextButton.icon(
+                                key: const Key('task-add-contacts-button'),
+                                onPressed: () => unawaited(_openAddContacts()),
+                                style: _rightAlignedActionStyle(),
+                                icon: const Icon(Icons.add, size: 22),
+                                label: const Text('Add'),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          if (_contactIds.isEmpty)
+                            const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 4),
+                              child: Text(
+                                'No Contacts linked yet.',
+                                style: TextStyle(
+                                  color: Color(0xFF9CA0A6),
+                                  fontSize: 14,
+                                ),
+                              ),
+                            )
+                          else
+                            ref
+                                .watch(
+                                  contactSummariesByCsvProvider(
+                                    _contactIds.join(','),
+                                  ),
+                                )
+                                .when(
+                                  loading: () => const Padding(
+                                    padding: EdgeInsets.symmetric(vertical: 12),
+                                    child: Center(
+                                      child: SizedBox.square(
+                                        dimension: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  error: (error, stack) => const Padding(
+                                    padding: EdgeInsets.symmetric(vertical: 8),
+                                    child: Text(
+                                      'Contacts could not be loaded.',
+                                      style: TextStyle(
+                                        color: Color(0xFF9CA0A6),
+                                      ),
+                                    ),
+                                  ),
+                                  data: (byId) => Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: <Widget>[
+                                      for (final id in _contactIds)
+                                        _TaskContactChip(
+                                          id: id,
+                                          summary: byId[id],
+                                          onRemove: () => setState(() {
+                                            _contactIds.remove(id);
+                                          }),
+                                        ),
+                                    ],
+                                  ),
+                                ),
                         ],
                       ),
                     ),
@@ -296,6 +403,79 @@ final class _TaskFormScreenState extends ConsumerState<TaskFormScreen>
               ),
       ),
     );
+  }
+
+  Widget _buildGoalEventTypeField() {
+    final label = _linkedActivityTypeLabelSnapshot ?? 'None';
+    return Semantics(
+      container: true,
+      label: 'LINKED EVENT TYPE — OPTIONAL, $label',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          InkWell(
+            key: const Key('task-goal-event-type-field'),
+            onTap: _chooseGoalEventType,
+            borderRadius: BorderRadius.circular(4),
+            child: InputDecorator(
+              decoration: _inputDecoration('LINKED EVENT TYPE — OPTIONAL'),
+              child: Row(
+                children: <Widget>[
+                  Expanded(child: Text(label)),
+                  const Icon(Icons.arrow_drop_down),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Completing this Task will add progress to the Goal assigned to '
+            'this Event Type.',
+            style: AppTypography.secondary,
+          ),
+          if (label != 'None') ...<Widget>[
+            const SizedBox(height: 4),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                key: const Key('task-clear-goal-event-type'),
+                onPressed: () => setState(() {
+                  _linkedActivityTypeId = null;
+                  _linkedActivityTypeStableKey = null;
+                  _linkedActivityTypeLabelSnapshot = null;
+                }),
+                icon: const Icon(Icons.clear, size: 18),
+                label: const Text('Clear'),
+                style: TextButton.styleFrom(
+                  minimumSize: const Size(48, 48),
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Future<void> _chooseGoalEventType() async {
+    final selection = await showEventTypePicker(
+      context: context,
+      ref: ref,
+      recommendedEventTypeId: _linkedActivityTypeId,
+      allowedStableKeys: <String>{
+        for (final slot in CanonicalGoalSlot.all) slot.eventTypeStableKey,
+      },
+      includeTask: false,
+    );
+    if (!mounted || selection is! EventTypePickerEvent) {
+      return;
+    }
+    setState(() {
+      _linkedActivityTypeId = selection.eventType.id;
+      _linkedActivityTypeStableKey = selection.eventType.stableKey;
+      _linkedActivityTypeLabelSnapshot = selection.eventType.label;
+    });
   }
 
   Widget _buildSaveButton() {
@@ -386,7 +566,18 @@ final class _TaskFormScreenState extends ConsumerState<TaskFormScreen>
 
   Future<void> _pickDueTime() async {
     final initial = _timeFromMinute(_dueMinute ?? 18 * 60);
-    final value = await showTimePicker(context: context, initialTime: initial);
+    // Same framework workaround as the event form: stripping viewInsets keeps
+    // the stock time picker's input mode from producing non-normalized
+    // BoxConstraints (216 dp hard minimum vs. keyboard-shrunk maximum).
+    final value = await showTimePicker(
+      context: context,
+      initialTime: initial,
+      builder: (context, child) => MediaQuery.removeViewInsets(
+        context: context,
+        removeBottom: true,
+        child: child!,
+      ),
+    );
     if (value != null && mounted) {
       setState(() => _dueMinute = value.hour * 60 + value.minute);
     }
@@ -458,6 +649,34 @@ final class _TaskFormScreenState extends ConsumerState<TaskFormScreen>
     });
   }
 
+  Future<void> _loadTaskContacts() async {
+    try {
+      final summaries = await ref.read(
+        taskContactsProvider(_stableTaskId).future,
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _contactIds = summaries
+            .map((summary) => summary.contact.id)
+            .toList(growable: false);
+      });
+    } on Object {
+      // No ready Contacts profile/repository: keep the draft list empty.
+    }
+  }
+
+  Future<void> _openAddContacts() async {
+    final result = await context.push<List<String>>(
+      RoutePaths.addPeople,
+      extra: AddPeopleArgs(initialIds: _contactIds),
+    );
+    if (result != null && mounted) {
+      setState(() => _contactIds = result);
+    }
+  }
+
   String _formatTime(BuildContext context, bool use24HourTime) {
     final time = _timeFromMinute(_dueMinute ?? 18 * 60);
     if (use24HourTime) {
@@ -480,7 +699,7 @@ final class _TaskFormScreenState extends ConsumerState<TaskFormScreen>
     };
   }
 
-  Future<void> _save() async {
+  Future<void> _save({bool confirmLinkedTypeTransfer = false}) async {
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -500,7 +719,11 @@ final class _TaskFormScreenState extends ConsumerState<TaskFormScreen>
             recurrence: _setDueDate ? _recurrence : PlannerTaskRecurrence.none,
             requiresReport: _requiresReport,
             people: _people,
+            linkedActivityTypeId: _linkedActivityTypeId,
+            linkedActivityTypeStableKey: _linkedActivityTypeStableKey,
+            linkedActivityTypeLabelSnapshot: _linkedActivityTypeLabelSnapshot,
           ),
+          confirmLinkedTypeTransfer: confirmLinkedTypeTransfer,
         );
     if (!mounted) {
       return;
@@ -509,14 +732,56 @@ final class _TaskFormScreenState extends ConsumerState<TaskFormScreen>
       if (!mounted) {
         return;
       }
+      await ref
+          .read(contactRepositoryProvider)
+          .setTaskContacts(
+            profileId: ref.read(contactProfileIdProvider),
+            taskId: _stableTaskId,
+            contactIds: _contactIds,
+          );
+      if (!mounted) {
+        return;
+      }
       Navigator.of(context).pop(true);
+      return;
+    }
+    final message =
+        ref.read(plannerControllerProvider).message ??
+        'Task could not be saved. Your input remains available.';
+    if (!confirmLinkedTypeTransfer &&
+        message.contains('already contributed progress')) {
+      setState(() => _saving = false);
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          key: const Key('task-link-transfer-dialog'),
+          title: const Text('Move Goal progress?'),
+          content: const Text(
+            'This completed Task already contributed progress. Moving the '
+            'Event Type will move that contribution to the new Goal.',
+          ),
+          actions: <Widget>[
+            TextButton(
+              key: const Key('task-link-transfer-cancel'),
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              key: const Key('task-link-transfer-confirm'),
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Move progress'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed == true && mounted) {
+        await _save(confirmLinkedTypeTransfer: true);
+      }
       return;
     }
     setState(() {
       _saving = false;
-      _error =
-          ref.read(plannerControllerProvider).message ??
-          'Task could not be saved. Your input remains available.';
+      _error = message;
     });
   }
 }
@@ -526,6 +791,62 @@ final class _TaskPersonDialog extends StatefulWidget {
 
   @override
   State<_TaskPersonDialog> createState() => _TaskPersonDialogState();
+}
+
+/// A linked Contact chip in the Task form Contacts section.
+final class _TaskContactChip extends StatelessWidget {
+  const _TaskContactChip({
+    required this.id,
+    required this.summary,
+    required this.onRemove,
+  });
+
+  final String id;
+  final ContactSummary? summary;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: Key('task-contact-$id'),
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.fromLTRB(12, 6, 4, 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1C1E21),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFF2A2D31)),
+      ),
+      child: Row(
+        children: <Widget>[
+          Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: summary == null
+                  ? const Color(0xFF9CA0A6)
+                  : colorFromValue(summary!.colorValue),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              summary?.contact.displayName ?? 'Contact',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+            ),
+          ),
+          IconButton(
+            key: Key('task-remove-contact-$id'),
+            tooltip: 'Remove',
+            onPressed: onRemove,
+            icon: const Icon(Icons.close, size: 20),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 final class _TaskPersonDialogState extends State<_TaskPersonDialog> {
@@ -586,7 +907,7 @@ final class _TaskValueField extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(4),
       child: SizedBox(
-        height: 60,
+        height: 52,
         child: InputDecorator(
           isFocused: false,
           decoration: InputDecoration(
@@ -660,8 +981,8 @@ final class _TaskSectionHeader extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        Text(label, style: AppTypography.sectionTitle),
-        const SizedBox(height: 8),
+        Text(label, style: InternalScreen.sectionHeading),
+        const SizedBox(height: 6),
         const Divider(height: 1, color: Colors.white38),
       ],
     );

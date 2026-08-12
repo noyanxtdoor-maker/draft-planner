@@ -77,19 +77,19 @@ void main() {
       );
     });
 
-    testWidgets('TEST 4 — AppBar exposes notifications', (tester) async {
+    testWidgets('TEST 4 — AppBar exposes messages', (tester) async {
       await _pumpHome(tester);
       final appBarFinder = find.byKey(const Key('home-app-bar'));
       final appBar = tester.widget<AppBar>(appBarFinder);
       expect(
         appBar.actions,
         hasLength(1),
-        reason: 'Home exposes the approved notifications action',
+        reason: 'Home exposes the approved messages action',
       );
       expect(
-        find.byKey(const Key('home-notifications')),
+        find.byKey(const Key('home-messages')),
         findsOneWidget,
-        reason: 'the notifications action remains available on Home',
+        reason: 'the messages action remains available on Home',
       );
       expect(tester.takeException(), isNull);
     });

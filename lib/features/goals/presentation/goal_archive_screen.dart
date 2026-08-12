@@ -4,12 +4,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rmplanner/app/theme/app_theme.dart';
+import 'package:rmplanner/app/theme/internal_screen.dart';
 import 'package:rmplanner/features/goals/application/goal_providers.dart';
 import 'package:rmplanner/features/goals/domain/goal.dart';
 import 'package:rmplanner/features/goals/presentation/widgets/goal_icon.dart';
 
 final class GoalArchiveScreen extends ConsumerStatefulWidget {
-  const GoalArchiveScreen({super.key});
+  const GoalArchiveScreen({this.initialTab = 0, this.historyGoalId, super.key});
+
+  final int initialTab;
+  final String? historyGoalId;
 
   @override
   ConsumerState<GoalArchiveScreen> createState() => _GoalArchiveScreenState();
@@ -24,6 +28,7 @@ final class _GoalArchiveScreenState extends ConsumerState<GoalArchiveScreen>
   var _tab = 0;
   var _loading = true;
   var _restoring = <String>{};
+  var _deleting = <String>{};
   List<Goal> _goals = const <Goal>[];
   List<GoalActivityHistoryItem> _history = const <GoalActivityHistoryItem>[];
   Object? _error;
@@ -31,7 +36,8 @@ final class _GoalArchiveScreenState extends ConsumerState<GoalArchiveScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this)
+    _tab = widget.initialTab == 1 ? 1 : 0;
+    _tabController = TabController(length: 2, vsync: this, initialIndex: _tab)
       ..addListener(_tabChanged);
     _searchController.addListener(_searchChanged);
     unawaited(_load());
@@ -76,7 +82,7 @@ final class _GoalArchiveScreenState extends ConsumerState<GoalArchiveScreen>
           profileId: profileId,
           query: _searchController.text,
         ),
-        repository.readActivityHistory(profileId),
+        repository.readActivityHistory(profileId, goalId: widget.historyGoalId),
       ]);
       if (!mounted || generation != _loadGeneration) {
         return;
@@ -101,11 +107,11 @@ final class _GoalArchiveScreenState extends ConsumerState<GoalArchiveScreen>
   Widget build(BuildContext context) {
     final profileId = ref.read(goalProfileIdProvider);
     ref.watch(goalChangesProvider(profileId));
-    ref.listen<AsyncValue<void>>(goalChangesProvider(profileId), (_, _) {
+    ref.listen<AsyncValue<int>>(goalChangesProvider(profileId), (_, _) {
       unawaited(_load());
     });
     return Scaffold(
-      appBar: AppBar(
+      appBar: InternalAppBar(
         leading: IconButton(
           key: const Key('goal-archive-back'),
           tooltip: 'Back',
@@ -126,7 +132,7 @@ final class _GoalArchiveScreenState extends ConsumerState<GoalArchiveScreen>
         child: Column(
           children: <Widget>[
             const Padding(
-              padding: EdgeInsets.fromLTRB(18, 4, 18, 10),
+              padding: EdgeInsets.fromLTRB(16, 2, 16, 8),
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
@@ -161,13 +167,13 @@ final class _GoalArchiveScreenState extends ConsumerState<GoalArchiveScreen>
 
   Widget _buildArchivedGoals() {
     return ListView(
-      padding: const EdgeInsets.fromLTRB(18, 12, 18, 24),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
       children: <Widget>[
         Row(
           children: <Widget>[
             Expanded(
               child: SizedBox(
-                height: 50,
+                height: 48,
                 child: TextField(
                   key: const Key('goal-archive-search'),
                   controller: _searchController,
@@ -180,7 +186,7 @@ final class _GoalArchiveScreenState extends ConsumerState<GoalArchiveScreen>
             ),
             const SizedBox(width: 8),
             SizedBox(
-              height: 50,
+              height: 48,
               child: OutlinedButton.icon(
                 key: const Key('goal-archive-all-time'),
                 onPressed: () => unawaited(_showTimeFilter(context)),
@@ -190,16 +196,19 @@ final class _GoalArchiveScreenState extends ConsumerState<GoalArchiveScreen>
             ),
           ],
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 12),
         Row(
           children: <Widget>[
             const Expanded(
-              child: Text('Archived Goals', style: AppTypography.sectionTitle),
+              child: Text(
+                'Archived Goals',
+                style: InternalScreen.sectionHeading,
+              ),
             ),
             Text('${_goals.length} goals', style: AppTypography.secondary),
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         if (_goals.isEmpty)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 24),
@@ -210,7 +219,9 @@ final class _GoalArchiveScreenState extends ConsumerState<GoalArchiveScreen>
             _ArchivedGoalRow(
               goal: goal,
               restoring: _restoring.contains(goal.id),
+              deleting: _deleting.contains(goal.id),
               onRestore: () => _restore(goal),
+              onDelete: () => unawaited(_delete(goal)),
             ),
             const SizedBox(height: 8),
           ],
@@ -231,9 +242,9 @@ final class _GoalArchiveScreenState extends ConsumerState<GoalArchiveScreen>
 
   Widget _buildHistory() {
     return ListView(
-      padding: const EdgeInsets.fromLTRB(18, 12, 18, 24),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
       children: <Widget>[
-        const Text('Activity History', style: AppTypography.sectionTitle),
+        const Text('Activity History', style: InternalScreen.sectionHeading),
         const SizedBox(height: 8),
         if (_history.isEmpty)
           const Padding(
@@ -247,6 +258,67 @@ final class _GoalArchiveScreenState extends ConsumerState<GoalArchiveScreen>
           for (final item in _history) _HistoryRow(item: item),
       ],
     );
+  }
+
+  Future<void> _delete(Goal goal) async {
+    if (_deleting.contains(goal.id)) {
+      return;
+    }
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        key: Key('goal-archive-delete-dialog-${goal.id}'),
+        title: const Text('Delete archived Goal permanently?'),
+        content: Text(
+          '“${goal.title}” will be removed from Goal Archive and cannot be '
+          'restored. Existing completed activity and history will remain in '
+          'your records.',
+        ),
+        actions: <Widget>[
+          TextButton(
+            key: Key('goal-archive-delete-cancel-${goal.id}'),
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            key: Key('goal-archive-delete-confirm-${goal.id}'),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(dialogContext).colorScheme.error,
+              foregroundColor: Theme.of(dialogContext).colorScheme.onError,
+            ),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) {
+      return;
+    }
+    setState(() => _deleting = <String>{..._deleting, goal.id});
+    try {
+      await ref
+          .read(goalRepositoryProvider)
+          .deleteGoal(
+            profileId: ref.read(goalProfileIdProvider),
+            goalId: goal.id,
+          );
+      ref.invalidate(activeGoalsProvider);
+      ref.invalidate(goalCapacityProvider);
+      ref.invalidate(goalPlanningProvider);
+      await _load();
+    } on GoalValidationException catch (error) {
+      _showError(error.message);
+    } on Object {
+      _showError('The Goal could not be deleted.');
+    } finally {
+      if (mounted) {
+        setState(() {
+          final next = <String>{..._deleting}..remove(goal.id);
+          _deleting = next;
+        });
+      }
+    }
   }
 
   Future<void> _restore(Goal goal) async {
@@ -356,12 +428,16 @@ final class _ArchivedGoalRow extends StatelessWidget {
   const _ArchivedGoalRow({
     required this.goal,
     required this.restoring,
+    required this.deleting,
     required this.onRestore,
+    required this.onDelete,
   });
 
   final Goal goal;
   final bool restoring;
+  final bool deleting;
   final VoidCallback onRestore;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -377,10 +453,10 @@ final class _ArchivedGoalRow extends StatelessWidget {
         builder: (context, constraints) {
           final compact = constraints.maxWidth < 520;
           return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             child: compact
                 ? _buildCompactRow(context, date)
-                : SizedBox(height: 72, child: _buildWideRow(context, date)),
+                : SizedBox(height: 64, child: _buildWideRow(context, date)),
           );
         },
       ),
@@ -389,7 +465,7 @@ final class _ArchivedGoalRow extends StatelessWidget {
 
   Widget _buildIcon() {
     return SizedBox.square(
-      dimension: 44,
+      dimension: 40,
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: AppTheme.surface,
@@ -397,7 +473,7 @@ final class _ArchivedGoalRow extends StatelessWidget {
         ),
         child: GoalIcon(
           iconId: goal.iconId,
-          size: 32,
+          size: 28,
           semanticLabel: '${goal.title} goal icon',
           fallbackIcon: goalIconFallbackForRole(goal.role),
         ),
@@ -443,6 +519,18 @@ final class _ArchivedGoalRow extends StatelessWidget {
                 )
               : const Icon(Icons.restore),
         ),
+        IconButton(
+          key: Key('goal-trash-${goal.id}'),
+          tooltip: 'Delete ${goal.title} permanently',
+          onPressed: deleting ? null : onDelete,
+          color: Theme.of(context).colorScheme.error,
+          icon: deleting
+              ? const SizedBox.square(
+                  dimension: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.delete_outline),
+        ),
       ],
     );
   }
@@ -482,6 +570,18 @@ final class _ArchivedGoalRow extends StatelessWidget {
             label: const Text('Restore'),
           ),
         ),
+        IconButton(
+          key: Key('goal-trash-${goal.id}'),
+          tooltip: 'Delete ${goal.title} permanently',
+          onPressed: deleting ? null : onDelete,
+          color: Theme.of(context).colorScheme.error,
+          icon: deleting
+              ? const SizedBox.square(
+                  dimension: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.delete_outline, size: 22),
+        ),
       ],
     );
   }
@@ -504,6 +604,8 @@ final class _HistoryRow extends StatelessWidget {
       GoalActivityAction.archived =>
         'Archived \u201c${activity.newValue ?? item.goalTitle}\u201d',
       GoalActivityAction.restored => 'Restored \u201c${item.goalTitle}\u201d',
+      GoalActivityAction.deleted =>
+        'Deleted \u201c${activity.newValue ?? item.goalTitle}\u201d',
     };
     final date = MaterialLocalizations.of(
       context,
@@ -525,4 +627,5 @@ IconData _activityIcon(GoalActivityAction action) => switch (action) {
   GoalActivityAction.renamed => Icons.edit_outlined,
   GoalActivityAction.archived => Icons.archive_outlined,
   GoalActivityAction.restored => Icons.restore,
+  GoalActivityAction.deleted => Icons.delete_outline,
 };

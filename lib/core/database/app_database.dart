@@ -33,6 +33,23 @@ class OnboardingCheckpoints extends Table {
   Set<Column<Object>> get primaryKey => <Column<Object>>{key};
 }
 
+/// A private, user-entered note attached to a Contact.  The column is named
+/// `noteText` (not `text`) because `text()` is also the drift column builder
+/// function; a getter named `text` would shadow it and silently break the
+/// table generation.
+@DataClassName('ContactNoteRow')
+class ContactNotes extends Table {
+  TextColumn get id => text()();
+  TextColumn get contactId =>
+      text().references(Contacts, #id, onDelete: KeyAction.restrict)();
+  TextColumn get noteText => text()();
+  DateTimeColumn get createdAtUtc => dateTime()();
+  DateTimeColumn get updatedAtUtc => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => <Column<Object>>{id};
+}
+
 @TableIndex(
   name: 'life_indicator_profile_key_unique',
   columns: <Symbol>{#profileId, #indicatorKey},
@@ -73,6 +90,7 @@ class Goals extends Table {
   TextColumn get profileId =>
       text().references(LocalProfiles, #id, onDelete: KeyAction.restrict)();
   TextColumn get indicatorKey => text().nullable()();
+  TextColumn get assignedEventTypeStableKey => text().nullable()();
   TextColumn get role => text()();
   IntColumn get activeSlotIndex => integer().nullable()();
   TextColumn get title => text()();
@@ -81,6 +99,13 @@ class Goals extends Table {
   DateTimeColumn get createdAtUtc => dateTime()();
   DateTimeColumn get updatedAtUtc => dateTime()();
   DateTimeColumn get archivedAtUtc => dateTime().nullable()();
+
+  /// Set when the Goal is permanently deleted from the user-facing
+  /// experience.  Deleted Goals stay in the table so historical Event,
+  /// outcome, ledger, contribution, and activity records keep their original
+  /// Goal identity, but they are hidden from active and archived queries and
+  /// can never be restored.
+  DateTimeColumn get deletedAtUtc => dateTime().nullable()();
 
   @override
   Set<Column<Object>> get primaryKey => <Column<Object>>{id};
@@ -175,6 +200,9 @@ class PlannerTasks extends Table {
   BoolColumn get requiresReport =>
       boolean().withDefault(const Constant(false))();
   TextColumn get contributionRuleKey => text().nullable()();
+  TextColumn get linkedActivityTypeId => text().nullable()();
+  TextColumn get linkedActivityTypeStableKey => text().nullable()();
+  TextColumn get linkedActivityTypeLabelSnapshot => text().nullable()();
   DateTimeColumn get createdAtUtc => dateTime()();
   DateTimeColumn get updatedAtUtc => dateTime()();
 
@@ -202,7 +230,45 @@ class TaskStatusChanges extends Table {
   TextColumn get fromStatus => text()();
   TextColumn get toStatus => text()();
   TextColumn get reason => text().nullable()();
+  TextColumn get activityTypeId => text().nullable()();
+  TextColumn get activityTypeStableKeySnapshot => text().nullable()();
+  TextColumn get activityTypeLabelSnapshot => text().nullable()();
   DateTimeColumn get changedAtUtc => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => <Column<Object>>{id};
+}
+
+/// The idempotent, reversible contribution created by a completed linked
+/// Task.  It is separate from report/ledger entries because Tasks do not
+/// require a report, but it still feeds the same canonical Goal indicator.
+@TableIndex(
+  name: 'task_goal_contribution_task_unique',
+  columns: <Symbol>{#taskId},
+  unique: true,
+)
+@TableIndex(
+  name: 'task_goal_contribution_indicator_date',
+  columns: <Symbol>{#profileId, #indicatorKey, #activityDate},
+)
+@DataClassName('TaskGoalContributionRow')
+class TaskGoalContributions extends Table {
+  TextColumn get id => text()();
+  TextColumn get profileId =>
+      text().references(LocalProfiles, #id, onDelete: KeyAction.restrict)();
+  TextColumn get taskId =>
+      text().references(PlannerTasks, #id, onDelete: KeyAction.restrict)();
+  TextColumn get activityTypeId => text().nullable()();
+  TextColumn get activityTypeStableKeySnapshot => text().nullable()();
+  TextColumn get activityTypeLabelSnapshot => text().nullable()();
+  TextColumn get indicatorKey => text()();
+  IntColumn get valueScaled => integer().withDefault(const Constant(1))();
+  IntColumn get valueScale => integer().withDefault(const Constant(0))();
+  TextColumn get unit => text().withDefault(const Constant('count'))();
+  TextColumn get activityDate => text()();
+  TextColumn get state => text().withDefault(const Constant('active'))();
+  DateTimeColumn get createdAtUtc => dateTime()();
+  DateTimeColumn get updatedAtUtc => dateTime()();
 
   @override
   Set<Column<Object>> get primaryKey => <Column<Object>>{id};
@@ -233,6 +299,7 @@ class CalendarEvents extends Table {
   TextColumn get activityTypeLabelSnapshot => text().nullable()();
   IntColumn get activityTypeColorValueSnapshot => integer().nullable()();
   TextColumn get contributionRuleKey => text().nullable()();
+  TextColumn get goalId => text().nullable()();
   BoolColumn get isBackupAppointment =>
       boolean().withDefault(const Constant(false))();
   TextColumn get backupForEventId => text().nullable()();
@@ -243,6 +310,7 @@ class CalendarEvents extends Table {
       text().withDefault(const Constant('never'))();
   TextColumn get recurrenceEndDate => text().nullable()();
   IntColumn get recurrenceCount => integer().nullable()();
+  TextColumn get recurrencePatternJson => text().nullable()();
   TextColumn get status => text().withDefault(const Constant('scheduled'))();
   TextColumn get parentEventId => text().nullable()();
   TextColumn get replacementEventId => text().nullable()();
@@ -282,6 +350,7 @@ class CalendarEventExceptions extends Table {
   TextColumn get activityTypeLabelSnapshot => text().nullable()();
   IntColumn get activityTypeColorValueSnapshot => integer().nullable()();
   TextColumn get contributionRuleKey => text().nullable()();
+  TextColumn get goalId => text().nullable()();
   BoolColumn get isBackupAppointment =>
       boolean().withDefault(const Constant(false))();
   TextColumn get backupForEventId => text().nullable()();
@@ -620,13 +689,268 @@ class ActivityTypeIndicatorMappings extends Table {
   Set<Column<Object>> get primaryKey => <Column<Object>>{id};
 }
 
+/// A private contact belonging to one Local Profile.
+///
+/// Lifecycle is `active` | `archived` | `merged`.  Archived preserves the
+/// same ID and all historical links; merged records keep their identity so
+/// historical participation remains traceable to the absorbed contact.
+@TableIndex(
+  name: 'contact_profile_lifecycle',
+  columns: <Symbol>{#profileId, #lifecycleState},
+)
+@TableIndex(
+  name: 'contact_profile_name',
+  columns: <Symbol>{#profileId, #displayName},
+)
+@TableIndex(
+  name: 'contact_profile_favorite',
+  columns: <Symbol>{#profileId, #isFavorite},
+)
+@DataClassName('ContactRow')
+class Contacts extends Table {
+  TextColumn get id => text()();
+  TextColumn get profileId =>
+      text().references(LocalProfiles, #id, onDelete: KeyAction.restrict)();
+  TextColumn get firstName => text().nullable()();
+  TextColumn get lastName => text().nullable()();
+  TextColumn get displayName => text()();
+  TextColumn get preferredContactMethod =>
+      text().withDefault(const Constant('message'))();
+  BoolColumn get isFavorite => boolean().withDefault(const Constant(false))();
+  TextColumn get lifecycleState =>
+      text().withDefault(const Constant('active'))();
+  TextColumn get source => text().withDefault(const Constant('manual'))();
+  TextColumn get addressText => text().nullable()();
+
+  /// Set when this Contact is merged into another.  Historical links,
+  /// methods, groups, tags, notes, and Timeline stay attached so the absorbed
+  /// identity remains traceable; active/archived queries hide the row.
+  TextColumn get mergedIntoContactId => text().nullable()();
+  DateTimeColumn get createdAtUtc => dateTime()();
+  DateTimeColumn get updatedAtUtc => dateTime()();
+  DateTimeColumn get archivedAtUtc => dateTime().nullable()();
+
+  @override
+  Set<Column<Object>> get primaryKey => <Column<Object>>{id};
+}
+
+@TableIndex(
+  name: 'contact_method_contact_normalized_unique',
+  columns: <Symbol>{#contactId, #type, #normalizedValue},
+  unique: true,
+)
+@DataClassName('ContactMethodRow')
+class ContactMethods extends Table {
+  TextColumn get id => text()();
+  TextColumn get contactId =>
+      text().references(Contacts, #id, onDelete: KeyAction.restrict)();
+  TextColumn get type => text()();
+  TextColumn get label => text().nullable()();
+  TextColumn get rawValue => text()();
+  TextColumn get normalizedValue => text()();
+  BoolColumn get isPrimary => boolean().withDefault(const Constant(false))();
+
+  @override
+  Set<Column<Object>> get primaryKey => <Column<Object>>{id};
+}
+
+@TableIndex(
+  name: 'contact_group_profile_unique_name',
+  columns: <Symbol>{#profileId, #name},
+  unique: true,
+)
+@DataClassName('ContactGroupRow')
+class ContactGroups extends Table {
+  TextColumn get id => text()();
+  TextColumn get profileId =>
+      text().references(LocalProfiles, #id, onDelete: KeyAction.restrict)();
+  TextColumn get name => text()();
+  IntColumn get colorValue => integer()();
+  BoolColumn get isArchived => boolean().withDefault(const Constant(false))();
+  IntColumn get sortOrder => integer().withDefault(const Constant(0))();
+  DateTimeColumn get createdAtUtc => dateTime()();
+  DateTimeColumn get updatedAtUtc => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => <Column<Object>>{id};
+}
+
+@DataClassName('ContactGroupMembershipRow')
+class ContactGroupMemberships extends Table {
+  TextColumn get contactId =>
+      text().references(Contacts, #id, onDelete: KeyAction.cascade)();
+  TextColumn get groupId =>
+      text().references(ContactGroups, #id, onDelete: KeyAction.cascade)();
+  BoolColumn get isPrimary => boolean().withDefault(const Constant(false))();
+
+  @override
+  Set<Column<Object>> get primaryKey => <Column<Object>>{contactId, groupId};
+}
+
+@TableIndex(
+  name: 'contact_tag_profile_unique_name',
+  columns: <Symbol>{#profileId, #name},
+  unique: true,
+)
+@DataClassName('ContactTagRow')
+class ContactTags extends Table {
+  TextColumn get id => text()();
+  TextColumn get profileId =>
+      text().references(LocalProfiles, #id, onDelete: KeyAction.restrict)();
+  TextColumn get name => text()();
+  DateTimeColumn get createdAtUtc => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => <Column<Object>>{id};
+}
+
+@DataClassName('ContactTagMembershipRow')
+class ContactTagMemberships extends Table {
+  TextColumn get contactId =>
+      text().references(Contacts, #id, onDelete: KeyAction.cascade)();
+  TextColumn get tagId =>
+      text().references(ContactTags, #id, onDelete: KeyAction.cascade)();
+
+  @override
+  Set<Column<Object>> get primaryKey => <Column<Object>>{contactId, tagId};
+}
+
+@TableIndex(
+  name: 'contact_availability_contact_weekday',
+  columns: <Symbol>{#contactId, #weekday},
+)
+@DataClassName('ContactAvailabilityRow')
+class ContactAvailabilities extends Table {
+  TextColumn get id => text()();
+  TextColumn get contactId =>
+      text().references(Contacts, #id, onDelete: KeyAction.restrict)();
+  IntColumn get weekday => integer()();
+  IntColumn get startMinute => integer()();
+  IntColumn get endMinute => integer()();
+  DateTimeColumn get createdAtUtc => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => <Column<Object>>{id};
+}
+
+/// A Contact's participation in a Calendar Event.
+///
+/// [occurrenceId] is the deterministic occurrence identity
+/// (`CalendarEventOccurrenceIdentity.forDate`) or the literal `series` for a
+/// series-level participant.  Series-level participants apply to every
+/// occurrence; occurrence-level rows override for a single date.  Past
+/// participation is additionally frozen into [EventOccurrenceParticipants]
+/// so later series edits can never rewrite history.
+@TableIndex(
+  name: 'event_contact_link_equivalent_unique',
+  columns: <Symbol>{#profileId, #eventId, #occurrenceId, #contactId},
+  unique: true,
+)
+@TableIndex(
+  name: 'event_contact_link_contact',
+  columns: <Symbol>{#contactId, #status},
+)
+@DataClassName('EventContactLinkRow')
+class EventContactLinks extends Table {
+  TextColumn get id => text()();
+  TextColumn get profileId =>
+      text().references(LocalProfiles, #id, onDelete: KeyAction.restrict)();
+  TextColumn get eventId => text()();
+  TextColumn get occurrenceId => text().withDefault(const Constant('series'))();
+  TextColumn get originalDate => text().nullable()();
+  TextColumn get contactId =>
+      text().references(Contacts, #id, onDelete: KeyAction.restrict)();
+  TextColumn get status => text().withDefault(const Constant('active'))();
+  DateTimeColumn get createdAtUtc => dateTime()();
+  DateTimeColumn get updatedAtUtc => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => <Column<Object>>{id};
+}
+
+/// Immutable occurrence-level participant snapshot.
+///
+/// Written when a past occurrence is materialized, reported, or when a
+/// series-level People edit could otherwise erase history.  The Timeline and
+/// event detail read snapshots for past occurrences and live links only for
+/// upcoming ones, so historical participation survives recurrence edits.
+@TableIndex(
+  name: 'event_occurrence_participant_unique',
+  columns: <Symbol>{#eventId, #occurrenceId, #contactId},
+  unique: true,
+)
+@TableIndex(
+  name: 'event_occurrence_participant_contact_date',
+  columns: <Symbol>{#contactId, #originalDate},
+)
+@DataClassName('EventOccurrenceParticipantRow')
+class EventOccurrenceParticipants extends Table {
+  TextColumn get id => text()();
+  TextColumn get profileId =>
+      text().references(LocalProfiles, #id, onDelete: KeyAction.restrict)();
+  TextColumn get eventId => text()();
+  TextColumn get occurrenceId => text()();
+  TextColumn get originalDate => text()();
+  TextColumn get contactId =>
+      text().references(Contacts, #id, onDelete: KeyAction.restrict)();
+  TextColumn get displayNameSnapshot => text()();
+  IntColumn get groupColorValueSnapshot => integer().nullable()();
+  DateTimeColumn get createdAtUtc => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => <Column<Object>>{id};
+}
+
+@TableIndex(
+  name: 'task_contact_link_equivalent_unique',
+  columns: <Symbol>{#taskId, #contactId},
+  unique: true,
+)
+@DataClassName('TaskContactLinkRow')
+class TaskContactLinks extends Table {
+  TextColumn get id => text()();
+  TextColumn get profileId =>
+      text().references(LocalProfiles, #id, onDelete: KeyAction.restrict)();
+  TextColumn get taskId => text()();
+  TextColumn get contactId =>
+      text().references(Contacts, #id, onDelete: KeyAction.restrict)();
+  DateTimeColumn get createdAtUtc => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => <Column<Object>>{id};
+}
+
+@TableIndex(
+  name: 'saved_contact_filter_profile',
+  columns: <Symbol>{#profileId, #createdAtUtc},
+)
+@DataClassName('SavedContactFilterRow')
+class SavedContactFilters extends Table {
+  TextColumn get id => text()();
+  TextColumn get profileId =>
+      text().references(LocalProfiles, #id, onDelete: KeyAction.restrict)();
+  TextColumn get name => text()();
+  BoolColumn get isSystem => boolean().withDefault(const Constant(false))();
+  TextColumn get criteriaJson => text()();
+  TextColumn get sortBy => text().withDefault(const Constant('name'))();
+  DateTimeColumn get createdAtUtc => dateTime()();
+  DateTimeColumn get updatedAtUtc => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => <Column<Object>>{id};
+}
+
 @DataClassName('PlannerPreferenceRow')
 class PlannerPreferences extends Table {
   TextColumn get profileId =>
       text().references(LocalProfiles, #id, onDelete: KeyAction.restrict)();
   TextColumn get defaultActivityTypeId => text().nullable()();
+  // Delta 4.2R R8: the Planner default Event duration is 30 minutes (the
+  // previous Delta 4.2 temporary 60-minute default is replaced). The value
+  // remains a user preference; a v24 data migration resets only stored rows
+  // that still hold the old temporary 60.
   IntColumn get defaultDurationMinutes =>
-      integer().withDefault(const Constant(60))();
+      integer().withDefault(const Constant(30))();
   IntColumn get defaultReminderMinutes => integer().nullable()();
   IntColumn get visibleStartHour => integer().withDefault(const Constant(6))();
   IntColumn get visibleEndHour => integer().withDefault(const Constant(22))();
@@ -676,6 +1000,7 @@ class PlannerPreferences extends Table {
     PermissionAudits,
     PlannerTasks,
     TaskStatusChanges,
+    TaskGoalContributions,
     CalendarEvents,
     CalendarEventExceptions,
     CalendarEventOperations,
@@ -690,6 +1015,18 @@ class PlannerPreferences extends Table {
     ActivityTypes,
     ActivityTypeIndicatorMappings,
     PlannerPreferences,
+    Contacts,
+    ContactMethods,
+    ContactGroups,
+    ContactGroupMemberships,
+    ContactTags,
+    ContactTagMemberships,
+    ContactNotes,
+    ContactAvailabilities,
+    EventContactLinks,
+    EventOccurrenceParticipants,
+    TaskContactLinks,
+    SavedContactFilters,
   ],
 )
 final class AppDatabase extends _$AppDatabase {
@@ -704,6 +1041,7 @@ final class AppDatabase extends _$AppDatabase {
       _injectWeeklyPlanningMigrationFailure = false,
       _injectPlannerCorrectionMigrationFailure = false,
       _injectPlannerExperienceMigrationFailure = false,
+      _injectContactsMigrationFailure = false,
       super(driftDatabase(name: 'next_transfer'));
 
   AppDatabase.forTesting(
@@ -718,6 +1056,7 @@ final class AppDatabase extends _$AppDatabase {
     bool injectWeeklyPlanningMigrationFailure = false,
     bool injectPlannerCorrectionMigrationFailure = false,
     bool injectPlannerExperienceMigrationFailure = false,
+    bool injectContactsMigrationFailure = false,
   }) : _schemaVersionOverride = schemaVersionOverride,
        _injectMigrationFailure = injectMigrationFailure,
        _injectTaskMigrationFailure = injectTaskMigrationFailure,
@@ -733,7 +1072,8 @@ final class AppDatabase extends _$AppDatabase {
        _injectPlannerCorrectionMigrationFailure =
            injectPlannerCorrectionMigrationFailure,
        _injectPlannerExperienceMigrationFailure =
-           injectPlannerExperienceMigrationFailure;
+           injectPlannerExperienceMigrationFailure,
+       _injectContactsMigrationFailure = injectContactsMigrationFailure;
 
   final int? _schemaVersionOverride;
   final bool _injectMigrationFailure;
@@ -745,9 +1085,10 @@ final class AppDatabase extends _$AppDatabase {
   final bool _injectWeeklyPlanningMigrationFailure;
   final bool _injectPlannerCorrectionMigrationFailure;
   final bool _injectPlannerExperienceMigrationFailure;
+  final bool _injectContactsMigrationFailure;
 
   @override
-  int get schemaVersion => _schemaVersionOverride ?? 18;
+  int get schemaVersion => _schemaVersionOverride ?? 24;
 
   @override
   MigrationStrategy get migration {
@@ -763,6 +1104,9 @@ final class AppDatabase extends _$AppDatabase {
         if (schemaVersion >= 3) {
           await migrator.createTable(plannerTasks);
           await migrator.createTable(taskStatusChanges);
+          if (schemaVersion >= 19) {
+            await migrator.createTable(taskGoalContributions);
+          }
         }
         if (schemaVersion >= 4) {
           await migrator.createTable(calendarEvents);
@@ -796,6 +1140,20 @@ final class AppDatabase extends _$AppDatabase {
         }
         if (schemaVersion >= 14) {
           await migrator.createTable(indicatorGoalRevisions);
+        }
+        if (schemaVersion >= 22) {
+          await migrator.createTable(contacts);
+          await migrator.createTable(contactMethods);
+          await migrator.createTable(contactGroups);
+          await migrator.createTable(contactGroupMemberships);
+          await migrator.createTable(contactTags);
+          await migrator.createTable(contactTagMemberships);
+          await migrator.createTable(contactNotes);
+          await migrator.createTable(contactAvailabilities);
+          await migrator.createTable(eventContactLinks);
+          await migrator.createTable(eventOccurrenceParticipants);
+          await migrator.createTable(taskContactLinks);
+          await migrator.createTable(savedContactFilters);
         }
       },
       onUpgrade: (migrator, from, to) async {
@@ -1289,6 +1647,136 @@ final class AppDatabase extends _$AppDatabase {
                      )
                WHERE activity_type_id IS NOT NULL
             ''');
+          }
+          if (from < 19 && to >= 19) {
+            if (!await _columnExists(
+              'goals',
+              'assigned_event_type_stable_key',
+            )) {
+              await migrator.addColumn(goals, goals.assignedEventTypeStableKey);
+            }
+            if (!await _columnExists(
+              'planner_tasks',
+              'linked_activity_type_id',
+            )) {
+              await migrator.addColumn(
+                plannerTasks,
+                plannerTasks.linkedActivityTypeId,
+              );
+            }
+            if (!await _columnExists(
+              'planner_tasks',
+              'linked_activity_type_stable_key',
+            )) {
+              await migrator.addColumn(
+                plannerTasks,
+                plannerTasks.linkedActivityTypeStableKey,
+              );
+            }
+            if (!await _columnExists(
+              'planner_tasks',
+              'linked_activity_type_label_snapshot',
+            )) {
+              await migrator.addColumn(
+                plannerTasks,
+                plannerTasks.linkedActivityTypeLabelSnapshot,
+              );
+            }
+            if (!await _columnExists(
+              'task_status_changes',
+              'activity_type_id',
+            )) {
+              await migrator.addColumn(
+                taskStatusChanges,
+                taskStatusChanges.activityTypeId,
+              );
+            }
+            if (!await _columnExists(
+              'task_status_changes',
+              'activity_type_stable_key_snapshot',
+            )) {
+              await migrator.addColumn(
+                taskStatusChanges,
+                taskStatusChanges.activityTypeStableKeySnapshot,
+              );
+            }
+            if (!await _columnExists(
+              'task_status_changes',
+              'activity_type_label_snapshot',
+            )) {
+              await migrator.addColumn(
+                taskStatusChanges,
+                taskStatusChanges.activityTypeLabelSnapshot,
+              );
+            }
+            await migrator.createTable(taskGoalContributions);
+          }
+          if (from < 20 && to >= 20) {
+            // Pack 1A final correction: permanent user-facing Goal deletion is
+            // a tombstone.  Existing active/archived Goals are untouched and no
+            // historical record is removed by the migration itself.
+            if (!await _columnExists('goals', 'deleted_at_utc')) {
+              await migrator.addColumn(goals, goals.deletedAtUtc);
+            }
+          }
+          if (from < 21 && to >= 21) {
+            // Manual per-Event Goal linking (Final Planner correction): the
+            // nullable goal id rides on both the Calendar Event row and its
+            // occurrence exception rows so the link survives occurrence edits.
+            if (!await _columnExists('calendar_events', 'goal_id')) {
+              await migrator.addColumn(calendarEvents, calendarEvents.goalId);
+            }
+            if (!await _columnExists('calendar_event_exceptions', 'goal_id')) {
+              await migrator.addColumn(
+                calendarEventExceptions,
+                calendarEventExceptions.goalId,
+              );
+            }
+          }
+          if (from < 22 && to >= 22) {
+            // VS-11 Contacts & Follow-Ups: all Contacts tables are brand new,
+            // so the migration is purely additive and safe on every path.
+            await migrator.createTable(contacts);
+            await migrator.createTable(contactMethods);
+            await migrator.createTable(contactGroups);
+            await migrator.createTable(contactGroupMemberships);
+            await migrator.createTable(contactTags);
+            await migrator.createTable(contactTagMemberships);
+            await migrator.createTable(contactNotes);
+            await migrator.createTable(contactAvailabilities);
+            await migrator.createTable(eventContactLinks);
+            await migrator.createTable(eventOccurrenceParticipants);
+            await migrator.createTable(taskContactLinks);
+            await migrator.createTable(savedContactFilters);
+            if (_injectContactsMigrationFailure) {
+              throw StateError('Injected Contacts migration failure');
+            }
+          }
+          if (from < 23 && to >= 23) {
+            // Delta 4.2F Custom repeat: one nullable, versioned JSON shape is
+            // the smallest additive extension that can represent intervals,
+            // multi-day weeks, and nth-weekday months. Existing recurrence
+            // columns and every legacy row remain untouched.
+            if (!await _columnExists(
+              'calendar_events',
+              'recurrence_pattern_json',
+            )) {
+              await migrator.addColumn(
+                calendarEvents,
+                calendarEvents.recurrencePatternJson,
+              );
+            }
+          }
+          if (from < 24 && to >= 24) {
+            // Delta 4.2R R8 owner override: the default new-Event duration
+            // becomes 30 minutes. Rows that still hold the previous
+            // temporary Delta 4.2 default of 60 minutes are updated to 30;
+            // any deliberately chosen non-60 preference (45, 75, 90, ...) is
+            // preserved untouched. This is a data-only migration.
+            await customStatement(
+              'UPDATE planner_preferences SET default_duration_minutes = 30 '
+              'WHERE default_duration_minutes = 60',
+            );
           }
         });
       },

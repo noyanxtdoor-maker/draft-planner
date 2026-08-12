@@ -152,7 +152,12 @@ void main() {
       await tester.pumpAndSettle();
 
       final zoomSurface = find.byKey(const Key('planner-zoom-surface'));
-      final center = tester.getCenter(zoomSurface);
+      final center = tester
+          .getRect(zoomSurface)
+          .intersect(
+            tester.getRect(find.byKey(const Key('planner-day-scroll'))),
+          )
+          .center;
       final first = await tester.createGesture(pointer: 1);
       final second = await tester.createGesture(pointer: 2);
       await first.down(center - const Offset(20, 0));

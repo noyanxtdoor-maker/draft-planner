@@ -5,13 +5,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rmplanner/app/router/route_names.dart';
 import 'package:rmplanner/app/theme/app_theme.dart';
+import 'package:rmplanner/app/theme/internal_screen.dart';
 import 'package:rmplanner/features/goals/application/goal_providers.dart';
+import 'package:rmplanner/features/goals/domain/canonical_goal_slots.dart';
 import 'package:rmplanner/features/goals/domain/goal.dart';
 import 'package:rmplanner/features/goals/domain/goal_icon_registry.dart';
 import 'package:rmplanner/features/goals/presentation/goal_icon_picker_screen.dart';
 import 'package:rmplanner/features/goals/presentation/widgets/goal_icon.dart';
 import 'package:rmplanner/features/goals/presentation/widgets/goal_icon_choice_row.dart';
 import 'package:rmplanner/features/indicators/domain/life_indicator.dart';
+import 'package:rmplanner/features/planner/application/event_type_providers.dart';
+import 'package:rmplanner/features/planner/domain/event_color_preferences.dart';
+import 'package:rmplanner/features/planner/domain/event_type.dart';
+import 'package:rmplanner/features/planner/presentation/event_type_form_screen.dart';
 
 final class GoalCreateScreen extends ConsumerStatefulWidget {
   const GoalCreateScreen({super.key});
@@ -31,10 +37,15 @@ final class _GoalCreateScreenState extends ConsumerState<GoalCreateScreen> {
   bool _iconManuallySelected = false;
   bool _saving = false;
 
+  /// The exact canonical slot that Save will occupy, resolved through the
+  /// same allocator used by [GoalRepository.createGoal].
+  int? _previewSlot;
+
   @override
   void initState() {
     super.initState();
     _nameController.addListener(_draftChanged);
+    unawaited(_refreshPreviewSlot());
   }
 
   @override
@@ -50,11 +61,34 @@ final class _GoalCreateScreenState extends ConsumerState<GoalCreateScreen> {
     }
   }
 
+  Future<void> _refreshPreviewSlot() async {
+    try {
+      final slot = await ref
+          .read(goalRepositoryProvider)
+          .nextAvailableSlot(
+            profileId: ref.read(goalProfileIdProvider),
+            role: _role,
+          );
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _previewSlot = slot;
+      });
+    } on Object {
+      if (mounted) {
+        setState(() {
+          _previewSlot = null;
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final capacity = ref.watch(goalCapacityProvider);
     return Scaffold(
-      appBar: AppBar(
+      appBar: InternalAppBar(
         leading: IconButton(
           key: const Key('goal-create-back'),
           tooltip: 'Back',
@@ -83,15 +117,15 @@ final class _GoalCreateScreenState extends ConsumerState<GoalCreateScreen> {
           data: (value) => Form(
             key: _formKey,
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(18, 8, 18, 24),
+              padding: InternalScreen.pagePadding,
               children: <Widget>[
-                Text('Goal Type', style: AppTypography.sectionTitle),
+                Text('Goal Type', style: InternalScreen.sectionHeading),
                 const SizedBox(height: 3),
                 const Text(
                   'Choose how this goal will be planned.',
                   style: AppTypography.secondary,
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
                 for (final role in GoalRole.values) ...<Widget>[
                   _RoleCard(
                     key: Key('goal-create-role-${role.storageName}'),
@@ -100,21 +134,24 @@ final class _GoalCreateScreenState extends ConsumerState<GoalCreateScreen> {
                     available: value.isAvailable(role),
                     availability: value.availabilityLabel(role),
                     onTap: value.isAvailable(role)
-                        ? () => setState(() => _role = role)
+                        ? () {
+                            setState(() => _role = role);
+                            unawaited(_refreshPreviewSlot());
+                          }
                         : null,
                   ),
                   if (role != GoalRole.values.last) const SizedBox(height: 8),
                 ],
-                const SizedBox(height: 24),
+                const SizedBox(height: 18),
                 const Divider(height: 1),
-                const SizedBox(height: 20),
-                Text('Goal Details', style: AppTypography.sectionTitle),
+                const SizedBox(height: 16),
+                Text('Goal Details', style: InternalScreen.sectionHeading),
                 const SizedBox(height: 3),
                 const Text(
                   'Enter your goal name and target.',
                   style: AppTypography.secondary,
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 12),
                 TextFormField(
                   key: const Key('goal-name'),
                   controller: _nameController,
@@ -124,7 +161,7 @@ final class _GoalCreateScreenState extends ConsumerState<GoalCreateScreen> {
                       ? 'Enter a Goal name.'
                       : null,
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(height: 14),
                 Text('Icon', style: AppTypography.cardTitle),
                 const SizedBox(height: 3),
                 const Text(
@@ -141,7 +178,7 @@ final class _GoalCreateScreenState extends ConsumerState<GoalCreateScreen> {
                   showSuggestion: _suggestion != null && !_iconManuallySelected,
                   onTap: _openIconPicker,
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(height: 14),
                 if (_role == GoalRole.dailyWeekly) ...<Widget>[
                   _TargetEditor(
                     key: const Key('goal-create-daily-target'),
@@ -150,7 +187,7 @@ final class _GoalCreateScreenState extends ConsumerState<GoalCreateScreen> {
                     value: _dailyTarget,
                     onChanged: (value) => setState(() => _dailyTarget = value),
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 12),
                 ],
                 if (_role == GoalRole.dailyWeekly ||
                     _role == GoalRole.weekly ||
@@ -163,7 +200,7 @@ final class _GoalCreateScreenState extends ConsumerState<GoalCreateScreen> {
                     onChanged: (value) => setState(() => _weeklyTarget = value),
                   ),
                 if (_role == GoalRole.weeklyMonthly) ...<Widget>[
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 12),
                   _TargetEditor(
                     key: const Key('goal-create-monthly-target'),
                     label: 'Monthly Target',
@@ -173,7 +210,9 @@ final class _GoalCreateScreenState extends ConsumerState<GoalCreateScreen> {
                         setState(() => _monthlyTarget = value),
                   ),
                 ],
-                const SizedBox(height: 24),
+                const SizedBox(height: 18),
+                _buildAssignedEventTypeSection(),
+                const SizedBox(height: 18),
                 const Text(
                   'A Goal is created only when you tap Save. You can change its '
                   'name and targets later from Edit Goal.',
@@ -185,6 +224,93 @@ final class _GoalCreateScreenState extends ConsumerState<GoalCreateScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildAssignedEventTypeSection() {
+    final slot = _previewSlot;
+    if (slot == null) {
+      return const SizedBox.shrink();
+    }
+    final stableKey = CanonicalGoalSlot.bySlot(slot).eventTypeStableKey;
+    final eventTypeState = ref.watch(eventTypeControllerProvider);
+    EventType? assignedType;
+    for (final candidate in eventTypeState.eventTypes) {
+      if (candidate.stableKey == stableKey) {
+        assignedType = candidate;
+        break;
+      }
+    }
+    final type = assignedType;
+    final preference = type == null
+        ? null
+        : eventTypeState.eventColors[type.stableKey] ??
+              PlannerEventColorDefaults.forEventType(type);
+    return Card(
+      key: const Key('goal-create-assigned-event-type'),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            const Text(
+              'Assigned Event Type',
+              style: InternalScreen.sectionHeading,
+            ),
+            const SizedBox(height: 6),
+            Row(
+              children: <Widget>[
+                CircleAvatar(
+                  radius: 12,
+                  backgroundColor: Color(
+                    preference?.accentArgb ?? AppTheme.rose.toARGB32(),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    type?.label ?? 'Loading…',
+                    style: AppTypography.cardTitle,
+                  ),
+                ),
+                TextButton(
+                  key: const Key('goal-create-edit-event-type'),
+                  onPressed: type == null
+                      ? null
+                      : () => unawaited(_editAssignedEventType(type.id)),
+                  child: const Text('Edit Event Type'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Events of this type contribute toward this Goal. '
+              'The assignment is fixed.',
+              style: AppTypography.secondary,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _editAssignedEventType(String eventTypeId) async {
+    // A plain Navigator push keeps this screen's draft (role, name, icon,
+    // targets, and predicted slot) alive while Edit Event Type is open.
+    await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) => EventTypeFormScreen.edit(
+          eventTypeId: eventTypeId,
+          fixedAssignmentLabel: _nameController.text.trim().isEmpty
+              ? 'this Goal'
+              : _nameController.text.trim(),
+        ),
+      ),
+    );
+    if (mounted) {
+      // The Event Type controller reloads on save, so the assignment preview
+      // (name/color) refreshes here without touching the Goal draft.
+      setState(() {});
+    }
   }
 
   Future<void> _save() async {
@@ -200,6 +326,24 @@ final class _GoalCreateScreenState extends ConsumerState<GoalCreateScreen> {
     }
     if (!capacity.isAvailable(_role)) {
       await _showCapacityWarning(context);
+      return;
+    }
+    final previewedSlot = _previewSlot;
+    final resolvedSlot = await ref
+        .read(goalRepositoryProvider)
+        .nextAvailableSlot(
+          profileId: ref.read(goalProfileIdProvider),
+          role: _role,
+        );
+    if (!mounted || _saving) {
+      return;
+    }
+    if (previewedSlot == null || resolvedSlot != previewedSlot) {
+      await _refreshPreviewSlot();
+      _showError(
+        'The available Goal slot changed. Review the assigned Event Type '
+        'and try again.',
+      );
       return;
     }
     final targets = GoalTargets(
@@ -221,6 +365,7 @@ final class _GoalCreateScreenState extends ConsumerState<GoalCreateScreen> {
             title: _nameController.text.trim(),
             targets: targets,
             iconId: _draftIconId,
+            expectedSlotIndex: previewedSlot,
           );
       ref.invalidate(activeGoalsProvider);
       ref.invalidate(goalCapacityProvider);
@@ -361,7 +506,7 @@ final class _RoleCard extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(9),
         child: Container(
-          constraints: const BoxConstraints(minHeight: 80),
+          constraints: const BoxConstraints(minHeight: 84),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
             color: AppTheme.surface,
@@ -375,10 +520,10 @@ final class _RoleCard extends StatelessWidget {
                     ? Icons.radio_button_checked
                     : Icons.radio_button_unchecked,
                 color: selected ? AppTheme.rose : Colors.white54,
-                size: 28,
+                size: 24,
               ),
               const SizedBox(width: 10),
-              Icon(_roleIcon(role), color: const Color(0xFF9EDCE3), size: 30),
+              Icon(_roleIcon(role), color: const Color(0xFF9EDCE3), size: 28),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -441,7 +586,7 @@ final class _TargetEditor extends StatelessWidget {
           children: <Widget>[
             Expanded(
               child: Container(
-                height: 50,
+                height: 48,
                 decoration: BoxDecoration(
                   color: AppTheme.surface,
                   borderRadius: BorderRadius.circular(9),
@@ -450,7 +595,10 @@ final class _TargetEditor extends StatelessWidget {
                 alignment: Alignment.center,
                 child: Text(
                   value?.toString() ?? '-',
-                  style: AppTypography.metricCompact,
+                  style: AppTypography.metricCompact.copyWith(
+                    fontSize: 20,
+                    height: 24 / 20,
+                  ),
                 ),
               ),
             ),

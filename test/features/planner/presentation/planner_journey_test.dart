@@ -6,6 +6,7 @@ import 'package:rmplanner/features/planner/data/drift_planner_repository.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 import 'package:rmplanner/features/planner/domain/planner_day.dart';
 import 'package:rmplanner/features/planner/domain/planner_task.dart';
+import 'package:rmplanner/features/planner/presentation/widgets/planner_event_report_status.dart';
 
 import '../../../support/test_dependencies.dart';
 
@@ -144,7 +145,9 @@ void main() {
       final timedEvent = tester.widget<Positioned>(
         find.byKey(const Key('planner-timed-event-event-timed')),
       );
-      expect(timedEvent.top, 480);
+      // Full civil-day canvas: 14:00 is minute-of-day 840, so
+      // the block top is 840 at the default hour height of 60.
+      expect(timedEvent.top, 840);
       expect(timedEvent.height, 60);
 
       await tester.tap(find.byKey(const Key('planner-create-button')));
@@ -235,7 +238,21 @@ void main() {
       await tester.tap(find.text('Day'));
       await tester.pumpAndSettle();
       expect(find.text('Awaiting fixture'), findsOneWidget);
-      expect(find.text('Unreported'), findsWidgets);
+      // Elapsed report-required Event with no saved status shows the locked
+      // Unreported [!] badge in its block, not a redundant text label.
+      final awaitingBlock = find.byKey(
+        const Key('planner-timed-event-event-awaiting'),
+      );
+      final awaitingBadge = find.descendant(
+        of: awaitingBlock,
+        matching: find.byType(PlannerEventStatusBadge),
+      );
+      expect(awaitingBadge, findsOneWidget);
+      // Unreported renders as the canonical amber exclamation icon.
+      expect(
+        tester.widget<PlannerEventStatusBadge>(awaitingBadge).kind,
+        PlannerReportStatusKind.unreported,
+      );
       expect(find.text('Cancelled fixture'), findsNothing);
 
       final taskRows = await database.select(database.plannerTasks).get();

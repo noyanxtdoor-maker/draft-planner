@@ -387,7 +387,7 @@ void main() {
       );
       // Manually scroll the viewport so it does not sit at the
       // initial current-time position.
-      final manualOffset = await _scrollBy(tester, 200);
+      final manualOffset = await _scrollBy(tester, 120);
       // Tap yesterday's date cell in the existing date strip.
       final yesterdayKey = Key('planner-day-${_yesterday.iso8601}');
       expect(
@@ -437,7 +437,7 @@ void main() {
       // 9:30, the visible range typically starts at 6:00, so a
       // 300 logical-pixel upward scroll moves the viewport into
       // the early morning.
-      final manualOffset = await _scrollBy(tester, 200);
+      final manualOffset = await _scrollBy(tester, 120);
       final manualHeight = _viewportHeight(tester);
       // Tap "Go to today".
       await tester.tap(find.byKey(const Key('planner-today-button')));
@@ -481,7 +481,7 @@ void main() {
         selected: _today,
         today: _today,
       );
-      final manualOffset = await _scrollBy(tester, 200);
+      final manualOffset = await _scrollBy(tester, 120);
       final manualHeight = _viewportHeight(tester);
       // Open the slide-down date picker.
       await tester.tap(find.byKey(const Key('planner-date-label')));
@@ -543,7 +543,7 @@ void main() {
           today: _today,
           currentTimeListenable: clock,
         );
-        final manualOffset = await _scrollBy(tester, 200);
+        final manualOffset = await _scrollBy(tester, 120);
         // Advance the clock by one minute; the ValueListenable
         // notifies the current-time indicator, which rebuilds a
         // small subtree but must not move the scroll position.
@@ -656,9 +656,9 @@ void main() {
         );
 
         for (final hourHeight in <double>[
-          PlannerZoomPolicy.minimumHourHeight,
+          PlannerZoomPolicy.compactHourHeight,
           PlannerZoomPolicy.normalHourHeight,
-          PlannerZoomPolicy.maximumHourHeight,
+          PlannerZoomPolicy.expandedHourHeight,
         ]) {
           await controller.saveSettings(
             baseline.copyWith(
@@ -680,9 +680,48 @@ void main() {
                 .height,
             closeTo(kPlannerTimelineBottomBoundaryExtent, 0.01),
           );
+          // PMG hidden-midnight model: the 12 AM top and bottom boundaries
+          // are hidden — the first visible hour line is 1 AM and the last
+          // visible hour line is 11 PM.
+          expect(
+            find.byKey(const Key('planner-full-hour-line-1')),
+            findsOneWidget,
+            reason: '1 AM must be the first visible hour line',
+          );
+          expect(
+            find.byKey(const Key('planner-full-hour-line-0')),
+            findsNothing,
+            reason: 'the top 12 AM boundary line is hidden',
+          );
+          expect(
+            find.byKey(const Key('planner-full-hour-line-23')),
+            findsOneWidget,
+            reason: '11 PM must be the last visible hour line',
+          );
           expect(
             find.byKey(const Key('planner-full-hour-line-24')),
-            findsOneWidget,
+            findsNothing,
+            reason: 'the bottom 12 AM boundary line is hidden',
+          );
+          // Midnight is the FINAL boundary of the displayed date: the
+          // timeline must never fabricate a 1 AM row for that same date.
+          expect(
+            find.byKey(const Key('planner-full-hour-line-25')),
+            findsNothing,
+            reason: 'no 1 AM row may follow the midnight boundary',
+          );
+          // No visible 12 AM label at the top or bottom; 11 PM is the last
+          // visible label (present in the center timeline and the read-only
+          // preview columns).
+          expect(
+            find.text('12 AM'),
+            findsNothing,
+            reason: 'the 12 AM boundaries are hidden',
+          );
+          expect(
+            find.text('11 PM'),
+            findsWidgets,
+            reason: '11 PM must be the last visible hour label',
           );
 
           scrollable.position.jumpTo(scrollable.position.maxScrollExtent);

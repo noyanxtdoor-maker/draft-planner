@@ -4,6 +4,8 @@ import 'package:rmplanner/features/planner/domain/planner_date.dart';
 import 'package:rmplanner/features/planner/domain/planner_day.dart';
 import 'package:rmplanner/features/planner/presentation/widgets/planner_event_block_content.dart';
 import 'package:rmplanner/features/planner/presentation/widgets/planner_event_block_layout_policy.dart';
+import 'package:rmplanner/features/planner/presentation/widgets/planner_interactive_day_pager.dart'
+    show PlannerCurrentTimeHorizontalGeometry;
 
 const _canvasKey = Key('backup-accent-golden-canvas');
 const _accentKey = Key('backup-accent-test-strip');
@@ -32,7 +34,8 @@ void main() {
     final surfaceSize = tester.getSize(find.byKey(_surfaceKey));
 
     expect(accentSize.width, PlannerEventBlockLayoutPolicy.eventAccentWidth);
-    expect(accentSize.width, inInclusiveRange(4.0, 5.0));
+    // Part 7 solid PMG card: the accent strip is a restrained 3 dp.
+    expect(accentSize.width, inInclusiveRange(2.5, 3.5));
     expect(painterSize, accentSize);
     expect(surfaceSize.width, greaterThan(accentSize.width));
     expect(surfaceSize.height, accentSize.height);
@@ -115,6 +118,105 @@ void main() {
     expect(find.byKey(const Key('backup-test-status')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets(
+    'R4-04 narrow Backup status content stays inside its local card width',
+    (tester) async {
+      await _pumpCanvas(
+        tester,
+        SizedBox(width: 44, child: _backupBlock(height: 80)),
+        height: 100,
+      );
+
+      final status = find.byKey(
+        const Key('planner-event-block-non-report-status'),
+      );
+      expect(status, findsOneWidget);
+      final statusRect = tester.getRect(status);
+      final surfaceRect = tester.getRect(find.byKey(_surfaceKey));
+      expect(statusRect.left, greaterThanOrEqualTo(surfaceRect.left));
+      expect(statusRect.right, lessThanOrEqualTo(surfaceRect.right));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'R5-02 constrained content matrix has no RenderFlex overflow at actual '
+    'one-through-six-lane widths',
+    (tester) async {
+      const viewportWidth = 360.0;
+      const eventAreaWidth =
+          viewportWidth -
+          PlannerCurrentTimeHorizontalGeometry.timeColumnWidth -
+          8;
+      const heights = <double>[45, 54, 80];
+      final event = _event(
+        id: 'r5-content-matrix',
+        title:
+            'Very long recurring Backup appointment title for constrained lanes',
+        endMinute: 720,
+        recurring: true,
+      );
+
+      for (var laneCount = 1; laneCount <= 6; laneCount += 1) {
+        final gap = laneCount > 1
+            ? PlannerEventBlockLayoutPolicy.eventLaneGap
+            : 0.0;
+        final laneWidth = (eventAreaWidth - gap * (laneCount - 1)) / laneCount;
+        for (final height in heights) {
+          final awaitingReport = laneCount.isEven;
+          await _pumpCanvas(
+            tester,
+            SizedBox(
+              key: Key('r5-card-$laneCount-$height'),
+              width: laneWidth,
+              height: height,
+              child: Material(
+                color: _surface,
+                clipBehavior: Clip.hardEdge,
+                child: _content(
+                  event: event,
+                  height: height,
+                  awaitingReport: awaitingReport,
+                  recurrenceKey: const Key('r5-content-recurrence'),
+                  statusKey: awaitingReport
+                      ? const Key('r5-content-report-status')
+                      : null,
+                ),
+              ),
+            ),
+            height: height + 16,
+          );
+
+          expect(
+            tester.getSize(find.byKey(Key('r5-card-$laneCount-$height'))).width,
+            closeTo(laneWidth, 0.001),
+          );
+          expect(
+            tester.takeException(),
+            isNull,
+            reason:
+                'laneCount=$laneCount width=$laneWidth height=$height '
+                'awaitingReport=$awaitingReport',
+          );
+          if (height == 80) {
+            expect(
+              find.byKey(const Key('r5-content-recurrence')),
+              findsOneWidget,
+            );
+            if (awaitingReport) {
+              expect(
+                find.byKey(const Key('r5-content-report-status')),
+                findsOneWidget,
+              );
+            } else {
+              expect(find.text('Backup'), findsOneWidget);
+            }
+          }
+        }
+      }
+    },
+  );
 
   _goldenTests();
 }
