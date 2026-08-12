@@ -262,6 +262,49 @@ const double kPlannerPagerTimeColumnWidth =
 const double kPlannerPagerCurrentTimeLabelToDotGap =
     PlannerCurrentTimeHorizontalGeometry.labelToDotGap;
 
+/// Horizontal rectangle math for a read-only preview Event block.
+///
+/// Preview-center parity contract (Event Layout Forensic Audit, verdict R9):
+/// the preview must paint the EXACT same rectangle as the centered timeline
+/// for the same canonical placement, viewport width, and time gutter, so a
+/// date that slides in as a preview never shifts/widens when it becomes
+/// centered. This is the single shared pure helper the preview renderer
+/// calls, which keeps the parity regression test on the REAL production path
+/// instead of a private inline copy.
+final class PlannerPagerEventHorizontalGeometry {
+  static ({double left, double width}) resolve({
+    required PlannerDisplayPlacement placement,
+    required double width,
+    required double timeColumnWidth,
+    required double laneGap,
+  }) {
+    // Parity correction: the preview must use the SAME content basis as the
+    // centered timeline (width - time gutter) with no preview-only inset.
+    final contentWidth = width - timeColumnWidth;
+    final columnGap = placement.columnCount > 1 ? laneGap : 0.0;
+    final splitWidth = placement.widthFactor != null;
+    final spanWidth = placement.spanCount != null;
+    final widthBasis = splitWidth && !spanWidth
+        ? contentWidth - columnGap
+        : contentWidth - columnGap * (placement.columnCount - 1);
+    final baseColumnWidth = widthBasis / placement.columnCount;
+    final blockWidth = spanWidth
+        ? baseColumnWidth * placement.spanCount! +
+              columnGap * (placement.spanCount! - 1)
+        : splitWidth
+        ? widthBasis * placement.widthFactor!
+        : baseColumnWidth;
+    final left = spanWidth
+        ? timeColumnWidth + placement.spanStart! * (baseColumnWidth + columnGap)
+        : splitWidth
+        ? timeColumnWidth +
+              (widthBasis * placement.offsetFactor!) +
+              (placement.column > 0 ? columnGap : 0)
+        : timeColumnWidth + placement.column * (blockWidth + columnGap);
+    return (left: left, width: blockWidth);
+  }
+}
+
 /// How far the final hour label (12 AM at a midnight end) sits above its
 /// line. The micro label is 18 dp tall, so 20 dp keeps the whole label
 /// inside the preview while the pager clip never cuts its descenders.
@@ -1247,7 +1290,6 @@ class _PagerPreviewColumnState extends State<_PagerPreviewColumn> {
     final visibleStart = kPlannerCivilDayStartMinute;
     final visibleEnd = kPlannerCivilDayEndMinute;
     final width = widget.width;
-    final contentWidth = width - kPlannerPagerTimeColumnWidth - 8.0;
     return SizedBox(
       width: width,
       height: slotCount * hourHeight,
@@ -1306,10 +1348,7 @@ class _PagerPreviewColumnState extends State<_PagerPreviewColumn> {
               },
             ),
           for (final placement in placements)
-            _positionedPreviewEvent(
-              placement: placement,
-              contentWidth: contentWidth,
-            ),
+            _positionedPreviewEvent(placement: placement, width: width),
         ],
       ),
     );
@@ -1317,7 +1356,7 @@ class _PagerPreviewColumnState extends State<_PagerPreviewColumn> {
 
   Widget _positionedPreviewEvent({
     required PlannerDisplayPlacement placement,
-    required double contentWidth,
+    required double width,
   }) {
     final event = placement.event;
     final start = event.startLocal!;
@@ -1370,33 +1409,14 @@ class _PagerPreviewColumnState extends State<_PagerPreviewColumn> {
             ),
             child: eventContent,
           );
-    final columnGap = (placement.columnCount > 1
-        ? PlannerEventBlockLayoutPolicy.eventLaneGap
-        : 0.0);
-    final splitWidth = placement.widthFactor != null;
-    final spanWidth = placement.spanCount != null;
-    final widthBasis = splitWidth && !spanWidth
-        ? contentWidth - columnGap
-        : contentWidth - columnGap * (placement.columnCount - 1);
-    final baseColumnWidth = widthBasis / placement.columnCount;
-    final blockWidth = spanWidth
-        ? baseColumnWidth * placement.spanCount! +
-              columnGap * (placement.spanCount! - 1)
-        : splitWidth
-        ? widthBasis * placement.widthFactor!
-        : baseColumnWidth;
-    final left = spanWidth
-        ? kPlannerPagerTimeColumnWidth +
-              5 +
-              placement.spanStart! * (baseColumnWidth + columnGap)
-        : splitWidth
-        ? kPlannerPagerTimeColumnWidth +
-              5 +
-              (widthBasis * placement.offsetFactor!) +
-              (placement.column > 0 ? columnGap : 0)
-        : kPlannerPagerTimeColumnWidth +
-              5 +
-              placement.column * (blockWidth + columnGap);
+    final horizontal = PlannerPagerEventHorizontalGeometry.resolve(
+      placement: placement,
+      width: width,
+      timeColumnWidth: kPlannerPagerTimeColumnWidth,
+      laneGap: PlannerEventBlockLayoutPolicy.eventLaneGap,
+    );
+    final left = horizontal.left;
+    final blockWidth = horizontal.width;
     return Positioned(
       key: Key('planner-pager-preview-event-${event.id}'),
       top: placement.top,
