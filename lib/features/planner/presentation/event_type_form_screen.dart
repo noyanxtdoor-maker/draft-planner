@@ -250,11 +250,29 @@ final class _EventTypeFormScreenState
   }
 
   Widget _buildColorField() {
+    final state = ref.read(eventTypeControllerProvider);
+    final type = _eventType;
+    final EventColorPreference currentPreference;
+    if (type != null) {
+      currentPreference =
+          state.eventColors[type.stableKey] ??
+          PlannerEventColorDefaults.forEventType(type);
+    } else {
+      // A brand-new custom Event Type has no saved preference yet: the draft
+      // accent is the only source, so the preview surface derives from it.
+      currentPreference = EventColorPreference(
+        accentArgb: _colorValue,
+        surfaceArgb: PlannerEventBlockColorPolicy.mutedSurfaceFromAccent(
+          Color(_colorValue),
+        ).toARGB32(),
+      );
+    }
     return EventTypeColorPanel(
       key: const Key('event-type-color-panel'),
       eventTypeLabel: _labelController.text.trim().isEmpty
           ? 'Event Type'
           : _labelController.text.trim(),
+      currentPreference: currentPreference,
       initialColor: Color(_colorValue),
       onColorChanged: (color) => setState(() => _colorValue = color.toARGB32()),
     );

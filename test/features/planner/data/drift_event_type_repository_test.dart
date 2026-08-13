@@ -540,6 +540,112 @@ void main() {
   );
 
   test(
+    'recommended accent with the exact old auto-derived light surface is '
+    'upgraded to its mapped dark partner on read',
+    () async {
+      // Dusty Rose is a Recommended palette member whose old generic
+      // derivation is #8D727E and whose locked dark partner is #58464E.
+      const accentArgb = 0xFFC98BA7;
+      const oldLegacyAutoSurface = 0xFF8D727E;
+      const darkPartner = 0xFF58464E;
+      await repository.saveEventColorPreference(
+        profileId: profileId,
+        eventTypeStableKey: 'custom:dark-repair-upgrade',
+        preference: const EventColorPreference(
+          accentArgb: accentArgb,
+          surfaceArgb: oldLegacyAutoSurface,
+        ),
+      );
+
+      final healed = await repository.readEventColorPreferences(
+        profileId: profileId,
+      );
+      expect(healed['custom:dark-repair-upgrade']?.accentArgb, accentArgb);
+      expect(
+        healed['custom:dark-repair-upgrade']?.surfaceArgb,
+        darkPartner,
+        reason: 'the exact old auto-generated light surface must upgrade to '
+            'the mapped dark partner',
+      );
+      expect(darkPartner, isNot(oldLegacyAutoSurface));
+
+      // The upgrade is persisted and idempotent.
+      final again = await repository.readEventColorPreferences(
+        profileId: profileId,
+      );
+      expect(again['custom:dark-repair-upgrade'], healed['custom:dark-repair-upgrade']);
+      final row = await (database.select(
+        database.plannerPreferences,
+      )..where((table) => table.profileId.equals(profileId))).getSingle();
+      expect(
+        EventColorPreferenceCodec.decode(
+          row.eventColorPreferencesJson,
+        )['custom:dark-repair-upgrade'],
+        healed['custom:dark-repair-upgrade'],
+      );
+    },
+  );
+
+  test(
+    'recommended accent with the mapped dark surface is preserved on read',
+    () async {
+      const accentArgb = 0xFFC98BA7;
+      const darkPartner = 0xFF58464E;
+      await repository.saveEventColorPreference(
+        profileId: profileId,
+        eventTypeStableKey: 'custom:dark-repair-preserve',
+        preference: const EventColorPreference(
+          accentArgb: accentArgb,
+          surfaceArgb: darkPartner,
+        ),
+      );
+
+      final read = await repository.readEventColorPreferences(
+        profileId: profileId,
+      );
+      expect(
+        read['custom:dark-repair-preserve'],
+        const EventColorPreference(
+          accentArgb: accentArgb,
+          surfaceArgb: darkPartner,
+        ),
+        reason: 'an already-correct dark pair must never be rewritten',
+      );
+    },
+  );
+
+  test(
+    'recommended accent with an arbitrary manual surface is preserved on '
+    'read',
+    () async {
+      // A deliberately non-derived "manual" surface that is neither the old
+      // auto derivation nor the mapped dark partner.
+      const accentArgb = 0xFFC98BA7;
+      const manualSurface = 0xFF112233;
+      await repository.saveEventColorPreference(
+        profileId: profileId,
+        eventTypeStableKey: 'custom:dark-repair-manual',
+        preference: const EventColorPreference(
+          accentArgb: accentArgb,
+          surfaceArgb: manualSurface,
+        ),
+      );
+
+      final read = await repository.readEventColorPreferences(
+        profileId: profileId,
+      );
+      expect(
+        read['custom:dark-repair-manual'],
+        const EventColorPreference(
+          accentArgb: accentArgb,
+          surfaceArgb: manualSurface,
+        ),
+        reason: 'a manual/curated surface must never be overwritten',
+      );
+    },
+  );
+
+  test(
     'legacy saved accents converge to the PMG palette while custom stays',
     () async {
       // An older pipeline persisted the pre-PMG accent (dark-muted Slate Blue
@@ -585,14 +691,25 @@ void main() {
       final healed = await repository.readEventColorPreferences(
         profileId: profileId,
       );
-      expect(healed[SystemEventTypeKeys.budgetReview]?.accentArgb, 0xFFBFA384);
+      // The migration converges the accents to the PMG palette, and the
+      // recommended repair upgrades the migrated exact old auto-derived light
+      // surfaces to the locked dark defaults (Budget Review -> #575048,
+      // Ministering Visit -> #565448).
       expect(
-        healed[SystemEventTypeKeys.budgetReview]?.surfaceArgb,
-        EventColorMath.lightMutedSurfaceArgb(0xFFBFA384),
+        healed[SystemEventTypeKeys.budgetReview],
+        const EventColorPreference(
+          accentArgb: 0xFFBFA384,
+          surfaceArgb: 0xFF575048,
+        ),
+        reason: 'Budget Review must converge to its dark locked default',
       );
       expect(
-        healed[SystemEventTypeKeys.meaningfulConnection]?.accentArgb,
-        0xFFB0A971,
+        healed[SystemEventTypeKeys.meaningfulConnection],
+        const EventColorPreference(
+          accentArgb: 0xFFB0A971,
+          surfaceArgb: 0xFF565448,
+        ),
+        reason: 'Ministering Visit must converge to its dark locked default',
       );
       // Job converges to the exact locked pair (accent AND explicit surface).
       expect(
@@ -604,14 +721,11 @@ void main() {
       );
       expect(healed[SystemEventTypeKeys.scriptureStudy], custom);
 
-      // The remap is persisted and idempotent.
+      // The remap and upgrade are persisted and idempotent.
       final again = await repository.readEventColorPreferences(
         profileId: profileId,
       );
-      expect(
-        again[SystemEventTypeKeys.budgetReview],
-        healed[SystemEventTypeKeys.budgetReview],
-      );
+      expect(again, healed);
     },
   );
 

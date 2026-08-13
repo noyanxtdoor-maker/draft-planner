@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:rmplanner/features/planner/domain/event_color_math.dart';
+import 'package:rmplanner/features/planner/domain/recommended_event_colors.dart';
 
 /// Adaptive layout strategy for Calendar Event blocks on the Day timeline.
 ///
@@ -307,25 +308,38 @@ enum Density { veryShort, short, medium, tall }
 /// indicator — those status overlays do not reduce the opacity of
 /// the block body itself.
 abstract final class PlannerEventBlockColorPolicy {
+  /// Resolves the automatic block surface for an accent: an exact
+  /// Recommended Color accent uses its locked dark partner; every other
+  /// accent uses the generic light-muted derivation.  Shared by the
+  /// no-preference render fallback, the accent-change pipeline, and the
+  /// repository repair so the same accent always produces the same surface.
+  static int _automaticSurfaceArgb(int accentArgb) {
+    return recommendedSurfaceArgbForAccent(accentArgb) ??
+        EventColorMath.lightMutedSurfaceArgb(accentArgb);
+  }
+
   /// Returns the fully-opaque surface color derived from [base].
   ///
   /// Light-muted bases (the approved palette) keep their hue family with only
   /// a restrained ~10% lightness reduction (the 8-12% perceptual darkening
   /// band from Part 14) so the block never turns dark or muddy.  Dark custom
   /// bases are lifted toward a readable light-muted surface, keeping the
-  /// legacy behavior for non-light accents.
+  /// legacy behavior for non-light accents.  A base that is an exact
+  /// Recommended Color accent resolves its locked dark partner instead (the
+  /// dark-surface correction), so the no-preference fallback matches the
+  /// saved-preference path exactly.
   static Color surfaceColor(Color base) {
     final hsl = HSLColor.fromColor(base);
     if (hsl.lightness >= 0.45) {
-      return Color(EventColorMath.lightMutedSurfaceArgb(base.toARGB32()));
+      return Color(_automaticSurfaceArgb(base.toARGB32()));
     }
     final lightness = (hsl.lightness * 0.6 + 0.32).clamp(0.0, 0.85);
     final saturation = (hsl.saturation * 0.85 + 0.1).clamp(0.0, 1.0);
     return hsl.withLightness(lightness).withSaturation(saturation).toColor();
   }
 
-  /// Returns the restrained light-muted block surface derived from a
-  /// canonical Event Type accent color.
+  /// Returns the restrained block surface derived from a canonical Event
+  /// Type accent color.
   ///
   /// The Planner Correction Pack locks the color pipeline so the block
   /// surface always follows the current canonical Event Type color: when a
@@ -334,16 +348,21 @@ abstract final class PlannerEventBlockColorPolicy {
   /// can linger.  The derivation keeps the accent hue and applies only the
   /// approved 8-12% perceptual darkening — it never blends toward
   /// near-black, never applies the old 40-60% dark blend, and never turns a
-  /// light-muted color into a dark muddy card (Part 14 lock).
+  /// light-muted color into a dark muddy card (Part 14 lock).  An exact
+  /// Recommended Color accent resolves its locked dark partner instead of
+  /// the generic light-muted derivation (dark-surface correction).
   static Color mutedSurfaceFromAccent(Color accent) {
-    return Color(EventColorMath.lightMutedSurfaceArgb(accent.toARGB32()));
+    return Color(_automaticSurfaceArgb(accent.toARGB32()));
   }
 
   /// Resolves the persisted block surface for an accent change.
   ///
   /// The surface follows the canonical accent whenever the accent actually
   /// changes (so a stale old-color surface can never linger), but an
-  /// unchanged accent keeps its existing curated surface untouched.
+  /// unchanged accent keeps its existing curated surface untouched.  A
+  /// changed accent that is an exact Recommended Color member resolves its
+  /// locked dark partner; any other changed accent keeps the generic
+  /// light-muted derivation.
   static int resolvedSurfaceArgb({
     required int accentArgb,
     required int currentAccentArgb,
@@ -352,7 +371,7 @@ abstract final class PlannerEventBlockColorPolicy {
     if (accentArgb == currentAccentArgb) {
       return currentSurfaceArgb;
     }
-    return mutedSurfaceFromAccent(Color(accentArgb)).toARGB32();
+    return _automaticSurfaceArgb(accentArgb);
   }
 
   /// Returns the border color used to outline the block.

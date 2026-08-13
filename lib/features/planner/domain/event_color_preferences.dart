@@ -274,11 +274,11 @@ abstract final class PlannerEventColorDefaults {
   );
   static const EventColorPreference budgetReview = EventColorPreference(
     accentArgb: 0xFFBFA384,
-    surfaceArgb: 0xFF8A7E72,
+    surfaceArgb: 0xFF575048,
   );
   static const EventColorPreference ministeringVisit = EventColorPreference(
     accentArgb: 0xFFB0A971,
-    surfaceArgb: 0xFF7D7B6A,
+    surfaceArgb: 0xFF565448,
   );
   static const EventColorPreference contact = EventColorPreference(
     accentArgb: 0xFF76B181,

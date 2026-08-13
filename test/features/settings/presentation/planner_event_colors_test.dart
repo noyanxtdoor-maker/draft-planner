@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rmplanner/core/diagnostics/sanitized_diagnostics.dart';
 import 'package:rmplanner/core/platform/app_environment.dart';
+import 'package:rmplanner/features/planner/domain/event_color_preferences.dart';
 import 'package:rmplanner/features/planner/presentation/widgets/planner_event_color_preview.dart';
 
 import '../../../support/test_dependencies.dart';
@@ -249,5 +250,69 @@ void main() {
     tester.platformDispatcher.textScaleFactorTestValue = 1.3;
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Recommended Colors Apply persists the exact mapped dark '
+      'surface', (tester) async {
+    tester.view.physicalSize = const Size(393, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    final database = openMemoryDatabase();
+    addTearDown(database.close);
+    final privacy = TestPrivacyDependencies(database: database);
+    final startup = buildTestRepository(
+      database: database,
+      privacyGate: privacy.gate,
+    );
+    await startup.completeOnboarding();
+
+    await tester.pumpWidget(
+      privacy.buildApp(
+        environment: const AppEnvironment(
+          name: AppEnvironmentName.production,
+          label: 'PRODUCTION',
+        ),
+        diagnostics: SanitizedDiagnostics(),
+        startupRepository: startup,
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('More'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('more-settings')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('settings-colors')));
+    await tester.pumpAndSettle();
+
+    // Open the Recommended Colors dialog for Job Application and pick Dusty
+    // Rose (a palette member) explicitly, then Apply.
+    await tester.tap(
+      find.byKey(const Key('event-color-recommended-job_application')),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('recommended-event-colors-dialog')),
+      findsOneWidget,
+    );
+    await tester.tap(
+      find.byKey(const Key('recommended-event-color-Dusty Rose')),
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('recommended-event-colors-apply')));
+    await tester.pumpAndSettle();
+
+    final row =
+        await database.select(database.plannerPreferences).getSingle();
+    final saved = EventColorPreferenceCodec.decode(
+      row.eventColorPreferencesJson,
+    )['job_application'];
+    expect(saved?.accentArgb, 0xFFC98BA7);
+    // Dusty Rose's locked dark partner (correction pack 03).
+    expect(
+      saved?.surfaceArgb,
+      0xFF58464E,
+      reason: 'a recommended Apply must persist the mapped dark surface',
+    );
   });
 }

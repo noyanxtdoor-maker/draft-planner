@@ -7,6 +7,7 @@ import 'package:rmplanner/features/planner/domain/event_color_preferences.dart';
 import 'package:rmplanner/features/planner/domain/event_type.dart';
 import 'package:rmplanner/features/planner/domain/planner_settings.dart';
 import 'package:rmplanner/features/planner/domain/planner_view.dart';
+import 'package:rmplanner/features/planner/domain/recommended_event_colors.dart';
 
 final class DriftEventTypeRepository implements EventTypeRepository {
   const DriftEventTypeRepository({required this.database, required this.clock});
@@ -527,16 +528,22 @@ final class DriftEventTypeRepository implements EventTypeRepository {
   }
 
   /// Self-healing repair for surfaces persisted before the light-muted
-  /// palette pipeline (Part 14 lock).
+  /// palette pipeline (Part 14 lock) plus the targeted Recommended Color
+  /// legacy repair (dark-surface correction).
   ///
   /// The Event block surface is always derived from the saved accent through
-  /// [EventColorMath.lightMutedSurfaceArgb] (the restrained 8-12% perceptual
-  /// darkening band) and is never independently user-editable, so any stored
-  /// surface that does not equal that derivation is a stale legacy value from
-  /// the old dark-blend pipeline. Recompute each surface from its saved
-  /// accent and persist the repaired document. Accents and group colors are
-  /// never touched, and the repair is idempotent (a repaired pair no longer
-  /// differs from its derivation).
+  /// the shared automatic derivation and is never independently
+  /// user-editable, so any stored surface that does not equal that derivation
+  /// is a stale legacy value from the old dark-blend pipeline. Recompute each
+  /// surface from its saved accent and persist the repaired document. Accents
+  /// and group colors are never touched, and the repair is idempotent (a
+  /// repaired pair no longer differs from its derivation).
+  ///
+  /// For a Recommended Color accent the automatic derivation is its locked
+  /// dark partner: a surface that equals the exact OLD generic light-muted
+  /// derivation is upgraded to the dark partner (so current saved
+  /// recommended auto-surfaces become dark), while an already-mapped-dark or
+  /// explicit/manual/curated surface is preserved verbatim.
   ///
   /// The derivation clamps lightness to [0.30, 0.80], which for a dark custom
   /// accent yields the same lifted surface the picker persists today
@@ -556,6 +563,31 @@ final class DriftEventTypeRepository implements EventTypeRepository {
           PlannerEventColorDefaults.pmgStableKeyDefaults[entry.key];
       if (lockedDefault != null &&
           entry.value.surfaceArgb == lockedDefault.surfaceArgb) {
+        repaired[entry.key] = entry.value;
+        continue;
+      }
+      // Dark-surface correction, targeted legacy repair: a Recommended Color
+      // accent has two legitimate stored surfaces — the exact OLD generic
+      // auto-derived light surface (upgraded to the mapped dark partner) and
+      // every other value (mapped dark, manual, or curated — preserved).
+      // The owner wants ALL currently saved recommended auto-surfaces to
+      // appear dark, while arbitrary manual surfaces must never be
+      // overwritten.  Non-recommended accents keep the generic repair below.
+      final recommendedDarkSurfaceArgb =
+          recommendedSurfaceArgbForAccent(entry.value.accentArgb);
+      if (recommendedDarkSurfaceArgb != null) {
+        final oldLegacyAutoSurfaceArgb = EventColorMath.lightMutedSurfaceArgb(
+          entry.value.accentArgb,
+        );
+        if (entry.value.surfaceArgb == oldLegacyAutoSurfaceArgb) {
+          repaired[entry.key] = EventColorPreference(
+            accentArgb: entry.value.accentArgb,
+            surfaceArgb: recommendedDarkSurfaceArgb,
+          );
+          changed = true;
+          continue;
+        }
+        // Already-mapped-dark or explicit/manual/curated surface: preserve.
         repaired[entry.key] = entry.value;
         continue;
       }

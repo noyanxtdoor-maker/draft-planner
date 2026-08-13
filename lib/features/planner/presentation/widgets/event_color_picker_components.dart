@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:rmplanner/app/theme/app_theme.dart';
+import 'package:rmplanner/app/theme/internal_screen.dart';
 import 'package:rmplanner/features/planner/domain/event_color_math.dart';
+import 'package:rmplanner/features/planner/domain/event_color_preferences.dart';
+import 'package:rmplanner/features/planner/domain/event_type.dart';
 import 'package:rmplanner/features/planner/domain/recommended_event_colors.dart';
+import 'package:rmplanner/features/planner/presentation/widgets/planner_event_block_layout_policy.dart';
+import 'package:rmplanner/features/planner/presentation/widgets/planner_event_color_preview.dart';
 import 'package:rmplanner/features/settings/presentation/event_color_picker_dialog.dart';
 
 /// Opens the Next Transfer Recommended Colors modal (exactly 15 muted
@@ -39,7 +44,7 @@ Future<Color?> showCustomHexColorDialog(
 /// label, so it works on narrow rows without text overflow.
 ///
 /// Used by the Event Colors Settings rows.  The Edit Event Type screen uses
-/// the unified tappable Color row instead (see [EventTypeColorPanel]).
+/// the unified inline color panel instead (see [EventTypeColorPanel]).
 final class RecommendedEventColorsAction extends StatelessWidget {
   const RecommendedEventColorsAction({
     required this.onPressed,
@@ -80,75 +85,143 @@ final class RecommendedEventColorsAction extends StatelessWidget {
 ///
 /// One open section on the normal screen background:
 ///
-///   Color                                      ●
+///   Event Block Color
+///   [ live event-block preview ]
+///
+///   Recommended Colors
+///   [ inline 15-swatch palette ]
+///
 ///           🎨 Color Palette      ⬡ Custom Hex
 ///
-/// - the whole Color row (label + empty middle + current swatch) is tappable
-///   and opens the Next Transfer Recommended Colors dialog;
+/// - a live event-block preview renders the current draft through the same
+///   accent -> surface pipeline as the Planner block;
+/// - the inline Recommended Colors grid replaces the recommended modal on
+///   this screen: tapping a swatch immediately updates the draft accent;
 /// - [Color Palette] and [Custom Hex] are compact inline icon/text actions
 ///   with no outline or card shape;
-/// - there is no standalone sparkle control in this section.
+/// - there is no standalone sparkle control and no separate surface picker
+///   in this section.
 ///
 /// Every action reports through [onColorChanged] as a draft; the caller
 /// persists only when its own Save contract runs.
 final class EventTypeColorPanel extends StatelessWidget {
   const EventTypeColorPanel({
     required this.eventTypeLabel,
+    required this.currentPreference,
     required this.initialColor,
     required this.onColorChanged,
     super.key,
   });
 
   final String eventTypeLabel;
+
+  /// The saved/fallback (accent + surface) pair before this edit session.
+  final EventColorPreference currentPreference;
+
+  /// The current draft accent (0xAARRGGBB).
   final Color initialColor;
   final ValueChanged<Color> onColorChanged;
 
-  static const String rowLabel = 'Choose from Next Transfer Recommended Colors';
+  /// The preview pair: an unchanged accent preserves the curated stored
+  /// surface; a changed accent derives the surface through the existing
+  /// policy so the preview can never show a stale old-color surface.
+  EventColorPreference get _previewPreference => EventColorPreference(
+    accentArgb: initialColor.toARGB32(),
+    surfaceArgb: PlannerEventBlockColorPolicy.resolvedSurfaceArgb(
+      accentArgb: initialColor.toARGB32(),
+      currentAccentArgb: currentPreference.accentArgb,
+      currentSurfaceArgb: currentPreference.surfaceArgb,
+    ),
+  );
+
+  /// A deterministic preview Event Type. Only [EventType.label] is consumed
+  /// by [PlannerEventColorPreview], so a synthesized type is sufficient.
+  EventType get _previewEventType => EventType(
+    id: 'event-block-color-preview',
+    stableKey: 'event-block-color-preview',
+    label: eventTypeLabel,
+    icon: EventTypeIcon.calendar,
+    colorValue: initialColor.toARGB32(),
+    isSystem: false,
+    isArchived: false,
+    reportRequiredDefault: false,
+    defaultDurationMinutes: 60,
+    position: 0,
+    mappingVersion: 1,
+    indicatorKeys: const <String>{},
+  );
+
+  /// Nearest palette swatch to the draft accent (same generous OKLab bound
+  /// as the recommended modal), or none for far-off custom colors.
+  int? get _selectedSwatchIndex {
+    var best = 0;
+    var bestDistance = double.infinity;
+    for (
+      var index = 0;
+      index < RecommendedEventColorPalette.colors.length;
+      index += 1
+    ) {
+      final distance = EventColorMath.okLabDistance(
+        RecommendedEventColorPalette.colors[index].argb,
+        initialColor.toARGB32(),
+      );
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        best = index;
+      }
+    }
+    return bestDistance < 12 ? best : null;
+  }
 
   @override
   Widget build(BuildContext context) {
+    final selected = _selectedSwatchIndex;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        // The tappable Color row.  Transparent/open on the screen background;
-        // a minimum 48 dp hit height is preserved by the InkWell's padding.
-        Semantics(
-          button: true,
-          label: rowLabel,
-          child: InkWell(
-            key: const Key('event-type-color-row'),
-            onTap: () => _openRecommended(context),
-            borderRadius: BorderRadius.circular(12),
-            child: Padding(
-              // 12 + 12 + 24 (swatch/text row) = a 48 dp hit height for the
-              // whole tappable row while the open section stays transparent.
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Row(
-                children: <Widget>[
-                  const Expanded(
-                    child: Text(
-                      'Color',
-                      style: TextStyle(
-                        fontFamily: 'Roboto',
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  Semantics(
-                    label:
-                        'Current color '
-                        '#${(initialColor.toARGB32() & 0x00FFFFFF).toRadixString(16).padLeft(6, '0').toUpperCase()}',
-                    child: CircleAvatar(
-                      key: const Key('event-type-color-swatch'),
-                      radius: 12,
-                      backgroundColor: initialColor,
-                    ),
-                  ),
-                ],
+        Text(
+          'Event Block Color',
+          key: const Key('event-block-color-title'),
+          style: InternalScreen.sectionHeading,
+        ),
+        const SizedBox(height: 8),
+        PlannerEventColorPreview(
+          key: const Key('event-block-color-preview'),
+          eventType: _previewEventType,
+          preference: _previewPreference,
+        ),
+        const SizedBox(height: 12),
+        Text(
+          'Recommended Colors',
+          key: const Key('recommended-colors-title'),
+          style: InternalScreen.sectionHeading,
+        ),
+        const SizedBox(height: 8),
+        // The single inline Recommended Colors group. The recommended modal
+        // is retired from this screen; Settings -> Colors keeps the modal.
+        Wrap(
+          key: const Key('recommended-colors-inline'),
+          spacing: 10,
+          runSpacing: 10,
+          alignment: WrapAlignment.start,
+          children: <Widget>[
+            for (
+              var index = 0;
+              index < RecommendedEventColorPalette.colors.length;
+              index += 1
+            )
+              _RecommendedColorSwatch(
+                key: Key(
+                  'recommended-event-color-'
+                  '${RecommendedEventColorPalette.colors[index].name}',
+                ),
+                color: RecommendedEventColorPalette.colors[index],
+                selected: selected == index,
+                onTap: () => onColorChanged(
+                  Color(RecommendedEventColorPalette.colors[index].argb),
+                ),
               ),
-            ),
-          ),
+          ],
         ),
         const SizedBox(height: 4),
         // Compact inline secondary actions (no boxes).  48 dp hit targets
@@ -190,16 +263,6 @@ final class EventTypeColorPanel extends StatelessWidget {
     }
   }
 
-  Future<void> _openRecommended(BuildContext context) async {
-    final chosen = await showRecommendedEventColorsDialog(
-      context,
-      initialColor: initialColor,
-    );
-    if (chosen != null) {
-      onColorChanged(chosen);
-    }
-  }
-
   Future<void> _openCustomHex(BuildContext context) async {
     final chosen = await showCustomHexColorDialog(
       context,
@@ -208,6 +271,52 @@ final class EventTypeColorPanel extends StatelessWidget {
     if (chosen != null) {
       onColorChanged(chosen);
     }
+  }
+}
+
+/// A single circular Recommended Colors swatch with selected-state UI,
+/// shared by the inline Edit Event Type palette and the recommended modal.
+final class _RecommendedColorSwatch extends StatelessWidget {
+  const _RecommendedColorSwatch({
+    required this.color,
+    required this.selected,
+    required this.onTap,
+    super.key,
+  });
+
+  final RecommendedEventColor color;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final semanticsLabel = '${color.name} ${color.hex}';
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: semanticsLabel,
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: Color(color.argb),
+            border: Border.all(
+              color: selected ? Colors.white : Colors.white24,
+              width: selected ? 2.5 : 1,
+            ),
+          ),
+          child: selected
+              ? const Center(
+                  child: Icon(Icons.check, size: 20, color: Colors.white),
+                )
+              : null,
+        ),
+      ),
+    );
   }
 }
 
@@ -414,34 +523,11 @@ final class _RecommendedEventColorsDialogState
       return const SizedBox(width: 44, height: 44);
     }
     final color = RecommendedEventColorPalette.colors[index];
-    final selected = _selected == index;
-    final semanticsLabel = '${color.name} ${color.hex}';
-    return Semantics(
-      button: true,
-      selected: selected,
-      label: semanticsLabel,
-      child: InkWell(
-        key: Key('recommended-event-color-${color.name}'),
-        onTap: () => setState(() => _selected = index),
-        customBorder: const CircleBorder(),
-        child: Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: Color(color.argb),
-            border: Border.all(
-              color: selected ? Colors.white : Colors.white24,
-              width: selected ? 2.5 : 1,
-            ),
-          ),
-          child: selected
-              ? const Center(
-                  child: Icon(Icons.check, size: 20, color: Colors.white),
-                )
-              : null,
-        ),
-      ),
+    return _RecommendedColorSwatch(
+      key: Key('recommended-event-color-${color.name}'),
+      color: color,
+      selected: _selected == index,
+      onTap: () => setState(() => _selected = index),
     );
   }
 }
