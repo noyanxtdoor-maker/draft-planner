@@ -684,9 +684,77 @@ final class DriftEventTypeRepository implements EventTypeRepository {
   Future<void> _ensureSystemTypes(String profileId) async {
     await database.transaction(() async {
       await _insertSystemTypes(profileId);
+      await _repairExactCrossedBudgetAndMinisteringLabels(profileId);
       await _migrateUntouchedMinisteringVisitLabel(profileId);
+      await _migrateUntouchedWorkLabelToShopping(profileId);
       await _reconcileLockedWliSeedColors(profileId);
     });
+  }
+
+  /// Repairs the exact two-row label crossover emitted by one legacy build.
+  ///
+  /// Both canonical system identities and both observed labels must match in
+  /// the same transaction. A partial match is treated as an intentional rename
+  /// and left untouched. Only the two labels and their update timestamps move;
+  /// stable IDs, mappings, Event snapshots, colors, positions, and every other
+  /// stored field remain unchanged.
+  Future<void> _repairExactCrossedBudgetAndMinisteringLabels(
+    String profileId,
+  ) async {
+    final rows =
+        await (database.select(database.activityTypes)..where(
+              (table) =>
+                  table.profileId.equals(profileId) &
+                  table.id.isIn(<String>[
+                    SystemEventTypeIds.budgetReview,
+                    SystemEventTypeIds.meaningfulConnection,
+                  ]),
+            ))
+            .get();
+    ActivityTypeRow? budget;
+    ActivityTypeRow? ministering;
+    for (final row in rows) {
+      switch (row.id) {
+        case SystemEventTypeIds.budgetReview:
+          budget = row;
+        case SystemEventTypeIds.meaningfulConnection:
+          ministering = row;
+      }
+    }
+    if (budget == null ||
+        ministering == null ||
+        !budget.isSystem ||
+        !ministering.isSystem ||
+        budget.stableKey != SystemEventTypeKeys.budgetReview ||
+        ministering.stableKey != SystemEventTypeKeys.meaningfulConnection ||
+        budget.label != 'Ministering' ||
+        ministering.label != 'Budget Review') {
+      return;
+    }
+
+    final now = clock.nowUtc();
+    await (database.update(database.activityTypes)..where(
+          (table) =>
+              table.profileId.equals(profileId) &
+              table.id.equals(SystemEventTypeIds.meaningfulConnection),
+        ))
+        .write(
+          ActivityTypesCompanion(
+            label: const Value<String>('Ministering Visit'),
+            updatedAtUtc: Value<DateTime>(now),
+          ),
+        );
+    await (database.update(database.activityTypes)..where(
+          (table) =>
+              table.profileId.equals(profileId) &
+              table.id.equals(SystemEventTypeIds.budgetReview),
+        ))
+        .write(
+          ActivityTypesCompanion(
+            label: const Value<String>('Budget Review'),
+            updatedAtUtc: Value<DateTime>(now),
+          ),
+        );
   }
 
   /// Deterministic one-time seed reconciliation for system Event Types.
@@ -751,6 +819,34 @@ final class DriftEventTypeRepository implements EventTypeRepository {
         .write(
           ActivityTypesCompanion(
             label: const Value<String>('Ministering Visit'),
+            updatedAtUtc: Value<DateTime>(clock.nowUtc()),
+          ),
+        );
+  }
+
+  /// Renames only the untouched built-in Work identity to its user-facing
+  /// Shopping label. Custom labels and noncanonical rows are preserved.
+  Future<void> _migrateUntouchedWorkLabelToShopping(String profileId) async {
+    final row =
+        await (database.select(database.activityTypes)..where(
+              (table) =>
+                  table.profileId.equals(profileId) &
+                  table.id.equals(SystemEventTypeIds.work),
+            ))
+            .getSingleOrNull();
+    if (row == null ||
+        !row.isSystem ||
+        row.stableKey != SystemEventTypeKeys.work ||
+        row.label != 'Work') {
+      return;
+    }
+    await (database.update(database.activityTypes)..where(
+          (table) =>
+              table.profileId.equals(profileId) & table.id.equals(row.id),
+        ))
+        .write(
+          ActivityTypesCompanion(
+            label: const Value<String>('Shopping'),
             updatedAtUtc: Value<DateTime>(clock.nowUtc()),
           ),
         );
@@ -1016,12 +1112,12 @@ const _systemSeeds = <_SystemEventTypeSeed>[
     colorValue: 0xFF26A69A,
     position: 13,
   ),
-  // P-01D: fresh installs seed Work with the muted steel/slate-blue pair,
-  // clearly distinct from Service (which keeps its approved icy family).
+  // The stable Work identity is presented as Shopping and keeps the muted
+  // steel/slate-blue pair, distinct from Service's approved icy family.
   _SystemEventTypeSeed(
     id: SystemEventTypeIds.work,
     key: SystemEventTypeKeys.work,
-    label: 'Work',
+    label: 'Shopping',
     icon: EventTypeIcon.work,
     colorValue: 0xFFA9BEC9,
     position: 14,

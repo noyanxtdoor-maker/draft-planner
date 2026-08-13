@@ -19,6 +19,7 @@ import 'package:rmplanner/features/indicators/data/drift_indicator_repository.da
 import 'package:rmplanner/features/planner/application/calendar_event_providers.dart';
 import 'package:rmplanner/features/planner/application/calendar_event_repository.dart';
 import 'package:rmplanner/features/planner/application/event_type_providers.dart';
+import 'package:rmplanner/features/planner/application/event_type_repository.dart';
 import 'package:rmplanner/features/planner/application/outcome_reporting_providers.dart';
 import 'package:rmplanner/features/planner/application/planner_providers.dart';
 import 'package:rmplanner/features/planner/application/planner_repository.dart';
@@ -37,6 +38,7 @@ import 'package:rmplanner/features/privacy/application/privacy_services.dart';
 import 'package:rmplanner/features/privacy/data/drift_privacy_repository.dart';
 import 'package:rmplanner/features/privacy/domain/permission_summary.dart';
 import 'package:rmplanner/features/settings/application/start_of_week_providers.dart';
+import 'package:rmplanner/features/settings/application/start_of_week_repository.dart';
 import 'package:rmplanner/features/settings/data/drift_start_of_week_repository.dart';
 import 'package:rmplanner/features/startup/application/startup_providers.dart';
 import 'package:rmplanner/features/startup/application/startup_repository.dart';
@@ -254,6 +256,8 @@ final class TestPrivacyDependencies {
     ),
     IdentifierSource? plannerIdentifierSource,
     WeeklyPlanningRepository? weeklyPlanningRepository,
+    StartOfWeekRepository? startOfWeekRepository,
+    EventTypeRepository? eventTypeRepository,
     ContactRepository? contactRepository,
   }) {
     final resolvedContactRepository =
@@ -271,10 +275,12 @@ final class TestPrivacyDependencies {
       database: repository.database,
       clock: FixedClock(DateTime.utc(2026, 7, 27, 12)),
     );
-    final eventTypeRepository = DriftEventTypeRepository(
-      database: repository.database,
-      clock: FixedClock(DateTime.utc(2026, 7, 27, 12)),
-    );
+    final resolvedEventTypeRepository =
+        eventTypeRepository ??
+        DriftEventTypeRepository(
+          database: repository.database,
+          clock: FixedClock(DateTime.utc(2026, 7, 27, 12)),
+        );
     final resolvedCalendarEventRepository =
         calendarEventRepository ??
         DriftCalendarEventRepository(
@@ -311,10 +317,12 @@ final class TestPrivacyDependencies {
       clock: FixedClock(DateTime.utc(2026, 7, 27, 12)),
       identifiers: const UuidIdentifierSource(),
     );
-    final startOfWeekRepository = DriftStartOfWeekRepository(
-      database: repository.database,
-      clock: FixedClock(DateTime.utc(2026, 7, 27, 12)),
-    );
+    final resolvedStartOfWeekRepository =
+        startOfWeekRepository ??
+        DriftStartOfWeekRepository(
+          database: repository.database,
+          clock: FixedClock(DateTime.utc(2026, 7, 27, 12)),
+        );
     final resolvedWeeklyPlanningRepository =
         weeklyPlanningRepository ??
         DriftWeeklyPlanningRepository(
@@ -341,7 +349,9 @@ final class TestPrivacyDependencies {
         calendarEventRepositoryProvider.overrideWithValue(
           resolvedCalendarEventRepository,
         ),
-        eventTypeRepositoryProvider.overrideWithValue(eventTypeRepository),
+        eventTypeRepositoryProvider.overrideWithValue(
+          resolvedEventTypeRepository,
+        ),
         outcomeReportingRepositoryProvider.overrideWithValue(
           outcomeReportingRepository,
         ),
@@ -351,7 +361,9 @@ final class TestPrivacyDependencies {
         weeklyPlanningRepositoryProvider.overrideWithValue(
           resolvedWeeklyPlanningRepository,
         ),
-        startOfWeekRepositoryProvider.overrideWithValue(startOfWeekRepository),
+        startOfWeekRepositoryProvider.overrideWithValue(
+          resolvedStartOfWeekRepository,
+        ),
         contactRepositoryProvider.overrideWithValue(resolvedContactRepository),
         taskEventLinkRepositoryProvider.overrideWithValue(linkRepository),
         taskEventLinkCoordinatorProvider.overrideWithValue(linkCoordinator),

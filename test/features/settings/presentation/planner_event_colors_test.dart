@@ -59,7 +59,7 @@ void main() {
       'Meeting',
       'Study or Plan',
       'Service',
-      'Work',
+      'Shopping',
     ]) {
       expect(find.text(label), findsOneWidget);
     }

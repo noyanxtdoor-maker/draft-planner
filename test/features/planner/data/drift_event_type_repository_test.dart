@@ -64,7 +64,7 @@ void main() {
         'Ministering Visit',
       );
       expect(types.where((type) => type.label == 'Service'), hasLength(1));
-      expect(types.where((type) => type.label == 'Work'), hasLength(1));
+      expect(types.where((type) => type.label == 'Shopping'), hasLength(1));
       expect(
         types
             .where((type) => type.isCreationVisible)
@@ -83,6 +83,500 @@ void main() {
         );
         expect(type?.stableKey, entry.key);
       }
+    },
+  );
+
+  test(
+    'repairs only the exact crossed Budget Review and Ministering labels',
+    () async {
+      await repository.readEventTypes(profileId: profileId);
+      final seededRows = <String, ActivityTypeRow>{
+        for (final row in await database.select(database.activityTypes).get())
+          row.id: row,
+      };
+      final budget = seededRows[SystemEventTypeIds.budgetReview]!;
+      final ministering = seededRows[SystemEventTypeIds.meaningfulConnection]!;
+      final legacyUpdatedAt = DateTime.utc(2026, 7, 20, 8, 30);
+      await (database.update(database.activityTypes)..where(
+            (table) =>
+                table.profileId.equals(profileId) &
+                table.id.equals(SystemEventTypeIds.budgetReview),
+          ))
+          .write(
+            ActivityTypesCompanion(
+              label: const Value<String>('Ministering'),
+              updatedAtUtc: Value<DateTime>(legacyUpdatedAt),
+            ),
+          );
+      await (database.update(database.activityTypes)..where(
+            (table) =>
+                table.profileId.equals(profileId) &
+                table.id.equals(SystemEventTypeIds.meaningfulConnection),
+          ))
+          .write(
+            ActivityTypesCompanion(
+              label: const Value<String>('Budget Review'),
+              updatedAtUtc: Value<DateTime>(legacyUpdatedAt),
+            ),
+          );
+      await database
+          .into(database.calendarEvents)
+          .insert(
+            CalendarEventsCompanion.insert(
+              id: 'a6000000-0000-4000-8000-000000000001',
+              profileId: profileId,
+              title: 'Legacy budget event',
+              timing: 'timed',
+              startDate: '2026-07-20',
+              startMinute: const Value<int>(540),
+              endMinute: const Value<int>(600),
+              activityTypeId: const Value<String>(
+                SystemEventTypeIds.budgetReview,
+              ),
+              activityTypeMappingVersion: Value<int>(budget.mappingVersion),
+              activityTypeStableKeySnapshot: const Value<String>(
+                SystemEventTypeKeys.budgetReview,
+              ),
+              activityTypeLabelSnapshot: const Value<String>('Ministering'),
+              activityTypeColorValueSnapshot: Value<int>(budget.colorValue),
+              createdAtUtc: legacyUpdatedAt,
+              updatedAtUtc: legacyUpdatedAt,
+            ),
+          );
+      await database
+          .into(database.calendarEvents)
+          .insert(
+            CalendarEventsCompanion.insert(
+              id: 'a6000000-0000-4000-8000-000000000002',
+              profileId: profileId,
+              title: 'Legacy ministering event',
+              timing: 'timed',
+              startDate: '2026-07-20',
+              startMinute: const Value<int>(600),
+              endMinute: const Value<int>(660),
+              activityTypeId: const Value<String>(
+                SystemEventTypeIds.meaningfulConnection,
+              ),
+              activityTypeMappingVersion: Value<int>(
+                ministering.mappingVersion,
+              ),
+              activityTypeStableKeySnapshot: const Value<String>(
+                SystemEventTypeKeys.meaningfulConnection,
+              ),
+              activityTypeLabelSnapshot: const Value<String>('Budget Review'),
+              activityTypeColorValueSnapshot: Value<int>(
+                ministering.colorValue,
+              ),
+              createdAtUtc: legacyUpdatedAt,
+              updatedAtUtc: legacyUpdatedAt,
+            ),
+          );
+
+      final rowsBefore = <String, ActivityTypeRow>{
+        for (final row in await database.select(database.activityTypes).get())
+          row.id: row,
+      };
+      final mappingsBefore = <String, ActivityTypeIndicatorMappingRow>{
+        for (final row
+            in await database
+                .select(database.activityTypeIndicatorMappings)
+                .get())
+          row.id: row,
+      };
+      final eventsBefore = <String, CalendarEventRow>{
+        for (final row in await database.select(database.calendarEvents).get())
+          row.id: row,
+      };
+
+      final repaired = await repository.readEventTypes(profileId: profileId);
+      expect(
+        repaired
+            .singleWhere((type) => type.id == SystemEventTypeIds.budgetReview)
+            .label,
+        'Budget Review',
+      );
+      expect(
+        repaired
+            .singleWhere(
+              (type) => type.id == SystemEventTypeIds.meaningfulConnection,
+            )
+            .label,
+        'Ministering Visit',
+      );
+
+      final rowsAfter = <String, ActivityTypeRow>{
+        for (final row in await database.select(database.activityTypes).get())
+          row.id: row,
+      };
+      expect(rowsAfter, hasLength(rowsBefore.length));
+      for (final entry in rowsBefore.entries) {
+        final expected = switch (entry.key) {
+          SystemEventTypeIds.budgetReview => entry.value.copyWith(
+            label: 'Budget Review',
+            updatedAtUtc: budget.updatedAtUtc,
+          ),
+          SystemEventTypeIds.meaningfulConnection => entry.value.copyWith(
+            label: 'Ministering Visit',
+            updatedAtUtc: ministering.updatedAtUtc,
+          ),
+          _ => entry.value,
+        };
+        expect(
+          rowsAfter[entry.key],
+          expected,
+          reason:
+              '${entry.value.stableKey} must preserve every field outside '
+              'the two approved label repairs and their timestamps',
+        );
+      }
+      expect(<String, ActivityTypeIndicatorMappingRow>{
+        for (final row
+            in await database
+                .select(database.activityTypeIndicatorMappings)
+                .get())
+          row.id: row,
+      }, mappingsBefore);
+      expect(
+        <String, CalendarEventRow>{
+          for (final row
+              in await database.select(database.calendarEvents).get())
+            row.id: row,
+        },
+        eventsBefore,
+        reason: 'linked Event IDs, mappings, and label snapshots stay intact',
+      );
+
+      await repository.readEventTypes(profileId: profileId);
+      expect(
+        <String, ActivityTypeRow>{
+          for (final row in await database.select(database.activityTypes).get())
+            row.id: row,
+        },
+        rowsAfter,
+        reason: 'the crossed-label repair must be idempotent',
+      );
+    },
+  );
+
+  test(
+    'does not repair either label when the crossed pair is incomplete',
+    () async {
+      await repository.readEventTypes(profileId: profileId);
+      final legacyUpdatedAt = DateTime.utc(2026, 7, 20, 8, 30);
+      await (database.update(database.activityTypes)..where(
+            (table) =>
+                table.profileId.equals(profileId) &
+                table.id.equals(SystemEventTypeIds.budgetReview),
+          ))
+          .write(
+            ActivityTypesCompanion(
+              label: const Value<String>('Ministering'),
+              updatedAtUtc: Value<DateTime>(legacyUpdatedAt),
+            ),
+          );
+      await (database.update(database.activityTypes)..where(
+            (table) =>
+                table.profileId.equals(profileId) &
+                table.id.equals(SystemEventTypeIds.meaningfulConnection),
+          ))
+          .write(
+            ActivityTypesCompanion(
+              label: const Value<String>('Companionship Visit'),
+              updatedAtUtc: Value<DateTime>(legacyUpdatedAt),
+            ),
+          );
+      final firstBefore = <String, ActivityTypeRow>{
+        for (final row in await database.select(database.activityTypes).get())
+          row.id: row,
+      };
+      await repository.readEventTypes(profileId: profileId);
+      expect(<String, ActivityTypeRow>{
+        for (final row in await database.select(database.activityTypes).get())
+          row.id: row,
+      }, firstBefore);
+
+      await (database.update(database.activityTypes)..where(
+            (table) =>
+                table.profileId.equals(profileId) &
+                table.id.equals(SystemEventTypeIds.budgetReview),
+          ))
+          .write(
+            ActivityTypesCompanion(
+              label: const Value<String>('Finance Review'),
+              updatedAtUtc: Value<DateTime>(legacyUpdatedAt),
+            ),
+          );
+      await (database.update(database.activityTypes)..where(
+            (table) =>
+                table.profileId.equals(profileId) &
+                table.id.equals(SystemEventTypeIds.meaningfulConnection),
+          ))
+          .write(
+            ActivityTypesCompanion(
+              label: const Value<String>('Budget Review'),
+              updatedAtUtc: Value<DateTime>(legacyUpdatedAt),
+            ),
+          );
+      final secondBefore = <String, ActivityTypeRow>{
+        for (final row in await database.select(database.activityTypes).get())
+          row.id: row,
+      };
+      await repository.readEventTypes(profileId: profileId);
+      expect(
+        <String, ActivityTypeRow>{
+          for (final row in await database.select(database.activityTypes).get())
+            row.id: row,
+        },
+        secondBefore,
+        reason: 'intentional or one-sided labels must never be overwritten',
+      );
+    },
+  );
+
+  test(
+    'does not repair crossed labels on a noncanonical system identity',
+    () async {
+      await repository.readEventTypes(profileId: profileId);
+      final legacyUpdatedAt = DateTime.utc(2026, 7, 20, 8, 30);
+      await (database.update(database.activityTypes)..where(
+            (table) =>
+                table.profileId.equals(profileId) &
+                table.id.equals(SystemEventTypeIds.budgetReview),
+          ))
+          .write(
+            ActivityTypesCompanion(
+              label: const Value<String>('Ministering'),
+              updatedAtUtc: Value<DateTime>(legacyUpdatedAt),
+            ),
+          );
+      await (database.update(database.activityTypes)..where(
+            (table) =>
+                table.profileId.equals(profileId) &
+                table.id.equals(SystemEventTypeIds.meaningfulConnection),
+          ))
+          .write(
+            ActivityTypesCompanion(
+              label: const Value<String>('Budget Review'),
+              isSystem: const Value<bool>(false),
+              updatedAtUtc: Value<DateTime>(legacyUpdatedAt),
+            ),
+          );
+      final before = <String, ActivityTypeRow>{
+        for (final row in await database.select(database.activityTypes).get())
+          row.id: row,
+      };
+
+      await repository.readEventTypes(profileId: profileId);
+
+      expect(
+        <String, ActivityTypeRow>{
+          for (final row in await database.select(database.activityTypes).get())
+            row.id: row,
+        },
+        before,
+        reason: 'the migration requires both exact canonical system identities',
+      );
+    },
+  );
+
+  test(
+    'fresh stable Work identity displays Shopping while Job stays unchanged',
+    () async {
+      final types = await repository.readEventTypes(profileId: profileId);
+      final shopping = types.singleWhere(
+        (type) => type.id == SystemEventTypeIds.work,
+      );
+      final job = types.singleWhere(
+        (type) => type.id == SystemEventTypeIds.jobApplication,
+      );
+
+      expect(shopping.stableKey, SystemEventTypeKeys.work);
+      expect(shopping.label, 'Shopping');
+      expect(shopping.icon, EventTypeIcon.work);
+      expect(job.stableKey, SystemEventTypeKeys.jobApplication);
+      expect(job.label, 'Job Application');
+      expect(job.icon, EventTypeIcon.job);
+    },
+  );
+
+  test(
+    'legacy exact Work label becomes Shopping without changing identity or Events',
+    () async {
+      await repository.readEventTypes(profileId: profileId);
+      final seededRows = <String, ActivityTypeRow>{
+        for (final row in await database.select(database.activityTypes).get())
+          row.id: row,
+      };
+      final work = seededRows[SystemEventTypeIds.work]!;
+      final legacyUpdatedAt = DateTime.utc(2026, 7, 21, 9);
+      await (database.update(database.activityTypes)..where(
+            (table) =>
+                table.profileId.equals(profileId) &
+                table.id.equals(SystemEventTypeIds.work),
+          ))
+          .write(
+            ActivityTypesCompanion(
+              label: const Value<String>('Work'),
+              updatedAtUtc: Value<DateTime>(legacyUpdatedAt),
+            ),
+          );
+      await database
+          .into(database.calendarEvents)
+          .insert(
+            CalendarEventsCompanion.insert(
+              id: 'a7000000-0000-4000-8000-000000000001',
+              profileId: profileId,
+              title: 'Existing shopping event',
+              timing: 'timed',
+              startDate: '2026-07-21',
+              startMinute: const Value<int>(600),
+              endMinute: const Value<int>(660),
+              activityTypeId: const Value<String>(SystemEventTypeIds.work),
+              activityTypeMappingVersion: Value<int>(work.mappingVersion),
+              activityTypeStableKeySnapshot: const Value<String>(
+                SystemEventTypeKeys.work,
+              ),
+              activityTypeLabelSnapshot: const Value<String>('Work'),
+              activityTypeColorValueSnapshot: Value<int>(work.colorValue),
+              createdAtUtc: legacyUpdatedAt,
+              updatedAtUtc: legacyUpdatedAt,
+            ),
+          );
+
+      final rowsBefore = <String, ActivityTypeRow>{
+        for (final row in await database.select(database.activityTypes).get())
+          row.id: row,
+      };
+      final mappingsBefore = <String, ActivityTypeIndicatorMappingRow>{
+        for (final row
+            in await database
+                .select(database.activityTypeIndicatorMappings)
+                .get())
+          row.id: row,
+      };
+      final eventsBefore = <String, CalendarEventRow>{
+        for (final row in await database.select(database.calendarEvents).get())
+          row.id: row,
+      };
+
+      final migrated = await repository.readEventTypes(profileId: profileId);
+      expect(
+        migrated.singleWhere((type) => type.id == SystemEventTypeIds.work).label,
+        'Shopping',
+      );
+      expect(
+        migrated
+            .singleWhere(
+              (type) => type.id == SystemEventTypeIds.jobApplication,
+            )
+            .label,
+        'Job Application',
+      );
+
+      final rowsAfter = <String, ActivityTypeRow>{
+        for (final row in await database.select(database.activityTypes).get())
+          row.id: row,
+      };
+      expect(rowsAfter, hasLength(rowsBefore.length));
+      for (final entry in rowsBefore.entries) {
+        final expected = entry.key == SystemEventTypeIds.work
+            ? entry.value.copyWith(
+                label: 'Shopping',
+                updatedAtUtc: work.updatedAtUtc,
+              )
+            : entry.value;
+        expect(
+          rowsAfter[entry.key],
+          expected,
+          reason:
+              '${entry.value.stableKey} must preserve every field outside '
+              'the approved Work label and timestamp migration',
+        );
+      }
+      expect(<String, ActivityTypeIndicatorMappingRow>{
+        for (final row
+            in await database
+                .select(database.activityTypeIndicatorMappings)
+                .get())
+          row.id: row,
+      }, mappingsBefore);
+      expect(
+        <String, CalendarEventRow>{
+          for (final row
+              in await database.select(database.calendarEvents).get())
+            row.id: row,
+        },
+        eventsBefore,
+        reason: 'the saved Event foreign key and snapshots must remain intact',
+      );
+
+      await repository.readEventTypes(profileId: profileId);
+      expect(
+        <String, ActivityTypeRow>{
+          for (final row in await database.select(database.activityTypes).get())
+            row.id: row,
+        },
+        rowsAfter,
+        reason: 'the Work-to-Shopping migration must be idempotent',
+      );
+    },
+  );
+
+  test(
+    'Work-to-Shopping migration preserves intentional and noncanonical rows',
+    () async {
+      await repository.readEventTypes(profileId: profileId);
+      final legacyUpdatedAt = DateTime.utc(2026, 7, 21, 9);
+      await (database.update(database.activityTypes)..where(
+            (table) =>
+                table.profileId.equals(profileId) &
+                table.id.equals(SystemEventTypeIds.work),
+          ))
+          .write(
+            ActivityTypesCompanion(
+              label: const Value<String>('Client Work'),
+              updatedAtUtc: Value<DateTime>(legacyUpdatedAt),
+            ),
+          );
+      final intentionalBefore = <String, ActivityTypeRow>{
+        for (final row in await database.select(database.activityTypes).get())
+          row.id: row,
+      };
+      await repository.readEventTypes(profileId: profileId);
+      expect(
+        <String, ActivityTypeRow>{
+          for (final row in await database.select(database.activityTypes).get())
+            row.id: row,
+        },
+        intentionalBefore,
+        reason: 'an intentional label must never be overwritten',
+      );
+
+      await (database.update(database.activityTypes)..where(
+            (table) =>
+                table.profileId.equals(profileId) &
+                table.id.equals(SystemEventTypeIds.work),
+          ))
+          .write(
+            ActivityTypesCompanion(
+              label: const Value<String>('Work'),
+              isSystem: const Value<bool>(false),
+              updatedAtUtc: Value<DateTime>(legacyUpdatedAt),
+            ),
+          );
+      final noncanonicalBefore = <String, ActivityTypeRow>{
+        for (final row in await database.select(database.activityTypes).get())
+          row.id: row,
+      };
+      await repository.readEventTypes(profileId: profileId);
+      expect(
+        <String, ActivityTypeRow>{
+          for (final row in await database.select(database.activityTypes).get())
+            row.id: row,
+        },
+        noncanonicalBefore,
+        reason: 'the migration requires the exact canonical system identity',
+      );
     },
   );
 

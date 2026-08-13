@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:rmplanner/app/theme/app_theme.dart';
+import 'package:rmplanner/app/theme/internal_screen.dart';
 import 'package:rmplanner/features/goals/presentation/goal_icon_picker_screen.dart';
 import 'package:rmplanner/features/goals/presentation/widgets/goal_icon.dart';
 import 'package:rmplanner/features/goals/presentation/widgets/goal_icon_choice_row.dart';
@@ -562,6 +563,139 @@ void main() {
     );
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets(
+    'A8: Choose Icon disables Material scroll-under tint without changing '
+    'the InternalAppBar default',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark(),
+          home: const GoalIconPickerScreen(
+            args: GoalIconPickerArgs(
+              goalTitle: 'Job Applications',
+              currentIconId: 'work_briefcase',
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.widget<AppBar>(find.byType(AppBar)).surfaceTintColor,
+        Colors.transparent,
+        reason:
+            'Choose Icon must keep the same app-bar surface while its list '
+            'scrolls underneath.',
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark(),
+          home: const Scaffold(
+            appBar: InternalAppBar(title: Text('Unrelated internal screen')),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.widget<AppBar>(find.byType(AppBar)).surfaceTintColor,
+        isNull,
+        reason: 'A8 must not change every InternalAppBar consumer.',
+      );
+    },
+  );
+
+  testWidgets(
+    'A9: system Back in callback mode returns to the same Edit Goal draft',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(theme: AppTheme.dark(), home: const _A9NavigationHome()),
+      );
+      await tester.tap(find.byKey(const Key('a9-open-edit-goal')));
+      await tester.pumpAndSettle();
+
+      final draftField = find.byKey(const Key('a9-goal-title'));
+      await tester.enterText(draftField, 'Unsaved Exercise Draft');
+      await tester.tap(find.byKey(const Key('a9-open-icon-picker')));
+      await tester.pumpAndSettle();
+      expect(find.text('Choose Icon'), findsOneWidget);
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      expect(find.byType(GoalIconPickerScreen), findsNothing);
+      expect(find.text('Edit Goal'), findsOneWidget);
+      expect(
+        tester.widget<TextField>(draftField).controller?.text,
+        'Unsaved Exercise Draft',
+        reason: 'System Back must close only Choose Icon and retain the draft.',
+      );
+      expect(find.byKey(const Key('a9-home')), findsNothing);
+
+      await tester.tap(find.byKey(const Key('a9-open-icon-picker')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('goal-icon-picker-back')));
+      await tester.pumpAndSettle();
+      expect(find.byType(GoalIconPickerScreen), findsNothing);
+      expect(
+        tester.widget<TextField>(draftField).controller?.text,
+        'Unsaved Exercise Draft',
+        reason: 'Toolbar Back must retain the same Edit Goal draft too.',
+      );
+
+      await tester.tap(find.byKey(const Key('a9-open-icon-picker')));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('goal-icon-tile-work_briefcase')).last,
+      );
+      await tester.pump();
+      expect(
+        tester
+            .widget<TextButton>(find.byKey(const Key('goal-icon-picker-save')))
+            .onPressed,
+        isNotNull,
+      );
+      await tester.tap(find.byKey(const Key('goal-icon-picker-save')));
+      await tester.pumpAndSettle();
+      expect(find.byType(GoalIconPickerScreen), findsNothing);
+      expect(
+        tester.widget<TextField>(draftField).controller?.text,
+        'Unsaved Exercise Draft',
+        reason: 'Picker Save must retain the other unsaved Goal fields.',
+      );
+      expect(find.text('work_briefcase'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('A9: standalone Choose Icon system Back still pops its route', (
+    tester,
+  ) async {
+    final router = _router();
+    addTearDown(router.dispose);
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpAndSettle();
+
+    final result = router.push<String?>(
+      '/picker',
+      extra: const GoalIconPickerArgs(
+        goalTitle: 'Standalone Goal',
+        currentIconId: 'work_briefcase',
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(GoalIconPickerScreen), findsOneWidget);
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+
+    expect(await result, isNull);
+    expect(find.byType(GoalIconPickerScreen), findsNothing);
+    expect(find.text('home'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }
 
 GoRouter _router() {
@@ -581,4 +715,84 @@ GoRouter _router() {
       ),
     ],
   );
+}
+
+final class _A9NavigationHome extends StatelessWidget {
+  const _A9NavigationHome();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      key: const Key('a9-home'),
+      body: Center(
+        child: ElevatedButton(
+          key: const Key('a9-open-edit-goal'),
+          onPressed: () {
+            unawaited(
+              Navigator.of(context).push<void>(
+                MaterialPageRoute<void>(
+                  builder: (context) => const _A9EditGoalDraftHarness(),
+                ),
+              ),
+            );
+          },
+          child: const Text('Open Edit Goal'),
+        ),
+      ),
+    );
+  }
+}
+
+final class _A9EditGoalDraftHarness extends StatefulWidget {
+  const _A9EditGoalDraftHarness();
+
+  @override
+  State<_A9EditGoalDraftHarness> createState() =>
+      _A9EditGoalDraftHarnessState();
+}
+
+final class _A9EditGoalDraftHarnessState
+    extends State<_A9EditGoalDraftHarness> {
+  final TextEditingController _title = TextEditingController(text: 'Exercise');
+  bool _showPicker = false;
+  String _iconId = 'health_barbell';
+
+  @override
+  void dispose() {
+    _title.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_showPicker) {
+      return GoalIconPickerScreen(
+        args: GoalIconPickerArgs(
+          goalTitle: _title.text,
+          currentIconId: _iconId,
+        ),
+        onSelected: (iconId) {
+          setState(() {
+            _iconId = iconId;
+            _showPicker = false;
+          });
+        },
+        onCancel: () => setState(() => _showPicker = false),
+      );
+    }
+    return Scaffold(
+      appBar: AppBar(title: const Text('Edit Goal')),
+      body: Column(
+        children: <Widget>[
+          TextField(key: const Key('a9-goal-title'), controller: _title),
+          Text(_iconId, key: const Key('a9-icon-id')),
+          TextButton(
+            key: const Key('a9-open-icon-picker'),
+            onPressed: () => setState(() => _showPicker = true),
+            child: const Text('Choose Icon'),
+          ),
+        ],
+      ),
+    );
+  }
 }

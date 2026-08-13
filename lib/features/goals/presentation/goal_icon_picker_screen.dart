@@ -77,8 +77,9 @@ final class _GoalIconPickerScreenState extends State<GoalIconPickerScreen> {
         : allIcons
               .where((definition) => definition.category == _activeCategory)
               .toList(growable: false);
-    return Scaffold(
+    final scaffold = Scaffold(
       appBar: InternalAppBar(
+        surfaceTintColor: Colors.transparent,
         leading: IconButton(
           key: const Key('goal-icon-picker-back'),
           tooltip: 'Back',
@@ -174,6 +175,18 @@ final class _GoalIconPickerScreenState extends State<GoalIconPickerScreen> {
         ),
       ),
     );
+    if (widget.onCancel == null) {
+      return scaffold;
+    }
+    return PopScope<void>(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) {
+          _close();
+        }
+      },
+      child: scaffold,
+    );
   }
 
   void _select(String iconId) {
@@ -194,6 +207,10 @@ final class _GoalIconPickerScreenState extends State<GoalIconPickerScreen> {
   }
 
   void _close() {
+    if (_returning) {
+      return;
+    }
+    _returning = true;
     final onCancel = widget.onCancel;
     if (onCancel != null) {
       onCancel();

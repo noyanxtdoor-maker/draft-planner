@@ -30,11 +30,17 @@ final class StartOfWeekNotifier extends Notifier<int> {
   }
 
   void _load() {
+    unawaited(refresh());
+  }
+
+  /// Re-reads the persisted preference without reconstructing this notifier.
+  /// The last confirmed value remains visible until the read succeeds.
+  Future<void> refresh() async {
     final startup = ref.read(startupControllerProvider);
     if (startup is! StartupReady) {
       return;
     }
-    unawaited(_loadFor(startup.profile.id));
+    await _loadFor(startup.profile.id);
   }
 
   Future<void> _loadFor(String profileId) async {
@@ -44,7 +50,7 @@ final class StartOfWeekNotifier extends Notifier<int> {
           .readStartOfWeek(profileId: profileId);
       state = value;
     } on Object {
-      // Keep the Monday default; a later build or resume re-reads.
+      // Keep the last confirmed value (or the initial Monday default).
     }
   }
 

@@ -10,6 +10,7 @@ import 'package:rmplanner/core/time/week_period.dart';
 import 'package:rmplanner/features/goals/application/goal_providers.dart';
 import 'package:rmplanner/features/goals/domain/goal.dart';
 import 'package:rmplanner/features/goals/presentation/widgets/goal_icon.dart';
+import 'package:rmplanner/features/planner/application/planner_providers.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 import 'package:rmplanner/features/settings/application/start_of_week_providers.dart';
 import 'package:rmplanner/features/weekly_planning/application/weekly_planning_providers.dart';
@@ -38,6 +39,7 @@ final class _WeeklyPlanningScreenState
   /// week-by-week history stack is ever created.  Null means "the route's
   /// periodStart (or the current week) has not been overridden yet".
   PlannerDate? _selectedWeek;
+  String? _establishedSignalPeriod;
 
   void _setManagementMode(bool value) {
     if (mounted && _managementMode != value) {
@@ -55,41 +57,72 @@ final class _WeeklyPlanningScreenState
   @override
   Widget build(BuildContext context) {
     final selected = _selectedWeek;
+    final todayState = ref.watch(weeklyPlanningTodayProvider);
+    final today = todayState.asData?.value;
     final resolvedStart =
         selected ??
         (widget.periodStart != null
             ? _weekStartOf(ref, widget.periodStart!)
-            : ref.watch(weeklyPlanningTodayProvider).asData?.value);
+            : today);
     if (resolvedStart == null) {
       return Scaffold(
         appBar: _appBar(context),
-        body: const SafeArea(child: Center(child: CircularProgressIndicator())),
+        body: SafeArea(
+          child: todayState.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (error, stackTrace) => _Failure(
+              message: error.toString(),
+              onRetry: () => ref.invalidate(weeklyPlanningTodayProvider),
+            ),
+            data: (_) => const Center(child: CircularProgressIndicator()),
+          ),
+        ),
       );
     }
     // Deliberate entry into the CURRENT period establishes it idempotently
     // (openOrCreate).  Historical weeks are never created: the provider is
     // only watched when the resolved period equals the current one.
-    final today = ref.watch(weeklyPlanningTodayProvider).asData?.value;
-    if (today != null && resolvedStart == _weekStartOf(ref, today)) {
-      ref.watch(weeklyPlanProvider(resolvedStart));
+    final plannerToday = ref.watch(plannerDateSourceProvider).today();
+    final isCurrentPeriod =
+        resolvedStart == _weekStartOf(ref, plannerToday);
+    final currentPlan = isCurrentPeriod
+        ? ref.watch(weeklyPlanProvider(resolvedStart))
+        : null;
+    if (currentPlan?.hasValue == true &&
+        _establishedSignalPeriod != resolvedStart.iso8601) {
+      _establishedSignalPeriod = resolvedStart.iso8601;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          ref.invalidate(weeklyPlanEstablishedProvider(resolvedStart));
+        }
+      });
     }
     final plan = ref.watch(goalPlanningProvider(resolvedStart));
+    final planBody = plan.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (error, stackTrace) => _Failure(
+        message: error.toString(),
+        onRetry: () => ref.invalidate(goalPlanningProvider(resolvedStart)),
+      ),
+      data: (value) => _GoalPlanBody(
+        plan: value,
+        managementMode: _managementMode,
+        onManagementModeChanged: _setManagementMode,
+        onWeekSelected: _selectWeek,
+      ),
+    );
     return Scaffold(
       appBar: _appBar(context),
       body: SafeArea(
-        child: plan.when(
+        child: currentPlan?.when(
+          skipLoadingOnReload: true,
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (error, stackTrace) => _Failure(
             message: error.toString(),
-            onRetry: () => ref.invalidate(goalPlanningProvider(resolvedStart)),
+            onRetry: () => ref.invalidate(weeklyPlanProvider(resolvedStart)),
           ),
-          data: (value) => _GoalPlanBody(
-            plan: value,
-            managementMode: _managementMode,
-            onManagementModeChanged: _setManagementMode,
-            onWeekSelected: _selectWeek,
-          ),
-        ),
+          data: (_) => planBody,
+        ) ?? planBody,
       ),
     );
   }

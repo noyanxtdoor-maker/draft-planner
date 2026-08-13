@@ -39,9 +39,9 @@ final class HomeScreen extends ConsumerStatefulWidget {
 }
 
 final class _HomeScreenState extends ConsumerState<HomeScreen> {
-  // The Home quick control is intentionally serialized per canonical Goal.
-  // This keeps rapid taps target-only and prevents duplicate writes from
-  // racing against one another or reading a stale progress snapshot.
+  // The Home quick control runs one coalescing persistence drain per canonical
+  // Goal. Rapid taps update the shared desired target instead of opening
+  // competing read-modify-write operations.
   final Map<String, Future<void>> _dailyTargetQueues = <String, Future<void>>{};
 
   // Optimistic Today's Goal target overlay. The visible target reacts in the
@@ -68,10 +68,9 @@ final class _HomeScreenState extends ConsumerState<HomeScreen> {
     // resolved current period.  Read-only; never creates a row here.
     final established = ref
         .watch(weeklyPlanEstablishedProvider(periodStart))
-        .asData
-        ?.value;
-    _reconcileOptimisticTargets(canonicalPlan.asData?.value);
-    final planValue = canonicalPlan.asData?.value;
+        .value;
+    _reconcileOptimisticTargets(canonicalPlan.value);
+    final planValue = canonicalPlan.value;
     final optimisticDailyTarget = planValue?.daily == null
         ? null
         : _optimisticDailyTargets[planValue!.daily!.goal.id];
@@ -199,20 +198,21 @@ final class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  /// Opens the current-period Goal Planning flow, establishing the exact
-  /// resolved period idempotently first (Start Planning / View All / the Goal
-  /// Planning button all converge here).  Historical weeks are never created.
-  static Future<void> _openWeeklyPlanning(
+  /// Opens the current-period Goal Planning flow immediately.  The destination
+  /// owns idempotent plan establishment; Start Planning / View All / the Goal
+  /// Planning button all converge here.  Historical weeks are never created.
+  static void _openWeeklyPlanning(
     BuildContext context,
     WidgetRef ref,
     PlannerDate start,
-  ) async {
-    await ref.read(weeklyPlanProvider(start).future);
-    ref.invalidate(weeklyPlanEstablishedProvider(start));
-    if (!context.mounted) {
-      return;
-    }
-    unawaited(context.push(RoutePaths.weeklyPlanningFor(start)));
+  ) {
+    unawaited(
+      context.push(RoutePaths.weeklyPlanningFor(start)).then((_) {
+        if (context.mounted) {
+          ref.invalidate(weeklyPlanEstablishedProvider(start));
+        }
+      }),
+    );
   }
 
   static void _openGoalById(BuildContext context, String goalId) {
@@ -236,8 +236,18 @@ final class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (optimistic == null) {
       return;
     }
+    // The active drain owns the overlay until it has observed the last tap.
+    // A canonical emission for an intermediate write must not discard a newer
+    // desired value that is still waiting to be persisted.
+    if (_dailyTargetQueues.containsKey(goalId)) {
+      return;
+    }
     final canonical = daily.dailyTarget.value?.scaledValue;
-    if (canonical != null && canonical == optimistic) {
+    final base = _optimisticBases[goalId];
+    final canonicalCaughtUp = canonical != null && canonical == optimistic;
+    final canonicalMovedElsewhere =
+        canonical != null && base != null && canonical != base;
+    if (canonicalCaughtUp || canonicalMovedElsewhere) {
       _optimisticDailyTargets.remove(goalId);
       _optimisticBases.remove(goalId);
     }
@@ -267,8 +277,9 @@ final class _HomeScreenState extends ConsumerState<HomeScreen> {
     final base = storedBase != null && canonical == storedBase
         ? storedBase
         : canonical;
-    final updated = math.max(0, base + delta);
-    if (displayed != null && updated == displayed) {
+    final visibleTarget = displayed ?? base;
+    final updated = math.max(0, visibleTarget + delta);
+    if (updated == visibleTarget) {
       // Clamped at the zero minimum; nothing visible to change.
       return;
     }
@@ -277,50 +288,14 @@ final class _HomeScreenState extends ConsumerState<HomeScreen> {
       _optimisticDailyTargets[goalId] = updated;
     });
 
-    final previous = _dailyTargetQueues[goalId] ?? Future<void>.value();
-    final next = previous.then<void>((_) async {
-      final repository = ref.read(goalRepositoryProvider);
-      final latest = await repository.readProgress(
-        profileId: ref.read(goalProfileIdProvider),
-        goalId: goalId,
-        today: today,
-        startDay: ref.read(startOfWeekProvider),
-      );
-      if (latest == null) {
-        return;
-      }
-
-      final existingDaily = latest.dailyTarget.value;
-      final current = existingDaily?.scaledValue ?? 0;
-      final updatedCanonical = math.max(0, current + delta);
-      if (updatedCanonical == current) {
-        return;
-      }
-
-      final unit =
-          existingDaily?.unit ?? latest.weeklyTarget.value?.unit ?? 'count';
-      final scale =
-          existingDaily?.scale ?? latest.weeklyTarget.value?.scale ?? 0;
-      await repository.saveGoal(
-        profileId: ref.read(goalProfileIdProvider),
-        goalId: latest.goal.id,
-        title: latest.goal.title,
-        iconId: latest.goal.iconId,
-        targets: GoalTargets(
-          daily: IndicatorAmount(
-            scaledValue: updatedCanonical,
-            scale: scale,
-            unit: unit,
-          ),
-          weekly: latest.weeklyTarget.value,
-          monthly: latest.monthlyTarget.value,
-        ),
-        today: today,
-        startDay: ref.read(startOfWeekProvider),
-      );
-      ref.invalidate(goalPlanningProvider(periodStart));
-      ref.invalidate(activeGoalsProvider);
-    });
+    if (_dailyTargetQueues.containsKey(goalId)) {
+      return;
+    }
+    final next = _persistDailyTarget(
+      ref,
+      goalId: goalId,
+      today: today,
+    );
     final handled = next.catchError((Object error, StackTrace stackTrace) {
       debugPrint('Home daily target update failed: $error');
       // Honest rollback: the canonical store did not move, so drop the
@@ -342,6 +317,59 @@ final class _HomeScreenState extends ConsumerState<HomeScreen> {
         }
       }),
     );
+  }
+
+  /// Persists the latest displayed target for one Goal. Rapid taps update the
+  /// shared optimistic value, so a burst is coalesced into the fewest durable
+  /// writes possible without dropping the final requested value.
+  Future<void> _persistDailyTarget(
+    WidgetRef ref, {
+    required String goalId,
+    required PlannerDate today,
+  }) async {
+    final repository = ref.read(goalRepositoryProvider);
+    while (true) {
+      final latest = await repository.readProgress(
+        profileId: ref.read(goalProfileIdProvider),
+        goalId: goalId,
+        today: today,
+        startDay: ref.read(startOfWeekProvider),
+      );
+      final desired = _optimisticDailyTargets[goalId];
+      if (latest == null || desired == null) {
+        return;
+      }
+
+      final existingDaily = latest.dailyTarget.value;
+      final current = existingDaily?.scaledValue ?? 0;
+      if (current == desired) {
+        return;
+      }
+      final unit =
+          existingDaily?.unit ?? latest.weeklyTarget.value?.unit ?? 'count';
+      final scale =
+          existingDaily?.scale ?? latest.weeklyTarget.value?.scale ?? 0;
+      await repository.saveGoal(
+        profileId: ref.read(goalProfileIdProvider),
+        goalId: latest.goal.id,
+        title: latest.goal.title,
+        iconId: latest.goal.iconId,
+        targets: GoalTargets(
+          daily: IndicatorAmount(
+            scaledValue: desired,
+            scale: scale,
+            unit: unit,
+          ),
+          weekly: latest.weeklyTarget.value,
+          monthly: latest.monthlyTarget.value,
+        ),
+        today: today,
+        startDay: ref.read(startOfWeekProvider),
+      );
+      if (_optimisticDailyTargets[goalId] == desired) {
+        return;
+      }
+    }
   }
 
   static void _openTempleSchedule(
@@ -426,6 +454,7 @@ final class _CanonicalHomePlan extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return plan.when(
+      skipLoadingOnReload: true,
       loading: () => const SizedBox(
         key: Key('home-canonical-plan-loading'),
         height: 96,

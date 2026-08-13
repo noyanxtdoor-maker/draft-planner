@@ -135,8 +135,11 @@ final class EventTypeController extends Notifier<EventTypeState> {
 
   Future<bool> saveCustomType(EventTypeDraft draft) async {
     try {
-      await _repository.saveCustomType(profileId: _profileId, draft: draft);
-      await load(includeArchived: true);
+      final saved = await _repository.saveCustomType(
+        profileId: _profileId,
+        draft: draft,
+      );
+      _replaceOrAppendType(saved);
       return true;
     } on Object {
       state = state.copyWith(
@@ -151,12 +154,19 @@ final class EventTypeController extends Notifier<EventTypeState> {
     required String label,
   }) async {
     try {
+      final current = state.eventTypes
+          .where((type) => type.id == eventTypeId)
+          .firstOrNull;
       await _repository.renameSystemType(
         profileId: _profileId,
         eventTypeId: eventTypeId,
         label: label,
       );
-      await load(includeArchived: true);
+      if (current == null) {
+        state = state.copyWith(clearMessage: true);
+      } else {
+        _replaceOrAppendType(_withLabel(current, label.trim()));
+      }
       return true;
     } on Object {
       state = state.copyWith(
@@ -166,6 +176,36 @@ final class EventTypeController extends Notifier<EventTypeState> {
       return false;
     }
   }
+
+  void _replaceOrAppendType(EventType saved) {
+    final eventTypes = List<EventType>.of(state.eventTypes);
+    final index = eventTypes.indexWhere((type) => type.id == saved.id);
+    if (index == -1) {
+      eventTypes.add(saved);
+    } else {
+      eventTypes[index] = saved;
+    }
+    state = state.copyWith(
+      eventTypes: List<EventType>.unmodifiable(eventTypes),
+      clearMessage: true,
+    );
+  }
+
+  static EventType _withLabel(EventType type, String label) => EventType(
+    id: type.id,
+    stableKey: type.stableKey,
+    label: label,
+    icon: type.icon,
+    colorValue: type.colorValue,
+    isSystem: type.isSystem,
+    isArchived: type.isArchived,
+    reportRequiredDefault: type.reportRequiredDefault,
+    defaultDurationMinutes: type.defaultDurationMinutes,
+    defaultReminderMinutes: type.defaultReminderMinutes,
+    position: type.position,
+    mappingVersion: type.mappingVersion,
+    indicatorKeys: type.indicatorKeys,
+  );
 
   Future<bool> setArchived(EventType type, bool archived) async {
     try {

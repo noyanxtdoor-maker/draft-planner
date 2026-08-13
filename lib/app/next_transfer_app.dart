@@ -8,6 +8,7 @@ import 'package:rmplanner/core/platform/app_environment.dart';
 import 'package:rmplanner/features/goals/application/goal_providers.dart';
 import 'package:rmplanner/features/indicators/application/indicator_providers.dart';
 import 'package:rmplanner/features/planner/application/planner_providers.dart';
+import 'package:rmplanner/features/planner/domain/planner_date.dart';
 import 'package:rmplanner/features/privacy/application/privacy_providers.dart';
 import 'package:rmplanner/features/privacy/application/privacy_services.dart';
 import 'package:rmplanner/features/settings/application/start_of_week_providers.dart';
@@ -29,6 +30,7 @@ final class NextTransferApp extends ConsumerStatefulWidget {
 final class _NextTransferAppState extends ConsumerState<NextTransferApp>
     with WidgetsBindingObserver {
   late final PrivacyBackgroundSession _backgroundSession;
+  late PlannerDate _lastResolvedDate;
 
   @override
   void initState() {
@@ -36,6 +38,7 @@ final class _NextTransferAppState extends ConsumerState<NextTransferApp>
     _backgroundSession = PrivacyBackgroundSession(
       clock: ref.read(monotonicClockProvider),
     );
+    _lastResolvedDate = ref.read(plannerDateSourceProvider).today();
     WidgetsBinding.instance.addObserver(this);
   }
 
@@ -64,17 +67,20 @@ final class _NextTransferAppState extends ConsumerState<NextTransferApp>
           _relockForBackground(controller);
         }
         if (ref.read(startupControllerProvider) is StartupReady) {
-          // Generic boundary re-resolution: re-read today's local date and the
-          // current start-of-week preference, then recompute the active Home /
-          // Goal Planning period (a backgrounded app may cross the configured
-          // period boundary).  The legacy indicator path keeps its refresh.
-          ref.invalidate(plannerDateSourceProvider);
-          ref.invalidate(startOfWeekProvider);
-          ref.invalidate(goalPlanningProvider);
-          ref.invalidate(weeklyPlanEstablishedProvider);
-          unawaited(
-            ref.read(homeIndicatorControllerProvider.notifier).refresh(),
-          );
+          final resolvedDate = ref.read(plannerDateSourceProvider).today();
+          if (resolvedDate != _lastResolvedDate) {
+            _lastResolvedDate = resolvedDate;
+            // A real local-date boundary can change Home's active period.
+            // Preserve confirmed provider values while re-resolving instead
+            // of rebuilding every provider on every same-day resume.
+            ref.invalidate(plannerDateSourceProvider);
+            unawaited(ref.read(startOfWeekProvider.notifier).refresh());
+            ref.invalidate(goalPlanningProvider);
+            ref.invalidate(weeklyPlanEstablishedProvider);
+            unawaited(
+              ref.read(homeIndicatorControllerProvider.notifier).refresh(),
+            );
+          }
         }
     }
   }

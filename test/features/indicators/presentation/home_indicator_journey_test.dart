@@ -456,7 +456,7 @@ void main() {
   });
 
   testWidgets(
-    'Pack 1: Home renders six replacement Goals and daily quick target is target-only',
+    'A3 / Pack 1: rapid Home daily target controls are immediate and target-only',
     (tester) async {
       const monday = PlannerDate(year: 2026, month: 7, day: 27);
       tester.view.physicalSize = const Size(393, 874);
@@ -569,17 +569,75 @@ void main() {
         find.byKey(const Key('home-daily-target-quick-control')),
         findsOneWidget,
       );
-      await tester.tap(find.byKey(const Key('home-daily-target-plus')));
-      await tester.pumpAndSettle();
+      Future<GoalProgress?> waitForDailyTarget(int expected) async {
+        GoalProgress? latest;
+        for (var attempt = 0; attempt < 40; attempt += 1) {
+          await tester.pump(const Duration(milliseconds: 50));
+          latest = await goalRepository.readProgress(
+            profileId: profile.id,
+            goalId: daily.id,
+            today: monday,
+          );
+          if (latest?.dailyTarget.value?.scaledValue == expected) {
+            return latest;
+          }
+        }
+        return latest;
+      }
 
-      final after = await goalRepository.readProgress(
-        profileId: profile.id,
-        goalId: daily.id,
-        today: monday,
+      await tester.tap(find.byKey(const Key('home-daily-target-plus')));
+      await tester.tap(find.byKey(const Key('home-daily-target-plus')));
+      await tester.pump();
+      final dailyTargetControl = find.byKey(
+        const Key('home-daily-target-quick-control'),
+      );
+      expect(
+        find.descendant(
+          of: dailyTargetControl,
+          matching: find.text(
+            '${before!.dailyActual.display}/'
+            '${before.dailyTarget.value!.scaledValue + 2}',
+          ),
+        ),
+        findsOneWidget,
+        reason: 'Both rapid taps must be visible in the next rendered frame.',
+      );
+      expect(
+        find.byKey(const Key('home-canonical-plan-loading')),
+        findsNothing,
+        reason: 'A targeted counter update must not flash the Home loader.',
+      );
+      final afterIncrease = await waitForDailyTarget(
+        before.dailyTarget.value!.scaledValue + 2,
+      );
+      expect(
+        afterIncrease?.dailyTarget.value?.scaledValue,
+        before.dailyTarget.value!.scaledValue + 2,
+      );
+      await tester.tap(find.byKey(const Key('home-daily-target-minus')));
+      await tester.tap(find.byKey(const Key('home-daily-target-minus')));
+      await tester.pump();
+      expect(
+        find.descendant(
+          of: dailyTargetControl,
+          matching: find.text(
+            '${before.dailyActual.display}/'
+            '${before.dailyTarget.value!.scaledValue}',
+          ),
+        ),
+        findsOneWidget,
+        reason: 'Both rapid decreases must be visible in the next frame.',
+      );
+      expect(
+        find.byKey(const Key('home-canonical-plan-loading')),
+        findsNothing,
+      );
+      final after = await waitForDailyTarget(
+        before.dailyTarget.value!.scaledValue,
       );
       expect(
         after?.dailyTarget.value?.scaledValue,
-        before!.dailyTarget.value!.scaledValue + 1,
+        before.dailyTarget.value!.scaledValue,
       );
       expect(find.byKey(const Key('home-daily-target-dialog')), findsNothing);
       expect(after?.dailyActual.scaledValue, before.dailyActual.scaledValue);

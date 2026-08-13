@@ -86,6 +86,7 @@ final class InternalAppBar extends StatelessWidget
     this.actions,
     this.bottom,
     this.automaticallyImplyLeading = true,
+    this.surfaceTintColor,
   });
 
   final Widget? title;
@@ -93,6 +94,7 @@ final class InternalAppBar extends StatelessWidget
   final List<Widget>? actions;
   final PreferredSizeWidget? bottom;
   final bool automaticallyImplyLeading;
+  final Color? surfaceTintColor;
 
   @override
   Size get preferredSize => Size.fromHeight(
@@ -109,6 +111,7 @@ final class InternalAppBar extends StatelessWidget
       leading: leading,
       actions: actions,
       bottom: bottom,
+      surfaceTintColor: surfaceTintColor,
     );
   }
 }

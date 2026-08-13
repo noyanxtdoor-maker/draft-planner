@@ -13,15 +13,18 @@ import 'package:rmplanner/features/planner/presentation/widgets/planner_event_bl
 final class EventTypeFormScreen extends ConsumerStatefulWidget {
   const EventTypeFormScreen.create({super.key})
     : eventTypeId = null,
+      initialEventType = null,
       fixedAssignmentLabel = null;
 
   const EventTypeFormScreen.edit({
     required this.eventTypeId,
+    this.initialEventType,
     this.fixedAssignmentLabel,
     super.key,
   });
 
   final String? eventTypeId;
+  final EventType? initialEventType;
   final String? fixedAssignmentLabel;
 
   @override
@@ -58,13 +61,35 @@ final class _EventTypeFormScreenState
   @override
   void initState() {
     super.initState();
+    assert(
+      widget.initialEventType == null ||
+          widget.initialEventType!.id == widget.eventTypeId,
+      'initialEventType must match eventTypeId.',
+    );
     _id =
         widget.eventTypeId ??
         ref.read(plannerIdentifierSourceProvider).nextUuid();
-    if (widget.eventTypeId != null) {
+    final initialEventType = widget.initialEventType;
+    if (initialEventType != null &&
+        (!initialEventType.isSystem || _isFixedGoalAssignment)) {
+      _initializeDraft(initialEventType);
+    } else if (widget.eventTypeId != null) {
       _loading = true;
       unawaited(Future<void>.microtask(_load));
     }
+  }
+
+  void _initializeDraft(EventType type) {
+    final state = ref.read(eventTypeControllerProvider);
+    final preference = state.eventColors[type.stableKey];
+    _eventType = type;
+    _labelController.text = type.label;
+    _durationController.text = type.defaultDurationMinutes.toString();
+    _icon = type.icon;
+    _colorValue = preference?.accentArgb ?? type.colorValue;
+    _reportRequired = type.reportRequiredDefault;
+    _indicatorKeys = Set<String>.of(type.indicatorKeys);
+    _loading = false;
   }
 
   Future<void> _load() async {
@@ -78,17 +103,8 @@ final class _EventTypeFormScreenState
       Navigator.of(context).pop();
       return;
     }
-    final state = ref.read(eventTypeControllerProvider);
-    final preference = state.eventColors[type.stableKey];
     setState(() {
-      _eventType = type;
-      _labelController.text = type.label;
-      _durationController.text = type.defaultDurationMinutes.toString();
-      _icon = type.icon;
-      _colorValue = preference?.accentArgb ?? type.colorValue;
-      _reportRequired = type.reportRequiredDefault;
-      _indicatorKeys = Set<String>.of(type.indicatorKeys);
-      _loading = false;
+      _initializeDraft(type);
     });
   }
 

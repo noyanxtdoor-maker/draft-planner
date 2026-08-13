@@ -334,7 +334,7 @@ final class _GoalEditScreenState extends ConsumerState<GoalEditScreen> {
                   key: const Key('goal-edit-event-type'),
                   onPressed: type == null
                       ? null
-                      : () => _editAssignedEventType(type.id),
+                      : () => _editAssignedEventType(type),
                   child: const Text('Edit Event Type'),
                 ),
               ],
@@ -351,11 +351,12 @@ final class _GoalEditScreenState extends ConsumerState<GoalEditScreen> {
     );
   }
 
-  Future<void> _editAssignedEventType(String eventTypeId) async {
+  Future<void> _editAssignedEventType(EventType eventType) async {
     await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
         builder: (_) => EventTypeFormScreen.edit(
-          eventTypeId: eventTypeId,
+          eventTypeId: eventType.id,
+          initialEventType: eventType,
           fixedAssignmentLabel: _goal?.title ?? 'this Goal',
         ),
       ),
