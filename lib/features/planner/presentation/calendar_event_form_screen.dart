@@ -1932,6 +1932,11 @@ final class _CalendarEventFormScreenState
     CalendarEventDraft draft,
     CalendarEventController controller,
   ) async {
+    // The normal Edit form opts into the background Planner refresh: the
+    // durable Event write is the truth gate, so the editor can begin closing
+    // while the selected-day reload runs in the background. Create,
+    // reschedule, duplicate, and timeline-drag edits keep the awaited
+    // default (see CalendarEventController._runMutation).
     if (!widget.deferRecurrenceScopeToSave) {
       return controller.editEvent(
         eventId: widget.eventId!,
@@ -1939,6 +1944,7 @@ final class _CalendarEventFormScreenState
         scope: widget.scope!,
         draft: draft,
         operationId: _operationId,
+        awaitPlannerRefresh: false,
       );
     }
     final sourceRecurring =
@@ -1950,6 +1956,7 @@ final class _CalendarEventFormScreenState
         scope: CalendarEventEditScope.occurrence,
         draft: draft,
         operationId: _operationId,
+        awaitPlannerRefresh: false,
       );
     }
     if (!draft.recurrence.isRecurring) {
@@ -1961,6 +1968,7 @@ final class _CalendarEventFormScreenState
         scope: CalendarEventEditScope.occurrence,
         draft: draft,
         operationId: _operationId,
+        awaitPlannerRefresh: false,
       );
     }
     final scope = await _selectSaveScope();
@@ -1975,6 +1983,7 @@ final class _CalendarEventFormScreenState
       scope: scope,
       draft: draft,
       operationId: _operationId,
+      awaitPlannerRefresh: false,
     );
   }
 

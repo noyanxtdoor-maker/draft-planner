@@ -31,17 +31,28 @@ enum PlannerLoadStatus { loading, ready, failure }
 /// [PlannerCalendarItem.id]. Entire-series deletion is keyed by the canonical
 /// Calendar Event ID carried by [PlannerCalendarItem.eventId]. This value is
 /// intentionally application-memory only; it is never persisted.
+///
+/// Confirmation scope is carried as EXPLICIT transient metadata, never
+/// inferred from the hide identities: ThisAndFuture hides one occurrence but
+/// must confirm BROAD because its durable mutation affects future dates.
 final class PlannerEventDeletionTargetSet {
   PlannerEventDeletionTargetSet({
     Iterable<String> occurrenceIds = const <String>[],
     Iterable<String> seriesIds = const <String>[],
+    Iterable<PlannerDate> confirmationDates = const <PlannerDate>[],
+    this.confirmAllCachedDays = true,
   }) : occurrenceIds = Set<String>.unmodifiable(
          occurrenceIds.where((id) => id.trim().isNotEmpty),
        ),
        seriesIds = Set<String>.unmodifiable(
          seriesIds.where((id) => id.trim().isNotEmpty),
-       );
+       ),
+       confirmationDates = Set<PlannerDate>.unmodifiable(confirmationDates);
 
+  /// A clicked occurrence can only exist on its own original date, so its
+  /// canonical confirmation re-reads exactly that one date. Legacy/manual
+  /// constructors default to [confirmAllCachedDays] = true, preserving the
+  /// OLD broad confirmation behavior.
   factory PlannerEventDeletionTargetSet.occurrence({
     required String eventId,
     required PlannerDate originalDate,
@@ -53,15 +64,46 @@ final class PlannerEventDeletionTargetSet {
           originalDate: originalDate,
         ),
       },
+      confirmationDates: <PlannerDate>{originalDate},
+      confirmAllCachedDays: false,
     );
   }
 
   factory PlannerEventDeletionTargetSet.series(String eventId) {
-    return PlannerEventDeletionTargetSet(seriesIds: <String>{eventId});
+    return PlannerEventDeletionTargetSet(
+      seriesIds: <String>{eventId},
+      confirmAllCachedDays: true,
+    );
+  }
+
+  /// ThisAndFuture hides ONLY the clicked occurrence but confirms broad: its
+  /// durable mutation affects multiple future dates, whose cached days must
+  /// be re-read so no stale copy survives.
+  factory PlannerEventDeletionTargetSet.thisAndFuture({
+    required String eventId,
+    required PlannerDate originalDate,
+  }) {
+    return PlannerEventDeletionTargetSet(
+      occurrenceIds: <String>{
+        CalendarEventOccurrenceIdentity.forDate(
+          eventId: eventId,
+          originalDate: originalDate,
+        ),
+      },
+      confirmAllCachedDays: true,
+    );
   }
 
   final Set<String> occurrenceIds;
   final Set<String> seriesIds;
+
+  /// Explicit dates the canonical confirmation may re-read. Empty means
+  /// "no narrow scope" and the broad set applies.
+  final Set<PlannerDate> confirmationDates;
+
+  /// True when confirmation must re-read the selected day and every cached
+  /// day (series and thisAndFuture, plus every legacy/manual target).
+  final bool confirmAllCachedDays;
 
   bool get isEmpty => occurrenceIds.isEmpty && seriesIds.isEmpty;
 
@@ -408,7 +450,16 @@ final class PlannerController extends Notifier<PlannerState> {
     if (targets.isEmpty) {
       return true;
     }
-    final dates = <PlannerDate>{state.selectedDate, ..._dayCache.keys};
+    final Set<PlannerDate> dates;
+    if (!targets.confirmAllCachedDays && targets.confirmationDates.isNotEmpty) {
+      // Explicit narrow occurrence scope: confirm only the original date. A
+      // clicked occurrence can only ever exist on that one day.
+      dates = targets.confirmationDates;
+    } else {
+      // Series, thisAndFuture, and every legacy/manual target keep the OLD
+      // BROAD confirmation: selected day + every cached day.
+      dates = <PlannerDate>{state.selectedDate, ..._dayCache.keys};
+    }
     final refreshRevision = ++_dayCacheRevision;
     _loadGeneration += 1;
     try {

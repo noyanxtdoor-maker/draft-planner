@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rmplanner/features/planner/application/calendar_event_repository.dart';
 import 'package:rmplanner/features/planner/application/planner_providers.dart';
@@ -77,6 +79,7 @@ final class CalendarEventController extends Notifier<String?> {
     required CalendarEventDraft draft,
     required String operationId,
     bool refreshPlanner = true,
+    bool awaitPlannerRefresh = true,
   }) async {
     return _runMutation(
       () => _repository.editEvent(
@@ -88,6 +91,7 @@ final class CalendarEventController extends Notifier<String?> {
         operationId: operationId,
       ),
       refreshPlanner: refreshPlanner,
+      awaitPlannerRefresh: awaitPlannerRefresh,
     );
   }
 
@@ -103,9 +107,16 @@ final class CalendarEventController extends Notifier<String?> {
       CalendarEventEditScope.series => PlannerEventDeletionTargetSet.series(
         eventId,
       ),
-      CalendarEventEditScope.occurrence ||
-      CalendarEventEditScope.thisAndFuture =>
+      CalendarEventEditScope.occurrence =>
         PlannerEventDeletionTargetSet.occurrence(
+          eventId: eventId,
+          originalDate: originalDate,
+        ),
+      // ThisAndFuture hides the clicked occurrence (same transient identity
+      // as an occurrence delete) but its durable mutation affects future
+      // dates too, so its confirmation must stay BROAD.
+      CalendarEventEditScope.thisAndFuture =>
+        PlannerEventDeletionTargetSet.thisAndFuture(
           eventId: eventId,
           originalDate: originalDate,
         ),
@@ -193,11 +204,21 @@ final class CalendarEventController extends Notifier<String?> {
   Future<bool> _runMutation(
     Future<CalendarEventMutationOutcome> Function() command, {
     bool refreshPlanner = true,
+    bool awaitPlannerRefresh = true,
   }) async {
     try {
       await command();
       if (refreshPlanner) {
-        await _refreshPlanner();
+        if (awaitPlannerRefresh) {
+          await _refreshPlanner();
+        } else {
+          // Background refresh for the normal Edit form: the durable Event
+          // write is the truth gate, so dismissal must not wait on the
+          // selected-day reload. Failures are surfaced through PlannerState;
+          // an unexpected error must never escape as an unhandled async
+          // error, hence the explicit swallow on the unawaited future.
+          unawaited(_refreshPlanner().catchError((Object _) {}));
+        }
       }
       state = null;
       return true;
