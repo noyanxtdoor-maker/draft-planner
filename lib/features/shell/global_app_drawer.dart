@@ -69,7 +69,7 @@ abstract final class GlobalDrawerCatalog {
     ),
     GlobalDrawerEntry._(
       id: 'drawer-planning',
-      label: 'Planning',
+      label: 'Goal Planning',
       icon: Icons.calendar_view_week_outlined,
       group: GlobalDrawerGroup.planning,
       routePath: RoutePaths.weeklyPlanning,

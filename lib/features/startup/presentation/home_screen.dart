@@ -17,6 +17,8 @@ import 'package:rmplanner/features/planner/application/planner_providers.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 import 'package:rmplanner/features/planner/presentation/calendar_event_creation.dart';
 import 'package:rmplanner/features/planner/presentation/contextual_create_fab.dart';
+import 'package:rmplanner/features/settings/application/start_of_week_providers.dart';
+import 'package:rmplanner/features/weekly_planning/application/weekly_planning_providers.dart';
 
 /// Returns the month-specific label shown beside the canonical monthly Goal.
 ///
@@ -56,8 +58,18 @@ final class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final plannerToday = ref.watch(plannerDateSourceProvider).today();
-    final periodStart = IndicatorPeriod.currentWeek(plannerToday).start;
+    final startOfWeek = ref.watch(startOfWeekProvider);
+    final periodStart = IndicatorPeriod.currentWeek(
+      plannerToday,
+      startDay: startOfWeek,
+    ).start;
     final canonicalPlan = ref.watch(goalPlanningProvider(periodStart));
+    // Plan-established signal: a WeeklyPlans row exists for the exact
+    // resolved current period.  Read-only; never creates a row here.
+    final established = ref
+        .watch(weeklyPlanEstablishedProvider(periodStart))
+        .asData
+        ?.value;
     _reconcileOptimisticTargets(canonicalPlan.asData?.value);
     final planValue = canonicalPlan.asData?.value;
     final optimisticDailyTarget = planValue?.daily == null
@@ -118,17 +130,25 @@ final class _HomeScreenState extends ConsumerState<HomeScreen> {
                   // "Life Goals".  Domain, provider, and database identifiers
                   // keep the canonical WLI naming.
                   title: 'Life Goals',
-                  onViewAll: () => _openWeeklyPlanning(context, periodStart),
+                  onViewAll: () => _openWeeklyPlanning(
+                    context,
+                    ref,
+                    periodStart,
+                  ),
                   viewAllKey: const Key('home-wli-view-all'),
                 ),
                 const SizedBox(height: 6),
                 _CanonicalHomePlan(
                   plan: canonicalPlan,
+                  established: established,
                   monthGoalLabel: _monthGoalLabel(context, plannerToday),
                   optimisticDailyTarget: optimisticDailyTarget,
                   nextTempleVisit: nextTempleVisit,
-                  onOpenWeeklyPlanning: () =>
-                      _openWeeklyPlanning(context, periodStart),
+                  onOpenWeeklyPlanning: () => _openWeeklyPlanning(
+                    context,
+                    ref,
+                    periodStart,
+                  ),
                   onOpenGoal: (progress) =>
                       _openGoalById(context, progress.goal.id),
                   onOpenTempleSchedule: () =>
@@ -179,7 +199,19 @@ final class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  static void _openWeeklyPlanning(BuildContext context, PlannerDate start) {
+  /// Opens the current-period Goal Planning flow, establishing the exact
+  /// resolved period idempotently first (Start Planning / View All / the Goal
+  /// Planning button all converge here).  Historical weeks are never created.
+  static Future<void> _openWeeklyPlanning(
+    BuildContext context,
+    WidgetRef ref,
+    PlannerDate start,
+  ) async {
+    await ref.read(weeklyPlanProvider(start).future);
+    ref.invalidate(weeklyPlanEstablishedProvider(start));
+    if (!context.mounted) {
+      return;
+    }
     unawaited(context.push(RoutePaths.weeklyPlanningFor(start)));
   }
 
@@ -252,6 +284,7 @@ final class _HomeScreenState extends ConsumerState<HomeScreen> {
         profileId: ref.read(goalProfileIdProvider),
         goalId: goalId,
         today: today,
+        startDay: ref.read(startOfWeekProvider),
       );
       if (latest == null) {
         return;
@@ -283,6 +316,7 @@ final class _HomeScreenState extends ConsumerState<HomeScreen> {
           monthly: latest.monthlyTarget.value,
         ),
         today: today,
+        startDay: ref.read(startOfWeekProvider),
       );
       ref.invalidate(goalPlanningProvider(periodStart));
       ref.invalidate(activeGoalsProvider);
@@ -365,6 +399,7 @@ final class _HomeScreenState extends ConsumerState<HomeScreen> {
 final class _CanonicalHomePlan extends StatelessWidget {
   const _CanonicalHomePlan({
     required this.plan,
+    required this.established,
     required this.monthGoalLabel,
     required this.nextTempleVisit,
     required this.onOpenWeeklyPlanning,
@@ -375,6 +410,11 @@ final class _CanonicalHomePlan extends StatelessWidget {
   });
 
   final AsyncValue<GoalPlanningSnapshot> plan;
+
+  /// True when a WeeklyPlans row exists for the exact resolved current period;
+  /// null while the read-only existence check is still loading (so the Home
+  /// never flashes Start Planning for an already-established period).
+  final bool? established;
   final String monthGoalLabel;
   final PlannerDate? nextTempleVisit;
   final int? optimisticDailyTarget;
@@ -397,11 +437,21 @@ final class _CanonicalHomePlan extends StatelessWidget {
         child: Center(child: Text('Life Goals unavailable.')),
       ),
       data: (value) {
+        if (established == null) {
+          return const SizedBox(
+            key: Key('home-canonical-plan-loading'),
+            height: 96,
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
         final hasActiveGoals =
             value.daily != null ||
             value.weekly.isNotEmpty ||
             value.monthly != null;
-        if (!hasActiveGoals) {
+        // Unestablished period: hide the Life Goal card grid, keep the
+        // section header + View All above, and show centered Start Planning.
+        // Established-but-empty is treated the same defensive way.
+        if (!established! || !hasActiveGoals) {
           return Align(
             alignment: Alignment.center,
             child: _StartPlanningButton(onPressed: onOpenWeeklyPlanning),
@@ -445,7 +495,7 @@ final class _CanonicalHomePlan extends StatelessWidget {
                       borderRadius: BorderRadius.circular(19),
                     ),
                   ),
-                  child: const Text('Planning'),
+                  child: const Text('Goal Planning'),
                 ),
               ),
             ),
@@ -820,7 +870,7 @@ final class _IndicatorCard extends StatelessWidget {
                 ),
               ),
               Text(
-                '${indicator.actual.display}/${indicator.target.display}',
+                _homeRatioText(indicator.actual, indicator.target),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
@@ -921,7 +971,7 @@ final class _IndicatorCard extends StatelessWidget {
               else
                 Text(
                   secondaryLabel ??
-                      '${indicator.actual.display}/${indicator.target.display}',
+                      _homeRatioText(indicator.actual, indicator.target),
                   maxLines: secondaryLabel == null ? 1 : 2,
                   overflow: TextOverflow.clip,
                   style: TextStyle(
@@ -1314,4 +1364,11 @@ final class _PathwayRow extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Home-only compact ratio text: an unset target renders as 0 (0/0) exactly
+/// like an explicit zero.  Domain semantics stay untouched — Goal Planning and
+/// Edit screens keep distinguishing notSet/null from explicit 0.
+String _homeRatioText(IndicatorAmount actual, IndicatorTarget target) {
+  return '${actual.display}/${target.value?.display ?? '0'}';
 }

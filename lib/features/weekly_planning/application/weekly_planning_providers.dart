@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rmplanner/features/indicators/application/indicator_providers.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
+import 'package:rmplanner/features/settings/application/start_of_week_providers.dart';
 import 'package:rmplanner/features/startup/application/startup_providers.dart';
 import 'package:rmplanner/features/startup/domain/startup_state.dart';
 import 'package:rmplanner/features/weekly_planning/application/weekly_planning_repository.dart';
@@ -27,10 +28,28 @@ final weeklyPlanProvider = FutureProvider.family<WeeklyPlan, PlannerDate>((
   date,
 ) {
   final profileId = ref.read(weeklyPlanningProfileIdProvider);
+  final startDay = ref.watch(startOfWeekProvider);
   ref.watch(indicatorChangesProvider(profileId));
   return ref
       .read(weeklyPlanningRepositoryProvider)
-      .openOrCreate(profileId: profileId, date: date);
+      .openOrCreate(profileId: profileId, date: date, startDay: startDay);
+});
+
+/// True when a WeeklyPlans row already exists for the exact resolved period
+/// start.  Read-only (never creates); Home uses this as the plan-established
+/// signal for the current period.
+final weeklyPlanEstablishedProvider = FutureProvider.family<bool, PlannerDate>((
+  ref,
+  periodStart,
+) async {
+  final profileId = ref.read(weeklyPlanningProfileIdProvider);
+  final plan = await ref
+      .read(weeklyPlanningRepositoryProvider)
+      .readPlanForPeriod(
+        profileId: profileId,
+        periodStart: periodStart,
+      );
+  return plan != null;
 });
 
 final weeklyPlanHistoryProvider = FutureProvider<List<WeeklyPlan>>((ref) {

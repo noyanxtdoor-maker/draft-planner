@@ -17,6 +17,7 @@ import 'package:rmplanner/features/planner/application/planner_providers.dart';
 import 'package:rmplanner/features/planner/domain/event_color_preferences.dart';
 import 'package:rmplanner/features/planner/domain/event_type.dart';
 import 'package:rmplanner/features/planner/presentation/event_type_form_screen.dart';
+import 'package:rmplanner/features/settings/application/start_of_week_providers.dart';
 
 final class GoalEditScreen extends ConsumerStatefulWidget {
   const GoalEditScreen({required this.goalId, this.initialGoal, super.key});
@@ -108,6 +109,7 @@ final class _GoalEditScreenState extends ConsumerState<GoalEditScreen> {
           profileId: profileId,
           goalId: widget.goalId,
           today: today,
+          startDay: ref.read(startOfWeekProvider),
         );
         final history = await repository.readActivityHistory(
           profileId,
@@ -403,6 +405,7 @@ final class _GoalEditScreenState extends ConsumerState<GoalEditScreen> {
               monthly: _amount(_monthly),
             ),
             iconId: _iconId,
+            startDay: ref.read(startOfWeekProvider),
           );
       ref.invalidate(activeGoalsProvider);
       ref.invalidate(goalCapacityProvider);

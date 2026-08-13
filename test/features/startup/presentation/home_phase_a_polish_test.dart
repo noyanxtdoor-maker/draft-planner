@@ -32,7 +32,12 @@ void main() {
     final database = openMemoryDatabase();
     addTearDown(database.close);
     final startup = buildTestRepository(database: database);
-    await startup.completeOnboarding();
+    final profile = await startup.completeOnboarding();
+    await establishWeeklyPlan(
+      database: database,
+      profileId: profile.id,
+      date: monday,
+    );
     final privacy = TestPrivacyDependencies(database: database);
     await tester.pumpWidget(
       privacy.buildApp(

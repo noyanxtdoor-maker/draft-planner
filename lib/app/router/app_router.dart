@@ -5,6 +5,7 @@ import 'package:rmplanner/app/router/app_route_observer.dart';
 import 'package:rmplanner/app/router/route_names.dart';
 import 'package:rmplanner/app/router/startup_route_guard.dart';
 import 'package:rmplanner/app/shell/main_shell.dart';
+import 'package:rmplanner/core/time/week_period.dart';
 import 'package:rmplanner/features/contacts/presentation/add_people_screen.dart';
 import 'package:rmplanner/features/contacts/presentation/contact_detail_screen.dart';
 import 'package:rmplanner/features/contacts/presentation/contact_form_screen.dart';
@@ -42,10 +43,12 @@ import 'package:rmplanner/features/planner/presentation/task_form_screen.dart';
 import 'package:rmplanner/features/privacy/presentation/diagnostic_preview_screen.dart';
 import 'package:rmplanner/features/privacy/presentation/permissions_screen.dart';
 import 'package:rmplanner/features/privacy/presentation/privacy_center_screen.dart';
+import 'package:rmplanner/features/settings/application/start_of_week_providers.dart';
 import 'package:rmplanner/features/settings/presentation/colors_screen.dart';
 import 'package:rmplanner/features/settings/presentation/more_screen.dart';
 import 'package:rmplanner/features/settings/presentation/planner_event_colors_screen.dart';
 import 'package:rmplanner/features/settings/presentation/settings_screen.dart';
+import 'package:rmplanner/features/settings/presentation/start_of_week_screen.dart';
 import 'package:rmplanner/features/shell/about_screen.dart';
 import 'package:rmplanner/features/shell/messages_screen.dart';
 import 'package:rmplanner/features/startup/application/startup_providers.dart';
@@ -129,6 +132,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const ColorsScreen(),
           ),
           GoRoute(
+            name: RouteNames.startOfWeek,
+            path: RoutePaths.startOfWeek,
+            builder: (context, state) => const StartOfWeekScreen(),
+          ),
+          GoRoute(
             name: RouteNames.plannerEventColors,
             path: RoutePaths.plannerEventColors,
             builder: (context, state) => const PlannerEventColorsScreen(),
@@ -147,6 +155,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 periodStart: _periodStart(
                   state.uri.queryParameters['week'],
                   ref.read(plannerDateSourceProvider).today(),
+                  ref,
                 ),
               );
             },
@@ -158,6 +167,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               final period = _periodStart(
                 state.uri.queryParameters['week'],
                 ref.read(plannerDateSourceProvider).today(),
+                ref,
               );
               return IndicatorDetailScreen(
                 indicatorKey: state.pathParameters['indicatorKey']!,
@@ -176,6 +186,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                     : _periodStart(
                         raw,
                         ref.read(plannerDateSourceProvider).today(),
+                        ref,
                       ),
                 initialManagementMode: state.extra == true,
               );
@@ -189,6 +200,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 periodStart: _periodStart(
                   state.uri.queryParameters['week'],
                   ref.read(plannerDateSourceProvider).today(),
+                  ref,
                 ),
                 indicatorKey: state.uri.queryParameters['indicator'],
               );
@@ -551,7 +563,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   return router;
 });
 
-PlannerDate _periodStart(String? raw, PlannerDate today) {
+PlannerDate _periodStart(String? raw, PlannerDate today, Ref ref) {
   if (raw != null) {
     try {
       return PlannerDate.parse(raw);
@@ -559,5 +571,8 @@ PlannerDate _periodStart(String? raw, PlannerDate today) {
       // Fall through to the truthful current-week context.
     }
   }
-  return today.addDays(-(today.asLocalDate.weekday - DateTime.monday));
+  return resolveWeek(
+    date: today,
+    startDay: ref.read(startOfWeekProvider),
+  ).start;
 }

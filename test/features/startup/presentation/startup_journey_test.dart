@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rmplanner/core/diagnostics/sanitized_diagnostics.dart';
 import 'package:rmplanner/core/platform/app_environment.dart';
+import 'package:rmplanner/features/planner/domain/planner_date.dart';
+import 'package:rmplanner/features/startup/application/startup_providers.dart';
+import 'package:rmplanner/features/startup/domain/startup_state.dart';
+import 'package:rmplanner/features/weekly_planning/application/weekly_planning_providers.dart';
 
 import '../../../support/test_dependencies.dart';
 
@@ -69,6 +74,21 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('main-bottom-navigation')), findsOneWidget);
+      // Establish the current week so Home renders the established card grid.
+      final container = ProviderScope.containerOf(
+        tester.element(find.byKey(const Key('main-bottom-navigation'))),
+      );
+      final profileId = (container.read(
+        startupControllerProvider,
+      ) as StartupReady).profile.id;
+      await container
+          .read(weeklyPlanningRepositoryProvider)
+          .openOrCreate(
+            profileId: profileId,
+            date: const PlannerDate(year: 2026, month: 7, day: 27),
+          );
+      container.invalidate(weeklyPlanEstablishedProvider);
+      await tester.pumpAndSettle();
       expect(find.text('Life Goals'), findsOneWidget);
       expect(find.text('Weekly Life Indicators'), findsNothing);
       expect(find.byKey(const Key('home-start-weekly-planning')), findsNothing);

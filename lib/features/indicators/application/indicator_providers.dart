@@ -6,6 +6,7 @@ import 'package:rmplanner/features/indicators/application/indicator_repository.d
 import 'package:rmplanner/features/indicators/domain/life_indicator.dart';
 import 'package:rmplanner/features/planner/application/planner_providers.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
+import 'package:rmplanner/features/settings/application/start_of_week_providers.dart';
 import 'package:rmplanner/features/startup/application/startup_providers.dart';
 import 'package:rmplanner/features/startup/domain/startup_state.dart';
 
@@ -88,8 +89,10 @@ final class HomeIndicatorController extends Notifier<HomeIndicatorState> {
     return startup.profile.id;
   }
 
-  IndicatorPeriod get currentPeriod =>
-      IndicatorPeriod.currentWeek(ref.read(plannerDateSourceProvider).today());
+  IndicatorPeriod get currentPeriod => IndicatorPeriod.currentWeek(
+    ref.read(plannerDateSourceProvider).today(),
+    startDay: ref.read(startOfWeekProvider),
+  );
 
   @override
   HomeIndicatorState build() {
@@ -123,7 +126,10 @@ final class HomeIndicatorController extends Notifier<HomeIndicatorState> {
       final today = ref.read(plannerDateSourceProvider).today();
       final snapshot = await _repository.readHome(
         profileId: _profileId,
-        period: IndicatorPeriod.currentWeek(today),
+        period: IndicatorPeriod.currentWeek(
+          today,
+          startDay: ref.read(startOfWeekProvider),
+        ),
         today: today,
       );
       if (_disposed) {
@@ -167,6 +173,7 @@ final class HomeIndicatorController extends Notifier<HomeIndicatorState> {
     final ids = ref.read(indicatorIdentifierSourceProvider);
     await _repository.saveTarget(
       profileId: _profileId,
+      startDay: ref.read(startOfWeekProvider),
       draft: IndicatorTargetRevisionDraft(
         id: ids.nextUuid(),
         operationId: ids.nextUuid(),
@@ -188,6 +195,7 @@ final class HomeIndicatorController extends Notifier<HomeIndicatorState> {
     final ids = ref.read(indicatorIdentifierSourceProvider);
     await _repository.saveGoal(
       profileId: _profileId,
+      startDay: ref.read(startOfWeekProvider),
       draft: IndicatorGoalRevisionDraft(
         id: ids.nextUuid(),
         operationId: ids.nextUuid(),
@@ -224,6 +232,7 @@ final class HomeIndicatorController extends Notifier<HomeIndicatorState> {
       periodType: periodType,
       anchor: anchor,
       today: ref.read(plannerDateSourceProvider).today(),
+      startDay: ref.read(startOfWeekProvider),
     );
   }
 

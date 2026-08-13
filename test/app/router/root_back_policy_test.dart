@@ -81,7 +81,7 @@ void main() {
     await tester.ensureVisible(find.byKey(const Key('weekly-targets-button')));
     await tester.tap(find.byKey(const Key('weekly-targets-button')));
     await tester.pumpAndSettle();
-    expect(find.text('Weekly Planning'), findsOneWidget);
+    expect(find.text('Goal Planning'), findsOneWidget);
   }
 
   testWidgets('Planner tab + Android Back reveals the existing Home root', (
@@ -177,14 +177,14 @@ void main() {
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     expect(homeAppBar(), findsOneWidget);
-    expect(find.text('Weekly Planning'), findsNothing);
+    expect(find.byKey(const Key('weekly-plan-list')), findsNothing);
 
     // Toolbar Back.
     await goToPlanning(tester);
     await tester.tap(find.byKey(const Key('weekly-plan-back-home')));
     await tester.pumpAndSettle();
     expect(homeAppBar(), findsOneWidget);
-    expect(find.text('Weekly Planning'), findsNothing);
+    expect(find.byKey(const Key('weekly-plan-list')), findsNothing);
   });
 
   testWidgets('Week browsing is local state; Back returns Home directly', (
@@ -200,7 +200,7 @@ void main() {
       await tester.pumpAndSettle();
     }
     expect(find.textContaining('Jul 6'), findsOneWidget);
-    expect(find.text('Weekly Planning'), findsOneWidget);
+    expect(find.text('Goal Planning'), findsOneWidget);
 
     // A single Back returns Home - no week-by-week unwinding.
     await tester.binding.handlePopRoute();
@@ -217,7 +217,7 @@ void main() {
 
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
-    expect(find.text('Weekly Planning'), findsOneWidget);
+    expect(find.text('Goal Planning'), findsOneWidget);
     expect(find.text('Plan History'), findsNothing);
   });
 
@@ -233,14 +233,14 @@ void main() {
     // Choose the seeded prior week.
     await tester.tap(find.textContaining('2026-07-20'));
     await tester.pumpAndSettle();
-    expect(find.text('Weekly Planning'), findsOneWidget);
+    expect(find.text('Goal Planning'), findsOneWidget);
     expect(find.textContaining('Jul 20'), findsOneWidget);
 
     // Back returns Home directly - no history stack unwinding.
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     expect(homeAppBar(), findsOneWidget);
-    expect(find.text('Weekly Planning'), findsNothing);
+    expect(find.byKey(const Key('weekly-plan-list')), findsNothing);
   });
 
   testWidgets(
@@ -255,7 +255,7 @@ void main() {
       await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
       expect(find.text('Goal limit reached'), findsNothing);
-      expect(find.text('Weekly Planning'), findsOneWidget);
+      expect(find.text('Goal Planning'), findsOneWidget);
     },
   );
 
@@ -268,7 +268,7 @@ void main() {
     final context = tester.element(find.byType(Scaffold).first);
     GoRouter.of(context).go(RoutePaths.weeklyPlanning);
     await tester.pumpAndSettle();
-    expect(find.text('Weekly Planning'), findsOneWidget);
+    expect(find.text('Goal Planning'), findsOneWidget);
 
     final handled = await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
@@ -327,7 +327,7 @@ void main() {
       expect(find.text('Unsaved Changes'), findsOneWidget);
       await tester.tap(find.byKey(const Key('goal-discard-changes')));
       await tester.pumpAndSettle();
-      expect(find.text('Weekly Planning'), findsOneWidget);
+      expect(find.text('Goal Planning'), findsOneWidget);
       expect(find.text('Unsaved Changes'), findsNothing);
     },
   );

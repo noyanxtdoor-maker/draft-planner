@@ -1,3 +1,4 @@
+import 'package:rmplanner/core/time/week_period.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 
 enum IndicatorProjectionState { current, stale, rebuilding, failed }
@@ -8,10 +9,12 @@ final class IndicatorPeriod {
   final PlannerDate start;
   final PlannerDate end;
 
-  factory IndicatorPeriod.currentWeek(PlannerDate today) {
-    final mondayOffset = today.asLocalDate.weekday - DateTime.monday;
-    final start = today.addDays(-mondayOffset);
-    return IndicatorPeriod(start: start, end: start.addDays(6));
+  factory IndicatorPeriod.currentWeek(
+    PlannerDate today, {
+    int startDay = DateTime.monday,
+  }) {
+    final week = resolveWeek(date: today, startDay: startDay);
+    return IndicatorPeriod(start: week.start, end: week.end);
   }
 
   bool contains(PlannerDate date) =>
@@ -52,13 +55,15 @@ final class IndicatorGoalPeriod {
     );
   }
 
-  factory IndicatorGoalPeriod.weekly(PlannerDate date) {
-    final mondayOffset = date.asLocalDate.weekday - DateTime.monday;
-    final start = date.addDays(-mondayOffset);
+  factory IndicatorGoalPeriod.weekly(
+    PlannerDate date, {
+    int startDay = DateTime.monday,
+  }) {
+    final week = resolveWeek(date: date, startDay: startDay);
     return IndicatorGoalPeriod(
       type: IndicatorGoalPeriodType.weekly,
-      start: start,
-      end: start.addDays(6),
+      start: week.start,
+      end: week.end,
     );
   }
 

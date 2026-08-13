@@ -30,6 +30,8 @@ import 'package:rmplanner/features/privacy/application/privacy_providers.dart';
 import 'package:rmplanner/features/privacy/data/drift_privacy_repository.dart';
 import 'package:rmplanner/features/privacy/data/local_auth_device_authenticator.dart';
 import 'package:rmplanner/features/privacy/data/permission_handler_gateway.dart';
+import 'package:rmplanner/features/settings/application/start_of_week_providers.dart';
+import 'package:rmplanner/features/settings/data/drift_start_of_week_repository.dart';
 import 'package:rmplanner/features/startup/application/startup_providers.dart';
 import 'package:rmplanner/features/startup/data/drift_startup_repository.dart';
 import 'package:rmplanner/features/weekly_planning/application/weekly_planning_providers.dart';
@@ -113,6 +115,10 @@ Future<void> main() async {
     calendarEvents: calendarEventRepository,
     links: taskEventLinkRepository,
   );
+  final startOfWeekRepository = DriftStartOfWeekRepository(
+    database: database,
+    clock: clock,
+  );
   final startupRepository = DriftStartupRepository(
     database: database,
     clock: clock,
@@ -150,6 +156,7 @@ Future<void> main() async {
         weeklyPlanningRepositoryProvider.overrideWithValue(
           weeklyPlanningRepository,
         ),
+        startOfWeekRepositoryProvider.overrideWithValue(startOfWeekRepository),
         taskEventLinkRepositoryProvider.overrideWithValue(
           taskEventLinkRepository,
         ),

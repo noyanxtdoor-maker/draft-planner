@@ -25,11 +25,13 @@ abstract interface class IndicatorRepository {
   Future<void> saveTarget({
     required String profileId,
     required IndicatorTargetRevisionDraft draft,
+    int startDay = DateTime.monday,
   });
 
   Future<void> saveGoal({
     required String profileId,
     required IndicatorGoalRevisionDraft draft,
+    int startDay = DateTime.monday,
   });
 
   Future<IndicatorGoalSnapshot> readGoal({
@@ -45,6 +47,7 @@ abstract interface class IndicatorRepository {
     required IndicatorGoalPeriodType periodType,
     required PlannerDate anchor,
     required PlannerDate today,
+    int startDay = DateTime.monday,
   });
 
   Future<void> renameIndicator({

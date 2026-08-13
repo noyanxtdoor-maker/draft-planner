@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rmplanner/app/router/route_names.dart';
 import 'package:rmplanner/app/theme/app_theme.dart';
 import 'package:rmplanner/app/theme/internal_screen.dart';
+import 'package:rmplanner/features/settings/application/start_of_week_providers.dart';
 
 /// Canonical centralized Settings home (Pack 3, Phase 4).
 ///
@@ -21,11 +23,24 @@ import 'package:rmplanner/app/theme/internal_screen.dart';
 /// Settings is the only top-level drawer destination for Privacy and Data,
 /// Permissions, and the planner/calendar preferences: they are never
 /// duplicated as separate drawer rows.
-final class SettingsScreen extends StatelessWidget {
+final class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
+  static const List<String> _dayNames = <String>[
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+    'Sunday',
+  ];
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final startOfWeek = ref.watch(startOfWeekProvider);
+    final startOfWeekLabel =
+        _dayNames[startOfWeek - DateTime.monday];
     return Scaffold(
       appBar: InternalAppBar(title: const Text('Settings')),
       body: SafeArea(
@@ -95,6 +110,28 @@ final class SettingsScreen extends StatelessWidget {
                     subtitle: const Text('Planner Event color preferences'),
                     trailing: const Icon(Icons.chevron_right, size: 20),
                     onTap: () => context.push(RoutePaths.colors),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 18),
+            const _SettingsSectionLabel('PLANNING'),
+            Card(
+              margin: EdgeInsets.zero,
+              color: Colors.transparent,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+                side: const BorderSide(color: AppTheme.outline),
+              ),
+              child: Column(
+                children: <Widget>[
+                  ListTile(
+                    key: const Key('settings-start-of-week'),
+                    leading: const Icon(Icons.calendar_view_week_outlined),
+                    title: const Text('Start of week'),
+                    subtitle: Text(startOfWeekLabel),
+                    trailing: const Icon(Icons.chevron_right, size: 20),
+                    onTap: () => context.push(RoutePaths.startOfWeek),
                   ),
                 ],
               ),

@@ -17,7 +17,12 @@ void main() {
     final database = openMemoryDatabase();
     addTearDown(database.close);
     final startup = buildTestRepository(database: database);
-    await startup.completeOnboarding();
+    final profile = await startup.completeOnboarding();
+    await establishWeeklyPlan(
+      database: database,
+      profileId: profile.id,
+      date: monday,
+    );
     final privacy = TestPrivacyDependencies(database: database);
 
     await tester.pumpWidget(
@@ -35,7 +40,9 @@ void main() {
 
     expect(find.text('Life Goals'), findsOneWidget);
     expect(find.byKey(const Key('home-active-period')), findsOneWidget);
-    expect(find.text('Not set'), findsNWidgets(6));
+    // Home-only unset targets render 0/0 (never 0/Not set).
+    expect(find.text('Not set'), findsNothing);
+    expect(find.text('0/0'), findsNWidgets(6));
     await tester.scrollUntilVisible(
       find.byKey(const Key('weekly-targets-button')),
       250,
@@ -46,7 +53,7 @@ void main() {
     );
     await tester.tap(find.byKey(const Key('weekly-targets-button')));
     await tester.pumpAndSettle();
-    expect(find.text('Weekly Planning'), findsOneWidget);
+    expect(find.text('Goal Planning'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.byKey(const Key('weekly-plan-targets-button')),
       250,

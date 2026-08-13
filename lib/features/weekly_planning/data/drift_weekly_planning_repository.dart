@@ -48,9 +48,10 @@ final class DriftWeeklyPlanningRepository implements WeeklyPlanningRepository {
   Future<WeeklyPlan> openOrCreate({
     required String profileId,
     required PlannerDate date,
+    int startDay = DateTime.monday,
   }) async {
     final zone = await _profileTimeZone(profileId);
-    final period = WeeklyPeriod.containing(date);
+    final period = WeeklyPeriod.containing(date, startDay: startDay);
     final existing = await _rowForPeriod(profileId, period.start);
     if (existing != null) {
       return _mapPlan(existing);
@@ -77,6 +78,15 @@ final class DriftWeeklyPlanningRepository implements WeeklyPlanningRepository {
     });
 
     return _mapPlan((await _rowForPeriod(profileId, period.start))!);
+  }
+
+  @override
+  Future<WeeklyPlan?> readPlanForPeriod({
+    required String profileId,
+    required PlannerDate periodStart,
+  }) async {
+    final row = await _rowForPeriod(profileId, periodStart);
+    return row == null ? null : _mapPlan(row);
   }
 
   @override

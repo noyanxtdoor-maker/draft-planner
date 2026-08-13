@@ -278,14 +278,19 @@ final class DriftIndicatorRepository implements IndicatorRepository {
   Future<void> saveTarget({
     required String profileId,
     required IndicatorTargetRevisionDraft draft,
+    int startDay = DateTime.monday,
   }) async {
     await saveGoal(
       profileId: profileId,
+      startDay: startDay,
       draft: IndicatorGoalRevisionDraft(
         id: draft.id,
         operationId: draft.operationId,
         indicatorKey: draft.indicatorKey,
-        period: IndicatorGoalPeriod.weekly(draft.period.start),
+        period: IndicatorGoalPeriod.weekly(
+          draft.period.start,
+          startDay: startDay,
+        ),
         value: draft.value,
       ),
     );
@@ -295,6 +300,7 @@ final class DriftIndicatorRepository implements IndicatorRepository {
   Future<void> saveGoal({
     required String profileId,
     required IndicatorGoalRevisionDraft draft,
+    int startDay = DateTime.monday,
   }) async {
     if (!Uuid.isValidUUID(fromString: draft.id) ||
         !Uuid.isValidUUID(fromString: draft.operationId)) {
@@ -401,6 +407,7 @@ final class DriftIndicatorRepository implements IndicatorRepository {
     required IndicatorGoalPeriodType periodType,
     required PlannerDate anchor,
     required PlannerDate today,
+    int startDay = DateTime.monday,
   }) async {
     final periods = <IndicatorGoalPeriod>[];
     switch (periodType) {
@@ -409,10 +416,16 @@ final class DriftIndicatorRepository implements IndicatorRepository {
           periods.add(IndicatorGoalPeriod.daily(anchor.addDays(-offset)));
         }
       case IndicatorGoalPeriodType.weekly:
-        final current = IndicatorGoalPeriod.weekly(anchor);
+        final current = IndicatorGoalPeriod.weekly(
+          anchor,
+          startDay: startDay,
+        );
         for (var offset = 4; offset >= 0; offset -= 1) {
           periods.add(
-            IndicatorGoalPeriod.weekly(current.start.addDays(-7 * offset)),
+            IndicatorGoalPeriod.weekly(
+              current.start.addDays(-7 * offset),
+              startDay: startDay,
+            ),
           );
         }
       case IndicatorGoalPeriodType.monthly:

@@ -13,6 +13,7 @@ import 'package:rmplanner/features/privacy/presentation/permissions_screen.dart'
 import 'package:rmplanner/features/privacy/presentation/privacy_center_screen.dart';
 import 'package:rmplanner/features/settings/presentation/colors_screen.dart';
 import 'package:rmplanner/features/settings/presentation/settings_screen.dart';
+import 'package:rmplanner/features/settings/presentation/start_of_week_screen.dart';
 
 import '../../../support/test_dependencies.dart';
 
@@ -75,12 +76,17 @@ void main() {
       find.byKey(const Key('settings-section-planner-and-calendar')),
       findsOneWidget,
     );
+    expect(
+      find.byKey(const Key('settings-section-planning')),
+      findsOneWidget,
+    );
 
     for (final key in <String>[
       'settings-privacy-data',
       'settings-permissions',
       'settings-planner-calendar',
       'settings-colors',
+      'settings-start-of-week',
     ]) {
       await tester.scrollUntilVisible(
         find.byKey(Key(key)),
@@ -157,6 +163,18 @@ void main() {
     await tester.tap(find.byKey(const Key('settings-colors')));
     await tester.pumpAndSettle();
     expect(find.byType(ColorsScreen), findsOneWidget);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+
+    // Start of week opens the real selector.
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('settings-start-of-week')),
+      160,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.byKey(const Key('settings-start-of-week')));
+    await tester.pumpAndSettle();
+    expect(find.byType(StartOfWeekScreen), findsOneWidget);
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     expect(find.byType(SettingsScreen), findsOneWidget);

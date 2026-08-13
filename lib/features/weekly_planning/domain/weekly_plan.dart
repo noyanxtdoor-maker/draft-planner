@@ -1,3 +1,4 @@
+import 'package:rmplanner/core/time/week_period.dart';
 import 'package:rmplanner/features/indicators/domain/life_indicator.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 
@@ -5,16 +6,22 @@ enum WeeklyPlanState { draft, active, reviewDue, reviewed, historical }
 
 final class WeeklyPeriod {
   WeeklyPeriod({required this.start, required this.end}) {
-    if (start.weekday != DateTime.monday || end != start.addDays(6)) {
+    // A Weekly Plan is exactly 7 consecutive local-calendar days.  The first
+    // day follows the configured start-of-week preference (Monday by
+    // default), so no specific weekday is required here.
+    if (end != start.addDays(6)) {
       throw const WeeklyPlanningValidationException(
-        'A Weekly Plan must cover exactly Monday through Sunday.',
+        'A Weekly Plan must cover exactly 7 consecutive days.',
       );
     }
   }
 
-  factory WeeklyPeriod.containing(PlannerDate date) {
-    final start = date.addDays(-(date.weekday - DateTime.monday));
-    return WeeklyPeriod(start: start, end: start.addDays(6));
+  factory WeeklyPeriod.containing(
+    PlannerDate date, {
+    int startDay = DateTime.monday,
+  }) {
+    final week = resolveWeek(date: date, startDay: startDay);
+    return WeeklyPeriod(start: week.start, end: week.end);
   }
 
   final PlannerDate start;

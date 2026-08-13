@@ -30,6 +30,7 @@ abstract interface class GoalRepository {
     String? iconId,
     String? operationId,
     int? expectedSlotIndex,
+    int startDay = DateTime.monday,
   });
 
   Future<Goal> saveGoal({
@@ -40,6 +41,7 @@ abstract interface class GoalRepository {
     String? iconId,
     String? operationId,
     PlannerDate? today,
+    int startDay = DateTime.monday,
   });
 
   Future<void> archiveGoal({
@@ -97,11 +99,13 @@ abstract interface class GoalRepository {
     required String profileId,
     required PlannerDate periodStart,
     PlannerDate? today,
+    int startDay = DateTime.monday,
   });
 
   Future<GoalProgress?> readProgress({
     required String profileId,
     required String goalId,
     required PlannerDate today,
+    int startDay = DateTime.monday,
   });
 }

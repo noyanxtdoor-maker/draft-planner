@@ -5,6 +5,7 @@ import 'package:drift/drift.dart';
 import 'package:rmplanner/core/database/app_database.dart';
 import 'package:rmplanner/core/ids/identifier_source.dart';
 import 'package:rmplanner/core/time/app_clock.dart';
+import 'package:rmplanner/core/time/week_period.dart';
 import 'package:rmplanner/features/goals/application/goal_repository.dart';
 import 'package:rmplanner/features/goals/domain/canonical_goal_slots.dart';
 import 'package:rmplanner/features/goals/domain/goal.dart';
@@ -378,6 +379,7 @@ final class DriftGoalRepository implements GoalRepository {
     String? iconId,
     String? operationId,
     int? expectedSlotIndex,
+    int startDay = DateTime.monday,
   }) async {
     final normalizedTitle = title.trim();
     if (normalizedTitle.isEmpty) {
@@ -420,6 +422,7 @@ final class DriftGoalRepository implements GoalRepository {
         goal: goal,
         targets: targets,
         operationId: effectiveOperationId,
+        startDay: startDay,
       );
       await _writeActivity(
         goal: goal,
@@ -456,6 +459,7 @@ final class DriftGoalRepository implements GoalRepository {
     String? iconId,
     String? operationId,
     PlannerDate? today,
+    int startDay = DateTime.monday,
   }) async {
     final normalizedTitle = title.trim();
     if (normalizedTitle.isEmpty) {
@@ -504,6 +508,7 @@ final class DriftGoalRepository implements GoalRepository {
         targets: targets,
         operationId: effectiveOperationId,
         today: today,
+        startDay: startDay,
       );
       if (titleChanged) {
         await _writeActivity(
@@ -609,6 +614,7 @@ final class DriftGoalRepository implements GoalRepository {
     required String profileId,
     required String goalId,
     String? operationId,
+    int startDay = DateTime.monday,
   }) async {
     await ensureCanonicalGoals(profileId);
     final effectiveOperationId = operationId ?? identifiers.nextUuid();
@@ -669,6 +675,7 @@ final class DriftGoalRepository implements GoalRepository {
       await _ensureCurrentTargetsAfterRestore(
         goal: restored,
         operationId: effectiveOperationId,
+        startDay: startDay,
       );
       await _writeActivity(
         goal: restored,
@@ -1361,6 +1368,7 @@ final class DriftGoalRepository implements GoalRepository {
     required String profileId,
     required PlannerDate periodStart,
     PlannerDate? today,
+    int startDay = DateTime.monday,
   }) async {
     final goals =
         (await readActiveGoals(
@@ -1368,18 +1376,20 @@ final class DriftGoalRepository implements GoalRepository {
           )).where(_isCanonicalPlanningGoal).toList(growable: true)
           ..sort(_compareCanonicalPlanningGoals);
     final resolvedToday = today ?? periodStart;
+    final resolvedWeek = resolveWeek(date: periodStart, startDay: startDay);
     final progress = <GoalProgress>[];
     for (final goal in goals) {
       final value = await _readProgress(
         goal: goal,
         today: resolvedToday,
-        periodStart: periodStart,
+        periodStart: resolvedWeek.start,
+        startDay: startDay,
       );
       progress.add(value);
     }
     return GoalPlanningSnapshot(
-      periodStart: _mondayOf(periodStart),
-      periodEnd: _mondayOf(periodStart).addDays(6),
+      periodStart: resolvedWeek.start,
+      periodEnd: resolvedWeek.end,
       daily: progress
           .where((value) => value.goal.role == GoalRole.dailyWeekly)
           .firstOrNull,
@@ -1397,22 +1407,32 @@ final class DriftGoalRepository implements GoalRepository {
     required String profileId,
     required String goalId,
     required PlannerDate today,
+    int startDay = DateTime.monday,
   }) async {
     final goal = await readGoal(profileId: profileId, goalId: goalId);
     if (goal == null) {
       return null;
     }
-    return _readProgress(goal: goal, today: today, periodStart: today);
+    return _readProgress(
+      goal: goal,
+      today: today,
+      periodStart: today,
+      startDay: startDay,
+    );
   }
 
   Future<GoalProgress> _readProgress({
     required Goal goal,
     required PlannerDate today,
     required PlannerDate periodStart,
+    int startDay = DateTime.monday,
   }) async {
     final unit = await _unitForGoal(goal);
     final dailyPeriod = IndicatorGoalPeriod.daily(today);
-    final weeklyPeriod = IndicatorGoalPeriod.weekly(periodStart);
+    final weeklyPeriod = IndicatorGoalPeriod.weekly(
+      periodStart,
+      startDay: startDay,
+    );
     final monthlyPeriod = IndicatorGoalPeriod.monthly(today);
     final daily = await _target(goal, dailyPeriod, unit);
     final weekly = await _target(goal, weeklyPeriod, unit);
@@ -1652,6 +1672,7 @@ final class DriftGoalRepository implements GoalRepository {
     required GoalTargets targets,
     required String operationId,
     PlannerDate? today,
+    int startDay = DateTime.monday,
   }) async {
     final unit = await _unitForGoal(goal);
     final targetDate = today ?? _today();
@@ -1659,10 +1680,16 @@ final class DriftGoalRepository implements GoalRepository {
       if (goal.role == GoalRole.dailyWeekly)
         IndicatorGoalPeriod.daily(targetDate): targets.daily,
       if (goal.role == GoalRole.dailyWeekly || goal.role == GoalRole.weekly)
-        IndicatorGoalPeriod.weekly(targetDate): targets.weekly,
+        IndicatorGoalPeriod.weekly(
+          targetDate,
+          startDay: startDay,
+        ): targets.weekly,
       if (goal.role ==
           GoalRole.weeklyMonthly) ...<IndicatorGoalPeriod, IndicatorAmount?>{
-        IndicatorGoalPeriod.weekly(targetDate): targets.weekly,
+        IndicatorGoalPeriod.weekly(
+          targetDate,
+          startDay: startDay,
+        ): targets.weekly,
         IndicatorGoalPeriod.monthly(targetDate): targets.monthly,
       },
     };
@@ -1708,15 +1735,16 @@ final class DriftGoalRepository implements GoalRepository {
   Future<void> _ensureCurrentTargetsAfterRestore({
     required Goal goal,
     required String operationId,
+    int startDay = DateTime.monday,
   }) async {
     final today = _today();
     final unit = await _unitForGoal(goal);
     final periods = <IndicatorGoalPeriod>[
       if (goal.role == GoalRole.dailyWeekly) IndicatorGoalPeriod.daily(today),
       if (goal.role == GoalRole.dailyWeekly || goal.role == GoalRole.weekly)
-        IndicatorGoalPeriod.weekly(today),
+        IndicatorGoalPeriod.weekly(today, startDay: startDay),
       if (goal.role == GoalRole.weeklyMonthly) ...<IndicatorGoalPeriod>[
-        IndicatorGoalPeriod.weekly(today),
+        IndicatorGoalPeriod.weekly(today, startDay: startDay),
         IndicatorGoalPeriod.monthly(today),
       ],
     ];
@@ -2001,9 +2029,6 @@ final class DriftGoalRepository implements GoalRepository {
     };
   }
 
-  PlannerDate _mondayOf(PlannerDate date) {
-    return date.addDays(-(date.asLocalDate.weekday - DateTime.monday));
-  }
 }
 
 bool _isCanonicalPlanningGoal(Goal goal) {

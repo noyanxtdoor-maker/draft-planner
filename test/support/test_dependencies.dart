@@ -36,6 +36,8 @@ import 'package:rmplanner/features/privacy/application/privacy_providers.dart';
 import 'package:rmplanner/features/privacy/application/privacy_services.dart';
 import 'package:rmplanner/features/privacy/data/drift_privacy_repository.dart';
 import 'package:rmplanner/features/privacy/domain/permission_summary.dart';
+import 'package:rmplanner/features/settings/application/start_of_week_providers.dart';
+import 'package:rmplanner/features/settings/data/drift_start_of_week_repository.dart';
 import 'package:rmplanner/features/startup/application/startup_providers.dart';
 import 'package:rmplanner/features/startup/application/startup_repository.dart';
 import 'package:rmplanner/features/startup/data/drift_startup_repository.dart';
@@ -309,6 +311,10 @@ final class TestPrivacyDependencies {
       clock: FixedClock(DateTime.utc(2026, 7, 27, 12)),
       identifiers: const UuidIdentifierSource(),
     );
+    final startOfWeekRepository = DriftStartOfWeekRepository(
+      database: repository.database,
+      clock: FixedClock(DateTime.utc(2026, 7, 27, 12)),
+    );
     final resolvedWeeklyPlanningRepository =
         weeklyPlanningRepository ??
         DriftWeeklyPlanningRepository(
@@ -345,6 +351,7 @@ final class TestPrivacyDependencies {
         weeklyPlanningRepositoryProvider.overrideWithValue(
           resolvedWeeklyPlanningRepository,
         ),
+        startOfWeekRepositoryProvider.overrideWithValue(startOfWeekRepository),
         contactRepositoryProvider.overrideWithValue(resolvedContactRepository),
         taskEventLinkRepositoryProvider.overrideWithValue(linkRepository),
         taskEventLinkCoordinatorProvider.overrideWithValue(linkCoordinator),
@@ -390,6 +397,48 @@ final class FailingStartupRepository implements StartupRepository {
 
 AppDatabase openMemoryDatabase() {
   return AppDatabase.forTesting(NativeDatabase.memory());
+}
+
+/// Establishes the exact WeeklyPlans row for [date] under [startDay] so widget
+/// tests can render an ESTABLISHED Home (cards + Goal Planning pill) without
+/// navigating.  Uses the same construction the app wires in production.
+Future<void> establishWeeklyPlan({
+  required AppDatabase database,
+  required String profileId,
+  required PlannerDate date,
+  int startDay = DateTime.monday,
+}) async {
+  final clock = FixedClock(DateTime.utc(2026, 7, 27, 12));
+  final timeZones = IanaCalendarEventTimeZones(
+    displayTimeZoneId: 'Asia/Manila',
+  );
+  final reporting = DriftOutcomeReportingRepository(
+    database: database,
+    clock: clock,
+  );
+  final calendar = DriftCalendarEventRepository(
+    database: database,
+    clock: clock,
+    timeZones: timeZones,
+    reportSource: reporting,
+  );
+  final indicators = DriftIndicatorRepository(
+    database: database,
+    clock: clock,
+    calendarEvents: calendar,
+  );
+  final repository = DriftWeeklyPlanningRepository(
+    database: database,
+    clock: clock,
+    identifiers: const UuidIdentifierSource(),
+    timeZones: timeZones,
+    indicators: indicators,
+  );
+  await repository.openOrCreate(
+    profileId: profileId,
+    date: date,
+    startDay: startDay,
+  );
 }
 
 DriftStartupRepository buildTestRepository({

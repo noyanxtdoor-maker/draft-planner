@@ -53,7 +53,12 @@ void main() {
       final database = openMemoryDatabase();
       addTearDown(database.close);
       final startup = buildTestRepository(database: database);
-      await startup.completeOnboarding();
+      final profile = await startup.completeOnboarding();
+      await establishWeeklyPlan(
+        database: database,
+        profileId: profile.id,
+        date: monday,
+      );
       final privacy = TestPrivacyDependencies(database: database);
 
       await tester.pumpWidget(
@@ -88,7 +93,7 @@ void main() {
 
       await tester.tap(find.byKey(const Key('weekly-targets-button')));
       await tester.pumpAndSettle();
-      expect(find.text('Weekly Planning'), findsOneWidget);
+      expect(find.text('Goal Planning'), findsOneWidget);
       expect(
         find.byKey(const Key('weekly-plan-indicator-job_applications')),
         findsOneWidget,
@@ -128,7 +133,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('goal-edit-save')));
       await tester.pumpAndSettle();
-      expect(find.text('Weekly Planning'), findsOneWidget);
+      expect(find.text('Goal Planning'), findsOneWidget);
 
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(milliseconds: 1));
@@ -192,6 +197,11 @@ void main() {
       addTearDown(database.close);
       final startup = buildTestRepository(database: database);
       final profile = await startup.completeOnboarding();
+      await establishWeeklyPlan(
+        database: database,
+        profileId: profile.id,
+        date: monday,
+      );
       final clock = FixedClock(DateTime.utc(2026, 7, 27, 12));
       final reporting = DriftOutcomeReportingRepository(
         database: database,
@@ -328,7 +338,7 @@ void main() {
         expect(tester.getSize(find.byKey(Key(key))), const Size(40, 24));
       }
       expect(find.text('Set Schedule'), findsOneWidget);
-      expect(find.text('Planning'), findsOneWidget);
+      expect(find.text('Goal Planning'), findsOneWidget);
       expect(tester.takeException(), isNull);
 
       await tester.tap(find.byKey(const Key('home-indicator-temple_visit')));
@@ -384,6 +394,11 @@ void main() {
         calendarEvents: calendar,
       );
       const monday = PlannerDate(year: 2026, month: 7, day: 27);
+      await establishWeeklyPlan(
+        database: database,
+        profileId: profile.id,
+        date: monday,
+      );
       const indicatorKeys = <String>[
         'job_applications',
         'scripture_study',
@@ -452,6 +467,11 @@ void main() {
       addTearDown(database.close);
       final startup = buildTestRepository(database: database);
       final profile = await startup.completeOnboarding();
+      await establishWeeklyPlan(
+        database: database,
+        profileId: profile.id,
+        date: monday,
+      );
       final goalRepository = DriftGoalRepository(
         database: database,
         clock: FixedClock(DateTime.utc(2026, 7, 27, 12)),

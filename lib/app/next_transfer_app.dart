@@ -5,11 +5,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rmplanner/app/router/app_router.dart';
 import 'package:rmplanner/app/theme/app_theme.dart';
 import 'package:rmplanner/core/platform/app_environment.dart';
+import 'package:rmplanner/features/goals/application/goal_providers.dart';
 import 'package:rmplanner/features/indicators/application/indicator_providers.dart';
+import 'package:rmplanner/features/planner/application/planner_providers.dart';
 import 'package:rmplanner/features/privacy/application/privacy_providers.dart';
 import 'package:rmplanner/features/privacy/application/privacy_services.dart';
+import 'package:rmplanner/features/settings/application/start_of_week_providers.dart';
 import 'package:rmplanner/features/startup/application/startup_providers.dart';
 import 'package:rmplanner/features/startup/domain/startup_state.dart';
+import 'package:rmplanner/features/weekly_planning/application/weekly_planning_providers.dart';
 
 final appEnvironmentProvider = Provider<AppEnvironment>((ref) {
   throw StateError('AppEnvironment must be overridden at the app root');
@@ -60,6 +64,14 @@ final class _NextTransferAppState extends ConsumerState<NextTransferApp>
           _relockForBackground(controller);
         }
         if (ref.read(startupControllerProvider) is StartupReady) {
+          // Generic boundary re-resolution: re-read today's local date and the
+          // current start-of-week preference, then recompute the active Home /
+          // Goal Planning period (a backgrounded app may cross the configured
+          // period boundary).  The legacy indicator path keeps its refresh.
+          ref.invalidate(plannerDateSourceProvider);
+          ref.invalidate(startOfWeekProvider);
+          ref.invalidate(goalPlanningProvider);
+          ref.invalidate(weeklyPlanEstablishedProvider);
           unawaited(
             ref.read(homeIndicatorControllerProvider.notifier).refresh(),
           );

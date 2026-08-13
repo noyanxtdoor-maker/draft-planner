@@ -185,6 +185,13 @@ void _registerHomeGolden({
     addTearDown(database.close);
     final startup = buildTestRepository(database: database);
     final profile = await startup.completeOnboarding();
+    // Establish the current period so the golden captures the established
+    // Home (cards + Goal Planning pill), matching the pre-pack Home layout.
+    await establishWeeklyPlan(
+      database: database,
+      profileId: profile.id,
+      date: today,
+    );
     final repository = DriftGoalRepository(
       database: database,
       clock: FixedClock(DateTime.utc(2026, 8, 4, 12)),

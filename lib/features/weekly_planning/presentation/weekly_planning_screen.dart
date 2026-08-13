@@ -6,10 +6,12 @@ import 'package:go_router/go_router.dart';
 import 'package:rmplanner/app/router/app_route_observer.dart';
 import 'package:rmplanner/app/router/route_names.dart';
 import 'package:rmplanner/app/theme/app_theme.dart';
+import 'package:rmplanner/core/time/week_period.dart';
 import 'package:rmplanner/features/goals/application/goal_providers.dart';
 import 'package:rmplanner/features/goals/domain/goal.dart';
 import 'package:rmplanner/features/goals/presentation/widgets/goal_icon.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
+import 'package:rmplanner/features/settings/application/start_of_week_providers.dart';
 import 'package:rmplanner/features/weekly_planning/application/weekly_planning_providers.dart';
 
 final class WeeklyPlanningScreen extends ConsumerStatefulWidget {
@@ -46,7 +48,7 @@ final class _WeeklyPlanningScreenState
   void _selectWeek(PlannerDate start) {
     _setManagementMode(false);
     if (mounted) {
-      setState(() => _selectedWeek = _mondayOf(start));
+      setState(() => _selectedWeek = _weekStartOf(ref, start));
     }
   }
 
@@ -56,13 +58,20 @@ final class _WeeklyPlanningScreenState
     final resolvedStart =
         selected ??
         (widget.periodStart != null
-            ? _mondayOf(widget.periodStart!)
+            ? _weekStartOf(ref, widget.periodStart!)
             : ref.watch(weeklyPlanningTodayProvider).asData?.value);
     if (resolvedStart == null) {
       return Scaffold(
         appBar: _appBar(context),
         body: const SafeArea(child: Center(child: CircularProgressIndicator())),
       );
+    }
+    // Deliberate entry into the CURRENT period establishes it idempotently
+    // (openOrCreate).  Historical weeks are never created: the provider is
+    // only watched when the resolved period equals the current one.
+    final today = ref.watch(weeklyPlanningTodayProvider).asData?.value;
+    if (today != null && resolvedStart == _weekStartOf(ref, today)) {
+      ref.watch(weeklyPlanProvider(resolvedStart));
     }
     final plan = ref.watch(goalPlanningProvider(resolvedStart));
     return Scaffold(
@@ -103,7 +112,7 @@ final class _WeeklyPlanningScreenState
         },
         icon: const Icon(Icons.arrow_back),
       ),
-      title: const Text('Weekly Planning'),
+      title: const Text('Goal Planning'),
       actions: <Widget>[
         if (!_managementMode)
           IconButton(
@@ -199,10 +208,13 @@ final class _GoalPlanBodyState extends ConsumerState<_GoalPlanBody>
               start: plan.periodStart,
               end: plan.periodEnd,
               canGoForward:
-                  plan.periodStart.compareTo(_mondayOf(_today(ref))) < 0,
+                  plan.periodStart.compareTo(_weekStartOf(ref, _today(ref))) <
+                  0,
               onPrevious: () =>
                   widget.onWeekSelected(plan.periodStart.addDays(-7)),
-              onNext: plan.periodStart.compareTo(_mondayOf(_today(ref))) < 0
+              onNext:
+                  plan.periodStart.compareTo(_weekStartOf(ref, _today(ref))) <
+                  0
                   ? () => widget.onWeekSelected(plan.periodStart.addDays(7))
                   : null,
             ),
@@ -759,6 +771,9 @@ final class _Failure extends StatelessWidget {
   }
 }
 
-PlannerDate _mondayOf(PlannerDate date) {
-  return date.addDays(-(date.asLocalDate.weekday - DateTime.monday));
+PlannerDate _weekStartOf(WidgetRef ref, PlannerDate date) {
+  return resolveWeek(
+    date: date,
+    startDay: ref.read(startOfWeekProvider),
+  ).start;
 }

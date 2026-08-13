@@ -3,6 +3,7 @@ import 'package:rmplanner/features/goals/application/goal_repository.dart';
 import 'package:rmplanner/features/goals/domain/goal.dart';
 import 'package:rmplanner/features/planner/application/planner_providers.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
+import 'package:rmplanner/features/settings/application/start_of_week_providers.dart';
 import 'package:rmplanner/features/startup/application/startup_providers.dart';
 import 'package:rmplanner/features/startup/domain/startup_state.dart';
 
@@ -32,6 +33,7 @@ final goalPlanningProvider =
     ) {
       final profileId = ref.read(goalProfileIdProvider);
       final today = ref.read(plannerDateSourceProvider).today();
+      final startDay = ref.watch(startOfWeekProvider);
       ref.watch(goalChangesProvider(profileId));
       return ref
           .read(goalRepositoryProvider)
@@ -39,6 +41,7 @@ final goalPlanningProvider =
             profileId: profileId,
             periodStart: periodStart,
             today: today,
+            startDay: startDay,
           );
     });
 

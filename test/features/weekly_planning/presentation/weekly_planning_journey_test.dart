@@ -43,7 +43,7 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));
 
-      expect(find.text('Weekly Planning'), findsOneWidget);
+      expect(find.text('Goal Planning'), findsOneWidget);
       expect(find.textContaining('Jul 27'), findsOneWidget);
       expect(find.textContaining('Jul 27'), findsOneWidget);
       expect(find.textContaining('Asia/Manila'), findsNothing);
@@ -107,7 +107,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('weekly-targets-button')));
       await tester.pumpAndSettle();
-      expect(find.text('Weekly Planning'), findsOneWidget);
+      expect(find.text('Goal Planning'), findsOneWidget);
       await tester.scrollUntilVisible(
         find.byKey(const Key('weekly-plan-indicator-meaningful_connections')),
         250,
@@ -180,13 +180,13 @@ void main() {
         find.byKey(const Key('weekly-plan-management-mode')),
         findsNothing,
       );
-      expect(find.text('Weekly Planning'), findsOneWidget);
+      expect(find.text('Goal Planning'), findsOneWidget);
 
       await tester.tap(find.byKey(const Key('weekly-plan-create-goal')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('weekly-plan-goal-limit-manage')));
       await tester.pumpAndSettle();
-      expect(find.text('Weekly Planning'), findsOneWidget);
+      expect(find.text('Goal Planning'), findsOneWidget);
       expect(
         find.byKey(const Key('weekly-plan-management-mode')),
         findsOneWidget,

@@ -272,7 +272,7 @@ void main() {
       }
       // Approved labels appear exactly once inside the drawer.
       expect(
-        find.descendant(of: drawer, matching: find.text('Planning')),
+        find.descendant(of: drawer, matching: find.text('Goal Planning')),
         findsOneWidget,
       );
       expect(

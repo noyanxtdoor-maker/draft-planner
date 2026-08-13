@@ -7,6 +7,15 @@ abstract interface class WeeklyPlanningRepository {
   Future<WeeklyPlan> openOrCreate({
     required String profileId,
     required PlannerDate date,
+    int startDay = DateTime.monday,
+  });
+
+  /// Read-only existence/identity lookup for the exact resolved period.
+  /// Never creates a row; used by Home to determine whether the current
+  /// period is established without side effects.
+  Future<WeeklyPlan?> readPlanForPeriod({
+    required String profileId,
+    required PlannerDate periodStart,
   });
 
   Future<WeeklyPlan?> readPlan({

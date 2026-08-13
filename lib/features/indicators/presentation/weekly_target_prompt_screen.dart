@@ -9,6 +9,7 @@ import 'package:rmplanner/features/indicators/application/indicator_providers.da
 import 'package:rmplanner/features/indicators/domain/life_indicator.dart';
 import 'package:rmplanner/features/planner/application/planner_providers.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
+import 'package:rmplanner/features/settings/application/start_of_week_providers.dart';
 
 final class WeeklyTargetPromptScreen extends ConsumerWidget {
   const WeeklyTargetPromptScreen({
@@ -326,7 +327,10 @@ final class _GoalEditorScreenState extends ConsumerState<_GoalEditorScreen>
   IndicatorGoalPeriod get _period {
     return switch (_periodType) {
       IndicatorGoalPeriodType.daily => IndicatorGoalPeriod.daily(_anchor),
-      IndicatorGoalPeriodType.weekly => IndicatorGoalPeriod.weekly(_anchor),
+      IndicatorGoalPeriodType.weekly => IndicatorGoalPeriod.weekly(
+        _anchor,
+        startDay: ref.read(startOfWeekProvider),
+      ),
       IndicatorGoalPeriodType.monthly => IndicatorGoalPeriod.monthly(_anchor),
     };
   }
@@ -339,7 +343,10 @@ final class _GoalEditorScreenState extends ConsumerState<_GoalEditorScreen>
     setState(() => _loading = true);
     try {
       final controller = ref.read(homeIndicatorControllerProvider.notifier);
-      final week = IndicatorGoalPeriod.weekly(_anchor);
+      final week = IndicatorGoalPeriod.weekly(
+        _anchor,
+        startDay: ref.read(startOfWeekProvider),
+      );
       final home = await ref.read(
         indicatorPeriodSnapshotProvider(week.indicatorPeriod).future,
       );
@@ -470,7 +477,10 @@ final class _GoalEditorScreenState extends ConsumerState<_GoalEditorScreen>
         ? today
         : _periodType == IndicatorGoalPeriodType.monthly
         ? IndicatorGoalPeriod.monthly(today).start
-        : IndicatorGoalPeriod.weekly(today).start;
+        : IndicatorGoalPeriod.weekly(
+            today,
+            startDay: ref.read(startOfWeekProvider),
+          ).start;
     final canGoNext = _period.start.compareTo(maxForward) < 0;
     return PopScope<void>(
       canPop: false,
