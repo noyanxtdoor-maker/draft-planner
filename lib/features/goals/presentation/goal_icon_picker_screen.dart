@@ -8,10 +8,15 @@ final class GoalIconPickerArgs {
   const GoalIconPickerArgs({
     required this.goalTitle,
     required this.currentIconId,
+    this.initialCategory,
   });
 
   final String goalTitle;
   final String? currentIconId;
+
+  /// Optional internal category active on open (null = All). Display-only;
+  /// the saved iconId is never affected by the active filter.
+  final String? initialCategory;
 }
 
 final class GoalIconPickerScreen extends StatefulWidget {
@@ -31,43 +36,47 @@ final class GoalIconPickerScreen extends StatefulWidget {
 }
 
 final class _GoalIconPickerScreenState extends State<GoalIconPickerScreen> {
-  final _searchController = TextEditingController();
+  /// Internal registry categories in picker order (display labels come from
+  /// the registry's display-only Stage-1.2 mapping; null means All).
+  static const List<String> _categoryOrder = <String>[
+    'Work & Learning',
+    'Money & Home',
+    'Health & Daily Life',
+    'People & Relationships',
+    'Faith & Service',
+    'Travel & Interests',
+  ];
+
   String? _selectedId;
+  String? _activeCategory;
   bool _returning = false;
 
   @override
   void initState() {
     super.initState();
-    _selectedId = GoalIconRegistry.instance.contains(widget.args.currentIconId)
-        ? widget.args.currentIconId
-        : null;
-    _searchController.addListener(_searchChanged);
-  }
-
-  @override
-  void dispose() {
-    _searchController.removeListener(_searchChanged);
-    _searchController.dispose();
-    super.dispose();
-  }
-
-  void _searchChanged() {
-    if (mounted) {
-      setState(() {});
-    }
+    // Resolve through the registry so a stored retired alias (find_job /
+    // finance_pie_chart) selects its canonical tile without any data rewrite.
+    _selectedId =
+        GoalIconRegistry.instance.findById(widget.args.currentIconId)?.id;
+    _activeCategory =
+        GoalIconRegistry.approvedCategories.contains(widget.args.initialCategory)
+            ? widget.args.initialCategory
+            : null;
   }
 
   @override
   Widget build(BuildContext context) {
-    final query = _searchController.text;
-    final allIcons = GoalIconRegistry.instance.search(query);
-    final suggestions = query.trim().isEmpty
-        ? GoalIconRegistry.instance.suggestionsForGoalTitle(
-            widget.args.goalTitle,
-          )
-        : const <GoalIconSuggestion>[];
+    final allIcons = GoalIconRegistry.allIcons;
+    final suggestions = GoalIconRegistry.instance.suggestionsForGoalTitle(
+      widget.args.goalTitle,
+    );
     final textScale = MediaQuery.textScalerOf(context).scale(1);
-    final tileHeight = textScale >= 1.25 ? 128.0 : 122.0;
+    final tileHeight = textScale >= 1.25 ? 84.0 : 76.0;
+    final filteredIcons = _activeCategory == null
+        ? allIcons
+        : allIcons
+              .where((definition) => definition.category == _activeCategory)
+              .toList(growable: false);
     return Scaffold(
       appBar: InternalAppBar(
         leading: IconButton(
@@ -102,25 +111,7 @@ final class _GoalIconPickerScreenState extends State<GoalIconPickerScreen> {
                 style: AppTypography.secondary,
               ),
               const SizedBox(height: 14),
-              TextField(
-                key: const Key('goal-icon-search'),
-                controller: _searchController,
-                textInputAction: TextInputAction.search,
-                decoration: InputDecoration(
-                  hintText: 'Search icons...',
-                  prefixIcon: const Icon(Icons.search),
-                  suffixIcon: query.isEmpty
-                      ? null
-                      : IconButton(
-                          key: const Key('goal-icon-search-clear'),
-                          tooltip: 'Clear search',
-                          onPressed: _searchController.clear,
-                          icon: const Icon(Icons.clear),
-                        ),
-                ),
-              ),
               if (suggestions.isNotEmpty) ...<Widget>[
-                const SizedBox(height: 16),
                 Text(
                   'Suggested for "${widget.args.goalTitle}"',
                   style: InternalScreen.sectionHeading,
@@ -135,35 +126,47 @@ final class _GoalIconPickerScreenState extends State<GoalIconPickerScreen> {
                   tileHeight: tileHeight,
                   onSelected: _select,
                 ),
+                const SizedBox(height: 18),
               ],
+              const SizedBox(height: 18),
+              SingleChildScrollView(
+                key: const Key('goal-icon-category-chips'),
+                scrollDirection: Axis.horizontal,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Row(
+                    children: <Widget>[
+                      _CategoryChip(
+                        label: 'All',
+                        selected: _activeCategory == null,
+                        onTap: () => setState(() => _activeCategory = null),
+                      ),
+                      for (final category in _categoryOrder)
+                        _CategoryChip(
+                          label: GoalIconRegistry.displayCategoryLabel(
+                            category,
+                          ),
+                          selected: _activeCategory == category,
+                          onTap: () => setState(() => _activeCategory = category),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
               const SizedBox(height: 18),
               Text('All Icons', style: InternalScreen.sectionHeading),
               const SizedBox(height: 8),
-              if (allIcons.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 24),
-                  child: Center(
-                    child: Column(
-                      children: <Widget>[
-                        Text('No icons found.'),
-                        SizedBox(height: 4),
-                        Text('Try a different search.'),
-                      ],
-                    ),
-                  ),
-                )
-              else
-                _IconGrid(
-                  key: const Key('goal-icon-all'),
-                  icons: allIcons,
-                  selectedId: _selectedId,
-                  tileHeight: tileHeight,
-                  onSelected: _select,
-                ),
+              _IconGrid(
+                key: const Key('goal-icon-all'),
+                icons: filteredIcons,
+                selectedId: _selectedId,
+                tileHeight: tileHeight,
+                onSelected: _select,
+              ),
               const SizedBox(height: 16),
               const Text(
-                'Select one of the six approved goal icons. You can change it '
-                'at any time in Edit Goal.',
+                'Select an icon for your goal. You can change it at any time '
+                'in Edit Goal.',
                 style: AppTypography.secondary,
               ),
             ],
@@ -270,47 +273,27 @@ final class _IconTile extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
+          // Icon-only compact tile: the icon is the only visual content; the
+          // display name and category live in the semantics label and search
+          // metadata (owner requirement, Stage-1 picker contract).
           child: Stack(
             children: <Widget>[
               Center(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(4, 10, 4, 6),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: <Widget>[
-                      ExcludeSemantics(
-                        child: GoalIcon(
-                          iconId: definition.id,
-                          size: 32,
-                          color: AppTheme.rose,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        definition.displayName,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.center,
-                        style: AppTypography.micro.copyWith(
-                          color: selected ? AppTheme.rose : null,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        definition.category,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.center,
-                        style: AppTypography.secondary,
-                      ),
-                    ],
+                  padding: const EdgeInsets.all(8),
+                  child: ExcludeSemantics(
+                    child: GoalIcon(
+                      iconId: definition.id,
+                      size: 48,
+                      color: AppTheme.rose,
+                    ),
                   ),
                 ),
               ),
               if (selected)
                 Positioned(
-                  top: 6,
-                  right: 6,
+                  top: 4,
+                  right: 4,
                   child: ExcludeSemantics(
                     child: DecoratedBox(
                       decoration: const BoxDecoration(
@@ -322,13 +305,66 @@ final class _IconTile extends StatelessWidget {
                         child: Icon(
                           Icons.check,
                           color: Color(0xFF340012),
-                          size: 16,
+                          size: 14,
                         ),
                       ),
                     ),
                   ),
                 ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Stage-1.2 horizontal category filter chip (display label only; internal
+/// registry category values and saved iconIds are never affected).
+final class _CategoryChip extends StatelessWidget {
+  const _CategoryChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: Semantics(
+        button: true,
+        selected: selected,
+        label: label,
+        child: Material(
+          color: selected ? AppTheme.rose : Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(
+              color: selected ? AppTheme.rose : const Color(0xFF414649),
+              width: 1,
+            ),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            key: Key('goal-icon-chip-$label'),
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: selected
+                      ? const Color(0xFF340012)
+                      : const Color(0xFFF4F1F2),
+                ),
+              ),
+            ),
           ),
         ),
       ),

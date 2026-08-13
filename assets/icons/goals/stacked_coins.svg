@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="512" height="512" viewBox="0 0 512 512"
+     fill="none">
+  <!-- Next Transfer — Finance / Money — Stacked Coins
+       Approved concept recreation
+       Transparent background -->
+  <!-- REAR / TALL STACK -->
+  <!-- top ellipse -->
+  <ellipse  stroke="#62B0CC" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" cx="260" cy="138" rx="118" ry="54"/>
+  <!-- side walls -->
+  <path  stroke="#62B0CC" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" d="M142 138V302"/>
+  <path  stroke="#62B0CC" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" d="M378 138V302"/>
+  <!-- lower bands -->
+  <path  stroke="#62B0CC" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" d="M142 184
+                        C142 213 194 234 260 234
+                        C326 234 378 213 378 184"/>
+  <path  stroke="#62B0CC" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" d="M142 230
+                        C142 259 194 280 260 280
+                        C326 280 378 259 378 230"/>
+  <path  stroke="#62B0CC" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" d="M142 276
+                        C142 305 194 326 260 326
+                        C326 326 378 305 378 276"/>
+  <path  stroke="#62B0CC" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" d="M142 302
+                        C142 331 194 352 260 352
+                        C326 352 378 331 378 302"/>
+
+  <!-- gold dollar on rear top -->
+  <path  stroke="#DFA34A" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" d="M260 104V118"/>
+  <path  stroke="#DFA34A" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" d="M260 158V172"/>
+  <path  stroke="#DFA34A" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" d="M286 122
+                        C274 112 246 112 234 124
+                        C223 135 236 145 259 148
+                        C281 151 295 160 286 171
+                        C276 183 246 183 232 171"/>
+
+  <!-- FRONT-LEFT SHORT STACK -->
+  <ellipse  stroke="#62B0CC" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" cx="152" cy="306" rx="95" ry="42"/>
+  <path  stroke="#62B0CC" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" d="M57 306V386"/>
+  <path  stroke="#62B0CC" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" d="M247 306V386"/>
+  <path  stroke="#62B0CC" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" d="M57 344
+                        C57 367 98 383 152 383
+                        C206 383 247 367 247 344"/>
+  <path  stroke="#62B0CC" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" d="M57 386
+                        C57 409 98 425 152 425
+                        C206 425 247 409 247 386"/>
+
+  <!-- FRONT-RIGHT SINGLE COIN -->
+  <ellipse  stroke="#62B0CC" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" cx="360" cy="366" rx="93" ry="42"/>
+  <path  stroke="#62B0CC" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" d="M267 366V405"/>
+  <path  stroke="#62B0CC" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" d="M453 366V405"/>
+  <path  stroke="#62B0CC" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" d="M267 405
+                        C267 428 308 444 360 444
+                        C412 444 453 428 453 405"/>
+
+  <!-- gold dollar on front-right coin -->
+  <path  stroke="#DFA34A" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" d="M360 337V349"/>
+  <path  stroke="#DFA34A" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" d="M360 383V395"/>
+  <path  stroke="#DFA34A" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" d="M382 351
+                        C372 343 349 343 339 353
+                        C330 362 341 370 360 372
+                        C379 374 390 382 382 391
+                        C373 401 349 401 338 391"/>
+</svg>

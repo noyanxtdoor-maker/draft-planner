@@ -6,6 +6,7 @@ import 'package:rmplanner/core/ids/identifier_source.dart';
 import 'package:rmplanner/core/platform/app_environment.dart';
 import 'package:rmplanner/features/goals/data/drift_goal_repository.dart';
 import 'package:rmplanner/features/goals/domain/goal.dart';
+import 'package:rmplanner/features/goals/presentation/goal_icon_picker_screen.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 
 import '../../../support/test_dependencies.dart';
@@ -117,7 +118,7 @@ void main() {
       );
       await tester.enterText(nameField, 'Scripture Study');
       await tester.pump();
-      expect(find.text('Open Book'), findsOneWidget);
+      expect(find.text('Learning'), findsOneWidget);
       expect(find.text('Suggested from "Scripture Study"'), findsOneWidget);
       expect(
         (await repository.readActiveGoals(
@@ -135,7 +136,20 @@ void main() {
       await tester.tap(choiceRow);
       await _pumpUi(tester);
       expect(find.text('Choose Icon'), findsOneWidget);
-      await tester.tap(find.text('Wallet'));
+      // finance_wallet sits on row 4 of the 41-icon grid; scroll the picker
+      // until the tile is built (lazy grid), then tap it.
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('goal-icon-tile-finance_wallet')),
+        200,
+        scrollable: find
+            .descendant(
+              of: find.byType(GoalIconPickerScreen),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('goal-icon-tile-finance_wallet')));
       await tester.pump();
       expect(
         tester
@@ -149,14 +163,14 @@ void main() {
       await _pumpRoute(tester);
       expect(find.text('Choose Icon'), findsNothing);
       expect(
-        find.descendant(of: choiceRow, matching: find.text('Wallet')),
+        find.descendant(of: choiceRow, matching: find.text('Pie Chart')),
         findsOneWidget,
       );
       expect(find.text('Suggested from "Scripture Study"'), findsNothing);
 
       await tester.enterText(nameField, 'Budget Plan');
       await tester.pump();
-      expect(find.text('Wallet'), findsOneWidget);
+      expect(find.text('Pie Chart'), findsOneWidget);
       await tester.tap(find.byKey(const Key('goal-create-save')));
       await _pumpUi(tester);
 
@@ -192,12 +206,21 @@ void main() {
         scrollable: find.byType(Scrollable).last,
       );
       await tester.pump();
-      expect(find.text('Wallet'), findsOneWidget);
+      expect(find.text('Pie Chart'), findsOneWidget);
       await tester.tap(editChoiceRow);
       await _pumpUi(tester);
-      await tester.ensureVisible(find.text('Temple'));
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('goal-icon-tile-spiritual_temple')),
+        200,
+        scrollable: find
+            .descendant(
+              of: find.byType(GoalIconPickerScreen),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
       await tester.pump();
-      await tester.tap(find.text('Temple'));
+      await tester.tap(find.byKey(const Key('goal-icon-tile-spiritual_temple')));
       await tester.pump();
       await tester.tap(find.byKey(const Key('goal-icon-picker-save')));
       await tester.pump();

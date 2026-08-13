@@ -56,9 +56,15 @@ final class GoalIconChoiceRow extends StatelessWidget {
               Expanded(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    Text(name, style: AppTypography.cardTitle),
+                    Text(
+                      name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTypography.cardTitle,
+                    ),
                     const SizedBox(height: 2),
                     Text(
                       supporting,

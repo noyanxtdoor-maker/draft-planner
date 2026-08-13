@@ -7,47 +7,90 @@ import 'package:rmplanner/features/goals/presentation/widgets/goal_icon.dart';
 import 'package:rmplanner/features/goals/presentation/widgets/goal_icon_choice_row.dart';
 
 void main() {
-  for (final definition in GoalIconRegistry.allIcons) {
+  // Curated per-icon golden matrix (Stage 1): the three same-ID replacement
+  // visuals get full 24/28/32/40dp dark coverage; the two retained originals
+  // keep their existing dark/light goldens; social_two_people renders the
+  // safe unknown-ID fallback (interim proof); one representative per source
+  // family proves the new asset matrix on both brightnesses.
+  final fullMatrixIds = <String>[
+    'work_briefcase',
+    'finance_wallet',
+    'learning_open_book',
+    'spiritual_temple',
+    'marriage_rings',
+  ];
+  for (final id in fullMatrixIds) {
+    final definition = GoalIconRegistry.instance.findById(id)!;
     for (final size in <double>[24, 28, 32]) {
       for (final brightness in Brightness.values) {
-        final themeName = brightness == Brightness.dark ? 'dark' : 'light';
-        final key = Key('d1-icon-${definition.id}-${size.toInt()}-$themeName');
-        testWidgets(
-          'D1 icon ${definition.id} at ${size.toInt()}dp on $themeName',
-          (tester) async {
-            _configureViewport(tester, const Size(80, 80));
-            await tester.pumpWidget(
-              _harness(
-                brightness: brightness,
-                child: RepaintBoundary(
-                  key: key,
-                  child: Container(
-                    color: brightness == Brightness.dark
-                        ? AppTheme.background
-                        : const Color(0xFFF4F4F4),
-                    alignment: Alignment.center,
-                    child: GoalIcon(
-                      iconId: definition.id,
-                      size: size,
-                      semanticLabel: definition.semanticsLabel,
-                    ),
-                  ),
-                ),
-              ),
-            );
-            await tester.pumpAndSettle();
-
-            expect(tester.takeException(), isNull);
-            await expectLater(
-              find.byKey(key),
-              matchesGoldenFile(
-                'goldens/goal_icon_d1/${definition.id}_'
-                '${themeName}_${size.toInt()}dp.png',
-              ),
-            );
-          },
-        );
+        _perIconGolden(definition, size, brightness);
       }
+    }
+  }
+  for (final size in <double>[40]) {
+    for (final brightness in const <Brightness>[Brightness.dark]) {
+      _perIconGolden(
+        GoalIconRegistry.instance.findById('learning_open_book')!,
+        size,
+        brightness,
+      );
+      _perIconGolden(
+        GoalIconRegistry.instance.findById('spiritual_temple')!,
+        size,
+        brightness,
+      );
+      _perIconGolden(
+        GoalIconRegistry.instance.findById('marriage_rings')!,
+        size,
+        brightness,
+      );
+    }
+  }
+  // social_two_people interim: stored ID renders the safe unknown-ID fallback.
+  for (final size in <double>[24, 28, 32]) {
+    for (final brightness in Brightness.values) {
+      _fallbackIconGolden(
+        id: 'social_two_people',
+        size: size,
+        brightness: brightness,
+      );
+    }
+  }
+  // Representative Stage-1 new assets (one per source family/category).
+  for (final id in <String>[
+    'career_growth',
+    'document_check',
+    'stacked_coins',
+    'brain',
+    'checklist',
+    'learning_101',
+    'airplane',
+    'baby',
+    'dating',
+  ]) {
+    for (final brightness in Brightness.values) {
+      _perIconGolden(
+        GoalIconRegistry.instance.findById(id)!,
+        32,
+        brightness,
+      );
+    }
+  }
+  // Stage-1.2: the global 48dp picker size across source families (wide
+  // Career, square, dense 512) plus the restored Stacked Coins on both
+  // brightnesses.
+  for (final id in <String>[
+    'stacked_coins',
+    'finance_wallet',
+    'career_growth',
+    'office_building',
+  ]) {
+    for (final brightness in Brightness.values) {
+      _perIconGolden(
+        GoalIconRegistry.instance.findById(id)!,
+        48,
+        brightness,
+      );
     }
   }
 
@@ -84,18 +127,15 @@ void main() {
     ),
   );
   _registerContextGolden(
-    name: 'picker_search_wallet',
+    name: 'picker_393_category_spiritual',
     viewport: const Size(393, 874),
     child: const GoalIconPickerScreen(
-      args: GoalIconPickerArgs(goalTitle: 'Budget Review', currentIconId: null),
+      args: GoalIconPickerArgs(
+        goalTitle: 'Temple Attendance',
+        currentIconId: 'spiritual_temple',
+        initialCategory: 'Faith & Service',
+      ),
     ),
-    beforeCapture: (tester) async {
-      await tester.enterText(
-        find.byKey(const Key('goal-icon-search')),
-        'budget',
-      );
-      await tester.pumpAndSettle();
-    },
   );
   _registerContextGolden(
     name: 'create_icon_suggestion',
@@ -205,6 +245,94 @@ void main() {
       goalTitle: 'A long goal title that remains readable after renaming',
       iconId: 'marriage_rings',
     ),
+  );
+}
+
+void _perIconGolden(
+  GoalIconDefinition definition,
+  double size,
+  Brightness brightness,
+) {
+  final themeName = brightness == Brightness.dark ? 'dark' : 'light';
+  final key = Key('d1-icon-${definition.id}-${size.toInt()}-$themeName');
+  testWidgets(
+    'D1 icon ${definition.id} at ${size.toInt()}dp on $themeName',
+    (tester) async {
+      _configureViewport(tester, const Size(80, 80));
+      await tester.pumpWidget(
+        _harness(
+          brightness: brightness,
+          child: RepaintBoundary(
+            key: key,
+            child: Container(
+              color: brightness == Brightness.dark
+                  ? AppTheme.background
+                  : const Color(0xFFF4F4F4),
+              alignment: Alignment.center,
+              child: GoalIcon(
+                iconId: definition.id,
+                size: size,
+                semanticLabel: definition.semanticsLabel,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      await expectLater(
+        find.byKey(key),
+        matchesGoldenFile(
+          'goldens/goal_icon_d1/${definition.id}_'
+          '${themeName}_${size.toInt()}dp.png',
+        ),
+      );
+    },
+  );
+}
+
+void _fallbackIconGolden({
+  required String id,
+  required double size,
+  required Brightness brightness,
+}) {
+  final themeName = brightness == Brightness.dark ? 'dark' : 'light';
+  final key = Key('d1-icon-$id-${size.toInt()}-$themeName');
+  testWidgets(
+    'D1 icon $id (unknown-ID fallback) at ${size.toInt()}dp on $themeName',
+    (tester) async {
+      _configureViewport(tester, const Size(80, 80));
+      await tester.pumpWidget(
+        _harness(
+          brightness: brightness,
+          child: RepaintBoundary(
+            key: key,
+            child: Container(
+              color: brightness == Brightness.dark
+                  ? AppTheme.background
+                  : const Color(0xFFF4F4F4),
+              alignment: Alignment.center,
+              child: GoalIcon(
+                iconId: id,
+                size: size,
+                semanticLabel: 'Unknown icon fallback',
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      await expectLater(
+        find.byKey(key),
+        matchesGoldenFile(
+          'goldens/goal_icon_d1/${id}_'
+          '${themeName}_${size.toInt()}dp.png',
+        ),
+      );
+    },
   );
 }
 
