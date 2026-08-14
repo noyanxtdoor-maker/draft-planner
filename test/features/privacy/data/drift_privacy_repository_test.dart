@@ -101,8 +101,9 @@ void main() {
       final version = await currentVersion
           .customSelect('PRAGMA user_version')
           .getSingle();
-      // Delta 4.2R R8: current schema is 24 (30-minute default migration).
-      expect(version.read<int>('user_version'), 24);
+      // Delta 4.2R R8: current schema is 24 (30-minute default migration);
+      // Pack B1: current schema is 25 (AppearancePreferences table).
+      expect(version.read<int>('user_version'), 25);
       await currentVersion.close();
     } finally {
       sqliteDatabase.close();

@@ -988,6 +988,21 @@ class PlannerPreferences extends Table {
   Set<Column<Object>> get primaryKey => <Column<Object>>{profileId};
 }
 
+/// Pack B1 Appearance foundation: the single device-scoped appearance
+/// preference (System / Light / Dark).  One row keyed by the constant
+/// 'primary', mirroring the PrivacyPreferences device scope.  Fresh v25
+/// installs have no row yet (reads as SYSTEM); a v24 upgrade seeds 'dark'
+/// to preserve the only appearance v24 users ever had.
+class AppearancePreferences extends Table {
+  TextColumn get key => text().withDefault(const Constant('primary'))();
+  TextColumn get appearanceMode =>
+      text().withDefault(const Constant('system'))();
+  DateTimeColumn get updatedAtUtc => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => <Column<Object>>{key};
+}
+
 @DriftDatabase(
   tables: <Type>[
     LocalProfiles,
@@ -1027,6 +1042,7 @@ class PlannerPreferences extends Table {
     EventOccurrenceParticipants,
     TaskContactLinks,
     SavedContactFilters,
+    AppearancePreferences,
   ],
 )
 final class AppDatabase extends _$AppDatabase {
@@ -1088,7 +1104,7 @@ final class AppDatabase extends _$AppDatabase {
   final bool _injectContactsMigrationFailure;
 
   @override
-  int get schemaVersion => _schemaVersionOverride ?? 24;
+  int get schemaVersion => _schemaVersionOverride ?? 25;
 
   @override
   MigrationStrategy get migration {
@@ -1140,6 +1156,9 @@ final class AppDatabase extends _$AppDatabase {
         }
         if (schemaVersion >= 14) {
           await migrator.createTable(indicatorGoalRevisions);
+        }
+        if (schemaVersion >= 25) {
+          await migrator.createTable(appearancePreferences);
         }
         if (schemaVersion >= 22) {
           await migrator.createTable(contacts);
@@ -1777,6 +1796,20 @@ final class AppDatabase extends _$AppDatabase {
               'UPDATE planner_preferences SET default_duration_minutes = 30 '
               'WHERE default_duration_minutes = 60',
             );
+          }
+          if (from < 25 && to >= 25) {
+            // Pack B1 Appearance foundation: a brand-new, isolated,
+            // device-scoped single-row table.  Fresh v25 installs create the
+            // table without a row, so the repository reads SYSTEM; an
+            // existing v24 install is seeded with DARK to preserve the only
+            // appearance it ever had (the pre-B1 app was dark-only).
+            await migrator.createTable(appearancePreferences);
+            await customStatement('''
+              INSERT OR IGNORE INTO appearance_preferences
+                (key, appearance_mode, updated_at_utc)
+              VALUES ('primary', 'dark',
+                      CAST(strftime('%s', 'now') AS INTEGER))
+            ''');
           }
         });
       },

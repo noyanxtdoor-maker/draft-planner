@@ -16868,7 +16868,7 @@ class $ActivityTypesTable extends ActivityTypes
     false,
     type: DriftSqlType.int,
     requiredDuringInsert: false,
-    defaultValue: const Constant(30),
+    defaultValue: const Constant(60),
   );
   static const VerificationMeta _defaultReminderMinutesMeta =
       const VerificationMeta('defaultReminderMinutes');
@@ -18139,7 +18139,7 @@ class $PlannerPreferencesTable extends PlannerPreferences
     false,
     type: DriftSqlType.int,
     requiredDuringInsert: false,
-    defaultValue: const Constant(60),
+    defaultValue: const Constant(30),
   );
   static const VerificationMeta _defaultReminderMinutesMeta =
       const VerificationMeta('defaultReminderMinutes');
@@ -25086,6 +25086,281 @@ class SavedContactFiltersCompanion
   }
 }
 
+class $AppearancePreferencesTable extends AppearancePreferences
+    with TableInfo<$AppearancePreferencesTable, AppearancePreference> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $AppearancePreferencesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _keyMeta = const VerificationMeta('key');
+  @override
+  late final GeneratedColumn<String> key = GeneratedColumn<String>(
+    'key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('primary'),
+  );
+  static const VerificationMeta _appearanceModeMeta = const VerificationMeta(
+    'appearanceMode',
+  );
+  @override
+  late final GeneratedColumn<String> appearanceMode = GeneratedColumn<String>(
+    'appearance_mode',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('system'),
+  );
+  static const VerificationMeta _updatedAtUtcMeta = const VerificationMeta(
+    'updatedAtUtc',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAtUtc = GeneratedColumn<DateTime>(
+    'updated_at_utc',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [key, appearanceMode, updatedAtUtc];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'appearance_preferences';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<AppearancePreference> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('key')) {
+      context.handle(
+        _keyMeta,
+        key.isAcceptableOrUnknown(data['key']!, _keyMeta),
+      );
+    }
+    if (data.containsKey('appearance_mode')) {
+      context.handle(
+        _appearanceModeMeta,
+        appearanceMode.isAcceptableOrUnknown(
+          data['appearance_mode']!,
+          _appearanceModeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('updated_at_utc')) {
+      context.handle(
+        _updatedAtUtcMeta,
+        updatedAtUtc.isAcceptableOrUnknown(
+          data['updated_at_utc']!,
+          _updatedAtUtcMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtUtcMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {key};
+  @override
+  AppearancePreference map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return AppearancePreference(
+      key: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}key'],
+      )!,
+      appearanceMode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}appearance_mode'],
+      )!,
+      updatedAtUtc: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at_utc'],
+      )!,
+    );
+  }
+
+  @override
+  $AppearancePreferencesTable createAlias(String alias) {
+    return $AppearancePreferencesTable(attachedDatabase, alias);
+  }
+}
+
+class AppearancePreference extends DataClass
+    implements Insertable<AppearancePreference> {
+  final String key;
+  final String appearanceMode;
+  final DateTime updatedAtUtc;
+  const AppearancePreference({
+    required this.key,
+    required this.appearanceMode,
+    required this.updatedAtUtc,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['key'] = Variable<String>(key);
+    map['appearance_mode'] = Variable<String>(appearanceMode);
+    map['updated_at_utc'] = Variable<DateTime>(updatedAtUtc);
+    return map;
+  }
+
+  AppearancePreferencesCompanion toCompanion(bool nullToAbsent) {
+    return AppearancePreferencesCompanion(
+      key: Value(key),
+      appearanceMode: Value(appearanceMode),
+      updatedAtUtc: Value(updatedAtUtc),
+    );
+  }
+
+  factory AppearancePreference.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return AppearancePreference(
+      key: serializer.fromJson<String>(json['key']),
+      appearanceMode: serializer.fromJson<String>(json['appearanceMode']),
+      updatedAtUtc: serializer.fromJson<DateTime>(json['updatedAtUtc']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'key': serializer.toJson<String>(key),
+      'appearanceMode': serializer.toJson<String>(appearanceMode),
+      'updatedAtUtc': serializer.toJson<DateTime>(updatedAtUtc),
+    };
+  }
+
+  AppearancePreference copyWith({
+    String? key,
+    String? appearanceMode,
+    DateTime? updatedAtUtc,
+  }) => AppearancePreference(
+    key: key ?? this.key,
+    appearanceMode: appearanceMode ?? this.appearanceMode,
+    updatedAtUtc: updatedAtUtc ?? this.updatedAtUtc,
+  );
+  AppearancePreference copyWithCompanion(AppearancePreferencesCompanion data) {
+    return AppearancePreference(
+      key: data.key.present ? data.key.value : this.key,
+      appearanceMode: data.appearanceMode.present
+          ? data.appearanceMode.value
+          : this.appearanceMode,
+      updatedAtUtc: data.updatedAtUtc.present
+          ? data.updatedAtUtc.value
+          : this.updatedAtUtc,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AppearancePreference(')
+          ..write('key: $key, ')
+          ..write('appearanceMode: $appearanceMode, ')
+          ..write('updatedAtUtc: $updatedAtUtc')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(key, appearanceMode, updatedAtUtc);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is AppearancePreference &&
+          other.key == this.key &&
+          other.appearanceMode == this.appearanceMode &&
+          other.updatedAtUtc == this.updatedAtUtc);
+}
+
+class AppearancePreferencesCompanion
+    extends UpdateCompanion<AppearancePreference> {
+  final Value<String> key;
+  final Value<String> appearanceMode;
+  final Value<DateTime> updatedAtUtc;
+  final Value<int> rowid;
+  const AppearancePreferencesCompanion({
+    this.key = const Value.absent(),
+    this.appearanceMode = const Value.absent(),
+    this.updatedAtUtc = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  AppearancePreferencesCompanion.insert({
+    this.key = const Value.absent(),
+    this.appearanceMode = const Value.absent(),
+    required DateTime updatedAtUtc,
+    this.rowid = const Value.absent(),
+  }) : updatedAtUtc = Value(updatedAtUtc);
+  static Insertable<AppearancePreference> custom({
+    Expression<String>? key,
+    Expression<String>? appearanceMode,
+    Expression<DateTime>? updatedAtUtc,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (key != null) 'key': key,
+      if (appearanceMode != null) 'appearance_mode': appearanceMode,
+      if (updatedAtUtc != null) 'updated_at_utc': updatedAtUtc,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  AppearancePreferencesCompanion copyWith({
+    Value<String>? key,
+    Value<String>? appearanceMode,
+    Value<DateTime>? updatedAtUtc,
+    Value<int>? rowid,
+  }) {
+    return AppearancePreferencesCompanion(
+      key: key ?? this.key,
+      appearanceMode: appearanceMode ?? this.appearanceMode,
+      updatedAtUtc: updatedAtUtc ?? this.updatedAtUtc,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (key.present) {
+      map['key'] = Variable<String>(key.value);
+    }
+    if (appearanceMode.present) {
+      map['appearance_mode'] = Variable<String>(appearanceMode.value);
+    }
+    if (updatedAtUtc.present) {
+      map['updated_at_utc'] = Variable<DateTime>(updatedAtUtc.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AppearancePreferencesCompanion(')
+          ..write('key: $key, ')
+          ..write('appearanceMode: $appearanceMode, ')
+          ..write('updatedAtUtc: $updatedAtUtc, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -25151,6 +25426,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   );
   late final $SavedContactFiltersTable savedContactFilters =
       $SavedContactFiltersTable(this);
+  late final $AppearancePreferencesTable appearancePreferences =
+      $AppearancePreferencesTable(this);
   late final Index lifeIndicatorProfileKeyUnique = Index(
     'life_indicator_profile_key_unique',
     'CREATE UNIQUE INDEX life_indicator_profile_key_unique ON life_indicator_definitions (profile_id, indicator_key)',
@@ -25377,6 +25654,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     eventOccurrenceParticipants,
     taskContactLinks,
     savedContactFilters,
+    appearancePreferences,
     lifeIndicatorProfileKeyUnique,
     goalProfileActiveSlotUnique,
     goalProfileStatusSlot,
@@ -47023,6 +47301,191 @@ typedef $$SavedContactFiltersTableProcessedTableManager =
       SavedContactFilterRow,
       PrefetchHooks Function({bool profileId})
     >;
+typedef $$AppearancePreferencesTableCreateCompanionBuilder =
+    AppearancePreferencesCompanion Function({
+      Value<String> key,
+      Value<String> appearanceMode,
+      required DateTime updatedAtUtc,
+      Value<int> rowid,
+    });
+typedef $$AppearancePreferencesTableUpdateCompanionBuilder =
+    AppearancePreferencesCompanion Function({
+      Value<String> key,
+      Value<String> appearanceMode,
+      Value<DateTime> updatedAtUtc,
+      Value<int> rowid,
+    });
+
+class $$AppearancePreferencesTableFilterComposer
+    extends Composer<_$AppDatabase, $AppearancePreferencesTable> {
+  $$AppearancePreferencesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get key => $composableBuilder(
+    column: $table.key,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get appearanceMode => $composableBuilder(
+    column: $table.appearanceMode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAtUtc => $composableBuilder(
+    column: $table.updatedAtUtc,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$AppearancePreferencesTableOrderingComposer
+    extends Composer<_$AppDatabase, $AppearancePreferencesTable> {
+  $$AppearancePreferencesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get key => $composableBuilder(
+    column: $table.key,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get appearanceMode => $composableBuilder(
+    column: $table.appearanceMode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAtUtc => $composableBuilder(
+    column: $table.updatedAtUtc,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$AppearancePreferencesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $AppearancePreferencesTable> {
+  $$AppearancePreferencesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get key =>
+      $composableBuilder(column: $table.key, builder: (column) => column);
+
+  GeneratedColumn<String> get appearanceMode => $composableBuilder(
+    column: $table.appearanceMode,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get updatedAtUtc => $composableBuilder(
+    column: $table.updatedAtUtc,
+    builder: (column) => column,
+  );
+}
+
+class $$AppearancePreferencesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $AppearancePreferencesTable,
+          AppearancePreference,
+          $$AppearancePreferencesTableFilterComposer,
+          $$AppearancePreferencesTableOrderingComposer,
+          $$AppearancePreferencesTableAnnotationComposer,
+          $$AppearancePreferencesTableCreateCompanionBuilder,
+          $$AppearancePreferencesTableUpdateCompanionBuilder,
+          (
+            AppearancePreference,
+            BaseReferences<
+              _$AppDatabase,
+              $AppearancePreferencesTable,
+              AppearancePreference
+            >,
+          ),
+          AppearancePreference,
+          PrefetchHooks Function()
+        > {
+  $$AppearancePreferencesTableTableManager(
+    _$AppDatabase db,
+    $AppearancePreferencesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$AppearancePreferencesTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$AppearancePreferencesTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$AppearancePreferencesTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> key = const Value.absent(),
+                Value<String> appearanceMode = const Value.absent(),
+                Value<DateTime> updatedAtUtc = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => AppearancePreferencesCompanion(
+                key: key,
+                appearanceMode: appearanceMode,
+                updatedAtUtc: updatedAtUtc,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                Value<String> key = const Value.absent(),
+                Value<String> appearanceMode = const Value.absent(),
+                required DateTime updatedAtUtc,
+                Value<int> rowid = const Value.absent(),
+              }) => AppearancePreferencesCompanion.insert(
+                key: key,
+                appearanceMode: appearanceMode,
+                updatedAtUtc: updatedAtUtc,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$AppearancePreferencesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $AppearancePreferencesTable,
+      AppearancePreference,
+      $$AppearancePreferencesTableFilterComposer,
+      $$AppearancePreferencesTableOrderingComposer,
+      $$AppearancePreferencesTableAnnotationComposer,
+      $$AppearancePreferencesTableCreateCompanionBuilder,
+      $$AppearancePreferencesTableUpdateCompanionBuilder,
+      (
+        AppearancePreference,
+        BaseReferences<
+          _$AppDatabase,
+          $AppearancePreferencesTable,
+          AppearancePreference
+        >,
+      ),
+      AppearancePreference,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -47132,4 +47595,6 @@ class $AppDatabaseManager {
       $$TaskContactLinksTableTableManager(_db, _db.taskContactLinks);
   $$SavedContactFiltersTableTableManager get savedContactFilters =>
       $$SavedContactFiltersTableTableManager(_db, _db.savedContactFilters);
+  $$AppearancePreferencesTableTableManager get appearancePreferences =>
+      $$AppearancePreferencesTableTableManager(_db, _db.appearancePreferences);
 }

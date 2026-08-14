@@ -95,6 +95,140 @@ abstract final class AppTheme {
   static const Color warning = Color(0xFFFFC857);
   static const Color eventAccent = Color(0xFF4CAF50);
 
+  // ------------------------------------------------------------- B1 light
+  // Light-theme semantic tokens (Pack B1 Appearance foundation).  The dark
+  // palette above and the exact dark ColorScheme inside [dark] are untouched;
+  // these tokens describe the Light appearance only.  Contrast is verified by
+  // app_theme_test.dart (onSurface 15.2:1, secondary 5.4:1, outline 3.1:1,
+  // warning 5.9:1 against [lightSurface]).
+
+  /// Light app background (subtly warm, one step below [lightSurface]).
+  static const Color lightBackground = Color(0xFFF1EFEB);
+
+  /// Primary light surface (the audit's light candidate #F4F1F2).
+  static const Color lightSurface = Color(0xFFF4F1F2);
+
+  /// Elevated/container light surface.
+  static const Color lightSurfaceVariant = Color(0xFFECEAE6);
+
+  /// Primary light text color (15.2:1 on [lightSurface]).
+  static const Color lightOnSurface = Color(0xFF1A1C1F);
+
+  /// Secondary light text color (5.4:1 on [lightSurface]).
+  static const Color lightSecondary = Color(0xFF5F6368);
+
+  /// Light border/outline color (3.1:1 UI-component boundary on
+  /// [lightSurface]).
+  static const Color lightOutline = Color(0xFF85898C);
+
+  /// Light warning/amber role (5.9:1 on [lightSurface]).
+  static const Color lightWarning = Color(0xFF8A4F00);
+
+  static ThemeData light() {
+    final colorScheme =
+        ColorScheme.fromSeed(
+          seedColor: rose,
+          brightness: Brightness.light,
+          surface: lightSurface,
+        ).copyWith(
+          primary: rose,
+          onPrimary: const Color(0xFF340012),
+          surface: lightSurface,
+          onSurface: lightOnSurface,
+          secondary: lightSecondary,
+          onSecondary: lightOnSurface,
+          outline: lightOutline,
+        );
+
+    return ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.light,
+      fontFamily: 'Roboto',
+      colorScheme: colorScheme,
+      scaffoldBackgroundColor: lightBackground,
+      appBarTheme: const AppBarTheme(
+        toolbarHeight: 72,
+        titleTextStyle: AppTypography.pageTitle,
+      ),
+      textTheme: const TextTheme(
+        displayLarge: AppTypography.pageTitle,
+        headlineSmall: AppTypography.metricLarge,
+        titleLarge: AppTypography.pageTitle,
+        titleMedium: AppTypography.sectionTitle,
+        bodyLarge: AppTypography.body,
+        bodyMedium: AppTypography.cardTitle,
+        bodySmall: AppTypography.secondary,
+        labelLarge: AppTypography.button,
+        labelMedium: AppTypography.micro,
+        labelSmall: AppTypography.micro,
+      ),
+      cardTheme: CardThemeData(
+        color: lightSurface,
+        margin: EdgeInsets.zero,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: lightOutline),
+        ),
+      ),
+      dialogTheme: const DialogThemeData(
+        insetPadding: EdgeInsets.symmetric(horizontal: 22, vertical: 28),
+        titleTextStyle: TextStyle(
+          fontFamily: 'Roboto',
+          fontSize: 19,
+          height: 24 / 19,
+          fontWeight: FontWeight.w600,
+        ),
+        contentTextStyle: TextStyle(
+          fontFamily: 'Roboto',
+          fontSize: 14,
+          height: 20 / 14,
+          fontWeight: FontWeight.w400,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(20)),
+        ),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: lightSurface,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 10,
+        ),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          minimumSize: const Size.fromHeight(48),
+          textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
+      ),
+      navigationBarTheme: NavigationBarThemeData(
+        height: 72,
+        backgroundColor: lightSurfaceVariant,
+        indicatorColor: Colors.transparent,
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+        iconTheme: WidgetStateProperty.resolveWith(
+          (states) => IconThemeData(
+            color: states.contains(WidgetState.selected)
+                ? AppTheme.rose
+                : lightSecondary,
+          ),
+        ),
+        labelTextStyle: WidgetStateProperty.resolveWith(
+          (states) => AppTypography.bottomNavLabel.copyWith(
+            color: states.contains(WidgetState.selected)
+                ? AppTheme.rose
+                : lightSecondary,
+          ),
+        ),
+      ),
+    );
+  }
+
   static ThemeData dark() {
     final colorScheme =
         ColorScheme.fromSeed(
