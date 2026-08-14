@@ -442,9 +442,12 @@ void main() {
       );
       expect(labelText.data, '4:03 PM');
 
-      // R5-05: the dot is anchored to the fixed time-gutter boundary. Label
-      // width can change, but dot and line X cannot.
+      // CT-01: the capsule is anchored to the fixed time-gutter boundary.
+      // The capsule right edge is tangent to the circular anchor (whose
+      // center stays on the 56 dp gutter), and the thin line begins at the
+      // anchor's right edge and continues through the Event area.
       final labelRect = tester.getRect(label);
+      final capsuleRect = tester.getRect(_currentTimeCapsule(label));
       final dotRect = tester.getRect(dot);
       final lineRect = tester.getRect(line);
       final gridRect = tester.getRect(
@@ -454,22 +457,22 @@ void main() {
       expect(
         dotRect.center.dx - gridRect.left,
         closeTo(PlannerCurrentTimeHorizontalGeometry.dotCenterX, 0.5),
-        reason: 'the dot center must stay on the 56 dp gutter anchor',
+        reason: 'the anchor center must stay on the 56 dp gutter boundary',
       );
       expect(
-        dotRect.left - labelRect.right,
-        closeTo(PlannerCurrentTimeHorizontalGeometry.labelToDotGap, 0.5),
-        reason: 'the label must end before the fixed dot without overlap',
+        dotRect.left - capsuleRect.right,
+        closeTo(0, 0.5),
+        reason: 'the capsule must be attached/tangent to the circular anchor',
       );
       expect(
-        lineRect.left,
-        greaterThan(dotRect.right),
-        reason: 'the line must begin only after the dot, never touching it',
+        labelRect.right,
+        lessThan(dotRect.left),
+        reason: 'the time text stays inside the capsule, before the anchor',
       );
       expect(
         lineRect.left - dotRect.right,
-        closeTo(PlannerCurrentTimeHorizontalGeometry.dotToLineGap, 0.5),
-        reason: 'the bounded line begins after the fixed dot',
+        closeTo(0, 0.5),
+        reason: 'the thin line must begin at the anchor right edge',
       );
       expect(
         lineRect.right,
@@ -499,24 +502,26 @@ void main() {
           find.byKey(const Key('planner-time-grid')),
         );
         final labelRect = tester.getRect(label);
+        final capsuleRect = tester.getRect(_currentTimeCapsule(label));
         final dotRect = tester.getRect(dot);
         final hourLineRect = tester.getRect(hourLine);
 
         expect(labelRect.left, greaterThanOrEqualTo(gridRect.left));
         expect(
-          labelRect.right,
-          lessThan(dotRect.left),
-          reason: 'the label must end before the dot, never overlapping it',
+          capsuleRect.right,
+          closeTo(dotRect.left, 0.5),
+          reason: 'the capsule must end tangent to the anchor, never '
+              'overlapping it',
         );
         expect(
-          dotRect.left - labelRect.right,
-          closeTo(PlannerCurrentTimeHorizontalGeometry.labelToDotGap, 0.5),
-          reason: 'the bounded label must end before the dot',
+          labelRect.right,
+          lessThan(capsuleRect.right),
+          reason: 'the time text stays inside the capsule',
         );
         expect(
           dotRect.center.dx - gridRect.left,
           closeTo(PlannerCurrentTimeHorizontalGeometry.dotCenterX, 0.5),
-          reason: 'the dot center is the fixed gutter anchor',
+          reason: 'the anchor center is the fixed gutter boundary',
         );
         expect(
           hourLineRect.left - gridRect.left,
@@ -580,14 +585,15 @@ void main() {
 
           final gridRect = tester.getRect(grid);
           final labelRect = tester.getRect(label);
+          final capsuleRect = tester.getRect(_currentTimeCapsule(label));
           final dotRect = tester.getRect(dot);
           final lineRect = tester.getRect(line);
           final dotCenterX = dotRect.center.dx - gridRect.left;
           firstDotCenterX ??= dotCenterX;
           expect(labelRect.left, greaterThanOrEqualTo(gridRect.left));
           expect(
-            dotRect.left - labelRect.right,
-            closeTo(PlannerCurrentTimeHorizontalGeometry.labelToDotGap, 0.5),
+            dotRect.left - capsuleRect.right,
+            closeTo(0, 0.5),
           );
           expect(
             dotCenterX,
@@ -596,7 +602,7 @@ void main() {
           expect(dotCenterX, closeTo(firstDotCenterX, 0.5));
           expect(
             lineRect.left - dotRect.right,
-            closeTo(PlannerCurrentTimeHorizontalGeometry.dotToLineGap, 0.5),
+            closeTo(0, 0.5),
           );
           expect(lineRect.right, closeTo(gridRect.right, 0.5));
           expect(lineRect.width, greaterThan(100));
@@ -1419,18 +1425,50 @@ void main() {
         reason: 'current-time label text must use scheme.onPrimary',
       );
 
-      // The pill fill (nearest Container ancestor of the label) is primary.
-      final pill = tester.widget<Container>(
+      // The capsule (nearest Container ancestor of the label) is primary
+      // and FULLY ROUNDED (corner radius tracks half the capsule height).
+      final capsule = tester.widget<Container>(
         find.ancestor(of: label, matching: find.byType(Container)).first,
       );
-      final pillDecoration = pill.decoration! as BoxDecoration;
+      final capsuleDecoration = capsule.decoration! as BoxDecoration;
       expect(
-        pillDecoration.color,
+        capsuleDecoration.color,
         scheme.primary,
-        reason: 'current-time badge fill must use scheme.primary',
+        reason: 'current-time capsule fill must use scheme.primary',
+      );
+      final capsuleRect = tester.getRect(
+        find.ancestor(of: label, matching: find.byType(Container)).first,
+      );
+      // The capsule is DESIGNED fully rounded: the static corner radius is
+      // half the design capsule height.  (In the test font the FittedBox may
+      // scale the whole capsule down, so the rendered height can be smaller;
+      // the radius constant and the bounded height prove the capsule shape.)
+      final capsuleRadius = capsuleDecoration.borderRadius as BorderRadius;
+      expect(
+        capsuleRadius.topLeft.x,
+        PlannerCurrentTimeHorizontalGeometry.capsuleRadius,
+        reason: 'capsule must be fully rounded (radius = half capsule height)',
+      );
+      expect(
+        capsuleRadius.topRight.x,
+        PlannerCurrentTimeHorizontalGeometry.capsuleRadius,
+        reason: 'capsule must be fully rounded on the right too',
+      );
+      expect(
+        capsuleRect.height,
+        lessThanOrEqualTo(
+          PlannerCurrentTimeHorizontalGeometry.capsuleHeight + 0.5,
+        ),
+        reason: 'capsule height must be bounded by the design height',
+      );
+      expect(
+        capsuleRect.height,
+        greaterThan(7),
+        reason: 'capsule must remain a visible compact pill',
       );
 
-      // Dot and line are primary.
+      // The circular anchor is primary and attached/tangent to the capsule;
+      // the thin line begins at the anchor right edge.
       final dotDecoration = tester.widget<DecoratedBox>(
         find.descendant(
           of: dot,
@@ -1440,7 +1478,13 @@ void main() {
       expect(
         (dotDecoration.decoration as BoxDecoration).color,
         scheme.primary,
-        reason: 'current-time dot must use scheme.primary',
+        reason: 'current-time anchor must use scheme.primary',
+      );
+      final dotRect = tester.getRect(dot);
+      expect(
+        dotRect.left - capsuleRect.right,
+        closeTo(0, 0.5),
+        reason: 'the circular anchor must be attached/tangent to the capsule',
       );
       final lineDecoration = tester.widget<DecoratedBox>(
         find.descendant(
@@ -1452,6 +1496,21 @@ void main() {
         (lineDecoration.decoration as BoxDecoration).color,
         scheme.primary,
         reason: 'current-time line must use scheme.primary',
+      );
+      final lineRect = tester.getRect(line);
+      expect(
+        lineRect.left - dotRect.right,
+        closeTo(0, 0.5),
+        reason: 'the thin line must begin at the anchor right edge',
+      );
+
+      // No wedge/triangle/play-head primitive inside the indicator.
+      final indicator = find.byKey(const Key('planner-current-time-indicator'));
+      expect(
+        find.descendant(of: indicator, matching: find.byType(CustomPaint))
+            .evaluate(),
+        isEmpty,
+        reason: 'no wedge/triangle/play-head may exist in the indicator',
       );
     }
 
@@ -1496,6 +1555,11 @@ void main() {
     });
   });
 }
+
+/// The CT-01 capsule is the nearest [Container] ancestor of the current-time
+/// label (it carries the primary fill + full rounding).
+Finder _currentTimeCapsule(Finder label) =>
+    find.ancestor(of: label, matching: find.byType(Container)).first;
 
 /// Read the iso string of the currently selected date from the
 /// `planner-selected-date` semantics node. Mirrors the helper used

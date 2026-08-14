@@ -787,8 +787,9 @@ void main() {
           // Delta 4.2R R8 bumped the schema to 24 for the data-only
           // 60 -> 30 default-duration migration; Pack B1 bumped it to 25 for
           // the AppearancePreferences table; B2-CORRECTION bumped it to 26
-          // for the themeColor column.
-          26,
+          // for the themeColor column; B3.2 bumped it to 27 for the direct
+          // Task Goal + contact-link columns.
+          27,
         );
         final taskColumns = await versionTen
             .customSelect('PRAGMA table_info(planner_tasks)')
@@ -944,8 +945,9 @@ void main() {
             .getSingle();
         // Delta 4.2R R8: current schema is 24 (30-minute default migration);
         // Pack B1: current schema is 25 (AppearancePreferences table);
-        // B2-CORRECTION: current schema is 26 (themeColor column).
-        expect(version.read<int>('user_version'), 26);
+        // B2-CORRECTION: current schema is 26 (themeColor column);
+        // B3.2: current schema is 27 (direct Task Goal + contact-link columns).
+        expect(version.read<int>('user_version'), 27);
         await current.close();
       } finally {
         sqliteDatabase.close();

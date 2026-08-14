@@ -249,6 +249,11 @@ Future<_CurrentTimeController> _pumpPlanner({
   return currentTime;
 }
 
+/// The CT-01 capsule is the nearest [Container] ancestor of the current-time
+/// label (it carries the primary fill + full rounding).
+Finder _currentTimeCapsule(Finder label) =>
+    find.ancestor(of: label, matching: find.byType(Container)).first;
+
 Key _previewPageKey(PlannerDate date) =>
     Key('planner-day-page-${date.iso8601}');
 
@@ -480,24 +485,25 @@ void main() {
       );
       final pageRect = tester.getRect(todayPage);
       final labelRect = tester.getRect(label);
+      final capsuleRect = tester.getRect(_currentTimeCapsule(label));
       final dotRect = tester.getRect(dot);
       final lineRect = tester.getRect(line);
       final hourLineRect = tester.getRect(hourLine);
       expect(labelRect.left, greaterThanOrEqualTo(pageRect.left));
       expect(
-        dotRect.left - labelRect.right,
-        closeTo(PlannerCurrentTimeHorizontalGeometry.labelToDotGap, 0.5),
-        reason: 'pager label must remain bounded before the fixed dot',
+        dotRect.left - capsuleRect.right,
+        closeTo(0, 0.5),
+        reason: 'pager capsule must be attached/tangent to the anchor',
       );
       expect(
         dotRect.center.dx - pageRect.left,
         closeTo(PlannerCurrentTimeHorizontalGeometry.dotCenterX, 0.5),
-        reason: 'pager dot center must stay on the 56 dp gutter anchor',
+        reason: 'pager anchor center must stay on the 56 dp gutter boundary',
       );
       expect(
         lineRect.left - dotRect.right,
-        closeTo(PlannerCurrentTimeHorizontalGeometry.dotToLineGap, 0.5),
-        reason: 'pager line must start after the fixed dot',
+        closeTo(0, 0.5),
+        reason: 'pager line must begin at the anchor right edge',
       );
       expect(lineRect.right, closeTo(pageRect.right, 0.5));
       expect(
@@ -525,6 +531,7 @@ void main() {
         currentTime.value = sample.$1;
         await tester.pump();
         final sampleLabelRect = tester.getRect(label);
+        final sampleCapsuleRect = tester.getRect(_currentTimeCapsule(label));
         final sampleDotRect = tester.getRect(dot);
         final sampleLineRect = tester.getRect(line);
         final dotCenterX = sampleDotRect.center.dx - pageRect.left;
@@ -532,8 +539,8 @@ void main() {
         expect(tester.widget<Text>(label).data, sample.$2);
         expect(sampleLabelRect.left, greaterThanOrEqualTo(pageRect.left));
         expect(
-          sampleDotRect.left - sampleLabelRect.right,
-          closeTo(PlannerCurrentTimeHorizontalGeometry.labelToDotGap, 0.5),
+          sampleDotRect.left - sampleCapsuleRect.right,
+          closeTo(0, 0.5),
         );
         expect(
           dotCenterX,
@@ -542,7 +549,7 @@ void main() {
         expect(dotCenterX, closeTo(firstDotCenterX, 0.5));
         expect(
           sampleLineRect.left - sampleDotRect.right,
-          closeTo(PlannerCurrentTimeHorizontalGeometry.dotToLineGap, 0.5),
+          closeTo(0, 0.5),
         );
         expect(sampleLineRect.right, closeTo(pageRect.right, 0.5));
         final sampleMinute = sample.$1.hour * 60 + sample.$1.minute;

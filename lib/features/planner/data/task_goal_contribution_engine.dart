@@ -1,17 +1,16 @@
 import 'package:drift/drift.dart';
 import 'package:rmplanner/core/database/app_database.dart';
-import 'package:rmplanner/features/goals/domain/canonical_goal_slots.dart';
 import 'package:rmplanner/features/goals/domain/goal.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
-import 'package:rmplanner/features/planner/domain/planner_task.dart';
 
-/// The canonical, repository-independent identity used when a Task is linked
-/// to one of the six fixed Goal Event Types.
+/// The canonical, repository-independent identity of the Goal a Task directly
+/// contributes to (B3.2 owner lock D2).
 ///
-/// The current label is deliberately carried alongside the stable key. A
-/// Task and its status history therefore retain the label that was selected
-/// when the link was made, while the stable key remains the identity used for
-/// Goal progress.
+/// The link is derived from the Task's explicit direct `goalId` only.  The
+/// label is the Goal title carried alongside the Goal id; the indicator key
+/// is the Goal's own key so the existing indicator-keyed progress computation
+/// includes the contribution.  The Event Type stable key is retained as
+/// metadata only and is never used to select a Goal.
 final class TaskGoalContributionLink {
   const TaskGoalContributionLink({
     required this.id,
@@ -21,7 +20,7 @@ final class TaskGoalContributionLink {
   });
 
   final String id;
-  final String stableKey;
+  final String? stableKey;
   final String label;
   final String indicatorKey;
 }
@@ -37,56 +36,43 @@ final class TaskGoalContributionEngine {
 
   final AppDatabase database;
 
+  /// Resolves the Task's explicit direct Goal link (D2).
+  ///
+  /// Fail-closed by design: `goalId == null`, a missing Goal, a deleted Goal,
+  /// or an archived Goal all resolve to `null`, which the repository treats as
+  /// "no Goal contribution" — the Task data itself always remains intact and
+  /// there is NEVER an Event-Type fallback.  `allowArchived` is used only when
+  /// reading stored history snapshots, never for new linking.
   Future<TaskGoalContributionLink?> resolve({
     required String profileId,
-    String? activityTypeId,
-    String? stableKey,
-    String? labelSnapshot,
+    String? goalId,
     bool allowArchived = false,
   }) async {
-    final requestedId = _normalizeOptional(activityTypeId);
-    final requestedKey = _normalizeOptional(stableKey);
-    if (requestedId == null && requestedKey == null) {
+    final requestedId = _normalizeOptional(goalId);
+    if (requestedId == null) {
       return null;
     }
 
-    final type =
-        await (database.select(database.activityTypes)
+    final goal =
+        await (database.select(database.goals)
               ..where(
                 (table) =>
                     table.profileId.equals(profileId) &
-                    (requestedId == null
-                        ? table.stableKey.equals(requestedKey!)
-                        : table.id.equals(requestedId)),
+                    table.id.equals(requestedId),
               )
               ..limit(1))
             .getSingleOrNull();
-    if (type == null) {
-      throw const PlannerTaskValidationException(
-        'The linked Event Type could not be found.',
-      );
+    if (goal == null || goal.deletedAtUtc != null) {
+      return null;
     }
-    if (requestedKey != null && type.stableKey != requestedKey) {
-      throw const PlannerTaskValidationException(
-        'The linked Event Type identity does not match the selected type.',
-      );
-    }
-    final slot = CanonicalGoalSlot.tryByEventTypeKey(type.stableKey);
-    if (slot == null) {
-      throw const PlannerTaskValidationException(
-        'Tasks can link only to one of the six canonical Goal Event Types.',
-      );
-    }
-    if (type.isArchived && !allowArchived) {
-      throw const PlannerTaskValidationException(
-        'The linked Event Type is archived and cannot be used.',
-      );
+    if (goal.status != GoalStatus.active.name && !allowArchived) {
+      return null;
     }
     return TaskGoalContributionLink(
-      id: type.id,
-      stableKey: type.stableKey,
-      label: _normalizeOptional(labelSnapshot) ?? type.label,
-      indicatorKey: slot.indicatorKey,
+      id: goal.id,
+      stableKey: goal.assignedEventTypeStableKey,
+      label: goal.title,
+      indicatorKey: goal.indicatorKey ?? '',
     );
   }
 
@@ -123,19 +109,23 @@ final class TaskGoalContributionEngine {
     required DateTime changedAt,
   }) async {
     if (linkedType == null) return;
+    // Fail-closed re-verification: the Goal must still exist, be active, and
+    // not be deleted.  A direct Goal that became invalid mid-flight yields no
+    // contribution (and never an Event-Type fallback).
     final goal =
         await (database.select(database.goals)
               ..where(
                 (table) =>
                     table.profileId.equals(profileId) &
-                    table.assignedEventTypeStableKey.equals(
-                      linkedType.stableKey,
-                    ) &
-                    table.status.equals(GoalStatus.active.name),
+                    table.id.equals(linkedType.id),
               )
               ..limit(1))
             .getSingleOrNull();
-    if (goal == null) return;
+    if (goal == null ||
+        goal.deletedAtUtc != null ||
+        goal.status != GoalStatus.active.name) {
+      return;
+    }
 
     final activityDate =
         dueDate?.iso8601 ??
@@ -153,12 +143,13 @@ final class TaskGoalContributionEngine {
               id: '$taskId:goal-contribution',
               profileId: profileId,
               taskId: taskId,
-              activityTypeId: Value<String?>(linkedType.id),
-              activityTypeStableKeySnapshot: Value<String?>(
-                linkedType.stableKey,
-              ),
-              activityTypeLabelSnapshot: Value<String?>(linkedType.label),
+              // The Event-Type snapshot columns are NOT populated for direct
+              // Goal contributions: the identity lives in goal_id (B3.2).
+              activityTypeId: const Value<String?>(null),
+              activityTypeStableKeySnapshot: const Value<String?>(null),
+              activityTypeLabelSnapshot: const Value<String?>(null),
               indicatorKey: linkedType.indicatorKey,
+              goalId: Value<String?>(linkedType.id),
               valueScaled: const Value<int>(1),
               valueScale: const Value<int>(0),
               unit: const Value<String>('count'),
@@ -173,10 +164,11 @@ final class TaskGoalContributionEngine {
         database.taskGoalContributions,
       )..where((table) => table.id.equals(existing.id))).write(
         TaskGoalContributionsCompanion(
-          activityTypeId: Value<String?>(linkedType.id),
-          activityTypeStableKeySnapshot: Value<String?>(linkedType.stableKey),
-          activityTypeLabelSnapshot: Value<String?>(linkedType.label),
+          activityTypeId: const Value<String?>(null),
+          activityTypeStableKeySnapshot: const Value<String?>(null),
+          activityTypeLabelSnapshot: const Value<String?>(null),
           indicatorKey: Value<String>(linkedType.indicatorKey),
+          goalId: Value<String?>(linkedType.id),
           valueScaled: const Value<int>(1),
           valueScale: const Value<int>(0),
           unit: const Value<String>('count'),

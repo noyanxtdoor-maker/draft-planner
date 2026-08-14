@@ -103,8 +103,8 @@ void main() {
           .getSingle();
       // Delta 4.2R R8: current schema is 24 (30-minute default migration);
       // Pack B1: current schema is 25 (AppearancePreferences table);
-      // B2-CORRECTION: current schema is 26 (themeColor column).
-      expect(version.read<int>('user_version'), 26);
+      // B3.2: current schema is 27 (direct Task Goal + contact-link columns).
+      expect(version.read<int>('user_version'), 27);
       await currentVersion.close();
     } finally {
       sqliteDatabase.close();

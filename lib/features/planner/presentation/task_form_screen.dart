@@ -10,7 +10,10 @@ import 'package:rmplanner/features/contacts/application/contact_providers.dart';
 import 'package:rmplanner/features/contacts/domain/contact.dart';
 import 'package:rmplanner/features/contacts/presentation/add_people_screen.dart';
 import 'package:rmplanner/features/contacts/presentation/widgets/contact_widgets.dart';
+import 'package:rmplanner/features/goals/application/goal_providers.dart';
 import 'package:rmplanner/features/goals/domain/canonical_goal_slots.dart';
+import 'package:rmplanner/features/goals/domain/goal.dart';
+import 'package:rmplanner/features/goals/presentation/widgets/goal_icon.dart';
 import 'package:rmplanner/features/planner/application/event_type_providers.dart';
 import 'package:rmplanner/features/planner/application/planner_providers.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
@@ -62,6 +65,9 @@ final class _TaskFormScreenState extends ConsumerState<TaskFormScreen>
   String? _linkedActivityTypeId;
   String? _linkedActivityTypeStableKey;
   String? _linkedActivityTypeLabelSnapshot;
+  // B3.2 (D2): the explicit DIRECT Life Goal link.  The ONLY Goal resolver
+  // for Tasks; Event-Type fields are independent classification metadata.
+  String? _goalId;
 
   @override
   void initState() {
@@ -140,6 +146,7 @@ final class _TaskFormScreenState extends ConsumerState<TaskFormScreen>
       _linkedActivityTypeId = task.linkedActivityTypeId;
       _linkedActivityTypeStableKey = task.linkedActivityTypeStableKey;
       _linkedActivityTypeLabelSnapshot = task.linkedActivityTypeLabelSnapshot;
+      _goalId = task.goalId;
       _loading = false;
     });
     if (_setDueDate) {
@@ -238,7 +245,9 @@ final class _TaskFormScreenState extends ConsumerState<TaskFormScreen>
                             decoration: _inputDecoration('Description'),
                           ),
                           const SizedBox(height: 18),
-                          _buildGoalEventTypeField(),
+                          _buildLifeGoalSection(),
+                          const SizedBox(height: 22),
+                          _buildEventTypeField(),
                           const SizedBox(height: 18),
                           SwitchListTile(
                             key: const Key('task-set-due-date-switch'),
@@ -291,12 +300,12 @@ final class _TaskFormScreenState extends ConsumerState<TaskFormScreen>
                           ],
                           const SizedBox(height: 26),
                           const _TaskSectionHeader(label: 'People'),
-                          const SizedBox(height: 18),
+                          const SizedBox(height: 12),
                           Align(
                             alignment: Alignment.centerRight,
                             child: TextButton.icon(
                               key: const Key('task-add-people-button'),
-                              onPressed: _addPerson,
+                              onPressed: () => unawaited(_openAddContacts()),
                               style: _rightAlignedActionStyle(),
                               icon: const Icon(Icons.add, size: 24),
                               label: const Text('People'),
@@ -304,59 +313,33 @@ final class _TaskFormScreenState extends ConsumerState<TaskFormScreen>
                           ),
                           if (_people.isNotEmpty) ...<Widget>[
                             const SizedBox(height: 8),
+                            const Text(
+                              'Historical names',
+                              style: TextStyle(
+                                fontFamily: 'Roboto',
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF9CA0A6),
+                              ),
+                            ),
+                            const SizedBox(height: 6),
                             for (final person in _people)
-                              Padding(
-                                key: Key('task-person-row-$person'),
-                                padding: const EdgeInsets.only(bottom: 4),
-                                child: Row(
-                                  children: <Widget>[
-                                    Expanded(child: Text(person)),
-                                    IconButton(
-                                      key: Key('task-remove-person-$person'),
-                                      tooltip: 'Remove $person',
-                                      onPressed: () => _removePerson(person),
-                                      icon: const Icon(Icons.close, size: 20),
-                                    ),
-                                  ],
-                                ),
-                              ),
+                              _TaskLegacyPersonChip(person: person),
+                            const SizedBox(height: 12),
                           ],
-                          const SizedBox(height: 18),
-                          Row(
-                            children: <Widget>[
-                              const Expanded(
-                                child: Text(
-                                  'Contacts',
-                                  style: TextStyle(
-                                    fontFamily: 'Roboto',
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w600,
-                                    color: Color(0xFF9CA0A6),
-                                  ),
-                                ),
-                              ),
-                              TextButton.icon(
-                                key: const Key('task-add-contacts-button'),
-                                onPressed: () => unawaited(_openAddContacts()),
-                                style: _rightAlignedActionStyle(),
-                                icon: const Icon(Icons.add, size: 22),
-                                label: const Text('Add'),
-                              ),
-                            ],
-                          ),
                           const SizedBox(height: 4),
-                          if (_contactIds.isEmpty)
+                          if (_contactIds.isEmpty && _people.isEmpty)
                             const Padding(
                               padding: EdgeInsets.symmetric(vertical: 4),
                               child: Text(
-                                'No Contacts linked yet.',
+                                'No People linked yet.',
                                 style: TextStyle(
                                   color: Color(0xFF9CA0A6),
                                   fontSize: 14,
                                 ),
                               ),
                             )
-                          else
+                          else if (_contactIds.isNotEmpty)
                             ref
                                 .watch(
                                   contactSummariesByCsvProvider(
@@ -378,7 +361,7 @@ final class _TaskFormScreenState extends ConsumerState<TaskFormScreen>
                                   error: (error, stack) => const Padding(
                                     padding: EdgeInsets.symmetric(vertical: 8),
                                     child: Text(
-                                      'Contacts could not be loaded.',
+                                      'People could not be loaded.',
                                       style: TextStyle(
                                         color: Color(0xFF9CA0A6),
                                       ),
@@ -409,20 +392,257 @@ final class _TaskFormScreenState extends ConsumerState<TaskFormScreen>
     );
   }
 
-  Widget _buildGoalEventTypeField() {
+  /// B3.2 Life Goal section (owner D2): explicit DIRECT Goal link with the
+  /// Event form's approved Link-to-Life-Goal flow as the template.
+  Widget _buildLifeGoalSection() {
+    final goals = ref.watch(activeGoalsProvider).value ?? const <Goal>[];
+    Goal? linkedGoal;
+    if (_goalId != null) {
+      linkedGoal ??= goals.where((goal) => goal.id == _goalId).firstOrNull;
+      linkedGoal ??= ref.watch(goalByIdProvider(_goalId!)).value;
+    }
+    final linked = linkedGoal != null;
+    final colorScheme = Theme.of(context).colorScheme;
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return Column(
+      key: const Key('task-life-goal-section'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        const _TaskSectionHeader(label: 'Life Goal'),
+        const SizedBox(height: 12),
+        InkWell(
+          key: const Key('task-life-goal-field'),
+          onTap: _chooseLifeGoal,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: dark
+                  ? const Color(0xFF1C1E21)
+                  : colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: dark
+                    ? const Color(0xFF2A2D31)
+                    : colorScheme.outlineVariant,
+              ),
+            ),
+            child: Row(
+              children: <Widget>[
+                if (linked)
+                  GoalIcon(
+                    iconId: linkedGoal.iconId,
+                    size: 24,
+                    semanticLabel: linkedGoal.title,
+                  )
+                else
+                  Icon(
+                    Icons.flag_outlined,
+                    color: colorScheme.onSurfaceVariant,
+                    size: 24,
+                  ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    linked ? linkedGoal.title : 'Choose a Life Goal (optional)',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: linked
+                        ? AppTypography.body
+                        : AppTypography.secondary,
+                  ),
+                ),
+                const Icon(Icons.arrow_drop_down),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        if (linked)
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              key: const Key('task-life-goal-unlink'),
+              onPressed: () => setState(() => _goalId = null),
+              icon: const Icon(Icons.clear, size: 18),
+              label: const Text('Unlink'),
+              style: TextButton.styleFrom(
+                minimumSize: const Size(48, 48),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+              ),
+            ),
+          )
+        else
+          const Text(
+            'Optional: completing this Task will add progress to the linked '
+            'Life Goal.',
+            style: AppTypography.secondary,
+          ),
+      ],
+    );
+  }
+
+  Future<void> _chooseLifeGoal() async {
+    List<Goal> goals;
+    try {
+      goals = await ref.read(activeGoalsProvider.future);
+    } on Object {
+      goals = const <Goal>[];
+    }
+    if (!mounted) {
+      return;
+    }
+    if (goals.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No Life Goals are available.')),
+      );
+      return;
+    }
+    final colorScheme = Theme.of(context).colorScheme;
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (sheetContext) => SafeArea(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 560),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 18, 20, 4),
+                child: Text(
+                  'Link to Life Goal',
+                  style: TextStyle(
+                    fontSize: 19,
+                    fontWeight: FontWeight.w700,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+                child: Text(
+                  'Choose the goal this Task should contribute to.',
+                  style: TextStyle(
+                    color: colorScheme.onSurfaceVariant,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+              Flexible(
+                child: ListView.builder(
+                  key: const Key('task-life-goal-picker'),
+                  shrinkWrap: true,
+                  itemCount: goals.length,
+                  itemBuilder: (context, index) {
+                    final goal = goals[index];
+                    final isSelected = goal.id == _goalId;
+                    return Container(
+                      margin: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isSelected
+                              ? colorScheme.primary
+                              : Colors.transparent,
+                        ),
+                      ),
+                      child: Material(
+                        color: isSelected
+                            ? colorScheme.primaryContainer
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(12),
+                        child: ListTile(
+                          key: Key('task-life-goal-option-${goal.id}'),
+                          leading: GoalIcon(
+                            iconId: goal.iconId,
+                            size: 24,
+                            semanticLabel: goal.title,
+                          ),
+                          title: Text(
+                            goal.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          trailing: isSelected
+                              ? Icon(
+                                  Icons.check,
+                                  color: colorScheme.primary,
+                                  size: 20,
+                                )
+                              : null,
+                          onTap: () => Navigator.of(sheetContext).pop(goal.id),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              if (_goalId != null) ...<Widget>[
+                const Divider(height: 1),
+                ListTile(
+                  key: const Key('task-life-goal-remove-link'),
+                  leading: Icon(
+                    Icons.delete_outline,
+                    color: colorScheme.primary,
+                    size: 20,
+                  ),
+                  title: Text(
+                    'Remove Life Goal link',
+                    style: TextStyle(color: colorScheme.primary),
+                  ),
+                  onTap: () => Navigator.of(sheetContext).pop('__none__'),
+                ),
+              ],
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: Center(
+                  child: TextButton(
+                    key: const Key('task-life-goal-picker-cancel'),
+                    onPressed: () => Navigator.of(sheetContext).pop(),
+                    child: const Text('Cancel'),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (!mounted || selected == null) {
+      return;
+    }
+    setState(() {
+      if (selected == '__none__') {
+        _goalId = null;
+        return;
+      }
+      _goalId = selected;
+    });
+  }
+
+  /// Independent Event Type classification metadata (B3.2).  This field no
+  /// longer has any Goal-progress semantics — the direct Life Goal link is
+  /// the only Goal resolver.
+  Widget _buildEventTypeField() {
     final label = _linkedActivityTypeLabelSnapshot ?? 'None';
     return Semantics(
       container: true,
-      label: 'LINKED EVENT TYPE — OPTIONAL, $label',
+      label: 'EVENT TYPE — OPTIONAL, $label',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
           InkWell(
-            key: const Key('task-goal-event-type-field'),
-            onTap: _chooseGoalEventType,
+            key: const Key('task-event-type-field'),
+            onTap: _chooseEventType,
             borderRadius: BorderRadius.circular(4),
             child: InputDecorator(
-              decoration: _inputDecoration('LINKED EVENT TYPE — OPTIONAL'),
+              decoration: _inputDecoration('EVENT TYPE — OPTIONAL'),
               child: Row(
                 children: <Widget>[
                   Expanded(child: Text(label)),
@@ -431,18 +651,12 @@ final class _TaskFormScreenState extends ConsumerState<TaskFormScreen>
               ),
             ),
           ),
-          const SizedBox(height: 8),
-          const Text(
-            'Completing this Task will add progress to the Goal assigned to '
-            'this Event Type.',
-            style: AppTypography.secondary,
-          ),
           if (label != 'None') ...<Widget>[
             const SizedBox(height: 4),
             Align(
               alignment: Alignment.centerRight,
               child: TextButton.icon(
-                key: const Key('task-clear-goal-event-type'),
+                key: const Key('task-clear-event-type'),
                 onPressed: () => setState(() {
                   _linkedActivityTypeId = null;
                   _linkedActivityTypeStableKey = null;
@@ -462,7 +676,7 @@ final class _TaskFormScreenState extends ConsumerState<TaskFormScreen>
     );
   }
 
-  Future<void> _chooseGoalEventType() async {
+  Future<void> _chooseEventType() async {
     final selection = await showEventTypePicker(
       context: context,
       ref: ref,
@@ -630,37 +844,6 @@ final class _TaskFormScreenState extends ConsumerState<TaskFormScreen>
     }
   }
 
-  Future<void> _addPerson() async {
-    final name = await showDialog<String>(
-      context: context,
-      builder: (_) => const _TaskPersonDialog(),
-    );
-    if (!mounted) {
-      return;
-    }
-    final normalized = name?.trim();
-    if (normalized == null || normalized.isEmpty) {
-      return;
-    }
-    if (_people.contains(normalized)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('That person is already selected.')),
-      );
-      return;
-    }
-    setState(() {
-      _people = List<String>.unmodifiable(<String>[..._people, normalized]);
-    });
-  }
-
-  void _removePerson(String person) {
-    setState(() {
-      _people = List<String>.unmodifiable(
-        _people.where((selected) => selected != person),
-      );
-    });
-  }
-
   Future<void> _loadTaskContacts() async {
     try {
       final summaries = await ref.read(
@@ -734,6 +917,7 @@ final class _TaskFormScreenState extends ConsumerState<TaskFormScreen>
             linkedActivityTypeId: _linkedActivityTypeId,
             linkedActivityTypeStableKey: _linkedActivityTypeStableKey,
             linkedActivityTypeLabelSnapshot: _linkedActivityTypeLabelSnapshot,
+            goalId: _goalId,
           ),
           confirmLinkedTypeTransfer: confirmLinkedTypeTransfer,
         );
@@ -769,8 +953,8 @@ final class _TaskFormScreenState extends ConsumerState<TaskFormScreen>
           key: const Key('task-link-transfer-dialog'),
           title: const Text('Move Goal progress?'),
           content: const Text(
-            'This completed Task already contributed progress. Moving the '
-            'Event Type will move that contribution to the new Goal.',
+            'This completed Task already contributed progress. Changing the '
+            'Life Goal will move that contribution to the new Goal.',
           ),
           actions: <Widget>[
             TextButton(
@@ -798,14 +982,51 @@ final class _TaskFormScreenState extends ConsumerState<TaskFormScreen>
   }
 }
 
-final class _TaskPersonDialog extends StatefulWidget {
-  const _TaskPersonDialog();
+/// A read-only historical name chip (B3.2 O1).  Legacy free-text names stay
+/// visible, are never auto-matched or auto-created, and have no remove
+/// affordance in this pack.
+final class _TaskLegacyPersonChip extends StatelessWidget {
+  const _TaskLegacyPersonChip({required this.person});
+
+  final String person;
 
   @override
-  State<_TaskPersonDialog> createState() => _TaskPersonDialogState();
+  Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      key: Key('task-legacy-person-$person'),
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: dark
+            ? const Color(0xFF1C1E21)
+            : Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: dark
+              ? const Color(0xFF2A2D31)
+              : Theme.of(context).colorScheme.outlineVariant,
+        ),
+      ),
+      child: Row(
+        children: <Widget>[
+          const Icon(Icons.person_outline, size: 16, color: Color(0xFF9CA0A6)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              person,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 14),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
-/// A linked Contact chip in the Task form Contacts section.
+/// A linked Contact chip in the Task form People section.
 final class _TaskContactChip extends StatelessWidget {
   const _TaskContactChip({
     required this.id,
@@ -863,44 +1084,6 @@ final class _TaskContactChip extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-final class _TaskPersonDialogState extends State<_TaskPersonDialog> {
-  final _controller = TextEditingController();
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      key: const Key('task-people-dialog'),
-      title: const Text('Add Person'),
-      content: TextField(
-        key: const Key('task-person-name-field'),
-        controller: _controller,
-        autofocus: true,
-        textInputAction: TextInputAction.done,
-        decoration: const InputDecoration(labelText: 'Name'),
-        onSubmitted: (value) => Navigator.of(context).pop(value),
-      ),
-      actions: <Widget>[
-        TextButton(
-          key: const Key('task-person-cancel'),
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-        TextButton(
-          key: const Key('task-person-add'),
-          onPressed: () => Navigator.of(context).pop(_controller.text),
-          child: const Text('Add'),
-        ),
-      ],
     );
   }
 }

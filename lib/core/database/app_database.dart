@@ -203,6 +203,10 @@ class PlannerTasks extends Table {
   TextColumn get linkedActivityTypeId => text().nullable()();
   TextColumn get linkedActivityTypeStableKey => text().nullable()();
   TextColumn get linkedActivityTypeLabelSnapshot => text().nullable()();
+  // B3.2 (v27): optional DIRECT Life Goal link.  This is the ONLY Goal
+  // contribution selector for Tasks (owner lock D2); Event-Type inference
+  // is removed.  Nullable + additive; historical Tasks stay unlinked (D5).
+  TextColumn get goalId => text().nullable()();
   DateTimeColumn get createdAtUtc => dateTime()();
   DateTimeColumn get updatedAtUtc => dateTime()();
 
@@ -267,6 +271,11 @@ class TaskGoalContributions extends Table {
   TextColumn get unit => text().withDefault(const Constant('count'))();
   TextColumn get activityDate => text()();
   TextColumn get state => text().withDefault(const Constant('active'))();
+  // B3.2 (v27): the Goal actually satisfied by this contribution for NEW
+  // direct-Goal Tasks.  Nullable + additive; historical rows keep their
+  // original identity (D5 — never rewritten just because the schema gains
+  // the column).
+  TextColumn get goalId => text().nullable()();
   DateTimeColumn get createdAtUtc => dateTime()();
   DateTimeColumn get updatedAtUtc => dateTime()();
 
@@ -906,6 +915,10 @@ class EventOccurrenceParticipants extends Table {
   columns: <Symbol>{#taskId, #contactId},
   unique: true,
 )
+@TableIndex(
+  name: 'task_contact_link_contact',
+  columns: <Symbol>{#contactId},
+)
 @DataClassName('TaskContactLinkRow')
 class TaskContactLinks extends Table {
   TextColumn get id => text()();
@@ -1108,7 +1121,7 @@ final class AppDatabase extends _$AppDatabase {
   final bool _injectContactsMigrationFailure;
 
   @override
-  int get schemaVersion => _schemaVersionOverride ?? 26;
+  int get schemaVersion => _schemaVersionOverride ?? 27;
 
   @override
   MigrationStrategy get migration {
@@ -1832,6 +1845,37 @@ final class AppDatabase extends _$AppDatabase {
               );
             }
           }
+          if (from < 27 && to >= 27) {
+            // B3.2 (v27): Task direct Life Goal + Task People contact links.
+            // ADDITIVE and nullable only.  NO backfill of planner_tasks.goal_id
+            // or task_goal_contributions.goal_id (D5 — historical Tasks stay
+            // unlinked and historical contribution identity is preserved), and
+            // NO peopleJson -> Contact conversion (O1 — legacy names remain
+            // historical data).  Every step is guarded so the migration is
+            // idempotent for databases created from a later generated schema.
+            if (!await _columnExists('planner_tasks', 'goal_id')) {
+              await migrator.addColumn(plannerTasks, plannerTasks.goalId);
+            }
+            if (!await _columnExists(
+              'task_goal_contributions',
+              'goal_id',
+            )) {
+              await migrator.addColumn(
+                taskGoalContributions,
+                taskGoalContributions.goalId,
+              );
+            }
+            // task_contact_links already exists since v22 (VS-11 Contacts)
+            // and its @TableIndex definitions now also carry the contact_id
+            // lookup index for fresh installs.  Existing v22+ databases get
+            // the same index here; CREATE INDEX IF NOT EXISTS is naturally
+            // idempotent.  No goal-targeted contribution index is added
+            // because no repository query needs one today (minimal v27).
+            await customStatement(
+              'CREATE INDEX IF NOT EXISTS task_contact_link_contact '
+              'ON task_contact_links (contact_id)',
+            );
+          }
         });
       },
       beforeOpen: (details) async {
@@ -1844,4 +1888,5 @@ final class AppDatabase extends _$AppDatabase {
     final rows = await customSelect('PRAGMA table_info($tableName)').get();
     return rows.any((row) => row.read<String>('name') == columnName);
   }
+
 }

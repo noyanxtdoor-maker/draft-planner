@@ -97,11 +97,12 @@ final class DriftPlannerRepository implements PlannerRepository {
               fromStatus: current.status.name,
               toStatus: target.name,
               reason: Value<String?>(_normalizeOptional(reason)),
-              activityTypeId: Value<String?>(linkedType?.id),
-              activityTypeStableKeySnapshot: Value<String?>(
-                linkedType?.stableKey,
-              ),
-              activityTypeLabelSnapshot: Value<String?>(linkedType?.label),
+              // B3.2 (D2): the direct Goal link is not an Event Type, so a
+              // status-change record carries no Event-Type snapshot for
+              // Goal-linked contributions.  Goal identity lives in goal_id.
+              activityTypeId: const Value<String?>(null),
+              activityTypeStableKeySnapshot: const Value<String?>(null),
+              activityTypeLabelSnapshot: const Value<String?>(null),
               changedAtUtc: changedAt,
             ),
           );
@@ -287,17 +288,17 @@ final class DriftPlannerRepository implements PlannerRepository {
         profileId: profileId,
         draft: normalized,
       );
-      final oldStableKey = _normalizeOptional(
-        existing?.linkedActivityTypeStableKey,
-      );
-      final newStableKey = linkedType?.stableKey;
-      final linkChanged = oldStableKey != newStableKey;
+      // B3.2 (D2): the Goal link is the ONLY contribution mover.  Event-Type
+      // edits are independent metadata and never trigger the transfer guard.
+      final oldGoalId = _normalizeOptional(existing?.goalId);
+      final newGoalId = linkedType?.id;
+      final linkChanged = oldGoalId != newGoalId;
       if (existing != null &&
           existing.status == PlannerTaskStatus.completed.name &&
           linkChanged &&
           !confirmLinkedTypeTransfer) {
         throw const PlannerTaskValidationException(
-          'This completed Task already contributed progress. Confirm the Event Type change to move that contribution.',
+          'This completed Task already contributed progress. Confirm the Goal change to move that contribution.',
         );
       }
       final oldContribution = existing == null
@@ -325,13 +326,20 @@ final class DriftPlannerRepository implements PlannerRepository {
                 contributionRuleKey: Value<String?>(
                   normalized.contributionRuleKey,
                 ),
-                linkedActivityTypeId: Value<String?>(linkedType?.id),
+                // B3.2 (D2): the Goal link is NOT an Event Type.  The
+                // linkedActivityType* columns carry the Task's independent
+                // Event-Type metadata from the draft; the direct Goal lives in
+                // goalId only.
+                linkedActivityTypeId: Value<String?>(
+                  normalized.linkedActivityTypeId,
+                ),
                 linkedActivityTypeStableKey: Value<String?>(
-                  linkedType?.stableKey,
+                  normalized.linkedActivityTypeStableKey,
                 ),
                 linkedActivityTypeLabelSnapshot: Value<String?>(
-                  linkedType?.label,
+                  normalized.linkedActivityTypeLabelSnapshot,
                 ),
+                goalId: Value<String?>(normalized.goalId),
                 createdAtUtc: now,
                 updatedAtUtc: now,
               ),
@@ -354,13 +362,20 @@ final class DriftPlannerRepository implements PlannerRepository {
                 contributionRuleKey: Value<String?>(
                   normalized.contributionRuleKey,
                 ),
-                linkedActivityTypeId: Value<String?>(linkedType?.id),
+                // B3.2 (D2): the Goal link is NOT an Event Type.  The
+                // linkedActivityType* columns carry the Task's independent
+                // Event-Type metadata from the draft; the direct Goal lives in
+                // goalId only.
+                linkedActivityTypeId: Value<String?>(
+                  normalized.linkedActivityTypeId,
+                ),
                 linkedActivityTypeStableKey: Value<String?>(
-                  linkedType?.stableKey,
+                  normalized.linkedActivityTypeStableKey,
                 ),
                 linkedActivityTypeLabelSnapshot: Value<String?>(
-                  linkedType?.label,
+                  normalized.linkedActivityTypeLabelSnapshot,
                 ),
+                goalId: Value<String?>(normalized.goalId),
                 updatedAtUtc: Value<DateTime>(now),
               ),
             );
@@ -381,9 +396,10 @@ final class DriftPlannerRepository implements PlannerRepository {
           contributionRuleKey: normalized.contributionRuleKey,
           createdAtUtc: existing.createdAtUtc,
           updatedAtUtc: now,
-          linkedActivityTypeId: linkedType?.id,
-          linkedActivityTypeStableKey: linkedType?.stableKey,
-          linkedActivityTypeLabelSnapshot: linkedType?.label,
+          linkedActivityTypeId: normalized.linkedActivityTypeId,
+          linkedActivityTypeStableKey: normalized.linkedActivityTypeStableKey,
+          linkedActivityTypeLabelSnapshot: normalized.linkedActivityTypeLabelSnapshot,
+          goalId: normalized.goalId,
         );
         await _reconcileContribution(
           profileId: profileId,
@@ -427,18 +443,19 @@ final class DriftPlannerRepository implements PlannerRepository {
       linkedActivityTypeId: row.linkedActivityTypeId,
       linkedActivityTypeStableKey: row.linkedActivityTypeStableKey,
       linkedActivityTypeLabelSnapshot: row.linkedActivityTypeLabelSnapshot,
+      goalId: row.goalId,
     );
   }
 
   Future<TaskGoalContributionLink?> _resolveTaskLink({
     required String profileId,
     required PlannerTaskDraft draft,
-  }) async {
+  }) {
+    // B3.2 (D2): explicit direct Goal is the ONLY resolver.  Event-Type
+    // fields are independent metadata and are deliberately not consulted.
     return _contributionEngine.resolve(
       profileId: profileId,
-      activityTypeId: draft.linkedActivityTypeId,
-      stableKey: draft.linkedActivityTypeStableKey,
-      labelSnapshot: draft.linkedActivityTypeLabelSnapshot,
+      goalId: draft.goalId,
     );
   }
 
@@ -448,9 +465,7 @@ final class DriftPlannerRepository implements PlannerRepository {
   }) {
     return _contributionEngine.resolve(
       profileId: profileId,
-      activityTypeId: task.linkedActivityTypeId,
-      stableKey: task.linkedActivityTypeStableKey,
-      labelSnapshot: task.linkedActivityTypeLabelSnapshot,
+      goalId: task.goalId,
       allowArchived: true,
     );
   }

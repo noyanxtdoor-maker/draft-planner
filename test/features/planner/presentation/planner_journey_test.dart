@@ -328,27 +328,16 @@ void main() {
       await tester.ensureVisible(
         find.byKey(const Key('task-add-people-button')),
       );
+      // B3.2: exactly ONE + People affordance.  The legacy free-text add
+      // dialog and the redundant Contacts/Add row no longer exist; tapping
+      // People opens the reusable AddPeople flow.
+      expect(find.byKey(const Key('task-person-name-field')), findsNothing);
+      expect(find.byKey(const Key('task-add-contacts-button')), findsNothing);
+      expect(find.byKey(const Key('task-add-people-button')), findsOneWidget);
       await tester.tap(find.byKey(const Key('task-add-people-button')));
       await tester.pumpAndSettle();
-      await tester.enterText(
-        find.byKey(const Key('task-person-name-field')),
-        'Mia',
-      );
-      await tester.tap(find.byKey(const Key('task-person-add')));
-      await tester.pumpAndSettle();
-      expect(find.byKey(const Key('task-person-row-Mia')), findsOneWidget);
-
-      await tester.tap(find.byKey(const Key('task-remove-person-Mia')));
-      await tester.pumpAndSettle();
-      expect(find.byKey(const Key('task-person-row-Mia')), findsNothing);
-
-      await tester.tap(find.byKey(const Key('task-add-people-button')));
-      await tester.pumpAndSettle();
-      await tester.enterText(
-        find.byKey(const Key('task-person-name-field')),
-        'Mia',
-      );
-      await tester.tap(find.byKey(const Key('task-person-add')));
+      expect(find.text('Add People'), findsOneWidget);
+      await tester.pageBack();
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('save-task-button')));
       await tester.pumpAndSettle();
@@ -358,7 +347,7 @@ void main() {
       expect(taskRow.dueDate, isNull);
       expect(taskRow.dueMinute, isNull);
       expect(taskRow.recurrenceFrequency, PlannerTaskRecurrence.none.name);
-      expect(taskRow.peopleJson, '["Mia"]');
+      expect(taskRow.peopleJson, '[]');
       expect(await database.select(database.calendarEvents).get(), isEmpty);
     },
   );

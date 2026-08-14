@@ -249,6 +249,23 @@ abstract final class PlannerCurrentTimeHorizontalGeometry {
   static const double dotLeft = dotCenterX - dotSize / 2;
   static const double labelRight = dotLeft - labelToDotGap;
   static const double lineLeft = dotLeft + dotSize + dotToLineGap;
+
+  // ----------------------------------------------------------- CT-01
+  // Compact capsule + attached circular anchor + thin line-from-anchor
+  // structure.  The anchor circle stays centered on the timeline boundary
+  // (timeColumnWidth); the capsule's right edge is TANGENT to the anchor's
+  // left edge (no gap, no overlap), and the thin line begins at the anchor's
+  // right edge and continues across the Event canvas.
+  static const double anchorCenterX = timeColumnWidth;
+  static const double anchorSize = dotSize;
+  static const double anchorLeft = anchorCenterX - anchorSize / 2;
+  static const double anchorRight = anchorLeft + anchorSize;
+  static const double capsuleRight = anchorLeft;
+  static const double lineStartX = anchorRight;
+
+  /// Capsule vertical extent; the fully-rounded radius is half of this.
+  static const double capsuleHeight = 18;
+  static const double capsuleRadius = capsuleHeight / 2;
 }
 
 const double kPlannerPagerCurrentTimeIndicatorHeight =
@@ -1522,19 +1539,27 @@ class _PagerPreviewColumnState extends State<_PagerPreviewColumn> {
                 left: 0,
                 top: 0,
                 bottom: 0,
-                width: PlannerCurrentTimeHorizontalGeometry.labelRight,
+                // CT-01: the label area ends where the anchor begins so the
+                // capsule is tangent to the circular anchor at the timeline
+                // boundary.
+                width: PlannerCurrentTimeHorizontalGeometry.capsuleRight,
                 child: Align(
                   alignment: Alignment.centerRight,
                   child: FittedBox(
                     fit: BoxFit.scaleDown,
                     alignment: Alignment.centerRight,
                     child: Container(
-                      // B3.1: the badge fill is the active semantic primary
-                      // and the time text rides onPrimary in all four
-                      // Rose/Blue x Light/Dark combinations (owner contract).
+                      // CT-01: compact semantic-primary capsule, fully rounded
+                      // (radius = half the capsule height), onPrimary text.
+                      height: PlannerCurrentTimeHorizontalGeometry
+                          .capsuleHeight,
+                      alignment: Alignment.center,
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
                       decoration: BoxDecoration(
                         color: Theme.of(context).colorScheme.primary,
-                        borderRadius: BorderRadius.circular(4),
+                        borderRadius: BorderRadius.circular(
+                          PlannerCurrentTimeHorizontalGeometry.capsuleRadius,
+                        ),
                       ),
                       child: Text(
                         _formatCurrentTimeLabel(now),
@@ -1572,7 +1597,9 @@ class _PagerPreviewColumnState extends State<_PagerPreviewColumn> {
               ),
               Positioned(
                 key: const Key('planner-current-time-line'),
-                left: PlannerCurrentTimeHorizontalGeometry.lineLeft,
+                // CT-01: the thin line begins at the anchor's right edge and
+                // continues across the Event canvas.
+                left: PlannerCurrentTimeHorizontalGeometry.lineStartX,
                 right: 0,
                 top: (kPlannerPagerCurrentTimeIndicatorHeight - 2) / 2,
                 height: 2,

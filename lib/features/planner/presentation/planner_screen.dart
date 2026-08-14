@@ -4551,9 +4551,14 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
                                             left: 0,
                                             top: 0,
                                             bottom: 0,
+                                            // CT-01: the label area ends
+                                            // where the anchor begins so the
+                                            // capsule is tangent to the
+                                            // circular anchor at the
+                                            // timeline boundary.
                                             width:
                                                 PlannerCurrentTimeHorizontalGeometry
-                                                    .labelRight,
+                                                    .capsuleRight,
                                             child: Align(
                                               alignment: Alignment.centerRight,
                                               child: FittedBox(
@@ -4561,20 +4566,28 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
                                                 alignment:
                                                     Alignment.centerRight,
                                                 child: Container(
-                                                  // B3.1: the badge fill is
-                                                  // the active semantic
-                                                  // primary and the time text
-                                                  // rides onPrimary in all
-                                                  // four Rose/Blue x
-                                                  // Light/Dark combinations
-                                                  // (owner contract).
+                                                  // CT-01: compact
+                                                  // semantic-primary capsule,
+                                                  // fully rounded (radius =
+                                                  // half the capsule height),
+                                                  // onPrimary text.
+                                                  height:
+                                                      PlannerCurrentTimeHorizontalGeometry
+                                                          .capsuleHeight,
+                                                  alignment: Alignment.center,
+                                                  padding:
+                                                      const EdgeInsets
+                                                          .symmetric(
+                                                        horizontal: 6,
+                                                      ),
                                                   decoration: BoxDecoration(
                                                     color: Theme.of(
                                                       context,
                                                     ).colorScheme.primary,
                                                     borderRadius:
                                                         BorderRadius.circular(
-                                                          4,
+                                                          PlannerCurrentTimeHorizontalGeometry
+                                                              .capsuleRadius,
                                                         ),
                                                   ),
                                                   child: Text(
@@ -4628,9 +4641,13 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
                                             key: const Key(
                                               'planner-current-time-line',
                                             ),
+                                            // CT-01: the thin line begins at
+                                            // the anchor's right edge and
+                                            // continues across the Event
+                                            // canvas.
                                             left:
                                                 PlannerCurrentTimeHorizontalGeometry
-                                                    .lineLeft,
+                                                    .lineStartX,
                                             right: 0,
                                             top:
                                                 (_currentTimeIndicatorHeight -

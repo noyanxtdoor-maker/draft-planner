@@ -47,10 +47,9 @@ void main() {
   test(
     'backup round trip preserves linked Tasks, status history, and contributions',
     () async {
-      final jobType = (await database.select(database.activityTypes).get())
-          .singleWhere(
-            (row) => row.stableKey == SystemEventTypeKeys.jobApplication,
-          );
+      final jobGoal = (await goals.readActiveGoals(
+        profileId,
+      )).singleWhere((goal) => goal.indicatorKey == 'job_applications');
       final task = await planner.saveTask(
         profileId: profileId,
         draft: PlannerTaskDraft(
@@ -59,12 +58,10 @@ void main() {
           dueDate: const PlannerDate(year: 2026, month: 8, day: 3),
           dueMinute: 600,
           requiresReport: false,
-          linkedActivityTypeId: jobType.id,
-          linkedActivityTypeStableKey: jobType.stableKey,
-          linkedActivityTypeLabelSnapshot: jobType.label,
+          goalId: jobGoal.id,
         ),
       );
-      expect(task.linkedActivityTypeStableKey, jobType.stableKey);
+      expect(task.goalId, jobGoal.id);
 
       final outcome = await planner.changeTaskStatus(
         profileId: profileId,
@@ -96,20 +93,18 @@ void main() {
       expect(restored.status, PlannerTaskStatus.completed);
       expect(restored.dueDate, const PlannerDate(year: 2026, month: 8, day: 3));
       expect(restored.dueMinute, 600);
-      expect(restored.linkedActivityTypeId, jobType.id);
-      expect(restored.linkedActivityTypeStableKey, jobType.stableKey);
-      expect(restored.linkedActivityTypeLabelSnapshot, jobType.label);
+      expect(restored.goalId, jobGoal.id);
+      expect(restored.linkedActivityTypeId, isNull);
+      expect(restored.linkedActivityTypeStableKey, isNull);
+      expect(restored.linkedActivityTypeLabelSnapshot, isNull);
 
       final statusChanges = await database
           .select(database.taskStatusChanges)
           .get();
       expect(statusChanges, hasLength(1));
       expect(statusChanges.single.operationId, 'backup-task-complete');
-      expect(
-        statusChanges.single.activityTypeStableKeySnapshot,
-        jobType.stableKey,
-      );
-      expect(statusChanges.single.activityTypeLabelSnapshot, jobType.label);
+      expect(statusChanges.single.activityTypeStableKeySnapshot, isNull);
+      expect(statusChanges.single.activityTypeLabelSnapshot, isNull);
 
       final contributions = await database
           .select(database.taskGoalContributions)
@@ -118,15 +113,10 @@ void main() {
       expect(contributions.single.taskId, task.id);
       expect(contributions.single.indicatorKey, 'job_applications');
       expect(contributions.single.state, 'active');
-      expect(
-        contributions.single.activityTypeStableKeySnapshot,
-        jobType.stableKey,
-      );
-      expect(contributions.single.activityTypeLabelSnapshot, jobType.label);
+      expect(contributions.single.goalId, jobGoal.id);
+      expect(contributions.single.activityTypeStableKeySnapshot, isNull);
+      expect(contributions.single.activityTypeLabelSnapshot, isNull);
 
-      final jobGoal = (await goals.readActiveGoals(
-        profileId,
-      )).singleWhere((goal) => goal.indicatorKey == 'job_applications');
       final progress = await goals.readProgress(
         profileId: profileId,
         goalId: jobGoal.id,
@@ -151,10 +141,6 @@ void main() {
     'completing a linked Task while the Goal slot is empty creates no orphan '
     'contribution',
     () async {
-      final jobType = (await database.select(database.activityTypes).get())
-          .singleWhere(
-            (row) => row.stableKey == SystemEventTypeKeys.jobApplication,
-          );
       final jobGoal = (await goals.readActiveGoals(
         profileId,
       )).singleWhere((goal) => goal.indicatorKey == 'job_applications');
@@ -174,9 +160,7 @@ void main() {
           dueDate: const PlannerDate(year: 2026, month: 8, day: 3),
           dueMinute: 600,
           requiresReport: false,
-          linkedActivityTypeId: jobType.id,
-          linkedActivityTypeStableKey: jobType.stableKey,
-          linkedActivityTypeLabelSnapshot: jobType.label,
+          goalId: jobGoal.id,
         ),
       );
       final outcome = await planner.changeTaskStatus(
@@ -222,9 +206,7 @@ void main() {
           dueDate: const PlannerDate(year: 2026, month: 8, day: 3),
           dueMinute: 600,
           requiresReport: false,
-          linkedActivityTypeId: jobType.id,
-          linkedActivityTypeStableKey: jobType.stableKey,
-          linkedActivityTypeLabelSnapshot: jobType.label,
+          goalId: replacement.id,
         ),
       );
       final secondOutcome = await planner.changeTaskStatus(
@@ -241,6 +223,7 @@ void main() {
       expect(afterReplacement, hasLength(1));
       expect(afterReplacement.single.taskId, second.id);
       expect(afterReplacement.single.indicatorKey, 'job_applications');
+      expect(afterReplacement.single.goalId, replacement.id);
       final progress = await goals.readProgress(
         profileId: profileId,
         goalId: replacement.id,

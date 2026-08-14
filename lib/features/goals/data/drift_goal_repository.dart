@@ -1424,6 +1424,7 @@ final class DriftGoalRepository implements GoalRepository {
             'linkedActivityTypeStableKey': row.linkedActivityTypeStableKey,
             'linkedActivityTypeLabelSnapshot':
                 row.linkedActivityTypeLabelSnapshot,
+            'goalId': row.goalId,
             'createdAtUtc': row.createdAtUtc.toUtc().toIso8601String(),
             'updatedAtUtc': row.updatedAtUtc.toUtc().toIso8601String(),
           },
@@ -1457,6 +1458,7 @@ final class DriftGoalRepository implements GoalRepository {
             'unit': row.unit,
             'activityDate': row.activityDate,
             'state': row.state,
+            'goalId': row.goalId,
             'createdAtUtc': row.createdAtUtc.toUtc().toIso8601String(),
             'updatedAtUtc': row.updatedAtUtc.toUtc().toIso8601String(),
           },
@@ -3039,6 +3041,7 @@ final class _PlannerTaskBackupRecord {
     required this.linkedActivityTypeId,
     required this.linkedActivityTypeStableKey,
     required this.linkedActivityTypeLabelSnapshot,
+    required this.goalId,
     required this.createdAtUtc,
     required this.updatedAtUtc,
   });
@@ -3056,6 +3059,7 @@ final class _PlannerTaskBackupRecord {
   final String? linkedActivityTypeId;
   final String? linkedActivityTypeStableKey;
   final String? linkedActivityTypeLabelSnapshot;
+  final String? goalId;
   final DateTime createdAtUtc;
   final DateTime updatedAtUtc;
 
@@ -3106,6 +3110,7 @@ final class _PlannerTaskBackupRecord {
       linkedActivityTypeLabelSnapshot: _backupString(
         map['linkedActivityTypeLabelSnapshot'],
       ),
+      goalId: _backupString(map['goalId']),
       createdAtUtc: _requiredBackupDate(map, 'createdAtUtc'),
       updatedAtUtc: _requiredBackupDate(map, 'updatedAtUtc'),
     );
@@ -3129,6 +3134,7 @@ final class _PlannerTaskBackupRecord {
       linkedActivityTypeLabelSnapshot: Value<String?>(
         linkedActivityTypeLabelSnapshot,
       ),
+      goalId: Value<String?>(goalId),
       createdAtUtc: createdAtUtc,
       updatedAtUtc: updatedAtUtc,
     );
@@ -3150,6 +3156,7 @@ final class _PlannerTaskBackupRecord {
       linkedActivityTypeLabelSnapshot: Value<String?>(
         linkedActivityTypeLabelSnapshot,
       ),
+      goalId: Value<String?>(goalId),
       updatedAtUtc: Value<DateTime>(updatedAtUtc),
     );
   }
@@ -3242,6 +3249,7 @@ final class _TaskGoalContributionBackupRecord {
     required this.unit,
     required this.activityDate,
     required this.state,
+    required this.goalId,
     required this.createdAtUtc,
     required this.updatedAtUtc,
   });
@@ -3257,6 +3265,7 @@ final class _TaskGoalContributionBackupRecord {
   final String unit;
   final String activityDate;
   final String state;
+  final String? goalId;
   final DateTime createdAtUtc;
   final DateTime updatedAtUtc;
 
@@ -3298,6 +3307,7 @@ final class _TaskGoalContributionBackupRecord {
       unit: _backupString(map['unit']) ?? 'count',
       activityDate: activityDate,
       state: state,
+      goalId: _backupString(map['goalId']),
       createdAtUtc: _requiredBackupDate(map, 'createdAtUtc'),
       updatedAtUtc: _requiredBackupDate(map, 'updatedAtUtc'),
     );
@@ -3319,6 +3329,7 @@ final class _TaskGoalContributionBackupRecord {
       unit: Value<String>(unit),
       activityDate: activityDate,
       state: Value<String>(state),
+      goalId: Value<String?>(goalId),
       createdAtUtc: createdAtUtc,
       updatedAtUtc: updatedAtUtc,
     );
@@ -3338,6 +3349,7 @@ final class _TaskGoalContributionBackupRecord {
       unit: Value<String>(unit),
       activityDate: Value<String>(activityDate),
       state: Value<String>(state),
+      goalId: Value<String?>(goalId),
       updatedAtUtc: Value<DateTime>(updatedAtUtc),
     );
   }

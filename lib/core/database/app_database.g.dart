@@ -4095,6 +4095,15 @@ class $PlannerTasksTable extends PlannerTasks
         type: DriftSqlType.string,
         requiredDuringInsert: false,
       );
+  static const VerificationMeta _goalIdMeta = const VerificationMeta('goalId');
+  @override
+  late final GeneratedColumn<String> goalId = GeneratedColumn<String>(
+    'goal_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _createdAtUtcMeta = const VerificationMeta(
     'createdAtUtc',
   );
@@ -4133,6 +4142,7 @@ class $PlannerTasksTable extends PlannerTasks
     linkedActivityTypeId,
     linkedActivityTypeStableKey,
     linkedActivityTypeLabelSnapshot,
+    goalId,
     createdAtUtc,
     updatedAtUtc,
   ];
@@ -4253,6 +4263,12 @@ class $PlannerTasksTable extends PlannerTasks
         ),
       );
     }
+    if (data.containsKey('goal_id')) {
+      context.handle(
+        _goalIdMeta,
+        goalId.isAcceptableOrUnknown(data['goal_id']!, _goalIdMeta),
+      );
+    }
     if (data.containsKey('created_at_utc')) {
       context.handle(
         _createdAtUtcMeta,
@@ -4340,6 +4356,10 @@ class $PlannerTasksTable extends PlannerTasks
         DriftSqlType.string,
         data['${effectivePrefix}linked_activity_type_label_snapshot'],
       ),
+      goalId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}goal_id'],
+      ),
       createdAtUtc: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at_utc'],
@@ -4372,6 +4392,7 @@ class PlannerTaskRow extends DataClass implements Insertable<PlannerTaskRow> {
   final String? linkedActivityTypeId;
   final String? linkedActivityTypeStableKey;
   final String? linkedActivityTypeLabelSnapshot;
+  final String? goalId;
   final DateTime createdAtUtc;
   final DateTime updatedAtUtc;
   const PlannerTaskRow({
@@ -4389,6 +4410,7 @@ class PlannerTaskRow extends DataClass implements Insertable<PlannerTaskRow> {
     this.linkedActivityTypeId,
     this.linkedActivityTypeStableKey,
     this.linkedActivityTypeLabelSnapshot,
+    this.goalId,
     required this.createdAtUtc,
     required this.updatedAtUtc,
   });
@@ -4427,6 +4449,9 @@ class PlannerTaskRow extends DataClass implements Insertable<PlannerTaskRow> {
         linkedActivityTypeLabelSnapshot,
       );
     }
+    if (!nullToAbsent || goalId != null) {
+      map['goal_id'] = Variable<String>(goalId);
+    }
     map['created_at_utc'] = Variable<DateTime>(createdAtUtc);
     map['updated_at_utc'] = Variable<DateTime>(updatedAtUtc);
     return map;
@@ -4464,6 +4489,9 @@ class PlannerTaskRow extends DataClass implements Insertable<PlannerTaskRow> {
           linkedActivityTypeLabelSnapshot == null && nullToAbsent
           ? const Value.absent()
           : Value(linkedActivityTypeLabelSnapshot),
+      goalId: goalId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(goalId),
       createdAtUtc: Value(createdAtUtc),
       updatedAtUtc: Value(updatedAtUtc),
     );
@@ -4499,6 +4527,7 @@ class PlannerTaskRow extends DataClass implements Insertable<PlannerTaskRow> {
       linkedActivityTypeLabelSnapshot: serializer.fromJson<String?>(
         json['linkedActivityTypeLabelSnapshot'],
       ),
+      goalId: serializer.fromJson<String?>(json['goalId']),
       createdAtUtc: serializer.fromJson<DateTime>(json['createdAtUtc']),
       updatedAtUtc: serializer.fromJson<DateTime>(json['updatedAtUtc']),
     );
@@ -4525,6 +4554,7 @@ class PlannerTaskRow extends DataClass implements Insertable<PlannerTaskRow> {
       'linkedActivityTypeLabelSnapshot': serializer.toJson<String?>(
         linkedActivityTypeLabelSnapshot,
       ),
+      'goalId': serializer.toJson<String?>(goalId),
       'createdAtUtc': serializer.toJson<DateTime>(createdAtUtc),
       'updatedAtUtc': serializer.toJson<DateTime>(updatedAtUtc),
     };
@@ -4545,6 +4575,7 @@ class PlannerTaskRow extends DataClass implements Insertable<PlannerTaskRow> {
     Value<String?> linkedActivityTypeId = const Value.absent(),
     Value<String?> linkedActivityTypeStableKey = const Value.absent(),
     Value<String?> linkedActivityTypeLabelSnapshot = const Value.absent(),
+    Value<String?> goalId = const Value.absent(),
     DateTime? createdAtUtc,
     DateTime? updatedAtUtc,
   }) => PlannerTaskRow(
@@ -4570,6 +4601,7 @@ class PlannerTaskRow extends DataClass implements Insertable<PlannerTaskRow> {
     linkedActivityTypeLabelSnapshot: linkedActivityTypeLabelSnapshot.present
         ? linkedActivityTypeLabelSnapshot.value
         : this.linkedActivityTypeLabelSnapshot,
+    goalId: goalId.present ? goalId.value : this.goalId,
     createdAtUtc: createdAtUtc ?? this.createdAtUtc,
     updatedAtUtc: updatedAtUtc ?? this.updatedAtUtc,
   );
@@ -4604,6 +4636,7 @@ class PlannerTaskRow extends DataClass implements Insertable<PlannerTaskRow> {
           data.linkedActivityTypeLabelSnapshot.present
           ? data.linkedActivityTypeLabelSnapshot.value
           : this.linkedActivityTypeLabelSnapshot,
+      goalId: data.goalId.present ? data.goalId.value : this.goalId,
       createdAtUtc: data.createdAtUtc.present
           ? data.createdAtUtc.value
           : this.createdAtUtc,
@@ -4632,6 +4665,7 @@ class PlannerTaskRow extends DataClass implements Insertable<PlannerTaskRow> {
           ..write(
             'linkedActivityTypeLabelSnapshot: $linkedActivityTypeLabelSnapshot, ',
           )
+          ..write('goalId: $goalId, ')
           ..write('createdAtUtc: $createdAtUtc, ')
           ..write('updatedAtUtc: $updatedAtUtc')
           ..write(')'))
@@ -4654,6 +4688,7 @@ class PlannerTaskRow extends DataClass implements Insertable<PlannerTaskRow> {
     linkedActivityTypeId,
     linkedActivityTypeStableKey,
     linkedActivityTypeLabelSnapshot,
+    goalId,
     createdAtUtc,
     updatedAtUtc,
   );
@@ -4677,6 +4712,7 @@ class PlannerTaskRow extends DataClass implements Insertable<PlannerTaskRow> {
               this.linkedActivityTypeStableKey &&
           other.linkedActivityTypeLabelSnapshot ==
               this.linkedActivityTypeLabelSnapshot &&
+          other.goalId == this.goalId &&
           other.createdAtUtc == this.createdAtUtc &&
           other.updatedAtUtc == this.updatedAtUtc);
 }
@@ -4696,6 +4732,7 @@ class PlannerTasksCompanion extends UpdateCompanion<PlannerTaskRow> {
   final Value<String?> linkedActivityTypeId;
   final Value<String?> linkedActivityTypeStableKey;
   final Value<String?> linkedActivityTypeLabelSnapshot;
+  final Value<String?> goalId;
   final Value<DateTime> createdAtUtc;
   final Value<DateTime> updatedAtUtc;
   final Value<int> rowid;
@@ -4714,6 +4751,7 @@ class PlannerTasksCompanion extends UpdateCompanion<PlannerTaskRow> {
     this.linkedActivityTypeId = const Value.absent(),
     this.linkedActivityTypeStableKey = const Value.absent(),
     this.linkedActivityTypeLabelSnapshot = const Value.absent(),
+    this.goalId = const Value.absent(),
     this.createdAtUtc = const Value.absent(),
     this.updatedAtUtc = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -4733,6 +4771,7 @@ class PlannerTasksCompanion extends UpdateCompanion<PlannerTaskRow> {
     this.linkedActivityTypeId = const Value.absent(),
     this.linkedActivityTypeStableKey = const Value.absent(),
     this.linkedActivityTypeLabelSnapshot = const Value.absent(),
+    this.goalId = const Value.absent(),
     required DateTime createdAtUtc,
     required DateTime updatedAtUtc,
     this.rowid = const Value.absent(),
@@ -4756,6 +4795,7 @@ class PlannerTasksCompanion extends UpdateCompanion<PlannerTaskRow> {
     Expression<String>? linkedActivityTypeId,
     Expression<String>? linkedActivityTypeStableKey,
     Expression<String>? linkedActivityTypeLabelSnapshot,
+    Expression<String>? goalId,
     Expression<DateTime>? createdAtUtc,
     Expression<DateTime>? updatedAtUtc,
     Expression<int>? rowid,
@@ -4780,6 +4820,7 @@ class PlannerTasksCompanion extends UpdateCompanion<PlannerTaskRow> {
         'linked_activity_type_stable_key': linkedActivityTypeStableKey,
       if (linkedActivityTypeLabelSnapshot != null)
         'linked_activity_type_label_snapshot': linkedActivityTypeLabelSnapshot,
+      if (goalId != null) 'goal_id': goalId,
       if (createdAtUtc != null) 'created_at_utc': createdAtUtc,
       if (updatedAtUtc != null) 'updated_at_utc': updatedAtUtc,
       if (rowid != null) 'rowid': rowid,
@@ -4801,6 +4842,7 @@ class PlannerTasksCompanion extends UpdateCompanion<PlannerTaskRow> {
     Value<String?>? linkedActivityTypeId,
     Value<String?>? linkedActivityTypeStableKey,
     Value<String?>? linkedActivityTypeLabelSnapshot,
+    Value<String?>? goalId,
     Value<DateTime>? createdAtUtc,
     Value<DateTime>? updatedAtUtc,
     Value<int>? rowid,
@@ -4823,6 +4865,7 @@ class PlannerTasksCompanion extends UpdateCompanion<PlannerTaskRow> {
       linkedActivityTypeLabelSnapshot:
           linkedActivityTypeLabelSnapshot ??
           this.linkedActivityTypeLabelSnapshot,
+      goalId: goalId ?? this.goalId,
       createdAtUtc: createdAtUtc ?? this.createdAtUtc,
       updatedAtUtc: updatedAtUtc ?? this.updatedAtUtc,
       rowid: rowid ?? this.rowid,
@@ -4882,6 +4925,9 @@ class PlannerTasksCompanion extends UpdateCompanion<PlannerTaskRow> {
         linkedActivityTypeLabelSnapshot.value,
       );
     }
+    if (goalId.present) {
+      map['goal_id'] = Variable<String>(goalId.value);
+    }
     if (createdAtUtc.present) {
       map['created_at_utc'] = Variable<DateTime>(createdAtUtc.value);
     }
@@ -4913,6 +4959,7 @@ class PlannerTasksCompanion extends UpdateCompanion<PlannerTaskRow> {
           ..write(
             'linkedActivityTypeLabelSnapshot: $linkedActivityTypeLabelSnapshot, ',
           )
+          ..write('goalId: $goalId, ')
           ..write('createdAtUtc: $createdAtUtc, ')
           ..write('updatedAtUtc: $updatedAtUtc, ')
           ..write('rowid: $rowid')
@@ -5784,6 +5831,15 @@ class $TaskGoalContributionsTable extends TaskGoalContributions
     requiredDuringInsert: false,
     defaultValue: const Constant('active'),
   );
+  static const VerificationMeta _goalIdMeta = const VerificationMeta('goalId');
+  @override
+  late final GeneratedColumn<String> goalId = GeneratedColumn<String>(
+    'goal_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _createdAtUtcMeta = const VerificationMeta(
     'createdAtUtc',
   );
@@ -5820,6 +5876,7 @@ class $TaskGoalContributionsTable extends TaskGoalContributions
     unit,
     activityDate,
     state,
+    goalId,
     createdAtUtc,
     updatedAtUtc,
   ];
@@ -5932,6 +5989,12 @@ class $TaskGoalContributionsTable extends TaskGoalContributions
         state.isAcceptableOrUnknown(data['state']!, _stateMeta),
       );
     }
+    if (data.containsKey('goal_id')) {
+      context.handle(
+        _goalIdMeta,
+        goalId.isAcceptableOrUnknown(data['goal_id']!, _goalIdMeta),
+      );
+    }
     if (data.containsKey('created_at_utc')) {
       context.handle(
         _createdAtUtcMeta,
@@ -6014,6 +6077,10 @@ class $TaskGoalContributionsTable extends TaskGoalContributions
         DriftSqlType.string,
         data['${effectivePrefix}state'],
       )!,
+      goalId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}goal_id'],
+      ),
       createdAtUtc: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at_utc'],
@@ -6045,6 +6112,7 @@ class TaskGoalContributionRow extends DataClass
   final String unit;
   final String activityDate;
   final String state;
+  final String? goalId;
   final DateTime createdAtUtc;
   final DateTime updatedAtUtc;
   const TaskGoalContributionRow({
@@ -6060,6 +6128,7 @@ class TaskGoalContributionRow extends DataClass
     required this.unit,
     required this.activityDate,
     required this.state,
+    this.goalId,
     required this.createdAtUtc,
     required this.updatedAtUtc,
   });
@@ -6088,6 +6157,9 @@ class TaskGoalContributionRow extends DataClass
     map['unit'] = Variable<String>(unit);
     map['activity_date'] = Variable<String>(activityDate);
     map['state'] = Variable<String>(state);
+    if (!nullToAbsent || goalId != null) {
+      map['goal_id'] = Variable<String>(goalId);
+    }
     map['created_at_utc'] = Variable<DateTime>(createdAtUtc);
     map['updated_at_utc'] = Variable<DateTime>(updatedAtUtc);
     return map;
@@ -6115,6 +6187,9 @@ class TaskGoalContributionRow extends DataClass
       unit: Value(unit),
       activityDate: Value(activityDate),
       state: Value(state),
+      goalId: goalId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(goalId),
       createdAtUtc: Value(createdAtUtc),
       updatedAtUtc: Value(updatedAtUtc),
     );
@@ -6142,6 +6217,7 @@ class TaskGoalContributionRow extends DataClass
       unit: serializer.fromJson<String>(json['unit']),
       activityDate: serializer.fromJson<String>(json['activityDate']),
       state: serializer.fromJson<String>(json['state']),
+      goalId: serializer.fromJson<String?>(json['goalId']),
       createdAtUtc: serializer.fromJson<DateTime>(json['createdAtUtc']),
       updatedAtUtc: serializer.fromJson<DateTime>(json['updatedAtUtc']),
     );
@@ -6166,6 +6242,7 @@ class TaskGoalContributionRow extends DataClass
       'unit': serializer.toJson<String>(unit),
       'activityDate': serializer.toJson<String>(activityDate),
       'state': serializer.toJson<String>(state),
+      'goalId': serializer.toJson<String?>(goalId),
       'createdAtUtc': serializer.toJson<DateTime>(createdAtUtc),
       'updatedAtUtc': serializer.toJson<DateTime>(updatedAtUtc),
     };
@@ -6184,6 +6261,7 @@ class TaskGoalContributionRow extends DataClass
     String? unit,
     String? activityDate,
     String? state,
+    Value<String?> goalId = const Value.absent(),
     DateTime? createdAtUtc,
     DateTime? updatedAtUtc,
   }) => TaskGoalContributionRow(
@@ -6205,6 +6283,7 @@ class TaskGoalContributionRow extends DataClass
     unit: unit ?? this.unit,
     activityDate: activityDate ?? this.activityDate,
     state: state ?? this.state,
+    goalId: goalId.present ? goalId.value : this.goalId,
     createdAtUtc: createdAtUtc ?? this.createdAtUtc,
     updatedAtUtc: updatedAtUtc ?? this.updatedAtUtc,
   );
@@ -6238,6 +6317,7 @@ class TaskGoalContributionRow extends DataClass
           ? data.activityDate.value
           : this.activityDate,
       state: data.state.present ? data.state.value : this.state,
+      goalId: data.goalId.present ? data.goalId.value : this.goalId,
       createdAtUtc: data.createdAtUtc.present
           ? data.createdAtUtc.value
           : this.createdAtUtc,
@@ -6264,6 +6344,7 @@ class TaskGoalContributionRow extends DataClass
           ..write('unit: $unit, ')
           ..write('activityDate: $activityDate, ')
           ..write('state: $state, ')
+          ..write('goalId: $goalId, ')
           ..write('createdAtUtc: $createdAtUtc, ')
           ..write('updatedAtUtc: $updatedAtUtc')
           ..write(')'))
@@ -6284,6 +6365,7 @@ class TaskGoalContributionRow extends DataClass
     unit,
     activityDate,
     state,
+    goalId,
     createdAtUtc,
     updatedAtUtc,
   );
@@ -6304,6 +6386,7 @@ class TaskGoalContributionRow extends DataClass
           other.unit == this.unit &&
           other.activityDate == this.activityDate &&
           other.state == this.state &&
+          other.goalId == this.goalId &&
           other.createdAtUtc == this.createdAtUtc &&
           other.updatedAtUtc == this.updatedAtUtc);
 }
@@ -6322,6 +6405,7 @@ class TaskGoalContributionsCompanion
   final Value<String> unit;
   final Value<String> activityDate;
   final Value<String> state;
+  final Value<String?> goalId;
   final Value<DateTime> createdAtUtc;
   final Value<DateTime> updatedAtUtc;
   final Value<int> rowid;
@@ -6338,6 +6422,7 @@ class TaskGoalContributionsCompanion
     this.unit = const Value.absent(),
     this.activityDate = const Value.absent(),
     this.state = const Value.absent(),
+    this.goalId = const Value.absent(),
     this.createdAtUtc = const Value.absent(),
     this.updatedAtUtc = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -6355,6 +6440,7 @@ class TaskGoalContributionsCompanion
     this.unit = const Value.absent(),
     required String activityDate,
     this.state = const Value.absent(),
+    this.goalId = const Value.absent(),
     required DateTime createdAtUtc,
     required DateTime updatedAtUtc,
     this.rowid = const Value.absent(),
@@ -6378,6 +6464,7 @@ class TaskGoalContributionsCompanion
     Expression<String>? unit,
     Expression<String>? activityDate,
     Expression<String>? state,
+    Expression<String>? goalId,
     Expression<DateTime>? createdAtUtc,
     Expression<DateTime>? updatedAtUtc,
     Expression<int>? rowid,
@@ -6397,6 +6484,7 @@ class TaskGoalContributionsCompanion
       if (unit != null) 'unit': unit,
       if (activityDate != null) 'activity_date': activityDate,
       if (state != null) 'state': state,
+      if (goalId != null) 'goal_id': goalId,
       if (createdAtUtc != null) 'created_at_utc': createdAtUtc,
       if (updatedAtUtc != null) 'updated_at_utc': updatedAtUtc,
       if (rowid != null) 'rowid': rowid,
@@ -6416,6 +6504,7 @@ class TaskGoalContributionsCompanion
     Value<String>? unit,
     Value<String>? activityDate,
     Value<String>? state,
+    Value<String?>? goalId,
     Value<DateTime>? createdAtUtc,
     Value<DateTime>? updatedAtUtc,
     Value<int>? rowid,
@@ -6435,6 +6524,7 @@ class TaskGoalContributionsCompanion
       unit: unit ?? this.unit,
       activityDate: activityDate ?? this.activityDate,
       state: state ?? this.state,
+      goalId: goalId ?? this.goalId,
       createdAtUtc: createdAtUtc ?? this.createdAtUtc,
       updatedAtUtc: updatedAtUtc ?? this.updatedAtUtc,
       rowid: rowid ?? this.rowid,
@@ -6484,6 +6574,9 @@ class TaskGoalContributionsCompanion
     if (state.present) {
       map['state'] = Variable<String>(state.value);
     }
+    if (goalId.present) {
+      map['goal_id'] = Variable<String>(goalId.value);
+    }
     if (createdAtUtc.present) {
       map['created_at_utc'] = Variable<DateTime>(createdAtUtc.value);
     }
@@ -6513,6 +6606,7 @@ class TaskGoalContributionsCompanion
           ..write('unit: $unit, ')
           ..write('activityDate: $activityDate, ')
           ..write('state: $state, ')
+          ..write('goalId: $goalId, ')
           ..write('createdAtUtc: $createdAtUtc, ')
           ..write('updatedAtUtc: $updatedAtUtc, ')
           ..write('rowid: $rowid')
@@ -25660,6 +25754,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     'task_contact_link_equivalent_unique',
     'CREATE UNIQUE INDEX task_contact_link_equivalent_unique ON task_contact_links (task_id, contact_id)',
   );
+  late final Index taskContactLinkContact = Index(
+    'task_contact_link_contact',
+    'CREATE INDEX task_contact_link_contact ON task_contact_links (contact_id)',
+  );
   late final Index savedContactFilterProfile = Index(
     'saved_contact_filter_profile',
     'CREATE INDEX saved_contact_filter_profile ON saved_contact_filters (profile_id, created_at_utc)',
@@ -25752,6 +25850,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     eventOccurrenceParticipantUnique,
     eventOccurrenceParticipantContactDate,
     taskContactLinkEquivalentUnique,
+    taskContactLinkContact,
     savedContactFilterProfile,
   ];
   @override
@@ -31216,6 +31315,7 @@ typedef $$PlannerTasksTableCreateCompanionBuilder =
       Value<String?> linkedActivityTypeId,
       Value<String?> linkedActivityTypeStableKey,
       Value<String?> linkedActivityTypeLabelSnapshot,
+      Value<String?> goalId,
       required DateTime createdAtUtc,
       required DateTime updatedAtUtc,
       Value<int> rowid,
@@ -31236,6 +31336,7 @@ typedef $$PlannerTasksTableUpdateCompanionBuilder =
       Value<String?> linkedActivityTypeId,
       Value<String?> linkedActivityTypeStableKey,
       Value<String?> linkedActivityTypeLabelSnapshot,
+      Value<String?> goalId,
       Value<DateTime> createdAtUtc,
       Value<DateTime> updatedAtUtc,
       Value<int> rowid,
@@ -31384,6 +31485,11 @@ class $$PlannerTasksTableFilterComposer
         column: $table.linkedActivityTypeLabelSnapshot,
         builder: (column) => ColumnFilters(column),
       );
+
+  ColumnFilters<String> get goalId => $composableBuilder(
+    column: $table.goalId,
+    builder: (column) => ColumnFilters(column),
+  );
 
   ColumnFilters<DateTime> get createdAtUtc => $composableBuilder(
     column: $table.createdAtUtc,
@@ -31545,6 +31651,11 @@ class $$PlannerTasksTableOrderingComposer
         builder: (column) => ColumnOrderings(column),
       );
 
+  ColumnOrderings<String> get goalId => $composableBuilder(
+    column: $table.goalId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAtUtc => $composableBuilder(
     column: $table.createdAtUtc,
     builder: (column) => ColumnOrderings(column),
@@ -31641,6 +31752,9 @@ class $$PlannerTasksTableAnnotationComposer
         column: $table.linkedActivityTypeLabelSnapshot,
         builder: (column) => column,
       );
+
+  GeneratedColumn<String> get goalId =>
+      $composableBuilder(column: $table.goalId, builder: (column) => column);
 
   GeneratedColumn<DateTime> get createdAtUtc => $composableBuilder(
     column: $table.createdAtUtc,
@@ -31776,6 +31890,7 @@ class $$PlannerTasksTableTableManager
                     const Value.absent(),
                 Value<String?> linkedActivityTypeLabelSnapshot =
                     const Value.absent(),
+                Value<String?> goalId = const Value.absent(),
                 Value<DateTime> createdAtUtc = const Value.absent(),
                 Value<DateTime> updatedAtUtc = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -31795,6 +31910,7 @@ class $$PlannerTasksTableTableManager
                 linkedActivityTypeStableKey: linkedActivityTypeStableKey,
                 linkedActivityTypeLabelSnapshot:
                     linkedActivityTypeLabelSnapshot,
+                goalId: goalId,
                 createdAtUtc: createdAtUtc,
                 updatedAtUtc: updatedAtUtc,
                 rowid: rowid,
@@ -31817,6 +31933,7 @@ class $$PlannerTasksTableTableManager
                     const Value.absent(),
                 Value<String?> linkedActivityTypeLabelSnapshot =
                     const Value.absent(),
+                Value<String?> goalId = const Value.absent(),
                 required DateTime createdAtUtc,
                 required DateTime updatedAtUtc,
                 Value<int> rowid = const Value.absent(),
@@ -31836,6 +31953,7 @@ class $$PlannerTasksTableTableManager
                 linkedActivityTypeStableKey: linkedActivityTypeStableKey,
                 linkedActivityTypeLabelSnapshot:
                     linkedActivityTypeLabelSnapshot,
+                goalId: goalId,
                 createdAtUtc: createdAtUtc,
                 updatedAtUtc: updatedAtUtc,
                 rowid: rowid,
@@ -32530,6 +32648,7 @@ typedef $$TaskGoalContributionsTableCreateCompanionBuilder =
       Value<String> unit,
       required String activityDate,
       Value<String> state,
+      Value<String?> goalId,
       required DateTime createdAtUtc,
       required DateTime updatedAtUtc,
       Value<int> rowid,
@@ -32548,6 +32667,7 @@ typedef $$TaskGoalContributionsTableUpdateCompanionBuilder =
       Value<String> unit,
       Value<String> activityDate,
       Value<String> state,
+      Value<String?> goalId,
       Value<DateTime> createdAtUtc,
       Value<DateTime> updatedAtUtc,
       Value<int> rowid,
@@ -32658,6 +32778,11 @@ class $$TaskGoalContributionsTableFilterComposer
 
   ColumnFilters<String> get state => $composableBuilder(
     column: $table.state,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get goalId => $composableBuilder(
+    column: $table.goalId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -32778,6 +32903,11 @@ class $$TaskGoalContributionsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get goalId => $composableBuilder(
+    column: $table.goalId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAtUtc => $composableBuilder(
     column: $table.createdAtUtc,
     builder: (column) => ColumnOrderings(column),
@@ -32889,6 +33019,9 @@ class $$TaskGoalContributionsTableAnnotationComposer
   GeneratedColumn<String> get state =>
       $composableBuilder(column: $table.state, builder: (column) => column);
 
+  GeneratedColumn<String> get goalId =>
+      $composableBuilder(column: $table.goalId, builder: (column) => column);
+
   GeneratedColumn<DateTime> get createdAtUtc => $composableBuilder(
     column: $table.createdAtUtc,
     builder: (column) => column,
@@ -32998,6 +33131,7 @@ class $$TaskGoalContributionsTableTableManager
                 Value<String> unit = const Value.absent(),
                 Value<String> activityDate = const Value.absent(),
                 Value<String> state = const Value.absent(),
+                Value<String?> goalId = const Value.absent(),
                 Value<DateTime> createdAtUtc = const Value.absent(),
                 Value<DateTime> updatedAtUtc = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -33014,6 +33148,7 @@ class $$TaskGoalContributionsTableTableManager
                 unit: unit,
                 activityDate: activityDate,
                 state: state,
+                goalId: goalId,
                 createdAtUtc: createdAtUtc,
                 updatedAtUtc: updatedAtUtc,
                 rowid: rowid,
@@ -33033,6 +33168,7 @@ class $$TaskGoalContributionsTableTableManager
                 Value<String> unit = const Value.absent(),
                 required String activityDate,
                 Value<String> state = const Value.absent(),
+                Value<String?> goalId = const Value.absent(),
                 required DateTime createdAtUtc,
                 required DateTime updatedAtUtc,
                 Value<int> rowid = const Value.absent(),
@@ -33049,6 +33185,7 @@ class $$TaskGoalContributionsTableTableManager
                 unit: unit,
                 activityDate: activityDate,
                 state: state,
+                goalId: goalId,
                 createdAtUtc: createdAtUtc,
                 updatedAtUtc: updatedAtUtc,
                 rowid: rowid,

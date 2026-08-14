@@ -867,9 +867,7 @@ final class DriftOutcomeReportingRepository
     final contributionEngine = TaskGoalContributionEngine(database: database);
     final linkedType = await contributionEngine.resolve(
       profileId: profileId,
-      activityTypeId: task.linkedActivityTypeId,
-      stableKey: task.linkedActivityTypeStableKey,
-      labelSnapshot: task.linkedActivityTypeLabelSnapshot,
+      goalId: task.goalId,
       allowArchived: true,
     );
     final changeId = const Uuid().v5(
@@ -888,11 +886,12 @@ final class DriftOutcomeReportingRepository
             fromStatus: task.status,
             toStatus: target,
             reason: const Value<String>('Structured outcome report'),
-            activityTypeId: Value<String?>(linkedType?.id),
-            activityTypeStableKeySnapshot: Value<String?>(
-              linkedType?.stableKey,
-            ),
-            activityTypeLabelSnapshot: Value<String?>(linkedType?.label),
+            // B3.2 (D2): the direct Goal link is not an Event Type, so this
+            // status-change record carries no Event-Type snapshot for
+            // Goal-linked contributions.  Goal identity lives in goal_id.
+            activityTypeId: const Value<String?>(null),
+            activityTypeStableKeySnapshot: const Value<String?>(null),
+            activityTypeLabelSnapshot: const Value<String?>(null),
             changedAtUtc: now,
           ),
         );

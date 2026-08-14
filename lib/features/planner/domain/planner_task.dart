@@ -28,6 +28,7 @@ final class PlannerTaskDraft {
     this.linkedActivityTypeId,
     this.linkedActivityTypeStableKey,
     this.linkedActivityTypeLabelSnapshot,
+    this.goalId,
   });
 
   final String id;
@@ -42,6 +43,10 @@ final class PlannerTaskDraft {
   final String? linkedActivityTypeId;
   final String? linkedActivityTypeStableKey;
   final String? linkedActivityTypeLabelSnapshot;
+
+  /// B3.2 (D2): the explicit DIRECT Life Goal link for this Task.  This is
+  /// the ONLY Goal resolver for Tasks; Event-Type inference is removed.
+  final String? goalId;
 
   PlannerTaskDraft normalized() {
     final normalizedTitle = title.trim();
@@ -84,6 +89,7 @@ final class PlannerTaskDraft {
       linkedActivityTypeLabelSnapshot: _normalizeOptional(
         linkedActivityTypeLabelSnapshot,
       ),
+      goalId: _normalizeOptional(goalId),
     );
   }
 
@@ -113,6 +119,7 @@ final class PlannerTask {
     this.linkedActivityTypeId,
     this.linkedActivityTypeStableKey,
     this.linkedActivityTypeLabelSnapshot,
+    this.goalId,
   });
 
   final String id;
@@ -133,6 +140,9 @@ final class PlannerTask {
   final String? linkedActivityTypeId;
   final String? linkedActivityTypeStableKey;
   final String? linkedActivityTypeLabelSnapshot;
+
+  /// B3.2 (D2): the explicit DIRECT Life Goal link for this Task.
+  final String? goalId;
 
   bool isOverdueOn(PlannerDate date) {
     final due = dueDate;
