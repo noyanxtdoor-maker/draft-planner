@@ -438,13 +438,26 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
     // production and tests share the same anchor.
     final today = ref.read(plannerDateSourceProvider).today();
     final isViewingToday = state.selectedDate == today;
+    // B2-CORRECTION: the today icon uses the semantic Theme Color primary
+    // when viewing today (dark Rose baseline = canonical rose, identical
+    // pixels) and onSurface otherwise.
     final todayIconColor = isViewingToday
-        ? AppTheme.rose
+        ? Theme.of(context).colorScheme.primary
+        : Theme.of(context).colorScheme.onSurface;
+    // B2-CORRECTION: the Planner top app bar follows the active brightness.
+    // Dark keeps the locked black bar + white foreground (byte-identical);
+    // Light uses the app/nav surface + onSurface so the bar is light with
+    // readable icons instead of a black bar in Light.
+    final appBarBackground = Theme.of(context).brightness == Brightness.dark
+        ? Colors.black
+        : Theme.of(context).colorScheme.surfaceContainer;
+    final appBarForeground = Theme.of(context).brightness == Brightness.dark
+        ? Colors.white
         : Theme.of(context).colorScheme.onSurface;
     if (_selectionMode) {
       return AppBar(
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
+        backgroundColor: appBarBackground,
+        foregroundColor: appBarForeground,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
@@ -470,8 +483,8 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
       );
     }
     return AppBar(
-      backgroundColor: Colors.black,
-      foregroundColor: Colors.white,
+      backgroundColor: appBarBackground,
+      foregroundColor: appBarForeground,
       surfaceTintColor: Colors.transparent,
       elevation: 0,
       leading: Builder(
@@ -506,11 +519,11 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                   ),
                 ),
                 const SizedBox(width: 2),
-                const Icon(
+                Icon(
                   Icons.keyboard_arrow_down_rounded,
                   key: Key('planner-date-chevron'),
                   size: 20,
-                  color: AppTheme.rose,
+                  color: Theme.of(context).colorScheme.primary,
                 ),
               ],
             ),
@@ -563,14 +576,14 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
             key: _filterButtonKey,
             tooltip: 'Filter Planner content',
             onPressed: () => _showFilters(context, ref, settings),
-            icon: const PlannerFilterIcon(color: Colors.white),
+            icon: PlannerFilterIcon(color: appBarForeground),
           ),
         ),
         PlannerTopBarIconButton(
           key: const Key('planner-selection-button'),
           tooltip: 'Select Events or Tasks',
           onPressed: () => setState(() => _selectionActive = true),
-          icon: const PlannerSelectionIcon(color: Colors.white),
+          icon: PlannerSelectionIcon(color: appBarForeground),
         ),
         KeyedSubtree(
           key: const Key('planner-overflow-button'),
@@ -945,7 +958,7 @@ final class _PlannerScreenState extends ConsumerState<PlannerScreen> {
                   textAlign: TextAlign.right,
                   maxLines: 1,
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: AppTheme.rose,
+                    color: Theme.of(context).colorScheme.primary,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -3204,7 +3217,10 @@ final class _DirectEndpointHandle extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: const Color(0xFF3A0610),
                         shape: BoxShape.circle,
-                        border: Border.all(color: AppTheme.rose, width: 2),
+                        border: Border.all(
+                          color: Theme.of(context).colorScheme.primary,
+                          width: 2,
+                        ),
                       ),
                     )
                   // Saved Events: the approved integrated Corner Tab Grip.
@@ -4385,7 +4401,9 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
                             softWrap: false,
                             textAlign: TextAlign.right,
                             style: Theme.of(context).textTheme.labelSmall
-                                ?.copyWith(color: Colors.white54),
+                                ?.copyWith(
+                                  color: AppTheme.onFillTextOf(context, 0.54),
+                                ),
                           ),
                         ),
                       ),
@@ -4394,9 +4412,9 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
                         top: index * _hourHeight,
                         left: _timeColumnWidth,
                         right: 0,
-                        child: const Divider(
+                        child: Divider(
                           height: 1,
-                          color: AppTheme.outline,
+                          color: AppTheme.outlineOf(context),
                         ),
                       ),
                     ],
@@ -4560,8 +4578,10 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
                                                     textAlign: TextAlign.right,
                                                     maxLines: 1,
                                                     softWrap: false,
-                                                    style: const TextStyle(
-                                                      color: AppTheme.rose,
+                                                    style: TextStyle(
+                                                      color: Theme.of(
+                                                        context,
+                                                      ).colorScheme.primary,
                                                       fontSize: 11,
                                                       fontWeight:
                                                           FontWeight.w700,
@@ -4586,9 +4606,11 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
                                                 2,
                                             width: _currentTimeDotSize,
                                             height: _currentTimeDotSize,
-                                            child: const DecoratedBox(
+                                            child: DecoratedBox(
                                               decoration: BoxDecoration(
-                                                color: AppTheme.rose,
+                                                color: Theme.of(
+                                                  context,
+                                                ).colorScheme.primary,
                                                 shape: BoxShape.circle,
                                               ),
                                             ),
@@ -4606,9 +4628,11 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
                                                     2) /
                                                 2,
                                             height: 2,
-                                            child: const DecoratedBox(
+                                            child: DecoratedBox(
                                               decoration: BoxDecoration(
-                                                color: AppTheme.rose,
+                                                color: Theme.of(
+                                                  context,
+                                                ).colorScheme.primary,
                                               ),
                                             ),
                                           ),
@@ -4846,6 +4870,7 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
     final horizontal = _horizontalGeometry(placement, totalWidth);
     final provisional = _isProvisionalEvent(event);
     final handleAccent = PlannerEventColorResolver.accentColor(
+      context,
       event,
       widget.eventColorsByTypeId,
     );
@@ -5692,10 +5717,12 @@ final class _TimelineEventBlockState extends State<_TimelineEventBlock> {
     final onMoveEnd = widget.onMoveEnd;
     final onMoveCancel = widget.onMoveCancel;
     final resolvedAccent = PlannerEventColorResolver.accentColor(
+      context,
       event,
       eventColorsByTypeId,
     );
     final resolvedFill = PlannerEventColorResolver.surfaceColor(
+      context,
       event,
       eventColorsByTypeId,
     );
@@ -5704,9 +5731,19 @@ final class _TimelineEventBlockState extends State<_TimelineEventBlock> {
     // dark text so the time range stays legible on the light pink fill.
     // Saved Events keep their resolved Event Type colors and the locked
     // white-text rule untouched.
-    final accent = provisional ? AppTheme.rose : resolvedAccent;
-    final fill = provisional ? AppTheme.rose : resolvedFill;
-    final textColorOverride = provisional ? const Color(0xFF3A0610) : null;
+    // The provisional draft uses the semantic Theme Color primary (Rose
+    // Dark resolves to the exact canonical rose; Blue resolves to Blue).
+    // The text override keeps Rose Dark's exact maroon and uses onPrimary
+    // elsewhere so the time range stays legible on the fill.
+    final colorScheme = Theme.of(context).colorScheme;
+    final isRoseDark =
+        Theme.of(context).brightness == Brightness.dark &&
+        colorScheme.primary == AppTheme.rose;
+    final accent = provisional ? colorScheme.primary : resolvedAccent;
+    final fill = provisional ? colorScheme.primary : resolvedFill;
+    final textColorOverride = provisional
+        ? (isRoseDark ? const Color(0xFF3A0610) : colorScheme.onPrimary)
+        : null;
     return LayoutBuilder(
       builder: (context, constraints) {
         final availableHeight = constraints.maxHeight.isFinite
@@ -5945,7 +5982,9 @@ final class _TimelineEventBlockState extends State<_TimelineEventBlock> {
                         selected
                             ? Icons.check_box
                             : Icons.check_box_outline_blank,
-                        color: selected ? AppTheme.rose : Colors.white,
+                        color: selected
+                            ? Theme.of(context).colorScheme.primary
+                            : AppTheme.onFillTextOf(context, 1.0),
                         size: 20,
                       ),
                     ),
@@ -6008,9 +6047,14 @@ final class _TaskTile extends StatelessWidget {
         leading: selectionMode
             ? Icon(
                 selected ? Icons.check_box : Icons.check_box_outline_blank,
-                color: selected ? AppTheme.rose : Colors.white70,
+                color: selected
+                    ? Theme.of(context).colorScheme.primary
+                    : Colors.white70,
               )
-            : const Icon(Icons.task_alt_outlined, color: AppTheme.rose),
+            : Icon(
+                Icons.task_alt_outlined,
+                color: Theme.of(context).colorScheme.primary,
+              ),
         title: Text(task.title),
         subtitle: Text(_taskSubtitle(task)),
         trailing: const Icon(Icons.chevron_right),
@@ -6068,7 +6112,9 @@ final class _EventTile extends StatelessWidget {
           leading: selectionMode
               ? Icon(
                   selected ? Icons.check_box : Icons.check_box_outline_blank,
-                  color: selected ? AppTheme.rose : Colors.white70,
+                  color: selected
+                      ? Theme.of(context).colorScheme.primary
+                      : Colors.white70,
                 )
               : Icon(
                   awaitingReport
@@ -6529,9 +6575,9 @@ final class _EmptySectionMessage extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppTheme.surface,
+        color: AppTheme.cardOf(context),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppTheme.outline),
+        border: Border.all(color: AppTheme.outlineOf(context)),
       ),
       child: Text(message, style: Theme.of(context).textTheme.bodySmall),
     );
@@ -6548,8 +6594,12 @@ final class _PlannerNotice extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppTheme.rose.withValues(alpha: 0.12),
-        border: Border.all(color: AppTheme.rose),
+        color: Theme.of(
+          context,
+        ).colorScheme.primary.withValues(alpha: 0.12),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.primary,
+        ),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Text(message),

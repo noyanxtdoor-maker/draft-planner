@@ -20,7 +20,13 @@ final class PlannerEventColorPreview extends StatelessWidget {
   Widget build(BuildContext context) {
     final accent = Color(preference.accentArgb);
     final surface = Color(preference.surfaceArgb);
-    final textColor = PlannerEventBlockColorPolicy.textColor(surface);
+    // Settings identity preview: the stored pair is rendered as-is on its
+    // dark-style surface, so the text stays white regardless of the current
+    // theme brightness (matches the pre-correction preview).
+    final textColor = PlannerEventBlockColorPolicy.textColor(
+      surface,
+      Brightness.dark,
+    );
     final timeText = formatPlannerEventRange(600, 660, false);
     return Semantics(
       label: '${eventType.label} Event preview',

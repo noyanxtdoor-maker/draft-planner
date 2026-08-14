@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:rmplanner/app/theme/app_theme.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 /// Launch helpers for external communication handoff.
@@ -97,7 +98,10 @@ abstract final class ExternalHandoff {
               'Next Transfer did not read the conversation and did not record '
               'anything automatically. Nothing was added to $contactDisplayName\'s '
               'Timeline.',
-              style: const TextStyle(color: Color(0xFF9CA0A6), fontSize: 14),
+              style: TextStyle(
+                color: AppTheme.secondaryTextOf(context),
+                fontSize: 14,
+              ),
             ),
             const SizedBox(height: 16),
             TextField(

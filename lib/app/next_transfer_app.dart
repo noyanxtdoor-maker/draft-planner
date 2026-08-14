@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rmplanner/app/router/app_router.dart';
 import 'package:rmplanner/app/theme/app_theme.dart';
@@ -11,6 +12,8 @@ import 'package:rmplanner/features/planner/application/planner_providers.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 import 'package:rmplanner/features/privacy/application/privacy_providers.dart';
 import 'package:rmplanner/features/privacy/application/privacy_services.dart';
+import 'package:rmplanner/features/settings/application/appearance_providers.dart';
+import 'package:rmplanner/features/settings/application/appearance_repository.dart';
 import 'package:rmplanner/features/settings/application/start_of_week_providers.dart';
 import 'package:rmplanner/features/startup/application/startup_providers.dart';
 import 'package:rmplanner/features/startup/domain/startup_state.dart';
@@ -95,13 +98,58 @@ final class _NextTransferAppState extends ConsumerState<NextTransferApp>
   @override
   Widget build(BuildContext context) {
     ref.watch(privacyControllerProvider);
+    // Pack B2: the device Appearance drives ThemeMode.  The notifier is
+    // seeded synchronously from the pre-runApp read (main.dart), so the first
+    // build already has the persisted mode.  Changing it rebuilds the
+    // presentation layer only — no Goal/Planner domain provider is touched.
+    final appearance = ref.watch(appearanceProvider);
+    final themeColor = ref.watch(themeColorProvider);
     final router = ref.watch(appRouterProvider);
     final environment = ref.watch(appEnvironmentProvider);
 
     return MaterialApp.router(
       title: 'Next Transfer',
       debugShowCheckedModeBanner: environment.showDebugBanner,
-      theme: AppTheme.dark(),
+      // B2-CORRECTION: Appearance Mode chooses brightness; Theme Color
+      // chooses the semantic palette.  Both are seeded synchronously before
+      // runApp, so the first build already has the persisted pair.  Changing
+      // either rebuilds the presentation layer only — no Goal/Planner domain
+      // provider is touched.
+      theme: AppTheme.light(themeColor),
+      darkTheme: AppTheme.dark(themeColor),
+      themeMode: switch (appearance) {
+        AppearanceMode.system => ThemeMode.system,
+        AppearanceMode.light => ThemeMode.light,
+        AppearanceMode.dark => ThemeMode.dark,
+      },
+      // B2-CORRECTION: explicit SystemUiOverlayStyle from the ACTIVE
+      // ThemeData.  The Flutter presets hard-code a black navigation bar with
+      // light icons in BOTH themes, which Android 15+ contrast enforcement
+      // turns into a black region in Light.  Here Light gets the semantic
+      // app/nav surface with dark icons and disabled contrast enforcement;
+      // Dark keeps the dark appearance.  Status bar stays transparent with
+      // brightness-correct icons.  The native splash stays system-following.
+      builder: (context, child) => AnnotatedRegion<SystemUiOverlayStyle>(
+        value: Theme.of(context).brightness == Brightness.dark
+            ? SystemUiOverlayStyle(
+                statusBarColor: Colors.transparent,
+                statusBarIconBrightness: Brightness.light,
+                statusBarBrightness: Brightness.dark,
+                systemNavigationBarColor: const Color(0xFF101113),
+                systemNavigationBarIconBrightness: Brightness.light,
+                systemNavigationBarContrastEnforced: false,
+              )
+            : SystemUiOverlayStyle(
+                statusBarColor: Colors.transparent,
+                statusBarIconBrightness: Brightness.dark,
+                statusBarBrightness: Brightness.light,
+                systemNavigationBarColor:
+                    Theme.of(context).colorScheme.surfaceContainer,
+                systemNavigationBarIconBrightness: Brightness.dark,
+                systemNavigationBarContrastEnforced: false,
+              ),
+        child: child!,
+      ),
       routerConfig: router,
     );
   }

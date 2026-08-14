@@ -562,6 +562,7 @@ final class _CalendarEventFormScreenState
           height: 52,
           child: InputDecorator(
             decoration: _measuredInputDecoration(
+              context,
               labelText: _isContactEvent ? 'Contact Type' : 'Event Type',
               suffixIcon: const KeyedSubtree(
                 key: Key('change-event-type-button'),
@@ -573,7 +574,9 @@ final class _CalendarEventFormScreenState
               key: const Key('selected-event-type-label'),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: AppTypography.body.copyWith(color: Colors.white),
+              style: AppTypography.body.copyWith(
+                color: AppTheme.onFillTextOf(context, 1.0),
+              ),
             ),
           ),
         ),
@@ -587,7 +590,7 @@ final class _CalendarEventFormScreenState
       initialValue: _repeatChoice,
       isExpanded: true,
       icon: const Icon(Icons.keyboard_arrow_down, size: 24),
-      decoration: _measuredInputDecoration(labelText: 'Repeat').copyWith(
+      decoration: _measuredInputDecoration(context, labelText: 'Repeat').copyWith(
         border: InputBorder.none,
         enabledBorder: InputBorder.none,
         focusedBorder: InputBorder.none,
@@ -876,7 +879,10 @@ final class _CalendarEventFormScreenState
                   TextFormField(
                     key: const Key('event-title-field'),
                     controller: _titleController,
-                    decoration: _measuredInputDecoration(labelText: 'Title'),
+                    decoration: _measuredInputDecoration(
+                      context,
+                      labelText: 'Title',
+                    ),
                     maxLines: 1,
                     textInputAction: TextInputAction.next,
                   ),
@@ -886,6 +892,7 @@ final class _CalendarEventFormScreenState
                     controller: _notesController,
                     focusNode: _notesFocusNode,
                     decoration: _measuredInputDecoration(
+                      context,
                       labelText: 'Notes',
                       hintText: _notesFocusNode.hasFocus
                           ? 'What do you need to remember about this?'
@@ -957,6 +964,7 @@ final class _CalendarEventFormScreenState
                         key: const Key('event-recurrence-end-mode'),
                         initialValue: _endMode,
                         decoration: _measuredInputDecoration(
+                          context,
                           labelText: 'Recurrence end',
                         ),
                         items:
@@ -1070,7 +1078,11 @@ final class _CalendarEventFormScreenState
                   DecoratedBox(
                     decoration: BoxDecoration(
                       color: reportingLocked
-                          ? const Color(0xFF26282A)
+                          ? (Theme.of(context).brightness == Brightness.dark
+                                ? const Color(0xFF26282A)
+                                : Theme.of(context)
+                                      .colorScheme
+                                      .surfaceContainerHighest)
                           : Colors.transparent,
                     ),
                     child: SwitchListTile(
@@ -1079,13 +1091,21 @@ final class _CalendarEventFormScreenState
                           ? const EdgeInsets.symmetric(horizontal: 12)
                           : EdgeInsets.zero,
                       activeThumbColor: reportingLocked
-                          ? const Color(0xFF777B7E)
+                          ? (Theme.of(context).brightness == Brightness.dark
+                                ? const Color(0xFF777B7E)
+                                : const Color(0xFF8E9295))
                           : null,
                       activeTrackColor: reportingLocked
-                          ? const Color(0xFF4B4F52)
+                          ? (Theme.of(context).brightness == Brightness.dark
+                                ? const Color(0xFF4B4F52)
+                                : Theme.of(
+                                    context,
+                                  ).colorScheme.outlineVariant)
                           : null,
                       inactiveThumbColor: reportingLocked
-                          ? const Color(0xFF777B7E)
+                          ? (Theme.of(context).brightness == Brightness.dark
+                                ? const Color(0xFF777B7E)
+                                : const Color(0xFF8E9295))
                           : null,
                       inactiveTrackColor: reportingLocked
                           ? const Color(0xFF4B4F52)
@@ -1152,7 +1172,11 @@ final class _CalendarEventFormScreenState
                   width: 32,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: Colors.white38,
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.white38
+                        : Theme.of(
+                            context,
+                          ).colorScheme.onSurface.withValues(alpha: 0.38),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -1206,31 +1230,35 @@ final class _CalendarEventFormScreenState
   }
 
   Widget _buildSaveButton() {
-    return Semantics(
-      button: true,
-      label: 'Save',
-      child: FilledButton(
-        key: const Key('save-event-button'),
-        onPressed: _saving || _loading || _configurationLoading ? null : _save,
-        style: FilledButton.styleFrom(
-          minimumSize: const Size(64, 44),
-          padding: const EdgeInsets.symmetric(horizontal: 18),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(22),
+    final colorScheme = Theme.of(context).colorScheme;
+    return Tooltip(
+      message: 'Save event',
+      child: Semantics(
+        button: true,
+        label: 'Save event',
+        child: FilledButton(
+          key: const Key('save-event-button'),
+          onPressed:
+              _saving || _loading || _configurationLoading ? null : _save,
+          style: FilledButton.styleFrom(
+            minimumSize: const Size(48, 48),
+            padding: EdgeInsets.zero,
+            shape: const CircleBorder(),
+            backgroundColor: colorScheme.primary,
+            foregroundColor: colorScheme.onPrimary,
+            disabledBackgroundColor:
+                colorScheme.primary.withValues(alpha: 0.35),
           ),
-          backgroundColor: AppTheme.rose,
-          foregroundColor: AppTheme.background,
-          disabledBackgroundColor: AppTheme.rose.withValues(alpha: 0.35),
+          child: _saving
+              ? SizedBox.square(
+                  dimension: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: colorScheme.onPrimary,
+                  ),
+                )
+              : Icon(Icons.check, size: 26, color: colorScheme.onPrimary),
         ),
-        child: _saving
-            ? const SizedBox.square(
-                dimension: 18,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            : const Text(
-                'Save',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-              ),
       ),
     );
   }
@@ -1279,6 +1307,7 @@ final class _CalendarEventFormScreenState
             key: const Key('event-location-field'),
             controller: _locationController,
             decoration: _measuredInputDecoration(
+              context,
               labelText: _addressExpanded ? 'Address' : 'Location',
             ),
             textInputAction: TextInputAction.next,
@@ -1460,27 +1489,36 @@ final class _CalendarEventFormScreenState
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      builder: (sheetContext) => SafeArea(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxHeight: 560),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              const Padding(
-                padding: EdgeInsets.fromLTRB(20, 18, 20, 4),
-                child: Text(
-                  'Link to Life Goal',
-                  style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
+      builder: (sheetContext) {
+        final colorScheme = Theme.of(sheetContext).colorScheme;
+        return SafeArea(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 560),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 4),
+                  child: Text(
+                    'Link to Life Goal',
+                    style: TextStyle(
+                      fontSize: 19,
+                      fontWeight: FontWeight.w700,
+                      color: colorScheme.onSurface,
+                    ),
+                  ),
                 ),
-              ),
-              const Padding(
-                padding: EdgeInsets.fromLTRB(20, 0, 20, 10),
-                child: Text(
-                  'Choose the goal this Event should contribute to.',
-                  style: TextStyle(color: Color(0xFF9CA0A6), fontSize: 13),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+                  child: Text(
+                    'Choose the goal this Event should contribute to.',
+                    style: TextStyle(
+                      color: colorScheme.onSurfaceVariant,
+                      fontSize: 13,
+                    ),
+                  ),
                 ),
-              ),
               Flexible(
                 child: ListView.builder(
                   key: const Key('life-indicator-picker'),
@@ -1498,13 +1536,13 @@ final class _CalendarEventFormScreenState
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
                           color: isSelected
-                              ? AppTheme.rose
+                              ? colorScheme.primary
                               : Colors.transparent,
                         ),
                       ),
                       child: Material(
                         color: isSelected
-                            ? const Color(0xFF2B2024)
+                            ? colorScheme.primaryContainer
                             : Colors.transparent,
                         borderRadius: BorderRadius.circular(12),
                         child: ListTile(
@@ -1520,9 +1558,9 @@ final class _CalendarEventFormScreenState
                             overflow: TextOverflow.ellipsis,
                           ),
                           trailing: isSelected
-                              ? const Icon(
+                              ? Icon(
                                   Icons.check,
-                                  color: AppTheme.rose,
+                                  color: colorScheme.primary,
                                   size: 20,
                                 )
                               : null,
@@ -1539,14 +1577,14 @@ final class _CalendarEventFormScreenState
                 const Divider(height: 1),
                 ListTile(
                   key: const Key('life-indicator-remove-link'),
-                  leading: const Icon(
+                  leading: Icon(
                     Icons.delete_outline,
-                    color: AppTheme.rose,
+                    color: colorScheme.primary,
                     size: 20,
                   ),
-                  title: const Text(
+                  title: Text(
                     'Remove Life Goal link',
-                    style: TextStyle(color: AppTheme.rose),
+                    style: TextStyle(color: colorScheme.primary),
                   ),
                   onTap: () => Navigator.of(sheetContext).pop('__none__'),
                 ),
@@ -1561,10 +1599,11 @@ final class _CalendarEventFormScreenState
                   ),
                 ),
               ),
-            ],
+              ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
     if (!mounted || selected == null) {
       return;
@@ -1631,9 +1670,15 @@ final class _CalendarEventFormScreenState
         const SizedBox(height: 12),
         Container(
           decoration: BoxDecoration(
-            color: const Color(0xFF1C1E21),
+            color: Theme.of(context).brightness == Brightness.dark
+                ? const Color(0xFF1C1E21)
+                : Theme.of(context).colorScheme.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFF2A2D31)),
+            border: Border.all(
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? const Color(0xFF2A2D31)
+                  : Theme.of(context).colorScheme.outlineVariant,
+            ),
           ),
           child: Material(
             color: Colors.transparent,
@@ -1734,7 +1779,7 @@ final class _CalendarEventFormScreenState
       minimumSize: const Size(0, 48),
       padding: EdgeInsets.zero,
       alignment: Alignment.centerLeft,
-      foregroundColor: AppTheme.rose,
+      foregroundColor: Theme.of(context).colorScheme.primary,
       textStyle: AppTypography.button,
     );
   }
@@ -1744,7 +1789,7 @@ final class _CalendarEventFormScreenState
       minimumSize: const Size(0, 48),
       padding: EdgeInsets.zero,
       alignment: Alignment.centerRight,
-      foregroundColor: AppTheme.rose,
+      foregroundColor: Theme.of(context).colorScheme.primary,
       textStyle: AppTypography.button,
     );
   }
@@ -2217,7 +2262,11 @@ final class _MeasuredFormSeparator extends StatelessWidget {
       child: SizedBox(
         width: MediaQuery.sizeOf(context).width,
         height: 8,
-        child: const ColoredBox(color: Color(0xFF45484A)),
+        child: ColoredBox(
+          color: Theme.of(context).brightness == Brightness.dark
+              ? const Color(0xFF45484A)
+              : Theme.of(context).colorScheme.outlineVariant,
+        ),
       ),
     );
   }
@@ -2318,6 +2367,7 @@ final class _DateTile extends StatelessWidget {
         height: 52,
         child: InputDecorator(
           decoration: _outlinedFormDecoration(
+            context,
             labelText: label,
             suffixIcon: const Icon(Icons.calendar_month_outlined, size: 24),
           ),
@@ -2387,7 +2437,7 @@ final class _TimeTile extends StatelessWidget {
       child: SizedBox(
         height: 52,
         child: InputDecorator(
-          decoration: _outlinedFormDecoration(labelText: label),
+          decoration: _outlinedFormDecoration(context, labelText: label),
           child: Text(
             value.format(context),
             maxLines: 1,
@@ -2399,12 +2449,14 @@ final class _TimeTile extends StatelessWidget {
   }
 }
 
-InputDecoration _outlinedFormDecoration({
+InputDecoration _outlinedFormDecoration(
+  BuildContext context, {
   required String labelText,
   Widget? prefixIcon,
   Widget? suffixIcon,
 }) {
   return _measuredInputDecoration(
+    context,
     labelText: labelText,
     prefixIcon: prefixIcon,
     suffixIcon: suffixIcon,
@@ -2432,9 +2484,15 @@ final class _PeopleChip extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.fromLTRB(12, 6, 4, 6),
       decoration: BoxDecoration(
-        color: const Color(0xFF1C1E21),
+        color: Theme.of(context).brightness == Brightness.dark
+            ? const Color(0xFF1C1E21)
+            : Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFF2A2D31)),
+        border: Border.all(
+          color: Theme.of(context).brightness == Brightness.dark
+              ? const Color(0xFF2A2D31)
+              : Theme.of(context).colorScheme.outlineVariant,
+        ),
       ),
       child: Row(
         children: <Widget>[
@@ -2469,7 +2527,8 @@ final class _PeopleChip extends StatelessWidget {
   }
 }
 
-InputDecoration _measuredInputDecoration({
+InputDecoration _measuredInputDecoration(
+  BuildContext context, {
   required String labelText,
   Widget? prefixIcon,
   Widget? suffixIcon,
@@ -2478,7 +2537,10 @@ InputDecoration _measuredInputDecoration({
 }) {
   final border = OutlineInputBorder(
     borderRadius: BorderRadius.circular(4),
-    borderSide: const BorderSide(color: AppTheme.outline, width: 1),
+    borderSide: BorderSide(
+      color: AppTheme.outlineOf(context),
+      width: 1,
+    ),
   );
   return InputDecoration(
     labelText: labelText,

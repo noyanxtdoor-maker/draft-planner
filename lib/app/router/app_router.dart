@@ -44,6 +44,7 @@ import 'package:rmplanner/features/privacy/presentation/diagnostic_preview_scree
 import 'package:rmplanner/features/privacy/presentation/permissions_screen.dart';
 import 'package:rmplanner/features/privacy/presentation/privacy_center_screen.dart';
 import 'package:rmplanner/features/settings/application/start_of_week_providers.dart';
+import 'package:rmplanner/features/settings/presentation/appearance_screen.dart';
 import 'package:rmplanner/features/settings/presentation/colors_screen.dart';
 import 'package:rmplanner/features/settings/presentation/more_screen.dart';
 import 'package:rmplanner/features/settings/presentation/planner_event_colors_screen.dart';
@@ -135,6 +136,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             name: RouteNames.startOfWeek,
             path: RoutePaths.startOfWeek,
             builder: (context, state) => const StartOfWeekScreen(),
+          ),
+          GoRoute(
+            name: RouteNames.appearance,
+            path: RoutePaths.appearance,
+            builder: (context, state) => const AppearanceScreen(),
           ),
           GoRoute(
             name: RouteNames.plannerEventColors,

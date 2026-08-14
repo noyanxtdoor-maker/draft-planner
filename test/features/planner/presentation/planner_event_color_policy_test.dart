@@ -5,19 +5,29 @@ import 'package:rmplanner/features/planner/presentation/widgets/planner_event_bl
 void main() {
   test('contrast resolver chooses light text for dark surfaces', () {
     expect(
-      PlannerEventBlockColorPolicy.textColor(const Color(0xFF404447)),
+      PlannerEventBlockColorPolicy.textColor(
+        const Color(0xFF404447),
+        Brightness.dark,
+      ),
       Colors.white,
     );
   });
 
   test('Planner Event text stays white even on bright surfaces', () {
-    // Locked white-text rule: the block never switches title/time to black.
+    // Locked white-text rule: the block never switches title/time to black
+    // (Dark baseline; Light uses the readable onSurface text contract).
     expect(
-      PlannerEventBlockColorPolicy.textColor(const Color(0xFFF2E9E0)),
+      PlannerEventBlockColorPolicy.textColor(
+        const Color(0xFFF2E9E0),
+        Brightness.dark,
+      ),
       Colors.white,
     );
     expect(
-      PlannerEventBlockColorPolicy.textColor(const Color(0xFFDEEDF2)),
+      PlannerEventBlockColorPolicy.textColor(
+        const Color(0xFFDEEDF2),
+        Brightness.dark,
+      ),
       Colors.white,
     );
   });
@@ -53,7 +63,13 @@ void main() {
       expect(surfaceHsl.lightness, lessThan(accentHsl.lightness));
       expect(surface, isNot(accentHsl.toColor()));
       // The medium faded surface keeps white text legible.
-      expect(PlannerEventBlockColorPolicy.textColor(surface), Colors.white);
+      expect(
+        PlannerEventBlockColorPolicy.textColor(
+          surface,
+          Brightness.dark,
+        ),
+        Colors.white,
+      );
     },
   );
 

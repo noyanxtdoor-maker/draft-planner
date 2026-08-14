@@ -496,7 +496,9 @@ final class _RoleCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final borderColor = selected ? AppTheme.rose : AppTheme.outline;
+    final borderColor = selected
+        ? Theme.of(context).colorScheme.primary
+        : AppTheme.outlineOf(context);
     return Semantics(
       button: true,
       enabled: available,
@@ -509,7 +511,7 @@ final class _RoleCard extends StatelessWidget {
           constraints: const BoxConstraints(minHeight: 84),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
-            color: AppTheme.surface,
+            color: AppTheme.surfaceOf(context),
             borderRadius: BorderRadius.circular(9),
             border: Border.all(color: borderColor),
           ),
@@ -519,11 +521,13 @@ final class _RoleCard extends StatelessWidget {
                 selected
                     ? Icons.radio_button_checked
                     : Icons.radio_button_unchecked,
-                color: selected ? AppTheme.rose : Colors.white54,
+                color: selected
+                    ? Theme.of(context).colorScheme.primary
+                    : AppTheme.onFillTextOf(context, 0.54),
                 size: 24,
               ),
               const SizedBox(width: 10),
-              Icon(_roleIcon(role), color: const Color(0xFF9EDCE3), size: 28),
+              Icon(_roleIcon(role), color: AppTheme.accentTealOf(context), size: 28),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -544,8 +548,10 @@ final class _RoleCard extends StatelessWidget {
                   textAlign: TextAlign.end,
                   style: TextStyle(
                     color: available
-                        ? (selected ? AppTheme.rose : const Color(0xFF9EDCE3))
-                        : Colors.white54,
+                        ? (selected
+                              ? Theme.of(context).colorScheme.primary
+                              : AppTheme.accentTealOf(context))
+                        : AppTheme.onFillTextOf(context, 0.54),
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                   ),
@@ -588,9 +594,9 @@ final class _TargetEditor extends StatelessWidget {
               child: Container(
                 height: 48,
                 decoration: BoxDecoration(
-                  color: AppTheme.surface,
+                  color: AppTheme.surfaceOf(context),
                   borderRadius: BorderRadius.circular(9),
-                  border: Border.all(color: AppTheme.outline),
+                  border: Border.all(color: AppTheme.outlineOf(context)),
                 ),
                 alignment: Alignment.center,
                 child: Text(
@@ -642,8 +648,8 @@ final class _TargetButton extends StatelessWidget {
         onPressed: enabled ? onPressed : null,
         icon: Icon(icon),
         style: IconButton.styleFrom(
-          foregroundColor: AppTheme.rose,
-          side: const BorderSide(color: AppTheme.outline),
+          foregroundColor: Theme.of(context).colorScheme.primary,
+          side: BorderSide(color: AppTheme.outlineOf(context)),
           shape: const CircleBorder(),
         ),
       ),

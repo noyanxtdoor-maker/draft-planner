@@ -988,15 +988,19 @@ class PlannerPreferences extends Table {
   Set<Column<Object>> get primaryKey => <Column<Object>>{profileId};
 }
 
-/// Pack B1 Appearance foundation: the single device-scoped appearance
-/// preference (System / Light / Dark).  One row keyed by the constant
-/// 'primary', mirroring the PrivacyPreferences device scope.  Fresh v25
-/// installs have no row yet (reads as SYSTEM); a v24 upgrade seeds 'dark'
-/// to preserve the only appearance v24 users ever had.
+/// Pack B1 Appearance foundation + B2-CORRECTION Theme Color: the single
+/// device-scoped appearance preference (System / Light / Dark) and the
+/// independent Theme Color (Rose / Blue).  One row keyed by the constant
+/// 'primary', mirroring the PrivacyPreferences device scope.  Fresh v26
+/// installs have no row yet (reads as DARK + BLUE, B2-FINAL-POLISH owner
+/// lock); a v24 upgrade seeds 'dark' to preserve the only appearance v24
+/// users ever had, and the v26 migration adds theme_color defaulting to
+/// 'blue'.
 class AppearancePreferences extends Table {
   TextColumn get key => text().withDefault(const Constant('primary'))();
   TextColumn get appearanceMode =>
-      text().withDefault(const Constant('system'))();
+      text().withDefault(const Constant('dark'))();
+  TextColumn get themeColor => text().withDefault(const Constant('blue'))();
   DateTimeColumn get updatedAtUtc => dateTime()();
 
   @override
@@ -1104,7 +1108,7 @@ final class AppDatabase extends _$AppDatabase {
   final bool _injectContactsMigrationFailure;
 
   @override
-  int get schemaVersion => _schemaVersionOverride ?? 25;
+  int get schemaVersion => _schemaVersionOverride ?? 26;
 
   @override
   MigrationStrategy get migration {
@@ -1810,6 +1814,23 @@ final class AppDatabase extends _$AppDatabase {
               VALUES ('primary', 'dark',
                       CAST(strftime('%s', 'now') AS INTEGER))
             ''');
+          }
+          if (from < 26 && to >= 26) {
+            // B2-CORRECTION Theme Color: an additive, device-scoped column
+            // on the existing single-row AppearancePreferences table.
+            // B2-FINAL-POLISH owner lock: existing v25 rows default to
+            // 'blue'; no data rewrite, no history touch.  The column-exists
+            // guard keeps the step idempotent for databases whose v25 table
+            // was created from a later generated schema.
+            if (!await _columnExists(
+              'appearance_preferences',
+              'theme_color',
+            )) {
+              await customStatement(
+                "ALTER TABLE appearance_preferences "
+                "ADD COLUMN theme_color TEXT NOT NULL DEFAULT 'blue'",
+              );
+            }
           }
         });
       },

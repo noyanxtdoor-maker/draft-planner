@@ -1316,7 +1316,7 @@ class _PagerPreviewColumnState extends State<_PagerPreviewColumn> {
                 softWrap: false,
                 textAlign: TextAlign.right,
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: const Color(0xB3FFFFFF),
+                  color: AppTheme.onFillTextOf(context, 0xB3 / 0xFF),
                 ),
               ),
             ),
@@ -1325,7 +1325,7 @@ class _PagerPreviewColumnState extends State<_PagerPreviewColumn> {
               top: index * hourHeight,
               left: kPlannerPagerTimeColumnWidth,
               right: 0,
-              child: const Divider(height: 1, color: AppTheme.outline),
+              child: Divider(height: 1, color: AppTheme.outlineOf(context)),
             ),
           ],
           // Current-time indicator: painted BEFORE the Event blocks so the
@@ -1348,13 +1348,18 @@ class _PagerPreviewColumnState extends State<_PagerPreviewColumn> {
               },
             ),
           for (final placement in placements)
-            _positionedPreviewEvent(placement: placement, width: width),
+            _positionedPreviewEvent(
+              context: context,
+              placement: placement,
+              width: width,
+            ),
         ],
       ),
     );
   }
 
   Widget _positionedPreviewEvent({
+    required BuildContext context,
     required PlannerDisplayPlacement placement,
     required double width,
   }) {
@@ -1371,10 +1376,12 @@ class _PagerPreviewColumnState extends State<_PagerPreviewColumn> {
       interactive: false,
     );
     final resolvedAccent = PlannerEventColorResolver.accentColor(
+      context,
       event,
       widget.eventColorsByTypeId,
     );
     final resolvedSurface = PlannerEventColorResolver.surfaceColor(
+      context,
       event,
       widget.eventColorsByTypeId,
     );
@@ -1532,8 +1539,8 @@ class _PagerPreviewColumnState extends State<_PagerPreviewColumn> {
                         textAlign: TextAlign.right,
                         maxLines: 1,
                         softWrap: false,
-                        style: const TextStyle(
-                          color: AppTheme.rose,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.primary,
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
                           height: 1.0,
@@ -1553,9 +1560,9 @@ class _PagerPreviewColumnState extends State<_PagerPreviewColumn> {
                     2,
                 width: kPlannerPagerCurrentTimeDotSize,
                 height: kPlannerPagerCurrentTimeDotSize,
-                child: const DecoratedBox(
+                child: DecoratedBox(
                   decoration: BoxDecoration(
-                    color: AppTheme.rose,
+                    color: Theme.of(context).colorScheme.primary,
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -1566,8 +1573,10 @@ class _PagerPreviewColumnState extends State<_PagerPreviewColumn> {
                 right: 0,
                 top: (kPlannerPagerCurrentTimeIndicatorHeight - 2) / 2,
                 height: 2,
-                child: const DecoratedBox(
-                  decoration: BoxDecoration(color: AppTheme.rose),
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
                 ),
               ),
             ],

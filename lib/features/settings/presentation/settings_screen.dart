@@ -58,6 +58,15 @@ final class SettingsScreen extends ConsumerWidget {
               child: Column(
                 children: <Widget>[
                   ListTile(
+                    key: const Key('settings-appearance'),
+                    leading: const Icon(Icons.contrast_outlined),
+                    title: const Text('Appearance'),
+                    subtitle: const Text('System, Light, or Dark theme'),
+                    trailing: const Icon(Icons.chevron_right, size: 20),
+                    onTap: () => context.push(RoutePaths.appearance),
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
                     key: const Key('settings-privacy-data'),
                     leading: const Icon(Icons.shield_outlined),
                     title: const Text('Privacy and Data'),
@@ -159,13 +168,13 @@ class _SettingsSectionLabel extends StatelessWidget {
           key: Key(
             'settings-section-${label.toLowerCase().replaceAll(' ', '-')}',
           ),
-          style: const TextStyle(
+          style: TextStyle(
             fontFamily: 'Roboto',
             fontSize: 12.5,
             height: 16 / 12.5,
             fontWeight: FontWeight.w600,
             letterSpacing: 0.5,
-            color: Color(0xFF9CA0A6),
+            color: AppTheme.secondaryTextOf(context),
           ),
         ),
       ),

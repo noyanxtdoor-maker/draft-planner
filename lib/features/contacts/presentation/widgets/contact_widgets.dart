@@ -29,16 +29,16 @@ final class ContactAvatar extends StatelessWidget {
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: const Color(0xFF1C1E21),
+        color: AppTheme.surfaceRaisedOf(context),
         border: showRing
             ? Border.all(color: accent, width: 1.5)
-            : Border.all(color: const Color(0xFF2A2D31), width: 1),
+            : Border.all(color: AppTheme.surfaceVariantOf(context), width: 1),
       ),
       alignment: Alignment.center,
       child: Text(
         summary.contact.initials,
         style: TextStyle(
-          color: Colors.white,
+          color: AppTheme.onFillTextOf(context, 1.0),
           fontSize: size * 0.38,
           fontWeight: FontWeight.w600,
           letterSpacing: 0.5,
@@ -143,8 +143,8 @@ final class ContactListRow extends StatelessWidget {
                         subtitle,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Color(0xFF9CA0A6),
+                        style: TextStyle(
+                          color: AppTheme.secondaryTextOf(context),
                           fontSize: 14,
                           height: 18 / 14,
                         ),

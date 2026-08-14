@@ -165,7 +165,11 @@ final class _TaskFormScreenState extends ConsumerState<TaskFormScreen>
                     width: 32,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: Colors.white70,
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.white70
+                          : Theme.of(
+                              context,
+                            ).colorScheme.onSurface.withValues(alpha: 0.70),
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -479,6 +483,7 @@ final class _TaskFormScreenState extends ConsumerState<TaskFormScreen>
   }
 
   Widget _buildSaveButton() {
+    final colorScheme = Theme.of(context).colorScheme;
     return Semantics(
       button: true,
       label: 'Save',
@@ -488,8 +493,8 @@ final class _TaskFormScreenState extends ConsumerState<TaskFormScreen>
         style: FilledButton.styleFrom(
           minimumSize: const Size(64, 48),
           padding: const EdgeInsets.symmetric(horizontal: 18),
-          backgroundColor: AppTheme.rose,
-          foregroundColor: AppTheme.background,
+          backgroundColor: colorScheme.primary,
+          foregroundColor: colorScheme.onPrimary,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(22),
           ),
@@ -511,11 +516,18 @@ final class _TaskFormScreenState extends ConsumerState<TaskFormScreen>
       labelStyle: AppTypography.micro,
       floatingLabelStyle: AppTypography.micro,
       enabledBorder: OutlineInputBorder(
-        borderSide: const BorderSide(color: Colors.white54),
+        borderSide: BorderSide(
+          color: Theme.of(context).brightness == Brightness.dark
+              ? Colors.white54
+              : Theme.of(context).colorScheme.outline,
+        ),
         borderRadius: BorderRadius.circular(4),
       ),
       focusedBorder: OutlineInputBorder(
-        borderSide: const BorderSide(color: AppTheme.rose, width: 2),
+        borderSide: BorderSide(
+          color: Theme.of(context).colorScheme.primary,
+          width: 2,
+        ),
         borderRadius: BorderRadius.circular(4),
       ),
     );
@@ -526,7 +538,7 @@ final class _TaskFormScreenState extends ConsumerState<TaskFormScreen>
       minimumSize: const Size(0, 48),
       padding: EdgeInsets.zero,
       alignment: Alignment.centerRight,
-      foregroundColor: AppTheme.rose,
+      foregroundColor: Theme.of(context).colorScheme.primary,
       textStyle: AppTypography.button,
     );
   }
@@ -812,9 +824,15 @@ final class _TaskContactChip extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 6),
       padding: const EdgeInsets.fromLTRB(12, 6, 4, 6),
       decoration: BoxDecoration(
-        color: const Color(0xFF1C1E21),
+        color: Theme.of(context).brightness == Brightness.dark
+            ? const Color(0xFF1C1E21)
+            : Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFF2A2D31)),
+        border: Border.all(
+          color: Theme.of(context).brightness == Brightness.dark
+              ? const Color(0xFF2A2D31)
+              : Theme.of(context).colorScheme.outlineVariant,
+        ),
       ),
       child: Row(
         children: <Widget>[
@@ -920,11 +938,18 @@ final class _TaskValueField extends StatelessWidget {
             floatingLabelStyle: AppTypography.micro,
             suffixIcon: icon == null ? null : Icon(icon, size: 24),
             enabledBorder: OutlineInputBorder(
-              borderSide: const BorderSide(color: Colors.white54),
+              borderSide: BorderSide(
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.white54
+                    : Theme.of(context).colorScheme.outline,
+              ),
               borderRadius: BorderRadius.circular(4),
             ),
             focusedBorder: OutlineInputBorder(
-              borderSide: const BorderSide(color: AppTheme.rose, width: 2),
+              borderSide: BorderSide(
+                color: Theme.of(context).colorScheme.primary,
+                width: 2,
+              ),
               borderRadius: BorderRadius.circular(4),
             ),
           ),
@@ -983,7 +1008,12 @@ final class _TaskSectionHeader extends StatelessWidget {
       children: <Widget>[
         Text(label, style: InternalScreen.sectionHeading),
         const SizedBox(height: 6),
-        const Divider(height: 1, color: Colors.white38),
+        Divider(
+          height: 1,
+          color: Theme.of(context).brightness == Brightness.dark
+              ? Colors.white38
+              : Theme.of(context).colorScheme.outlineVariant,
+        ),
       ],
     );
   }
@@ -1030,8 +1060,8 @@ final class _CapabilityNotice extends StatelessWidget {
               onPressed: onEnable,
               style: TextButton.styleFrom(
                 minimumSize: const Size(96, 48),
-                foregroundColor: AppTheme.background,
-                backgroundColor: AppTheme.rose,
+                foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                backgroundColor: Theme.of(context).colorScheme.primary,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(24),
                 ),

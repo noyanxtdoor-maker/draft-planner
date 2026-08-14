@@ -82,6 +82,7 @@ void main() {
     );
 
     for (final key in <String>[
+      'settings-appearance',
       'settings-privacy-data',
       'settings-permissions',
       'settings-planner-calendar',
@@ -96,9 +97,9 @@ void main() {
       expect(find.byKey(Key(key)), findsOneWidget, reason: key);
     }
 
-    // Unsupported settings must not appear (locked policy 8 / 10).
+    // Unsupported settings must not appear (locked policy 8 / 10; B2
+    // activates Appearance, so it is canonical now).
     for (final key in <String>[
-      'settings-section-appearance',
       'settings-section-notifications',
       'settings-section-accessibility',
       'settings-section-country-and-language',
@@ -108,7 +109,6 @@ void main() {
       expect(find.byKey(Key(key)), findsNothing, reason: key);
     }
     for (final text in <String>[
-      'Appearance',
       'Theme',
       'Accent Color',
       'Accessibility',

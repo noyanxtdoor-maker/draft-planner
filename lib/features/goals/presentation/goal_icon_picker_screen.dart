@@ -82,8 +82,11 @@ final class _GoalIconPickerScreenState extends State<GoalIconPickerScreen> {
         // A8: Material 3 swaps the fallback app-bar base from surface to
         // surfaceContainer once the list scrolls under it.  Transparent
         // surface tint alone does not pin the base color, so Choose Icon
-        // pins surface + zero scrolled-under elevation explicitly.
-        backgroundColor: AppTheme.surface,
+        // pins surface + zero scrolled-under elevation explicitly.  B2: the
+        // pinned base follows the active theme surface (dark #181A1E,
+        // light #F4F1F2) so unscrolled == scrolled-under in BOTH themes with
+        // no brown/maroon shift.
+        backgroundColor: AppTheme.surfaceOf(context),
         surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 0,
         leading: IconButton(
@@ -277,7 +280,9 @@ final class _IconTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final border = selected ? AppTheme.rose : const Color(0xFF414649);
+    final border = selected
+        ? Theme.of(context).colorScheme.primary
+        : AppTheme.cardBorderOf(context);
     return Semantics(
       button: true,
       selected: selected,
@@ -319,15 +324,15 @@ final class _IconTile extends StatelessWidget {
                   right: 4,
                   child: ExcludeSemantics(
                     child: DecoratedBox(
-                      decoration: const BoxDecoration(
-                        color: AppTheme.rose,
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primary,
                         shape: BoxShape.circle,
                       ),
-                      child: const Padding(
-                        padding: EdgeInsets.all(3),
+                      child: Padding(
+                        padding: const EdgeInsets.all(3),
                         child: Icon(
                           Icons.check,
-                          color: Color(0xFF340012),
+                          color: Theme.of(context).colorScheme.onPrimary,
                           size: 14,
                         ),
                       ),
@@ -364,11 +369,15 @@ final class _CategoryChip extends StatelessWidget {
         selected: selected,
         label: label,
         child: Material(
-          color: selected ? AppTheme.rose : Colors.transparent,
+          color: selected
+              ? Theme.of(context).colorScheme.primary
+              : Colors.transparent,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
             side: BorderSide(
-              color: selected ? AppTheme.rose : const Color(0xFF414649),
+              color: selected
+                  ? Theme.of(context).colorScheme.primary
+                  : AppTheme.cardBorderOf(context),
               width: 1,
             ),
           ),
@@ -383,8 +392,8 @@ final class _CategoryChip extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 14,
                   color: selected
-                      ? const Color(0xFF340012)
-                      : const Color(0xFFF4F1F2),
+                      ? Theme.of(context).colorScheme.onPrimary
+                      : Theme.of(context).colorScheme.onSurface,
                 ),
               ),
             ),

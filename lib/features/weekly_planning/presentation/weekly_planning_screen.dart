@@ -274,8 +274,8 @@ final class _GoalPlanBodyState extends ConsumerState<_GoalPlanBody>
                 label: const Text('Cancel'),
                 style: OutlinedButton.styleFrom(
                   minimumSize: const Size.fromHeight(48),
-                  foregroundColor: Colors.white70,
-                  side: const BorderSide(color: AppTheme.outline),
+                  foregroundColor: AppTheme.onFillTextOf(context, 0.70),
+                  side: BorderSide(color: AppTheme.outlineOf(context)),
                   textStyle: AppTypography.button,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(9),
@@ -292,8 +292,8 @@ final class _GoalPlanBodyState extends ConsumerState<_GoalPlanBody>
                       label: 'Create Goal',
                       onPressed: () =>
                           unawaited(_createGoal(context, capacity)),
-                      foreground: AppTheme.rose,
-                      border: AppTheme.rose,
+                      foreground: Theme.of(context).colorScheme.primary,
+                      border: Theme.of(context).colorScheme.primary,
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -417,25 +417,31 @@ final class _ScaledGoalActionButton extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.onPressed,
-    this.foreground = Colors.white70,
-    this.border = AppTheme.outline,
+    this.foreground,
+    this.border,
     super.key,
   });
 
   final IconData icon;
   final String label;
   final VoidCallback onPressed;
-  final Color foreground;
-  final Color border;
+  final Color? foreground;
+  final Color? border;
 
   @override
   Widget build(BuildContext context) {
+    // Neutral (unspecified) actions resolve to the theme's secondary text and
+    // outline so they stay readable on a light surface; accent callers pass
+    // explicit colors (e.g. AppTheme.rose) unchanged.
+    final resolvedForeground =
+        foreground ?? AppTheme.onFillTextOf(context, 0.70);
+    final resolvedBorder = border ?? AppTheme.outlineOf(context);
     return OutlinedButton(
       onPressed: onPressed,
       style: OutlinedButton.styleFrom(
         minimumSize: const Size.fromHeight(48),
-        foregroundColor: foreground,
-        side: BorderSide(color: border),
+        foregroundColor: resolvedForeground,
+        side: BorderSide(color: resolvedBorder),
         textStyle: AppTypography.button,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
         padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -517,8 +523,10 @@ final class _GoalRow extends ConsumerWidget {
       onTap: () => context.push(RoutePaths.goalEdit(goal.id), extra: goal),
       child: Container(
         constraints: const BoxConstraints(minHeight: 80),
-        decoration: const BoxDecoration(
-          border: Border(bottom: BorderSide(color: AppTheme.outline)),
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(color: AppTheme.outlineOf(context)),
+          ),
         ),
         padding: const EdgeInsets.symmetric(vertical: 12),
         child: Row(
@@ -761,9 +769,9 @@ final class _WeekNavigation extends StatelessWidget {
           // Pack 2 accent restraint: this is a decorative section marker, not
           // a selected state, primary action, category accent, or warning, so
           // it uses neutral secondary text instead of the highlight pink.
-          const Icon(
+          Icon(
             Icons.calendar_month_outlined,
-            color: Colors.white70,
+            color: AppTheme.onFillTextOf(context, 0.70),
             size: 28,
           ),
           const SizedBox(width: 16),
@@ -783,7 +791,9 @@ final class _WeekNavigation extends StatelessWidget {
             icon: Icon(
               Icons.chevron_right,
               size: 28,
-              color: onNext == null ? Colors.white24 : null,
+              color: onNext == null
+                  ? AppTheme.onFillTextOf(context, 0.24)
+                  : null,
             ),
           ),
         ],

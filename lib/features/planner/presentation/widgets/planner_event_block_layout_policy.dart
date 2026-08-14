@@ -381,12 +381,18 @@ abstract final class PlannerEventBlockColorPolicy {
 
   /// Returns the Planner Event block text color.
   ///
-  /// Locked white-text rule (exact-defaults delta): Planner Event title and
-  /// time are ALWAYS white / near-white for every Event Type. They are never
-  /// dynamically switched to black because of surface luminance. The approved
-  /// dark PMG-style Surface pairs keep white contrast high; if a custom
-  /// surface ever lowers contrast, the surface (not the text) is the fix.
-  static Color textColor(Color surface) => Colors.white;
+  /// B2-CORRECTION: the rule is now brightness-aware.  DARK keeps the locked
+  /// white-text rule byte-identical (title and time stay white/near-white on
+  /// the approved dark PMG-style surface pairs).  LIGHT uses the Light
+  /// onSurface so Event text stays readable (>= 4.5:1) on the pastel Light
+  /// surfaces; if a custom surface ever lowers contrast, the surface (not
+  /// the text) is the fix.
+  static Color textColor(Color surface, Brightness brightness) {
+    if (brightness == Brightness.light) {
+      return const Color(0xFF1A1C1F);
+    }
+    return Colors.white;
+  }
 
   /// WCAG-style contrast ratio for two opaque colors.
   static double contrastRatio(Color foreground, Color background) {

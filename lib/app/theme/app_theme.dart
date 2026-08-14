@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:rmplanner/app/theme/theme_color_mode.dart';
 
 /// The single production typography source.  Feature screens may adjust color
 /// or weight for emphasis, but the size and line-height tokens stay here so a
@@ -87,7 +88,7 @@ abstract final class AppTypography {
 }
 
 abstract final class AppTheme {
-  /// Canonical app highlight pink shared by existing highlight roles.
+  /// Canonical app highlight pink shared by existing dark highlight roles.
   static const Color rose = Color(0xFFF9B7C7);
   static const Color background = Color(0xFF0D0E10);
   static const Color surface = Color(0xFF181A1E);
@@ -96,48 +97,275 @@ abstract final class AppTheme {
   static const Color eventAccent = Color(0xFF4CAF50);
 
   // ------------------------------------------------------------- B1 light
-  // Light-theme semantic tokens (Pack B1 Appearance foundation).  The dark
-  // palette above and the exact dark ColorScheme inside [dark] are untouched;
-  // these tokens describe the Light appearance only.  Contrast is verified by
-  // app_theme_test.dart (onSurface 15.2:1, secondary 5.4:1, outline 3.1:1,
-  // warning 5.9:1 against [lightSurface]).
+  // Legacy B1 light tokens (superseded by the locked B2-CORRECTION Soft-Light
+  // families below but kept for the existing tests/screens that still read
+  // them directly).  Dark palette above is untouched.
 
-  /// Light app background (subtly warm, one step below [lightSurface]).
+  /// Legacy light app background.
   static const Color lightBackground = Color(0xFFF1EFEB);
 
-  /// Primary light surface (the audit's light candidate #F4F1F2).
+  /// Legacy primary light surface.
   static const Color lightSurface = Color(0xFFF4F1F2);
 
-  /// Elevated/container light surface.
+  /// Legacy elevated/container light surface.
   static const Color lightSurfaceVariant = Color(0xFFECEAE6);
 
-  /// Primary light text color (15.2:1 on [lightSurface]).
+  /// Primary light text color.
   static const Color lightOnSurface = Color(0xFF1A1C1F);
 
-  /// Secondary light text color (5.4:1 on [lightSurface]).
+  /// Secondary light text color.
   static const Color lightSecondary = Color(0xFF5F6368);
 
-  /// Light border/outline color (3.1:1 UI-component boundary on
-  /// [lightSurface]).
+  /// Legacy light border/outline color.
   static const Color lightOutline = Color(0xFF85898C);
 
-  /// Light warning/amber role (5.9:1 on [lightSurface]).
+  /// Light warning/amber role.
   static const Color lightWarning = Color(0xFF8A4F00);
 
-  static ThemeData light() {
+  // ------------------------------------------- B2-CORRECTION locked palettes
+  // Owner-approved Soft-Light + Rose/Blue semantic families.  Rose Dark
+  // compatibility is the pre-correction baseline; Blue Dark swaps ONLY the
+  // semantic accent roles.
+
+  // Rose Light ------------------------------------------------------------
+  static const Color roseLightPrimary = Color(0xFFA62C49);
+  static const Color roseLightOnPrimary = Color(0xFFFFFFFF);
+  static const Color roseLightPrimaryContainer = Color(0xFFF9B7C7);
+  static const Color roseLightOnPrimaryContainer = Color(0xFF6E1E33);
+  static const Color roseLightProgress = Color(0xFFC8506B);
+  static const Color roseLightCanvas = Color(0xFFF1EFEA);
+  static const Color roseLightCard = Color(0xFFFAF8F5);
+  static const Color roseLightRaised = Color(0xFFFFFFFF);
+  static const Color roseLightContainer = Color(0xFFECEAE6);
+  static const Color roseLightNav = Color(0xFFF4F2EE);
+  static const Color roseLightCardOutline = Color(0xFFD9D7D3);
+  static const Color roseLightInputOutline = Color(0xFF8A8782);
+  static const Color roseLightOnSurface = Color(0xFF1A1C1F);
+  static const Color roseLightSecondary = Color(0xFF5F6368);
+
+  // Blue Light ------------------------------------------------------------
+  static const Color blueLightPrimary = Color(0xFF175A8F);
+  static const Color blueLightOnPrimary = Color(0xFFFFFFFF);
+  static const Color blueLightPrimaryContainer = Color(0xFFD3E3F4);
+  static const Color blueLightOnPrimaryContainer = Color(0xFF123A5C);
+  static const Color blueLightProgress = Color(0xFF3B7DB8);
+  static const Color blueLightCanvas = Color(0xFFEEF0F2);
+  static const Color blueLightCard = Color(0xFFF8F9FB);
+  static const Color blueLightRaised = Color(0xFFFFFFFF);
+  static const Color blueLightContainer = Color(0xFFE8EDF2);
+  static const Color blueLightNav = Color(0xFFF2F4F6);
+  static const Color blueLightCardOutline = Color(0xFFD4D9DF);
+  static const Color blueLightInputOutline = Color(0xFF818890);
+  static const Color blueLightOnSurface = Color(0xFF1A1C1F);
+  static const Color blueLightSecondary = Color(0xFF5F6368);
+
+  // Blue Dark (semantic accents only; neutrals stay the dark baseline) ----
+  static const Color blueDarkPrimary = Color(0xFF9FC8F0);
+  static const Color blueDarkOnPrimary = Color(0xFF0E3A5E);
+  static const Color blueDarkPrimaryContainer = Color(0xFF123A5C);
+  static const Color blueDarkOnPrimaryContainer = Color(0xFFD3E3F4);
+
+  // ------------------------------------------------------- B2 accessors
+  // Brightness-aware semantic accessors.  Dark mode ALWAYS returns the exact
+  // pre-B2 constant so dark goldens stay byte-identical; light mode resolves
+  // the active Theme Color's semantic tokens from the color scheme.
+
+  /// Secondary text / muted icon color (dark #9CA0A6, light active secondary).
+  static Color secondaryTextOf(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark
+          ? const Color(0xFF9CA0A6)
+          : Theme.of(context).colorScheme.onSurfaceVariant;
+
+  /// Elevated surface / container (dark #2A2D31, light container/well).
+  static Color surfaceVariantOf(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark
+          ? const Color(0xFF2A2D31)
+          : Theme.of(context).colorScheme.surfaceContainerHighest;
+
+  /// Deeper dark surface variant (dark #1C1E21).
+  static Color surfaceRaisedOf(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark
+          ? const Color(0xFF1C1E21)
+          : Theme.of(context).colorScheme.surfaceContainerHighest;
+
+  /// Home plan-block fill (dark #23262C).
+  static Color blockOf(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark
+          ? const Color(0xFF23262C)
+          : Theme.of(context).colorScheme.surfaceContainerHighest;
+
+  /// Card/panel fill (dark #2A2A2B, light active card surface).
+  static Color cardOf(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark
+          ? const Color(0xFF2A2A2B)
+          : Theme.of(context).colorScheme.surface;
+
+  /// Raised control fill (dark #343638, light container/well tone so
+  /// controls like progress tracks stay visible on cards).
+  static Color raisedOf(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark
+          ? const Color(0xFF343638)
+          : Theme.of(context).colorScheme.surfaceContainerHighest;
+
+  /// Bottom-navigation surface (dark #101113, light active app/nav surface).
+  static Color navBarOf(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark
+          ? const Color(0xFF101113)
+          : Theme.of(context).colorScheme.surfaceContainer;
+
+  /// Warning role (dark #FFC857, light #8A4F00).  Status color — never
+  /// recolored by Theme Color.
+  static Color warningOf(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark
+          ? warning
+          : lightWarning;
+
+  /// Text/icon on a filled surface: exact white translucency in dark,
+  /// on-surface translucency in light (keeps dark pixels byte-identical).
+  ///
+  /// Dark mode returns the EXACT pre-B2 constant for the known translucency
+  /// steps (white / white70 / white54 / white24 / the two alpha literals used
+  /// by the Planner strips) instead of re-computing a float alpha, so dark
+  /// goldens stay byte-identical regardless of alpha round-trips.
+  static Color onFillTextOf(BuildContext context, double opacity) {
+    if (Theme.of(context).brightness == Brightness.dark) {
+      if (opacity >= 0.999) {
+        return Colors.white;
+      }
+      if (opacity >= 0.70 && opacity < 0.705) {
+        return Colors.white70; // 0xB3FFFFFF
+      }
+      if (opacity >= 0.54 && opacity < 0.545) {
+        return Colors.white54; // 0x8AFFFFFF
+      }
+      if (opacity >= 0.239 && opacity < 0.2405) {
+        return Colors.white24; // 0x3DFFFFFF
+      }
+      if (opacity >= 0.7215 && opacity < 0.7217) {
+        return const Color(0xB8FFFFFF); // date-strip unselected text
+      }
+      if (opacity >= 0.7019 && opacity < 0.7021) {
+        return const Color(0xB3FFFFFF); // pager hour labels
+      }
+      return Colors.white.withValues(alpha: opacity);
+    }
+    return Theme.of(context).colorScheme.onSurface.withValues(alpha: opacity);
+  }
+
+  /// Accent teal (dark #9EDCE3, light #357083).  Status/data color — never
+  /// recolored by Theme Color.
+  static Color accentTealOf(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark
+          ? const Color(0xFF9EDCE3)
+          : const Color(0xFF357083);
+
+  /// Accent gold (dark #F1C94F, light #84681C).  Status/data color — never
+  /// recolored by Theme Color.
+  static Color accentGoldOf(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark
+          ? const Color(0xFFF1C94F)
+          : const Color(0xFF84681C);
+
+  /// Rose-tinted container (dark #400018 fill, light #FBE3E9).  Status/
+  /// identity container — never recolored by Theme Color.
+  static Color roseContainerOf(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark
+          ? const Color(0xFF400018)
+          : const Color(0xFFFBE3E9);
+
+  /// Disabled foreground (dark #6B6F76, light #8E9295).
+  static Color disabledForegroundOf(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark
+          ? const Color(0xFF6B6F76)
+          : const Color(0xFF8E9295);
+
+  /// Neutral chart/track fill (dark #3D4144, light active card outline tone).
+  static Color trackFillOf(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark
+          ? const Color(0xFF3D4144)
+          : Theme.of(context).colorScheme.outlineVariant;
+
+  /// Border/outline role (dark #454850, light subtle card outline).
+  static Color outlineOf(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark
+          ? outline
+          : Theme.of(context).colorScheme.outlineVariant;
+
+  /// App surface fill (dark #181A1E, light active app/nav surface).  Used by
+  /// pinned app bars and raised containers that must stay exactly on the app
+  /// surface in both themes.
+  static Color surfaceOf(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark
+          ? surface
+          : Theme.of(context).colorScheme.surfaceContainer;
+
+  /// Home/feature card border (dark #414649, light subtle card outline).
+  static Color cardBorderOf(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark
+          ? const Color(0xFF414649)
+          : Theme.of(context).colorScheme.outlineVariant;
+
+  /// Major section separator (dark #4A4E50, light subtle card outline tone).
+  static Color majorSeparatorOf(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark
+          ? const Color(0xFF4A4E50)
+          : Theme.of(context).colorScheme.outlineVariant;
+
+  /// Filter-builder section divider (dark #45484A, light subtle card outline
+  /// tone).
+  static Color sectionDividerOf(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark
+          ? const Color(0xFF45484A)
+          : Theme.of(context).colorScheme.outlineVariant;
+
+  static ThemeData light([
+    ThemeColorMode themeColor = ThemeColorMode.rose,
+  ]) {
+    final isRose = themeColor == ThemeColorMode.rose;
+    final primary = isRose ? roseLightPrimary : blueLightPrimary;
+    final onPrimary = isRose ? roseLightOnPrimary : blueLightOnPrimary;
+    final primaryContainer = isRose
+        ? roseLightPrimaryContainer
+        : blueLightPrimaryContainer;
+    final onPrimaryContainer = isRose
+        ? roseLightOnPrimaryContainer
+        : blueLightOnPrimaryContainer;
+    final progressAccent = isRose ? roseLightProgress : blueLightProgress;
+    final canvas = isRose ? roseLightCanvas : blueLightCanvas;
+    final card = isRose ? roseLightCard : blueLightCard;
+    final raised = isRose ? roseLightRaised : blueLightRaised;
+    final container = isRose ? roseLightContainer : blueLightContainer;
+    final navSurface = isRose ? roseLightNav : blueLightNav;
+    final cardOutline = isRose ? roseLightCardOutline : blueLightCardOutline;
+    final inputOutline = isRose
+        ? roseLightInputOutline
+        : blueLightInputOutline;
+    final onSurface = isRose ? roseLightOnSurface : blueLightOnSurface;
+    final secondary = isRose ? roseLightSecondary : blueLightSecondary;
+
     final colorScheme =
         ColorScheme.fromSeed(
-          seedColor: rose,
+          seedColor: primary,
           brightness: Brightness.light,
-          surface: lightSurface,
+          surface: card,
         ).copyWith(
-          primary: rose,
-          onPrimary: const Color(0xFF340012),
-          surface: lightSurface,
-          onSurface: lightOnSurface,
-          secondary: lightSecondary,
-          onSecondary: lightOnSurface,
-          outline: lightOutline,
+          primary: primary,
+          onPrimary: onPrimary,
+          primaryContainer: primaryContainer,
+          onPrimaryContainer: onPrimaryContainer,
+          tertiary: progressAccent,
+          surface: card,
+          onSurface: onSurface,
+          onSurfaceVariant: secondary,
+          secondary: secondary,
+          onSecondary: onSurface,
+          outline: inputOutline,
+          outlineVariant: cardOutline,
+          surfaceContainerLowest: raised,
+          surfaceContainerLow: card,
+          surfaceContainer: navSurface,
+          surfaceContainerHigh: container,
+          surfaceContainerHighest: container,
         );
 
     return ThemeData(
@@ -145,10 +373,13 @@ abstract final class AppTheme {
       brightness: Brightness.light,
       fontFamily: 'Roboto',
       colorScheme: colorScheme,
-      scaffoldBackgroundColor: lightBackground,
-      appBarTheme: const AppBarTheme(
+      scaffoldBackgroundColor: canvas,
+      appBarTheme: AppBarTheme(
         toolbarHeight: 72,
-        titleTextStyle: AppTypography.pageTitle,
+        // B2-CORRECTION shared title fix: the title must resolve to a
+        // non-null color.  Light uses the active onSurface so titles are
+        // dark/readable on the Light app bar.
+        titleTextStyle: AppTypography.pageTitle.copyWith(color: onSurface),
       ),
       textTheme: const TextTheme(
         displayLarge: AppTypography.pageTitle,
@@ -163,11 +394,11 @@ abstract final class AppTheme {
         labelSmall: AppTypography.micro,
       ),
       cardTheme: CardThemeData(
-        color: lightSurface,
+        color: card,
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: lightOutline),
+          side: BorderSide(color: cardOutline),
         ),
       ),
       dialogTheme: const DialogThemeData(
@@ -190,7 +421,7 @@ abstract final class AppTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: lightSurface,
+        fillColor: card,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 14,
           vertical: 10,
@@ -206,38 +437,53 @@ abstract final class AppTheme {
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
       ),
+      // B2-CORRECTION: Light FABs use the semantic primary fill with an
+      // onPrimary icon (Rose #A62C49 / Blue #175A8F + white).  Dark keeps
+      // the M3 default so dark goldens stay byte-identical.
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: primary,
+        foregroundColor: onPrimary,
+      ),
+      // B2-CORRECTION selected navigation: the Material indicator is filled
+      // with the semantic primary, the selected icon rides onPrimary, and
+      // the selected label uses primary.  Unselected stays secondary.
       navigationBarTheme: NavigationBarThemeData(
         height: 72,
-        backgroundColor: lightSurfaceVariant,
-        indicatorColor: Colors.transparent,
+        backgroundColor: navSurface,
+        indicatorColor: primary,
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
         iconTheme: WidgetStateProperty.resolveWith(
           (states) => IconThemeData(
             color: states.contains(WidgetState.selected)
-                ? AppTheme.rose
-                : lightSecondary,
+                ? onPrimary
+                : secondary,
           ),
         ),
         labelTextStyle: WidgetStateProperty.resolveWith(
           (states) => AppTypography.bottomNavLabel.copyWith(
-            color: states.contains(WidgetState.selected)
-                ? AppTheme.rose
-                : lightSecondary,
+            color: states.contains(WidgetState.selected) ? primary : secondary,
           ),
         ),
       ),
     );
   }
 
-  static ThemeData dark() {
+  static ThemeData dark([
+    ThemeColorMode themeColor = ThemeColorMode.rose,
+  ]) {
+    final isBlue = themeColor == ThemeColorMode.blue;
     final colorScheme =
         ColorScheme.fromSeed(
           seedColor: rose,
           brightness: Brightness.dark,
           surface: surface,
         ).copyWith(
-          primary: rose,
-          onPrimary: const Color(0xFF340012),
+          primary: isBlue ? blueDarkPrimary : rose,
+          onPrimary: isBlue
+              ? blueDarkOnPrimary
+              : const Color(0xFF340012),
+          primaryContainer: isBlue ? blueDarkPrimaryContainer : null,
+          onPrimaryContainer: isBlue ? blueDarkOnPrimaryContainer : null,
           surface: surface,
           onSurface: const Color(0xFFF4F1F2),
           outline: outline,
@@ -249,9 +495,12 @@ abstract final class AppTheme {
       fontFamily: 'Roboto',
       colorScheme: colorScheme,
       scaffoldBackgroundColor: background,
-      appBarTheme: const AppBarTheme(
+      appBarTheme: AppBarTheme(
         toolbarHeight: 72,
-        titleTextStyle: AppTypography.pageTitle,
+        // B2-CORRECTION shared title fix: Dark keeps the EXACT pixel color
+        // the pre-correction color-null path rendered (white on non-web
+        // platforms), so the existing dark goldens stay byte-identical.
+        titleTextStyle: AppTypography.pageTitle.copyWith(color: Colors.white),
       ),
       textTheme: const TextTheme(
         displayLarge: AppTypography.pageTitle,
@@ -273,9 +522,6 @@ abstract final class AppTheme {
           side: const BorderSide(color: outline),
         ),
       ),
-      // Compact internal dialogs: 86-90% width on phones, 18-20 sp title,
-      // 14-15 sp body, 18-22 dp corner radius.  Root screens do not use
-      // AlertDialog for main content, so this scopes to dialog surfaces.
       dialogTheme: const DialogThemeData(
         insetPadding: EdgeInsets.symmetric(horizontal: 22, vertical: 28),
         titleTextStyle: TextStyle(
@@ -312,8 +558,8 @@ abstract final class AppTheme {
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
       ),
-      // Pack 2 accent restraint (shared tokens -> component -> every root):
-      // the selected root uses a restrained accent (canonical rose), while
+      // Pack 2 accent restraint: the selected root uses the theme primary
+      // (Rose Dark baseline = canonical rose; Blue Dark = blue accent), while
       // unselected roots use a neutral gray.  No filled indicator or pink bar
       // background; selection stays legible in dark mode.
       navigationBarTheme: NavigationBarThemeData(
@@ -324,14 +570,14 @@ abstract final class AppTheme {
         iconTheme: WidgetStateProperty.resolveWith(
           (states) => IconThemeData(
             color: states.contains(WidgetState.selected)
-                ? AppTheme.rose
+                ? colorScheme.primary
                 : const Color(0xFF9CA0A6),
           ),
         ),
         labelTextStyle: WidgetStateProperty.resolveWith(
           (states) => AppTypography.bottomNavLabel.copyWith(
             color: states.contains(WidgetState.selected)
-                ? AppTheme.rose
+                ? colorScheme.primary
                 : const Color(0xFF9CA0A6),
           ),
         ),

@@ -112,16 +112,24 @@ final class _DeviceContactImportScreenState
           style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 12),
-        const Text(
+        Text(
           'Only the contacts you select are imported, and they stay on this '
           'device inside your private profile. Nothing is uploaded.',
-          style: TextStyle(color: Color(0xFF9CA0A6), fontSize: 14, height: 1.4),
+          style: TextStyle(
+            color: AppTheme.secondaryTextOf(context),
+            fontSize: 14,
+            height: 1.4,
+          ),
         ),
         const SizedBox(height: 8),
-        const Text(
+        Text(
           'Next Transfer only reads names and phone/email values — never '
           'messages, call logs, or photos.',
-          style: TextStyle(color: Color(0xFF9CA0A6), fontSize: 14, height: 1.4),
+          style: TextStyle(
+            color: AppTheme.secondaryTextOf(context),
+            fontSize: 14,
+            height: 1.4,
+          ),
         ),
         const SizedBox(height: 24),
         FilledButton.icon(
@@ -129,8 +137,8 @@ final class _DeviceContactImportScreenState
           onPressed: () => unawaited(_startImport()),
           style: FilledButton.styleFrom(
             minimumSize: const Size.fromHeight(50),
-            backgroundColor: AppTheme.rose,
-            foregroundColor: AppTheme.background,
+            backgroundColor: Theme.of(context).colorScheme.primary,
+            foregroundColor: Theme.of(context).colorScheme.onPrimary,
           ),
           icon: const Icon(Icons.contact_page_outlined, size: 20),
           label: const Text('Import from device'),
@@ -154,15 +162,22 @@ final class _DeviceContactImportScreenState
           const SizedBox(height: 8),
           Text(
             _error!,
-            style: const TextStyle(color: Color(0xFFFFC857), fontSize: 14),
+            style: TextStyle(
+              color: AppTheme.warningOf(context),
+              fontSize: 14,
+            ),
           ),
         ],
         const SizedBox(height: 12),
-        const Text(
+        Text(
           'Contacts stay in your head and your manual workflow. You can still '
           'create, edit, search, group, and link contacts by hand, and '
           'everything continues to work offline.',
-          style: TextStyle(color: Color(0xFF9CA0A6), fontSize: 14, height: 1.4),
+          style: TextStyle(
+            color: AppTheme.secondaryTextOf(context),
+            fontSize: 14,
+            height: 1.4,
+          ),
         ),
         const SizedBox(height: 24),
         FilledButton(
@@ -196,8 +211,8 @@ final class _DeviceContactImportScreenState
           _error ??
               'This device could not provide its contact list right now. '
                   'Manual contact workflows are unaffected.',
-          style: const TextStyle(
-            color: Color(0xFF9CA0A6),
+          style: TextStyle(
+            color: AppTheme.secondaryTextOf(context),
             fontSize: 14,
             height: 1.4,
           ),
@@ -230,8 +245,8 @@ final class _DeviceContactImportScreenState
               Expanded(
                 child: Text(
                   '$selectedCount of ${_deviceContacts.length} selected',
-                  style: const TextStyle(
-                    color: Color(0xFF9CA0A6),
+                  style: TextStyle(
+                    color: AppTheme.secondaryTextOf(context),
                     fontSize: 13,
                   ),
                 ),
@@ -262,10 +277,12 @@ final class _DeviceContactImportScreenState
         const Divider(height: 1, thickness: 1),
         Expanded(
           child: _deviceContacts.isEmpty
-              ? const Center(
+              ? Center(
                   child: Text(
                     'No contacts found on this device.',
-                    style: TextStyle(color: Color(0xFF9CA0A6)),
+                    style: TextStyle(
+                      color: AppTheme.secondaryTextOf(context),
+                    ),
                   ),
                 )
               : ListView.builder(
@@ -287,7 +304,7 @@ final class _DeviceContactImportScreenState
                           _selectedIndexes.remove(index);
                         }
                       }),
-                      activeColor: AppTheme.rose,
+                      activeColor: Theme.of(context).colorScheme.primary,
                       controlAffinity: ListTileControlAffinity.leading,
                       title: Text(
                         draft.displayName,
@@ -320,10 +337,14 @@ final class _DeviceContactImportScreenState
               onPressed: selectedCount == 0 ? null : () => unawaited(_import()),
               style: FilledButton.styleFrom(
                 minimumSize: const Size.fromHeight(50),
-                backgroundColor: AppTheme.rose,
-                foregroundColor: AppTheme.background,
-                disabledBackgroundColor: const Color(0xFF2A2D31),
-                disabledForegroundColor: const Color(0xFF6B6F76),
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                disabledBackgroundColor: AppTheme.surfaceVariantOf(
+                  context,
+                ),
+                disabledForegroundColor: AppTheme.disabledForegroundOf(
+                  context,
+                ),
               ),
               child: Text(
                 selectedCount == 0
@@ -353,7 +374,7 @@ final class _DeviceContactImportScreenState
           size: 56,
           color: result.createdCount > 0
               ? AppTheme.rose
-              : const Color(0xFF9CA0A6),
+              : AppTheme.secondaryTextOf(context),
         ),
         const SizedBox(height: 16),
         Text(
@@ -365,9 +386,12 @@ final class _DeviceContactImportScreenState
         ),
         const SizedBox(height: 8),
         if (result.duplicateContactIds.isNotEmpty) ...<Widget>[
-          const Text(
+          Text(
             'Possible duplicates were NOT merged — they were left untouched:',
-            style: TextStyle(color: Color(0xFF9CA0A6), fontSize: 14),
+            style: TextStyle(
+              color: AppTheme.secondaryTextOf(context),
+              fontSize: 14,
+            ),
           ),
           const SizedBox(height: 8),
           for (final name in result.duplicateContactIds.take(8))
@@ -375,10 +399,10 @@ final class _DeviceContactImportScreenState
               padding: const EdgeInsets.symmetric(vertical: 2),
               child: Row(
                 children: <Widget>[
-                  const Icon(
+                  Icon(
                     Icons.warning_amber_outlined,
                     size: 16,
-                    color: Color(0xFFFFC857),
+                    color: AppTheme.warningOf(context),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
@@ -394,8 +418,8 @@ final class _DeviceContactImportScreenState
           onPressed: () => Navigator.of(context).maybePop(),
           style: FilledButton.styleFrom(
             minimumSize: const Size.fromHeight(50),
-            backgroundColor: AppTheme.rose,
-            foregroundColor: AppTheme.background,
+            backgroundColor: Theme.of(context).colorScheme.primary,
+            foregroundColor: Theme.of(context).colorScheme.onPrimary,
           ),
           child: const Text('Done'),
         ),

@@ -2,6 +2,7 @@ import 'package:drift/native.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rmplanner/app/next_transfer_app.dart';
+import 'package:rmplanner/app/theme/theme_color_mode.dart';
 import 'package:rmplanner/core/database/app_database.dart';
 import 'package:rmplanner/core/diagnostics/sanitized_diagnostics.dart';
 import 'package:rmplanner/core/ids/identifier_source.dart';
@@ -37,8 +38,11 @@ import 'package:rmplanner/features/privacy/application/privacy_providers.dart';
 import 'package:rmplanner/features/privacy/application/privacy_services.dart';
 import 'package:rmplanner/features/privacy/data/drift_privacy_repository.dart';
 import 'package:rmplanner/features/privacy/domain/permission_summary.dart';
+import 'package:rmplanner/features/settings/application/appearance_providers.dart';
+import 'package:rmplanner/features/settings/application/appearance_repository.dart';
 import 'package:rmplanner/features/settings/application/start_of_week_providers.dart';
 import 'package:rmplanner/features/settings/application/start_of_week_repository.dart';
+import 'package:rmplanner/features/settings/data/drift_appearance_repository.dart';
 import 'package:rmplanner/features/settings/data/drift_start_of_week_repository.dart';
 import 'package:rmplanner/features/startup/application/startup_providers.dart';
 import 'package:rmplanner/features/startup/application/startup_repository.dart';
@@ -259,6 +263,13 @@ final class TestPrivacyDependencies {
     StartOfWeekRepository? startOfWeekRepository,
     EventTypeRepository? eventTypeRepository,
     ContactRepository? contactRepository,
+    /// Pack B2: the appearance mode this app build starts in.  Defaults to
+    /// DARK so every existing dark-golden/widget test keeps rendering the
+    /// exact pre-B2 dark appearance; light tests pass Light explicitly.
+    AppearanceMode? initialAppearance = AppearanceMode.dark,
+    /// B2-CORRECTION: the independent Theme Color this app build starts in.
+    /// Defaults to Rose (the compatibility/fresh default).
+    ThemeColorMode? initialThemeColor = ThemeColorMode.rose,
   }) {
     final resolvedContactRepository =
         contactRepository ??
@@ -367,6 +378,14 @@ final class TestPrivacyDependencies {
         contactRepositoryProvider.overrideWithValue(resolvedContactRepository),
         taskEventLinkRepositoryProvider.overrideWithValue(linkRepository),
         taskEventLinkCoordinatorProvider.overrideWithValue(linkCoordinator),
+        deviceAppearanceRepositoryProvider.overrideWithValue(
+          DriftAppearanceRepository(
+            database: repository.database,
+            clock: FixedClock(DateTime.utc(2026, 7, 27, 12)),
+          ),
+        ),
+        initialAppearanceProvider.overrideWithValue(initialAppearance),
+        initialThemeColorProvider.overrideWithValue(initialThemeColor),
         plannerDateSourceProvider.overrideWithValue(plannerDateSource),
         if (plannerIdentifierSource != null)
           plannerIdentifierSourceProvider.overrideWithValue(

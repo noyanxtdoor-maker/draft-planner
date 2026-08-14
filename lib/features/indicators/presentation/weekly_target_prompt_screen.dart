@@ -623,7 +623,7 @@ final class _PeriodTabs extends StatelessWidget {
                       height: 3,
                       decoration: BoxDecoration(
                         color: periodType == type
-                            ? AppTheme.rose
+                            ? Theme.of(context).colorScheme.primary
                             : Colors.transparent,
                         borderRadius: BorderRadius.circular(2),
                       ),
@@ -659,9 +659,9 @@ final class _GoalPeriodNavigation extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: Row(
           children: <Widget>[
-            const Icon(
+            Icon(
               Icons.calendar_month_outlined,
-              color: AppTheme.rose,
+              color: Theme.of(context).colorScheme.primary,
               size: 22,
             ),
             const SizedBox(width: 12),
@@ -679,7 +679,9 @@ final class _GoalPeriodNavigation extends StatelessWidget {
               icon: Icon(
                 Icons.chevron_right,
                 size: 28,
-                color: canGoNext ? null : Colors.white24,
+                color: canGoNext
+                    ? null
+                    : AppTheme.onFillTextOf(context, 0.24),
               ),
             ),
           ],
@@ -728,7 +730,7 @@ final class _GoalControls extends StatelessWidget {
                   ),
                   child: Row(
                     children: <Widget>[
-                      Icon(icon, size: 24, color: Colors.white70),
+                      Icon(icon, size: 24, color: AppTheme.onFillTextOf(context, 0.70)),
                       const SizedBox(width: 10),
                       Text(
                         targetSet ? '$target' : '—',
@@ -781,16 +783,22 @@ final class _RoundGoalButton extends StatelessWidget {
     return SizedBox.square(
       dimension: 48,
       child: Material(
-        color: filled ? AppTheme.rose : Colors.transparent,
+        color: filled
+            ? Theme.of(context).colorScheme.primary
+            : Colors.transparent,
         shape: CircleBorder(
           side: BorderSide(
-            color: filled ? Colors.transparent : AppTheme.outline,
+            color: filled
+                ? Colors.transparent
+                : AppTheme.outlineOf(context),
           ),
         ),
         child: IconButton(
           onPressed: onPressed,
           icon: Icon(icon, size: 22),
-          color: filled ? const Color(0xFF400018) : Colors.white70,
+          color: filled
+              ? const Color(0xFF400018)
+              : AppTheme.onFillTextOf(context, 0.70),
           padding: EdgeInsets.zero,
         ),
       ),
@@ -803,10 +811,10 @@ final class _MajorSeparator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const SizedBox(
+    return SizedBox(
       height: 8,
       width: double.infinity,
-      child: ColoredBox(color: Color(0xFF4A4E50)),
+      child: ColoredBox(color: AppTheme.majorSeparatorOf(context)),
     );
   }
 }
@@ -818,18 +826,55 @@ final class _GoalHistoryChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = _GoalHistoryColors(
+      baseline: AppTheme.outlineOf(context),
+      target: AppTheme.trackFillOf(context),
+      line: AppTheme.accentGoldOf(context),
+      pointFill: Theme.of(context).brightness == Brightness.dark
+          ? AppTheme.background
+          : AppTheme.cardOf(context),
+      pointStroke: AppTheme.accentGoldOf(context),
+      valueLabel: AppTheme.accentGoldOf(context),
+      periodLabel: AppTheme.onFillTextOf(context, 0.70),
+    );
     return SizedBox(
       height: 236,
       width: double.infinity,
-      child: CustomPaint(painter: _GoalHistoryPainter(history)),
+      child: CustomPaint(
+        painter: _GoalHistoryPainter(history, colors: colors),
+      ),
     );
   }
 }
 
+/// Brightness-resolved palette for the Goal history chart.  Dark values are
+/// exactly the pre-B2 constants so dark goldens stay byte-identical; light
+/// values keep the chart legible on a light surface.
+final class _GoalHistoryColors {
+  const _GoalHistoryColors({
+    required this.baseline,
+    required this.target,
+    required this.line,
+    required this.pointFill,
+    required this.pointStroke,
+    required this.valueLabel,
+    required this.periodLabel,
+  });
+
+  final Color baseline;
+  final Color target;
+  final Color line;
+  final Color pointFill;
+  final Color pointStroke;
+  final Color valueLabel;
+  final Color periodLabel;
+}
+
 final class _GoalHistoryPainter extends CustomPainter {
-  const _GoalHistoryPainter(this.history);
+  const _GoalHistoryPainter(this.history, {required this.colors});
 
   final List<IndicatorGoalSnapshot> history;
+  final _GoalHistoryColors colors;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -851,17 +896,17 @@ final class _GoalHistoryPainter extends CustomPainter {
         ? 0.0
         : (right - left) / (history.length - 1);
     final baseline = Paint()
-      ..color = AppTheme.outline
+      ..color = colors.baseline
       ..strokeWidth = 1;
     canvas.drawLine(Offset(left, bottom), Offset(right, bottom), baseline);
-    final targetPaint = Paint()..color = const Color(0xFF3D4144);
+    final targetPaint = Paint()..color = colors.target;
     final linePaint = Paint()
-      ..color = const Color(0xFFF1C94F)
+      ..color = colors.line
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3;
-    final pointFill = Paint()..color = AppTheme.background;
+    final pointFill = Paint()..color = colors.pointFill;
     final pointStroke = Paint()
-      ..color = const Color(0xFFF1C94F)
+      ..color = colors.pointStroke
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3;
     final path = Path();
@@ -890,14 +935,14 @@ final class _GoalHistoryPainter extends CustomPainter {
         canvas,
         item.actual.display,
         Offset(x, math.max(top, actualY - 24)),
-        const TextStyle(fontSize: 12, color: Color(0xFFF1C94F)),
+        TextStyle(fontSize: 12, color: colors.valueLabel),
         alignCenter: true,
       );
       _drawText(
         canvas,
         _historyLabel(item.period),
         Offset(x, bottom + 10),
-        const TextStyle(fontSize: 12, color: Colors.white70),
+        TextStyle(fontSize: 12, color: colors.periodLabel),
         alignCenter: true,
       );
     }

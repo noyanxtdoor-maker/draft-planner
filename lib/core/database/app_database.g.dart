@@ -25112,7 +25112,19 @@ class $AppearancePreferencesTable extends AppearancePreferences
     false,
     type: DriftSqlType.string,
     requiredDuringInsert: false,
-    defaultValue: const Constant('system'),
+    defaultValue: const Constant('dark'),
+  );
+  static const VerificationMeta _themeColorMeta = const VerificationMeta(
+    'themeColor',
+  );
+  @override
+  late final GeneratedColumn<String> themeColor = GeneratedColumn<String>(
+    'theme_color',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('blue'),
   );
   static const VerificationMeta _updatedAtUtcMeta = const VerificationMeta(
     'updatedAtUtc',
@@ -25126,7 +25138,12 @@ class $AppearancePreferencesTable extends AppearancePreferences
     requiredDuringInsert: true,
   );
   @override
-  List<GeneratedColumn> get $columns => [key, appearanceMode, updatedAtUtc];
+  List<GeneratedColumn> get $columns => [
+    key,
+    appearanceMode,
+    themeColor,
+    updatedAtUtc,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -25152,6 +25169,12 @@ class $AppearancePreferencesTable extends AppearancePreferences
           data['appearance_mode']!,
           _appearanceModeMeta,
         ),
+      );
+    }
+    if (data.containsKey('theme_color')) {
+      context.handle(
+        _themeColorMeta,
+        themeColor.isAcceptableOrUnknown(data['theme_color']!, _themeColorMeta),
       );
     }
     if (data.containsKey('updated_at_utc')) {
@@ -25182,6 +25205,10 @@ class $AppearancePreferencesTable extends AppearancePreferences
         DriftSqlType.string,
         data['${effectivePrefix}appearance_mode'],
       )!,
+      themeColor: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}theme_color'],
+      )!,
       updatedAtUtc: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}updated_at_utc'],
@@ -25199,10 +25226,12 @@ class AppearancePreference extends DataClass
     implements Insertable<AppearancePreference> {
   final String key;
   final String appearanceMode;
+  final String themeColor;
   final DateTime updatedAtUtc;
   const AppearancePreference({
     required this.key,
     required this.appearanceMode,
+    required this.themeColor,
     required this.updatedAtUtc,
   });
   @override
@@ -25210,6 +25239,7 @@ class AppearancePreference extends DataClass
     final map = <String, Expression>{};
     map['key'] = Variable<String>(key);
     map['appearance_mode'] = Variable<String>(appearanceMode);
+    map['theme_color'] = Variable<String>(themeColor);
     map['updated_at_utc'] = Variable<DateTime>(updatedAtUtc);
     return map;
   }
@@ -25218,6 +25248,7 @@ class AppearancePreference extends DataClass
     return AppearancePreferencesCompanion(
       key: Value(key),
       appearanceMode: Value(appearanceMode),
+      themeColor: Value(themeColor),
       updatedAtUtc: Value(updatedAtUtc),
     );
   }
@@ -25230,6 +25261,7 @@ class AppearancePreference extends DataClass
     return AppearancePreference(
       key: serializer.fromJson<String>(json['key']),
       appearanceMode: serializer.fromJson<String>(json['appearanceMode']),
+      themeColor: serializer.fromJson<String>(json['themeColor']),
       updatedAtUtc: serializer.fromJson<DateTime>(json['updatedAtUtc']),
     );
   }
@@ -25239,6 +25271,7 @@ class AppearancePreference extends DataClass
     return <String, dynamic>{
       'key': serializer.toJson<String>(key),
       'appearanceMode': serializer.toJson<String>(appearanceMode),
+      'themeColor': serializer.toJson<String>(themeColor),
       'updatedAtUtc': serializer.toJson<DateTime>(updatedAtUtc),
     };
   }
@@ -25246,10 +25279,12 @@ class AppearancePreference extends DataClass
   AppearancePreference copyWith({
     String? key,
     String? appearanceMode,
+    String? themeColor,
     DateTime? updatedAtUtc,
   }) => AppearancePreference(
     key: key ?? this.key,
     appearanceMode: appearanceMode ?? this.appearanceMode,
+    themeColor: themeColor ?? this.themeColor,
     updatedAtUtc: updatedAtUtc ?? this.updatedAtUtc,
   );
   AppearancePreference copyWithCompanion(AppearancePreferencesCompanion data) {
@@ -25258,6 +25293,9 @@ class AppearancePreference extends DataClass
       appearanceMode: data.appearanceMode.present
           ? data.appearanceMode.value
           : this.appearanceMode,
+      themeColor: data.themeColor.present
+          ? data.themeColor.value
+          : this.themeColor,
       updatedAtUtc: data.updatedAtUtc.present
           ? data.updatedAtUtc.value
           : this.updatedAtUtc,
@@ -25269,19 +25307,22 @@ class AppearancePreference extends DataClass
     return (StringBuffer('AppearancePreference(')
           ..write('key: $key, ')
           ..write('appearanceMode: $appearanceMode, ')
+          ..write('themeColor: $themeColor, ')
           ..write('updatedAtUtc: $updatedAtUtc')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(key, appearanceMode, updatedAtUtc);
+  int get hashCode =>
+      Object.hash(key, appearanceMode, themeColor, updatedAtUtc);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is AppearancePreference &&
           other.key == this.key &&
           other.appearanceMode == this.appearanceMode &&
+          other.themeColor == this.themeColor &&
           other.updatedAtUtc == this.updatedAtUtc);
 }
 
@@ -25289,29 +25330,34 @@ class AppearancePreferencesCompanion
     extends UpdateCompanion<AppearancePreference> {
   final Value<String> key;
   final Value<String> appearanceMode;
+  final Value<String> themeColor;
   final Value<DateTime> updatedAtUtc;
   final Value<int> rowid;
   const AppearancePreferencesCompanion({
     this.key = const Value.absent(),
     this.appearanceMode = const Value.absent(),
+    this.themeColor = const Value.absent(),
     this.updatedAtUtc = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   AppearancePreferencesCompanion.insert({
     this.key = const Value.absent(),
     this.appearanceMode = const Value.absent(),
+    this.themeColor = const Value.absent(),
     required DateTime updatedAtUtc,
     this.rowid = const Value.absent(),
   }) : updatedAtUtc = Value(updatedAtUtc);
   static Insertable<AppearancePreference> custom({
     Expression<String>? key,
     Expression<String>? appearanceMode,
+    Expression<String>? themeColor,
     Expression<DateTime>? updatedAtUtc,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
       if (key != null) 'key': key,
       if (appearanceMode != null) 'appearance_mode': appearanceMode,
+      if (themeColor != null) 'theme_color': themeColor,
       if (updatedAtUtc != null) 'updated_at_utc': updatedAtUtc,
       if (rowid != null) 'rowid': rowid,
     });
@@ -25320,12 +25366,14 @@ class AppearancePreferencesCompanion
   AppearancePreferencesCompanion copyWith({
     Value<String>? key,
     Value<String>? appearanceMode,
+    Value<String>? themeColor,
     Value<DateTime>? updatedAtUtc,
     Value<int>? rowid,
   }) {
     return AppearancePreferencesCompanion(
       key: key ?? this.key,
       appearanceMode: appearanceMode ?? this.appearanceMode,
+      themeColor: themeColor ?? this.themeColor,
       updatedAtUtc: updatedAtUtc ?? this.updatedAtUtc,
       rowid: rowid ?? this.rowid,
     );
@@ -25339,6 +25387,9 @@ class AppearancePreferencesCompanion
     }
     if (appearanceMode.present) {
       map['appearance_mode'] = Variable<String>(appearanceMode.value);
+    }
+    if (themeColor.present) {
+      map['theme_color'] = Variable<String>(themeColor.value);
     }
     if (updatedAtUtc.present) {
       map['updated_at_utc'] = Variable<DateTime>(updatedAtUtc.value);
@@ -25354,6 +25405,7 @@ class AppearancePreferencesCompanion
     return (StringBuffer('AppearancePreferencesCompanion(')
           ..write('key: $key, ')
           ..write('appearanceMode: $appearanceMode, ')
+          ..write('themeColor: $themeColor, ')
           ..write('updatedAtUtc: $updatedAtUtc, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -47305,6 +47357,7 @@ typedef $$AppearancePreferencesTableCreateCompanionBuilder =
     AppearancePreferencesCompanion Function({
       Value<String> key,
       Value<String> appearanceMode,
+      Value<String> themeColor,
       required DateTime updatedAtUtc,
       Value<int> rowid,
     });
@@ -47312,6 +47365,7 @@ typedef $$AppearancePreferencesTableUpdateCompanionBuilder =
     AppearancePreferencesCompanion Function({
       Value<String> key,
       Value<String> appearanceMode,
+      Value<String> themeColor,
       Value<DateTime> updatedAtUtc,
       Value<int> rowid,
     });
@@ -47332,6 +47386,11 @@ class $$AppearancePreferencesTableFilterComposer
 
   ColumnFilters<String> get appearanceMode => $composableBuilder(
     column: $table.appearanceMode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get themeColor => $composableBuilder(
+    column: $table.themeColor,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -47360,6 +47419,11 @@ class $$AppearancePreferencesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get themeColor => $composableBuilder(
+    column: $table.themeColor,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get updatedAtUtc => $composableBuilder(
     column: $table.updatedAtUtc,
     builder: (column) => ColumnOrderings(column),
@@ -47380,6 +47444,11 @@ class $$AppearancePreferencesTableAnnotationComposer
 
   GeneratedColumn<String> get appearanceMode => $composableBuilder(
     column: $table.appearanceMode,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get themeColor => $composableBuilder(
+    column: $table.themeColor,
     builder: (column) => column,
   );
 
@@ -47437,11 +47506,13 @@ class $$AppearancePreferencesTableTableManager
               ({
                 Value<String> key = const Value.absent(),
                 Value<String> appearanceMode = const Value.absent(),
+                Value<String> themeColor = const Value.absent(),
                 Value<DateTime> updatedAtUtc = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => AppearancePreferencesCompanion(
                 key: key,
                 appearanceMode: appearanceMode,
+                themeColor: themeColor,
                 updatedAtUtc: updatedAtUtc,
                 rowid: rowid,
               ),
@@ -47449,11 +47520,13 @@ class $$AppearancePreferencesTableTableManager
               ({
                 Value<String> key = const Value.absent(),
                 Value<String> appearanceMode = const Value.absent(),
+                Value<String> themeColor = const Value.absent(),
                 required DateTime updatedAtUtc,
                 Value<int> rowid = const Value.absent(),
               }) => AppearancePreferencesCompanion.insert(
                 key: key,
                 appearanceMode: appearanceMode,
+                themeColor: themeColor,
                 updatedAtUtc: updatedAtUtc,
                 rowid: rowid,
               ),

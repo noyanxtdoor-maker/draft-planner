@@ -105,8 +105,8 @@ final class _ContactsScreenState extends ConsumerState<ContactsScreen> {
         heroTag: 'contacts-fab',
         tooltip: 'Add Contact',
         onPressed: () => context.push(RoutePaths.contactCreate),
-        backgroundColor: AppTheme.rose,
-        foregroundColor: AppTheme.background,
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        foregroundColor: Theme.of(context).colorScheme.onPrimary,
         child: const Icon(Icons.add, size: 28),
       ),
     );
@@ -147,7 +147,10 @@ final class _ContactsScreenState extends ConsumerState<ContactsScreen> {
                 leading: const Icon(Icons.sort_by_alpha),
                 title: const Text('Name (A–Z)'),
                 trailing: current == ContactSortBy.name
-                    ? const Icon(Icons.check, color: AppTheme.rose)
+                    ? Icon(
+                        Icons.check,
+                        color: Theme.of(sheetContext).colorScheme.primary,
+                      )
                     : null,
                 onTap: () {
                   Navigator.of(sheetContext).pop();
@@ -159,7 +162,10 @@ final class _ContactsScreenState extends ConsumerState<ContactsScreen> {
                 leading: const Icon(Icons.schedule),
                 title: const Text('Recently added'),
                 trailing: current == ContactSortBy.recentlyAdded
-                    ? const Icon(Icons.check, color: AppTheme.rose)
+                    ? Icon(
+                        Icons.check,
+                        color: Theme.of(sheetContext).colorScheme.primary,
+                      )
                     : null,
                 onTap: () {
                   Navigator.of(sheetContext).pop();
@@ -371,17 +377,17 @@ final class _CurrentFilterRow extends StatelessWidget {
           children: <Widget>[
             Text(
               appliedFilter?.name ?? 'All Contacts',
-              style: const TextStyle(
-                color: Color(0xFF9CA0A6),
+              style: TextStyle(
+                color: AppTheme.secondaryTextOf(context),
                 fontSize: 15,
                 fontWeight: FontWeight.w400,
               ),
             ),
             const SizedBox(width: 4),
-            const Icon(
+            Icon(
               Icons.arrow_drop_down,
               size: 20,
-              color: Color(0xFF9CA0A6),
+              color: AppTheme.secondaryTextOf(context),
             ),
           ],
         ),
@@ -502,10 +508,12 @@ final class _ActiveFilterChips extends StatelessWidget {
             visualDensity: VisualDensity.compact,
             deleteIcon: const Icon(Icons.close, size: 16),
             onDeleted: () => onRemove(entry.$1),
-            side: const BorderSide(color: Color(0xFF2A2D31)),
-            backgroundColor: const Color(0xFF181A1E),
-            labelStyle: const TextStyle(color: Colors.white),
-            deleteIconColor: const Color(0xFF9CA0A6),
+            side: BorderSide(color: AppTheme.surfaceVariantOf(context)),
+            backgroundColor: AppTheme.surfaceOf(context),
+            labelStyle: TextStyle(
+              color: AppTheme.onFillTextOf(context, 1.0),
+            ),
+            deleteIconColor: AppTheme.secondaryTextOf(context),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
             ),
@@ -536,10 +544,10 @@ final class _EmptyState extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
-                  const Icon(
+                  Icon(
                     Icons.people_outline,
                     size: 56,
-                    color: Color(0xFF454850),
+                    color: AppTheme.outlineOf(context),
                   ),
                   const SizedBox(height: 16),
                   Text(
@@ -555,8 +563,8 @@ final class _EmptyState extends StatelessWidget {
                         ? 'Keep people you want to remember, follow up with, or plan time with.'
                         : 'Try another name, phone, email, group, or tag.',
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: Color(0xFF9CA0A6),
+                    style: TextStyle(
+                      color: AppTheme.secondaryTextOf(context),
                       fontSize: 14,
                     ),
                   ),
@@ -599,12 +607,16 @@ final class _FailureState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            const Icon(Icons.error_outline, size: 48, color: Color(0xFF9CA0A6)),
+            Icon(
+              Icons.error_outline,
+              size: 48,
+              color: AppTheme.secondaryTextOf(context),
+            ),
             const SizedBox(height: 12),
             Text(
               message ?? 'Contacts could not be opened.',
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Color(0xFF9CA0A6)),
+              style: TextStyle(color: AppTheme.secondaryTextOf(context)),
             ),
             const SizedBox(height: 16),
             FilledButton(onPressed: onRetry, child: const Text('Retry')),

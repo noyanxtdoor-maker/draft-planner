@@ -352,7 +352,7 @@ final class _InlineColorAction extends StatelessWidget {
             // Default padded tap target keeps a real 48 dp hit area; the
             // transparent button surface keeps the visible footprint small.
             visualDensity: VisualDensity.compact,
-            foregroundColor: AppTheme.rose,
+            foregroundColor: Theme.of(context).colorScheme.primary,
           ),
         ),
       ),

@@ -262,23 +262,25 @@ final class _EventTypePickerSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final onSurface = AppTheme.onFillTextOf(context, 1.0);
     return Material(
       key: const Key('event-type-picker'),
-      color: AppTheme.surface,
+      color: AppTheme.surfaceOf(context),
       elevation: 0,
       borderRadius: BorderRadius.circular(12),
       clipBehavior: Clip.antiAlias,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          const Padding(
-            padding: EdgeInsets.fromLTRB(20, 28, 20, 0),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 28, 20, 0),
             child: SizedBox(
               height: 28,
               child: Text(
                 'Select Event Type',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: onSurface,
                   fontSize: 20,
                   height: 1.4,
                   fontWeight: FontWeight.w500,
@@ -291,9 +293,12 @@ final class _EventTypePickerSheet extends StatelessWidget {
             child: SingleChildScrollView(
               key: const Key('event-type-picker-scroll'),
               child: eventTypes.isEmpty
-                  ? const Padding(
-                      padding: EdgeInsets.fromLTRB(20, 0, 20, 12),
-                      child: Text('No active Event Types are available.'),
+                  ? Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                      child: Text(
+                        'No active Event Types are available.',
+                        style: TextStyle(color: onSurface),
+                      ),
                     )
                   : Column(
                       key: const Key('event-type-picker-list'),
@@ -315,12 +320,12 @@ final class _EventTypePickerSheet extends StatelessWidget {
                 style: TextButton.styleFrom(
                   minimumSize: const Size(48, 48),
                   padding: EdgeInsets.zero,
-                  foregroundColor: AppTheme.rose,
+                  foregroundColor: colorScheme.primary,
                 ),
-                child: const Text(
+                child: Text(
                   'Cancel',
                   style: TextStyle(
-                    color: AppTheme.rose,
+                    color: colorScheme.primary,
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
                   ),
@@ -365,7 +370,7 @@ final class _EventTypePickerSheet extends StatelessWidget {
                   child: Text(
                     type.label,
                     style: TextStyle(
-                      color: Colors.white,
+                      color: AppTheme.onFillTextOf(context, 1.0),
                       fontSize: 17,
                       height: 24 / 17,
                       fontWeight: recommended
@@ -396,25 +401,25 @@ final class _EventTypePickerSheet extends StatelessWidget {
         key: const Key('event-type-option-task'),
         overlayColor: const WidgetStatePropertyAll(Colors.transparent),
         onTap: () => Navigator.of(context).pop(const EventTypePickerTask()),
-        child: const SizedBox(
+        child: SizedBox(
           height: 44,
           child: Padding(
-            padding: EdgeInsets.only(left: 26),
+            padding: const EdgeInsets.only(left: 26),
             child: Row(
               children: <Widget>[
-                DecoratedBox(
+                const DecoratedBox(
                   decoration: BoxDecoration(
                     color: Color(0xFFF2E9E0),
                     shape: BoxShape.circle,
                   ),
                   child: SizedBox(width: 22, height: 22),
                 ),
-                SizedBox(width: 10),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     'Task',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: AppTheme.onFillTextOf(context, 1.0),
                       fontSize: 17,
                       height: 24 / 17,
                     ),

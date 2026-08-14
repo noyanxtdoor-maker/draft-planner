@@ -126,7 +126,7 @@ final class _SavedFiltersScreenState extends ConsumerState<SavedFiltersScreen> {
               onPressed: _createFilter,
               style: TextButton.styleFrom(
                 minimumSize: const Size(0, 48),
-                foregroundColor: AppTheme.rose,
+                foregroundColor: Theme.of(context).colorScheme.primary,
               ),
               icon: const Icon(Icons.add, size: 22),
               label: const Text('New Filter'),
@@ -263,7 +263,7 @@ final class _FilterRow extends StatelessWidget {
                     ? Icons.star_outline
                     : Icons.filter_alt_outlined,
                 size: 22,
-                color: const Color(0xFF9CA0A6),
+                color: AppTheme.secondaryTextOf(context),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -276,7 +276,11 @@ final class _FilterRow extends StatelessWidget {
                 ),
               ),
               if (selected)
-                const Icon(Icons.check, size: 22, color: AppTheme.rose),
+                Icon(
+                  Icons.check,
+                  size: 22,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
               if (onDelete != null) ...<Widget>[
                 const SizedBox(width: 4),
                 IconButton(

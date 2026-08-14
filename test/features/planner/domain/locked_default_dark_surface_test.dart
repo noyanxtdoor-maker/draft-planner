@@ -251,11 +251,12 @@ void main() {
     );
   });
 
-  test('schema user_version stays 25', () async {
-    // Pack B1 added the AppearancePreferences table (v24 -> v25).
+  test('schema user_version stays 26', () async {
+    // Pack B1 added the AppearancePreferences table (v24 -> v25);
+    // B2-CORRECTION added the themeColor column (v25 -> v26).
     final version = await database.customSelect(
       'PRAGMA user_version',
     ).getSingle();
-    expect(version.read<int>('user_version'), 25);
+    expect(version.read<int>('user_version'), 26);
   });
 }

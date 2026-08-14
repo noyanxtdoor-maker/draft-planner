@@ -1,81 +1,217 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rmplanner/app/theme/app_theme.dart';
+import 'package:rmplanner/app/theme/theme_color_mode.dart';
 
 void main() {
-  test('canonical highlight pink is shared by the dark color scheme', () {
-    const expectedRose = Color(0xFFF9B7C7);
-    final scheme = AppTheme.dark().colorScheme;
+  group('Rose Dark compatibility baseline (unchanged)', () {
+    test('canonical highlight pink is shared by the dark color scheme', () {
+      const expectedRose = Color(0xFFF9B7C7);
+      final scheme = AppTheme.dark(ThemeColorMode.rose).colorScheme;
 
-    expect(AppTheme.rose, expectedRose);
-    expect(scheme.primary, expectedRose);
-    expect(scheme.onPrimary, const Color(0xFF340012));
+      expect(AppTheme.rose, expectedRose);
+      expect(scheme.primary, expectedRose);
+      expect(scheme.onPrimary, const Color(0xFF340012));
+    });
+
+    test('Q4: primary and surface text meet WCAG AA contrast', () {
+      final scheme = AppTheme.dark(ThemeColorMode.rose).colorScheme;
+
+      expect(
+        _contrast(scheme.primary, scheme.onPrimary),
+        greaterThanOrEqualTo(4.5),
+      );
+      expect(
+        _contrast(scheme.surface, scheme.onSurface),
+        greaterThanOrEqualTo(4.5),
+      );
+    });
+
+    test('AppTheme.dark() critical token values are identical to baseline', () {
+      final scheme = AppTheme.dark(ThemeColorMode.rose).colorScheme;
+
+      expect(scheme.primary, const Color(0xFFF9B7C7));
+      expect(scheme.onPrimary, const Color(0xFF340012));
+      expect(scheme.surface, const Color(0xFF181A1E));
+      expect(scheme.onSurface, const Color(0xFFF4F1F2));
+      expect(scheme.outline, const Color(0xFF454850));
+      expect(AppTheme.background, const Color(0xFF0D0E10));
+      expect(
+        AppTheme.dark(ThemeColorMode.rose).scaffoldBackgroundColor,
+        const Color(0xFF0D0E10),
+      );
+    });
   });
 
-  test('Q4: primary and surface text meet WCAG AA contrast', () {
-    final scheme = AppTheme.dark().colorScheme;
+  group('B2-CORRECTION locked Rose Light palette', () {
+    test('exact neutral surface values', () {
+      final scheme = AppTheme.light(ThemeColorMode.rose).colorScheme;
 
-    expect(
-      _contrast(scheme.primary, scheme.onPrimary),
-      greaterThanOrEqualTo(4.5),
-    );
-    expect(
-      _contrast(scheme.surface, scheme.onSurface),
-      greaterThanOrEqualTo(4.5),
-    );
+      expect(scheme.brightness, Brightness.light);
+      expect(scheme.surface, const Color(0xFFFAF8F5));
+      expect(scheme.onSurface, const Color(0xFF1A1C1F));
+      expect(scheme.secondary, const Color(0xFF5F6368));
+      expect(scheme.outlineVariant, const Color(0xFFD9D7D3));
+      expect(
+        AppTheme.light(ThemeColorMode.rose).scaffoldBackgroundColor,
+        const Color(0xFFF1EFEA),
+      );
+    });
+
+    test('exact semantic values', () {
+      final scheme = AppTheme.light(ThemeColorMode.rose).colorScheme;
+
+      expect(scheme.primary, const Color(0xFFA62C49));
+      expect(scheme.onPrimary, const Color(0xFFFFFFFF));
+      expect(scheme.primaryContainer, const Color(0xFFF9B7C7));
+      expect(scheme.onPrimaryContainer, const Color(0xFF6E1E33));
+    });
+
+    test('Rose Light contrast contract', () {
+      final scheme = AppTheme.light(ThemeColorMode.rose).colorScheme;
+      final card = scheme.surface;
+      final canvas = AppTheme.light(ThemeColorMode.rose).scaffoldBackgroundColor;
+
+      // primary/on card >= 4.5
+      expect(_contrast(scheme.primary, card), greaterThanOrEqualTo(4.5));
+      // primary/on canvas >= 4.5
+      expect(_contrast(scheme.primary, canvas), greaterThanOrEqualTo(4.5));
+      // onSurface >= 7
+      expect(_contrast(scheme.onSurface, card), greaterThanOrEqualTo(7.0));
+      // secondary >= 4.5
+      expect(_contrast(scheme.secondary, card), greaterThanOrEqualTo(4.5));
+      // onPrimary >= 4.5
+      expect(_contrast(scheme.onPrimary, scheme.primary), greaterThanOrEqualTo(4.5));
+      // selected-nav indicator/icon: onPrimary against primary fill >= 4.5
+      expect(
+        _contrast(scheme.onPrimary, scheme.primary),
+        greaterThanOrEqualTo(4.5),
+      );
+      // card outline stays subtle (below text-level 3:1)
+      expect(
+        _contrast(scheme.outlineVariant, card),
+        lessThan(3.0),
+      );
+    });
   });
 
-  // ------------------------------------------------------------------ B1
+  group('B2-CORRECTION locked Blue Light palette', () {
+    test('exact neutral surface values (subtly cool)', () {
+      final scheme = AppTheme.light(ThemeColorMode.blue).colorScheme;
 
-  test('B1: AppTheme.light() exists and keeps the rose brand', () {
-    final scheme = AppTheme.light().colorScheme;
+      expect(scheme.brightness, Brightness.light);
+      expect(scheme.surface, const Color(0xFFF8F9FB));
+      expect(scheme.onSurface, const Color(0xFF1A1C1F));
+      expect(scheme.secondary, const Color(0xFF5F6368));
+      expect(scheme.outlineVariant, const Color(0xFFD4D9DF));
+      expect(
+        AppTheme.light(ThemeColorMode.blue).scaffoldBackgroundColor,
+        const Color(0xFFEEF0F2),
+      );
+    });
 
-    expect(scheme.brightness, Brightness.light);
-    expect(scheme.primary, AppTheme.rose);
-    expect(scheme.onPrimary, const Color(0xFF340012));
-    expect(AppTheme.rose, const Color(0xFFF9B7C7));
+    test('exact semantic values', () {
+      final scheme = AppTheme.light(ThemeColorMode.blue).colorScheme;
+
+      expect(scheme.primary, const Color(0xFF175A8F));
+      expect(scheme.onPrimary, const Color(0xFFFFFFFF));
+      expect(scheme.primaryContainer, const Color(0xFFD3E3F4));
+      expect(scheme.onPrimaryContainer, const Color(0xFF123A5C));
+    });
+
+    test('Blue Light contrast contract', () {
+      final scheme = AppTheme.light(ThemeColorMode.blue).colorScheme;
+      final card = scheme.surface;
+      final canvas = AppTheme.light(ThemeColorMode.blue).scaffoldBackgroundColor;
+
+      expect(_contrast(scheme.primary, card), greaterThanOrEqualTo(4.5));
+      expect(_contrast(scheme.primary, canvas), greaterThanOrEqualTo(4.5));
+      expect(_contrast(scheme.onSurface, card), greaterThanOrEqualTo(7.0));
+      expect(_contrast(scheme.secondary, card), greaterThanOrEqualTo(4.5));
+      expect(_contrast(scheme.onPrimary, scheme.primary), greaterThanOrEqualTo(4.5));
+      expect(
+        _contrast(scheme.onPrimary, scheme.primary),
+        greaterThanOrEqualTo(4.5),
+      );
+      expect(_contrast(scheme.outlineVariant, card), lessThan(3.0));
+    });
   });
 
-  test('B1: light critical contrast pairs meet locked thresholds', () {
-    final scheme = AppTheme.light().colorScheme;
+  group('B2-CORRECTION Blue Dark palette', () {
+    test('Blue Dark swaps semantic accents only; dark neutrals unchanged', () {
+      final blue = AppTheme.dark(ThemeColorMode.blue).colorScheme;
+      final rose = AppTheme.dark(ThemeColorMode.rose).colorScheme;
 
-    // Body text on the primary light surface (>= 4.5:1, AA).
-    expect(
-      _contrast(scheme.surface, scheme.onSurface),
-      greaterThanOrEqualTo(4.5),
-    );
-    // Primary (rose) buttons/labels with dark maroon on-color (>= 4.5:1).
-    expect(
-      _contrast(scheme.primary, scheme.onPrimary),
-      greaterThanOrEqualTo(4.5),
-    );
-    // Secondary text on the light surface (>= 4.5:1, AA).
-    expect(
-      _contrast(scheme.secondary, scheme.surface),
-      greaterThanOrEqualTo(4.5),
-    );
-    // Warning role on the light surface (>= 4.5:1 for text roles).
-    expect(
-      _contrast(AppTheme.lightWarning, scheme.surface),
-      greaterThanOrEqualTo(4.5),
-    );
-    // Outline / border role reaches the 3:1 UI-component boundary.
-    expect(
-      _contrast(scheme.outline, scheme.surface),
-      greaterThanOrEqualTo(3.0),
-    );
+      expect(blue.primary, const Color(0xFF9FC8F0));
+      expect(blue.onPrimary, const Color(0xFF0E3A5E));
+      expect(blue.primaryContainer, const Color(0xFF123A5C));
+      expect(blue.onPrimaryContainer, const Color(0xFFD3E3F4));
+
+      // Dark neutrals identical to Rose Dark baseline.
+      expect(blue.surface, rose.surface);
+      expect(blue.onSurface, rose.onSurface);
+      expect(blue.outline, rose.outline);
+      expect(blue.brightness, Brightness.dark);
+      expect(
+        AppTheme.dark(ThemeColorMode.blue).scaffoldBackgroundColor,
+        AppTheme.dark(ThemeColorMode.rose).scaffoldBackgroundColor,
+      );
+    });
+
+    test('Blue Dark critical contrast pairs', () {
+      final scheme = AppTheme.dark(ThemeColorMode.blue).colorScheme;
+
+      expect(
+        _contrast(scheme.primary, scheme.surface),
+        greaterThanOrEqualTo(4.5),
+      );
+      expect(
+        _contrast(scheme.primary, scheme.onPrimary),
+        greaterThanOrEqualTo(4.5),
+      );
+      expect(
+        _contrast(scheme.surface, scheme.onSurface),
+        greaterThanOrEqualTo(4.5),
+      );
+    });
   });
 
-  test('B1: AppTheme.dark() critical token values are identical to baseline', () {
-    final scheme = AppTheme.dark().colorScheme;
+  group('B2-CORRECTION default + accessor contract', () {
+    test('default theme color is Rose for backward compatibility', () {
+      expect(
+        AppTheme.light().colorScheme.primary,
+        AppTheme.light(ThemeColorMode.rose).colorScheme.primary,
+      );
+      expect(
+        AppTheme.dark().colorScheme.primary,
+        AppTheme.dark(ThemeColorMode.rose).colorScheme.primary,
+      );
+    });
 
-    expect(scheme.primary, const Color(0xFFF9B7C7));
-    expect(scheme.onPrimary, const Color(0xFF340012));
-    expect(scheme.surface, const Color(0xFF181A1E));
-    expect(scheme.onSurface, const Color(0xFFF4F1F2));
-    expect(scheme.outline, const Color(0xFF454850));
-    expect(AppTheme.background, const Color(0xFF0D0E10));
-    expect(AppTheme.dark().scaffoldBackgroundColor, const Color(0xFF0D0E10));
+    testWidgets('Rose Dark accessors remain the pre-correction dark values', (
+      tester,
+    ) async {
+      late BuildContext probeContext;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark(ThemeColorMode.rose),
+          home: Builder(
+            builder: (context) {
+              probeContext = context;
+              return const SizedBox();
+            },
+          ),
+        ),
+      );
+      expect(AppTheme.cardOf(probeContext), const Color(0xFF2A2A2B));
+      expect(AppTheme.raisedOf(probeContext), const Color(0xFF343638));
+      expect(AppTheme.navBarOf(probeContext), const Color(0xFF101113));
+      expect(AppTheme.surfaceOf(probeContext), const Color(0xFF181A1E));
+      expect(
+        AppTheme.secondaryTextOf(probeContext),
+        const Color(0xFF9CA0A6),
+      );
+    });
   });
 }
 

@@ -85,8 +85,8 @@ final class _ContactMultiSelectScreenState
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(22),
               ),
-              backgroundColor: AppTheme.rose,
-              foregroundColor: AppTheme.background,
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              foregroundColor: Theme.of(context).colorScheme.onPrimary,
             ),
             child: Text('Done (${_selected.length})'),
           ),
@@ -105,16 +105,20 @@ final class _ContactMultiSelectScreenState
                 hintText: 'Search contacts',
                 prefixIcon: const Icon(Icons.search, size: 22),
                 filled: true,
-                fillColor: const Color(0xFF181A1E),
+                fillColor: AppTheme.surfaceOf(context),
                 isDense: true,
                 contentPadding: const EdgeInsets.symmetric(vertical: 12),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(26),
-                  borderSide: const BorderSide(color: Color(0xFF2A2D31)),
+                  borderSide: BorderSide(
+                    color: AppTheme.surfaceVariantOf(context),
+                  ),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(26),
-                  borderSide: const BorderSide(color: Color(0xFF2A2D31)),
+                  borderSide: BorderSide(
+                    color: AppTheme.surfaceVariantOf(context),
+                  ),
                 ),
               ),
             ),
@@ -125,8 +129,8 @@ final class _ContactMultiSelectScreenState
               children: <Widget>[
                 Text(
                   '${_selected.length} / ${all.length} selected',
-                  style: const TextStyle(
-                    color: Color(0xFF9CA0A6),
+                  style: TextStyle(
+                    color: AppTheme.secondaryTextOf(context),
                     fontSize: 13,
                   ),
                 ),
@@ -154,10 +158,12 @@ final class _ContactMultiSelectScreenState
           const Divider(height: 1, thickness: 1),
           Expanded(
             child: visible.isEmpty
-                ? const Center(
+                ? Center(
                     child: Text(
                       'No contacts match.',
-                      style: TextStyle(color: Color(0xFF9CA0A6)),
+                      style: TextStyle(
+                        color: AppTheme.secondaryTextOf(context),
+                      ),
                     ),
                   )
                 : ListView.builder(
@@ -176,7 +182,7 @@ final class _ContactMultiSelectScreenState
                             _selected.remove(summary.contact.id);
                           }
                         }),
-                        activeColor: AppTheme.rose,
+                        activeColor: Theme.of(context).colorScheme.primary,
                         controlAffinity: ListTileControlAffinity.leading,
                         title: Row(
                           children: <Widget>[
@@ -218,10 +224,14 @@ final class _ContactMultiSelectScreenState
                   onPressed: _selected.isEmpty ? null : _sendMessage,
                   style: FilledButton.styleFrom(
                     minimumSize: const Size.fromHeight(50),
-                    backgroundColor: AppTheme.rose,
-                    foregroundColor: AppTheme.background,
-                    disabledBackgroundColor: const Color(0xFF2A2D31),
-                    disabledForegroundColor: const Color(0xFF6B6F76),
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                    disabledBackgroundColor: AppTheme.surfaceVariantOf(
+                      context,
+                    ),
+                    disabledForegroundColor: AppTheme.disabledForegroundOf(
+                      context,
+                    ),
                   ),
                   icon: const Icon(Icons.chat_outlined, size: 20),
                   label: Text(

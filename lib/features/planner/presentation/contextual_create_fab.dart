@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:rmplanner/app/theme/app_theme.dart';
 
 enum CreateActionDestination { home, planner, pathways, contacts, more }
 
@@ -274,15 +273,17 @@ final class _ContextualCreateOverlayState
                   ),
                 ),
                 child: Material(
-                  color: AppTheme.rose,
+                  color: Theme.of(context).colorScheme.primary,
                   shape: const CircleBorder(),
                   child: InkWell(
                     key: const Key('contextual-create-close'),
                     customBorder: const CircleBorder(),
                     onTap: dismiss,
-                    child: const Icon(
+                    child: Icon(
                       Icons.close,
-                      color: Colors.black,
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.black
+                          : Theme.of(context).colorScheme.onPrimary,
                       size: 26,
                     ),
                   ),
@@ -322,7 +323,7 @@ final class _AnimatedActionPill extends StatelessWidget {
         );
       },
       child: Material(
-        color: AppTheme.rose,
+        color: Theme.of(context).colorScheme.primary,
         elevation: 0,
         borderRadius: BorderRadius.circular(28),
         child: InkWell(

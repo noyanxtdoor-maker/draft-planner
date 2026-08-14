@@ -77,7 +77,11 @@ final class PlannerEventBlockContentView extends StatelessWidget {
     final surface =
         surfaceColor ?? PlannerEventBlockColorPolicy.surfaceColor(base);
     final textColor =
-        textColorOverride ?? PlannerEventBlockColorPolicy.textColor(surface);
+        textColorOverride ??
+        PlannerEventBlockColorPolicy.textColor(
+          surface,
+          Theme.of(context).brightness,
+        );
     final titleStyle = TextStyle(
       color: textColor,
       fontWeight: FontWeight.w500,

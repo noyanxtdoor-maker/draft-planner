@@ -648,7 +648,7 @@ final class _EditTarget extends StatelessWidget {
           tooltip: 'Increase $label',
           onPressed: () => onChanged((value ?? 0) + 1),
           icon: const Icon(Icons.add_circle),
-          color: AppTheme.rose,
+          color: Theme.of(context).colorScheme.primary,
         ),
       ],
     );

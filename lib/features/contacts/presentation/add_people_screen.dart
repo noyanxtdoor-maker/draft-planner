@@ -62,8 +62,8 @@ final class _AddPeopleScreenState extends ConsumerState<AddPeopleScreen> {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(22),
               ),
-              backgroundColor: AppTheme.rose,
-              foregroundColor: AppTheme.background,
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              foregroundColor: Theme.of(context).colorScheme.onPrimary,
             ),
             child: Text(_selected.isEmpty ? 'Done' : 'Add ${_selected.length}'),
           ),
@@ -124,16 +124,20 @@ final class _AddPeopleScreenState extends ConsumerState<AddPeopleScreen> {
               hintText: 'Search contacts',
               prefixIcon: const Icon(Icons.search, size: 22),
               filled: true,
-              fillColor: const Color(0xFF181A1E),
+              fillColor: AppTheme.surfaceOf(context),
               isDense: true,
               contentPadding: const EdgeInsets.symmetric(vertical: 12),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(26),
-                borderSide: const BorderSide(color: Color(0xFF2A2D31)),
+                borderSide: BorderSide(
+                  color: AppTheme.surfaceVariantOf(context),
+                ),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(26),
-                borderSide: const BorderSide(color: Color(0xFF2A2D31)),
+                borderSide: BorderSide(
+                  color: AppTheme.surfaceVariantOf(context),
+                ),
               ),
             ),
           ),
@@ -148,7 +152,7 @@ final class _AddPeopleScreenState extends ConsumerState<AddPeopleScreen> {
                 minimumSize: const Size(0, 48),
                 padding: EdgeInsets.zero,
                 alignment: Alignment.centerLeft,
-                foregroundColor: AppTheme.rose,
+                foregroundColor: Theme.of(context).colorScheme.primary,
                 textStyle: AppTypography.button,
               ),
               icon: const Icon(Icons.person_add_alt, size: 22),
@@ -191,7 +195,7 @@ final class _AddPeopleScreenState extends ConsumerState<AddPeopleScreen> {
                       summary: summary,
                       leading: Icon(
                         Icons.check_circle,
-                        color: AppTheme.rose,
+                        color: Theme.of(context).colorScheme.primary,
                         size: 22,
                       ),
                       trailing: IconButton(
@@ -239,7 +243,7 @@ final class _AddPeopleScreenState extends ConsumerState<AddPeopleScreen> {
                                         .first
                                         .colorValue,
                                   )
-                                : const Color(0xFF9CA0A6),
+                                : AppTheme.secondaryTextOf(context),
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -267,30 +271,30 @@ final class _AddPeopleScreenState extends ConsumerState<AddPeopleScreen> {
                       tooltip: 'Add',
                       onPressed: () =>
                           setState(() => _selected.add(summary.contact.id)),
-                      icon: const Icon(
+                      icon: Icon(
                         Icons.add_circle_outline,
-                        color: AppTheme.rose,
+                        color: Theme.of(context).colorScheme.primary,
                         size: 24,
                       ),
                     ),
                   ),
               ],
               if (others.isEmpty && selectedRows.isNotEmpty)
-                const Padding(
-                  padding: EdgeInsets.all(24),
+                Padding(
+                  padding: const EdgeInsets.all(24),
                   child: Text(
                     'No more contacts to add.',
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: Color(0xFF9CA0A6)),
+                    style: TextStyle(color: AppTheme.secondaryTextOf(context)),
                   ),
                 ),
               if (visible.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.all(32),
+                Padding(
+                  padding: const EdgeInsets.all(32),
                   child: Text(
                     'No contacts yet. Add one to start planning with people.',
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: Color(0xFF9CA0A6)),
+                    style: TextStyle(color: AppTheme.secondaryTextOf(context)),
                   ),
                 ),
             ],

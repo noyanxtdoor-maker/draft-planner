@@ -1,14 +1,15 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:rmplanner/app/theme/theme_color_mode.dart';
 import 'package:rmplanner/features/settings/application/appearance_providers.dart';
 import 'package:rmplanner/features/settings/application/appearance_repository.dart';
 
 void main() {
   group('B1 appearance provider', () {
-    test('build default is SYSTEM', () {
+    test('build default is DARK (B2-FINAL-POLISH owner lock)', () {
       final container = ProviderContainer();
       addTearDown(container.dispose);
-      expect(container.read(appearanceProvider), AppearanceMode.system);
+      expect(container.read(appearanceProvider), AppearanceMode.dark);
     });
 
     test('refresh() initializes state from the repository', () async {
@@ -20,7 +21,7 @@ void main() {
       );
       addTearDown(container.dispose);
 
-      expect(container.read(appearanceProvider), AppearanceMode.system);
+      expect(container.read(appearanceProvider), AppearanceMode.dark);
       await container.read(appearanceProvider.notifier).refresh();
       expect(container.read(appearanceProvider), AppearanceMode.dark);
     });
@@ -56,7 +57,7 @@ void main() {
       final ok = await notifier.setMode(AppearanceMode.dark);
       expect(ok, isFalse);
       // State stays on the last confirmed value (the build default).
-      expect(container.read(appearanceProvider), AppearanceMode.system);
+      expect(container.read(appearanceProvider), AppearanceMode.dark);
     });
 
     test('setMode does not touch any Goal/Planner/startup domain provider '
@@ -78,6 +79,7 @@ final class _FakeAppearanceRepository implements AppearanceRepository {
   _FakeAppearanceRepository([this.value = AppearanceMode.system]);
 
   AppearanceMode value;
+  ThemeColorMode color = ThemeColorMode.rose;
   Object? throwOnSave;
   int saveCount = 0;
 
@@ -91,6 +93,19 @@ final class _FakeAppearanceRepository implements AppearanceRepository {
       throw error;
     }
     value = mode;
+    saveCount += 1;
+  }
+
+  @override
+  Future<ThemeColorMode> readThemeColor() async => color;
+
+  @override
+  Future<void> saveThemeColor(ThemeColorMode mode) async {
+    final error = throwOnSave;
+    if (error != null) {
+      throw error;
+    }
+    color = mode;
     saveCount += 1;
   }
 }

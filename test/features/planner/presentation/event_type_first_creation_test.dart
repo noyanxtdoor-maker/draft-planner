@@ -236,8 +236,10 @@ void main() {
         );
         await tester.pump(const Duration(milliseconds: 400));
         expect(tester.getTopLeft(sheet).dy, closeTo(initialSheetTop, 1));
-        expect(find.text('Save'), findsOneWidget);
+        // MP-19: the header save is now a circular check (no text pill).
+        expect(find.text('Save'), findsNothing);
         expect(find.byIcon(Icons.check_rounded), findsNothing);
+        expect(find.byIcon(Icons.check), findsOneWidget);
         expect(find.byKey(const Key('save-event-bottom-button')), findsNothing);
         expect(find.byKey(const Key('event-set-time-now')), findsNothing);
         expect(

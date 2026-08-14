@@ -17,23 +17,30 @@ final class ContactTimelineView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (timeline.isEmpty) {
-      return const Center(
+      return Center(
         child: Padding(
-          padding: EdgeInsets.all(32),
+          padding: const EdgeInsets.all(32),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
-              Icon(Icons.history, size: 48, color: Color(0xFF454850)),
-              SizedBox(height: 12),
-              Text(
+              Icon(
+                Icons.history,
+                size: 48,
+                color: AppTheme.outlineOf(context),
+              ),
+              const SizedBox(height: 12),
+              const Text(
                 'No event history yet',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
               ),
-              SizedBox(height: 6),
+              const SizedBox(height: 6),
               Text(
                 'Events that include this Contact will appear here.',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Color(0xFF9CA0A6), fontSize: 14),
+                style: TextStyle(
+                  color: AppTheme.secondaryTextOf(context),
+                  fontSize: 14,
+                ),
               ),
             ],
           ),
@@ -58,11 +65,11 @@ final class ContactTimelineView extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(16, 18, 16, 10),
               child: Text(
                 '${entry.date.year}',
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: 'Roboto',
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
-                  color: AppTheme.rose,
+                  color: Theme.of(context).colorScheme.primary,
                 ),
               ),
             ),
@@ -90,12 +97,12 @@ final class _SectionLabel extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 22, 16, 4),
       child: Text(
         label,
-        style: const TextStyle(
+        style: TextStyle(
           fontFamily: 'Roboto',
           fontSize: 14,
           fontWeight: FontWeight.w700,
           letterSpacing: 1.2,
-          color: Color(0xFF9CA0A6),
+          color: AppTheme.secondaryTextOf(context),
         ),
       ),
     );
@@ -114,15 +121,15 @@ final class _TimelineCard extends StatelessWidget {
     final dotColor = isUpcoming
         ? AppTheme.rose
         : isRecordCreated
-        ? const Color(0xFF9CA0A6)
+        ? AppTheme.secondaryTextOf(context)
         : AppTheme.eventAccent;
 
     final card = Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF181A1E),
+        color: AppTheme.surfaceOf(context),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF2A2D31)),
+        border: Border.all(color: AppTheme.surfaceVariantOf(context)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -142,8 +149,8 @@ final class _TimelineCard extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               entry.subtitle!,
-              style: const TextStyle(
-                color: Color(0xFF9CA0A6),
+              style: TextStyle(
+                color: AppTheme.secondaryTextOf(context),
                 fontSize: 15,
                 height: 20 / 15,
               ),
@@ -156,13 +163,13 @@ final class _TimelineCard extends StatelessWidget {
                 Icon(
                   _statusIcon(entry.status),
                   size: 16,
-                  color: _statusColor(entry),
+                  color: _statusColor(context, entry),
                 ),
                 const SizedBox(width: 6),
                 Text(
                   entry.statusLabel!,
                   style: TextStyle(
-                    color: _statusColor(entry),
+                    color: _statusColor(context, entry),
                     fontSize: 15,
                     fontWeight: FontWeight.w500,
                   ),
@@ -179,9 +186,9 @@ final class _TimelineCard extends StatelessWidget {
       children: <Widget>[
         Text(
           _monthLabel(entry.date.month),
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 13,
-            color: Color(0xFF9CA0A6),
+            color: AppTheme.secondaryTextOf(context),
             fontWeight: FontWeight.w600,
             letterSpacing: 0.8,
           ),
@@ -231,7 +238,10 @@ final class _TimelineCard extends StatelessWidget {
                     ),
                   ),
                   Expanded(
-                    child: Container(width: 2, color: const Color(0xFF2A2D31)),
+                    child: Container(
+                      width: 2,
+                      color: AppTheme.surfaceVariantOf(context),
+                    ),
                   ),
                 ],
               ),
@@ -270,18 +280,18 @@ final class _TimelineCard extends StatelessWidget {
     };
   }
 
-  static Color _statusColor(ContactTimelineEntry entry) {
+  static Color _statusColor(BuildContext context, ContactTimelineEntry entry) {
     final status = entry.status;
     if (status == CalendarEventStatus.completedHappened) {
       return AppTheme.eventAccent;
     }
     if (status == CalendarEventStatus.cancelled) {
-      return const Color(0xFF9CA0A6);
+      return AppTheme.secondaryTextOf(context);
     }
     if (entry.isUpcoming) {
       return AppTheme.rose;
     }
-    return const Color(0xFFFFC857);
+    return AppTheme.warningOf(context);
   }
 
   static String _monthLabel(int month) {
@@ -325,9 +335,9 @@ final class _CommonEventsPanelState extends State<CommonEventsPanel> {
       key: const Key('common-events-panel'),
       margin: const EdgeInsets.fromLTRB(16, 8, 16, 4),
       decoration: BoxDecoration(
-        color: const Color(0xFF181A1E),
+        color: AppTheme.surfaceOf(context),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF2A2D31)),
+        border: Border.all(color: AppTheme.surfaceVariantOf(context)),
       ),
       child: Column(
         children: <Widget>[
@@ -339,10 +349,10 @@ final class _CommonEventsPanelState extends State<CommonEventsPanel> {
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
               child: Row(
                 children: <Widget>[
-                  const Icon(
+                  Icon(
                     Icons.event_repeat,
                     size: 24,
-                    color: Color(0xFF9CA0A6),
+                    color: AppTheme.secondaryTextOf(context),
                   ),
                   const SizedBox(width: 12),
                   const Expanded(
@@ -358,7 +368,7 @@ final class _CommonEventsPanelState extends State<CommonEventsPanel> {
                     Icon(
                       _expanded ? Icons.expand_less : Icons.expand_more,
                       size: 24,
-                      color: const Color(0xFF9CA0A6),
+                      color: AppTheme.secondaryTextOf(context),
                     ),
                 ],
               ),
@@ -378,8 +388,8 @@ final class _CommonEventsPanelState extends State<CommonEventsPanel> {
                     ),
                     Text(
                       '${pattern.weekdayLabel}  ${pattern.startMinuteLabel}',
-                      style: const TextStyle(
-                        color: Color(0xFF9CA0A6),
+                      style: TextStyle(
+                        color: AppTheme.secondaryTextOf(context),
                         fontSize: 14,
                       ),
                     ),

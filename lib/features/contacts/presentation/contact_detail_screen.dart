@@ -115,8 +115,8 @@ final class _ContactDetailScreenState
         key: const Key('contact-detail-fab'),
         tooltip: 'Create',
         onPressed: () => _showFabActions(detail),
-        backgroundColor: AppTheme.rose,
-        foregroundColor: AppTheme.background,
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        foregroundColor: Theme.of(context).colorScheme.onPrimary,
         child: const Icon(Icons.add, size: 28),
       ),
     );
@@ -301,8 +301,13 @@ final class _TabBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       height: 48,
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Color(0xFF2A2D31), width: 1)),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: AppTheme.surfaceVariantOf(context),
+            width: 1,
+          ),
+        ),
       ),
       child: Row(
         children: <Widget>[
@@ -349,7 +354,9 @@ final class _TabItem extends StatelessWidget {
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                color: selected ? AppTheme.rose : const Color(0xFF9CA0A6),
+                color: selected
+                    ? Theme.of(context).colorScheme.primary
+                    : AppTheme.secondaryTextOf(context),
               ),
             ),
             const SizedBox(height: 4),
@@ -357,7 +364,9 @@ final class _TabItem extends StatelessWidget {
               width: 36,
               height: 3,
               decoration: BoxDecoration(
-                color: selected ? AppTheme.rose : Colors.transparent,
+                color: selected
+                    ? Theme.of(context).colorScheme.primary
+                    : Colors.transparent,
                 borderRadius: BorderRadius.circular(1.5),
               ),
             ),
@@ -571,7 +580,7 @@ final class _EditAction extends StatelessWidget {
       style: TextButton.styleFrom(
         minimumSize: const Size(48, 36),
         padding: const EdgeInsets.symmetric(horizontal: 8),
-        foregroundColor: AppTheme.rose,
+        foregroundColor: Theme.of(context).colorScheme.primary,
         textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
       ),
       child: Text(label),
@@ -737,7 +746,7 @@ final class _InfoRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
         children: <Widget>[
-          Icon(icon, size: 22, color: const Color(0xFF9CA0A6)),
+          Icon(icon, size: 22, color: AppTheme.secondaryTextOf(context)),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
@@ -752,8 +761,8 @@ final class _InfoRow extends StatelessWidget {
                 ),
                 Text(
                   secondary,
-                  style: const TextStyle(
-                    color: Color(0xFF9CA0A6),
+                  style: TextStyle(
+                    color: AppTheme.secondaryTextOf(context),
                     fontSize: 13,
                   ),
                 ),
@@ -788,9 +797,9 @@ final class _UpcomingSection extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            const Text(
+            Text(
               'Nothing scheduled yet.',
-              style: TextStyle(color: Color(0xFF9CA0A6)),
+              style: TextStyle(color: AppTheme.secondaryTextOf(context)),
             ),
             const SizedBox(height: 8),
             TextButton.icon(
@@ -821,7 +830,10 @@ final class _UpcomingSection extends StatelessWidget {
           ListTile(
             key: Key('profile-upcoming-task-${task.id}'),
             contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-            leading: const Icon(Icons.task_alt, color: Color(0xFFFFC857)),
+            leading: Icon(
+              Icons.task_alt,
+              color: AppTheme.warningOf(context),
+            ),
             title: Text(
               task.title,
               style: const TextStyle(fontWeight: FontWeight.w500),
@@ -860,19 +872,22 @@ final class _AvailabilitySection extends StatelessWidget {
             ),
           ),
         if (windows.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
             child: Text(
               'No availability entered.',
-              style: TextStyle(color: Color(0xFF9CA0A6)),
+              style: TextStyle(color: AppTheme.secondaryTextOf(context)),
             ),
           ),
         if (patterns.isNotEmpty) ...<Widget>[
-          const Padding(
-            padding: EdgeInsets.fromLTRB(16, 16, 16, 4),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
             child: Text(
               'Common Event Times',
-              style: TextStyle(color: Color(0xFF9CA0A6), fontSize: 13),
+              style: TextStyle(
+                color: AppTheme.secondaryTextOf(context),
+                fontSize: 13,
+              ),
             ),
           ),
           for (final pattern in patterns)
@@ -888,8 +903,8 @@ final class _AvailabilitySection extends StatelessWidget {
                   ),
                   Text(
                     '${pattern.weekdayLabel} ${pattern.startMinuteLabel}',
-                    style: const TextStyle(
-                      color: Color(0xFF9CA0A6),
+                    style: TextStyle(
+                      color: AppTheme.secondaryTextOf(context),
                       fontSize: 13,
                     ),
                   ),
@@ -955,7 +970,7 @@ final class _GroupsTagsSection extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: const Color(0xFF1C1E21),
+                color: AppTheme.surfaceRaisedOf(context),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: Color(group.colorValue)),
               ),
@@ -974,16 +989,16 @@ final class _GroupsTagsSection extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: const Color(0xFF1C1E21),
+                color: AppTheme.surfaceRaisedOf(context),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFF2A2D31)),
+                border: Border.all(color: AppTheme.surfaceVariantOf(context)),
               ),
               child: Text(tag.name, style: const TextStyle(fontSize: 14)),
             ),
           if (groups.isEmpty && tags.isEmpty)
-            const Text(
+            Text(
               'No groups or tags.',
-              style: TextStyle(color: Color(0xFF9CA0A6)),
+              style: TextStyle(color: AppTheme.secondaryTextOf(context)),
             ),
         ],
       ),
@@ -999,11 +1014,11 @@ final class _NotesSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (notes.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         child: Text(
           'No notes yet.',
-          style: TextStyle(color: Color(0xFF9CA0A6)),
+          style: TextStyle(color: AppTheme.secondaryTextOf(context)),
         ),
       );
     }
@@ -1016,9 +1031,9 @@ final class _NotesSection extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFF181A1E),
+                color: AppTheme.surfaceOf(context),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFF2A2D31)),
+                border: Border.all(color: AppTheme.surfaceVariantOf(context)),
               ),
               child: Text(note.noteText, style: const TextStyle(fontSize: 14)),
             ),
@@ -1062,14 +1077,14 @@ final class _RecordDetails extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          _detailRow('Created', createdLabel),
-          _detailRow('Origin', origin),
+          _detailRow(context, 'Created', createdLabel),
+          _detailRow(context, 'Origin', origin),
         ],
       ),
     );
   }
 
-  Widget _detailRow(String label, String value) {
+  Widget _detailRow(BuildContext context, String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
@@ -1078,7 +1093,10 @@ final class _RecordDetails extends StatelessWidget {
             width: 90,
             child: Text(
               label,
-              style: const TextStyle(color: Color(0xFF9CA0A6), fontSize: 13),
+              style: TextStyle(
+                color: AppTheme.secondaryTextOf(context),
+                fontSize: 13,
+              ),
             ),
           ),
           Expanded(child: Text(value, style: const TextStyle(fontSize: 15))),

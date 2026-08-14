@@ -101,14 +101,14 @@ void main() {
       }
     });
 
-    test('fresh v25 install has no appearance row (reads SYSTEM)', () async {
+    test('fresh install has no appearance row (reads DARK)', () async {
       final database = openMemoryDatabase();
       addTearDown(database.close);
       final repository = DriftAppearanceRepository(
         database: database,
         clock: FixedClock(DateTime.utc(2026, 8, 2, 12)),
       );
-      expect(await repository.readAppearance(), AppearanceMode.system);
+      expect(await repository.readAppearance(), AppearanceMode.dark);
     });
   });
 
@@ -121,23 +121,23 @@ void main() {
         clock: FixedClock(DateTime.utc(2026, 8, 2, 12)),
       );
       // No onboarding, no profile, no planner preference: still readable.
-      expect(await repository.readAppearance(), AppearanceMode.system);
-      await repository.saveAppearance(AppearanceMode.dark);
       expect(await repository.readAppearance(), AppearanceMode.dark);
+      await repository.saveAppearance(AppearanceMode.light);
+      expect(await repository.readAppearance(), AppearanceMode.light);
     });
 
-    test('SYSTEM -> LIGHT -> DARK round-trip', () async {
+    test('DARK -> LIGHT -> SYSTEM round-trip', () async {
       final database = openMemoryDatabase();
       addTearDown(database.close);
       final repository = DriftAppearanceRepository(
         database: database,
         clock: FixedClock(DateTime.utc(2026, 8, 2, 12)),
       );
-      expect(await repository.readAppearance(), AppearanceMode.system);
+      expect(await repository.readAppearance(), AppearanceMode.dark);
       await repository.saveAppearance(AppearanceMode.light);
       expect(await repository.readAppearance(), AppearanceMode.light);
-      await repository.saveAppearance(AppearanceMode.dark);
-      expect(await repository.readAppearance(), AppearanceMode.dark);
+      await repository.saveAppearance(AppearanceMode.system);
+      expect(await repository.readAppearance(), AppearanceMode.system);
     });
 
     test('persisted value survives repository/database reopen', () async {
@@ -174,7 +174,7 @@ void main() {
       }
     });
 
-    test('invalid stored string fails safely to SYSTEM', () async {
+    test('invalid stored string fails safely to DARK', () async {
       final database = openMemoryDatabase();
       addTearDown(database.close);
       await database.into(database.appearancePreferences).insert(
@@ -188,7 +188,7 @@ void main() {
         database: database,
         clock: FixedClock(DateTime.utc(2026, 8, 2, 12)),
       );
-      expect(await repository.readAppearance(), AppearanceMode.system);
+      expect(await repository.readAppearance(), AppearanceMode.dark);
     });
 
     test('setting the same value is an idempotent no-write', () async {
@@ -199,15 +199,19 @@ void main() {
         database: database,
         clock: clock,
       );
-      await repository.saveAppearance(AppearanceMode.dark);
+      // B2-FINAL-POLISH: DARK is the fresh default, so saving 'dark' on a
+      // missing row is already a no-op (no row is ever created).  Use a
+      // non-default value to exercise the real no-write path.
+      await repository.saveAppearance(AppearanceMode.light);
       final first = await (database.select(database.appearancePreferences))
           .getSingle();
       final firstUpdatedAt = first.updatedAtUtc;
+      expect(first.appearanceMode, 'light');
 
-      await repository.saveAppearance(AppearanceMode.dark);
+      await repository.saveAppearance(AppearanceMode.light);
       final second = await (database.select(database.appearancePreferences))
           .getSingle();
-      expect(second.appearanceMode, 'dark');
+      expect(second.appearanceMode, 'light');
       expect(second.updatedAtUtc, firstUpdatedAt);
     });
   });

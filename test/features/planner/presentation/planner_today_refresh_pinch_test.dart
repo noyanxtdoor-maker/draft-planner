@@ -200,6 +200,7 @@ Future<void> _pumpPlanner({
         today: today,
       ),
       child: MaterialApp(
+        theme: AppTheme.light(),
         home: PlannerScreen(currentTimeListenable: currentTime),
       ),
     ),
@@ -238,6 +239,12 @@ Color _iconColor(WidgetTester tester, Key key) {
   return widget.color!;
 }
 
+Color _primaryColor(WidgetTester tester) {
+  // B2-CORRECTION: the today-icon selected state is the semantic Theme
+  // Color primary (dark Rose baseline = canonical rose, pixel-identical).
+  return Theme.of(tester.element(find.byType(Scaffold))).colorScheme.primary;
+}
+
 void main() {
   group('Stage B3-R1 Slice C: Today icon visual state', () {
     testWidgets(
@@ -254,10 +261,10 @@ void main() {
         final color = _iconColor(tester, const Key('planner-calendar-button'));
         expect(
           color,
-          AppTheme.rose,
+          _primaryColor(tester),
           reason:
-              'icon must use the Next Transfer accent when selected '
-              'date is today',
+              'icon must use the semantic Theme Color primary when '
+              'selected date is today',
         );
       },
     );
@@ -276,8 +283,8 @@ void main() {
         final color = _iconColor(tester, const Key('planner-calendar-button'));
         expect(
           color,
-          isNot(AppTheme.rose),
-          reason: 'icon must NOT be pink when viewing yesterday',
+          isNot(_primaryColor(tester)),
+          reason: 'icon must NOT be the accent when viewing yesterday',
         );
         expect(
           color,
@@ -301,8 +308,8 @@ void main() {
         final color = _iconColor(tester, const Key('planner-calendar-button'));
         expect(
           color,
-          isNot(AppTheme.rose),
-          reason: 'icon must NOT be pink when viewing tomorrow',
+          isNot(_primaryColor(tester)),
+          reason: 'icon must NOT be the accent when viewing tomorrow',
         );
       },
     );
@@ -317,19 +324,19 @@ void main() {
         selected: _yesterday,
         today: _today,
       );
-      // Pre-tap: icon is not pink.
+      // Pre-tap: icon is not the accent.
       expect(
         _iconColor(tester, const Key('planner-calendar-button')),
-        isNot(AppTheme.rose),
+        isNot(_primaryColor(tester)),
       );
       // Tap the Go to today button.
       await tester.tap(find.byKey(const Key('planner-today-button')));
       await tester.pumpAndSettle();
-      // Post-tap: icon is pink.
+      // Post-tap: icon is the accent.
       expect(
         _iconColor(tester, const Key('planner-calendar-button')),
-        AppTheme.rose,
-        reason: 'icon must be pink after returning to today',
+        _primaryColor(tester),
+        reason: 'icon must be the accent after returning to today',
       );
       // And the controller's selected date is today.
       final plannerElement = tester.element(find.byType(PlannerScreen));
@@ -410,8 +417,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(
         _iconColor(tester, const Key('planner-calendar-button')),
-        isNot(AppTheme.rose),
-        reason: 'precondition: the icon is not pink away from today',
+        isNot(_primaryColor(tester)),
+        reason: 'precondition: the icon is not the accent away from today',
       );
       expect(
         find.byKey(Key('planner-timed-event-${farOccurrence.id}')),
@@ -480,8 +487,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(
         _iconColor(tester, const Key('planner-calendar-button')),
-        AppTheme.rose,
-        reason: 'the icon must be pink once today is fully loaded',
+        _primaryColor(tester),
+        reason: 'the icon must be the accent once today is fully loaded',
       );
       expect(tester.takeException(), isNull);
     });

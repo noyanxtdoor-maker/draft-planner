@@ -89,11 +89,11 @@ final class _HomeScreenState extends ConsumerState<HomeScreen> {
       appBar: AppBar(
         key: const Key('home-app-bar'),
         toolbarHeight: 66,
-        bottom: const PreferredSize(
-          preferredSize: Size.fromHeight(1),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
           child: SizedBox(
             height: 1,
-            child: ColoredBox(color: AppTheme.outline),
+            child: ColoredBox(color: AppTheme.outlineOf(context)),
           ),
         ),
         title: const Text('Home', key: Key('home-title')),
@@ -539,8 +539,8 @@ final class _CanonicalHomePlan extends StatelessWidget {
                       height: 18 / 14,
                       fontWeight: FontWeight.w500,
                     ),
-                    foregroundColor: Colors.white70,
-                    side: const BorderSide(color: AppTheme.outline, width: 1),
+                    foregroundColor: AppTheme.onFillTextOf(context, 0.70),
+                    side: BorderSide(color: AppTheme.outlineOf(context), width: 1),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(19),
                     ),
@@ -564,21 +564,20 @@ final class _CanonicalHomePlan extends StatelessWidget {
 final class _LifeGoalsSkeleton extends StatelessWidget {
   const _LifeGoalsSkeleton();
 
-  static const Color _block = Color(0xFF23262C);
-
   @override
   Widget build(BuildContext context) {
+    final block = AppTheme.blockOf(context);
     return Column(
       key: const Key('home-life-goals-skeleton'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        _skeletonCard(),
+        _skeletonCard(block),
         const SizedBox(height: 6),
-        _skeletonPair(),
+        _skeletonPair(block),
         const SizedBox(height: 6),
-        _skeletonPair(),
+        _skeletonPair(block),
         const SizedBox(height: 6),
-        _skeletonCard(),
+        _skeletonCard(block),
         const SizedBox(height: 16),
         Center(
           child: Container(
@@ -586,7 +585,7 @@ final class _LifeGoalsSkeleton extends StatelessWidget {
             height: 36,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(19),
-              border: Border.all(color: AppTheme.outline),
+              border: Border.all(color: AppTheme.outlineOf(context)),
             ),
           ),
         ),
@@ -594,24 +593,24 @@ final class _LifeGoalsSkeleton extends StatelessWidget {
     );
   }
 
-  static Widget _skeletonCard() {
+  static Widget _skeletonCard(Color block) {
     return Container(
       height: 60,
       decoration: BoxDecoration(
-        color: _block,
+        color: block,
         borderRadius: BorderRadius.circular(12),
       ),
     );
   }
 
-  static Widget _skeletonPair() {
+  static Widget _skeletonPair(Color block) {
     return SizedBox(
       height: 60,
       child: Row(
         children: <Widget>[
-          Expanded(child: _skeletonCard()),
+          Expanded(child: _skeletonCard(block)),
           const SizedBox(width: 10),
-          Expanded(child: _skeletonCard()),
+          Expanded(child: _skeletonCard(block)),
         ],
       ),
     );
@@ -646,7 +645,7 @@ final class _SectionHeader extends StatelessWidget {
                   minimumSize: const Size(48, 30),
                   padding: EdgeInsets.zero,
                   textStyle: AppTypography.button,
-                  foregroundColor: AppTheme.rose,
+                  foregroundColor: Theme.of(context).colorScheme.primary,
                 ),
                 child: const Text('View All'),
               ),
@@ -676,9 +675,9 @@ final class _StartPlanningButton extends StatelessWidget {
           key: const Key('weekly-targets-button'),
           onPressed: onPressed,
           style: OutlinedButton.styleFrom(
-            foregroundColor: Colors.white,
+            foregroundColor: AppTheme.onFillTextOf(context, 1.0),
             fixedSize: const Size(160, 40),
-            side: const BorderSide(color: AppTheme.outline),
+            side: BorderSide(color: AppTheme.outlineOf(context)),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(22),
             ),
@@ -704,9 +703,9 @@ final class _MajorSectionSeparator extends StatelessWidget {
         alignment: Alignment.center,
         minWidth: width,
         maxWidth: width,
-        child: const SizedBox(
+        child: SizedBox(
           height: 8,
-          child: ColoredBox(color: AppTheme.outline),
+          child: ColoredBox(color: AppTheme.outlineOf(context)),
         ),
       ),
     );
@@ -931,7 +930,7 @@ final class _IndicatorCard extends StatelessWidget {
       color: Colors.transparent,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
-        side: const BorderSide(color: Color(0xFF414649)),
+        side: BorderSide(color: AppTheme.cardBorderOf(context)),
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(8),
@@ -960,7 +959,7 @@ final class _IndicatorCard extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: <Widget>[
-        _goalIcon(size: 36),
+        _goalIcon(size: 36, context: context),
         const SizedBox(width: 8),
         Expanded(
           child: Column(
@@ -985,12 +984,12 @@ final class _IndicatorCard extends StatelessWidget {
                 _homeRatioText(indicator.actual, indicator.target),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: 'Roboto',
                   fontSize: 21,
                   height: 23 / 21,
                   fontWeight: FontWeight.w600,
-                  color: AppTheme.rose,
+                  color: Theme.of(context).colorScheme.primary,
                 ),
               ),
             ],
@@ -1039,7 +1038,7 @@ final class _IndicatorCard extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: <Widget>[
-        _goalIcon(size: 40),
+        _goalIcon(size: 40, context: context),
         const SizedBox(width: 8),
         Expanded(
           child: Column(
@@ -1067,7 +1066,7 @@ final class _IndicatorCard extends StatelessWidget {
                     minimumSize: Size.zero,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     alignment: Alignment.centerLeft,
-                    foregroundColor: AppTheme.rose,
+                    foregroundColor: Theme.of(context).colorScheme.primary,
                   ),
                   child: const Text(
                     'Set Schedule',
@@ -1094,8 +1093,8 @@ final class _IndicatorCard extends StatelessWidget {
                         ? FontWeight.w600
                         : FontWeight.w400,
                     color: secondaryLabel == null
-                        ? AppTheme.rose
-                        : Colors.white70,
+                        ? Theme.of(context).colorScheme.primary
+                        : AppTheme.onFillTextOf(context, 0.70),
                   ),
                 ),
             ],
@@ -1105,13 +1104,13 @@ final class _IndicatorCard extends StatelessWidget {
     );
   }
 
-  Widget _goalIcon({required double size}) {
+  Widget _goalIcon({required double size, required BuildContext context}) {
     return GoalIcon(
       iconId: goal?.iconId,
       size: size,
       semanticLabel: '${indicator.label} goal icon',
       fallbackIcon: goalIconFallbackForRole(goal?.role),
-      color: AppTheme.rose,
+      color: Theme.of(context).colorScheme.primary,
     );
   }
 }
@@ -1144,7 +1143,7 @@ final class _WideAside extends StatelessWidget {
       height: hasControls ? 52 : 48,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: const Color(0xFF2A2A2B),
+          color: AppTheme.cardOf(context),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Padding(
@@ -1335,7 +1334,11 @@ final class _DailyTargetButton extends StatelessWidget {
                   customBorder: const CircleBorder(),
                   onTap: onPressed,
                   child: Center(
-                    child: Icon(icon, size: 22, color: AppTheme.rose),
+                    child: Icon(
+                      icon,
+                      size: 22,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
                   ),
                 ),
               ),
@@ -1357,7 +1360,7 @@ final class _PathwaysCard extends StatelessWidget {
       color: Colors.transparent,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(10),
-        side: const BorderSide(color: Color(0xFF414649)),
+        side: BorderSide(color: AppTheme.cardBorderOf(context)),
       ),
       clipBehavior: Clip.antiAlias,
       child: const Column(
@@ -1413,9 +1416,15 @@ final class _PathwayRow extends StatelessWidget {
               child: DecoratedBox(
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  border: Border.all(color: AppTheme.rose),
+                  border: Border.all(
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
                 ),
-                child: Icon(icon, color: AppTheme.rose, size: 22),
+                child: Icon(
+                  icon,
+                  color: Theme.of(context).colorScheme.primary,
+                  size: 22,
+                ),
               ),
             ),
             const SizedBox(width: 12),
@@ -1455,13 +1464,13 @@ final class _PathwayRow extends StatelessWidget {
                   const SizedBox(height: 5),
                   ClipRRect(
                     borderRadius: BorderRadius.circular(3),
-                    child: const SizedBox(
+                    child: SizedBox(
                       height: 5,
                       child: LinearProgressIndicator(
                         value: .45,
-                        backgroundColor: Color(0xFF343638),
+                        backgroundColor: AppTheme.raisedOf(context),
                         valueColor: AlwaysStoppedAnimation<Color>(
-                          AppTheme.rose,
+                          Theme.of(context).colorScheme.primary,
                         ),
                       ),
                     ),

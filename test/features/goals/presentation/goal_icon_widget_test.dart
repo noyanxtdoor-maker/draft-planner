@@ -489,7 +489,11 @@ void main() {
           .first,
     );
     expect(chipMaterial('All').color, Colors.transparent);
-    expect(chipMaterial('Career & Learning').color, AppTheme.rose);
+    // The active chip is filled with the harness's semantic primary.
+    final chipPrimary = Theme.of(
+      tester.element(find.byKey(const Key('goal-icon-chip-Career & Learning'))),
+    ).colorScheme.primary;
+    expect(chipMaterial('Career & Learning').color, chipPrimary);
     expect(chipMaterial('Spiritual').color, Colors.transparent);
     // Semantics expose the selected chip state.
     expect(

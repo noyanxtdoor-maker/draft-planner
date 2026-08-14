@@ -115,9 +115,17 @@ final class InternalAppBar extends StatelessWidget
 
   @override
   Widget build(BuildContext context) {
+    // B2-CORRECTION shared title fix: the title style must carry a non-null
+    // color or the engine paints it white (invisible on Light app bars).
+    // Light resolves the active onSurface; Dark keeps the exact pre-fix
+    // white pixel so dark goldens stay byte-identical.
+    final titleColor =
+        Theme.of(context).brightness == Brightness.dark
+        ? Colors.white
+        : Theme.of(context).colorScheme.onSurface;
     return AppBar(
       toolbarHeight: InternalScreen.appBarHeight,
-      titleTextStyle: InternalScreen.appBarTitle,
+      titleTextStyle: InternalScreen.appBarTitle.copyWith(color: titleColor),
       automaticallyImplyLeading: automaticallyImplyLeading,
       title: title,
       leading: leading,

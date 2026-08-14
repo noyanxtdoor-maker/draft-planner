@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rmplanner/app/router/route_names.dart';
+import 'package:rmplanner/app/theme/app_theme.dart';
 import 'package:rmplanner/app/theme/internal_screen.dart';
 import 'package:rmplanner/features/contacts/application/contact_providers.dart';
 import 'package:rmplanner/features/contacts/domain/contact.dart';
@@ -116,19 +117,25 @@ final class _ContactSearchScreenState
                           },
                         ),
                   filled: true,
-                  fillColor: const Color(0xFF181A1E),
+                  fillColor: AppTheme.surfaceOf(context),
                   contentPadding: const EdgeInsets.symmetric(vertical: 14),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(28),
-                    borderSide: const BorderSide(color: Color(0xFF2A2D31)),
+                    borderSide: BorderSide(
+                      color: AppTheme.surfaceVariantOf(context),
+                    ),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(28),
-                    borderSide: const BorderSide(color: Color(0xFF2A2D31)),
+                    borderSide: BorderSide(
+                      color: AppTheme.surfaceVariantOf(context),
+                    ),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(28),
-                    borderSide: const BorderSide(color: Color(0xFF9CA0A6)),
+                    borderSide: BorderSide(
+                      color: AppTheme.secondaryTextOf(context),
+                    ),
                   ),
                 ),
               ),
@@ -153,23 +160,30 @@ final class _ContactSearchScreenState
       return const SizedBox.shrink();
     }
     if (_results.isEmpty && _searched) {
-      return const Center(
+      return Center(
         child: Padding(
-          padding: EdgeInsets.all(32),
+          padding: const EdgeInsets.all(32),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
-              Icon(Icons.search_off, size: 48, color: Color(0xFF454850)),
-              SizedBox(height: 12),
-              Text(
+              Icon(
+                Icons.search_off,
+                size: 48,
+                color: AppTheme.outlineOf(context),
+              ),
+              const SizedBox(height: 12),
+              const Text(
                 'No matches',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
               ),
-              SizedBox(height: 6),
+              const SizedBox(height: 6),
               Text(
                 'Try another name, phone, email, group, or tag.',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Color(0xFF9CA0A6), fontSize: 14),
+                style: TextStyle(
+                  color: AppTheme.secondaryTextOf(context),
+                  fontSize: 14,
+                ),
               ),
             ],
           ),

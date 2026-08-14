@@ -428,9 +428,14 @@ final class _PlannerDateStripState extends State<PlannerDateStrip>
       height: PlannerDateStrip.stripHeight + 2,
       child: DecoratedBox(
         key: const Key('planner-date-strip-surface'),
-        decoration: const BoxDecoration(
-          color: AppTheme.surface,
-          border: Border(bottom: BorderSide(color: AppTheme.outline, width: 1)),
+        decoration: BoxDecoration(
+          color: AppTheme.surfaceOf(context),
+          border: Border(
+            bottom: BorderSide(
+              color: AppTheme.outlineOf(context),
+              width: 1,
+            ),
+          ),
         ),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 1),
@@ -474,7 +479,11 @@ final class _PlannerDateStripDayButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = selected ? AppTheme.rose : const Color(0xB8FFFFFF);
+    // B2-CORRECTION: the selected date uses the semantic Theme Color primary
+    // (dark Rose baseline = canonical rose, identical pixels).
+    final color = selected
+        ? Theme.of(context).colorScheme.primary
+        : AppTheme.onFillTextOf(context, 0xB8 / 0xFF);
     return Semantics(
       key: selected ? const Key('planner-selected-date') : null,
       selected: selected,
@@ -492,7 +501,7 @@ final class _PlannerDateStripDayButton extends StatelessWidget {
             decoration: BoxDecoration(
               border: Border(
                 right: BorderSide(
-                  color: AppTheme.outline.withValues(alpha: 0.5),
+                  color: AppTheme.outlineOf(context).withValues(alpha: 0.5),
                   width: 1,
                 ),
               ),

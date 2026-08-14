@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:rmplanner/app/theme/app_theme.dart';
 import 'package:rmplanner/features/planner/domain/calendar_event.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 
@@ -91,7 +90,9 @@ final class _ScopeChoiceCard extends StatelessWidget {
       color: colorScheme.surfaceContainerHighest,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: AppTheme.rose.withValues(alpha: 0.55)),
+        side: BorderSide(
+          color: colorScheme.primary.withValues(alpha: 0.55),
+        ),
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -102,7 +103,10 @@ final class _ScopeChoiceCard extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             child: Row(
               children: <Widget>[
-                const Icon(Icons.radio_button_unchecked, color: AppTheme.rose),
+                Icon(
+                  Icons.radio_button_unchecked,
+                  color: colorScheme.primary,
+                ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(

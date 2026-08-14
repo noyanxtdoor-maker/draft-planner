@@ -34,14 +34,16 @@ final class _MergeContactsScreenState
         ),
         data: (groups) {
           if (groups.isEmpty) {
-            return const Center(
+            return Center(
               child: Padding(
-                padding: EdgeInsets.all(32),
+                padding: const EdgeInsets.all(32),
                 child: Text(
                   'No possible duplicates found. Matching is advisory and '
                   'never merges automatically.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Color(0xFF9CA0A6)),
+                  style: TextStyle(
+                    color: AppTheme.secondaryTextOf(context),
+                  ),
                 ),
               ),
             );
@@ -50,12 +52,15 @@ final class _MergeContactsScreenState
             key: const Key('merge-candidates-list'),
             padding: InternalScreen.pagePadding,
             children: <Widget>[
-              const Padding(
-                padding: EdgeInsets.only(bottom: 8),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
                 child: Text(
                   'Matching is advisory — it compares normalized phone and '
                   'email only. You always decide what to merge.',
-                  style: TextStyle(color: Color(0xFF9CA0A6), fontSize: 13),
+                  style: TextStyle(
+                    color: AppTheme.secondaryTextOf(context),
+                    fontSize: 13,
+                  ),
                 ),
               ),
               for (final group in groups)
@@ -131,19 +136,19 @@ final class _CandidateGroup extends ConsumerWidget {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF181A1E),
+        color: AppTheme.surfaceOf(context),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF2A2D31)),
+        border: Border.all(color: AppTheme.surfaceVariantOf(context)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          const Text(
+          Text(
             'Possible duplicate',
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF9CA0A6),
+              color: AppTheme.secondaryTextOf(context),
             ),
           ),
           const SizedBox(height: 8),
@@ -155,9 +160,9 @@ final class _CandidateGroup extends ConsumerWidget {
                   Container(
                     width: 20,
                     height: 20,
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: Color(0xFF1C1E21),
+                      color: AppTheme.surfaceRaisedOf(context),
                     ),
                     alignment: Alignment.center,
                     child: Text(
@@ -181,8 +186,8 @@ final class _CandidateGroup extends ConsumerWidget {
                           _methodSummary(ref, contact),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Color(0xFF9CA0A6),
+                          style: TextStyle(
+                            color: AppTheme.secondaryTextOf(context),
                             fontSize: 13,
                           ),
                         ),
@@ -307,7 +312,10 @@ final class _MergeChoicesSheetState extends State<_MergeChoicesSheet> {
             Text(
               '${absorbed.length} absorbed record will keep its links, '
               'Timeline, and notes history, now under the survivor.',
-              style: const TextStyle(color: Color(0xFF9CA0A6), fontSize: 13),
+              style: TextStyle(
+                color: AppTheme.secondaryTextOf(context),
+                fontSize: 13,
+              ),
             ),
             const SizedBox(height: 16),
             for (final entry in fields.entries)
@@ -318,10 +326,10 @@ final class _MergeChoicesSheetState extends State<_MergeChoicesSheet> {
                   children: <Widget>[
                     Text(
                       entry.key,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF9CA0A6),
+                        color: AppTheme.secondaryTextOf(context),
                       ),
                     ),
                     const SizedBox(height: 6),
@@ -365,8 +373,8 @@ final class _MergeChoicesSheetState extends State<_MergeChoicesSheet> {
               onPressed: () =>
                   Navigator.of(context).pop(ContactMergeChoices(_choices)),
               style: FilledButton.styleFrom(
-                backgroundColor: AppTheme.rose,
-                foregroundColor: AppTheme.background,
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Theme.of(context).colorScheme.onPrimary,
               ),
               child: const Text('Merge'),
             ),

@@ -237,7 +237,7 @@ final class _ContactFormScreenState extends ConsumerState<ContactFormScreen> {
                         key: const Key('contact-notes'),
                         controller: _noteController,
                         maxLines: 4,
-                        decoration: _decoration('Notes'),
+                        decoration: _decoration(context, 'Notes'),
                       ),
                       const SizedBox(height: 12),
                     ],
@@ -264,7 +264,7 @@ final class _ContactFormScreenState extends ConsumerState<ContactFormScreen> {
       controller: controller,
       onChanged: onChanged,
       style: const TextStyle(fontSize: 17),
-      decoration: _decoration(label),
+      decoration: _decoration(context, label),
       validator: required
           ? (value) => (value ?? '').trim().isEmpty ? 'Required' : null
           : null,
@@ -284,8 +284,8 @@ final class _ContactFormScreenState extends ConsumerState<ContactFormScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(22),
           ),
-          backgroundColor: AppTheme.rose,
-          foregroundColor: AppTheme.background,
+          backgroundColor: Theme.of(context).colorScheme.primary,
+          foregroundColor: Theme.of(context).colorScheme.onPrimary,
         ),
         child: _saving
             ? const SizedBox.square(
@@ -400,16 +400,16 @@ final class _ContactFormScreenState extends ConsumerState<ContactFormScreen> {
   }
 }
 
-InputDecoration _decoration(String label) {
+InputDecoration _decoration(BuildContext context, String label) {
   final border = OutlineInputBorder(
     borderRadius: BorderRadius.circular(6),
-    borderSide: const BorderSide(color: AppTheme.outline, width: 1),
+    borderSide: BorderSide(color: AppTheme.outlineOf(context), width: 1),
   );
   return InputDecoration(
     labelText: label,
     labelStyle: InternalScreen.fieldLabel,
     filled: true,
-    fillColor: const Color(0xFF181A1E),
+    fillColor: AppTheme.surfaceOf(context),
     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
     border: border,
     enabledBorder: border,
@@ -437,7 +437,7 @@ final class _ProgressiveRow extends StatelessWidget {
         minimumSize: const Size(0, 48),
         padding: EdgeInsets.zero,
         alignment: Alignment.centerLeft,
-        foregroundColor: AppTheme.rose,
+        foregroundColor: Theme.of(context).colorScheme.primary,
         textStyle: AppTypography.button,
       ),
       icon: Icon(icon, size: 22),
@@ -487,12 +487,16 @@ final class _GroupsField extends StatelessWidget {
           },
           child: InputDecorator(
             decoration: _decoration(
+              context,
               'Groups',
             ).copyWith(suffixIcon: const Icon(Icons.arrow_drop_down, size: 24)),
             child: selectedIds.isEmpty
-                ? const Text(
+                ? Text(
                     'No groups',
-                    style: TextStyle(color: Color(0xFF9CA0A6), fontSize: 16),
+                    style: TextStyle(
+                      color: AppTheme.secondaryTextOf(context),
+                      fontSize: 16,
+                    ),
                   )
                 : Wrap(
                     spacing: 8,
@@ -510,11 +514,11 @@ final class _GroupsField extends StatelessWidget {
                                 vertical: 4,
                               ),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF1C1E21),
+                                color: AppTheme.surfaceRaisedOf(context),
                                 borderRadius: BorderRadius.circular(14),
                                 border: Border.all(
                                   color: group == null
-                                      ? const Color(0xFF2A2D31)
+                                      ? AppTheme.surfaceVariantOf(context)
                                       : Color(group.colorValue),
                                 ),
                               ),
@@ -589,11 +593,14 @@ final class _GroupPickerState extends State<_GroupPicker> {
                 style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
               ),
             ),
-            const Padding(
-              padding: EdgeInsets.fromLTRB(20, 0, 20, 10),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
               child: Text(
                 'A group can be primary for its color accent.',
-                style: TextStyle(color: Color(0xFF9CA0A6), fontSize: 13),
+                style: TextStyle(
+                  color: AppTheme.secondaryTextOf(context),
+                  fontSize: 13,
+                ),
               ),
             ),
             Flexible(
@@ -643,11 +650,13 @@ final class _GroupPickerState extends State<_GroupPicker> {
                       },
                     ),
                   if (widget.groups.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.all(20),
+                    Padding(
+                      padding: const EdgeInsets.all(20),
                       child: Text(
                         'Create a group from the Contacts menu first.',
-                        style: TextStyle(color: Color(0xFF9CA0A6)),
+                        style: TextStyle(
+                          color: AppTheme.secondaryTextOf(context),
+                        ),
                       ),
                     ),
                 ],
@@ -738,7 +747,7 @@ final class _MethodRowTile extends StatelessWidget {
                 : row.type == ContactMethodType.email
                 ? TextInputType.emailAddress
                 : TextInputType.text,
-            decoration: _decoration(_typeLabel[row.type]!),
+            decoration: _decoration(context, _typeLabel[row.type]!),
             onChanged: (_) {},
           ),
         ),
@@ -868,7 +877,7 @@ final class _AvailabilityEditorState extends State<_AvailabilityEditor> {
             DropdownButtonFormField<int>(
               key: const Key('availability-weekday'),
               initialValue: _weekday,
-              decoration: _decoration('Day'),
+              decoration: _decoration(context, 'Day'),
               items: <DropdownMenuItem<int>>[
                 for (var day = DateTime.monday; day <= DateTime.sunday; day++)
                   DropdownMenuItem<int>(
@@ -886,7 +895,7 @@ final class _AvailabilityEditorState extends State<_AvailabilityEditor> {
                   child: InkWell(
                     onTap: () => _pickTime(isStart: true),
                     child: InputDecorator(
-                      decoration: _decoration('From'),
+                      decoration: _decoration(context, 'From'),
                       child: Text(
                         _formatMinute(_start.hour * 60 + _start.minute),
                       ),
@@ -898,7 +907,7 @@ final class _AvailabilityEditorState extends State<_AvailabilityEditor> {
                   child: InkWell(
                     onTap: () => _pickTime(isStart: false),
                     child: InputDecorator(
-                      decoration: _decoration('To'),
+                      decoration: _decoration(context, 'To'),
                       child: Text(_formatMinute(_end.hour * 60 + _end.minute)),
                     ),
                   ),

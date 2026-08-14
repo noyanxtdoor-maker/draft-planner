@@ -40,9 +40,9 @@ final class GoalIconChoiceRow extends StatelessWidget {
           constraints: const BoxConstraints(minHeight: 64),
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           decoration: BoxDecoration(
-            color: AppTheme.surface,
+            color: AppTheme.surfaceOf(context),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppTheme.outline),
+            border: Border.all(color: AppTheme.outlineOf(context)),
           ),
           child: Row(
             children: <Widget>[
@@ -72,8 +72,8 @@ final class GoalIconChoiceRow extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: showSuggestion
-                            ? const Color(0xFF9EDCE3)
-                            : Colors.white70,
+                            ? AppTheme.accentTealOf(context)
+                            : AppTheme.onFillTextOf(context, 0.70),
                         fontSize: 13,
                         height: 18 / 13,
                       ),
@@ -92,10 +92,13 @@ final class GoalIconChoiceRow extends StatelessWidget {
                       Text(
                         definition == null ? 'Choose' : 'Change',
                         style: AppTypography.cardTitle.copyWith(
-                          color: AppTheme.rose,
+                          color: Theme.of(context).colorScheme.primary,
                         ),
                       ),
-                      const Icon(Icons.chevron_right, color: AppTheme.rose),
+                      Icon(
+                        Icons.chevron_right,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
                     ],
                   ),
                 ),

@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:rmplanner/app/theme/app_theme.dart';
 import 'package:rmplanner/app/theme/internal_screen.dart';
 import 'package:rmplanner/features/goals/application/goal_providers.dart';
 import 'package:rmplanner/features/settings/application/start_of_week_providers.dart';
@@ -61,7 +60,7 @@ final class _StartOfWeekScreenState extends ConsumerState<StartOfWeekScreen> {
                       key: Key('start-of-week-$day'),
                       value: day,
                       title: Text(_dayNames[day - DateTime.monday]),
-                      activeColor: AppTheme.rose,
+                      activeColor: Theme.of(context).colorScheme.primary,
                     ),
                 ],
               ),

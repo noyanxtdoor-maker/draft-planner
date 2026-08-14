@@ -322,7 +322,10 @@ class _DrawerEntryTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = AppTheme.rose;
+    // Selected state follows the semantic Theme Color primary (Rose Dark
+    // resolves to the exact canonical rose so dark goldens stay
+    // byte-identical; Blue mode resolves to Blue).
+    final accent = Theme.of(context).colorScheme.primary;
     return Semantics(
       selected: isCurrent,
       button: true,

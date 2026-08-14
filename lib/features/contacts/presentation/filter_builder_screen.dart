@@ -92,8 +92,8 @@ final class _FilterBuilderScreenState
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(22),
                 ),
-                backgroundColor: AppTheme.rose,
-                foregroundColor: AppTheme.background,
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Theme.of(context).colorScheme.onPrimary,
               ),
               child: const Text('Apply'),
             ),
@@ -124,7 +124,7 @@ final class _FilterBuilderScreenState
                   decoration: InputDecoration(
                     labelText: 'Filter name',
                     filled: true,
-                    fillColor: const Color(0xFF181A1E),
+                    fillColor: AppTheme.surfaceOf(context),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(6),
                     ),
@@ -143,7 +143,7 @@ final class _FilterBuilderScreenState
                 isExpanded: true,
                 decoration: InputDecoration(
                   filled: true,
-                  fillColor: const Color(0xFF181A1E),
+                  fillColor: AppTheme.surfaceOf(context),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(6),
                   ),
@@ -295,7 +295,7 @@ final class _FilterBuilderScreenState
     return Container(
       height: 8,
       width: double.infinity,
-      color: const Color(0xFF45484A),
+      color: AppTheme.sectionDividerOf(context),
     );
   }
 
@@ -413,14 +413,14 @@ final class _FilterBuilderScreenState
             ListTile(
               title: const Text('Any'),
               trailing: !_criteria.favoritesOnly
-                  ? const Icon(Icons.check, color: AppTheme.rose)
+                  ? Icon(Icons.check, color: Theme.of(sheetContext).colorScheme.primary)
                   : null,
               onTap: () => Navigator.of(sheetContext).pop(false),
             ),
             ListTile(
               title: const Text('Favorites only'),
               trailing: _criteria.favoritesOnly
-                  ? const Icon(Icons.check, color: AppTheme.rose)
+                  ? Icon(Icons.check, color: Theme.of(sheetContext).colorScheme.primary)
                   : null,
               onTap: () => Navigator.of(sheetContext).pop(true),
             ),
@@ -625,21 +625,21 @@ final class _FilterBuilderScreenState
             ListTile(
               title: const Text('Any'),
               trailing: _criteria.source == null
-                  ? const Icon(Icons.check, color: AppTheme.rose)
+                  ? Icon(Icons.check, color: Theme.of(sheetContext).colorScheme.primary)
                   : null,
               onTap: () => Navigator.of(sheetContext).pop(null),
             ),
             ListTile(
               title: const Text('Manual'),
               trailing: _criteria.source == ContactSource.manual
-                  ? const Icon(Icons.check, color: AppTheme.rose)
+                  ? Icon(Icons.check, color: Theme.of(sheetContext).colorScheme.primary)
                   : null,
               onTap: () => Navigator.of(sheetContext).pop(ContactSource.manual),
             ),
             ListTile(
               title: const Text('Device Import'),
               trailing: _criteria.source == ContactSource.deviceImport
-                  ? const Icon(Icons.check, color: AppTheme.rose)
+                  ? Icon(Icons.check, color: Theme.of(sheetContext).colorScheme.primary)
                   : null,
               onTap: () =>
                   Navigator.of(sheetContext).pop(ContactSource.deviceImport),
@@ -673,14 +673,14 @@ final class _FilterBuilderScreenState
             ListTile(
               title: const Text('Hidden'),
               trailing: !_criteria.includeArchived
-                  ? const Icon(Icons.check, color: AppTheme.rose)
+                  ? Icon(Icons.check, color: Theme.of(sheetContext).colorScheme.primary)
                   : null,
               onTap: () => Navigator.of(sheetContext).pop(false),
             ),
             ListTile(
               title: const Text('Included'),
               trailing: _criteria.includeArchived
-                  ? const Icon(Icons.check, color: AppTheme.rose)
+                  ? Icon(Icons.check, color: Theme.of(sheetContext).colorScheme.primary)
                   : null,
               onTap: () => Navigator.of(sheetContext).pop(true),
             ),
@@ -979,10 +979,17 @@ final class _CategoryRow extends StatelessWidget {
             Expanded(child: Text(label, style: const TextStyle(fontSize: 16))),
             Text(
               summary,
-              style: const TextStyle(color: Color(0xFF9CA0A6), fontSize: 14),
+              style: TextStyle(
+                color: AppTheme.secondaryTextOf(context),
+                fontSize: 14,
+              ),
             ),
             const SizedBox(width: 6),
-            const Icon(Icons.chevron_right, size: 22, color: Color(0xFF9CA0A6)),
+            Icon(
+              Icons.chevron_right,
+              size: 22,
+              color: AppTheme.secondaryTextOf(context),
+            ),
           ],
         ),
       ),

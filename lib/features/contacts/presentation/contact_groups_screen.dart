@@ -38,12 +38,14 @@ final class _ContactGroupsScreenState
               for (final group in active)
                 _GroupRow(group: group, onTap: () => _editGroup(group)),
               if (active.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 32),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 32),
                   child: Text(
                     'No groups yet. Create one to give your contacts a shared color.',
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: Color(0xFF9CA0A6)),
+                    style: TextStyle(
+                      color: AppTheme.secondaryTextOf(context),
+                    ),
                   ),
                 ),
               if (archived.isNotEmpty) ...<Widget>[
@@ -61,8 +63,8 @@ final class _ContactGroupsScreenState
         key: const Key('create-group-fab'),
         heroTag: 'contact-groups-fab',
         onPressed: () => _editGroup(null),
-        backgroundColor: AppTheme.rose,
-        foregroundColor: AppTheme.background,
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        foregroundColor: Theme.of(context).colorScheme.onPrimary,
         icon: const Icon(Icons.add),
         label: const Text('New Group'),
       ),
@@ -192,7 +194,10 @@ final class _GroupRow extends StatelessWidget {
                   ),
                 ),
               ),
-              const Icon(Icons.chevron_right, color: Color(0xFF9CA0A6)),
+              Icon(
+                Icons.chevron_right,
+                color: AppTheme.secondaryTextOf(context),
+              ),
             ],
           ),
         ),
@@ -245,7 +250,7 @@ final class _GroupEditorState extends State<_GroupEditor> {
               decoration: InputDecoration(
                 labelText: 'Name',
                 filled: true,
-                fillColor: const Color(0xFF181A1E),
+                fillColor: AppTheme.surfaceOf(context),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(6),
                 ),
@@ -270,9 +275,12 @@ final class _GroupEditorState extends State<_GroupEditor> {
                         shape: BoxShape.circle,
                         color: Color(color.argb),
                         border: color.argb == _color
-                            ? Border.all(color: Colors.white, width: 2.5)
+                            ? Border.all(
+                                color: AppTheme.onFillTextOf(context, 1.0),
+                                width: 2.5,
+                              )
                             : Border.all(
-                                color: const Color(0xFF454850),
+                                color: AppTheme.outlineOf(context),
                                 width: 1,
                               ),
                       ),
@@ -310,9 +318,11 @@ final class _GroupEditorState extends State<_GroupEditor> {
                 key: const Key('group-archive'),
                 onPressed: () =>
                     Navigator.of(context).pop(const _GroupEditorArchive()),
-                child: const Text(
+                child: Text(
                   'Archive group',
-                  style: TextStyle(color: AppTheme.rose),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
                 ),
               ),
             ],
