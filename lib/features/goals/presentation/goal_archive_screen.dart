@@ -615,7 +615,13 @@ final class _HistoryRow extends StatelessWidget {
     ).formatTimeOfDay(TimeOfDay.fromDateTime(activity.occurredAtUtc.toLocal()));
     return ListTile(
       contentPadding: EdgeInsets.zero,
-      leading: Icon(_activityIcon(activity.action), color: AppTheme.rose),
+      // B3.1: theme-owned generic action icon — resolves through the active
+      // Theme Color semantic primary (Blue in Blue mode, canonical Rose in
+      // Rose Dark).  Goal Icon artwork is NOT affected (separate renderer).
+      leading: Icon(
+        _activityIcon(activity.action),
+        color: Theme.of(context).colorScheme.primary,
+      ),
       title: Text(title, style: AppTypography.cardTitle),
       subtitle: Text('$date \u00b7 $time \u00b7 ${item.role.title}'),
     );

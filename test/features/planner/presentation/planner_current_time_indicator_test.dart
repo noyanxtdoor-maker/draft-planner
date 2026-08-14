@@ -45,6 +45,8 @@ import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rmplanner/app/next_transfer_app.dart'
     show appEnvironmentProvider;
+import 'package:rmplanner/app/theme/app_theme.dart';
+import 'package:rmplanner/app/theme/theme_color_mode.dart';
 import 'package:rmplanner/core/database/app_database.dart';
 import 'package:rmplanner/core/diagnostics/sanitized_diagnostics.dart';
 import 'package:rmplanner/core/platform/app_environment.dart';
@@ -190,6 +192,7 @@ Future<_PumpedPlanner> _pumpPlanner({
   required PlannerDate selected,
   required DateTime current,
   CalendarEventDraft? eventDraft,
+  ThemeData? theme,
 }) async {
   tester.view.physicalSize = const Size(862, 1824);
   tester.view.devicePixelRatio = 2;
@@ -268,7 +271,10 @@ Future<_PumpedPlanner> _pumpPlanner({
         selected: selected,
         startupRepository: startup,
       ),
-      child: const MaterialApp(home: _StartupPrewarm()),
+      child: MaterialApp(
+        theme: theme,
+        home: const _StartupPrewarm(),
+      ),
     ),
   );
   // Pre-warm: explicitly call `initialize()` on the startup
@@ -289,6 +295,7 @@ Future<_PumpedPlanner> _pumpPlanner({
         startupRepository: startup,
       ),
       child: MaterialApp(
+        theme: theme,
         home: PlannerScreen(currentTimeListenable: currentTime.notifier),
       ),
     ),
@@ -1369,6 +1376,123 @@ void main() {
       expect(after.links, before.links);
       expect(after.ledger, before.ledger);
       expect(tester.takeException(), isNull);
+    });
+  });
+
+  // ------------------------------------------------------------- B3.1
+  // Planner current-time color contract: in ALL FOUR Rose/Blue x Light/Dark
+  // combinations the badge fill is scheme.primary, the time text is
+  // scheme.onPrimary, and the dot/line are scheme.primary.  No geometry
+  // change.
+  group('B3.1 current-time color contract', () {
+    Future<void> pumpAndProbe(
+      WidgetTester tester, {
+      required ThemeData theme,
+      required Color expectedPrimary,
+      required Color expectedOnPrimary,
+    }) async {
+      final (database, plannerRepo, _) = await _buildRepositories();
+      await _pumpPlanner(
+        tester: tester,
+        database: database,
+        plannerRepository: plannerRepo,
+        selected: _selectedToday,
+        current: _fourOhThree,
+        theme: theme,
+      );
+      final scheme = theme.colorScheme;
+      expect(scheme.primary, expectedPrimary);
+      expect(scheme.onPrimary, expectedOnPrimary);
+
+      final label = find.byKey(const Key('planner-current-time-label'));
+      final dot = find.byKey(const Key('planner-current-time-dot'));
+      final line = find.byKey(const Key('planner-current-time-line'));
+      expect(label, findsOneWidget);
+      expect(dot, findsOneWidget);
+      expect(line, findsOneWidget);
+
+      // Time text rides onPrimary.
+      final labelText = tester.widget<Text>(label);
+      expect(
+        labelText.style!.color,
+        scheme.onPrimary,
+        reason: 'current-time label text must use scheme.onPrimary',
+      );
+
+      // The pill fill (nearest Container ancestor of the label) is primary.
+      final pill = tester.widget<Container>(
+        find.ancestor(of: label, matching: find.byType(Container)).first,
+      );
+      final pillDecoration = pill.decoration! as BoxDecoration;
+      expect(
+        pillDecoration.color,
+        scheme.primary,
+        reason: 'current-time badge fill must use scheme.primary',
+      );
+
+      // Dot and line are primary.
+      final dotDecoration = tester.widget<DecoratedBox>(
+        find.descendant(
+          of: dot,
+          matching: find.byType(DecoratedBox),
+        ),
+      );
+      expect(
+        (dotDecoration.decoration as BoxDecoration).color,
+        scheme.primary,
+        reason: 'current-time dot must use scheme.primary',
+      );
+      final lineDecoration = tester.widget<DecoratedBox>(
+        find.descendant(
+          of: line,
+          matching: find.byType(DecoratedBox),
+        ),
+      );
+      expect(
+        (lineDecoration.decoration as BoxDecoration).color,
+        scheme.primary,
+        reason: 'current-time line must use scheme.primary',
+      );
+    }
+
+    testWidgets('Rose Light: primary badge + onPrimary text + primary dot/line',
+        (tester) async {
+      await pumpAndProbe(
+        tester,
+        theme: AppTheme.light(ThemeColorMode.rose),
+        expectedPrimary: AppTheme.roseLightPrimary,
+        expectedOnPrimary: AppTheme.roseLightOnPrimary,
+      );
+    });
+
+    testWidgets('Blue Light: primary badge + onPrimary text + primary dot/line',
+        (tester) async {
+      await pumpAndProbe(
+        tester,
+        theme: AppTheme.light(ThemeColorMode.blue),
+        expectedPrimary: AppTheme.blueLightPrimary,
+        expectedOnPrimary: AppTheme.blueLightOnPrimary,
+      );
+    });
+
+    testWidgets('Rose Dark: primary badge + onPrimary text + primary dot/line',
+        (tester) async {
+      await pumpAndProbe(
+        tester,
+        theme: AppTheme.dark(ThemeColorMode.rose),
+        expectedPrimary: AppTheme.rose,
+        expectedOnPrimary: const Color(0xFF340012),
+      );
+    });
+
+    testWidgets('Blue Dark: primary badge + onPrimary text + primary dot/line',
+        (tester) async {
+      await pumpAndProbe(
+        tester,
+        theme: AppTheme.dark(ThemeColorMode.blue),
+        expectedPrimary: AppTheme.blueDarkPrimary,
+        expectedOnPrimary: AppTheme.blueDarkOnPrimary,
+      );
     });
   });
 }

@@ -1529,8 +1529,11 @@ class _PagerPreviewColumnState extends State<_PagerPreviewColumn> {
                     fit: BoxFit.scaleDown,
                     alignment: Alignment.centerRight,
                     child: Container(
+                      // B3.1: the badge fill is the active semantic primary
+                      // and the time text rides onPrimary in all four
+                      // Rose/Blue x Light/Dark combinations (owner contract).
                       decoration: BoxDecoration(
-                        color: AppTheme.background,
+                        color: Theme.of(context).colorScheme.primary,
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
@@ -1540,7 +1543,7 @@ class _PagerPreviewColumnState extends State<_PagerPreviewColumn> {
                         maxLines: 1,
                         softWrap: false,
                         style: TextStyle(
-                          color: Theme.of(context).colorScheme.primary,
+                          color: Theme.of(context).colorScheme.onPrimary,
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
                           height: 1.0,

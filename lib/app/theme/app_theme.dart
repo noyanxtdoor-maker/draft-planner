@@ -472,9 +472,18 @@ abstract final class AppTheme {
     ThemeColorMode themeColor = ThemeColorMode.rose,
   ]) {
     final isBlue = themeColor == ThemeColorMode.blue;
+    // B3.1 systemic fix: the dark scheme must never seed Blue-mode surfaces
+    // from Rose.  Material 3 derives surfaceTint and the surfaceContainer*
+    // roles from the seed, so a Rose seed composites warm in Blue mode (the
+    // proven #38292C Create Goal app bar, #1C1618 Link-to-Life-Goal sheet).
+    // Blue mode therefore seeds from the Blue primary so every theme-owned
+    // tint/surface role follows the active Theme Color while neutral dark
+    // surfaces stay dark; Rose Dark keeps the exact Rose seed (byte-identical
+    // baseline, pinned by the B3.1 contract tests).
+    final seed = isBlue ? blueDarkPrimary : rose;
     final colorScheme =
         ColorScheme.fromSeed(
-          seedColor: rose,
+          seedColor: seed,
           brightness: Brightness.dark,
           surface: surface,
         ).copyWith(

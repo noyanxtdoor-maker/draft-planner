@@ -4561,8 +4561,17 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
                                                 alignment:
                                                     Alignment.centerRight,
                                                 child: Container(
+                                                  // B3.1: the badge fill is
+                                                  // the active semantic
+                                                  // primary and the time text
+                                                  // rides onPrimary in all
+                                                  // four Rose/Blue x
+                                                  // Light/Dark combinations
+                                                  // (owner contract).
                                                   decoration: BoxDecoration(
-                                                    color: AppTheme.background,
+                                                    color: Theme.of(
+                                                      context,
+                                                    ).colorScheme.primary,
                                                     borderRadius:
                                                         BorderRadius.circular(
                                                           4,
@@ -4581,7 +4590,7 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
                                                     style: TextStyle(
                                                       color: Theme.of(
                                                         context,
-                                                      ).colorScheme.primary,
+                                                      ).colorScheme.onPrimary,
                                                       fontSize: 11,
                                                       fontWeight:
                                                           FontWeight.w700,

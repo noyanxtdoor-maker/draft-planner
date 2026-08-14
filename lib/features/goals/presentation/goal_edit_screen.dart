@@ -584,7 +584,13 @@ final class _GoalHistoryRow extends StatelessWidget {
     return ListTile(
       contentPadding: EdgeInsets.zero,
       dense: true,
-      leading: Icon(_goalActivityIcon(activity.action), color: AppTheme.rose),
+      // B3.1: theme-owned generic action icon — resolves through the active
+      // Theme Color semantic primary (Blue in Blue mode, canonical Rose in
+      // Rose Dark).  Goal Icon artwork is NOT affected (separate renderer).
+      leading: Icon(
+        _goalActivityIcon(activity.action),
+        color: Theme.of(context).colorScheme.primary,
+      ),
       title: Text(title, style: AppTypography.secondary),
       subtitle: Text('$date · $time'),
     );
