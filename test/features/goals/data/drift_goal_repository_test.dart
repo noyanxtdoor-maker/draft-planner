@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -9,8 +11,10 @@ import 'package:rmplanner/features/indicators/data/drift_indicator_repository.da
 import 'package:rmplanner/features/indicators/domain/life_indicator.dart';
 import 'package:rmplanner/features/planner/data/calendar_event_time_zones.dart';
 import 'package:rmplanner/features/planner/data/drift_calendar_event_repository.dart';
+import 'package:rmplanner/features/planner/data/drift_event_type_repository.dart';
 import 'package:rmplanner/features/planner/data/drift_outcome_reporting_repository.dart';
 import 'package:rmplanner/features/planner/domain/calendar_event.dart';
+import 'package:rmplanner/features/planner/domain/event_type.dart';
 import 'package:rmplanner/features/planner/domain/outcome_reporting.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 
@@ -1364,6 +1368,756 @@ void main() {
     },
   );
 
+  group('MP-16 legacy Budget/Ministering compatibility reconciliation', () {
+    test(
+      'exact device-shape crossed pair reconciles to the historical '
+      'Budget/Ministering identity and converges the derived definition label',
+      () async {
+        final (database, repository, profileId) = await _crossedFixture();
+        addTearDown(database.close);
+        final g4Id = '$profileId:goal:4';
+        final g5Id = '$profileId:goal:5';
+
+        await repository.ensureCanonicalGoals(profileId);
+
+        final rows = await (database.select(
+          database.goals,
+        )..where(
+            (table) =>
+                table.profileId.equals(profileId) &
+                (table.id.equals(g4Id) | table.id.equals(g5Id)),
+          )).get();
+        final g4 = rows.singleWhere((row) => row.id == g4Id);
+        final g5 = rows.singleWhere((row) => row.id == g5Id);
+        // Desired MP-16 identity under the current canonical slot order.
+        expect(g5.activeSlotIndex, 4);
+        expect(g5.indicatorKey, SystemEventTypeKeys.budgetReview);
+        expect(
+          g5.assignedEventTypeStableKey,
+          SystemEventTypeKeys.budgetReview,
+        );
+        expect(g4.activeSlotIndex, 5);
+        expect(g4.indicatorKey, 'meaningful_connections');
+        expect(
+          g4.assignedEventTypeStableKey,
+          SystemEventTypeKeys.meaningfulConnection,
+        );
+        // Display customization is preserved.
+        expect(g4.title, 'Ministering Visit');
+        expect(g4.iconId, 'social_two_people');
+        expect(g5.title, 'Budget Review');
+        expect(g5.iconId, 'finance_wallet');
+        // The derived position-3 definition label converges to the preserved
+        // G4 title through the existing synchronization path.
+        final definition = await (database.select(
+          database.lifeIndicatorDefinitions,
+        )..where(
+            (table) =>
+                table.profileId.equals(profileId) &
+                table.indicatorKey.equals('meaningful_connections'),
+          )).getSingle();
+        expect(definition.label, 'Ministering Visit');
+      },
+    );
+
+    test(
+      'custom current titles/icons do not block semantic repair and are '
+      'preserved byte-for-byte',
+      () async {
+        final (database, repository, profileId) = await _crossedFixture(
+          g4Title: 'My Custom Ministering',
+          g5Title: 'My Custom Budget',
+          g4Icon: 'custom_people_icon',
+          g5Icon: 'custom_wallet_icon',
+        );
+        addTearDown(database.close);
+        final g4Id = '$profileId:goal:4';
+        final g5Id = '$profileId:goal:5';
+
+        await repository.ensureCanonicalGoals(profileId);
+
+        final rows = await (database.select(
+          database.goals,
+        )..where(
+            (table) =>
+                table.profileId.equals(profileId) &
+                (table.id.equals(g4Id) | table.id.equals(g5Id)),
+          )).get();
+        final g4 = rows.singleWhere((row) => row.id == g4Id);
+        final g5 = rows.singleWhere((row) => row.id == g5Id);
+        expect(g5.activeSlotIndex, 4);
+        expect(g5.indicatorKey, SystemEventTypeKeys.budgetReview);
+        expect(g4.activeSlotIndex, 5);
+        expect(g4.indicatorKey, 'meaningful_connections');
+        expect(g4.title, 'My Custom Ministering');
+        expect(g4.iconId, 'custom_people_icon');
+        expect(g5.title, 'My Custom Budget');
+        expect(g5.iconId, 'custom_wallet_icon');
+        // The derived label converges to the preserved custom G4 title.
+        final definition = await (database.select(
+          database.lifeIndicatorDefinitions,
+        )..where(
+            (table) =>
+                table.profileId.equals(profileId) &
+                table.indicatorKey.equals('meaningful_connections'),
+          )).getSingle();
+        expect(definition.label, 'My Custom Ministering');
+      },
+    );
+
+    test(
+      'preserves Event Types, mappings, Events, reports, ledger, history, '
+      'Planner, and unrelated rows exactly while repairing only the allowed '
+      'Goal fields',
+      () async {
+        final (database, repository, profileId) = await _crossedFixture();
+        addTearDown(database.close);
+        final now = clock.value;
+        final active = await repository.readActiveGoals(profileId);
+        final g4 = active.singleWhere(
+          (goal) => goal.id == '$profileId:goal:4',
+        );
+        final g5 = active.singleWhere(
+          (goal) => goal.id == '$profileId:goal:5',
+        );
+        final types = await database.select(database.activityTypes).get();
+        final budgetType = types.singleWhere(
+          (row) => row.stableKey == SystemEventTypeKeys.budgetReview,
+        );
+        final ministeringType = types.singleWhere(
+          (row) => row.stableKey == SystemEventTypeKeys.meaningfulConnection,
+        );
+        final jobType = types.singleWhere(
+          (row) => row.stableKey == SystemEventTypeKeys.jobApplication,
+        );
+
+        // Calendar Events + exception with historical snapshot fields.
+        await database.into(database.calendarEvents).insert(
+          CalendarEventsCompanion.insert(
+            id: 'mp16-ev-budget',
+            profileId: profileId,
+            title: 'Budget check',
+            timing: 'timed',
+            startDate: '2026-08-10',
+            startMinute: const Value<int?>(540),
+            endMinute: const Value<int?>(600),
+            timeZoneId: const Value<String?>('Asia/Manila'),
+            requiresReport: const Value<bool>(true),
+            activityTypeId: Value<String?>(budgetType.id),
+            activityTypeMappingVersion: const Value<int?>(1),
+            activityTypeStableKeySnapshot: const Value<String?>(
+              'budget_review',
+            ),
+            activityTypeLabelSnapshot: const Value<String?>('Budget Review'),
+            activityTypeColorValueSnapshot: const Value<int?>(4290749316),
+            contributionRuleKey: const Value<String?>(
+              'life-indicator:budget_review:1:0:count',
+            ),
+            goalId: Value<String?>(g4.id),
+            recurrenceFrequency: const Value<String>('weekly'),
+            status: const Value<String>('scheduled'),
+            createdAtUtc: now,
+            updatedAtUtc: now,
+          ),
+        );
+        await database.into(database.calendarEvents).insert(
+          CalendarEventsCompanion.insert(
+            id: 'mp16-ev-ministering',
+            profileId: profileId,
+            title: 'Ministering visit',
+            timing: 'timed',
+            startDate: '2026-08-12',
+            startMinute: const Value<int?>(600),
+            endMinute: const Value<int?>(660),
+            timeZoneId: const Value<String?>('Asia/Manila'),
+            requiresReport: const Value<bool>(true),
+            activityTypeId: Value<String?>(ministeringType.id),
+            activityTypeMappingVersion: const Value<int?>(1),
+            activityTypeStableKeySnapshot: const Value<String?>(
+              'meaningful_connection',
+            ),
+            activityTypeLabelSnapshot: const Value<String?>(
+              'Ministering Visit',
+            ),
+            activityTypeColorValueSnapshot: const Value<int?>(4289767793),
+            contributionRuleKey: const Value<String?>(
+              'life-indicator:meaningful_connections:1:0:count',
+            ),
+            goalId: Value<String?>(g5.id),
+            recurrenceFrequency: const Value<String>('weekly'),
+            status: const Value<String>('scheduled'),
+            createdAtUtc: now,
+            updatedAtUtc: now,
+          ),
+        );
+        await database.into(database.calendarEventExceptions).insert(
+          CalendarEventExceptionsCompanion.insert(
+            id: 'mp16-exc-ministering',
+            profileId: profileId,
+            eventId: 'mp16-ev-ministering',
+            occurrenceId: 'occ-1',
+            originalDate: '2026-08-12',
+            effectiveDate: '2026-08-13',
+            title: 'Cancelled ministering',
+            timing: 'timed',
+            requiresReport: const Value<bool>(true),
+            activityTypeId: Value<String?>(ministeringType.id),
+            activityTypeMappingVersion: const Value<int?>(1),
+            activityTypeStableKeySnapshot: const Value<String?>(
+              'meaningful_connection',
+            ),
+            activityTypeLabelSnapshot: const Value<String?>(
+              'Ministering Visit',
+            ),
+            contributionRuleKey: const Value<String?>(
+              'life-indicator:meaningful_connections:1:0:count',
+            ),
+            status: 'cancelled',
+            createdAtUtc: now,
+          ),
+        );
+
+        // Outcome report + contribution draft + ledger facts.
+        await database.into(database.outcomeReports).insert(
+          OutcomeReportsCompanion.insert(
+            id: 'mp16-report',
+            profileId: profileId,
+            sourceType: OutcomeSourceType.event.name,
+            sourceId: 'mp16-ev-budget',
+            sourceLabel: 'Budget check',
+            sourceSlotKey: 'mp16:budget',
+            status: 'submitted',
+            outcome: const Value<String?>('completed'),
+            activityDate: '2026-08-10',
+            eventId: const Value<String?>('mp16-ev-budget'),
+            occurrenceId: const Value<String?>(null),
+            createdAtUtc: now,
+            updatedAtUtc: now,
+            submittedAtUtc: Value<DateTime?>(now),
+          ),
+        );
+        await database.into(database.outcomeReportContributionDrafts).insert(
+          OutcomeReportContributionDraftsCompanion.insert(
+            reportId: 'mp16-report',
+            ruleKey: 'life-indicator:budget_review:1:0:count',
+            indicatorKey: 'budget_review',
+            valueScaled: 1,
+            valueScale: 0,
+            unit: 'count',
+          ),
+        );
+        await database.into(database.activityLedgerEntries).insert(
+          ActivityLedgerEntriesCompanion.insert(
+            id: 'mp16-ledger',
+            profileId: profileId,
+            sourceReportId: 'mp16-report',
+            entryType: 'contribution',
+            indicatorKey: 'budget_review',
+            valueScaled: 1,
+            valueScale: 0,
+            unit: 'count',
+            activityDate: '2026-08-10',
+            ruleKey: 'event:budget_review',
+            idempotencyKey: 'mp16-ledger',
+            recordedAtUtc: now,
+          ),
+        );
+
+        // Historical target revisions keyed by the legacy indicators.
+        await database.into(database.indicatorGoalRevisions).insert(
+          IndicatorGoalRevisionsCompanion.insert(
+            id: 'mp16-rev-g4',
+            profileId: profileId,
+            goalId: Value<String?>(g4.id),
+            indicatorKey: 'meaningful_connections',
+            periodType: 'weekly',
+            periodStartDate: '2026-08-10',
+            periodEndDate: '2026-08-16',
+            state: 'explicit',
+            valueScaled: const Value<int?>(2),
+            valueScale: 0,
+            unit: 'count',
+            supersedesRevisionId: const Value<String?>(null),
+            operationId: 'mp16-op-g4',
+            createdAtUtc: now,
+          ),
+        );
+        await database.into(database.weeklyIndicatorTargetRevisions).insert(
+          WeeklyIndicatorTargetRevisionsCompanion.insert(
+            id: 'mp16-wrev-g5',
+            profileId: profileId,
+            indicatorKey: 'budget_review',
+            goalId: Value<String?>(g5.id),
+            periodStartDate: '2026-08-10',
+            state: 'explicit',
+            valueScaled: const Value<int?>(2),
+            valueScale: 0,
+            unit: 'count',
+            supersedesRevisionId: const Value<String?>(null),
+            operationId: 'mp16-wop-g5',
+            createdAtUtc: now,
+          ),
+        );
+
+        // Planner Task + status change + contribution for the Job Goal.
+        await database.into(database.plannerTasks).insert(
+          PlannerTasksCompanion.insert(
+            id: 'mp16-task',
+            profileId: profileId,
+            title: 'Apply for a role',
+            dueDate: const Value<String?>('2026-08-12'),
+            dueMinute: const Value<int?>(600),
+            status: const Value<String>('completed'),
+            requiresReport: const Value<bool>(false),
+            linkedActivityTypeId: Value<String?>(jobType.id),
+            linkedActivityTypeStableKey: Value<String?>(jobType.stableKey),
+            linkedActivityTypeLabelSnapshot: Value<String?>(jobType.label),
+            createdAtUtc: now,
+            updatedAtUtc: now,
+          ),
+        );
+        await database.into(database.taskStatusChanges).insert(
+          TaskStatusChangesCompanion.insert(
+            id: 'mp16-task-status',
+            profileId: profileId,
+            taskId: 'mp16-task',
+            operationId: 'mp16-task-op',
+            fromStatus: 'incomplete',
+            toStatus: 'completed',
+            activityTypeId: Value<String?>(jobType.id),
+            activityTypeStableKeySnapshot: Value<String?>(jobType.stableKey),
+            activityTypeLabelSnapshot: Value<String?>(jobType.label),
+            changedAtUtc: now,
+          ),
+        );
+        await database.into(database.taskGoalContributions).insert(
+          TaskGoalContributionsCompanion.insert(
+            id: 'mp16-task-contr',
+            profileId: profileId,
+            taskId: 'mp16-task',
+            activityTypeId: Value<String?>(jobType.id),
+            activityTypeStableKeySnapshot: Value<String?>(jobType.stableKey),
+            activityTypeLabelSnapshot: Value<String?>(jobType.label),
+            indicatorKey: 'job_applications',
+            valueScaled: const Value<int>(1),
+            activityDate: '2026-08-12',
+            state: const Value<String>('completed'),
+            createdAtUtc: now,
+            updatedAtUtc: now,
+          ),
+        );
+
+        final before = await _preservationSnapshot(database, profileId);
+        await repository.ensureCanonicalGoals(profileId);
+        final after = await _preservationSnapshot(database, profileId);
+
+        // Only the allowed current Goal fields + derived definition label may
+        // change; every other row is byte-for-byte identical.
+        expect(after, before);
+        final definition = await (database.select(
+          database.lifeIndicatorDefinitions,
+        )..where(
+            (table) =>
+                table.profileId.equals(profileId) &
+                table.indicatorKey.equals('meaningful_connections'),
+          )).getSingle();
+        expect(definition.label, 'Ministering Visit');
+      },
+    );
+
+    test(
+      'fail-closed negative matrix: every one-sided/ambiguous/mismatched case '
+      'produces zero compatibility writes',
+      () async {
+        final cases = <(String, Future<void> Function(AppDatabase, String))>[
+          (
+            'only G4 present',
+            (database, profileId) => _setGoalStatus(
+              database,
+              profileId,
+              '$profileId:goal:5',
+              'deleted',
+            ),
+          ),
+          (
+            'only G5 present',
+            (database, profileId) => _setGoalStatus(
+              database,
+              profileId,
+              '$profileId:goal:4',
+              'deleted',
+            ),
+          ),
+          ('G4 archived', (database, profileId) => _setGoalStatus(
+            database,
+            profileId,
+            '$profileId:goal:4',
+            'archived',
+          )),
+          ('G5 archived', (database, profileId) => _setGoalStatus(
+            database,
+            profileId,
+            '$profileId:goal:5',
+            'archived',
+          )),
+          ('G4 deleted', (database, profileId) => _setGoalStatus(
+            database,
+            profileId,
+            '$profileId:goal:4',
+            'deleted',
+          )),
+          ('G5 deleted', (database, profileId) => _setGoalStatus(
+            database,
+            profileId,
+            '$profileId:goal:5',
+            'deleted',
+          )),
+          (
+            'wrong role',
+            (database, profileId) => _updateGoal(
+              database,
+              profileId,
+              '$profileId:goal:4',
+              GoalsCompanion(
+                role: Value<String>(GoalRole.dailyWeekly.storageName),
+              ),
+            ),
+          ),
+          (
+            'wrong G4 slot',
+            (database, profileId) => _updateGoal(
+              database,
+              profileId,
+              '$profileId:goal:4',
+              const GoalsCompanion(activeSlotIndex: Value<int?>(6)),
+            ),
+          ),
+          (
+            'wrong G5 slot',
+            (database, profileId) => _updateGoal(
+              database,
+              profileId,
+              '$profileId:goal:5',
+              const GoalsCompanion(activeSlotIndex: Value<int?>(3)),
+            ),
+          ),
+          (
+            'wrong G4 indicator',
+            (database, profileId) => _updateGoal(
+              database,
+              profileId,
+              '$profileId:goal:4',
+              const GoalsCompanion(
+                indicatorKey: Value<String?>('temple_visit'),
+              ),
+            ),
+          ),
+          (
+            'wrong G5 indicator',
+            (database, profileId) => _updateGoal(
+              database,
+              profileId,
+              '$profileId:goal:5',
+              const GoalsCompanion(
+                indicatorKey: Value<String?>('exercise'),
+              ),
+            ),
+          ),
+          (
+            'wrong G4 assignment',
+            (database, profileId) => _updateGoal(
+              database,
+              profileId,
+              '$profileId:goal:4',
+              const GoalsCompanion(
+                assignedEventTypeStableKey: Value<String?>('temple_visit'),
+              ),
+            ),
+          ),
+          (
+            'wrong G5 assignment',
+            (database, profileId) => _updateGoal(
+              database,
+              profileId,
+              '$profileId:goal:5',
+              const GoalsCompanion(
+                assignedEventTypeStableKey: Value<String?>('job_application'),
+              ),
+            ),
+          ),
+          (
+            'missing G4 created activity',
+            (database, profileId) => _updateActivity(
+              database,
+              '$profileId:goal:4:created',
+              const GoalActivitiesCompanion(
+                action: Value<String>('updated'),
+              ),
+            ),
+          ),
+          (
+            'missing G5 created activity',
+            (database, profileId) => _updateActivity(
+              database,
+              '$profileId:goal:5:created',
+              const GoalActivitiesCompanion(
+                action: Value<String>('updated'),
+              ),
+            ),
+          ),
+          (
+            'mismatched G4 activity title',
+            (database, profileId) => _updateActivity(
+              database,
+              '$profileId:goal:4:created',
+              const GoalActivitiesCompanion(
+                newValue: Value<String?>('Something Else'),
+              ),
+            ),
+          ),
+          (
+            'mismatched G5 activity title',
+            (database, profileId) => _updateActivity(
+              database,
+              '$profileId:goal:5:created',
+              const GoalActivitiesCompanion(
+                newValue: Value<String?>('Something Else'),
+              ),
+            ),
+          ),
+          (
+            'missing G4 created outbox',
+            (database, profileId) => _updateOutboxAction(
+              database,
+              '$profileId:goal:4:created',
+              'updated',
+            ),
+          ),
+          (
+            'missing G5 created outbox',
+            (database, profileId) => _updateOutboxAction(
+              database,
+              '$profileId:goal:5:created',
+              'updated',
+            ),
+          ),
+          (
+            'mismatched G4 outbox title',
+            (database, profileId) => _updateOutboxPayload(
+              database,
+              '$profileId:goal:4:created',
+              title: 'Wrong Title',
+            ),
+          ),
+          (
+            'mismatched G5 outbox slot',
+            (database, profileId) => _updateOutboxPayload(
+              database,
+              '$profileId:goal:5:created',
+              slot: 3,
+            ),
+          ),
+          (
+            'wrong Budget Event Type stable key',
+            (database, profileId) => _updateEventTypeStableKey(
+              database,
+              profileId,
+              SystemEventTypeIds.budgetReview,
+              'budget_review_custom',
+            ),
+          ),
+          (
+            'wrong Ministering Event Type stable key',
+            (database, profileId) => _updateEventTypeStableKey(
+              database,
+              profileId,
+              SystemEventTypeIds.meaningfulConnection,
+              'meaningful_connection_custom',
+            ),
+          ),
+          (
+            'wrong Budget mapping version',
+            (database, profileId) => _updateMapping(
+              database,
+              profileId,
+              SystemEventTypeIds.budgetReview,
+              mappingVersion: 2,
+            ),
+          ),
+          (
+            'wrong Ministering mapping indicator',
+            (database, profileId) => _updateMapping(
+              database,
+              profileId,
+              SystemEventTypeIds.meaningfulConnection,
+              indicatorKey: 'temple_visit',
+            ),
+          ),
+          (
+            'fresh canonical v24 profile',
+            (database, profileId) async {},
+          ),
+        ];
+
+        for (final (name, mutate) in cases) {
+          final (database, repository, profileId) = await _crossedFixture(
+            rewrite: false,
+          );
+          addTearDown(database.close);
+          if (name != 'fresh canonical v24 profile') {
+            await _rewriteToLegacyCrossedPair(database, profileId);
+          }
+          await mutate(database, profileId);
+          final evidenceBefore = await _evidenceSnapshot(database, profileId);
+
+          await repository.ensureCanonicalGoals(profileId);
+
+          final rows = await (database.select(
+            database.goals,
+          )..where(
+            (table) =>
+                table.profileId.equals(profileId) &
+                (table.id.equals('$profileId:goal:4') |
+                    table.id.equals('$profileId:goal:5')),
+          )).get();
+          final g4 = rows.singleWhere(
+            (row) => row.id == '$profileId:goal:4',
+          );
+          final g5 = rows.singleWhere(
+            (row) => row.id == '$profileId:goal:5',
+          );
+          // No compatibility repair: the pair must never reach the repaired
+          // MP-16 state (the helper's only effect is the key/slot swap).
+          final repaired =
+              g4.activeSlotIndex == 5 &&
+              g5.activeSlotIndex == 4 &&
+              g4.indicatorKey == 'meaningful_connections' &&
+              g4.assignedEventTypeStableKey ==
+                  SystemEventTypeKeys.meaningfulConnection &&
+              g5.indicatorKey == SystemEventTypeKeys.budgetReview &&
+              g5.assignedEventTypeStableKey ==
+                  SystemEventTypeKeys.budgetReview;
+          expect(
+            repaired,
+            isFalse,
+            reason: '[$name] compatibility repair must not fire',
+          );
+          // The immutable evidence rows are untouched.
+          expect(
+            await _evidenceSnapshot(database, profileId),
+            evidenceBefore,
+            reason: '[$name] evidence rows must be byte-identical',
+          );
+        }
+      },
+    );
+
+    test(
+      'repair is idempotent: the second bootstrap run issues zero writes and '
+      'no timestamp churn',
+      () async {
+        final (database, repository, profileId) = await _crossedFixture();
+        addTearDown(database.close);
+
+        await repository.ensureCanonicalGoals(profileId);
+        final afterFirst = await _fullGoalSnapshot(database, profileId);
+        final definitionFirst =
+            await (database.select(database.lifeIndicatorDefinitions)
+                  ..where(
+                    (table) =>
+                        table.profileId.equals(profileId) &
+                        table.indicatorKey.equals('meaningful_connections'),
+                  ))
+                .getSingle();
+
+        await repository.ensureCanonicalGoals(profileId);
+
+        expect(
+          await _fullGoalSnapshot(database, profileId),
+          afterFirst,
+          reason: 'second run must not rewrite Goals or churn updated_at',
+        );
+        final definitionSecond =
+            await (database.select(database.lifeIndicatorDefinitions)
+                  ..where(
+                    (table) =>
+                        table.profileId.equals(profileId) &
+                        table.indicatorKey.equals('meaningful_connections'),
+                  ))
+                .getSingle();
+        expect(definitionSecond.label, definitionFirst.label);
+      },
+    );
+
+    test(
+      'an injected failure between clearing and assigning slots rolls the '
+      'whole transaction back to the original crossed pair',
+      () async {
+        final (database, repository, profileId) = await _crossedFixture();
+        addTearDown(database.close);
+        final g5Id = '$profileId:goal:5';
+        // Fire only on the G5 reassignment (after the NULL clears) so the
+        // transaction aborts mid-swap.
+        await database.customStatement(
+          'CREATE TRIGGER mp16_rollback_inject '
+          'BEFORE UPDATE ON goals '
+          'WHEN NEW.id = \'$g5Id\' AND NEW.active_slot_index = 4 '
+          'AND NEW.indicator_key = \'budget_review\' '
+          'BEGIN SELECT RAISE(ABORT, \'mp16-injected\'); END',
+        );
+        await expectLater(
+          repository.ensureCanonicalGoals(profileId),
+          throwsA(isA<Exception>()),
+        );
+        await database.customStatement('DROP TRIGGER mp16_rollback_inject');
+
+        Future<(int?, String?, String?, int?, String?, String?)> pair() async {
+          final rows = await (database.select(
+            database.goals,
+          )..where(
+            (table) =>
+                table.profileId.equals(profileId) &
+                (table.id.equals('$profileId:goal:4') |
+                    table.id.equals('$profileId:goal:5')),
+          )).get();
+          final g4 = rows.singleWhere(
+            (row) => row.id == '$profileId:goal:4',
+          );
+          final g5 = rows.singleWhere(
+            (row) => row.id == '$profileId:goal:5',
+          );
+          return (
+            g4.activeSlotIndex,
+            g4.indicatorKey,
+            g4.assignedEventTypeStableKey,
+            g5.activeSlotIndex,
+            g5.indicatorKey,
+            g5.assignedEventTypeStableKey,
+          );
+        }
+
+        // The failed transaction left the original crossed pair intact.
+        final rolledBack = await pair();
+        expect(rolledBack.$1, 4);
+        expect(rolledBack.$2, SystemEventTypeKeys.budgetReview);
+        expect(rolledBack.$3, SystemEventTypeKeys.budgetReview);
+        expect(rolledBack.$4, 5);
+        expect(rolledBack.$5, 'meaningful_connections');
+        expect(rolledBack.$6, SystemEventTypeKeys.meaningfulConnection);
+
+        // Without the injected failure the same run repairs the pair.
+        await repository.ensureCanonicalGoals(profileId);
+        final repaired = await pair();
+        expect(repaired.$1, 5);
+        expect(repaired.$2, 'meaningful_connections');
+        expect(repaired.$3, SystemEventTypeKeys.meaningfulConnection);
+        expect(repaired.$4, 4);
+        expect(repaired.$5, SystemEventTypeKeys.budgetReview);
+        expect(repaired.$6, SystemEventTypeKeys.budgetReview);
+      },
+    );
+  });
+
   test('Delta 4 A1: cancelling a contributing Event immediately removes only '
       'that Event from Home Actual while preserving report history, manual '
       'contributions, and retry idempotency', () async {
@@ -1579,4 +2333,418 @@ String _serializeSnapshot(GoalPlanningSnapshot snapshot) {
     if (snapshot.monthly != null) 'monthly=${progress(snapshot.monthly!)}',
   ];
   return parts.join('\n');
+}
+
+/// Fixed clock used by the file-level MP-16 fixture helpers.
+final _mp16Clock = FixedClock(DateTime.utc(2026, 8, 14, 12));
+
+/// MP-16 fixture: a fresh canonical profile whose G4/G5 pair is rewritten to
+/// the exact legacy crossed post-bootstrap state with immutable v17 creation
+/// evidence. `rewrite: false` leaves the fresh canonical evidence in place.
+Future<(AppDatabase, DriftGoalRepository, String)> _crossedFixture({
+  bool rewrite = true,
+  String g4Title = 'Ministering Visit',
+  String g5Title = 'Budget Review',
+  String? g4Icon = 'social_two_people',
+  String? g5Icon = 'finance_wallet',
+}) async {
+  final database = openMemoryDatabase();
+  final startup = buildTestRepository(database: database);
+  final profile = await startup.completeOnboarding();
+  final profileId = profile.id;
+  final repository = DriftGoalRepository(
+    database: database,
+    clock: _mp16Clock,
+    identifiers: const UuidIdentifierSource(),
+  );
+  await DriftEventTypeRepository(
+    database: database,
+    clock: _mp16Clock,
+  ).readEventTypes(profileId: profileId);
+  await repository.readActiveGoals(profileId);
+  if (rewrite) {
+    await _rewriteToLegacyCrossedPair(
+      database,
+      profileId,
+      g4Title: g4Title,
+      g5Title: g5Title,
+      g4Icon: g4Icon,
+      g5Icon: g5Icon,
+    );
+  }
+  return (database, repository, profileId);
+}
+
+/// Rewrites the current G4/G5 rows into the exact crossed legacy state: the
+/// preserved legacy titles/icons, the crossed current key/slot fields, the
+/// immutable v17 created-activity evidence, the deterministic created-outbox
+/// evidence, and the collateral wrong derived definition label.
+Future<void> _rewriteToLegacyCrossedPair(
+  AppDatabase database,
+  String profileId, {
+  String g4Title = 'Ministering Visit',
+  String g5Title = 'Budget Review',
+  String? g4Icon = 'social_two_people',
+  String? g5Icon = 'finance_wallet',
+}) async {
+  final g4Id = '$profileId:goal:4';
+  final g5Id = '$profileId:goal:5';
+  final legacyUpdatedAt = DateTime.utc(2026, 8, 10, 3, 3, 10);
+  await _updateGoal(
+    database,
+    profileId,
+    g4Id,
+    GoalsCompanion(
+      title: Value<String>(g4Title),
+      iconId: Value<String?>(g4Icon),
+      updatedAtUtc: Value<DateTime>(legacyUpdatedAt),
+    ),
+  );
+  await _updateGoal(
+    database,
+    profileId,
+    g5Id,
+    GoalsCompanion(
+      title: Value<String>(g5Title),
+      iconId: Value<String?>(g5Icon),
+      updatedAtUtc: Value<DateTime>(legacyUpdatedAt),
+    ),
+  );
+  await (database.update(database.goalActivities)..where(
+    (table) => table.operationId.equals('$g4Id:created'),
+  )).write(
+    const GoalActivitiesCompanion(
+      action: Value<String>('created'),
+      newValue: Value<String?>('Ministering Visit'),
+    ),
+  );
+  await (database.update(database.goalActivities)..where(
+    (table) => table.operationId.equals('$g5Id:created'),
+  )).write(
+    const GoalActivitiesCompanion(
+      action: Value<String>('created'),
+      newValue: Value<String?>('Budget Review'),
+    ),
+  );
+  await (database.update(database.goalOutboxOperations)..where(
+    (table) => table.operationId.equals('$g4Id:created'),
+  )).write(
+    GoalOutboxOperationsCompanion(
+      action: const Value<String>('created'),
+      payloadJson: Value<String>(jsonEncode(<String, Object?>{
+        'goalId': g4Id,
+        'role': 'weekly',
+        'slot': 4,
+        'title': 'Ministering Visit',
+        'iconId': null,
+      })),
+    ),
+  );
+  await (database.update(database.goalOutboxOperations)..where(
+    (table) => table.operationId.equals('$g5Id:created'),
+  )).write(
+    GoalOutboxOperationsCompanion(
+      action: const Value<String>('created'),
+      payloadJson: Value<String>(jsonEncode(<String, Object?>{
+        'goalId': g5Id,
+        'role': 'weekly',
+        'slot': 5,
+        'title': 'Budget Review',
+        'iconId': null,
+      })),
+    ),
+  );
+  await (database.update(database.lifeIndicatorDefinitions)..where(
+    (table) =>
+        table.profileId.equals(profileId) &
+        table.indicatorKey.equals('meaningful_connections'),
+  )).write(
+    const LifeIndicatorDefinitionsCompanion(
+      label: Value<String>('Budget Review'),
+    ),
+  );
+}
+
+Future<void> _updateGoal(
+  AppDatabase database,
+  String profileId,
+  String goalId,
+  GoalsCompanion companion,
+) async {
+  await (database.update(database.goals)..where(
+    (table) => table.profileId.equals(profileId) & table.id.equals(goalId),
+  )).write(companion);
+}
+
+Future<void> _setGoalStatus(
+  AppDatabase database,
+  String profileId,
+  String goalId,
+  String status,
+) async {
+  await _updateGoal(
+    database,
+    profileId,
+    goalId,
+    GoalsCompanion(status: Value<String>(status)),
+  );
+}
+
+Future<void> _updateActivity(
+  AppDatabase database,
+  String operationId,
+  GoalActivitiesCompanion companion,
+) async {
+  await (database.update(database.goalActivities)..where(
+    (table) => table.operationId.equals(operationId),
+  )).write(companion);
+}
+
+Future<void> _updateOutboxAction(
+  AppDatabase database,
+  String operationId,
+  String action,
+) async {
+  await (database.update(database.goalOutboxOperations)..where(
+    (table) => table.operationId.equals(operationId),
+  )).write(
+    GoalOutboxOperationsCompanion(action: Value<String>(action)),
+  );
+}
+
+Future<void> _updateOutboxPayload(
+  AppDatabase database,
+  String operationId, {
+  String? title,
+  int? slot,
+}) async {
+  final existing = await (database.select(
+    database.goalOutboxOperations,
+  )..where((table) => table.operationId.equals(operationId))).getSingle();
+  final payload =
+      Map<String, Object?>.from(jsonDecode(existing.payloadJson) as Map);
+  if (title != null) payload['title'] = title;
+  if (slot != null) payload['slot'] = slot;
+  await (database.update(database.goalOutboxOperations)..where(
+    (table) => table.operationId.equals(operationId),
+  )).write(
+    GoalOutboxOperationsCompanion(
+      payloadJson: Value<String>(jsonEncode(payload)),
+    ),
+  );
+}
+
+Future<void> _updateEventTypeStableKey(
+  AppDatabase database,
+  String profileId,
+  String eventTypeId,
+  String stableKey,
+) async {
+  await (database.update(database.activityTypes)..where(
+    (table) =>
+        table.profileId.equals(profileId) & table.id.equals(eventTypeId),
+  )).write(
+    ActivityTypesCompanion(stableKey: Value<String>(stableKey)),
+  );
+}
+
+Future<void> _updateMapping(
+  AppDatabase database,
+  String profileId,
+  String eventTypeId, {
+  int? mappingVersion,
+  String? indicatorKey,
+}) async {
+  await (database.update(database.activityTypeIndicatorMappings)..where(
+    (table) =>
+        table.profileId.equals(profileId) &
+        table.activityTypeId.equals(eventTypeId),
+  )).write(
+    ActivityTypeIndicatorMappingsCompanion(
+      mappingVersion: mappingVersion == null
+          ? const Value.absent()
+          : Value<int>(mappingVersion),
+      indicatorKey: indicatorKey == null
+          ? const Value.absent()
+          : Value<String>(indicatorKey),
+    ),
+  );
+}/// Byte-for-byte snapshot of every row the MP-16 repair MUST NOT change, plus
+/// the Goal rows serialized through the allowed-fields whitelist so the test
+/// can prove the ONLY changes are the permitted current fields. The derived
+/// definition label is returned separately because it is allowed to converge.
+Future<Map<String, List<Map<String, Object?>>>> _preservationSnapshot(
+  AppDatabase database,
+  String profileId,
+) async {
+  final goals = await (database.select(
+    database.goals,
+  )..where((table) => table.profileId.equals(profileId))).get();
+  final definitions = await (database.select(
+    database.lifeIndicatorDefinitions,
+  )..where((table) => table.profileId.equals(profileId))).get();
+  final types = await (database.select(
+    database.activityTypes,
+  )..where((table) => table.profileId.equals(profileId))).get();
+  final mappings = await (database.select(
+    database.activityTypeIndicatorMappings,
+  )..where((table) => table.profileId.equals(profileId))).get();
+  final events = await (database.select(
+    database.calendarEvents,
+  )..where((table) => table.profileId.equals(profileId))).get();
+  final exceptions = await (database.select(
+    database.calendarEventExceptions,
+  )..where((table) => table.profileId.equals(profileId))).get();
+  final reports = await (database.select(
+    database.outcomeReports,
+  )..where((table) => table.profileId.equals(profileId))).get();
+  final drafts = await (database.select(
+    database.outcomeReportContributionDrafts,
+  )..where((table) => table.reportId.isIn(<String>['mp16-report']))).get();
+  final ledger = await (database.select(
+    database.activityLedgerEntries,
+  )..where((table) => table.profileId.equals(profileId))).get();
+  final activities = await (database.select(
+    database.goalActivities,
+  )..where((table) => table.profileId.equals(profileId))).get();
+  final outbox = await (database.select(
+    database.goalOutboxOperations,
+  )..where((table) => table.profileId.equals(profileId))).get();
+  final indicatorRevisions = await (database.select(
+    database.indicatorGoalRevisions,
+  )..where((table) => table.profileId.equals(profileId))).get();
+  final weeklyRevisions = await (database.select(
+    database.weeklyIndicatorTargetRevisions,
+  )..where((table) => table.profileId.equals(profileId))).get();
+  final tasks = await (database.select(
+    database.plannerTasks,
+  )..where((table) => table.profileId.equals(profileId))).get();
+  final statusChanges = await (database.select(
+    database.taskStatusChanges,
+  )..where((table) => table.profileId.equals(profileId))).get();
+  final contributions = await (database.select(
+    database.taskGoalContributions,
+  )..where((table) => table.profileId.equals(profileId))).get();
+
+  final goalRows = <Map<String, Object?>>[
+    for (final row in goals)
+      if (row.id == '$profileId:goal:4' || row.id == '$profileId:goal:5')
+        <String, Object?>{
+          'id': row.id,
+          'profileId': row.profileId,
+          'role': row.role,
+          'title': row.title,
+          'iconId': row.iconId,
+          'status': row.status,
+          'createdAtUtc': row.createdAtUtc.toUtc().toIso8601String(),
+          'archivedAtUtc': row.archivedAtUtc?.toUtc().toIso8601String(),
+          'deletedAtUtc': row.deletedAtUtc?.toUtc().toIso8601String(),
+        }
+      else
+        row.toJson(),
+  ];
+  final definitionRows = <Map<String, Object?>>[
+    for (final row in definitions)
+      if (row.indicatorKey == 'meaningful_connections' &&
+          row.position == 3)
+        <String, Object?>{
+          'id': row.id,
+          'profileId': row.profileId,
+          'indicatorKey': row.indicatorKey,
+          'unit': row.unit,
+          'position': row.position,
+          'createdAtUtc': row.createdAtUtc.toUtc().toIso8601String(),
+        }
+      else
+        row.toJson(),
+  ];
+
+  List<Map<String, Object?>> sorted(List<Map<String, Object?>> rows) {
+    rows.sort((a, b) => jsonEncode(a).compareTo(jsonEncode(b)));
+    return rows;
+  }
+
+  return <String, List<Map<String, Object?>>>{
+    'goals': sorted(goalRows),
+    'lifeIndicatorDefinitions': sorted(definitionRows),
+    'activityTypes': sorted([for (final row in types) row.toJson()]),
+    'activityTypeIndicatorMappings': sorted([
+      for (final row in mappings) row.toJson(),
+    ]),
+    'calendarEvents': sorted([for (final row in events) row.toJson()]),
+    'calendarEventExceptions': sorted([
+      for (final row in exceptions) row.toJson(),
+    ]),
+    'outcomeReports': sorted([for (final row in reports) row.toJson()]),
+    'outcomeReportContributionDrafts': sorted([
+      for (final row in drafts) row.toJson(),
+    ]),
+    'activityLedgerEntries': sorted([
+      for (final row in ledger) row.toJson(),
+    ]),
+    'goalActivities': sorted([for (final row in activities) row.toJson()]),
+    'goalOutboxOperations': sorted([
+      for (final row in outbox) row.toJson(),
+    ]),
+    'indicatorGoalRevisions': sorted([
+      for (final row in indicatorRevisions) row.toJson(),
+    ]),
+    'weeklyIndicatorTargetRevisions': sorted([
+      for (final row in weeklyRevisions) row.toJson(),
+    ]),
+    'plannerTasks': sorted([for (final row in tasks) row.toJson()]),
+    'taskStatusChanges': sorted([
+      for (final row in statusChanges) row.toJson(),
+    ]),
+    'taskGoalContributions': sorted([
+      for (final row in contributions) row.toJson(),
+    ]),
+  };
+}
+
+/// Snapshot of the immutable evidence tables used by the negative matrix.
+Future<Map<String, List<Map<String, Object?>>>> _evidenceSnapshot(
+  AppDatabase database,
+  String profileId,
+) async {
+  final activities = await (database.select(
+    database.goalActivities,
+  )..where((table) => table.profileId.equals(profileId))).get();
+  final outbox = await (database.select(
+    database.goalOutboxOperations,
+  )..where((table) => table.profileId.equals(profileId))).get();
+  final types = await (database.select(
+    database.activityTypes,
+  )..where((table) => table.profileId.equals(profileId))).get();
+  final mappings = await (database.select(
+    database.activityTypeIndicatorMappings,
+  )..where((table) => table.profileId.equals(profileId))).get();
+  List<Map<String, Object?>> sorted(List<Map<String, Object?>> rows) {
+    rows.sort((a, b) => jsonEncode(a).compareTo(jsonEncode(b)));
+    return rows;
+  }
+
+  return <String, List<Map<String, Object?>>>{
+    'goalActivities': sorted([for (final row in activities) row.toJson()]),
+    'goalOutboxOperations': sorted([
+      for (final row in outbox) row.toJson(),
+    ]),
+    'activityTypes': sorted([for (final row in types) row.toJson()]),
+    'activityTypeIndicatorMappings': sorted([
+      for (final row in mappings) row.toJson(),
+    ]),
+  };
+}
+
+/// Full byte-for-byte snapshot of every Goal row (used for idempotence).
+Future<Map<String, List<Map<String, Object?>>>> _fullGoalSnapshot(
+  AppDatabase database,
+  String profileId,
+) async {
+  final goals = await (database.select(
+    database.goals,
+  )..where((table) => table.profileId.equals(profileId))).get();
+  final rows = [for (final row in goals) row.toJson()];
+  rows.sort((a, b) => jsonEncode(a).compareTo(jsonEncode(b)));
+  return <String, List<Map<String, Object?>>>{'goals': rows};
 }

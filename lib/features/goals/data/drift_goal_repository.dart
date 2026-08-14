@@ -44,12 +44,30 @@ final class GoalBootstrap {
               ]))
             .get();
     final now = (nowUtc ?? DateTime.now().toUtc()).toUtc();
-    final existingGoals = await (database.select(
+    var existingGoals = await (database.select(
       database.goals,
     )..where((table) => table.profileId.equals(profileId))).get();
     final definitionsByIndicator = <String, LifeIndicatorDefinitionRow>{
       for (final definition in definitions) definition.indicatorKey: definition,
     };
+    // MP-16: before the ordinary canonical-slot loop, repair the exact legacy
+    // Budget/Ministering crossover if the immutable v17 creation evidence
+    // proves the historical identity. The helper runs with the already loaded
+    // rows so its steady-state cost is a single bounded evidence read (and
+    // zero reads once the pair is repaired).
+    final legacyPairReconciled = await _reconcileLegacyBudgetMinisteringCross(
+      database,
+      profileId,
+      goals: existingGoals,
+      nowUtc: now,
+    );
+    if (legacyPairReconciled) {
+      // The rows changed underneath the preloaded list; reload so the ordinary
+      // slot loop converges on the repaired pair instead of the stale one.
+      existingGoals = await (database.select(
+        database.goals,
+      )..where((table) => table.profileId.equals(profileId))).get();
+    }
     // Coalesce the per-slot activity/outbox existence checks into two reads
     // so the steady-state repair path is O(1) instead of O(slots) queries.
     final canonicalOperationIds = <String>{
@@ -228,6 +246,228 @@ final class GoalBootstrap {
       }
     }
   }
+}
+
+/// MP-16: exact, history-keyed, transactional compatibility reconciliation
+/// for the legacy fixed Goal <-> Event Type crossover.
+///
+/// Historical Goal identity is the durable Goal ID plus the immutable v17
+/// created activity/outbox evidence, never the later corrupted slot. When the
+/// exact crossed pair matches, G5 (Budget Review identity) is moved back to
+/// Budget slot 4 and G4 (Ministering Visit identity) to slot 5, keeping the
+/// current canonical slot order while restoring the historical semantics.
+///
+/// The predicate is deliberately narrow: any missing/one-sided/ambiguous
+/// component returns false (zero writes) and the ordinary canonical slot loop
+/// continues untouched. Event Types, mappings, Events, reports, ledger,
+/// activities, outbox, targets, Planner, and unrelated rows are never written.
+Future<bool> _reconcileLegacyBudgetMinisteringCross(
+  AppDatabase database,
+  String profileId, {
+  required List<GoalRow> goals,
+  required DateTime nowUtc,
+}) async {
+  final budgetSlot = CanonicalGoalSlot.bySlot(4);
+  final ministeringSlot = CanonicalGoalSlot.bySlot(5);
+  final budgetKey = budgetSlot.eventTypeStableKey;
+  final budgetIndicator = budgetSlot.indicatorKey;
+  final budgetEventTypeId = budgetSlot.eventTypeId;
+  final ministeringKey = ministeringSlot.eventTypeStableKey;
+  final ministeringIndicator = ministeringSlot.indicatorKey;
+  final ministeringEventTypeId = ministeringSlot.eventTypeId;
+  final g4Id = GoalBootstrap.stableId(profileId, 4);
+  final g5Id = GoalBootstrap.stableId(profileId, 5);
+
+  GoalRow? g4;
+  GoalRow? g5;
+  for (final row in goals) {
+    if (row.id == g4Id) g4 = row;
+    if (row.id == g5Id) g5 = row;
+  }
+  if (g4 == null || g5 == null) return false;
+  if (g4.status != GoalStatus.active.name ||
+      g5.status != GoalStatus.active.name) {
+    return false;
+  }
+  if (g4.role != GoalRole.weekly.storageName ||
+      g5.role != GoalRole.weekly.storageName) {
+    return false;
+  }
+  // Exact current crossed post-bootstrap shape.
+  if (g4.activeSlotIndex != 4 ||
+      g4.indicatorKey != budgetIndicator ||
+      g4.assignedEventTypeStableKey != budgetKey ||
+      g5.activeSlotIndex != 5 ||
+      g5.indicatorKey != ministeringIndicator ||
+      g5.assignedEventTypeStableKey != ministeringKey) {
+    return false;
+  }
+
+  // Immutable deterministic created activities prove the v17 identity. This
+  // is the only evidence read on a fresh/canonical profile: its creation
+  // titles differ (Budget Review for goal:4), so the check short-circuits
+  // before any further read.
+  final createdActivities = await (database.select(
+    database.goalActivities,
+  )..where(
+    (table) =>
+        table.profileId.equals(profileId) &
+        table.operationId.isIn(<String>['$g4Id:created', '$g5Id:created']),
+  )).get();
+  String? createdValue(String goalId) {
+    for (final row in createdActivities) {
+      if (row.operationId == '$goalId:created' &&
+          row.action == GoalActivityAction.created.name) {
+        return row.newValue;
+      }
+    }
+    return null;
+  }
+
+  if (createdValue(g4Id) != 'Ministering Visit') return false;
+  if (createdValue(g5Id) != 'Budget Review') return false;
+
+  // Matching deterministic v17 created-outbox identity (entity IDs, slots,
+  // titles, and payload goalId).
+  final createdOutbox = await (database.select(
+    database.goalOutboxOperations,
+  )..where(
+    (table) =>
+        table.operationId.isIn(<String>['$g4Id:created', '$g5Id:created']),
+  )).get();
+  bool outboxMatches(String goalId, int slot, String title) {
+    for (final row in createdOutbox) {
+      if (row.operationId != '$goalId:created' ||
+          row.action != GoalActivityAction.created.name ||
+          row.entityId != goalId) {
+        continue;
+      }
+      final Object? decoded;
+      try {
+        decoded = jsonDecode(row.payloadJson);
+      } on FormatException {
+        continue;
+      }
+      if (decoded is! Map<String, Object?>) continue;
+      if (decoded['goalId'] != goalId) continue;
+      if (decoded['slot'] != slot) continue;
+      if (decoded['title'] != title) continue;
+      return true;
+    }
+    return false;
+  }
+
+  if (!outboxMatches(g4Id, 4, 'Ministering Visit')) return false;
+  if (!outboxMatches(g5Id, 5, 'Budget Review')) return false;
+
+  // Canonical Event Type identities must be exact and unmodified.
+  final systemTypes = await (database.select(
+    database.activityTypes,
+  )..where(
+    (table) => table.id.isIn(<String>[
+      budgetEventTypeId,
+      ministeringEventTypeId,
+    ]),
+  )).get();
+  var budgetTypeExact = false;
+  var ministeringTypeExact = false;
+  for (final row in systemTypes) {
+    if (row.id == budgetEventTypeId &&
+        row.stableKey == budgetKey) {
+      budgetTypeExact = true;
+    } else if (row.id == ministeringEventTypeId &&
+        row.stableKey == ministeringKey) {
+      ministeringTypeExact = true;
+    }
+  }
+  if (!budgetTypeExact || !ministeringTypeExact) return false;
+
+  // Their version-1 indicator mapping rows must be exact.
+  final systemMappings = await (database.select(
+    database.activityTypeIndicatorMappings,
+  )..where(
+    (table) => table.activityTypeId.isIn(<String>[
+      budgetEventTypeId,
+      ministeringEventTypeId,
+    ]),
+  )).get();
+  var budgetMappingExact = false;
+  var ministeringMappingExact = false;
+  for (final row in systemMappings) {
+    if (row.activityTypeId == budgetEventTypeId &&
+        row.indicatorKey == budgetIndicator &&
+        row.mappingVersion == 1) {
+      budgetMappingExact = true;
+    } else if (row.activityTypeId == ministeringEventTypeId &&
+        row.indicatorKey == ministeringIndicator &&
+        row.mappingVersion == 1) {
+      ministeringMappingExact = true;
+    }
+  }
+  if (!budgetMappingExact || !ministeringMappingExact) return false;
+
+  // One atomic repair. The predicate is re-checked inside the transaction;
+  // both slots are cleared to NULL first so the unique
+  // (profile_id, active_slot_index) index cannot collide during the swap.
+  return database.transaction(() async {
+    final current = await (database.select(
+      database.goals,
+    )..where(
+      (table) =>
+          table.profileId.equals(profileId) &
+          (table.id.equals(g4Id) | table.id.equals(g5Id)),
+    )).get();
+    final currentG4 = current.where((row) => row.id == g4Id).firstOrNull;
+    final currentG5 = current.where((row) => row.id == g5Id).firstOrNull;
+    if (currentG4 == null || currentG5 == null) return false;
+    if (currentG4.status != GoalStatus.active.name ||
+        currentG5.status != GoalStatus.active.name) {
+      return false;
+    }
+    if (currentG4.role != GoalRole.weekly.storageName ||
+        currentG5.role != GoalRole.weekly.storageName) {
+      return false;
+    }
+    if (currentG4.activeSlotIndex != 4 ||
+        currentG4.indicatorKey != budgetIndicator ||
+        currentG4.assignedEventTypeStableKey != budgetKey ||
+        currentG5.activeSlotIndex != 5 ||
+        currentG5.indicatorKey != ministeringIndicator ||
+        currentG5.assignedEventTypeStableKey != ministeringKey) {
+      return false;
+    }
+
+    await (database.update(database.goals)..where(
+      (table) =>
+          table.profileId.equals(profileId) &
+          (table.id.equals(g4Id) | table.id.equals(g5Id)),
+    )).write(
+      const GoalsCompanion(activeSlotIndex: Value<int?>(null)),
+    );
+    // G5 (Budget Review identity) -> Budget slot 4.
+    await (database.update(database.goals)..where(
+      (table) => table.profileId.equals(profileId) & table.id.equals(g5Id),
+    )).write(
+      GoalsCompanion(
+        activeSlotIndex: const Value<int?>(4),
+        indicatorKey: Value<String?>(budgetIndicator),
+        assignedEventTypeStableKey: Value<String?>(budgetKey),
+        updatedAtUtc: Value<DateTime>(nowUtc),
+      ),
+    );
+    // G4 (Ministering Visit identity) -> slot 5.
+    await (database.update(database.goals)..where(
+      (table) => table.profileId.equals(profileId) & table.id.equals(g4Id),
+    )).write(
+      GoalsCompanion(
+        activeSlotIndex: const Value<int?>(5),
+        indicatorKey: Value<String?>(ministeringIndicator),
+        assignedEventTypeStableKey: Value<String?>(ministeringKey),
+        updatedAtUtc: Value<DateTime>(nowUtc),
+      ),
+    );
+    return true;
+  });
 }
 
 final class DriftGoalRepository implements GoalRepository {
@@ -1112,6 +1352,21 @@ final class DriftGoalRepository implements GoalRepository {
               mode: InsertMode.insertOrIgnore,
             );
       }
+
+      // MP-16: an old crossed backup is internally consistent (its stored
+      // keys match their current slots) so parser validation cannot detect
+      // it. Run the exact history-keyed reconciliation after the immutable
+      // creation evidence and targets are imported, before the import
+      // transaction returns.
+      final postImportGoals = await (database.select(
+        database.goals,
+      )..where((table) => table.profileId.equals(profileId))).get();
+      await _reconcileLegacyBudgetMinisteringCross(
+        database,
+        profileId,
+        goals: postImportGoals,
+        nowUtc: clock.nowUtc(),
+      );
     }
 
     if (wrapInTransaction) {
