@@ -79,7 +79,13 @@ final class _GoalIconPickerScreenState extends State<GoalIconPickerScreen> {
               .toList(growable: false);
     final scaffold = Scaffold(
       appBar: InternalAppBar(
+        // A8: Material 3 swaps the fallback app-bar base from surface to
+        // surfaceContainer once the list scrolls under it.  Transparent
+        // surface tint alone does not pin the base color, so Choose Icon
+        // pins surface + zero scrolled-under elevation explicitly.
+        backgroundColor: AppTheme.surface,
         surfaceTintColor: Colors.transparent,
+        scrolledUnderElevation: 0,
         leading: IconButton(
           key: const Key('goal-icon-picker-back'),
           tooltip: 'Back',

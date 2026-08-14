@@ -59,18 +59,28 @@ final class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     final plannerToday = ref.watch(plannerDateSourceProvider).today();
     final startOfWeek = ref.watch(startOfWeekProvider);
-    final periodStart = IndicatorPeriod.currentWeek(
-      plannerToday,
-      startDay: startOfWeek,
-    ).start;
-    final canonicalPlan = ref.watch(goalPlanningProvider(periodStart));
+    // A2: form period-family keys only after the initial persisted
+    // start-of-week read is confirmed, so a provisional Monday-keyed family
+    // never starts for a configured non-Monday week.
+    final startOfWeekReady = ref.watch(
+      startOfWeekInitialReadProvider,
+    ).hasValue;
+    final PlannerDate? periodStart = startOfWeekReady
+        ? IndicatorPeriod.currentWeek(
+            plannerToday,
+            startDay: startOfWeek,
+          ).start
+        : null;
+    final canonicalPlan = periodStart == null
+        ? null
+        : ref.watch(goalPlanningProvider(periodStart));
     // Plan-established signal: a WeeklyPlans row exists for the exact
     // resolved current period.  Read-only; never creates a row here.
-    final established = ref
-        .watch(weeklyPlanEstablishedProvider(periodStart))
-        .value;
-    _reconcileOptimisticTargets(canonicalPlan.value);
-    final planValue = canonicalPlan.value;
+    final established = periodStart == null
+        ? null
+        : ref.watch(weeklyPlanEstablishedProvider(periodStart)).value;
+    _reconcileOptimisticTargets(canonicalPlan?.value);
+    final planValue = canonicalPlan?.value;
     final optimisticDailyTarget = planValue?.daily == null
         ? null
         : _optimisticDailyTargets[planValue!.daily!.goal.id];
@@ -111,7 +121,10 @@ final class _HomeScreenState extends ConsumerState<HomeScreen> {
           maxScaleFactor: 1.3,
           child: RefreshIndicator(
             onRefresh: () async {
-              ref.invalidate(goalPlanningProvider(periodStart));
+              final start = periodStart;
+              if (start != null) {
+                ref.invalidate(goalPlanningProvider(start));
+              }
               ref.invalidate(nextTempleVisitProvider);
               await ref.read(nextTempleVisitProvider.future);
             },
@@ -129,11 +142,12 @@ final class _HomeScreenState extends ConsumerState<HomeScreen> {
                   // "Life Goals".  Domain, provider, and database identifiers
                   // keep the canonical WLI naming.
                   title: 'Life Goals',
-                  onViewAll: () => _openWeeklyPlanning(
-                    context,
-                    ref,
-                    periodStart,
-                  ),
+                  onViewAll: () {
+                    final start = periodStart;
+                    if (start != null) {
+                      _openWeeklyPlanning(context, ref, start);
+                    }
+                  },
                   viewAllKey: const Key('home-wli-view-all'),
                 ),
                 const SizedBox(height: 6),
@@ -143,22 +157,29 @@ final class _HomeScreenState extends ConsumerState<HomeScreen> {
                   monthGoalLabel: _monthGoalLabel(context, plannerToday),
                   optimisticDailyTarget: optimisticDailyTarget,
                   nextTempleVisit: nextTempleVisit,
-                  onOpenWeeklyPlanning: () => _openWeeklyPlanning(
-                    context,
-                    ref,
-                    periodStart,
-                  ),
+                  onOpenWeeklyPlanning: () {
+                    final start = periodStart;
+                    if (start != null) {
+                      _openWeeklyPlanning(context, ref, start);
+                    }
+                  },
                   onOpenGoal: (progress) =>
                       _openGoalById(context, progress.goal.id),
                   onOpenTempleSchedule: () =>
                       _openTempleSchedule(context, ref, plannerToday),
-                  onAdjustDailyTarget: (progress, delta) => _adjustDailyTarget(
-                    ref,
-                    progress,
-                    delta: delta,
-                    today: plannerToday,
-                    periodStart: periodStart,
-                  ),
+                  onAdjustDailyTarget: (progress, delta) {
+                    final start = periodStart;
+                    if (start == null) {
+                      return;
+                    }
+                    _adjustDailyTarget(
+                      ref,
+                      progress,
+                      delta: delta,
+                      today: plannerToday,
+                      periodStart: start,
+                    );
+                  },
                 ),
                 const SizedBox(height: 22),
                 const _MajorSectionSeparator(),
@@ -437,7 +458,9 @@ final class _CanonicalHomePlan extends StatelessWidget {
     this.optimisticDailyTarget,
   });
 
-  final AsyncValue<GoalPlanningSnapshot> plan;
+  /// Null while the start-of-week preference is still being confirmed, in
+  /// which case no period family has been formed yet (A2).
+  final AsyncValue<GoalPlanningSnapshot>? plan;
 
   /// True when a WeeklyPlans row exists for the exact resolved current period;
   /// null while the read-only existence check is still loading (so the Home
@@ -453,13 +476,15 @@ final class _CanonicalHomePlan extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final plan = this.plan;
+    if (plan == null) {
+      // A2: start-of-week readiness pending — honest section skeleton, no
+      // fabricated names, actuals, targets, or established state.
+      return const _LifeGoalsSkeleton();
+    }
     return plan.when(
       skipLoadingOnReload: true,
-      loading: () => const SizedBox(
-        key: Key('home-canonical-plan-loading'),
-        height: 96,
-        child: Center(child: CircularProgressIndicator()),
-      ),
+      loading: () => const _LifeGoalsSkeleton(),
       error: (error, stackTrace) => const SizedBox(
         key: Key('home-canonical-plan-error'),
         height: 96,
@@ -467,11 +492,7 @@ final class _CanonicalHomePlan extends StatelessWidget {
       ),
       data: (value) {
         if (established == null) {
-          return const SizedBox(
-            key: Key('home-canonical-plan-loading'),
-            height: 96,
-            child: Center(child: CircularProgressIndicator()),
-          );
+          return const _LifeGoalsSkeleton();
         }
         final hasActiveGoals =
             value.daily != null ||
@@ -531,6 +552,68 @@ final class _CanonicalHomePlan extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+/// Honest first-load placeholder for the Life Goals section (A2): the same
+/// card-grid geometry as the confirmed content but with NO fabricated Goal
+/// names, actuals, targets, established state, or numbers.  Rendered while
+/// the start-of-week preference is being confirmed or while the genuine
+/// initial period family has no confirmed snapshot yet.
+final class _LifeGoalsSkeleton extends StatelessWidget {
+  const _LifeGoalsSkeleton();
+
+  static const Color _block = Color(0xFF23262C);
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      key: const Key('home-life-goals-skeleton'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        _skeletonCard(),
+        const SizedBox(height: 6),
+        _skeletonPair(),
+        const SizedBox(height: 6),
+        _skeletonPair(),
+        const SizedBox(height: 6),
+        _skeletonCard(),
+        const SizedBox(height: 16),
+        Center(
+          child: Container(
+            width: 126,
+            height: 36,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(19),
+              border: Border.all(color: AppTheme.outline),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  static Widget _skeletonCard() {
+    return Container(
+      height: 60,
+      decoration: BoxDecoration(
+        color: _block,
+        borderRadius: BorderRadius.circular(12),
+      ),
+    );
+  }
+
+  static Widget _skeletonPair() {
+    return SizedBox(
+      height: 60,
+      child: Row(
+        children: <Widget>[
+          Expanded(child: _skeletonCard()),
+          const SizedBox(width: 10),
+          Expanded(child: _skeletonCard()),
+        ],
+      ),
     );
   }
 }

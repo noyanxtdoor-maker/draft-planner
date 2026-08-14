@@ -19,7 +19,23 @@ final startOfWeekProvider = NotifierProvider<StartOfWeekNotifier, int>(
   StartOfWeekNotifier.new,
 );
 
+/// Completes once the initial persisted start-of-week value has been
+/// confirmed (or the read failed and the default stands).  Consumers that
+/// form period-family keys (Home, A2) await this so a provisional
+/// Monday-keyed family never starts for a configured non-Monday week.
+final startOfWeekInitialReadProvider = FutureProvider<void>((ref) {
+  final notifier = ref.watch(startOfWeekProvider.notifier);
+  return notifier.initialReadComplete;
+});
+
 final class StartOfWeekNotifier extends Notifier<int> {
+  final Completer<void> _initialRead = Completer<void>();
+  bool _initialReadConfirmed = false;
+
+  /// The first persisted read (from [build]) completes this once.  Later
+  /// same-process refreshes never re-gate readiness.
+  Future<void> get initialReadComplete => _initialRead.future;
+
   @override
   int build() {
     // Re-resolve the current profile whenever startup state changes (for
@@ -51,6 +67,10 @@ final class StartOfWeekNotifier extends Notifier<int> {
       state = value;
     } on Object {
       // Keep the last confirmed value (or the initial Monday default).
+    }
+    if (!_initialReadConfirmed) {
+      _initialReadConfirmed = true;
+      _initialRead.complete();
     }
   }
 

@@ -23,9 +23,12 @@ final class _DelayedWeeklyPlanningRepository
   });
 
   final PlannerDate today;
-  final bool established;
+  bool established;
   final Completer<void> _release = Completer<void>();
   int openOrCreateCalls = 0;
+  int ensureCalls = 0;
+  final List<String> periodExistsStarts = <String>[];
+  final Set<String> establishedPeriods = <String>{};
 
   void release() {
     if (!_release.isCompleted) {
@@ -40,6 +43,8 @@ final class _DelayedWeeklyPlanningRepository
     int startDay = DateTime.monday,
   }) async {
     openOrCreateCalls += 1;
+    // The rich projection never completes: any establishment path that
+    // depends on it hangs forever and fails the A1 isolation assertions.
     await _release.future;
     final period = WeeklyPeriod.containing(date, startDay: startDay);
     return WeeklyPlan(
@@ -52,6 +57,25 @@ final class _DelayedWeeklyPlanningRepository
       createdAtUtc: DateTime.utc(2026, 8, 13),
       updatedAtUtc: DateTime.utc(2026, 8, 13),
     );
+  }
+
+  @override
+  Future<bool> periodExists({
+    required String profileId,
+    required PlannerDate periodStart,
+  }) async {
+    periodExistsStarts.add(periodStart.iso8601);
+    return established || establishedPeriods.contains(periodStart.iso8601);
+  }
+
+  @override
+  Future<void> ensurePeriod({
+    required String profileId,
+    required PlannerDate periodStart,
+    int startDay = DateTime.monday,
+  }) async {
+    ensureCalls += 1;
+    established = true;
   }
 
   @override
@@ -148,6 +172,7 @@ void main() {
     PlannerDateSource? plannerDateSource,
     WeeklyPlanningRepository? weeklyPlanningRepository,
     StartOfWeekRepository? startOfWeekRepository,
+    bool settle = true,
   }) async {
     tester.view.physicalSize = const Size(431, 912);
     tester.view.devicePixelRatio = 1;
@@ -173,7 +198,14 @@ void main() {
         startOfWeekRepository: startOfWeekRepository,
       ),
     );
-    await tester.pumpAndSettle();
+    if (settle) {
+      await tester.pumpAndSettle();
+    } else {
+      // Pre-readiness Home may hold an honest skeleton; settle manually to
+      // avoid a pumpAndSettle timeout from any provisional loading state.
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+    }
   }
 
   testWidgets('unestablished current period hides cards and shows Start Planning',
@@ -255,7 +287,8 @@ void main() {
     (established: true, button: 'Goal Planning'),
   ]) {
     testWidgets(
-      'A1: ${entry.button} opens Goal Planning before openOrCreate finishes',
+      'A1: ${entry.button} opens Goal Planning via the lightweight ensure '
+      'without the rich projection',
       (tester) async {
         final database = openMemoryDatabase();
         addTearDown(database.close);
@@ -272,22 +305,30 @@ void main() {
 
         expect(find.text(entry.button), findsOneWidget);
         await tester.tap(find.byKey(const Key('weekly-targets-button')));
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 300));
+        await tester.pumpAndSettle();
 
         expect(
           find.byKey(const Key('weekly-plan-back-home')),
           findsOneWidget,
           reason:
-              '${entry.button} must transfer control to the destination '
-              'without waiting for local plan establishment.',
+              '${entry.button} must transfer control to the destination.',
         );
-        expect(delayed.openOrCreateCalls, 1);
-        expect(find.byType(CircularProgressIndicator), findsOneWidget);
-
-        delayed.release();
-        await tester.pumpAndSettle();
-        expect(find.byKey(const Key('weekly-plan-list')), findsOneWidget);
+        expect(
+          delayed.openOrCreateCalls,
+          0,
+          reason: 'Establishment must not call the rich projection (A1).',
+        );
+        expect(
+          delayed.ensureCalls,
+          1,
+          reason: 'Establishment must use the lightweight idempotent ensure '
+              '(A1).',
+        );
+        expect(
+          find.byKey(const Key('weekly-plan-list')),
+          findsOneWidget,
+          reason: 'Goal rows must render without the rich projection.',
+        );
         expect(tester.takeException(), isNull);
       },
     );
@@ -392,6 +433,131 @@ void main() {
       await tester.pumpAndSettle();
       expect(container.read(startOfWeekProvider), DateTime.sunday);
       expect(find.text('Goal Planning'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'A2.1: a non-Monday profile never starts a Monday period family before '
+    'the initial preference read is confirmed',
+    (tester) async {
+      final database = openMemoryDatabase();
+      addTearDown(database.close);
+      final profile = await buildTestRepository(
+        database: database,
+      ).completeOnboarding();
+      // The stored preference is Sunday and the Sunday week is established.
+      await establishWeeklyPlan(
+        database: database,
+        profileId: profile.id,
+        date: thursday,
+        startDay: DateTime.sunday,
+      );
+      final startOfWeek = _ControlledStartOfWeekRepository(DateTime.sunday);
+      addTearDown(startOfWeek.releasePendingRead);
+      final weekly = _DelayedWeeklyPlanningRepository(
+        today: thursday,
+        established: true,
+      );
+      addTearDown(weekly.release);
+      // Gate the initial persisted read so the provisional default (Monday)
+      // is the only value Home could form families with.
+      startOfWeek.holdNextRead();
+      await pumpHome(
+        tester,
+        database,
+        weeklyPlanningRepository: weekly,
+        startOfWeekRepository: startOfWeek,
+        settle: false,
+      );
+
+      expect(
+        weekly.periodExistsStarts,
+        isEmpty,
+        reason:
+            'Before the initial preference read is confirmed, no period '
+            'family (not even the Monday default) may be started.',
+      );
+      expect(find.text('Start Planning'), findsNothing);
+      expect(find.text('Goal Planning'), findsNothing);
+      expect(
+        find.byKey(const Key('home-canonical-plan-loading')),
+        findsNothing,
+        reason: 'Pre-readiness Home must not show a central spinner.',
+      );
+
+      startOfWeek.releasePendingRead();
+      await tester.pumpAndSettle();
+
+      // Exactly ONE family begins, keyed by the CONFIGURED Sunday week
+      // (2026-08-09), never the Monday week (2026-08-10).
+      expect(
+        weekly.periodExistsStarts,
+        <String>['2026-08-09'],
+        reason:
+            'Exactly one configured-period family must begin; the Monday '
+            'family must never start.',
+      );
+      expect(find.text('Goal Planning'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'A2.3: a genuine new period starts an honest new family; the old family '
+    'value is never reused',
+    (tester) async {
+      final database = openMemoryDatabase();
+      addTearDown(database.close);
+      final profile = await buildTestRepository(
+        database: database,
+      ).completeOnboarding();
+      // Sunday preference; Thursday 2026-08-13 -> Sunday week Aug 9-15.
+      final startOfWeek = _ControlledStartOfWeekRepository(DateTime.sunday);
+      addTearDown(startOfWeek.releasePendingRead);
+      await establishWeeklyPlan(
+        database: database,
+        profileId: profile.id,
+        date: thursday,
+        startDay: DateTime.sunday,
+      );
+      final dates = _MutablePlannerDateSource(thursday);
+      final weekly = _DelayedWeeklyPlanningRepository(
+        today: thursday,
+        established: false,
+      )..establishedPeriods.add('2026-08-09');
+      addTearDown(weekly.release);
+      await pumpHome(
+        tester,
+        database,
+        plannerDateSource: dates,
+        weeklyPlanningRepository: weekly,
+        startOfWeekRepository: startOfWeek,
+      );
+      expect(find.text('Goal Planning'), findsOneWidget);
+
+      // Cross the Sunday boundary into a genuinely NEW period (Aug 16-22)
+      // through the app's date-change path.
+      dates.value = thursday.addDays(4); // Sunday 2026-08-17.
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+
+      expect(
+        weekly.periodExistsStarts,
+        contains('2026-08-16'),
+        reason: 'The genuinely new period must begin its own family.',
+      );
+      expect(
+        find.text('Goal Planning'),
+        findsNothing,
+        reason: 'The old period established value must not be reused for the '
+            'new family.',
+      );
+      expect(
+        find.text('Start Planning'),
+        findsOneWidget,
+        reason: 'The new period is honestly unestablished.',
+      );
       expect(tester.takeException(), isNull);
     },
   );

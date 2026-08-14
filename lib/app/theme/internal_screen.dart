@@ -87,6 +87,8 @@ final class InternalAppBar extends StatelessWidget
     this.bottom,
     this.automaticallyImplyLeading = true,
     this.surfaceTintColor,
+    this.backgroundColor,
+    this.scrolledUnderElevation,
   });
 
   final Widget? title;
@@ -95,6 +97,16 @@ final class InternalAppBar extends StatelessWidget
   final PreferredSizeWidget? bottom;
   final bool automaticallyImplyLeading;
   final Color? surfaceTintColor;
+
+  /// Optional pinned base color.  Null keeps the theme/M3 default, which in
+  /// Material 3 swaps to `surfaceContainer` once content scrolls under the
+  /// app bar.  Consumers that must hold the same surface while scrolling
+  /// (e.g. Choose Icon, A8) pass [AppTheme.surface] explicitly.
+  final Color? backgroundColor;
+
+  /// Optional scrolled-under elevation.  Null keeps the M3 default of 3.0;
+  /// consumers that must not lift when scrolled under pass 0 (A8).
+  final double? scrolledUnderElevation;
 
   @override
   Size get preferredSize => Size.fromHeight(
@@ -112,6 +124,8 @@ final class InternalAppBar extends StatelessWidget
       actions: actions,
       bottom: bottom,
       surfaceTintColor: surfaceTintColor,
+      backgroundColor: backgroundColor,
+      scrolledUnderElevation: scrolledUnderElevation,
     );
   }
 }

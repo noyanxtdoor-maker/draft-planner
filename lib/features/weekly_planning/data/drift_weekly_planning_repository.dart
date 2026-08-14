@@ -90,6 +90,53 @@ final class DriftWeeklyPlanningRepository implements WeeklyPlanningRepository {
   }
 
   @override
+  Future<bool> periodExists({
+    required String profileId,
+    required PlannerDate periodStart,
+  }) async {
+    final row = await _rowForPeriod(profileId, periodStart);
+    return row != null;
+  }
+
+  @override
+  Future<void> ensurePeriod({
+    required String profileId,
+    required PlannerDate periodStart,
+    int startDay = DateTime.monday,
+  }) async {
+    // Lightweight establishment: identical canonical row semantics to
+    // [openOrCreate] but without the rich projection (_mapPlan / readHome).
+    final zone = await _profileTimeZone(profileId);
+    final period = WeeklyPeriod.containing(periodStart, startDay: startDay);
+    final now = clock.nowUtc();
+    await database.transaction(() async {
+      // The existence check lives INSIDE the transaction so concurrent
+      // ensures serialize and coalesce onto one row (drift serializes
+      // transactions per connection; the unique index is schema metadata).
+      final existing = await _rowForPeriod(profileId, period.start);
+      if (existing != null) {
+        return;
+      }
+      await database
+          .into(database.weeklyPlans)
+          .insert(
+            WeeklyPlansCompanion.insert(
+              id: identifiers.nextUuid(),
+              profileId: profileId,
+              periodStartDate: period.start.iso8601,
+              periodEndDate: period.end.iso8601,
+              timeZoneId: zone,
+              state: WeeklyPlanState.draft.name,
+              createdAtUtc: now,
+              updatedAtUtc: now,
+            ),
+            mode: InsertMode.insertOrIgnore,
+          );
+      await writeGuard.beforeCommit();
+    });
+  }
+
+  @override
   Future<WeeklyPlan?> readPlan({
     required String profileId,
     required String planId,

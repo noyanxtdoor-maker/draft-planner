@@ -50,6 +50,32 @@ final class GoalBootstrap {
     final definitionsByIndicator = <String, LifeIndicatorDefinitionRow>{
       for (final definition in definitions) definition.indicatorKey: definition,
     };
+    // Coalesce the per-slot activity/outbox existence checks into two reads
+    // so the steady-state repair path is O(1) instead of O(slots) queries.
+    final canonicalOperationIds = <String>{
+      for (final slot in CanonicalGoalSlot.all)
+        '${stableId(profileId, slot.slotIndex)}:created',
+    };
+    final existingActivityOperationIds = <String>{
+      for (final row
+          in await (database.select(database.goalActivities)
+                ..where(
+                  (table) =>
+                      table.profileId.equals(profileId) &
+                      table.operationId.isIn(canonicalOperationIds),
+                ))
+              .get())
+        row.operationId,
+    };
+    final existingOutboxOperationIds = <String>{
+      for (final row
+          in await (database.select(database.goalOutboxOperations)
+                ..where(
+                  (table) => table.operationId.isIn(canonicalOperationIds),
+                ))
+              .get())
+        row.operationId,
+    };
     for (final slot in CanonicalGoalSlot.all) {
       final goalId = stableId(profileId, slot.slotIndex);
       final definition = definitionsByIndicator[slot.indicatorKey];
@@ -146,16 +172,7 @@ final class GoalBootstrap {
       if (goal == null) continue;
       final title = goal.title;
       final operationId = '$goalId:created';
-      final activity =
-          await (database.select(database.goalActivities)
-                ..where(
-                  (table) =>
-                      table.profileId.equals(profileId) &
-                      table.operationId.equals(operationId),
-                )
-                ..limit(1))
-              .getSingleOrNull();
-      if (activity == null) {
+      if (!existingActivityOperationIds.contains(operationId)) {
         await database
             .into(database.goalActivities)
             .insert(
@@ -172,12 +189,7 @@ final class GoalBootstrap {
               mode: InsertMode.insertOrIgnore,
             );
       }
-      final outbox =
-          await (database.select(database.goalOutboxOperations)
-                ..where((table) => table.operationId.equals(operationId))
-                ..limit(1))
-              .getSingleOrNull();
-      if (outbox == null) {
+      if (!existingOutboxOperationIds.contains(operationId)) {
         await database
             .into(database.goalOutboxOperations)
             .insert(
@@ -262,16 +274,36 @@ final class DriftGoalRepository implements GoalRepository {
   Future<void> ensureCanonicalGoals(String profileId) async {
     await GoalBootstrap.ensure(database, profileId, nowUtc: clock.nowUtc());
     final mappings = await _goalMappings(profileId);
-    for (final goal in mappings.values) {
-      final indicatorNulls =
-          await (database.select(database.indicatorGoalRevisions)..where(
+    final keys = mappings.keys.toList(growable: false);
+    // Coalesce the per-Goal orphan-revision checks into two reads; only the
+    // affected keys run the corrective UPDATE (steady state: none).
+    final indicatorNullKeys = <String>{};
+    final weeklyNullKeys = <String>{};
+    if (keys.isNotEmpty) {
+      indicatorNullKeys.addAll(
+        (await (database.select(database.indicatorGoalRevisions)..where(
+              (table) =>
+                  table.profileId.equals(profileId) &
+                  table.indicatorKey.isIn(keys) &
+                  table.goalId.isNull(),
+            ))
+                .get())
+            .map((row) => row.indicatorKey),
+      );
+      weeklyNullKeys.addAll(
+        (await (database.select(database.weeklyIndicatorTargetRevisions)
+              ..where(
                 (table) =>
                     table.profileId.equals(profileId) &
-                    table.indicatorKey.equals(goal.indicatorKey ?? '') &
+                    table.indicatorKey.isIn(keys) &
                     table.goalId.isNull(),
               ))
-              .get();
-      if (indicatorNulls.isNotEmpty) {
+              .get())
+            .map((row) => row.indicatorKey),
+      );
+    }
+    for (final goal in mappings.values) {
+      if (indicatorNullKeys.contains(goal.indicatorKey)) {
         await database.customUpdate(
           'UPDATE indicator_goal_revisions SET goal_id = ? '
           'WHERE profile_id = ? AND indicator_key = ? AND goal_id IS NULL',
@@ -283,16 +315,7 @@ final class DriftGoalRepository implements GoalRepository {
           updates: <ResultSetImplementation>{database.indicatorGoalRevisions},
         );
       }
-      final weeklyNulls =
-          await (database.select(database.weeklyIndicatorTargetRevisions)
-                ..where(
-                  (table) =>
-                      table.profileId.equals(profileId) &
-                      table.indicatorKey.equals(goal.indicatorKey ?? '') &
-                      table.goalId.isNull(),
-                ))
-              .get();
-      if (weeklyNulls.isNotEmpty) {
+      if (weeklyNullKeys.contains(goal.indicatorKey)) {
         await database.customUpdate(
           'UPDATE weekly_indicator_target_revisions SET goal_id = ? '
           'WHERE profile_id = ? AND indicator_key = ? AND goal_id IS NULL',
@@ -1377,16 +1400,13 @@ final class DriftGoalRepository implements GoalRepository {
           ..sort(_compareCanonicalPlanningGoals);
     final resolvedToday = today ?? periodStart;
     final resolvedWeek = resolveWeek(date: periodStart, startDay: startDay);
-    final progress = <GoalProgress>[];
-    for (final goal in goals) {
-      final value = await _readProgress(
-        goal: goal,
-        today: resolvedToday,
-        periodStart: resolvedWeek.start,
-        startDay: startDay,
-      );
-      progress.add(value);
-    }
+    final progress = await _readProgressBatch(
+      profileId: profileId,
+      goals: goals,
+      today: resolvedToday,
+      weekStart: resolvedWeek.start,
+      startDay: startDay,
+    );
     return GoalPlanningSnapshot(
       periodStart: resolvedWeek.start,
       periodEnd: resolvedWeek.end,
@@ -1446,6 +1466,332 @@ final class DriftGoalRepository implements GoalRepository {
       monthlyActual: await _actual(goal, monthlyPeriod.indicatorPeriod, unit),
       monthlyTarget: _mapTarget(monthly, unit),
     );
+  }
+
+  /// Bounded batch projection backing [readPlanning].  A fixed set of reads
+  /// (goals, units, target revisions, ledger/task rows, and Event activity)
+  /// replaces the previous per-Goal/per-field serial fan-out while preserving
+  /// the exact canonical semantics: explicit vs unset targets, daily/weekly/
+  /// monthly boundaries, latest-revision chains, archived/deleted exclusion,
+  /// Event cancellation, recurrence occurrence exceptions, Task
+  /// contributions, and the configured week start.
+  Future<List<GoalProgress>> _readProgressBatch({
+    required String profileId,
+    required List<Goal> goals,
+    required PlannerDate today,
+    required PlannerDate weekStart,
+    required int startDay,
+  }) async {
+    if (goals.isEmpty) {
+      return const <GoalProgress>[];
+    }
+    final keys = goals
+        .map((goal) => goal.indicatorKey)
+        .whereType<String>()
+        .toSet();
+    final goalIds = goals.map((goal) => goal.id).toSet();
+    final unitByKey = <String, String>{};
+    if (keys.isNotEmpty) {
+      final definitions =
+          await (database.select(database.lifeIndicatorDefinitions)
+                ..where(
+                  (table) =>
+                      table.profileId.equals(profileId) &
+                      table.indicatorKey.isIn(keys),
+                ))
+              .get();
+      unitByKey.addEntries(
+        definitions.map((row) => MapEntry(row.indicatorKey, row.unit)),
+      );
+    }
+    String unitFor(Goal goal) {
+      final key = goal.indicatorKey;
+      return key == null ? 'count' : (unitByKey[key] ?? 'count');
+    }
+
+    final dailyPeriod = IndicatorGoalPeriod.daily(today);
+    final weeklyPeriod = IndicatorGoalPeriod.weekly(
+      weekStart,
+      startDay: startDay,
+    );
+    final monthlyPeriod = IndicatorGoalPeriod.monthly(today);
+
+    // Latest-revision target lookup, batched across every Goal and period.
+    // Each row is grouped twice: by Goal (the primary lookup) and by
+    // indicator key (the legacy fallback), matching the canonical
+    // goal-first, key-fallback resolution exactly.
+    final periodStarts = <String>{
+      dailyPeriod.start.iso8601,
+      weeklyPeriod.start.iso8601,
+      monthlyPeriod.start.iso8601,
+    };
+    final periodTypes = <String>{
+      for (final type in IndicatorGoalPeriodType.values) type.name,
+    };
+    final revisionsByGoalAndPeriod =
+        <String, Map<String, List<IndicatorGoalRevisionRow>>>{};
+    final revisionsByKeyAndPeriod =
+        <String, Map<String, List<IndicatorGoalRevisionRow>>>{};
+    if (goalIds.isNotEmpty) {
+      final targetRows =
+          await (database.select(database.indicatorGoalRevisions)
+                ..where(
+                  (table) =>
+                      table.profileId.equals(profileId) &
+                      (table.goalId.isIn(goalIds) |
+                          table.indicatorKey.isIn(keys)) &
+                      table.periodType.isIn(periodTypes) &
+                      table.periodStartDate.isIn(periodStarts),
+                ))
+              .get();
+      for (final row in targetRows) {
+        final periodKey = '${row.periodType}:${row.periodStartDate}';
+        final goalId = row.goalId;
+        if (goalId != null) {
+          final byGoal = revisionsByGoalAndPeriod.putIfAbsent(
+            goalId,
+            () => <String, List<IndicatorGoalRevisionRow>>{},
+          );
+          byGoal
+              .putIfAbsent(
+                periodKey,
+                () => <IndicatorGoalRevisionRow>[],
+              )
+              .add(row);
+        }
+        if (row.indicatorKey.isNotEmpty) {
+          final byKey = revisionsByKeyAndPeriod.putIfAbsent(
+            row.indicatorKey,
+            () => <String, List<IndicatorGoalRevisionRow>>{},
+          );
+          byKey
+              .putIfAbsent(
+                periodKey,
+                () => <IndicatorGoalRevisionRow>[],
+              )
+              .add(row);
+        }
+      }
+    }
+
+    IndicatorGoalRevisionRow? latestTarget({
+      required Goal goal,
+      required IndicatorGoalPeriod period,
+    }) {
+      final periodKey = '${period.type.name}:${period.start.iso8601}';
+      final byGoal = revisionsByGoalAndPeriod[goal.id]?[periodKey];
+      if (byGoal != null && byGoal.isNotEmpty) {
+        return _latestTargetRevision(byGoal);
+      }
+      final key = goal.indicatorKey;
+      if (key == null) {
+        return null;
+      }
+      final byIndicator = revisionsByKeyAndPeriod[key]?[periodKey];
+      return byIndicator == null || byIndicator.isEmpty
+          ? null
+          : _latestTargetRevision(byIndicator);
+    }
+
+    Future<Map<String, IndicatorAmount>> actualsFor(
+      IndicatorGoalPeriod period,
+    ) async {
+      if (keys.isEmpty) {
+        return const <String, IndicatorAmount>{};
+      }
+      final rows =
+          await (database.select(database.activityLedgerEntries)..where(
+                (table) =>
+                    table.profileId.equals(profileId) &
+                    table.indicatorKey.isIn(keys) &
+                    table.activityDate.isBiggerOrEqualValue(
+                      period.start.iso8601,
+                    ) &
+                    table.activityDate.isSmallerOrEqualValue(
+                      period.end.iso8601,
+                    ),
+              ))
+              .get();
+      final taskContributions =
+          await (database.select(database.taskGoalContributions)..where(
+                (table) =>
+                    table.profileId.equals(profileId) &
+                    table.indicatorKey.isIn(keys) &
+                    table.activityDate.isBiggerOrEqualValue(
+                      period.start.iso8601,
+                    ) &
+                    table.activityDate.isSmallerOrEqualValue(
+                      period.end.iso8601,
+                    ) &
+                    table.state.equals('active'),
+              ))
+              .get();
+      final activeRows = await _filterActiveLedgerRows(profileId, rows);
+      final rowsByKey = <String, List<ActivityLedgerEntryRow>>{};
+      for (final row in activeRows) {
+        rowsByKey
+            .putIfAbsent(row.indicatorKey, () => <ActivityLedgerEntryRow>[])
+            .add(row);
+      }
+      final tasksByKey = <String, List<TaskGoalContributionRow>>{};
+      for (final row in taskContributions) {
+        tasksByKey
+            .putIfAbsent(row.indicatorKey, () => <TaskGoalContributionRow>[])
+            .add(row);
+      }
+      final result = <String, IndicatorAmount>{};
+      for (final key in keys) {
+        final active = rowsByKey[key] ?? const <ActivityLedgerEntryRow>[];
+        final tasks = tasksByKey[key] ?? const <TaskGoalContributionRow>[];
+        final unit = unitByKey[key] ?? 'count';
+        final scale =
+            active.firstOrNull?.valueScale ??
+            tasks.firstOrNull?.valueScale ??
+            IndicatorUnitPolicy.allowedScale(unit);
+        result[key] = IndicatorAmount(
+          scaledValue:
+              active.fold<int>(0, (sum, row) => sum + row.valueScaled) +
+              tasks.fold<int>(0, (sum, row) => sum + row.valueScaled),
+          scale: scale,
+          unit: unit,
+        );
+      }
+      return result;
+    }
+
+    final dailyActuals = await actualsFor(dailyPeriod);
+    final weeklyActuals = await actualsFor(weeklyPeriod);
+    final monthlyActuals = await actualsFor(monthlyPeriod);
+
+    final progress = <GoalProgress>[];
+    for (final goal in goals) {
+      final unit = unitFor(goal);
+      IndicatorAmount zero() => IndicatorAmount(
+        scaledValue: 0,
+        scale: IndicatorUnitPolicy.allowedScale(unit),
+        unit: unit,
+      );
+      IndicatorAmount amountFor(
+        Map<String, IndicatorAmount> actuals, {
+        required String? key,
+      }) {
+        return key == null ? zero() : (actuals[key] ?? zero());
+      }
+      final key = goal.indicatorKey;
+      progress.add(
+        GoalProgress(
+          goal: goal,
+          dailyActual: amountFor(dailyActuals, key: key),
+          dailyTarget: _mapTarget(
+            latestTarget(goal: goal, period: dailyPeriod),
+            unit,
+          ),
+          weeklyActual: amountFor(weeklyActuals, key: key),
+          weeklyTarget: _mapTarget(
+            latestTarget(goal: goal, period: weeklyPeriod),
+            unit,
+          ),
+          monthlyActual: amountFor(monthlyActuals, key: key),
+          monthlyTarget: _mapTarget(
+            latestTarget(goal: goal, period: monthlyPeriod),
+            unit,
+          ),
+        ),
+      );
+    }
+    return progress;
+  }
+
+  /// Batched equivalent of [_eventContributionSourceIsActive].  Returns the
+  /// ledger rows whose canonical Event source is still active: event-backed
+  /// rows are excluded when their report's Event is cancelled or the specific
+  /// recurring occurrence carries a cancelled exception.  Manual/task
+  /// sources are intentionally unaffected.
+  Future<List<ActivityLedgerEntryRow>> _filterActiveLedgerRows(
+    String profileId,
+    List<ActivityLedgerEntryRow> rows,
+  ) async {
+    if (rows.isEmpty) {
+      return const <ActivityLedgerEntryRow>[];
+    }
+    final reportIds = rows.map((row) => row.sourceReportId).toSet();
+    final reports =
+        await (database.select(database.outcomeReports)
+              ..where((table) => table.id.isIn(reportIds)))
+            .get();
+    final reportById = <String, OutcomeReportRow>{
+      for (final report in reports) report.id: report,
+    };
+    final eventPairs = <(String, String)>[
+      for (final report in reports)
+        if (report.sourceType == OutcomeSourceType.event.name &&
+            report.eventId != null &&
+            report.occurrenceId != null)
+          (report.eventId!, report.occurrenceId!),
+    ];
+    final eventIds = eventPairs.map((pair) => pair.$1).toSet();
+    final eventsById = <String, CalendarEventRow>{};
+    if (eventIds.isNotEmpty) {
+      eventsById.addEntries(
+        (await (database.select(database.calendarEvents)
+              ..where(
+                (table) =>
+                    table.id.isIn(eventIds) &
+                    table.profileId.equals(profileId),
+              ))
+            .get())
+            .map((row) => MapEntry(row.id, row)),
+      );
+    }
+    final exceptionsByPair = <String, CalendarEventExceptionRow>{};
+    if (eventPairs.isNotEmpty) {
+      final exceptionRows =
+          await (database.select(database.calendarEventExceptions)
+                ..where((table) {
+                  Expression<bool> pairFilter = const Constant<bool>(false);
+                  for (final pair in eventPairs) {
+                    pairFilter =
+                        pairFilter |
+                        (table.eventId.equals(pair.$1) &
+                            table.occurrenceId.equals(pair.$2));
+                  }
+                  return pairFilter;
+                }))
+              .get();
+      for (final exception in exceptionRows) {
+        final pairKey = '${exception.eventId}:${exception.occurrenceId}';
+        final existing = exceptionsByPair[pairKey];
+        if (existing == null ||
+            exception.createdAtUtc.isAfter(existing.createdAtUtc)) {
+          exceptionsByPair[pairKey] = exception;
+        }
+      }
+    }
+    final active = <ActivityLedgerEntryRow>[];
+    for (final row in rows) {
+      final report = reportById[row.sourceReportId];
+      if (report == null ||
+          report.sourceType != OutcomeSourceType.event.name) {
+        active.add(row);
+        continue;
+      }
+      final eventId = report.eventId;
+      final occurrenceId = report.occurrenceId;
+      if (eventId == null || occurrenceId == null) {
+        continue;
+      }
+      final event = eventsById[eventId];
+      if (event == null ||
+          event.status == CalendarEventStatus.cancelled.name) {
+        continue;
+      }
+      final exception = exceptionsByPair['$eventId:$occurrenceId'];
+      if (exception?.status == CalendarEventStatus.cancelled.name) {
+        continue;
+      }
+      active.add(row);
+    }
+    return active;
   }
 
   Future<IndicatorAmount> _actual(

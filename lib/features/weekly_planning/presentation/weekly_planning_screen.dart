@@ -57,18 +57,26 @@ final class _WeeklyPlanningScreenState
   @override
   Widget build(BuildContext context) {
     final selected = _selectedWeek;
-    final todayState = ref.watch(weeklyPlanningTodayProvider);
-    final today = todayState.asData?.value;
-    final resolvedStart =
-        selected ??
-        (widget.periodStart != null
-            ? _weekStartOf(ref, widget.periodStart!)
-            : today);
+    final explicitPeriod = widget.periodStart;
+    // A1: an explicit route period resolves the week directly.  The
+    // today/time-zone Future is only started when no period is known yet.
+    final needsToday = selected == null && explicitPeriod == null;
+    final todayState = needsToday
+        ? ref.watch(weeklyPlanningTodayProvider)
+        : null;
+    final today = todayState?.asData?.value;
+    final resolvedStart = selected != null
+        ? _weekStartOf(ref, selected)
+        : explicitPeriod != null
+        ? _weekStartOf(ref, explicitPeriod)
+        : today == null
+        ? null
+        : _weekStartOf(ref, today);
     if (resolvedStart == null) {
       return Scaffold(
         appBar: _appBar(context),
         body: SafeArea(
-          child: todayState.when(
+          child: todayState!.when(
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (error, stackTrace) => _Failure(
               message: error.toString(),
@@ -80,15 +88,16 @@ final class _WeeklyPlanningScreenState
       );
     }
     // Deliberate entry into the CURRENT period establishes it idempotently
-    // (openOrCreate).  Historical weeks are never created: the provider is
-    // only watched when the resolved period equals the current one.
+    // through the lightweight ensure (row existence only; never the rich
+    // projection).  Historical weeks are never created: the ensure is only
+    // watched when the resolved period equals the current one.
     final plannerToday = ref.watch(plannerDateSourceProvider).today();
     final isCurrentPeriod =
         resolvedStart == _weekStartOf(ref, plannerToday);
-    final currentPlan = isCurrentPeriod
-        ? ref.watch(weeklyPlanProvider(resolvedStart))
+    final currentEnsure = isCurrentPeriod
+        ? ref.watch(weeklyPlanEnsureProvider(resolvedStart))
         : null;
-    if (currentPlan?.hasValue == true &&
+    if (currentEnsure?.hasValue == true &&
         _establishedSignalPeriod != resolvedStart.iso8601) {
       _establishedSignalPeriod = resolvedStart.iso8601;
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -99,6 +108,9 @@ final class _WeeklyPlanningScreenState
     }
     final plan = ref.watch(goalPlanningProvider(resolvedStart));
     final planBody = plan.when(
+      // A1: returning from Edit Goal triggers a canonical reload; the last
+      // confirmed Goal rows stay visible instead of a whole-body spinner.
+      skipLoadingOnReload: true,
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, stackTrace) => _Failure(
         message: error.toString(),
@@ -114,12 +126,14 @@ final class _WeeklyPlanningScreenState
     return Scaffold(
       appBar: _appBar(context),
       body: SafeArea(
-        child: currentPlan?.when(
+        child: currentEnsure?.when(
           skipLoadingOnReload: true,
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (error, stackTrace) => _Failure(
             message: error.toString(),
-            onRetry: () => ref.invalidate(weeklyPlanProvider(resolvedStart)),
+            onRetry: () => ref.invalidate(
+              weeklyPlanEnsureProvider(resolvedStart),
+            ),
           ),
           data: (_) => planBody,
         ) ?? planBody,

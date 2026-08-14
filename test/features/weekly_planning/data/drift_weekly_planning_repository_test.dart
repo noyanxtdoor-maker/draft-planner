@@ -133,6 +133,87 @@ void main() {
   });
 
   test(
+    'A1.3: concurrent ensurePeriod calls yield exactly one profile+period row',
+    () async {
+      final database = openMemoryDatabase();
+      addTearDown(database.close);
+      final profile = await buildTestRepository(
+        database: database,
+      ).completeOnboarding();
+      final clock = _MutableClock(DateTime.utc(2026, 7, 27, 12));
+      final timeZones = IanaCalendarEventTimeZones(
+        displayTimeZoneId: 'Asia/Manila',
+      );
+      final reporting = DriftOutcomeReportingRepository(
+        database: database,
+        clock: clock,
+      );
+      final calendar = DriftCalendarEventRepository(
+        database: database,
+        clock: clock,
+        timeZones: timeZones,
+        reportSource: reporting,
+      );
+      final indicators = DriftIndicatorRepository(
+        database: database,
+        clock: clock,
+        calendarEvents: calendar,
+      );
+      final repository = DriftWeeklyPlanningRepository(
+        database: database,
+        clock: clock,
+        identifiers: _Ids(),
+        timeZones: timeZones,
+        indicators: indicators,
+      );
+
+      // Repeated and concurrent lightweight ensures must never create
+      // duplicate rows for the same profile + period.
+      await Future.wait(<Future<void>>[
+        repository.ensurePeriod(
+          profileId: profile.id,
+          periodStart: monday,
+        ),
+        repository.ensurePeriod(
+          profileId: profile.id,
+          periodStart: monday,
+        ),
+      ]);
+      await repository.ensurePeriod(
+        profileId: profile.id,
+        periodStart: monday,
+      );
+      await repository.ensurePeriod(
+        profileId: profile.id,
+        periodStart: monday.addDays(7),
+      );
+
+      final rows = await (database.select(database.weeklyPlans)).get();
+      expect(rows, hasLength(2));
+      final current = rows.where(
+        (row) => row.periodStartDate == monday.iso8601,
+      );
+      expect(current, hasLength(1));
+
+      // The existence check agrees and stays read-only.
+      expect(
+        await repository.periodExists(
+          profileId: profile.id,
+          periodStart: monday,
+        ),
+        isTrue,
+      );
+      expect(
+        await repository.periodExists(
+          profileId: profile.id,
+          periodStart: monday.addDays(14),
+        ),
+        isFalse,
+      );
+    },
+  );
+
+  test(
     'Weekly Planning write guard rolls back only its new plan row',
     () async {
       final database = openMemoryDatabase();

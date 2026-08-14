@@ -36,20 +36,36 @@ final weeklyPlanProvider = FutureProvider.family<WeeklyPlan, PlannerDate>((
 });
 
 /// True when a WeeklyPlans row already exists for the exact resolved period
-/// start.  Read-only (never creates); Home uses this as the plan-established
-/// signal for the current period.
+/// start.  Read-only (never creates) and lightweight (row existence only,
+/// never the rich projection); Home uses this as the plan-established signal
+/// for the current period.
 final weeklyPlanEstablishedProvider = FutureProvider.family<bool, PlannerDate>((
   ref,
   periodStart,
 ) async {
   final profileId = ref.read(weeklyPlanningProfileIdProvider);
-  final plan = await ref
+  return ref
       .read(weeklyPlanningRepositoryProvider)
-      .readPlanForPeriod(
+      .periodExists(profileId: profileId, periodStart: periodStart);
+});
+
+/// Lightweight idempotent establishment of the exact current period row.
+/// The Goal Planning screen gates on this instead of the rich projection so
+/// route chrome and Goal rows never wait on indicator materialization.  Only
+/// ever watched for the CURRENT period; historical weeks stay read-only.
+final weeklyPlanEnsureProvider = FutureProvider.family<void, PlannerDate>((
+  ref,
+  periodStart,
+) async {
+  final profileId = ref.read(weeklyPlanningProfileIdProvider);
+  final startDay = ref.watch(startOfWeekProvider);
+  await ref
+      .read(weeklyPlanningRepositoryProvider)
+      .ensurePeriod(
         profileId: profileId,
         periodStart: periodStart,
+        startDay: startDay,
       );
-  return plan != null;
 });
 
 final weeklyPlanHistoryProvider = FutureProvider<List<WeeklyPlan>>((ref) {

@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rmplanner/core/database/app_database.dart';
 import 'package:rmplanner/core/ids/identifier_source.dart';
@@ -998,6 +999,371 @@ void main() {
     expect(eventCount, 0);
   });
 
+  test(
+    'A2: bounded readPlanning is semantically equivalent to the canonical '
+    'projection with a bounded query budget',
+    () async {
+      final counter = _CountingInterceptor();
+      final database = AppDatabase.forTesting(
+        NativeDatabase.memory().interceptWith(counter),
+      );
+      addTearDown(database.close);
+      final startup = buildTestRepository(database: database);
+      final profile = await startup.completeOnboarding();
+      final repository = DriftGoalRepository(
+        database: database,
+        clock: clock,
+        identifiers: const UuidIdentifierSource(),
+      );
+
+      final active = await repository.readActiveGoals(profile.id);
+      final daily = active.singleWhere(
+        (goal) => goal.role == GoalRole.dailyWeekly,
+      );
+      final weeklyA = active
+          .where((goal) => goal.role == GoalRole.weekly)
+          .elementAt(0);
+      final weeklyB = active
+          .where((goal) => goal.role == GoalRole.weekly)
+          .elementAt(1);
+      final weeklyC = active
+          .where((goal) => goal.role == GoalRole.weekly)
+          .elementAt(2);
+      final weeklyD = active
+          .where((goal) => goal.role == GoalRole.weekly)
+          .elementAt(3);
+      final monthly = active.singleWhere(
+        (goal) => goal.role == GoalRole.weeklyMonthly,
+      );
+      final key = daily.indicatorKey!;
+
+      const two = IndicatorAmount(scaledValue: 2, scale: 0, unit: 'count');
+      const three = IndicatorAmount(scaledValue: 3, scale: 0, unit: 'count');
+      // Set + unset target states, daily/weekly/monthly targets, and a
+      // latest-revision chain (2 then 3 on the same week wins as 3).
+      await repository.saveGoal(
+        profileId: profile.id,
+        goalId: daily.id,
+        title: daily.title,
+        targets: const GoalTargets(daily: two, weekly: two),
+        today: periodStart,
+        startDay: DateTime.sunday,
+        operationId: 'a2-daily-targets',
+      );
+      await repository.saveGoal(
+        profileId: profile.id,
+        goalId: weeklyA.id,
+        title: weeklyA.title,
+        targets: const GoalTargets(weekly: two),
+        today: periodStart,
+        startDay: DateTime.sunday,
+        operationId: 'a2-weekly-a-1',
+      );
+      await repository.saveGoal(
+        profileId: profile.id,
+        goalId: weeklyA.id,
+        title: weeklyA.title,
+        targets: const GoalTargets(weekly: three),
+        today: periodStart,
+        startDay: DateTime.sunday,
+        operationId: 'a2-weekly-a-2',
+      );
+      // weeklyB and weeklyD keep UNSET targets (no revisions at all).
+      await repository.saveGoal(
+        profileId: profile.id,
+        goalId: weeklyC.id,
+        title: weeklyC.title,
+        targets: const GoalTargets(weekly: two),
+        today: periodStart,
+        startDay: DateTime.sunday,
+        operationId: 'a2-weekly-c',
+      );
+      await repository.saveGoal(
+        profileId: profile.id,
+        goalId: monthly.id,
+        title: monthly.title,
+        targets: const GoalTargets(weekly: two, monthly: three),
+        today: periodStart,
+        startDay: DateTime.sunday,
+        operationId: 'a2-monthly-targets',
+      );
+
+      // Archived and deleted Goals must stay out of the projection.
+      await repository.archiveGoal(
+        profileId: profile.id,
+        goalId: weeklyB.id,
+        operationId: 'a2-archive-weekly-b',
+      );
+      await repository.deleteGoal(
+        profileId: profile.id,
+        goalId: weeklyD.id,
+        operationId: 'a2-delete-weekly-d',
+      );
+
+      final now = clock.value;
+      Future<void> insertLedger({
+        required String reportId,
+        required String reportType,
+        required String? eventId,
+        required String? occurrenceId,
+        required String entryId,
+        required int value,
+        required String activityDate,
+      }) async {
+        await database.into(database.outcomeReports).insert(
+          OutcomeReportsCompanion.insert(
+            id: reportId,
+            profileId: profile.id,
+            sourceType: reportType,
+            sourceId: reportId,
+            sourceLabel: 'A2 fixture $reportId',
+            sourceSlotKey: 'a2:$reportId',
+            status: 'submitted',
+            outcome: const Value<String?>('completed'),
+            activityDate: activityDate,
+            eventId: Value<String?>(eventId),
+            occurrenceId: Value<String?>(occurrenceId),
+            createdAtUtc: now,
+            updatedAtUtc: now,
+            submittedAtUtc: Value<DateTime?>(now),
+          ),
+        );
+        await database.into(database.activityLedgerEntries).insert(
+          ActivityLedgerEntriesCompanion.insert(
+            id: entryId,
+            profileId: profile.id,
+            sourceReportId: reportId,
+            entryType: 'contribution',
+            indicatorKey: key,
+            valueScaled: value,
+            valueScale: 0,
+            unit: 'count',
+            activityDate: activityDate,
+            ruleKey: '$reportType:$key',
+            idempotencyKey: entryId,
+            recordedAtUtc: now,
+          ),
+        );
+      }
+
+      Future<void> insertEvent({
+        required String eventId,
+        required String status,
+        String? occurrenceId,
+      }) async {
+        await database.into(database.calendarEvents).insert(
+          CalendarEventsCompanion.insert(
+            id: eventId,
+            profileId: profile.id,
+            title: 'A2 event $eventId',
+            timing: 'timed',
+            startDate: '2026-08-04',
+            startMinute: const Value<int?>(540),
+            endMinute: const Value<int?>(600),
+            timeZoneId: const Value<String?>('Asia/Manila'),
+            requiresReport: const Value<bool>(true),
+            contributionRuleKey: Value<String?>('life-indicator:$key:1:0:count'),
+            goalId: Value<String?>(daily.id),
+            recurrenceFrequency: const Value<String>('weekly'),
+            status: Value<String>(status),
+            createdAtUtc: now,
+            updatedAtUtc: now,
+          ),
+        );
+      }
+
+      // 1) Event-backed contribution that COUNTS (weekly + daily on Aug 5).
+      await insertEvent(eventId: 'a2-event-active', status: 'scheduled');
+      await insertLedger(
+        reportId: 'a2-report-active',
+        reportType: OutcomeSourceType.event.name,
+        eventId: 'a2-event-active',
+        occurrenceId: 'occ-active',
+        entryId: 'a2-ledger-active',
+        value: 1,
+        activityDate: '2026-08-05',
+      );
+
+      // 2) Cancelled Event: the report/ledger history stays but the Event no
+      //    longer qualifies for current Actual.
+      await insertEvent(eventId: 'a2-event-cancelled', status: 'scheduled');
+      await insertLedger(
+        reportId: 'a2-report-cancelled',
+        reportType: OutcomeSourceType.event.name,
+        eventId: 'a2-event-cancelled',
+        occurrenceId: 'occ-cancelled',
+        entryId: 'a2-ledger-cancelled',
+        value: 1,
+        activityDate: '2026-08-05',
+      );
+      await (database.update(database.calendarEvents)..where(
+        (table) => table.id.equals('a2-event-cancelled'),
+      )).write(
+        CalendarEventsCompanion(status: Value<String>('cancelled')),
+      );
+
+      // 3) Recurring Event with one cancelled/exception occurrence: that
+      //    occurrence's ledger row must not count.
+      await insertEvent(
+        eventId: 'a2-event-recurring',
+        status: 'scheduled',
+        occurrenceId: 'occ-recurring',
+      );
+      await insertLedger(
+        reportId: 'a2-report-recurring',
+        reportType: OutcomeSourceType.event.name,
+        eventId: 'a2-event-recurring',
+        occurrenceId: 'occ-recurring',
+        entryId: 'a2-ledger-recurring',
+        value: 1,
+        activityDate: '2026-08-05',
+      );
+      await database.into(database.calendarEventExceptions).insert(
+        CalendarEventExceptionsCompanion.insert(
+          id: 'a2-exception-recurring',
+          profileId: profile.id,
+          eventId: 'a2-event-recurring',
+          occurrenceId: 'occ-recurring',
+          originalDate: '2026-08-05',
+          effectiveDate: '2026-08-05',
+          title: 'A2 cancelled occurrence',
+          timing: 'timed',
+          requiresReport: const Value<bool>(true),
+          contributionRuleKey: Value<String?>(
+            'life-indicator:$key:1:0:count',
+          ),
+          status: CalendarEventStatus.cancelled.name,
+          createdAtUtc: now,
+        ),
+      );
+
+      // 4) Another recurring Event occurrence WITH no exception: counts.
+      await insertLedger(
+        reportId: 'a2-report-recurring-ok',
+        reportType: OutcomeSourceType.event.name,
+        eventId: 'a2-event-recurring',
+        occurrenceId: 'occ-recurring-ok',
+        entryId: 'a2-ledger-recurring-ok',
+        value: 1,
+        activityDate: '2026-08-04',
+      );
+
+      // 5) Manual contribution: no event check, always counts.
+      await insertLedger(
+        reportId: 'a2-report-manual',
+        reportType: OutcomeSourceType.manual.name,
+        eventId: null,
+        occurrenceId: null,
+        entryId: 'a2-ledger-manual',
+        value: 1,
+        activityDate: '2026-08-05',
+      );
+
+      // 6) Task contributions: active counts, inactive does not.  Tasks
+      //    reference PlannerTasks, so the linked rows must exist first.
+      await database.into(database.plannerTasks).insert(
+        PlannerTasksCompanion.insert(
+          id: 'a2-task-row',
+          profileId: profile.id,
+          title: 'A2 linked task',
+          createdAtUtc: now,
+          updatedAtUtc: now,
+        ),
+      );
+      await database.into(database.plannerTasks).insert(
+        PlannerTasksCompanion.insert(
+          id: 'a2-task-row-2',
+          profileId: profile.id,
+          title: 'A2 linked task 2',
+          createdAtUtc: now,
+          updatedAtUtc: now,
+        ),
+      );
+      await database.into(database.taskGoalContributions).insert(
+        TaskGoalContributionsCompanion.insert(
+          id: 'a2-task-active',
+          profileId: profile.id,
+          taskId: 'a2-task-row',
+          indicatorKey: key,
+          valueScaled: const Value<int>(1),
+          activityDate: '2026-08-05',
+          state: const Value<String>('active'),
+          createdAtUtc: now,
+          updatedAtUtc: now,
+        ),
+      );
+      await database.into(database.taskGoalContributions).insert(
+        TaskGoalContributionsCompanion.insert(
+          id: 'a2-task-inactive',
+          profileId: profile.id,
+          taskId: 'a2-task-row-2',
+          indicatorKey: key,
+          valueScaled: const Value<int>(9),
+          activityDate: '2026-08-05',
+          state: const Value<String>('completed'),
+          createdAtUtc: now,
+          updatedAtUtc: now,
+        ),
+      );
+
+      // Non-Monday week boundary: Sunday start.
+      const today = PlannerDate(year: 2026, month: 8, day: 5);
+      counter.reset();
+      final planning = await repository.readPlanning(
+        profileId: profile.id,
+        periodStart: periodStart,
+        today: today,
+        startDay: DateTime.sunday,
+      );
+      final currentSelects = counter.selectCount;
+      final oracle = _serializeSnapshot(planning);
+
+      // Semantic facts the fixture pins down.
+      expect(planning.periodStart.iso8601, '2026-08-02');
+      expect(planning.periodEnd.iso8601, '2026-08-08');
+      expect(planning.daily?.goal.id, daily.id);
+      expect(planning.weekly, hasLength(2));
+      expect(planning.monthly?.goal.id, monthly.id);
+      // Daily actual: active event (1) + recurring-ok (1, Aug 4 -> weekly
+      // only) + manual (1) + task active (1) = 3 on Aug 5; cancelled event
+      // and the exception occurrence are excluded.
+      expect(planning.daily!.dailyActual.scaledValue, 3);
+      expect(planning.daily!.weeklyActual.scaledValue, 4);
+      // Latest revision chain: weeklyA shows 3, not 2.
+      final weeklyAProgress = planning.weekly.singleWhere(
+        (progress) => progress.goal.id == weeklyA.id,
+      );
+      expect(weeklyAProgress.weeklyTarget.value?.scaledValue, 3);
+      final weeklyCProgress = planning.weekly.singleWhere(
+        (progress) => progress.goal.id == weeklyC.id,
+      );
+      expect(weeklyCProgress.weeklyTarget.value?.scaledValue, 2);
+      expect(
+        planning.monthly!.monthlyTarget.value?.scaledValue,
+        3,
+      );
+
+      // The projection must be deterministic across repeated reads.
+      counter.reset();
+      final second = await repository.readPlanning(
+        profileId: profile.id,
+        periodStart: periodStart,
+        today: today,
+        startDay: DateTime.sunday,
+      );
+      expect(_serializeSnapshot(second), oracle);
+
+      // Bounded query budget: the projection must be a small fixed set of
+      // reads, not a per-Goal/per-field serial fan-out.
+      expect(
+        currentSelects,
+        lessThanOrEqualTo(30),
+        reason: 'readPlanning must use a bounded batch projection; the '
+            'current serial fan-out exceeds the budget.',
+      );
+    },
+  );
+
   test('Delta 4 A1: cancelling a contributing Event immediately removes only '
       'that Event from Home Actual while preserving report history, manual '
       'contributions, and retry idempotency', () async {
@@ -1152,4 +1518,65 @@ void main() {
           'a void or constant stream leaves Home stuck on stale Actuals',
     );
   });
+}
+
+/// Counts SELECT statements executed through the wrapped executor so a read
+/// path can be proven to use a bounded query budget instead of a serial
+/// per-Goal/per-field fan-out.
+class _CountingInterceptor extends QueryInterceptor {
+  int selectCount = 0;
+
+  void reset() => selectCount = 0;
+
+  @override
+  Future<List<Map<String, Object?>>> runSelect(
+    QueryExecutor executor,
+    String statement,
+    List<Object?> args,
+  ) {
+    if (statement.trimLeft().toUpperCase().startsWith('SELECT')) {
+      selectCount += 1;
+    }
+    return super.runSelect(executor, statement, args);
+  }
+
+}
+
+/// Deterministic textual projection of a [GoalPlanningSnapshot] used as the
+/// semantic oracle when comparing the canonical projection to the bounded
+/// batched projection.
+String _serializeSnapshot(GoalPlanningSnapshot snapshot) {
+  String amount(IndicatorAmount value) {
+    return '${value.scaledValue}:${value.scale}:${value.unit}';
+  }
+
+  String target(IndicatorTarget value) {
+    final resolved = value.value;
+    return resolved == null ? 'unset' : amount(resolved);
+  }
+
+  String goal(Goal goal) {
+    return '${goal.id}|${goal.title}|${goal.role.name}|${goal.activeSlotIndex}';
+  }
+
+  String progress(GoalProgress item) {
+    return [
+      goal(item.goal),
+      'dA=${amount(item.dailyActual)}',
+      'dT=${target(item.dailyTarget)}',
+      'wA=${amount(item.weeklyActual)}',
+      'wT=${target(item.weeklyTarget)}',
+      'mA=${amount(item.monthlyActual)}',
+      'mT=${target(item.monthlyTarget)}',
+    ].join(';');
+  }
+
+  final parts = <String>[
+    'start=${snapshot.periodStart.iso8601}',
+    'end=${snapshot.periodEnd.iso8601}',
+    if (snapshot.daily != null) 'daily=${progress(snapshot.daily!)}',
+    for (final item in snapshot.weekly) 'weekly=${progress(item)}',
+    if (snapshot.monthly != null) 'monthly=${progress(snapshot.monthly!)}',
+  ];
+  return parts.join('\n');
 }

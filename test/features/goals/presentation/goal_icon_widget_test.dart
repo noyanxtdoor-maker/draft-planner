@@ -565,7 +565,7 @@ void main() {
   });
 
   testWidgets(
-    'A8: Choose Icon disables Material scroll-under tint without changing '
+    'A8: Choose Icon pins app-bar surface through scroll without changing '
     'the InternalAppBar default',
     (tester) async {
       await tester.pumpWidget(
@@ -581,13 +581,46 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(
-        tester.widget<AppBar>(find.byType(AppBar)).surfaceTintColor,
-        Colors.transparent,
-        reason:
-            'Choose Icon must keep the same app-bar surface while its list '
-            'scrolls underneath.',
+      final appBarFinder = find.descendant(
+        of: find.byType(GoalIconPickerScreen),
+        matching: find.byType(AppBar),
       );
+      AppBar appBar() => tester.widget<AppBar>(appBarFinder);
+      // Outer Material of the AppBar paints the effective background color.
+      Material appBarMaterial() => tester.widget<Material>(
+        find
+            .descendant(of: appBarFinder, matching: find.byType(Material))
+            .first,
+      );
+
+      // Locked surface-pinning properties, present at rest.
+      expect(
+        appBar().backgroundColor,
+        AppTheme.surface,
+        reason: 'Choose Icon must pin its app-bar base to the surface color.',
+      );
+      expect(appBar().surfaceTintColor, Colors.transparent);
+      expect(
+        appBar().scrolledUnderElevation,
+        0,
+        reason: 'Choose Icon must not lift its app bar when scrolled under.',
+      );
+      expect(appBarMaterial().color, AppTheme.surface);
+
+      // Scroll the list under the app bar: Material 3 would otherwise swap
+      // the base color to surfaceContainer once scrolledUnder is reported.
+      await tester.drag(find.byType(ListView), const Offset(0, -320));
+      await tester.pumpAndSettle();
+
+      expect(appBar().backgroundColor, AppTheme.surface);
+      expect(appBar().surfaceTintColor, Colors.transparent);
+      expect(appBar().scrolledUnderElevation, 0);
+      expect(
+        appBarMaterial().color,
+        AppTheme.surface,
+        reason: 'Scrolled-under state must not change the visible background.',
+      );
+      expect(tester.takeException(), isNull);
 
       await tester.pumpWidget(
         MaterialApp(
@@ -599,8 +632,19 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      final unrelated = tester.widget<AppBar>(find.byType(AppBar));
       expect(
-        tester.widget<AppBar>(find.byType(AppBar)).surfaceTintColor,
+        unrelated.backgroundColor,
+        isNull,
+        reason: 'A8 must not change every InternalAppBar consumer.',
+      );
+      expect(
+        unrelated.surfaceTintColor,
+        isNull,
+        reason: 'A8 must not change every InternalAppBar consumer.',
+      );
+      expect(
+        unrelated.scrolledUnderElevation,
         isNull,
         reason: 'A8 must not change every InternalAppBar consumer.',
       );
