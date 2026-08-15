@@ -1593,16 +1593,26 @@ final class DriftContactRepository implements ContactRepository {
     }
 
     // Freeze historical participation so later series edits cannot erase it.
+    // POLISH-07: the freeze writes run inside ONE transaction so drift emits
+    // a single coalesced table update instead of one per occurrence.  This
+    // read is watched by a provider that re-runs on eventOccurrenceParticipants
+    // updates; per-write emissions made every mid-read write re-trigger the
+    // read (a ~5Hz loading<->data flicker cascade until every snapshot
+    // existed).  A transaction collapses that to exactly one refresh cycle,
+    // and the idempotent existence check below means the follow-up read is a
+    // pure no-op read.
     final primaryColor = await _primaryGroupColor(profileId, contactId);
-    for (final target in freezeTargets) {
-      await _freezeSingleParticipant(
-        profileId: profileId,
-        eventId: target.$1,
-        date: target.$2,
-        contact: detail.contact,
-        primaryColor: primaryColor,
-      );
-    }
+    await database.transaction(() async {
+      for (final target in freezeTargets) {
+        await _freezeSingleParticipant(
+          profileId: profileId,
+          eventId: target.$1,
+          date: target.$2,
+          contact: detail.contact,
+          primaryColor: primaryColor,
+        );
+      }
+    });
 
     // Merge frozen snapshots into history, deduped against series-derived
     // entries so a still-linked past occurrence never appears twice.
@@ -2359,6 +2369,24 @@ final class DriftContactRepository implements ContactRepository {
       eventId: eventId,
       originalDate: date,
     );
+    // POLISH-07: the freeze is idempotent.  readTimeline() runs inside a
+    // provider that watches eventOccurrenceParticipants updates; a blind
+    // insertOrIgnore with a fresh UUID wrote a NEW row on every read, so the
+    // watch re-emitted and re-ran the read — a self-sustaining ~5Hz
+    // loading<->data flicker with unbounded row growth.  The existence check
+    // makes the first read after a snapshot a no-op write, so the loop
+    // quiesces after exactly one refresh cycle.
+    final existing =
+        await (database.select(database.eventOccurrenceParticipants)..where(
+              (table) =>
+                  table.eventId.equals(eventId) &
+                  table.occurrenceId.equals(occurrenceId) &
+                  table.contactId.equals(contact.id),
+            ))
+            .getSingleOrNull();
+    if (existing != null) {
+      return;
+    }
     await database
         .into(database.eventOccurrenceParticipants)
         .insert(

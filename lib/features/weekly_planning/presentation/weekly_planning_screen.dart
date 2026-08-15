@@ -522,7 +522,8 @@ final class _GoalRow extends ConsumerWidget {
       key: Key('weekly-plan-goal-${goal.id}'),
       onTap: () => context.push(RoutePaths.goalEdit(goal.id), extra: goal),
       child: Container(
-        constraints: const BoxConstraints(minHeight: 80),
+        // GI-02: goal art doubles to 64dp; keep just enough height.
+        constraints: const BoxConstraints(minHeight: 88),
         decoration: BoxDecoration(
           border: Border(
             bottom: BorderSide(color: AppTheme.outlineOf(context)),
@@ -533,7 +534,8 @@ final class _GoalRow extends ConsumerWidget {
           children: <Widget>[
             GoalIcon(
               iconId: goal.iconId,
-              size: 32,
+              // GI-02: exactly 2x (32 -> 64).
+              size: 64,
               semanticLabel: '${goal.title} goal icon',
               fallbackIcon: goalIconFallbackForRole(goal.role),
             ),

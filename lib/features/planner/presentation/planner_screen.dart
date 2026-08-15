@@ -4548,17 +4548,20 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
                                         clipBehavior: Clip.none,
                                         children: <Widget>[
                                           Positioned(
-                                            left: 0,
+                                            // CT-03: the label area widens
+                                            // LEFTWARD (62dp) so its right
+                                            // edge stays tangent to the
+                                            // unchanged anchor boundary;
+                                            // the anchor/line are not
+                                            // moved to make room.
+                                            left:
+                                                PlannerCurrentTimeHorizontalGeometry
+                                                    .labelLeft,
                                             top: 0,
                                             bottom: 0,
-                                            // CT-01: the label area ends
-                                            // where the anchor begins so the
-                                            // capsule is tangent to the
-                                            // circular anchor at the
-                                            // timeline boundary.
                                             width:
                                                 PlannerCurrentTimeHorizontalGeometry
-                                                    .capsuleRight,
+                                                    .labelWidth,
                                             child: Align(
                                               alignment: Alignment.centerRight,
                                               child: FittedBox(
@@ -4566,15 +4569,15 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
                                                 alignment:
                                                     Alignment.centerRight,
                                                 child: Container(
-                                                  // CT-02: NO fill/background
-                                                  // behind the time.  The time
-                                                  // text itself is the
-                                                  // highlighted element —
-                                                  // semantic primary, slightly
-                                                  // larger (fontSize 13).  The
-                                                  // box only bounds the label
-                                                  // horizontally, tangent to
-                                                  // the anchor.
+                                                  // CT-02/CT-03: NO fill/
+                                                  // background behind the
+                                                  // time.  The time text
+                                                  // itself is the highlighted
+                                                  // element — semantic
+                                                  // primary, larger (fontSize
+                                                  // 15) in a 62dp leftward-
+                                                  // widened area with 4dp
+                                                  // padding.
                                                   height:
                                                       PlannerCurrentTimeHorizontalGeometry
                                                           .capsuleHeight,
@@ -4582,7 +4585,7 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
                                                   padding:
                                                       const EdgeInsets
                                                           .symmetric(
-                                                        horizontal: 6,
+                                                        horizontal: 4,
                                                       ),
                                                   child: Text(
                                                     formatPlannerCurrentTimeLabel(
@@ -4598,7 +4601,7 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
                                                       color: Theme.of(
                                                         context,
                                                       ).colorScheme.primary,
-                                                      fontSize: 13,
+                                                      fontSize: 15,
                                                       fontWeight:
                                                           FontWeight.w700,
                                                       height: 1.0,

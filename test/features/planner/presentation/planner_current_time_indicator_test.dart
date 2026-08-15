@@ -506,7 +506,17 @@ void main() {
         final dotRect = tester.getRect(dot);
         final hourLineRect = tester.getRect(hourLine);
 
-        expect(labelRect.left, greaterThanOrEqualTo(gridRect.left));
+        // CT-03: the label area widens LEFTWARD (labelLeft = anchorLeft -
+        // labelWidth), so wide 12h labels may start left of the grid origin;
+        // the right edge stays tangent to the anchor (asserted below).
+        expect(
+          capsuleRect.left,
+          closeTo(
+            gridRect.left + PlannerCurrentTimeHorizontalGeometry.labelLeft,
+            0.5,
+          ),
+          reason: 'CT-03 label area left edge must follow labelLeft (-11 dp)',
+        );
         expect(
           capsuleRect.right,
           closeTo(dotRect.left, 0.5),
@@ -584,13 +594,19 @@ void main() {
           expect(tester.widget<Text>(label).data, sample.$2);
 
           final gridRect = tester.getRect(grid);
-          final labelRect = tester.getRect(label);
           final capsuleRect = tester.getRect(_currentTimeCapsule(label));
           final dotRect = tester.getRect(dot);
           final lineRect = tester.getRect(line);
           final dotCenterX = dotRect.center.dx - gridRect.left;
           firstDotCenterX ??= dotCenterX;
-          expect(labelRect.left, greaterThanOrEqualTo(gridRect.left));
+          // CT-03: see TEST 1 — label area left edge follows labelLeft.
+          expect(
+            capsuleRect.left,
+            closeTo(
+              gridRect.left + PlannerCurrentTimeHorizontalGeometry.labelLeft,
+              0.5,
+            ),
+          );
           expect(
             dotRect.left - capsuleRect.right,
             closeTo(0, 0.5),
@@ -1427,8 +1443,8 @@ void main() {
       );
       expect(
         labelText.style!.fontSize,
-        13,
-        reason: 'current-time label text must be fontSize 13',
+        15,
+        reason: 'current-time label text must be fontSize 15 (CT-03)',
       );
 
       // CT-02: NO fill/background behind the label.  The nearest Container
@@ -1455,6 +1471,40 @@ void main() {
         capsuleRect.height,
         greaterThan(7),
         reason: 'label area must remain the compact time gutter height',
+      );
+
+      // CT-03: the label area widens LEFTWARD to 62dp with 4dp horizontal
+      // padding so longer 12h labels render larger; the right edge stays
+      // tangent to the unchanged anchor boundary (anchor/line untouched).
+      final labelPadding = labelArea.padding;
+      expect(
+        labelPadding,
+        isNotNull,
+        reason: 'CT-03 label area must declare its padding',
+      );
+      expect(
+        labelPadding!.horizontal,
+        8,
+        reason: 'CT-03 label horizontal padding must be 4dp per side',
+      );
+      expect(
+        capsuleRect.width,
+        closeTo(PlannerCurrentTimeHorizontalGeometry.labelWidth, 0.5),
+        reason: 'CT-03 label area width must be 62dp',
+      );
+      expect(
+        PlannerCurrentTimeHorizontalGeometry.labelLeft,
+        closeTo(
+          PlannerCurrentTimeHorizontalGeometry.anchorLeft -
+              PlannerCurrentTimeHorizontalGeometry.labelWidth,
+          0.001,
+        ),
+        reason: 'CT-03 label area must widen leftward from the anchor tangent',
+      );
+      expect(
+        PlannerCurrentTimeHorizontalGeometry.lineStartX,
+        PlannerCurrentTimeHorizontalGeometry.anchorRight,
+        reason: 'CT-03 line start must remain anchored to the unchanged anchor',
       );
 
       // The circular anchor is primary and attached/tangent to the label

@@ -9,6 +9,7 @@ import 'package:rmplanner/core/diagnostics/sanitized_diagnostics.dart';
 import 'package:rmplanner/features/goals/application/goal_providers.dart';
 import 'package:rmplanner/features/goals/application/goal_repository.dart';
 import 'package:rmplanner/features/goals/domain/goal.dart';
+import 'package:rmplanner/features/goals/presentation/widgets/goal_icon.dart';
 import 'package:rmplanner/features/indicators/domain/life_indicator.dart';
 import 'package:rmplanner/features/planner/application/planner_providers.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
@@ -495,6 +496,13 @@ void main() {
       final goals = _ControlledGoalRepository(_snapshot());
       await pumpScreen(tester, goals: goals, periodStart: _monday);
       expect(find.text('Job Applications'), findsOneWidget);
+
+      // GI-02: weekly planning goal row art is exactly 2x (32 -> 64).
+      expect(
+        tester.widget<GoalIcon>(find.byType(GoalIcon).first).size,
+        64,
+        reason: 'GI-02 weekly planning goal row art must be 64dp (2x of 32)',
+      );
 
       // A Goal change triggers a canonical reload; the new read is held.
       final readsBefore = goals.readPlanningCalls;

@@ -89,8 +89,19 @@ void main() {
       }
       expect(find.text('Scheduled'), findsNothing);
       expect(find.textContaining('worthiness'), findsNothing);
+      // POLISH-02: the taller two-region Goal cards push Active Pathways
+      // below the fold of the lazy Home list; scroll it into view first.
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('home-pathway-employment')),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
       expect(find.byKey(const Key('home-pathway-employment')), findsOneWidget);
-
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('weekly-targets-button')),
+        -200,
+        scrollable: find.byType(Scrollable).first,
+      );
       await tester.tap(find.byKey(const Key('weekly-targets-button')));
       await tester.pumpAndSettle();
       expect(find.text('Goal Planning'), findsOneWidget);
@@ -277,14 +288,15 @@ void main() {
       for (final key in indicatorKeys) {
         expect(find.byKey(Key('home-indicator-$key')), findsOneWidget);
       }
-      // Goal 1 (Today's Goal) derives its outer geometry from Goal 6: every
-      // Home indicator card shares the same 60 dp height and horizontal
-      // padding while only the wide cards span the full row width.
+      // HR-01: the approved compact Home restore — the daily Goal card is a
+      // single 76 dp row ([icon] [title+ratio] [Today's Goal block] [+]);
+      // compact cards are 76 dp horizontal icon+text pairs; the odd
+      // full-width temple card is 76 dp too.
       expect(
         tester
             .getSize(find.byKey(const Key('home-indicator-job_applications')))
             .height,
-        60,
+        76,
       );
       expect(
         tester
@@ -294,7 +306,7 @@ void main() {
       );
       expect(
         tester.getSize(find.byKey(const Key('home-indicator-exercise'))).height,
-        60,
+        76,
       );
       expect(
         tester.getSize(find.byKey(const Key('home-indicator-exercise'))).width,
@@ -304,44 +316,58 @@ void main() {
         tester
             .getSize(find.byKey(const Key('home-indicator-temple_visit')))
             .height,
-        60,
+        76,
       );
+      // HR-02 (approved mockup): Temple Visit + August Goal are ONE
+      // full-width card — no two half-width bottom cards.  The August Goal
+      // inset lives INSIDE the temple card at the right.
       expect(
         tester
             .getSize(find.byKey(const Key('home-indicator-temple_visit')))
             .width,
         closeTo(357, 0.01),
       );
+      expect(find.byKey(const Key('home-month-goal-card')), findsOneWidget);
+      expect(
+        tester.getSize(find.byKey(const Key('home-month-goal-card'))).width,
+        lessThan(200),
+      );
+      expect(
+        tester.getSize(find.byKey(const Key('home-month-goal-card'))).height,
+        lessThanOrEqualTo(60),
+      );
       expect(find.text('July Goal'), findsOneWidget);
       expect(find.text("Today's Goal"), findsOneWidget);
       expect(find.text('Job Applications'), findsOneWidget);
       expect(find.text('0/1'), findsOneWidget);
-      // The Today's Goal inset is a compact proportional panel; its minus/plus
-      // buttons keep a 40 dp layout footprint (48 dp Material tap targets that
-      // overflow without inflating the inset).
+      // HR-02: the Today's Goal inset is a compact opaque-gray surface (label
+      // + value + controls inside), never taller than the card's content band.
       expect(
         tester
             .getSize(find.byKey(const Key('home-daily-target-quick-control')))
             .width,
-        closeTo(195.46, 1),
+        lessThanOrEqualTo(170),
       );
       expect(
         tester
             .getSize(find.byKey(const Key('home-daily-target-quick-control')))
             .height,
-        48,
+        lessThanOrEqualTo(60),
       );
       for (final key in <String>[
         'home-daily-target-minus',
         'home-daily-target-plus',
       ]) {
-        expect(tester.getSize(find.byKey(Key(key))), const Size(40, 24));
+        expect(tester.getSize(find.byKey(Key(key))), const Size(28, 24));
       }
       expect(find.text('Set Schedule'), findsOneWidget);
       expect(find.text('Goal Planning'), findsOneWidget);
       expect(tester.takeException(), isNull);
 
-      await tester.tap(find.byKey(const Key('home-indicator-temple_visit')));
+      // POLISH-02: the temple schedule affordance is the keyed TextButton
+      // inside the monthly temple card, not the card center (which now
+      // opens Goal Edit under the taller two-region card layout).
+      await tester.tap(find.byKey(const Key('home-temple-schedule')));
       await tester.pumpAndSettle();
       expect(find.text('Select Event Type'), findsOneWidget);
       expect(tester.takeException(), isNull);
@@ -441,11 +467,13 @@ void main() {
       for (final key in indicatorKeys) {
         expect(find.byKey(Key('home-indicator-$key')), findsOneWidget);
       }
+      // HR-01: the approved compact Home restore keeps the daily Goal card at
+      // the 76 dp row height (single horizontal row, no two-region column).
       expect(
         tester
             .getSize(find.byKey(const Key('home-indicator-job_applications')))
             .height,
-        60,
+        76,
       );
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
@@ -563,7 +591,22 @@ void main() {
       );
       expect(find.text('New People'), findsNothing);
       expect(find.text('Ministering Visit'), findsNothing);
+      // POLISH-02: the taller Goal cards push the major separator below the
+      // lazy Home list's initial build window; scroll it into view first.
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('home-major-separator')),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
       expect(find.byKey(const Key('home-major-separator')), findsOneWidget);
+      // POLISH-02: return the Home list to the top so the daily quick
+      // controls are fully hittable again (ensureVisible stops short of the
+      // app-bar edge).
+      await tester.drag(
+        find.byType(Scrollable).first,
+        const Offset(0, 800),
+      );
+      await tester.pumpAndSettle();
 
       expect(
         find.byKey(const Key('home-daily-target-quick-control')),

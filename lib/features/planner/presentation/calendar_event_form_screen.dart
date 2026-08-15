@@ -1549,8 +1549,12 @@ final class _CalendarEventFormScreenState
                           key: Key('life-indicator-option-${goal.id}'),
                           leading: GoalIcon(
                             iconId: goal.iconId,
-                            size: 24,
+                            // GI-02: exactly 2x (24 -> 48).
+                            size: 48,
                             semanticLabel: goal.title,
+                            // POLISH-05: fallback icon follows the active
+                            // Theme Color (no Rose in Blue mode).
+                            color: colorScheme.primary,
                           ),
                           title: Text(
                             goal.title,
@@ -1670,9 +1674,11 @@ final class _CalendarEventFormScreenState
         const SizedBox(height: 12),
         Container(
           decoration: BoxDecoration(
+            // POLISH-04: Light uses the semantic near-white surface + outline
+            // (never a gray container slab); Dark keeps its fill.
             color: Theme.of(context).brightness == Brightness.dark
                 ? const Color(0xFF1C1E21)
-                : Theme.of(context).colorScheme.surfaceContainerHighest,
+                : Theme.of(context).colorScheme.surface,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: Theme.of(context).brightness == Brightness.dark
@@ -1695,9 +1701,14 @@ final class _CalendarEventFormScreenState
                   children: <Widget>[
                     GoalIcon(
                       iconId: linkedGoal?.iconId,
-                      size: 26,
+                      // GI-02: exactly 2x (26 -> 52).
+                      size: 52,
                       semanticLabel: linkedGoal?.title,
                       fallbackIcon: Icons.track_changes_outlined,
+                      // POLISH-05: the unlinked placeholder icon resolves
+                      // through the active Theme Color — it rendered Rose in
+                      // Blue mode before.
+                      color: Theme.of(context).colorScheme.primary,
                     ),
                     const SizedBox(width: 12),
                     Expanded(

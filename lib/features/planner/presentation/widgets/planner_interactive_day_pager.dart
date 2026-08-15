@@ -261,6 +261,11 @@ abstract final class PlannerCurrentTimeHorizontalGeometry {
   static const double anchorLeft = anchorCenterX - anchorSize / 2;
   static const double anchorRight = anchorLeft + anchorSize;
   static const double capsuleRight = anchorLeft;
+  // CT-03: dedicated label-area width.  The label area widens LEFTWARD
+  // (labelLeft = anchorLeft - labelWidth) so its right edge stays tangent to
+  // the unchanged anchor boundary while longer 12h labels render larger.
+  static const double labelWidth = 62;
+  static const double labelLeft = anchorLeft - labelWidth;
   static const double lineStartX = anchorRight;
 
   /// Capsule vertical extent; the fully-rounded radius is half of this.
@@ -1536,27 +1541,27 @@ class _PagerPreviewColumnState extends State<_PagerPreviewColumn> {
             clipBehavior: Clip.none,
             children: <Widget>[
               Positioned(
-                left: 0,
+                // CT-03: the label area widens LEFTWARD (62dp) so its right
+                // edge stays tangent to the unchanged anchor boundary; the
+                // anchor/line are not moved to make room.
+                left: PlannerCurrentTimeHorizontalGeometry.labelLeft,
                 top: 0,
                 bottom: 0,
-                // CT-01: the label area ends where the anchor begins so the
-                // capsule is tangent to the circular anchor at the timeline
-                // boundary.
-                width: PlannerCurrentTimeHorizontalGeometry.capsuleRight,
+                width: PlannerCurrentTimeHorizontalGeometry.labelWidth,
                 child: Align(
                   alignment: Alignment.centerRight,
                   child: FittedBox(
                     fit: BoxFit.scaleDown,
                     alignment: Alignment.centerRight,
                     child: Container(
-                      // CT-02: NO fill/background behind the time.  The time
-                      // text itself is the highlighted element — semantic
-                      // primary, slightly larger (fontSize 13).  The box only
-                      // bounds the label horizontally, tangent to the anchor.
+                      // CT-02/CT-03: NO fill/background behind the time.  The
+                      // time text itself is the highlighted element — semantic
+                      // primary, larger (fontSize 15) in a 62dp leftward-
+                      // widened area with 4dp padding.
                       height: PlannerCurrentTimeHorizontalGeometry
                           .capsuleHeight,
                       alignment: Alignment.center,
-                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
                       child: Text(
                         _formatCurrentTimeLabel(now),
                         key: const Key('planner-current-time-label'),
@@ -1565,7 +1570,7 @@ class _PagerPreviewColumnState extends State<_PagerPreviewColumn> {
                         softWrap: false,
                         style: TextStyle(
                           color: Theme.of(context).colorScheme.primary,
-                          fontSize: 13,
+                          fontSize: 15,
                           fontWeight: FontWeight.w700,
                           height: 1.0,
                           letterSpacing: 0.2,

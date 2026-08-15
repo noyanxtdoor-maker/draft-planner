@@ -71,7 +71,9 @@ final class _GoalIconPickerScreenState extends State<GoalIconPickerScreen> {
       widget.args.goalTitle,
     );
     final textScale = MediaQuery.textScalerOf(context).scale(1);
-    final tileHeight = textScale >= 1.25 ? 84.0 : 76.0;
+    // GI-02: goal art doubles to 96dp; tile extent grows just enough
+    // (96 art + 4+4 padding), spacing tightens to keep 3 columns.
+    final tileHeight = textScale >= 1.25 ? 112.0 : 104.0;
     final filteredIcons = _activeCategory == null
         ? allIcons
         : allIcons
@@ -251,7 +253,7 @@ final class _IconGrid extends StatelessWidget {
       itemCount: icons.length,
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,
-        crossAxisSpacing: 10,
+        crossAxisSpacing: 6,
         mainAxisSpacing: 10,
         mainAxisExtent: tileHeight,
       ),
@@ -308,12 +310,16 @@ final class _IconTile extends StatelessWidget {
             children: <Widget>[
               Center(
                 child: Padding(
-                  padding: const EdgeInsets.all(8),
+                  padding: const EdgeInsets.all(4),
                   child: ExcludeSemantics(
                     child: GoalIcon(
                       iconId: definition.id,
-                      size: 48,
-                      color: AppTheme.rose,
+                      // GI-02: exactly 2x (48 -> 96).
+                      size: 96,
+                      // POLISH-05: generic fallback follows the active Theme
+                      // Color (definitions always render SVG art, so this only
+                      // colors the null/unknown-ID fallback).
+                      color: Theme.of(context).colorScheme.primary,
                     ),
                   ),
                 ),

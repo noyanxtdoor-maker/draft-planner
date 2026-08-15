@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rmplanner/core/diagnostics/sanitized_diagnostics.dart';
 import 'package:rmplanner/core/platform/app_environment.dart';
+import 'package:rmplanner/features/goals/presentation/widgets/goal_icon.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 
 import '../../../support/test_dependencies.dart';
@@ -116,10 +117,36 @@ void main() {
                 .startsWith('task-life-goal-option-'),
       );
       expect(option, findsWidgets);
+
+      // GI-02: Task Life Goal sheet options are exactly 2x (24 -> 48).
+      final sheetIcons = find.descendant(
+        of: find.byKey(const Key('task-life-goal-picker')),
+        matching: find.byType(GoalIcon),
+      );
+      expect(sheetIcons, findsWidgets);
+      for (final element in sheetIcons.evaluate()) {
+        expect(
+          (element.widget as GoalIcon).size,
+          48,
+          reason: 'GI-02 task Life Goal sheet option art must be 48dp '
+              '(2x of 24)',
+        );
+      }
+
       await tester.tap(option.first);
       await tester.pumpAndSettle();
 
       // Linked card shows the Goal title + Unlink affordance.
+      final linkedIcon = find.descendant(
+        of: find.byKey(const Key('task-life-goal-field')),
+        matching: find.byType(GoalIcon),
+      );
+      expect(linkedIcon, findsOneWidget);
+      expect(
+        tester.widget<GoalIcon>(linkedIcon).size,
+        48,
+        reason: 'GI-02 task linked Life Goal card art must be 48dp (2x of 24)',
+      );
       expect(find.byKey(const Key('task-life-goal-unlink')), findsOneWidget);
       expect(find.text('Choose a Life Goal (optional)'), findsNothing);
 

@@ -37,10 +37,15 @@ final class GoalIconChoiceRow extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: Container(
-          constraints: const BoxConstraints(minHeight: 64),
+          // GI-02: goal art doubles to 72dp; keep just enough height.
+          constraints: const BoxConstraints(minHeight: 88),
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           decoration: BoxDecoration(
-            color: AppTheme.surfaceOf(context),
+            // POLISH-04: Light uses the semantic near-white surface + outline
+            // (never a gray slab); Dark keeps its deep surface fill.
+            color: Theme.of(context).brightness == Brightness.dark
+                ? AppTheme.surfaceOf(context)
+                : Theme.of(context).colorScheme.surface,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: AppTheme.outlineOf(context)),
           ),
@@ -48,9 +53,13 @@ final class GoalIconChoiceRow extends StatelessWidget {
             children: <Widget>[
               GoalIcon(
                 iconId: iconId,
-                size: 36,
+                // GI-02: exactly 2x (36 -> 72).
+                size: 72,
                 semanticLabel: definition?.semanticsLabel ?? 'No icon selected',
                 fallbackIcon: fallbackIcon,
+                // POLISH-05: the 'No icon selected' fallback follows the
+                // active Theme Color, not the Rose default.
+                color: Theme.of(context).colorScheme.primary,
               ),
               const SizedBox(width: 12),
               Expanded(

@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:rmplanner/core/database/app_database.dart';
 import 'package:rmplanner/core/diagnostics/sanitized_diagnostics.dart';
 import 'package:rmplanner/core/platform/app_environment.dart';
+import 'package:rmplanner/features/goals/presentation/widgets/goal_icon.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 import 'package:rmplanner/features/settings/application/start_of_week_providers.dart';
 import 'package:rmplanner/features/settings/application/start_of_week_repository.dart';
@@ -259,6 +260,21 @@ void main() {
           key.value.startsWith('home-indicator-goal-');
     });
     expect(goalCards, findsWidgets);
+
+    // HR-02: Home Life Goal card art uses the approved larger proportions
+    // (44 dp compact / 48 dp top+Temple) — the GI-02 2x Home sizes were
+    // superseded by the owner-approved compact restore + icon visibility pass.
+    final homeIcons = find.byType(GoalIcon);
+    expect(homeIcons, findsWidgets);
+    for (final element in homeIcons.evaluate()) {
+      final size = (element.widget as GoalIcon).size;
+      expect(
+        size == 44 || size == 48,
+        isTrue,
+        reason: 'HR-02 Home card art must be 44dp (compact) or 48dp '
+            '(top/Temple); found $size',
+      );
+    }
   });
 
   testWidgets('established Home shows the Goal Planning pill and 0/0 for unset',

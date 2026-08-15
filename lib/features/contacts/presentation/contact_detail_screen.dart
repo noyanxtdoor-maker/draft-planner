@@ -34,17 +34,26 @@ final class _ContactDetailScreenState
   @override
   Widget build(BuildContext context) {
     final detailAsync = ref.watch(contactDetailProvider(widget.contactId));
-    return detailAsync.when(
-      loading: () => Scaffold(
-        appBar: InternalAppBar(title: const Text('Contact')),
-        body: const Center(child: CircularProgressIndicator()),
-      ),
-      error: (error, stack) => Scaffold(
-        appBar: InternalAppBar(title: const Text('Contact')),
-        body: const Center(child: Text('Contact could not be opened.')),
-      ),
-      data: (detail) => _build(detail),
-    );
+    // POLISH-07: retain the last valid Contact content while a refresh is in
+    // flight.  A side-effecting read used to re-invalidate this provider
+    // repeatedly, flashing the near-blank loading Scaffold between populated
+    // frames; the loading/error frames now only appear when there is nothing
+    // to show (first open / genuine failure).
+    final detail = detailAsync.value;
+    if (detail == null) {
+      return detailAsync.hasError
+          ? Scaffold(
+              appBar: InternalAppBar(title: const Text('Contact')),
+              body: const Center(
+                child: Text('Contact could not be opened.'),
+              ),
+            )
+          : Scaffold(
+              appBar: InternalAppBar(title: const Text('Contact')),
+              body: const Center(child: CircularProgressIndicator()),
+            );
+    }
+    return _build(detail);
   }
 
   Widget _build(ContactDetail detail) {

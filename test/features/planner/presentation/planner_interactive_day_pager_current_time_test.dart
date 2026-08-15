@@ -484,12 +484,21 @@ void main() {
         reason: 'preview label must read "10:37 AM"',
       );
       final pageRect = tester.getRect(todayPage);
-      final labelRect = tester.getRect(label);
       final capsuleRect = tester.getRect(_currentTimeCapsule(label));
       final dotRect = tester.getRect(dot);
       final lineRect = tester.getRect(line);
       final hourLineRect = tester.getRect(hourLine);
-      expect(labelRect.left, greaterThanOrEqualTo(pageRect.left));
+      // CT-03: the label area widens LEFTWARD (labelLeft = anchorLeft -
+      // labelWidth), so wide 12h labels may start left of the page origin;
+      // the right edge stays tangent to the anchor (asserted below).
+      expect(
+        capsuleRect.left,
+        closeTo(
+          pageRect.left + PlannerCurrentTimeHorizontalGeometry.labelLeft,
+          0.5,
+        ),
+        reason: 'pager CT-03 label area left edge must follow labelLeft',
+      );
       expect(
         dotRect.left - capsuleRect.right,
         closeTo(0, 0.5),
@@ -530,14 +539,20 @@ void main() {
       for (final sample in samples) {
         currentTime.value = sample.$1;
         await tester.pump();
-        final sampleLabelRect = tester.getRect(label);
         final sampleCapsuleRect = tester.getRect(_currentTimeCapsule(label));
         final sampleDotRect = tester.getRect(dot);
         final sampleLineRect = tester.getRect(line);
         final dotCenterX = sampleDotRect.center.dx - pageRect.left;
         firstDotCenterX ??= dotCenterX;
         expect(tester.widget<Text>(label).data, sample.$2);
-        expect(sampleLabelRect.left, greaterThanOrEqualTo(pageRect.left));
+        // CT-03: label area left edge follows labelLeft (see TEST 4 header).
+        expect(
+          sampleCapsuleRect.left,
+          closeTo(
+            pageRect.left + PlannerCurrentTimeHorizontalGeometry.labelLeft,
+            0.5,
+          ),
+        );
         expect(
           sampleDotRect.left - sampleCapsuleRect.right,
           closeTo(0, 0.5),

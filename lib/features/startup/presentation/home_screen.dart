@@ -567,17 +567,20 @@ final class _LifeGoalsSkeleton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final block = AppTheme.blockOf(context);
+    // HR-02: the skeleton mirrors the approved special-row structure — a
+    // full-width daily card with a right gray inset, two compact 2x2 rows,
+    // then a full-width Temple/monthly card with a right gray inset.
     return Column(
       key: const Key('home-life-goals-skeleton'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        _skeletonCard(block),
+        _skeletonWideWithInset(block),
         const SizedBox(height: 6),
         _skeletonPair(block),
         const SizedBox(height: 6),
         _skeletonPair(block),
         const SizedBox(height: 6),
-        _skeletonCard(block),
+        _skeletonWideWithInset(block),
         const SizedBox(height: 16),
         Center(
           child: Container(
@@ -595,7 +598,7 @@ final class _LifeGoalsSkeleton extends StatelessWidget {
 
   static Widget _skeletonCard(Color block) {
     return Container(
-      height: 60,
+      height: 76,
       decoration: BoxDecoration(
         color: block,
         borderRadius: BorderRadius.circular(12),
@@ -603,9 +606,41 @@ final class _LifeGoalsSkeleton extends StatelessWidget {
     );
   }
 
+  static Widget _skeletonWideWithInset(Color block) {
+    return Container(
+      height: 76,
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: block,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: <Widget>[
+          Expanded(
+            child: Container(
+              decoration: BoxDecoration(
+                color: block,
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Right gray inset placeholder (Today's / August Goal inset).
+          Container(
+            width: 140,
+            decoration: BoxDecoration(
+              color: block,
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   static Widget _skeletonPair(Color block) {
     return SizedBox(
-      height: 60,
+      height: 76,
       child: Row(
         children: <Widget>[
           Expanded(child: _skeletonCard(block)),
@@ -731,6 +766,15 @@ final class _CanonicalIndicatorGrid extends StatelessWidget {
   final VoidCallback onOpenTempleSchedule;
   final void Function(GoalProgress progress, int delta) onAdjustDailyTarget;
 
+  // HR-01: the approved Home Life Goals layout is COMPACT HORIZONTAL cards
+  // only — every row is a pair of half-width cards.  Row 1 is the daily Goal
+  // card next to the compact Today's Goal card; the weekly grid is compact
+  // icon+text pairs; the bottom row is the temple/monthly Goal card next to
+  // the compact August Goal card.  Nothing stacks vertically and no card
+  // grows tall, so Goal Planning and Active Pathways appear much earlier.
+  static const double _cardHeight = 76;
+  static const double _rowGap = 10;
+
   @override
   Widget build(BuildContext context) {
     final daily = plan.daily;
@@ -738,61 +782,65 @@ final class _CanonicalIndicatorGrid extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        if (daily != null)
+        if (daily != null) ...<Widget>[
           SizedBox(
-            // Goal 1 derives its outer geometry from Goal 6: the same card
-            // height, padding, border, radius, and icon alignment.  The
-            // Today's Goal inset is the only shaded surface and stays compact
-            // with 48 dp tap targets that do not inflate its visual size.
-            height: 60,
+            height: _cardHeight,
             child: _goalCard(
               context,
               daily,
-              wide: true,
-              asideLabel: "Today's Goal",
-              // The aside reflects the optimistic target immediately when a
-              // quick-control tap is pending; the canonical value otherwise.
-              asideValue: _dailyAsideValue(daily, optimisticDailyTarget),
-              // The minus control is hidden (a reserved, non-interactive slot)
-              // while the visible Daily Target is zero, so the plus never
-              // jumps and the optimistic overlay never exposes a minus that
-              // would target a negative value.
-              dailyTargetIsZero: _dailyTargetIsZero(
-                daily,
-                optimisticDailyTarget,
-              ),
-              onDailyTargetMinus: () => onAdjustDailyTarget(daily, -1),
-              onDailyTargetPlus: () => onAdjustDailyTarget(daily, 1),
+              // HR-02: Home Life Goal icons are visibly larger (top/Temple 48,
+              // middle 44) — the approved mockup target, not HR-01's 40/36.
+              iconSize: 48,
+              // HR-02 (approved mockup): the daily Goal card is ONE full-width
+              // white card — [icon] [title + ratio] [OPAQUE GRAY Today's Goal
+              // inset] on a single horizontal row.  The inset holds the
+              // Today's Goal label/value AND the +/- quick controls; nothing
+              // floats loose on the white card.
+              trailing: _buildTodayTrailing(context, daily),
             ),
           ),
-        if (daily != null && plan.weekly.isNotEmpty) const SizedBox(height: 6),
+          if (plan.weekly.isNotEmpty || monthly != null)
+            const SizedBox(height: 6),
+        ],
         for (var row = 0; row < plan.weekly.length; row += 2) ...<Widget>[
           SizedBox(
-            height: 60,
+            height: _cardHeight,
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
-                Expanded(child: _goalCard(context, plan.weekly[row])),
+                Expanded(
+                  child:
+                      _goalCard(context, plan.weekly[row], iconSize: 44),
+                ),
                 if (row + 1 < plan.weekly.length) ...<Widget>[
-                  const SizedBox(width: 10),
-                  Expanded(child: _goalCard(context, plan.weekly[row + 1])),
+                  const SizedBox(width: _rowGap),
+                  Expanded(
+                    child: _goalCard(
+                      context,
+                      plan.weekly[row + 1],
+                      iconSize: 44,
+                    ),
+                  ),
                 ],
               ],
             ),
           ),
-          if (row + 2 < plan.weekly.length) const SizedBox(height: 6),
+          if (row + 2 < plan.weekly.length || monthly != null)
+            const SizedBox(height: 6),
         ],
         if (monthly != null) ...<Widget>[
-          if (daily != null || plan.weekly.isNotEmpty)
-            const SizedBox(height: 6),
           SizedBox(
-            height: 60,
+            height: _cardHeight,
+            // HR-02 (approved mockup): Temple Visit + August Goal are ONE
+            // full-width white card — [larger Temple icon] [title + Next
+            // Visit / Set Schedule] [OPAQUE GRAY August Goal inset].  No more
+            // two half-width bottom cards.
             child: _goalCard(
               context,
               monthly,
-              wide: true,
-              asideLabel: monthGoalLabel,
-              asideValue: _ratio(monthly.monthlyActual, monthly.monthlyTarget),
-              secondaryLabel: monthly.goal.indicatorKey == 'temple_visit'
+              iconSize: 48,
+              secondaryLabel:
+                  monthly.goal.indicatorKey == 'temple_visit'
                   ? nextTempleVisit == null
                         ? 'Set Schedule'
                         : 'Next Visit: ${_formatNextVisit(context, nextTempleVisit!)}'
@@ -802,6 +850,13 @@ final class _CanonicalIndicatorGrid extends StatelessWidget {
                       nextTempleVisit == null
                   ? onOpenTempleSchedule
                   : null,
+              trailing: _AugustGoalInset(
+                label: monthGoalLabel,
+                value: _ratio(
+                  monthly.monthlyActual,
+                  monthly.monthlyTarget,
+                ),
+              ),
             ),
           ),
         ],
@@ -812,27 +867,31 @@ final class _CanonicalIndicatorGrid extends StatelessWidget {
   Widget _goalCard(
     BuildContext context,
     GoalProgress progress, {
-    bool wide = false,
-    String? asideLabel,
-    String? asideValue,
+    double iconSize = 36,
     String? secondaryLabel,
     VoidCallback? onSecondaryTap,
-    VoidCallback? onDailyTargetMinus,
-    VoidCallback? onDailyTargetPlus,
-    bool dailyTargetIsZero = false,
+    Widget? trailing,
   }) {
     return _IndicatorCard(
       indicator: _summaryFor(progress),
       goal: progress.goal,
-      wide: wide,
-      asideLabel: asideLabel,
-      asideValue: asideValue,
+      iconSize: iconSize,
       secondaryLabel: secondaryLabel,
       onSecondaryTap: onSecondaryTap,
-      onDailyTargetMinus: onDailyTargetMinus,
-      onDailyTargetPlus: onDailyTargetPlus,
-      dailyTargetIsZero: dailyTargetIsZero,
+      trailing: trailing,
       onTap: () => onOpenGoal(progress),
+    );
+  }
+
+  /// HR-02: the Today's Goal inset — one OPAQUE neutral-gray rounded surface
+  /// at the right of the daily Goal card containing the label/value AND the
+  /// +/- quick controls.  Nothing floats loose on the white outer card.
+  Widget _buildTodayTrailing(BuildContext context, GoalProgress daily) {
+    return _TodayGoalInset(
+      value: _dailyAsideValue(daily, optimisticDailyTarget),
+      dailyTargetIsZero: _dailyTargetIsZero(daily, optimisticDailyTarget),
+      onMinus: () => onAdjustDailyTarget(daily, -1),
+      onPlus: () => onAdjustDailyTarget(daily, 1),
     );
   }
 
@@ -897,28 +956,23 @@ final class _IndicatorCard extends StatelessWidget {
   const _IndicatorCard({
     required this.indicator,
     required this.goal,
-    required this.wide,
+    required this.iconSize,
     required this.onTap,
-    this.asideLabel,
-    this.asideValue,
     this.secondaryLabel,
     this.onSecondaryTap,
-    this.onDailyTargetMinus,
-    this.onDailyTargetPlus,
-    this.dailyTargetIsZero = false,
+    this.trailing,
   });
 
   final LifeIndicatorSummary indicator;
   final Goal? goal;
-  final bool wide;
-  final String? asideLabel;
-  final String? asideValue;
+  final double iconSize;
   final VoidCallback onTap;
   final String? secondaryLabel;
   final VoidCallback? onSecondaryTap;
-  final VoidCallback? onDailyTargetMinus;
-  final VoidCallback? onDailyTargetPlus;
-  final bool dailyTargetIsZero;
+
+  /// HR-01: optional right-side content rendered after the title/ratio column
+  /// (the daily Goal card's compact Today's Goal block + quick controls).
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -927,7 +981,12 @@ final class _IndicatorCard extends StatelessWidget {
         'home-indicator-goal-${goal?.id ?? indicator.goalId ?? indicator.key}',
       ),
       margin: EdgeInsets.zero,
-      color: Colors.transparent,
+      // POLISH-01: Light Goal cards sit on the semantic near-white surface
+      // (never the gray canvas slab); Dark keeps the accepted transparent
+      // card behavior.
+      color: Theme.of(context).brightness == Brightness.dark
+          ? Colors.transparent
+          : AppTheme.cardOf(context),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
         side: BorderSide(color: AppTheme.cardBorderOf(context)),
@@ -939,7 +998,7 @@ final class _IndicatorCard extends StatelessWidget {
           maxScaleFactor: 1,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            child: wide ? _wide(context) : _compact(context),
+            child: _content(context),
           ),
         ),
       ),
@@ -952,93 +1011,21 @@ final class _IndicatorCard extends StatelessWidget {
     final keyedCard = legacyIndicatorKey == null
         ? card
         : SizedBox(key: Key('home-indicator-$legacyIndicatorKey'), child: card);
-    return SizedBox.expand(child: keyedCard);
+    // HR-01: the card fills its half-width grid cell; the outer row forces
+    // the compact 76 dp height.
+    return SizedBox(width: double.infinity, child: keyedCard);
   }
 
-  Widget _compact(BuildContext context) {
+  /// HR-01 compact horizontal card: [icon] [title + value/date] on one row.
+  Widget _content(BuildContext context) {
+    final showScheduleButton =
+        secondaryLabel == 'Set Schedule' && onSecondaryTap != null;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: <Widget>[
-        _goalIcon(size: 36, context: context),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Flexible(
-                child: Text(
-                  indicator.label,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontFamily: 'Roboto',
-                    fontSize: 14,
-                    height: 16 / 14,
-                    fontWeight: FontWeight.w400,
-                  ),
-                ),
-              ),
-              Text(
-                _homeRatioText(indicator.actual, indicator.target),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontFamily: 'Roboto',
-                  fontSize: 21,
-                  height: 23 / 21,
-                  fontWeight: FontWeight.w600,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _wide(BuildContext context) {
-    final hasDailyControls =
-        onDailyTargetMinus != null && onDailyTargetPlus != null;
-    // A single horizontal composition is preserved at every supported phone
-    // width.  The left content flexes and the Today's Goal inset takes a
-    // proportional share of the inner width, so nothing stacks or overflows
-    // at 360, 393, or 411 dp.
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // The Today's Goal inset needs a wider share of the Goal 1 card than
-        // the monthly aside: it must hold the left-pinned label, the progress
-        // value centered beneath it, and the minus/plus controls on the right.
-        // 0.58 of the inner width (capped 172-206 dp) keeps the label at
-        // readable scale on 360 dp phones while leaving the Goal title room.
-        final asideWidth = hasDailyControls
-            ? (constraints.maxWidth * 0.58).clamp(172.0, 206.0)
-            : null;
-        return Row(
-          children: <Widget>[
-            Expanded(child: _wideContent(context)),
-            const SizedBox(width: 10),
-            _WideAside(
-              label: asideLabel!,
-              value: asideValue!,
-              onMinus: onDailyTargetMinus,
-              onPlus: onDailyTargetPlus,
-              minusEnabled: !dailyTargetIsZero,
-              width: asideWidth,
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _wideContent(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: <Widget>[
-        _goalIcon(size: 40, context: context),
+        // HR-01 Home-only icon proportions (compact 36 / wide-monthly 40);
+        // all other GI-02 call sites keep their exact 2x sizes.
+        _goalIcon(size: iconSize, context: context),
         const SizedBox(width: 8),
         Expanded(
           child: Column(
@@ -1052,12 +1039,12 @@ final class _IndicatorCard extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   fontFamily: 'Roboto',
-                  fontSize: 14,
-                  height: 18 / 14,
+                  fontSize: 13,
+                  height: 16 / 13,
                   fontWeight: FontWeight.w400,
                 ),
               ),
-              if (secondaryLabel == 'Set Schedule' && onSecondaryTap != null)
+              if (showScheduleButton)
                 TextButton(
                   key: const Key('home-temple-schedule'),
                   onPressed: onSecondaryTap,
@@ -1074,8 +1061,8 @@ final class _IndicatorCard extends StatelessWidget {
                     overflow: TextOverflow.clip,
                     style: TextStyle(
                       fontFamily: 'Roboto',
-                      fontSize: 14,
-                      height: 18 / 14,
+                      fontSize: 13,
+                      height: 16 / 13,
                     ),
                   ),
                 )
@@ -1083,23 +1070,30 @@ final class _IndicatorCard extends StatelessWidget {
                 Text(
                   secondaryLabel ??
                       _homeRatioText(indicator.actual, indicator.target),
-                  maxLines: secondaryLabel == null ? 1 : 2,
-                  overflow: TextOverflow.clip,
-                  style: TextStyle(
-                    fontFamily: 'Roboto',
-                    fontSize: secondaryLabel == null ? 22 : 14,
-                    height: secondaryLabel == null ? 24 / 22 : 18 / 14,
-                    fontWeight: secondaryLabel == null
-                        ? FontWeight.w600
-                        : FontWeight.w400,
-                    color: secondaryLabel == null
-                        ? Theme.of(context).colorScheme.primary
-                        : AppTheme.onFillTextOf(context, 0.70),
-                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: secondaryLabel == null
+                      ? TextStyle(
+                          fontFamily: 'Roboto',
+                          fontSize: 21,
+                          height: 23 / 21,
+                          fontWeight: FontWeight.w600,
+                          color: Theme.of(context).colorScheme.primary,
+                        )
+                      : const TextStyle(
+                          fontFamily: 'Roboto',
+                          fontSize: 11,
+                          height: 14 / 11,
+                          fontWeight: FontWeight.w400,
+                        ),
                 ),
             ],
           ),
         ),
+        if (trailing != null) ...<Widget>[
+          const SizedBox(width: 8),
+          trailing!,
+        ],
       ],
     );
   }
@@ -1115,86 +1109,119 @@ final class _IndicatorCard extends StatelessWidget {
   }
 }
 
-final class _WideAside extends StatelessWidget {
-  const _WideAside({
-    required this.label,
+/// HR-02: the Today's Goal inset — one OPAQUE neutral-gray rounded surface
+/// inside the daily Goal card.  It contains the label/value column AND the
+/// +/- quick controls; there is no loose text and no floating + on the white
+/// outer card.
+final class _TodayGoalInset extends StatelessWidget {
+  const _TodayGoalInset({
     required this.value,
-    this.onMinus,
-    this.onPlus,
-    this.minusEnabled = true,
-    this.width,
+    required this.dailyTargetIsZero,
+    required this.onMinus,
+    required this.onPlus,
   });
 
-  final String label;
   final String value;
-  final VoidCallback? onMinus;
-  final VoidCallback? onPlus;
-  final bool minusEnabled;
-  final double? width;
+  final bool dailyTargetIsZero;
+  final VoidCallback onMinus;
+  final VoidCallback onPlus;
 
   @override
   Widget build(BuildContext context) {
-    final hasControls = onMinus != null && onPlus != null;
-    return SizedBox(
-      key: onPlus == null && onMinus == null
-          ? null
-          : const Key('home-daily-target-quick-control'),
-      width: width ?? (hasControls ? 165 : 106),
-      height: hasControls ? 52 : 48,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: AppTheme.cardOf(context),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Padding(
-          padding: EdgeInsets.symmetric(
-            horizontal: hasControls ? 10 : 10,
-            vertical: hasControls ? 6 : 0,
+    return Container(
+      key: const Key('home-daily-target-quick-control'),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        // Semantic neutral gray surface role (Light: surfaceContainerHighest;
+        // Dark: the same dark neutral block role).  Never a full-card slab.
+        color: AppTheme.blockOf(context),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          SizedBox(
+            width: 64,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    "Today's Goal",
+                    maxLines: 1,
+                    style: const TextStyle(
+                      fontFamily: 'Roboto',
+                      fontSize: 12,
+                      height: 14 / 12,
+                    ),
+                  ),
+                ),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.clip,
+                  style: TextStyle(
+                    fontFamily: 'Roboto',
+                    fontSize: 22,
+                    height: 24 / 22,
+                    fontWeight: FontWeight.w600,
+                    // The Today / month progress value uses the neutral
+                    // on-surface text family; only the quick controls carry
+                    // the accent.
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+                ),
+              ],
+            ),
           ),
-          child: _WideAsideContent(
-            label: label,
-            value: value,
-            hasControls: hasControls,
-            minusEnabled: minusEnabled,
+          const SizedBox(width: 4),
+          _DailyTargetControls(
             onMinus: onMinus,
             onPlus: onPlus,
+            minusEnabled: !dailyTargetIsZero,
           ),
-        ),
+        ],
       ),
     );
   }
 }
 
-final class _WideAsideContent extends StatelessWidget {
-  const _WideAsideContent({
-    required this.label,
-    required this.value,
-    required this.hasControls,
-    required this.onMinus,
-    required this.onPlus,
-    this.minusEnabled = true,
-  });
+/// HR-02: the August Goal inset — the OPAQUE neutral-gray rounded surface at
+/// the right of the Temple/monthly full-width card ("August Goal" + ratio).
+/// It is an inset inside the ONE outer card, never a separate half-width card.
+final class _AugustGoalInset extends StatelessWidget {
+  const _AugustGoalInset({required this.label, required this.value});
 
   final String label;
   final String value;
-  final bool hasControls;
-  final VoidCallback? onMinus;
-  final VoidCallback? onPlus;
-  final bool minusEnabled;
 
   @override
   Widget build(BuildContext context) {
-    if (!hasControls) {
-      return Column(
+    return Container(
+      key: const Key('home-month-goal-card'),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppTheme.blockOf(context),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
         children: <Widget>[
           FittedBox(
             fit: BoxFit.scaleDown,
             child: Text(
               label,
               maxLines: 1,
-              style: const TextStyle(fontSize: 14, height: 16 / 14),
+              style: const TextStyle(
+                fontFamily: 'Roboto',
+                fontSize: 12,
+                height: 14 / 12,
+              ),
             ),
           ),
           Text(
@@ -1206,80 +1233,55 @@ final class _WideAsideContent extends StatelessWidget {
               fontSize: 22,
               height: 24 / 22,
               fontWeight: FontWeight.w600,
-              // Pack 3 final polish: the August Goal progress value uses the
-              // same neutral primary text family as the Today's Goal inset.
               color: Theme.of(context).colorScheme.onSurface,
             ),
           ),
         ],
-      );
-    }
+      ),
+    );
+  }
+}
 
-    // Approved Today's Goal inset layout:
-    //   Today's Goal        <- label pinned to the left
-    //      0/1        −   + <- value centered beneath the label, controls right
-    // The value is centered relative to the label/progress block (never the
-    // whole inset), the minus/plus controls sit on the right with deliberate
-    // gaps, and the minus hides behind a reserved, non-interactive,
-    // semantics-excluded slot while the Daily Target is zero so the plus never
-    // jumps.  The block scales down gracefully on narrow phones instead of
-    // overflowing.  Buttons keep 48 dp tap targets without inflating the
-    // inset.  The progress value uses neutral primary text; only the controls
-    // carry the accent.
-    return Row(
-      children: <Widget>[
-        Flexible(
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: <Widget>[
-                Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.clip,
-                  style: const TextStyle(fontSize: 14, height: 15 / 14),
-                ),
-                const SizedBox(height: 1),
-                Text(
-                  value,
-                  maxLines: 1,
-                  overflow: TextOverflow.clip,
-                  style: TextStyle(
-                    fontFamily: 'Roboto',
-                    fontSize: 22,
-                    height: 21 / 22,
-                    fontWeight: FontWeight.w600,
-                    color: Theme.of(context).colorScheme.onSurface,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(width: 10),
-        if (minusEnabled)
+/// POLISH-02: the distinct Today's Goal quick-control region (minus hidden
+/// at zero behind a reserved non-interactive slot so the + never jumps).
+final class _DailyTargetControls extends StatelessWidget {
+  const _DailyTargetControls({
+    required this.onMinus,
+    required this.onPlus,
+    required this.minusEnabled,
+  });
+
+  final VoidCallback onMinus;
+  final VoidCallback onPlus;
+  final bool minusEnabled;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 68,
+      height: 48,
+      child: Row(
+        children: <Widget>[
+          if (minusEnabled)
+            _DailyTargetButton(
+              key: const Key('home-daily-target-minus'),
+              tooltip: 'Decrease daily target',
+              icon: Icons.remove,
+              onPressed: onMinus,
+            )
+          else
+            // Reserved invisible slot: same footprint as the minus button so
+            // the plus keeps its exact position at zero.
+            const ExcludeSemantics(child: SizedBox(width: 28)),
+          const SizedBox(width: 4),
           _DailyTargetButton(
-            key: const Key('home-daily-target-minus'),
-            tooltip: 'Decrease daily target',
-            icon: Icons.remove,
-            onPressed: onMinus!,
-          )
-        else
-          // Reserved invisible slot: same footprint as the minus
-          // button so the plus keeps its exact position at zero.
-          const ExcludeSemantics(child: SizedBox(width: 40)),
-        const SizedBox(width: 6),
-        _DailyTargetButton(
-          key: const Key('home-daily-target-plus'),
-          tooltip: 'Increase daily target',
-          icon: Icons.add,
-          onPressed: onPlus!,
-        ),
-      ],
+            key: const Key('home-daily-target-plus'),
+            tooltip: 'Increase daily target',
+            icon: Icons.add,
+            onPressed: onPlus,
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1310,21 +1312,27 @@ final class _DailyTargetButton extends StatelessWidget {
     return Tooltip(
       message: tooltip,
       child: Semantics(
+        // The enclosing Card wraps its content in a container semantics
+        // boundary, so a non-boundary Semantics here would merge its label
+        // into the card node and lose the per-button label (the card's own
+        // label wins the merge).  Making the button its own boundary keeps
+        // each quick control a distinct, announceable semantic target.
+        container: true,
         button: true,
         label: tooltip,
         child: SizedBox(
-          // A 40 dp layout footprint keeps the target/minus/plus row compact
-          // on narrow phones.  The 48 x 48 OverflowBox only enlarges the
-          // painted child; Flutter hit-tests the 40 x 20 layout box, so the
-          // effective tap area is the button footprint itself.
-          width: 40,
+          // A 28 dp layout footprint keeps the quick-control region compact
+          // next to the 112 dp Today block.  The 40 x 40 OverflowBox only
+          // enlarges the painted child; Flutter hit-tests the 28 x 24 layout
+          // box, so the effective tap area is the button footprint itself.
+          width: 28,
           height: 24,
           child: OverflowBox(
             alignment: Alignment.center,
-            minWidth: 48,
-            maxWidth: 48,
-            minHeight: 48,
-            maxHeight: 48,
+            minWidth: 40,
+            maxWidth: 40,
+            minHeight: 40,
+            maxHeight: 40,
             child: SizedBox(
               width: 48,
               height: 48,
@@ -1357,7 +1365,11 @@ final class _PathwaysCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       margin: EdgeInsets.zero,
-      color: Colors.transparent,
+      // POLISH-01: Light Pathways cards use the semantic near-white surface;
+      // Dark keeps its current transparent behavior.
+      color: Theme.of(context).brightness == Brightness.dark
+          ? Colors.transparent
+          : AppTheme.cardOf(context),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(10),
         side: BorderSide(color: AppTheme.cardBorderOf(context)),

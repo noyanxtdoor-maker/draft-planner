@@ -9,10 +9,10 @@ import 'package:go_router/go_router.dart';
 
 import 'package:rmplanner/app/theme/app_theme.dart';
 import 'package:rmplanner/app/theme/internal_screen.dart';
+import 'package:rmplanner/features/goals/domain/goal.dart';
 import 'package:rmplanner/features/goals/presentation/goal_icon_picker_screen.dart';
 import 'package:rmplanner/features/goals/presentation/widgets/goal_icon.dart';
 import 'package:rmplanner/features/goals/presentation/widgets/goal_icon_choice_row.dart';
-import 'package:rmplanner/features/planner/presentation/widgets/planner_event_block_layout_policy.dart';
 
 void main() {
   testWidgets('GoalIcon renders registered assets and safe fallbacks', (
@@ -315,7 +315,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('Choose Icon tiles are compact icon-only (no labels, 48dp icon, '
+  testWidgets('Choose Icon tiles are compact icon-only (no labels, 96dp icon, '
       'selected badge)', (tester) async {
     tester.view.physicalSize = const Size(393, 874);
     tester.view.devicePixelRatio = 1;
@@ -342,9 +342,9 @@ void main() {
       matching: find.byKey(const Key('goal-icon-tile-learning_open_book')),
     );
     expect(tile, findsOneWidget);
-    // Normal tile height 76dp, icon 48dp (Stage-1.2 global picker size),
+    // GI-02 (supersedes Stage-1.2): tile height 104dp, icon 96dp,
     // no displayName/category text.
-    expect(tester.getSize(tile).height, 76);
+    expect(tester.getSize(tile).height, 104);
     expect(
       find.descendant(of: tile, matching: find.byType(GoalIcon)),
       findsOneWidget,
@@ -355,8 +355,8 @@ void main() {
             find.descendant(of: tile, matching: find.byType(GoalIcon)),
           )
           .size,
-      48,
-      reason: 'Stage-1.2 locks one global 48dp picker icon size',
+      96,
+      reason: 'GI-02 supersedes Stage-1.2: picker icon is exactly 96dp',
     );
     expect(
       find.descendant(of: tile, matching: find.byType(Text)),
@@ -564,7 +564,7 @@ void main() {
             ),
           )
           .height,
-      84,
+      112,
     );
     expect(tester.takeException(), isNull);
   });
@@ -746,15 +746,20 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  // ------------------------------------------------------------- B3.3
-  // Goal Icon R2 refined Light plate contract (owner-locked parameters):
-  // Light mode renders a #181A1E / canonical AppTheme.surface plate behind
-  // the two-tone artwork with inset = 0.12 x size and corner radius =
-  // 0.30 x size; Dark mode renders the raw SVG with NO plate; the SVG
-  // stays un-tinted (colorFilter null); the outer icon/tile size stays
-  // exact (including the 48 dp picker contract); practical contrast
-  // against Light surfaces and artwork families stays >= 3:1.
-  group('B3.3 Goal Icon R2 Light plate contract', () {
+  // ------------------------------------------------------------- POLISH-03
+  // Light UI Final Polish renderer contract (owner-locked): the GI-01
+  // 1.06x #181A1E halo is REMOVED.  Light mode renders the raw original
+  // two-tone foreground SVG only — no plate, no halo, no artificial black
+  // outline, no DecoratedBox, no ColorFiltered silhouette, no Transform
+  // scale (except the proven per-ID optical correction below).  Dark mode
+  // stays raw SVG.  The outer icon/tile size stays exact, and the GI-02
+  // call-site sizes are unchanged.
+  //
+  // POLISH-06: spiritual_temple alone receives a renderer-level optical
+  // scale correction (1.15x) because its thin-stroke artwork has the
+  // lowest ink density of the family and reads undersized next to peers at
+  // the same requested size.  No registry identity changes, no SVG edits.
+  group('Light UI polish Goal Icon renderer (no halo, Temple optical size)', () {
     Future<void> pumpIcon(
       WidgetTester tester, {
       required String iconId,
@@ -773,8 +778,8 @@ void main() {
     }
 
     testWidgets(
-      'Light: plate exists with #181A1E surface, 0.12 inset, 0.30 radius, '
-      'exact outer size, un-tinted SVG',
+      'Light: single raw two-tone SVG only — no plate, no halo, no '
+      'artificial outline; exact outer size',
       (tester) async {
         const size = 40.0;
         await pumpIcon(
@@ -786,63 +791,52 @@ void main() {
         final icon = find.byType(GoalIcon);
         expect(icon, findsOneWidget);
 
-        final plate = tester.widget<DecoratedBox>(
-          find
-              .descendant(of: icon, matching: find.byType(DecoratedBox))
-              .first,
-        );
-        final plateDecoration = plate.decoration as BoxDecoration;
+        // No background plate / decoration of any kind.
         expect(
-          plateDecoration.color,
-          AppTheme.surface,
-          reason: 'Light plate color must be the canonical #181A1E surface',
+          find.descendant(of: icon, matching: find.byType(DecoratedBox)),
+          findsNothing,
+          reason: 'POLISH-03 removes the Light background plate entirely',
         );
-        final radius = plateDecoration.borderRadius! as BorderRadius;
+        // No halo: no ColorFiltered silhouette, no 1.06x Transform scale.
         expect(
-          radius.topLeft.x,
-          closeTo(size * 0.30, 0.01),
-          reason: 'plate corner radius must be 0.30 x icon size',
+          find.descendant(of: icon, matching: find.byType(ColorFiltered)),
+          findsNothing,
+          reason: 'POLISH-03 removes the GI-01 halo silhouette entirely',
         );
         expect(
-          radius.topRight.x,
-          closeTo(size * 0.30, 0.01),
-          reason: 'plate corner radius must be 0.30 on the right too',
+          find.descendant(of: icon, matching: find.byType(Transform)),
+          findsNothing,
+          reason: 'peers must render with NO optical-scale Transform',
         );
-
-        final inset = tester.widget<Padding>(
-          find.descendant(of: icon, matching: find.byType(Padding)).first,
-        );
-        final padding = inset.padding as EdgeInsets;
+        // Exactly ONE foreground SVG, un-tinted.
         expect(
-          padding.left,
-          closeTo(size * 0.12, 0.01),
-          reason: 'artwork inset must be 0.12 x icon size',
+          find.descendant(of: icon, matching: find.byType(SvgPicture)),
+          findsOneWidget,
+          reason: 'Light mode paints the raw two-tone foreground once',
+        );
+        final svg = tester.widget<SvgPicture>(
+          find.descendant(of: icon, matching: find.byType(SvgPicture)),
         );
         expect(
-          padding.top,
-          closeTo(size * 0.12, 0.01),
-          reason: 'artwork inset must be uniform (0.12 x icon size)',
+          svg.colorFilter,
+          isNull,
+          reason: 'foreground artwork must stay two-tone (colorFilter null)',
         );
-
-        // Outer tile stays exactly `size`.
+        expect(
+          find.descendant(of: icon, matching: find.byType(Stack)),
+          findsNothing,
+          reason: 'no halo+foreground layer stack remains',
+        );
         expect(
           tester.getSize(icon),
           const Size(size, size),
           reason: 'outer icon/tile size must stay exactly the requested size',
         );
-
-        // The SVG stays two-tone: no colorFilter tint.
-        final svg = tester.widget<SvgPicture>(find.byType(SvgPicture));
-        expect(
-          svg.colorFilter,
-          isNull,
-          reason: 'artwork must stay two-tone (colorFilter null)',
-        );
         expect(tester.takeException(), isNull);
       },
     );
 
-    testWidgets('Dark: raw SVG with NO plate and exact outer size', (
+    testWidgets('Dark: raw SVG only (unchanged), exact outer size', (
       tester,
     ) async {
       const size = 32.0;
@@ -858,6 +852,11 @@ void main() {
         findsNothing,
         reason: 'Dark mode must render the raw SVG with no plate',
       );
+      expect(
+        find.descendant(of: icon, matching: find.byType(ColorFiltered)),
+        findsNothing,
+        reason: 'Dark mode must render no halo',
+      );
       expect(find.byType(SvgPicture), findsOneWidget);
       expect(
         tester.getSize(icon),
@@ -867,7 +866,96 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('48 dp picker contract: outer size stays exactly 48', (
+    testWidgets(
+      'Temple Visit: spiritual_temple only gets the 1.15x optical scale; '
+      'peers render at 1.0x with no Transform; outer size exact',
+      (tester) async {
+        const size = 48.0;
+        // The per-ID optical scale metadata itself: Temple 1.15, peers 1.0.
+        expect(GoalIcon.opticalScaleFor('spiritual_temple'), 1.15);
+        for (final peer in const <String?>[
+          'work_briefcase',
+          'church',
+          'prayer',
+          'temple_marriage',
+          'learning_open_book',
+          null,
+        ]) {
+          expect(
+            GoalIcon.opticalScaleFor(peer),
+            1.0,
+            reason: '$peer must have no optical correction',
+          );
+        }
+
+        await pumpIcon(
+          tester,
+          iconId: 'spiritual_temple',
+          size: size,
+          brightness: Brightness.light,
+        );
+        final temple = find.byType(GoalIcon);
+        // The artwork paints at size * 1.15 and shrinks by 1 / 1.15, so the
+        // painted viewBox lands exactly at `size` while the ART inside
+        // renders 1.15x larger (viewBox padding cropped).
+        final templeTransform = tester.widget<Transform>(
+          find.descendant(of: temple, matching: find.byType(Transform)),
+        );
+        expect(
+          templeTransform.transform.entry(0, 0),
+          closeTo(1 / 1.15, 0.001),
+          reason: 'POLISH-06: the viewBox is scaled by 1 / opticalScale',
+        );
+        final templeSvg = tester.widget<SvgPicture>(
+          find.descendant(of: temple, matching: find.byType(SvgPicture)),
+        );
+        expect(
+          templeSvg.width,
+          closeTo(size * 1.15, 0.001),
+          reason: 'the artwork paints at size * opticalScale',
+        );
+        expect(
+          templeSvg.colorFilter,
+          isNull,
+          reason: 'optical scale must never tint the artwork',
+        );
+        // Optical scale is renderer-only: the outer box stays exactly `size`
+        // and the caller still requests the same GI-02 size.
+        expect(
+          tester.getSize(temple),
+          const Size(size, size),
+          reason: 'outer size must stay exact despite the optical scale',
+        );
+        expect(tester.takeException(), isNull);
+
+        // Peers keep opticalScale 1.0 (no Transform at all).
+        for (final peer in const <String>[
+          'work_briefcase',
+          'church',
+          'prayer',
+          'temple_marriage',
+          'learning_open_book',
+        ]) {
+          await pumpIcon(
+            tester,
+            iconId: peer,
+            size: size,
+            brightness: Brightness.light,
+          );
+          expect(
+            find.descendant(
+              of: find.byType(GoalIcon),
+              matching: find.byType(Transform),
+            ),
+            findsNothing,
+            reason: '$peer must render at opticalScale 1.0 (no Transform)',
+          );
+          expect(tester.takeException(), isNull);
+        }
+      },
+    );
+
+    testWidgets('48 dp outer contract stays exact for every icon', (
       tester,
     ) async {
       await pumpIcon(
@@ -879,31 +967,119 @@ void main() {
       expect(
         tester.getSize(find.byType(GoalIcon)),
         const Size(48, 48),
-        reason: 'the 48 dp picker tile contract must be unchanged',
+        reason: 'the 48 dp tile contract must be unchanged',
       );
       expect(tester.takeException(), isNull);
     });
+  });
 
+  // ------------------------------------------------------------- GI-02
+  // Exact 2x Goal Icons at every production surface (owner-locked).  The
+  // renderer default/test contract stays independent; each production call
+  // site passes its exact doubled size explicitly.
+  group('GI-02 exact 2x Goal Icon call sites', () {
     testWidgets(
-      'practical contrast >= 3:1 for the plate vs Light surfaces and '
-      'representative artwork families',
+      'Choose Icon picker: exact 96dp art, 3 columns, no scale-down, '
+      'no clipping',
       (tester) async {
-        // Plate (#181A1E) vs the Light golden surface and the two-tone art
-        // palette (teal / gold) sampled from the registered SVGs.
-        const plate = AppTheme.surface;
-        const lightSurface = Color(0xFFF4F4F4);
-        const artTeal = Color(0xFF5BB2D6);
-        const artGold = Color(0xFFE4A14C);
-        for (final other in <Color>[lightSurface, artTeal, artGold]) {
-          expect(
-            PlannerEventBlockColorPolicy.contrastRatio(plate, other),
-            greaterThanOrEqualTo(3.0),
-            reason: 'plate vs $other must stay >= 3:1',
-          );
-        }
+        final router = _router();
+        addTearDown(router.dispose);
+        await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+        await tester.pumpAndSettle();
+        unawaited(
+          router.push<String?>(
+            '/picker',
+            extra: const GoalIconPickerArgs(
+              goalTitle: 'GI02 Goal',
+              currentIconId: null,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byType(GoalIconPickerScreen), findsOneWidget);
+
+        final allGridFinder = find.byKey(const Key('goal-icon-all'));
+        expect(allGridFinder, findsOneWidget);
+        final grid = tester.widget<GridView>(
+          find.descendant(of: allGridFinder, matching: find.byType(GridView)),
+        );
+        final delegate =
+            grid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount;
+        expect(
+          delegate.crossAxisCount,
+          3,
+          reason: 'GI-02 picker must keep exactly 3 columns',
+        );
+        expect(
+          delegate.mainAxisExtent,
+          greaterThanOrEqualTo(104),
+          reason: 'GI-02 picker tile must fit 96dp art + padding',
+        );
+
+        final goalIcon = find
+            .descendant(of: allGridFinder, matching: find.byType(GoalIcon))
+            .first;
+        expect(
+          tester.widget<GoalIcon>(goalIcon).size,
+          96,
+          reason: 'picker art must be exactly 96dp (2x of 48)',
+        );
+        expect(
+          tester.getSize(goalIcon),
+          const Size(96, 96),
+          reason: 'picker art must RENDER at exactly 96dp — no FittedBox/'
+              'constraint scale-down, no clipping',
+        );
+        final tileRect = tester.getRect(
+          find
+              .descendant(
+                of: allGridFinder,
+                matching: find.byKey(
+                  const Key('goal-icon-tile-work_briefcase'),
+                ),
+              )
+              .first,
+        );
+        final iconRect = tester.getRect(goalIcon);
+        expect(
+          tileRect.contains(iconRect.topLeft) &&
+              tileRect.contains(iconRect.bottomRight),
+          isTrue,
+          reason: '96dp art must stay inside its tile (no clipping)',
+        );
         expect(tester.takeException(), isNull);
       },
     );
+
+    testWidgets('Create/Edit icon choice row: exact 72dp art', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light(),
+          home: Scaffold(
+            body: GoalIconChoiceRow(
+              goalTitle: 'GI02 Goal',
+              iconId: 'work_briefcase',
+              fallbackIcon: goalIconFallbackForRole(GoalRole.weekly),
+              onTap: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final goalIcon = find.byType(GoalIcon);
+      expect(goalIcon, findsOneWidget);
+      expect(
+        tester.widget<GoalIcon>(goalIcon).size,
+        72,
+        reason: 'Create/Edit choice row art must be exactly 72dp (2x of 36)',
+      );
+      expect(
+        tester.getSize(goalIcon),
+        const Size(72, 72),
+        reason: 'choice row art must RENDER at exactly 72dp',
+      );
+      expect(tester.takeException(), isNull);
+    });
   });
 }
 

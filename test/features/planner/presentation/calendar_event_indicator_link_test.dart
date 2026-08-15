@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rmplanner/core/diagnostics/sanitized_diagnostics.dart';
 import 'package:rmplanner/core/platform/app_environment.dart';
+import 'package:rmplanner/features/goals/presentation/widgets/goal_icon.dart';
 import 'package:rmplanner/features/indicators/domain/life_indicator.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 
@@ -160,10 +161,37 @@ void main() {
     expect(reportSwitch.value, isTrue);
     expect(reportSwitch.onChanged, isNull);
 
+    // GI-02: Event Life Goal surfaces are exactly 2x (26 -> 52 card;
+    // 24 -> 48 sheet options).
+    final linkedIcon = find.descendant(
+      of: find.byKey(const Key('life-indicator-link-section')),
+      matching: find.byType(GoalIcon),
+    );
+    expect(linkedIcon, findsOneWidget);
+    expect(
+      tester.widget<GoalIcon>(linkedIcon).size,
+      52,
+      reason: 'GI-02 event linked Life Goal card art must be 52dp (2x of 26)',
+    );
+
     // Remove link: canonical link cleared, Report Required stays ON but
     // the toggle becomes editable again.
     await tester.tap(find.byKey(const Key('life-indicator-link-section')));
     await tester.pumpAndSettle();
+    // GI-02: Event Life Goal sheet options are exactly 2x (24 -> 48).
+    final sheetIcons = find.descendant(
+      of: find.byKey(const Key('life-indicator-picker')),
+      matching: find.byType(GoalIcon),
+    );
+    expect(sheetIcons, findsWidgets);
+    for (final element in sheetIcons.evaluate()) {
+      expect(
+        (element.widget as GoalIcon).size,
+        48,
+        reason: 'GI-02 event Life Goal sheet option art must be 48dp '
+            '(2x of 24)',
+      );
+    }
     await tester.tap(find.byKey(const Key('life-indicator-remove-link')));
     await tester.pumpAndSettle();
     expect(find.text('No Life Goal linked'), findsOneWidget);

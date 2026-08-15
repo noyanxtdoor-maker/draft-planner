@@ -418,9 +418,11 @@ final class _TaskFormScreenState extends ConsumerState<TaskFormScreen>
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
+              // POLISH-04: Light uses the semantic near-white surface +
+              // outline (never a gray container slab); Dark keeps its fill.
               color: dark
                   ? const Color(0xFF1C1E21)
-                  : colorScheme.surfaceContainerHighest,
+                  : colorScheme.surface,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
                 color: dark
@@ -433,8 +435,11 @@ final class _TaskFormScreenState extends ConsumerState<TaskFormScreen>
                 if (linked)
                   GoalIcon(
                     iconId: linkedGoal.iconId,
-                    size: 24,
+                    // GI-02: exactly 2x (24 -> 48).
+                    size: 48,
                     semanticLabel: linkedGoal.title,
+                    // POLISH-05: fallback follows the active Theme Color.
+                    color: colorScheme.primary,
                   )
                 else
                   Icon(
@@ -562,8 +567,12 @@ final class _TaskFormScreenState extends ConsumerState<TaskFormScreen>
                           key: Key('task-life-goal-option-${goal.id}'),
                           leading: GoalIcon(
                             iconId: goal.iconId,
-                            size: 24,
+                            // GI-02: exactly 2x (24 -> 48).
+                            size: 48,
                             semanticLabel: goal.title,
+                            // POLISH-05: fallback follows the active Theme
+                            // Color.
+                            color: Theme.of(context).colorScheme.primary,
                           ),
                           title: Text(
                             goal.title,

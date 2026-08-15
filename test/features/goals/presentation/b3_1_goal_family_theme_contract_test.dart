@@ -31,6 +31,7 @@ import 'package:rmplanner/core/ids/identifier_source.dart';
 import 'package:rmplanner/features/goals/application/goal_providers.dart';
 import 'package:rmplanner/features/goals/data/drift_goal_repository.dart';
 import 'package:rmplanner/features/goals/presentation/goal_archive_screen.dart';
+import 'package:rmplanner/features/goals/presentation/widgets/goal_icon.dart';
 import 'package:rmplanner/features/planner/application/planner_providers.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 import 'package:rmplanner/features/startup/application/startup_providers.dart';
@@ -104,6 +105,7 @@ void main() {
     Future<void> pumpArchive(
       WidgetTester tester, {
       required ThemeData theme,
+      int initialTab = 1,
     }) async {
       final database = openMemoryDatabase();
       addTearDown(database.close);
@@ -135,7 +137,7 @@ void main() {
               }
               return MaterialApp(
                 theme: theme,
-                home: const GoalArchiveScreen(initialTab: 1),
+                home: GoalArchiveScreen(initialTab: initialTab),
               );
             },
           ),
@@ -162,6 +164,37 @@ void main() {
         );
         expect(icon.color, AppTheme.blueDarkPrimary,
             reason: 'generic archive action must be Blue primary in Blue mode');
+      },
+    );
+
+    testWidgets(
+      'GI-02: archived Goal row art is exactly 56dp (2x of 28)',
+      (tester) async {
+        await pumpArchive(
+          tester,
+          theme: AppTheme.dark(ThemeColorMode.blue),
+          initialTab: 0,
+        );
+        final goalIconFinder = find.byType(GoalIcon).first;
+        final goalIcon = tester.widget<GoalIcon>(goalIconFinder);
+        expect(
+          goalIcon.size,
+          56,
+          reason: 'GI-02 archived goal row art must be 56dp (2x of 28)',
+        );
+        // The art itself paints at exactly 56dp inside the 64dp wrapper
+        // (the wrapper grew just enough for the 2x art).  The seeded goal
+        // has no iconId, so the render is the fallback Icon at `size`.
+        final icon = find.descendant(
+          of: goalIconFinder,
+          matching: find.byType(Icon),
+        );
+        expect(icon, findsOneWidget);
+        expect(
+          tester.widget<Icon>(icon).size,
+          56,
+          reason: 'archived row art must RENDER at exactly 56dp',
+        );
       },
     );
 

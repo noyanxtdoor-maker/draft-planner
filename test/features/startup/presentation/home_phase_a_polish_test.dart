@@ -80,9 +80,11 @@ void main() {
       expect(value, findsOneWidget);
 
       final insetLeft = tester.getTopLeft(quickControl()).dx;
+      final insetRight = tester.getTopRight(quickControl()).dx;
       final labelLeft = tester.getTopLeft(label).dx;
-      // The label starts at the left of the shaded inset (inside its padding).
-      expect(labelLeft, greaterThan(insetLeft));
+      // The label sits inside the compact Today block (POLISH-02: the block
+      // is its own row, never sharing the Goal title row).
+      expect(labelLeft, greaterThanOrEqualTo(insetLeft));
       expect(labelLeft, lessThan(insetLeft + 14));
 
       // The value is centered directly beneath the label.
@@ -91,14 +93,15 @@ void main() {
         lessThan(2),
       );
 
-      // Controls are to the right of the label/progress block, and the plus
-      // is the right-most element inside the inset.
+      // HR-02: the +/- controls live INSIDE the opaque gray Today's Goal
+      // inset (no floating + outside it); the plus is the right-most element
+      // of the inset.
       final minusCenter = tester.getCenter(minus());
       final plusCenter = tester.getCenter(plus());
-      expect(minusCenter.dx, greaterThan(tester.getCenter(label).dx));
+      expect(minusCenter.dx, greaterThan(insetLeft));
+      expect(minusCenter.dx, lessThan(insetRight));
       expect(plusCenter.dx, greaterThan(minusCenter.dx));
-      final insetRight = tester.getTopRight(quickControl()).dx;
-      expect(plusCenter.dx, greaterThan(insetRight - 40));
+      expect(plusCenter.dx, lessThanOrEqualTo(insetRight + 0.5));
       expect(tester.takeException(), isNull);
     },
   );
@@ -200,8 +203,8 @@ void main() {
       await pumpHome(tester, viewport: Size(width, 820));
       expect(
         tester.getSize(quickControl()).height,
-        lessThanOrEqualTo(48),
-        reason: 'inset must stay within the shared Goal-1/Goal-6 geometry',
+        lessThanOrEqualTo(60),
+        reason: 'inset must stay compact within the 76 dp Goal card',
       );
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());

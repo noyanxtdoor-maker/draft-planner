@@ -10,14 +10,22 @@ import 'package:rmplanner/features/goals/domain/goal_icon_registry.dart';
 /// contributes one accessible image node, including when it falls back for a
 /// null or unknown ID.
 ///
-/// Pack B2 light bridge: the raw teal/gold SVG artwork passes contrast on the
-/// app's dark surfaces (7.14/7.86:1 measured in the Pack B audit) but fails on
-/// a light background (2.18/1.97:1).  In Light mode the artwork gets a compact
-/// dark plate (the same #181A1E surface the app uses in Dark) that sits ONLY
-/// behind the artwork.  B3.3 R2 refined the plate so it reads intentional
-/// rather than oversized: artwork inset 0.12 x size, corner radius 0.30 x
-/// size.  Assets, registry IDs, dark output, and the outer [size] geometry
-/// are unchanged.
+/// Light UI Final Polish (POLISH-03): the B3.3 dark plate AND the GI-01
+/// 1.06x #181A1E halo are REMOVED.  Light mode renders the raw original
+/// two-tone foreground SVG only — no plate, no halo, no artificial black
+/// outline, `colorFilter` stays null — and Dark mode is raw SVG only too.
+/// The owner prioritizes the clean no-outline direction; text labels
+/// accompany Goal Icons so the icon is never the sole information carrier
+/// (raw-art Light contrast is recorded honestly in the session audit, not
+/// forced by a plate).
+///
+/// POLISH-06: [spiritual_temple] alone renders at an optical scale of 1.15x
+/// via a renderer-only per-ID correction (default 1.0).  Its thin-stroke
+/// artwork has the lowest ink density of the family and reads undersized
+/// next to peers at the same requested size; the correction is applied by
+/// painting the SVG at size / scale and scaling by scale, so the outer
+/// [size] geometry stays exact and the caller still requests the same
+/// GI-02 size.  No registry identity changes and no SVG edits.
 final class GoalIcon extends StatelessWidget {
   const GoalIcon({
     required this.iconId,
@@ -34,6 +42,23 @@ final class GoalIcon extends StatelessWidget {
   final Color color;
   final IconData? fallbackIcon;
 
+  /// Renderer-only optical scale per icon ID (POLISH-06).  Default 1.0;
+  /// only the audited outlier is changed.  This is rendering metadata, never
+  /// registry identity: IDs/categories/aliases/assets are untouched.
+  static const Map<String, double> _opticalScaleById = <String, double>{
+    'spiritual_temple': 1.15,
+  };
+
+  /// Testable per-ID optical scale; 1.0 for every icon without a correction.
+  @visibleForTesting
+  static double opticalScaleFor(String? iconId) {
+    final definition = GoalIconRegistry.instance.findById(iconId);
+    if (definition == null) {
+      return 1.0;
+    }
+    return _opticalScaleById[definition.id] ?? 1.0;
+  }
+
   @override
   Widget build(BuildContext context) {
     final definition = GoalIconRegistry.instance.findById(iconId);
@@ -46,30 +71,38 @@ final class GoalIcon extends StatelessWidget {
         color: color,
       );
     } else {
-      final svg = ExcludeSemantics(
-        child: SvgPicture.asset(
-          definition.assetPath,
-          width: size,
-          height: size,
-          fit: BoxFit.contain,
-          colorFilter: null,
-          excludeFromSemantics: true,
-        ),
-      );
-      if (Theme.of(context).brightness == Brightness.dark) {
-        child = svg;
-      } else {
-        // Light-only dark artwork plate (B3.3 R2: 12% inset, 30% corner
-        // radius of size).  Keeps teal/gold artwork >= 3:1 against the app
-        // surface while reading intentional rather than oversized/heavy.
-        child = DecoratedBox(
-          decoration: BoxDecoration(
-            color: AppTheme.surface,
-            borderRadius: BorderRadius.circular(size * 0.30),
+      final opticalScale = _opticalScaleById[definition.id] ?? 1.0;
+      if (opticalScale == 1.0) {
+        child = ExcludeSemantics(
+          child: SvgPicture.asset(
+            definition.assetPath,
+            width: size,
+            height: size,
+            fit: BoxFit.contain,
+            colorFilter: null,
+            excludeFromSemantics: true,
           ),
-          child: Padding(
-            padding: EdgeInsets.all(size * 0.12),
-            child: Center(child: svg),
+        );
+      } else {
+        // Optical scale: paint the SVG at size * scale and shrink it by
+        // 1 / scale, so the painted viewBox lands EXACTLY at `size` while
+        // the artwork inside renders `scale`-times larger (its transparent
+        // viewBox padding is cropped, never the outer box stretched).  The
+        // caller still requests the same GI-02 size and nothing overflows.
+        child = Center(
+          child: Transform.scale(
+            scale: 1 / opticalScale,
+            alignment: Alignment.center,
+            child: ExcludeSemantics(
+              child: SvgPicture.asset(
+                definition.assetPath,
+                width: size * opticalScale,
+                height: size * opticalScale,
+                fit: BoxFit.contain,
+                colorFilter: null,
+                excludeFromSemantics: true,
+              ),
+            ),
           ),
         );
       }

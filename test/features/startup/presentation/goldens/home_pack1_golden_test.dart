@@ -150,6 +150,18 @@ void main() {
   _registerHomeGolden(
     name: '18_home_major_separator',
     captureKey: const Key('home-major-separator'),
+    // POLISH-02: the 2x Goal cards grow the Life Goals section, pushing the
+    // separator past the lazy ListView's initial build window.  Scroll it
+    // into view before capture so the separator itself is the unchanged
+    // subject.
+    beforeCapture: (tester) async {
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('home-major-separator')),
+        120,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+    },
   );
   _registerHomeGolden(
     name: '19_daily_target_maximum',

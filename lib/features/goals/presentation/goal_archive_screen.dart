@@ -456,26 +456,31 @@ final class _ArchivedGoalRow extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             child: compact
                 ? _buildCompactRow(context, date)
-                : SizedBox(height: 64, child: _buildWideRow(context, date)),
+                // GI-02: wide row grows just enough for the 56dp art.
+                : SizedBox(height: 80, child: _buildWideRow(context, date)),
           );
         },
       ),
     );
   }
 
-  Widget _buildIcon() {
+  Widget _buildIcon(BuildContext context) {
+    // GI-02: goal art doubles to 56dp; the local wrapper grows just enough.
     return SizedBox.square(
-      dimension: 40,
+      dimension: 64,
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: AppTheme.surface,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(12),
         ),
         child: GoalIcon(
           iconId: goal.iconId,
-          size: 28,
+          size: 56,
           semanticLabel: '${goal.title} goal icon',
           fallbackIcon: goalIconFallbackForRole(goal.role),
+          // POLISH-05: fallback icon follows the active Theme Color (generic
+          // theme-owned action, not Goal Icon identity).
+          color: Theme.of(context).colorScheme.primary,
         ),
       ),
     );
@@ -485,7 +490,7 @@ final class _ArchivedGoalRow extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: <Widget>[
-        _buildIcon(),
+        _buildIcon(context),
         const SizedBox(width: 10),
         Expanded(
           child: Column(
@@ -538,7 +543,7 @@ final class _ArchivedGoalRow extends StatelessWidget {
   Widget _buildWideRow(BuildContext context, String date) {
     return Row(
       children: <Widget>[
-        _buildIcon(),
+        _buildIcon(context),
         const SizedBox(width: 10),
         Expanded(
           child: Column(

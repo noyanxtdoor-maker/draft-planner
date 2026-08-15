@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rmplanner/app/theme/app_theme.dart';
 import 'package:rmplanner/core/database/app_database.dart';
@@ -155,7 +156,9 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('GoalIcon gets the dark artwork plate in Light only',
+    testWidgets(
+        'GoalIcon renders the raw two-tone SVG in Light and Dark — no '
+        'plate and no halo (Light UI Final Polish POLISH-03)',
         (tester) async {
       Future<int> plateCount() async {
         await tester.pump();
@@ -174,6 +177,30 @@ void main() {
             .length;
       }
 
+      Future<int> haloCount() async {
+        await tester.pump();
+        return find
+            .descendant(
+              of: find.byType(GoalIcon),
+              matching: find.byType(ColorFiltered),
+            )
+            .evaluate()
+            .where((element) {
+              final filter = element.widget as ColorFiltered;
+              return filter.colorFilter ==
+                  const ColorFilter.mode(AppTheme.surface, BlendMode.srcIn);
+            })
+            .length;
+      }
+
+      Future<int> svgCount() async {
+        await tester.pump();
+        return find
+            .descendant(of: find.byType(GoalIcon), matching: find.byType(SvgPicture))
+            .evaluate()
+            .length;
+      }
+
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.light(),
@@ -182,7 +209,11 @@ void main() {
           ),
         ),
       );
-      expect(await plateCount(), 1);
+      // POLISH-03: NO plate, NO halo, exactly one raw un-tinted foreground
+      // SVG in Light mode.
+      expect(await plateCount(), 0);
+      expect(await haloCount(), 0);
+      expect(await svgCount(), 1);
 
       // Force a fresh tree so the identical const GoalIcon cannot be reused
       // across the brightness switch.
@@ -195,7 +226,10 @@ void main() {
           ),
         ),
       );
+      // Dark: raw SVG only — no plate, no halo.
       expect(await plateCount(), 0);
+      expect(await haloCount(), 0);
+      expect(await svgCount(), 1);
     });
   });
 }
