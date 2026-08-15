@@ -11,14 +11,12 @@ import 'package:rmplanner/features/contacts/domain/contact.dart';
 import 'package:rmplanner/features/contacts/presentation/add_people_screen.dart';
 import 'package:rmplanner/features/contacts/presentation/widgets/contact_widgets.dart';
 import 'package:rmplanner/features/goals/application/goal_providers.dart';
-import 'package:rmplanner/features/goals/domain/canonical_goal_slots.dart';
 import 'package:rmplanner/features/goals/domain/goal.dart';
 import 'package:rmplanner/features/goals/presentation/widgets/goal_icon.dart';
 import 'package:rmplanner/features/planner/application/event_type_providers.dart';
 import 'package:rmplanner/features/planner/application/planner_providers.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 import 'package:rmplanner/features/planner/domain/planner_task.dart';
-import 'package:rmplanner/features/planner/presentation/event_type_picker_dialog.dart';
 import 'package:rmplanner/features/planner/presentation/widgets/planner_slide_down_date_picker.dart';
 import 'package:rmplanner/features/privacy/application/privacy_providers.dart';
 import 'package:rmplanner/features/privacy/domain/permission_summary.dart';
@@ -62,6 +60,10 @@ final class _TaskFormScreenState extends ConsumerState<TaskFormScreen>
   bool _loading = false;
   bool _saving = false;
   String? _error;
+  // TF-01: legacy Event-Type metadata is INVISIBLE read-through data.  The
+  // Task UX no longer exposes EVENT TYPE — OPTIONAL; these values are loaded
+  // from the stored Task and forwarded unchanged on save so legacy metadata
+  // survives edit/save/backup byte-for-byte (never editable from the UI).
   String? _linkedActivityTypeId;
   String? _linkedActivityTypeStableKey;
   String? _linkedActivityTypeLabelSnapshot;
@@ -245,10 +247,6 @@ final class _TaskFormScreenState extends ConsumerState<TaskFormScreen>
                             decoration: _inputDecoration('Description'),
                           ),
                           const SizedBox(height: 18),
-                          _buildLifeGoalSection(),
-                          const SizedBox(height: 22),
-                          _buildEventTypeField(),
-                          const SizedBox(height: 18),
                           SwitchListTile(
                             key: const Key('task-set-due-date-switch'),
                             contentPadding: EdgeInsets.zero,
@@ -382,6 +380,9 @@ final class _TaskFormScreenState extends ConsumerState<TaskFormScreen>
                                     ],
                                   ),
                                 ),
+                          const SizedBox(height: 26),
+                          // TF-01: Life Goal sits BELOW People.
+                          _buildLifeGoalSection(),
                         ],
                       ),
                     ),
@@ -623,76 +624,6 @@ final class _TaskFormScreenState extends ConsumerState<TaskFormScreen>
         return;
       }
       _goalId = selected;
-    });
-  }
-
-  /// Independent Event Type classification metadata (B3.2).  This field no
-  /// longer has any Goal-progress semantics — the direct Life Goal link is
-  /// the only Goal resolver.
-  Widget _buildEventTypeField() {
-    final label = _linkedActivityTypeLabelSnapshot ?? 'None';
-    return Semantics(
-      container: true,
-      label: 'EVENT TYPE — OPTIONAL, $label',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: <Widget>[
-          InkWell(
-            key: const Key('task-event-type-field'),
-            onTap: _chooseEventType,
-            borderRadius: BorderRadius.circular(4),
-            child: InputDecorator(
-              decoration: _inputDecoration('EVENT TYPE — OPTIONAL'),
-              child: Row(
-                children: <Widget>[
-                  Expanded(child: Text(label)),
-                  const Icon(Icons.arrow_drop_down),
-                ],
-              ),
-            ),
-          ),
-          if (label != 'None') ...<Widget>[
-            const SizedBox(height: 4),
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton.icon(
-                key: const Key('task-clear-event-type'),
-                onPressed: () => setState(() {
-                  _linkedActivityTypeId = null;
-                  _linkedActivityTypeStableKey = null;
-                  _linkedActivityTypeLabelSnapshot = null;
-                }),
-                icon: const Icon(Icons.clear, size: 18),
-                label: const Text('Clear'),
-                style: TextButton.styleFrom(
-                  minimumSize: const Size(48, 48),
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Future<void> _chooseEventType() async {
-    final selection = await showEventTypePicker(
-      context: context,
-      ref: ref,
-      recommendedEventTypeId: _linkedActivityTypeId,
-      allowedStableKeys: <String>{
-        for (final slot in CanonicalGoalSlot.all) slot.eventTypeStableKey,
-      },
-      includeTask: false,
-    );
-    if (!mounted || selection is! EventTypePickerEvent) {
-      return;
-    }
-    setState(() {
-      _linkedActivityTypeId = selection.eventType.id;
-      _linkedActivityTypeStableKey = selection.eventType.stableKey;
-      _linkedActivityTypeLabelSnapshot = selection.eventType.label;
     });
   }
 

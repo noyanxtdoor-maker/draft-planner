@@ -4566,11 +4566,15 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
                                                 alignment:
                                                     Alignment.centerRight,
                                                 child: Container(
-                                                  // CT-01: compact
-                                                  // semantic-primary capsule,
-                                                  // fully rounded (radius =
-                                                  // half the capsule height),
-                                                  // onPrimary text.
+                                                  // CT-02: NO fill/background
+                                                  // behind the time.  The time
+                                                  // text itself is the
+                                                  // highlighted element —
+                                                  // semantic primary, slightly
+                                                  // larger (fontSize 13).  The
+                                                  // box only bounds the label
+                                                  // horizontally, tangent to
+                                                  // the anchor.
                                                   height:
                                                       PlannerCurrentTimeHorizontalGeometry
                                                           .capsuleHeight,
@@ -4580,16 +4584,6 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
                                                           .symmetric(
                                                         horizontal: 6,
                                                       ),
-                                                  decoration: BoxDecoration(
-                                                    color: Theme.of(
-                                                      context,
-                                                    ).colorScheme.primary,
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          PlannerCurrentTimeHorizontalGeometry
-                                                              .capsuleRadius,
-                                                        ),
-                                                  ),
                                                   child: Text(
                                                     formatPlannerCurrentTimeLabel(
                                                       currentNow,
@@ -4603,8 +4597,8 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
                                                     style: TextStyle(
                                                       color: Theme.of(
                                                         context,
-                                                      ).colorScheme.onPrimary,
-                                                      fontSize: 11,
+                                                      ).colorScheme.primary,
+                                                      fontSize: 13,
                                                       fontWeight:
                                                           FontWeight.w700,
                                                       height: 1.0,

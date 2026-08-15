@@ -14,8 +14,10 @@ import 'package:rmplanner/features/goals/domain/goal_icon_registry.dart';
 /// app's dark surfaces (7.14/7.86:1 measured in the Pack B audit) but fails on
 /// a light background (2.18/1.97:1).  In Light mode the artwork gets a compact
 /// dark plate (the same #181A1E surface the app uses in Dark) that sits ONLY
-/// behind the artwork.  Assets, registry IDs, dark output, and the outer
-/// [size] geometry are unchanged.
+/// behind the artwork.  B3.3 R2 refined the plate so it reads intentional
+/// rather than oversized: artwork inset 0.12 x size, corner radius 0.30 x
+/// size.  Assets, registry IDs, dark output, and the outer [size] geometry
+/// are unchanged.
 final class GoalIcon extends StatelessWidget {
   const GoalIcon({
     required this.iconId,
@@ -57,15 +59,16 @@ final class GoalIcon extends StatelessWidget {
       if (Theme.of(context).brightness == Brightness.dark) {
         child = svg;
       } else {
-        // Light-only dark artwork plate (10% inset, ~28% corner radius of
-        // size).  Keeps teal/gold artwork >= 3:1 against the app surface.
+        // Light-only dark artwork plate (B3.3 R2: 12% inset, 30% corner
+        // radius of size).  Keeps teal/gold artwork >= 3:1 against the app
+        // surface while reading intentional rather than oversized/heavy.
         child = DecoratedBox(
           decoration: BoxDecoration(
             color: AppTheme.surface,
-            borderRadius: BorderRadius.circular(size * 0.28),
+            borderRadius: BorderRadius.circular(size * 0.30),
           ),
           child: Padding(
-            padding: EdgeInsets.all(size * 0.10),
+            padding: EdgeInsets.all(size * 0.12),
             child: Center(child: svg),
           ),
         );

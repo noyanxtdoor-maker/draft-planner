@@ -1385,12 +1385,12 @@ void main() {
     });
   });
 
-  // ------------------------------------------------------------- B3.1
-  // Planner current-time color contract: in ALL FOUR Rose/Blue x Light/Dark
-  // combinations the badge fill is scheme.primary, the time text is
-  // scheme.onPrimary, and the dot/line are scheme.primary.  No geometry
-  // change.
-  group('B3.1 current-time color contract', () {
+  // ------------------------------------------------------------- CT-02
+  // Planner current-time label contract: in ALL FOUR Rose/Blue x Light/Dark
+  // combinations the time label has NO fill/background, the time text uses
+  // scheme.primary and is slightly larger (fontSize 13), and the anchor and
+  // line stay scheme.primary with their CT-01 geometry unchanged.
+  group('CT-02 current-time label contract', () {
     Future<void> pumpAndProbe(
       WidgetTester tester, {
       required ThemeData theme,
@@ -1417,58 +1417,48 @@ void main() {
       expect(dot, findsOneWidget);
       expect(line, findsOneWidget);
 
-      // Time text rides onPrimary.
+      // CT-02: the time text ITSELF is the highlighted element — semantic
+      // primary, slightly larger than before (fontSize 13).
       final labelText = tester.widget<Text>(label);
       expect(
         labelText.style!.color,
-        scheme.onPrimary,
-        reason: 'current-time label text must use scheme.onPrimary',
+        scheme.primary,
+        reason: 'current-time label text must use scheme.primary',
+      );
+      expect(
+        labelText.style!.fontSize,
+        13,
+        reason: 'current-time label text must be fontSize 13',
       );
 
-      // The capsule (nearest Container ancestor of the label) is primary
-      // and FULLY ROUNDED (corner radius tracks half the capsule height).
-      final capsule = tester.widget<Container>(
+      // CT-02: NO fill/background behind the label.  The nearest Container
+      // ancestor (the label-area box) must carry NO decoration.
+      final labelArea = tester.widget<Container>(
         find.ancestor(of: label, matching: find.byType(Container)).first,
       );
-      final capsuleDecoration = capsule.decoration! as BoxDecoration;
       expect(
-        capsuleDecoration.color,
-        scheme.primary,
-        reason: 'current-time capsule fill must use scheme.primary',
+        labelArea.decoration,
+        isNull,
+        reason: 'current-time label must have no fill/background',
       );
       final capsuleRect = tester.getRect(
         find.ancestor(of: label, matching: find.byType(Container)).first,
-      );
-      // The capsule is DESIGNED fully rounded: the static corner radius is
-      // half the design capsule height.  (In the test font the FittedBox may
-      // scale the whole capsule down, so the rendered height can be smaller;
-      // the radius constant and the bounded height prove the capsule shape.)
-      final capsuleRadius = capsuleDecoration.borderRadius as BorderRadius;
-      expect(
-        capsuleRadius.topLeft.x,
-        PlannerCurrentTimeHorizontalGeometry.capsuleRadius,
-        reason: 'capsule must be fully rounded (radius = half capsule height)',
-      );
-      expect(
-        capsuleRadius.topRight.x,
-        PlannerCurrentTimeHorizontalGeometry.capsuleRadius,
-        reason: 'capsule must be fully rounded on the right too',
       );
       expect(
         capsuleRect.height,
         lessThanOrEqualTo(
           PlannerCurrentTimeHorizontalGeometry.capsuleHeight + 0.5,
         ),
-        reason: 'capsule height must be bounded by the design height',
+        reason: 'label area height must be bounded by the design height',
       );
       expect(
         capsuleRect.height,
         greaterThan(7),
-        reason: 'capsule must remain a visible compact pill',
+        reason: 'label area must remain the compact time gutter height',
       );
 
-      // The circular anchor is primary and attached/tangent to the capsule;
-      // the thin line begins at the anchor right edge.
+      // The circular anchor is primary and attached/tangent to the label
+      // area; the thin line begins at the anchor right edge.
       final dotDecoration = tester.widget<DecoratedBox>(
         find.descendant(
           of: dot,
@@ -1484,7 +1474,7 @@ void main() {
       expect(
         dotRect.left - capsuleRect.right,
         closeTo(0, 0.5),
-        reason: 'the circular anchor must be attached/tangent to the capsule',
+        reason: 'the circular anchor must be attached/tangent to the label area',
       );
       final lineDecoration = tester.widget<DecoratedBox>(
         find.descendant(
@@ -1514,7 +1504,7 @@ void main() {
       );
     }
 
-    testWidgets('Rose Light: primary badge + onPrimary text + primary dot/line',
+    testWidgets('Rose Light: transparent label + primary text + primary dot/line',
         (tester) async {
       await pumpAndProbe(
         tester,
@@ -1524,7 +1514,7 @@ void main() {
       );
     });
 
-    testWidgets('Blue Light: primary badge + onPrimary text + primary dot/line',
+    testWidgets('Blue Light: transparent label + primary text + primary dot/line',
         (tester) async {
       await pumpAndProbe(
         tester,
@@ -1534,7 +1524,7 @@ void main() {
       );
     });
 
-    testWidgets('Rose Dark: primary badge + onPrimary text + primary dot/line',
+    testWidgets('Rose Dark: transparent label + primary text + primary dot/line',
         (tester) async {
       await pumpAndProbe(
         tester,
@@ -1544,7 +1534,7 @@ void main() {
       );
     });
 
-    testWidgets('Blue Dark: primary badge + onPrimary text + primary dot/line',
+    testWidgets('Blue Dark: transparent label + primary text + primary dot/line',
         (tester) async {
       await pumpAndProbe(
         tester,
@@ -1556,8 +1546,9 @@ void main() {
   });
 }
 
-/// The CT-01 capsule is the nearest [Container] ancestor of the current-time
-/// label (it carries the primary fill + full rounding).
+/// The CT-02 label area is the nearest [Container] ancestor of the
+/// current-time label (it bounds the label horizontally, tangent to the
+/// anchor; it carries NO fill/background since CT-02).
 Finder _currentTimeCapsule(Finder label) =>
     find.ancestor(of: label, matching: find.byType(Container)).first;
 

@@ -12,6 +12,7 @@ import 'package:rmplanner/app/theme/internal_screen.dart';
 import 'package:rmplanner/features/goals/presentation/goal_icon_picker_screen.dart';
 import 'package:rmplanner/features/goals/presentation/widgets/goal_icon.dart';
 import 'package:rmplanner/features/goals/presentation/widgets/goal_icon_choice_row.dart';
+import 'package:rmplanner/features/planner/presentation/widgets/planner_event_block_layout_policy.dart';
 
 void main() {
   testWidgets('GoalIcon renders registered assets and safe fallbacks', (
@@ -743,6 +744,166 @@ void main() {
     expect(find.byType(GoalIconPickerScreen), findsNothing);
     expect(find.text('home'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  // ------------------------------------------------------------- B3.3
+  // Goal Icon R2 refined Light plate contract (owner-locked parameters):
+  // Light mode renders a #181A1E / canonical AppTheme.surface plate behind
+  // the two-tone artwork with inset = 0.12 x size and corner radius =
+  // 0.30 x size; Dark mode renders the raw SVG with NO plate; the SVG
+  // stays un-tinted (colorFilter null); the outer icon/tile size stays
+  // exact (including the 48 dp picker contract); practical contrast
+  // against Light surfaces and artwork families stays >= 3:1.
+  group('B3.3 Goal Icon R2 Light plate contract', () {
+    Future<void> pumpIcon(
+      WidgetTester tester, {
+      required String iconId,
+      required double size,
+      required Brightness brightness,
+    }) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: brightness == Brightness.dark
+              ? AppTheme.dark()
+              : AppTheme.light(),
+          home: Scaffold(body: GoalIcon(iconId: iconId, size: size)),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets(
+      'Light: plate exists with #181A1E surface, 0.12 inset, 0.30 radius, '
+      'exact outer size, un-tinted SVG',
+      (tester) async {
+        const size = 40.0;
+        await pumpIcon(
+          tester,
+          iconId: 'work_briefcase',
+          size: size,
+          brightness: Brightness.light,
+        );
+        final icon = find.byType(GoalIcon);
+        expect(icon, findsOneWidget);
+
+        final plate = tester.widget<DecoratedBox>(
+          find
+              .descendant(of: icon, matching: find.byType(DecoratedBox))
+              .first,
+        );
+        final plateDecoration = plate.decoration as BoxDecoration;
+        expect(
+          plateDecoration.color,
+          AppTheme.surface,
+          reason: 'Light plate color must be the canonical #181A1E surface',
+        );
+        final radius = plateDecoration.borderRadius! as BorderRadius;
+        expect(
+          radius.topLeft.x,
+          closeTo(size * 0.30, 0.01),
+          reason: 'plate corner radius must be 0.30 x icon size',
+        );
+        expect(
+          radius.topRight.x,
+          closeTo(size * 0.30, 0.01),
+          reason: 'plate corner radius must be 0.30 on the right too',
+        );
+
+        final inset = tester.widget<Padding>(
+          find.descendant(of: icon, matching: find.byType(Padding)).first,
+        );
+        final padding = inset.padding as EdgeInsets;
+        expect(
+          padding.left,
+          closeTo(size * 0.12, 0.01),
+          reason: 'artwork inset must be 0.12 x icon size',
+        );
+        expect(
+          padding.top,
+          closeTo(size * 0.12, 0.01),
+          reason: 'artwork inset must be uniform (0.12 x icon size)',
+        );
+
+        // Outer tile stays exactly `size`.
+        expect(
+          tester.getSize(icon),
+          const Size(size, size),
+          reason: 'outer icon/tile size must stay exactly the requested size',
+        );
+
+        // The SVG stays two-tone: no colorFilter tint.
+        final svg = tester.widget<SvgPicture>(find.byType(SvgPicture));
+        expect(
+          svg.colorFilter,
+          isNull,
+          reason: 'artwork must stay two-tone (colorFilter null)',
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets('Dark: raw SVG with NO plate and exact outer size', (
+      tester,
+    ) async {
+      const size = 32.0;
+      await pumpIcon(
+        tester,
+        iconId: 'work_briefcase',
+        size: size,
+        brightness: Brightness.dark,
+      );
+      final icon = find.byType(GoalIcon);
+      expect(
+        find.descendant(of: icon, matching: find.byType(DecoratedBox)),
+        findsNothing,
+        reason: 'Dark mode must render the raw SVG with no plate',
+      );
+      expect(find.byType(SvgPicture), findsOneWidget);
+      expect(
+        tester.getSize(icon),
+        const Size(size, size),
+        reason: 'outer icon/tile size must stay exactly the requested size',
+      );
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('48 dp picker contract: outer size stays exactly 48', (
+      tester,
+    ) async {
+      await pumpIcon(
+        tester,
+        iconId: 'career_growth',
+        size: 48,
+        brightness: Brightness.light,
+      );
+      expect(
+        tester.getSize(find.byType(GoalIcon)),
+        const Size(48, 48),
+        reason: 'the 48 dp picker tile contract must be unchanged',
+      );
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+      'practical contrast >= 3:1 for the plate vs Light surfaces and '
+      'representative artwork families',
+      (tester) async {
+        // Plate (#181A1E) vs the Light golden surface and the two-tone art
+        // palette (teal / gold) sampled from the registered SVGs.
+        const plate = AppTheme.surface;
+        const lightSurface = Color(0xFFF4F4F4);
+        const artTeal = Color(0xFF5BB2D6);
+        const artGold = Color(0xFFE4A14C);
+        for (final other in <Color>[lightSurface, artTeal, artGold]) {
+          expect(
+            PlannerEventBlockColorPolicy.contrastRatio(plate, other),
+            greaterThanOrEqualTo(3.0),
+            reason: 'plate vs $other must stay >= 3:1',
+          );
+        }
+        expect(tester.takeException(), isNull);
+      },
+    );
   });
 }
 

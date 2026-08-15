@@ -10,8 +10,9 @@ void main() {
   const selected = PlannerDate(year: 2026, month: 7, day: 27);
 
   testWidgets(
-    'B3.2 Task form: Life Goal section (unlinked default, picker, link, '
-    'unlink), Event Type metadata without Goal helper, single + People',
+    'B3.2/TF-01 Task form: Event Type absent from Task UX, order '
+    'Title/Description -> Set Due Date -> People -> Life Goal, single + '
+    'People, Life Goal picker/link/unlink',
     (tester) async {
       tester.view.physicalSize = const Size(393, 844);
       tester.view.devicePixelRatio = 1;
@@ -47,18 +48,39 @@ void main() {
       await tester.tap(find.byKey(const Key('create-task-action')));
       await tester.pumpAndSettle();
 
-      // Life Goal section present and unlinked by default.
-      expect(find.byKey(const Key('task-life-goal-section')), findsOneWidget);
-      expect(find.text('Choose a Life Goal (optional)'), findsOneWidget);
       // The old Event-Type Goal-inference helper is gone.
       expect(
         find.textContaining('add progress to the Goal assigned to'),
         findsNothing,
       );
 
-      // Event Type remains as independent classification metadata only.
-      expect(find.byKey(const Key('task-event-type-field')), findsOneWidget);
+      // TF-01: EVENT TYPE — OPTIONAL is completely absent from Task UX.
+      expect(find.byKey(const Key('task-event-type-field')), findsNothing);
+      expect(find.textContaining('EVENT TYPE'), findsNothing);
       expect(find.byKey(const Key('task-goal-event-type-field')), findsNothing);
+      expect(find.byKey(const Key('task-clear-event-type')), findsNothing);
+
+      // TF-01: structural order in the Task form list is
+      //   Title / Description / Set Due Date / People / Life Goal.
+      // Life Goal is the section header Column (task-life-goal-section);
+      // People is identified by its + People action
+      // (task-add-people-button); Set Due Date is the switch
+      // (task-set-due-date-switch).
+      final dueDateIndex = _firstChildIndexWithKey(
+        tester,
+        'task-set-due-date-switch',
+      );
+      final peopleIndex = _firstChildIndexWithKey(
+        tester,
+        'task-add-people-button',
+      );
+      final lifeGoalIndex = _firstChildIndexWithKey(
+        tester,
+        'task-life-goal-section',
+      );
+      expect(dueDateIndex, greaterThan(0));
+      expect(peopleIndex, greaterThan(dueDateIndex));
+      expect(lifeGoalIndex, greaterThan(peopleIndex));
 
       // Exactly ONE + People affordance; legacy free-text dialog gone.
       await tester.scrollUntilVisible(
@@ -71,13 +93,18 @@ void main() {
       expect(find.byKey(const Key('task-add-contacts-button')), findsNothing);
       expect(find.byKey(const Key('task-person-name-field')), findsNothing);
 
-      // Link to a Life Goal through the approved picker.
+      // Life Goal sits BELOW People (it is the last section): scrolling
+      // down past the People action must reveal it, unlinked by default.
       await tester.scrollUntilVisible(
         find.byKey(const Key('task-life-goal-field')),
-        -300,
+        300,
         scrollable: find.byType(Scrollable).last,
       );
       await tester.pumpAndSettle();
+      expect(find.byKey(const Key('task-life-goal-section')), findsOneWidget);
+      expect(find.text('Choose a Life Goal (optional)'), findsOneWidget);
+
+      // Link to a Life Goal through the approved picker.
       await tester.tap(find.byKey(const Key('task-life-goal-field')));
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('task-life-goal-picker')), findsOneWidget);
@@ -98,7 +125,7 @@ void main() {
 
       await tester.scrollUntilVisible(
         find.byKey(const Key('task-life-goal-unlink')),
-        -300,
+        300,
         scrollable: find.byType(Scrollable).last,
       );
       await tester.pumpAndSettle();
@@ -107,4 +134,37 @@ void main() {
       expect(find.text('Choose a Life Goal (optional)'), findsOneWidget);
     },
   );
+}
+
+/// First index in the Task form ListView's configured children whose subtree
+/// contains the given `ValueKey<String>`.  The Task form builds a static
+/// `children:` list (not a builder), so this proves the STRUCTURAL order of
+/// the sections without depending on lazy-build visibility or pixel math.
+int _firstChildIndexWithKey(WidgetTester tester, String key) {
+  final listView = tester.widget<ListView>(
+    find.byKey(const Key('task-form-scroll')),
+  );
+  final delegate = listView.childrenDelegate;
+  final children = (delegate as SliverChildListDelegate).children;
+  for (var i = 0; i < children.length; i++) {
+    if (_subtreeHasKey(children[i], key)) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+bool _subtreeHasKey(Widget widget, String key) {
+  if (widget.key is ValueKey<String> &&
+      (widget.key as ValueKey<String>).value == key) {
+    return true;
+  }
+  if (widget is MultiChildRenderObjectWidget) {
+    return widget.children.any((child) => _subtreeHasKey(child, key));
+  }
+  if (widget is SingleChildRenderObjectWidget) {
+    final child = widget.child;
+    return child != null && _subtreeHasKey(child, key);
+  }
+  return false;
 }
