@@ -3128,8 +3128,12 @@ enum _TimelineResizeEdge { top, bottom }
 /// partial-circle edge cap that visually belongs to the Event edge — a
 /// half-disc whose flat side lies on the Event's top edge (START, upper
 /// right) or bottom edge (END, bottom left), colored with the Event accent.
-/// The DRAFT keeps its accepted full-circle visual untouched (R2 owner
-/// override: do not redesign draft handles).
+///
+/// MP-06 (owner lock): the PROVISIONAL DRAFT now uses the SAME integrated
+/// corner treatment instead of the former full-circle floating dot — two
+/// compact corner caps at upper-right START and bottom-left END, colored
+/// with the draft's Event Type accent.  The 44 dp invisible hit targets and
+/// the straddling draft geometry are unchanged.
 final class _DirectEndpointHandle extends StatelessWidget {
   const _DirectEndpointHandle({
     required this.hitTargetKey,
@@ -3158,10 +3162,18 @@ final class _DirectEndpointHandle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // The draft retains its approved endpoint-centered circle. Saved grips
-    // sit wholly inside their corner and their 44 dp targets expand inward.
-    final capOffset = (44 - visibleCapSize) / 2; // 15
-    final straddle = visibleCapSize / 2; // 7
+    // Draft targets straddle the endpoint by half their 44 dp height, so the
+    // block edge crosses the target at y = 22.  The integrated corner cap
+    // therefore sits flush against the block corner INSIDE the target:
+    //   - START (upper-right): the cap's top-right corner at the target's
+    //     bottom-right (top: 22, right: 0) = the block's upper-right corner;
+    //   - END (bottom-left): the cap's bottom-left corner at the target's
+    //     top-left (top: 22 - 14, left: 0) = the block's bottom-left corner.
+    // Saved targets are already flush with the block, so their caps sit at
+    // the target's own corner (top: 0 / bottom: 0).
+    const double draftStraddle = 44 / 2; // 22
+    final isStart = edge == _TimelineResizeEdge.top;
+    final isEnd = edge == _TimelineResizeEdge.bottom;
     return SizedBox(
       key: hitTargetKey,
       width: 44,
@@ -3184,54 +3196,26 @@ final class _DirectEndpointHandle extends StatelessWidget {
             ),
           ),
           Positioned(
-            top: provisional
-                ? capOffset
-                : edge == _TimelineResizeEdge.top
-                ? 0
+            top: isStart
+                ? (provisional ? draftStraddle : 0)
+                : provisional
+                ? draftStraddle - visibleCapSize
                 : null,
-            bottom: !provisional && edge == _TimelineResizeEdge.bottom
-                ? 0
-                : null,
-            left: provisional
-                ? edge == _TimelineResizeEdge.bottom
-                      ? -straddle
-                      : null
-                : edge == _TimelineResizeEdge.bottom
-                ? 0
-                : null,
-            right: provisional
-                ? edge == _TimelineResizeEdge.top
-                      ? -straddle
-                      : null
-                : edge == _TimelineResizeEdge.top
-                ? 0
-                : null,
+            bottom: isEnd && !provisional ? 0 : null,
+            left: isEnd ? 0 : null,
+            right: isStart ? 0 : null,
             child: IgnorePointer(
-              child: provisional
-                  // Draft handles are owner-accepted AS-IS (R2-02 override):
-                  // the full dark circle with the rose border stays.
-                  ? Container(
-                      key: dotKey,
-                      width: visibleCapSize,
-                      height: visibleCapSize,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF3A0610),
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: Theme.of(context).colorScheme.primary,
-                          width: 2,
-                        ),
-                      ),
-                    )
-                  // Saved Events: the approved integrated Corner Tab Grip.
-                  : CustomPaint(
-                      key: dotKey,
-                      size: const Size.square(visibleCapSize),
-                      painter: _SavedEndpointCornerTabPainter(
-                        topRight: edge == _TimelineResizeEdge.top,
-                        color: accentColor,
-                      ),
-                    ),
+              // MP-06: the draft uses the approved integrated Corner Tab
+              // Grip (compact 14 dp, accent-colored) exactly like saved
+              // Events - no more floating circle.
+              child: CustomPaint(
+                key: dotKey,
+                size: const Size.square(visibleCapSize),
+                painter: _SavedEndpointCornerTabPainter(
+                  topRight: isStart,
+                  color: accentColor,
+                ),
+              ),
             ),
           ),
         ],

@@ -311,10 +311,15 @@ void main() {
       const Key('planner-provisional-start-handle-dot'),
     );
     final endDot = find.byKey(const Key('planner-provisional-end-handle-dot'));
-    expect(tester.getRect(startDot).center.dx, closeTo(visibleRect.right, .01));
-    expect(tester.getRect(startDot).center.dy, closeTo(visibleRect.top, .01));
-    expect(tester.getRect(endDot).center.dx, closeTo(visibleRect.left, .01));
-    expect(tester.getRect(endDot).center.dy, closeTo(visibleRect.bottom, .01));
+    // MP-06: the integrated corner grip is a 14 dp cap whose OUTER corner
+    // hugs the block corner (upper-right START, bottom-left END) instead of
+    // the former floating circle centered on it.
+    final startRect = tester.getRect(startDot);
+    final endRect = tester.getRect(endDot);
+    expect(startRect.right, closeTo(visibleRect.right, .01));
+    expect(startRect.top, closeTo(visibleRect.top, .01));
+    expect(endRect.left, closeTo(visibleRect.left, .01));
+    expect(endRect.bottom, closeTo(visibleRect.bottom, .01));
     final timeText = tester.widget<Text>(
       find
           .descendant(of: visibleBlock, matching: find.textContaining('4:00'))
