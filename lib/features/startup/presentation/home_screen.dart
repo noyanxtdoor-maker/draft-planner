@@ -84,7 +84,10 @@ final class _HomeScreenState extends ConsumerState<HomeScreen> {
     final optimisticDailyTarget = planValue?.daily == null
         ? null
         : _optimisticDailyTargets[planValue!.daily!.goal.id];
-    final nextTempleVisit = ref.watch(nextTempleVisitProvider).asData?.value;
+    // MP-18: tri-state (loading / confirmed date / confirmed true-null) so
+    // the Temple card never renders "Set Schedule" while the schedule is
+    // merely unresolved or refreshing.
+    final nextTempleVisit = ref.watch(nextTempleVisitControllerProvider);
     return Scaffold(
       appBar: AppBar(
         key: const Key('home-app-bar'),
@@ -125,8 +128,11 @@ final class _HomeScreenState extends ConsumerState<HomeScreen> {
               if (start != null) {
                 ref.invalidate(goalPlanningProvider(start));
               }
-              ref.invalidate(nextTempleVisitProvider);
-              await ref.read(nextTempleVisitProvider.future);
+              // MP-18: the controller retains the last confirmed value while
+              // the refreshed read is in flight (no Set Schedule flash).
+              await ref.read(
+                nextTempleVisitControllerProvider.notifier,
+              ).refresh();
             },
             child: ListView(
               key: const Key('home-indicator-list'),
@@ -467,7 +473,7 @@ final class _CanonicalHomePlan extends StatelessWidget {
   /// never flashes Start Planning for an already-established period).
   final bool? established;
   final String monthGoalLabel;
-  final PlannerDate? nextTempleVisit;
+  final NextTempleVisitState nextTempleVisit;
   final int? optimisticDailyTarget;
   final VoidCallback onOpenWeeklyPlanning;
   final ValueChanged<GoalProgress> onOpenGoal;
@@ -760,7 +766,7 @@ final class _CanonicalIndicatorGrid extends StatelessWidget {
 
   final GoalPlanningSnapshot plan;
   final String monthGoalLabel;
-  final PlannerDate? nextTempleVisit;
+  final NextTempleVisitState nextTempleVisit;
   final int? optimisticDailyTarget;
   final ValueChanged<GoalProgress> onOpenGoal;
   final VoidCallback onOpenTempleSchedule;
@@ -843,15 +849,17 @@ final class _CanonicalIndicatorGrid extends StatelessWidget {
               iconSize: 64,
               secondaryLabel:
                   monthly.goal.indicatorKey == 'temple_visit'
-                  ? nextTempleVisit == null
-                        ? 'Set Schedule'
-                        : 'Next Visit: ${_formatNextVisit(context, nextTempleVisit!)}'
+                  ? _templeSecondaryLabel(context, nextTempleVisit)
                   : null,
               onSecondaryTap:
                   monthly.goal.indicatorKey == 'temple_visit' &&
-                      nextTempleVisit == null
+                      nextTempleVisit.isResolvedNull
                   ? onOpenTempleSchedule
                   : null,
+              hideSecondaryLine:
+                  monthly.goal.indicatorKey == 'temple_visit' &&
+                      !nextTempleVisit.hasConfirmedValue &&
+                      !nextTempleVisit.isResolvedNull,
               trailing: _AugustGoalInset(
                 label: monthGoalLabel,
                 value: _ratio(
@@ -872,6 +880,7 @@ final class _CanonicalIndicatorGrid extends StatelessWidget {
     double iconSize = 36,
     String? secondaryLabel,
     VoidCallback? onSecondaryTap,
+    bool hideSecondaryLine = false,
     Widget? trailing,
   }) {
     return _IndicatorCard(
@@ -880,9 +889,27 @@ final class _CanonicalIndicatorGrid extends StatelessWidget {
       iconSize: iconSize,
       secondaryLabel: secondaryLabel,
       onSecondaryTap: onSecondaryTap,
+      hideSecondaryLine: hideSecondaryLine,
       trailing: trailing,
       onTap: () => onOpenGoal(progress),
     );
+  }
+
+  /// MP-18 tri-state label for the Temple card secondary line:
+  /// confirmed date -> Next Visit; confirmed true-null -> Set Schedule;
+  /// unresolved/first-load -> null (neutral empty line, never Set Schedule).
+  String? _templeSecondaryLabel(
+    BuildContext context,
+    NextTempleVisitState state,
+  ) {
+    final value = state.value;
+    if (value != null) {
+      return 'Next Visit: ${_formatNextVisit(context, value)}';
+    }
+    if (state.isResolvedNull) {
+      return 'Set Schedule';
+    }
+    return null;
   }
 
   /// HR-02: the Today's Goal inset — one OPAQUE neutral-gray rounded surface
@@ -962,6 +989,7 @@ final class _IndicatorCard extends StatelessWidget {
     required this.onTap,
     this.secondaryLabel,
     this.onSecondaryTap,
+    this.hideSecondaryLine = false,
     this.trailing,
   });
 
@@ -971,6 +999,11 @@ final class _IndicatorCard extends StatelessWidget {
   final VoidCallback onTap;
   final String? secondaryLabel;
   final VoidCallback? onSecondaryTap;
+
+  /// MP-18: when true the card renders NO secondary line (used for the Temple
+  /// card's unresolved/first-load state so it never flashes "Set Schedule"
+  /// or the monthly ratio while the schedule is merely pending).
+  final bool hideSecondaryLine;
 
   /// HR-01: optional right-side content rendered after the title/ratio column
   /// (the daily Goal card's compact Today's Goal block + quick controls).
@@ -1068,6 +1101,8 @@ final class _IndicatorCard extends StatelessWidget {
                     ),
                   ),
                 )
+              else if (hideSecondaryLine)
+                const SizedBox.shrink()
               else
                 Text(
                   secondaryLabel ??

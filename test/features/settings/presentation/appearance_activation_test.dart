@@ -219,7 +219,7 @@ void main() {
       final weeklyBefore = container.read(
         weeklyPlanEstablishedProvider(periodStart),
       );
-      final templeBefore = container.read(nextTempleVisitProvider);
+      final templeBefore = container.read(nextTempleVisitControllerProvider);
 
       await container
           .read(appearanceProvider.notifier)
@@ -230,7 +230,7 @@ void main() {
       final weeklyAfter = container.read(
         weeklyPlanEstablishedProvider(periodStart),
       );
-      final templeAfter = container.read(nextTempleVisitProvider);
+      final templeAfter = container.read(nextTempleVisitControllerProvider);
 
       expect(identical(planBefore, planAfter), isTrue,
           reason: 'Goal planning reran on a theme change');
@@ -387,7 +387,7 @@ void main() {
       final weeklyBefore = container.read(
         weeklyPlanEstablishedProvider(periodStart),
       );
-      final templeBefore = container.read(nextTempleVisitProvider);
+      final templeBefore = container.read(nextTempleVisitControllerProvider);
 
       await container
           .read(themeColorProvider.notifier)
@@ -398,7 +398,7 @@ void main() {
       final weeklyAfter = container.read(
         weeklyPlanEstablishedProvider(periodStart),
       );
-      final templeAfter = container.read(nextTempleVisitProvider);
+      final templeAfter = container.read(nextTempleVisitControllerProvider);
 
       expect(identical(planBefore, planAfter), isTrue,
           reason: 'Goal planning reran on a theme-color change');

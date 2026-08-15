@@ -16,6 +16,7 @@ import 'package:rmplanner/features/contacts/data/drift_contact_repository.dart';
 import 'package:rmplanner/features/goals/application/goal_providers.dart';
 import 'package:rmplanner/features/goals/data/drift_goal_repository.dart';
 import 'package:rmplanner/features/indicators/application/indicator_providers.dart';
+import 'package:rmplanner/features/indicators/application/indicator_repository.dart';
 import 'package:rmplanner/features/indicators/data/drift_indicator_repository.dart';
 import 'package:rmplanner/features/planner/application/calendar_event_providers.dart';
 import 'package:rmplanner/features/planner/application/calendar_event_repository.dart';
@@ -263,6 +264,10 @@ final class TestPrivacyDependencies {
     StartOfWeekRepository? startOfWeekRepository,
     EventTypeRepository? eventTypeRepository,
     ContactRepository? contactRepository,
+    /// MP-18: optional IndicatorRepository override for deterministic
+    /// Temple Visit schedule tests (staged/pending reads).  Defaults to the
+    /// real Drift repository exactly as before.
+    IndicatorRepository? indicatorRepository,
     /// Pack B2: the appearance mode this app build starts in.  Defaults to
     /// DARK so every existing dark-golden/widget test keeps rendering the
     /// exact pre-B2 dark appearance; light tests pass Light explicitly.
@@ -318,11 +323,13 @@ final class TestPrivacyDependencies {
       calendarEvents: resolvedCalendarEventRepository,
       links: linkRepository,
     );
-    final indicatorRepository = DriftIndicatorRepository(
-      database: repository.database,
-      clock: FixedClock(DateTime.utc(2026, 7, 27, 12)),
-      calendarEvents: resolvedCalendarEventRepository,
-    );
+    final resolvedIndicatorRepository =
+        indicatorRepository ??
+        DriftIndicatorRepository(
+          database: repository.database,
+          clock: FixedClock(DateTime.utc(2026, 7, 27, 12)),
+          calendarEvents: resolvedCalendarEventRepository,
+        );
     final goalRepository = DriftGoalRepository(
       database: repository.database,
       clock: FixedClock(DateTime.utc(2026, 7, 27, 12)),
@@ -343,7 +350,7 @@ final class TestPrivacyDependencies {
           timeZones: IanaCalendarEventTimeZones(
             displayTimeZoneId: 'Asia/Manila',
           ),
-          indicators: indicatorRepository,
+          indicators: resolvedIndicatorRepository,
         );
     return ProviderScope(
       overrides: [
@@ -367,7 +374,9 @@ final class TestPrivacyDependencies {
           outcomeReportingRepository,
         ),
         plannerRepositoryProvider.overrideWithValue(resolvedPlannerRepository),
-        indicatorRepositoryProvider.overrideWithValue(indicatorRepository),
+        indicatorRepositoryProvider.overrideWithValue(
+          resolvedIndicatorRepository,
+        ),
         goalRepositoryProvider.overrideWithValue(goalRepository),
         weeklyPlanningRepositoryProvider.overrideWithValue(
           resolvedWeeklyPlanningRepository,
