@@ -570,6 +570,117 @@ void main() {
   });
 
   testWidgets(
+    'GP-01: Choose Icon Light tiles use the near-white semantic surface (no '
+    'gray slab); Dark stays transparent; 96dp + 3 columns unchanged',
+    (tester) async {
+      tester.view.physicalSize = const Size(393, 874);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      // Scope tiles to the "All Icons" grid so suggestions duplicates do
+      // not break single-element finders. The tile key sits on the Card
+      // itself, so the finder IS the Card.
+      Finder allTile(String id) => find.descendant(
+        of: find.byKey(const Key('goal-icon-all')),
+        matching: find.byKey(Key('goal-icon-tile-$id')),
+      );
+      Card tileCard(Finder tile) => tester.widget<Card>(tile);
+
+      // --- Light (Rose) ---
+      final router = _router();
+      addTearDown(router.dispose);
+      await tester.pumpWidget(
+        MaterialApp.router(theme: AppTheme.light(), routerConfig: router),
+      );
+      await tester.pumpAndSettle();
+      unawaited(
+        router.push<void>(
+          '/picker',
+          // No-suggestion title keeps the "All Icons" grid near the top of
+          // the lazy ListView so its tiles are mounted.
+          extra: const GoalIconPickerArgs(
+            goalTitle: 'Unrelated goal',
+            currentIconId: null,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final tile = allTile('work_briefcase');
+      final tileContext = tester.element(tile);
+      // Unselected Light tile: near-white semantic surface, NOT transparent
+      // and NOT the gray slab tone.
+      expect(
+        tileCard(tile).color,
+        Theme.of(tileContext).colorScheme.surface,
+        reason: 'GP-01: unselected Light tile must use the near-white surface',
+      );
+      expect(tileCard(tile).color, isNot(Colors.transparent));
+      expect(
+        tileCard(tile).color,
+        isNot(
+          Theme.of(tileContext).colorScheme.surfaceContainerHighest,
+        ),
+        reason: 'GP-01: unselected Light tile must not be a gray slab',
+      );
+      // 96dp art unchanged.
+      final icon = tester.widget<GoalIcon>(
+        find.descendant(of: tile, matching: find.byType(GoalIcon)),
+      );
+      expect(icon.size, 96);
+      // 3 columns unchanged.
+      final grid = tester.widget<GridView>(find.byType(GridView).first);
+      final delegate =
+          grid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount;
+      expect(delegate.crossAxisCount, 3);
+
+      // Selected tile: same near-white base + 2px primary border.
+      await tester.tap(tile);
+      await tester.pumpAndSettle();
+      final selTile = allTile('work_briefcase');
+      final selShape = tileCard(selTile).shape! as RoundedRectangleBorder;
+      expect(
+        selShape.side.color,
+        Theme.of(tester.element(selTile)).colorScheme.primary,
+        reason: 'GP-01: selected tile keeps the semantic primary border',
+      );
+      expect(selShape.side.width, 2);
+      expect(
+        tileCard(selTile).color,
+        Theme.of(tester.element(selTile)).colorScheme.surface,
+      );
+
+      // --- Dark: tile stays transparent (GI-01 no-plate contract) ---
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(milliseconds: 1));
+      final darkRouter = _router();
+      addTearDown(darkRouter.dispose);
+      await tester.pumpWidget(
+        MaterialApp.router(theme: AppTheme.dark(), routerConfig: darkRouter),
+      );
+      await tester.pumpAndSettle();
+      unawaited(
+        darkRouter.push<void>(
+          '/picker',
+          extra: const GoalIconPickerArgs(
+            goalTitle: 'Unrelated goal',
+            currentIconId: null,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final darkTile = allTile('work_briefcase');
+      expect(
+        tileCard(darkTile).color,
+        Colors.transparent,
+        reason: 'GP-01: Dark picker tiles must stay transparent (raw art)',
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
     'A8: Choose Icon pins app-bar surface through scroll without changing '
     'the InternalAppBar default',
     (tester) async {

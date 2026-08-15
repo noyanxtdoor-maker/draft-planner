@@ -273,41 +273,40 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('B5: HR-02 Home icon sizes (top/Temple 48 / compact 44) — '
-      'visibly larger than HR-01, no GI-02 2x sizes on Home', (tester) async {
+  testWidgets('B5: HI-02 Home icon sizes (top/Temple 64 / compact 60) — '
+      'audited largest pair at 76dp, no GI-02 2x sizes on Home', (tester) async {
     await pumpHome(tester);
     final icons = find.descendant(of: dailyCard(), matching: find.byType(GoalIcon));
     expect(icons, findsOneWidget);
     expect(
       tester.widget<GoalIcon>(icons).size,
-      48,
-      reason: 'HR-02: top wide Goal icon is 48 dp (was 40)',
+      64,
+      reason: 'HI-02: top wide Goal icon is 64 dp (painted-art audit; was 54)',
     );
-    // Compact weekly cards use 44 dp; no GI-02 72/80 sizes anywhere on Home.
+    // Compact weekly cards use 60 dp; no GI-02 72/80 sizes anywhere on Home.
     final allSizes = find
         .byType(GoalIcon)
         .evaluate()
         .map((e) => (e.widget as GoalIcon).size)
         .toList();
     expect(
-      allSizes.contains(44),
+      allSizes.contains(60),
       isTrue,
-      reason: 'compact Home icons are 44 dp (was 36)',
+      reason: 'compact Home icons are 60 dp (painted-art audit; was 50)',
     );
-    // HR-02 icon visibility: every Home icon must be larger than HR-01's
-    // 40 (wide) / 36 (compact) baseline.
+    // HI-02 icon visibility: every Home icon must be the audited pair.
     for (final size in allSizes) {
       expect(
-        size > 40 || size == 44 || size == 48,
+        size == 60 || size == 64,
         isTrue,
-        reason: 'HR-02: Home icons must be the pinned 44/48 values, found '
+        reason: 'HI-02: Home icons must be the pinned 60/64 values, found '
             '$size',
       );
     }
     expect(
       allSizes.any((size) => size == 72 || size == 80),
       isFalse,
-      reason: 'HR-02: Home uses compact 44/48 icons, not the GI-02 2x sizes',
+      reason: 'HI-02: Home uses compact 60/64 icons, not the GI-02 2x sizes',
     );
     expect(tester.takeException(), isNull);
   });
@@ -365,7 +364,7 @@ void main() {
       AppTheme.blockOf(tester.element(monthInset)),
       reason: 'HR-02: the August Goal inset must use the neutral-gray surface',
     );
-    // The Temple icon is the HR-02 48 dp size.
+    // The Temple icon is the HI-02 64 dp size.
     final templeIcon = find.descendant(
       of: temple,
       matching: find.byType(GoalIcon),
@@ -373,8 +372,8 @@ void main() {
     expect(templeIcon, findsOneWidget);
     expect(
       tester.widget<GoalIcon>(templeIcon).size,
-      48,
-      reason: 'HR-02: Temple icon must be 48 dp',
+      64,
+      reason: 'HI-02: Temple icon must be 64 dp (painted-art audit; was 54)',
     );
     expect(tester.takeException(), isNull);
   });

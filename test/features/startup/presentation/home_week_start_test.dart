@@ -261,17 +261,17 @@ void main() {
     });
     expect(goalCards, findsWidgets);
 
-    // HR-02: Home Life Goal card art uses the approved larger proportions
-    // (44 dp compact / 48 dp top+Temple) — the GI-02 2x Home sizes were
+    // HI-02: Home Life Goal card art uses the audited largest pair at 76dp
+    // (60 dp compact / 64 dp top+Temple) — the GI-02 2x Home sizes were
     // superseded by the owner-approved compact restore + icon visibility pass.
     final homeIcons = find.byType(GoalIcon);
     expect(homeIcons, findsWidgets);
     for (final element in homeIcons.evaluate()) {
       final size = (element.widget as GoalIcon).size;
       expect(
-        size == 44 || size == 48,
+        size == 60 || size == 64,
         isTrue,
-        reason: 'HR-02 Home card art must be 44dp (compact) or 48dp '
+        reason: 'HI-02 Home card art must be 60dp (compact) or 64dp '
             '(top/Temple); found $size',
       );
     }

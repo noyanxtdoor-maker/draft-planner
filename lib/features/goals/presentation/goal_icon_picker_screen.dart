@@ -295,7 +295,14 @@ final class _IconTile extends StatelessWidget {
       child: Card(
         key: Key('goal-icon-tile-${definition.id}'),
         margin: EdgeInsets.zero,
-        color: Colors.transparent,
+        // GP-01: in Light the tile sits on the near-white semantic surface
+        // (the same card surface as Home Goal cards) so the grid reads as
+        // clean white tiles with a subtle outline boundary instead of a gray
+        // slab over the canvas; Dark keeps the transparent tile (GI-01 raw
+        // art, no plate). 96dp art and the 3-column grid are unchanged.
+        color: Theme.of(context).brightness == Brightness.dark
+            ? Colors.transparent
+            : AppTheme.cardOf(context),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(10),
           side: BorderSide(color: border, width: selected ? 2 : 1),

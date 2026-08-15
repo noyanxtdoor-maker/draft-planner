@@ -788,9 +788,11 @@ final class _CanonicalIndicatorGrid extends StatelessWidget {
             child: _goalCard(
               context,
               daily,
-              // HR-02: Home Life Goal icons are visibly larger (top/Temple 48,
-              // middle 44) — the approved mockup target, not HR-01's 40/36.
-              iconSize: 48,
+              // HI-02 (painted-bounds audit): Home Life Goal icons are the
+              // largest pair that preserves the 76dp card height (top/Temple
+              // 64, middle 60) — the painted-art matrix proved a 20% visible
+              // gain over HI-01 (see the HI-02+GP-01 forensic audit).
+              iconSize: 64,
               // HR-02 (approved mockup): the daily Goal card is ONE full-width
               // white card — [icon] [title + ratio] [OPAQUE GRAY Today's Goal
               // inset] on a single horizontal row.  The inset holds the
@@ -810,7 +812,7 @@ final class _CanonicalIndicatorGrid extends StatelessWidget {
               children: <Widget>[
                 Expanded(
                   child:
-                      _goalCard(context, plan.weekly[row], iconSize: 44),
+                      _goalCard(context, plan.weekly[row], iconSize: 60),
                 ),
                 if (row + 1 < plan.weekly.length) ...<Widget>[
                   const SizedBox(width: _rowGap),
@@ -818,7 +820,7 @@ final class _CanonicalIndicatorGrid extends StatelessWidget {
                     child: _goalCard(
                       context,
                       plan.weekly[row + 1],
-                      iconSize: 44,
+                      iconSize: 60,
                     ),
                   ),
                 ],
@@ -838,7 +840,7 @@ final class _CanonicalIndicatorGrid extends StatelessWidget {
             child: _goalCard(
               context,
               monthly,
-              iconSize: 48,
+              iconSize: 64,
               secondaryLabel:
                   monthly.goal.indicatorKey == 'temple_visit'
                   ? nextTempleVisit == null
