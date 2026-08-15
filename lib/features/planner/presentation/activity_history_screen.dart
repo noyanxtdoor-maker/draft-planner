@@ -226,8 +226,9 @@ final class _ReportHistoryCard extends StatelessWidget {
       // Planner Polish Delta 2 final matrix: the success outcome reads
       // 'Completed' for BOTH Contact and generic Events.
       OutcomeKind.completedHappened => 'Completed',
-      OutcomeKind.partiallyCompleted =>
-        isContactEvent ? 'Missed — Attempted' : 'Missed',
+      // NX-03: the user-facing partial outcome is 'Missed' for Contact and
+      // generic Events alike; the stored MISSED_ATTEMPTED value is internal.
+      OutcomeKind.partiallyCompleted => 'Missed',
       OutcomeKind.didNotHappen => 'Did Not Attempt',
       null => 'Draft',
     };

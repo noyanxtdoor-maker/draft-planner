@@ -12,7 +12,6 @@ import 'package:rmplanner/core/diagnostics/sanitized_diagnostics.dart';
 import 'package:rmplanner/core/platform/app_environment.dart';
 import 'package:rmplanner/features/planner/presentation/activity_history_screen.dart';
 import 'package:rmplanner/features/planner/presentation/planner_screen.dart';
-import 'package:rmplanner/features/settings/presentation/more_screen.dart';
 import 'package:rmplanner/features/settings/presentation/settings_screen.dart';
 import 'package:rmplanner/features/shell/about_screen.dart';
 import 'package:rmplanner/features/shell/messages_screen.dart';
@@ -72,7 +71,7 @@ void main() {
   }
 
   group('Pack 3 drawer — shell', () {
-    testWidgets('opens from Home, Planner, and More via hamburger', (
+    testWidgets('opens from Home and Planner via hamburger', (
       tester,
     ) async {
       await pumpApp(tester);
@@ -92,16 +91,6 @@ void main() {
       await tester.pumpAndSettle();
       expect(drawerFinder(), findsNothing);
       expect(find.byType(PlannerScreen), findsOneWidget);
-
-      // More root.
-      await tapTab(tester, 'More');
-      await tester.tap(find.byKey(const Key('more-hamburger')));
-      await tester.pumpAndSettle();
-      expect(drawerFinder(), findsOneWidget);
-      await tester.binding.handlePopRoute();
-      await tester.pumpAndSettle();
-      expect(drawerFinder(), findsNothing);
-      expect(find.byType(MoreScreen), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
@@ -132,8 +121,8 @@ void main() {
       tester,
     ) async {
       await pumpApp(tester);
-      // Pathways and Contacts are placeholder roots in the authorized build;
-      // the drawer remains reachable through the shell edge drag.
+      // The drawer remains reachable from any shell page through the edge
+      // drag (NX-07/08: Pathways is hidden from primary navigation).
       await tester.dragFrom(const Offset(2, 400), const Offset(220, 0));
       await tester.pumpAndSettle();
       expect(drawerFinder(), findsOneWidget);
@@ -402,8 +391,8 @@ void main() {
       expect(find.byType(HomeScreen), findsOneWidget);
     });
 
-    testWidgets('Settings opens and Back lands on the More root (direct '
-        'entry fallback)', (tester) async {
+    testWidgets('Settings opens and Back lands on the Home root (NX-07/08: '
+        'the More root no longer exists)', (tester) async {
       await pumpApp(tester);
       await openDrawerFromHome(tester);
       await tester.scrollUntilVisible(
@@ -419,7 +408,7 @@ void main() {
       expect(find.byType(SettingsScreen), findsOneWidget);
       await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
-      expect(find.byType(MoreScreen), findsOneWidget);
+      expect(find.byType(HomeScreen), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 

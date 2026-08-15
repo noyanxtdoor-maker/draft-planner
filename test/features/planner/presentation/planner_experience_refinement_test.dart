@@ -181,9 +181,11 @@ void main() {
         greaterThan(60),
       );
 
-      await tester.tap(find.text('More'));
+      // NX-07/08: no More tab — Settings lives in the drawer. The test is
+      // on the Planner, so use the planner hamburger.
+      await tester.tap(find.byKey(const Key('planner-hamburger')));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('more-settings')));
+      await tester.tap(find.byKey(const Key('drawer-account-settings')));
       await tester.pumpAndSettle();
       expect(
         find.byKey(const Key('settings-planner-calendar')),

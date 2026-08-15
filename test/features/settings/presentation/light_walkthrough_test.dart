@@ -114,11 +114,13 @@ void main() {
     });
 
     testWidgets(
-        'More -> Settings -> Appearance keeps Light and shows selection',
+        'Drawer -> Settings -> Appearance keeps Light and shows selection',
         (tester) async {
       await pumpApp(tester);
-      await goToTab(tester, 'More');
-      await tester.tap(find.byKey(const Key('more-settings')));
+      // NX-07/08: no More tab — Settings lives in the drawer.
+      await tester.tap(find.byKey(const Key('home-hamburger')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('drawer-account-settings')));
       await tester.pumpAndSettle();
       expect(find.byType(SettingsScreen), findsOneWidget);
       await tester.tap(find.byKey(const Key('settings-appearance')));

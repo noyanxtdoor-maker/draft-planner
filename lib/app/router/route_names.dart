@@ -126,9 +126,22 @@ abstract final class RoutePaths {
     PlannerDate originalDate,
     CalendarEventEditScope scope, {
     bool deferScopeToSave = false,
+    // NX-06: known identity seeds for the Edit loading shell.
+    String? title,
+    String? eventTypeLabel,
   }) {
+    final params = <String>['scope=${scope.name}'];
+    if (deferScopeToSave) {
+      params.add('deferScope=1');
+    }
+    if (title != null && title.trim().isNotEmpty) {
+      params.add('title=${Uri.encodeQueryComponent(title)}');
+    }
+    if (eventTypeLabel != null && eventTypeLabel.trim().isNotEmpty) {
+      params.add('eventTypeLabel=${Uri.encodeQueryComponent(eventTypeLabel)}');
+    }
     return '${calendarEventDetail(eventId, originalDate)}/edit'
-        '?scope=${scope.name}${deferScopeToSave ? '&deferScope=1' : ''}';
+        '?${params.join('&')}';
   }
 
   static String calendarEventReschedule(

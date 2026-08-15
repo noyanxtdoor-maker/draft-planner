@@ -109,12 +109,12 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('TEST 6 — bottom navigation remains unchanged', (tester) async {
+    testWidgets('TEST 6 — bottom navigation anchors the primary tabs',
+        (tester) async {
       await _pumpHome(tester);
-      // The bottom navigation anchors the five primary tabs:
-      // Home, Planner, Pathways, Contacts, More. Slice D does not
-      // touch it. Assert the navigation anchor key exists and
-      // that each tab label is present inside the navigation.
+      // NX-07/08: the primary nav is exactly Home, Planner, Contacts.
+      // Pathways and the standalone More destination are removed from the
+      // bottom bar (drawer keeps the secondary destinations).
       expect(find.byKey(const Key('main-bottom-navigation')), findsOneWidget);
       final bottomNav = find.byKey(const Key('main-bottom-navigation'));
       expect(
@@ -126,16 +126,16 @@ void main() {
         findsOneWidget,
       );
       expect(
-        find.descendant(of: bottomNav, matching: find.text('Pathways')),
-        findsOneWidget,
-      );
-      expect(
         find.descendant(of: bottomNav, matching: find.text('Contacts')),
         findsOneWidget,
       );
       expect(
+        find.descendant(of: bottomNav, matching: find.text('Pathways')),
+        findsNothing,
+      );
+      expect(
         find.descendant(of: bottomNav, matching: find.text('More')),
-        findsOneWidget,
+        findsNothing,
       );
     });
   });

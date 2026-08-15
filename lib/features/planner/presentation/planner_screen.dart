@@ -6568,6 +6568,12 @@ void _openCalendarEvent(BuildContext context, PlannerCalendarItem event) {
       context: context,
       eventId: eventId,
       originalDate: originalDate,
+      // NX-05: the tapped planner item already knows the activity identity, so
+      // the sheet title is truthful from the first rendered frame (no generic
+      // 'Calendar Event' -> activity-label morph while the record loads).
+      initialHeading: event.activityTypeLabel?.trim().isNotEmpty == true
+          ? event.activityTypeLabel
+          : event.displayTitle,
     ),
   );
 }

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rmplanner/app/router/route_names.dart';
+import 'package:rmplanner/app/theme/app_theme.dart';
 import 'package:rmplanner/app/theme/internal_screen.dart';
 import 'package:rmplanner/features/planner/application/calendar_event_providers.dart';
 import 'package:rmplanner/features/planner/application/outcome_reporting_providers.dart';
@@ -25,12 +26,20 @@ final class CalendarEventDetailScreen extends ConsumerStatefulWidget {
     required this.eventId,
     required this.originalDate,
     this.sheetPresentation = false,
+    this.initialHeading,
     super.key,
   });
 
   final String eventId;
   final PlannerDate originalDate;
   final bool sheetPresentation;
+
+  /// NX-05: identity the caller already knows at open time (the tapped
+  /// planner item's activity-type label / display title).  When set, the
+  /// heading is truthful from the FIRST rendered frame so the sheet never
+  /// morphs from the generic 'Calendar Event'.  Deep-link entries with no
+  /// synchronous label keep the generic default and resolve after load.
+  final String? initialHeading;
 
   @override
   ConsumerState<CalendarEventDetailScreen> createState() =>
@@ -40,7 +49,7 @@ final class CalendarEventDetailScreen extends ConsumerStatefulWidget {
 final class _CalendarEventDetailScreenState
     extends ConsumerState<CalendarEventDetailScreen> {
   late Future<CalendarEventOccurrence?> _load;
-  String _detailHeading = 'Calendar Event';
+  late String _detailHeading;
   final GlobalKey _overflowAnchorKey = GlobalKey();
   bool _statusSaving = false;
 
@@ -59,6 +68,12 @@ final class _CalendarEventDetailScreenState
   @override
   void initState() {
     super.initState();
+    // NX-05: the heading starts as the caller-known identity when provided
+    // (never the generic 'Calendar Event' morph); otherwise the truthful
+    // deep-link fallback resolves after the occurrence load.
+    _detailHeading = widget.initialHeading?.trim().isNotEmpty == true
+        ? widget.initialHeading!
+        : 'Calendar Event';
     _reload();
   }
 
@@ -597,6 +612,10 @@ final class _CalendarEventDetailScreenState
       occurrence.originalDate,
       CalendarEventEditScope.occurrence,
       deferScopeToSave: occurrence.isRecurring,
+      // NX-06: seed the Edit loading shell with the identity this sheet
+      // already holds, so the form never shows a blank pause.
+      title: occurrence.displayTitle,
+      eventTypeLabel: occurrence.activityTypeLabel,
     );
     final changed = await context.push<bool>(path);
     if (changed == true && mounted) {
@@ -895,9 +914,9 @@ final class _EventStatusControlRow extends StatelessWidget {
             children: <Widget>[
               Text(
                 'Current Status',
-                style: Theme.of(
-                  context,
-                ).textTheme.labelMedium?.copyWith(color: Colors.white60),
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: AppTheme.detailCaptionOf(context),
+                ),
               ),
               const SizedBox(height: 3),
               Text(
@@ -909,7 +928,10 @@ final class _EventStatusControlRow extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: PlannerEventReportStatus.colorFor(currentKind),
+                  color: PlannerEventReportStatus.labelColorFor(
+                    context,
+                    currentKind,
+                  ),
                   fontSize: 17,
                   height: 20 / 17,
                   fontWeight: FontWeight.w700,
@@ -1022,6 +1044,7 @@ Future<T?> showCalendarEventDetailSheet<T>({
   required BuildContext context,
   required String eventId,
   required PlannerDate originalDate,
+  String? initialHeading,
 }) {
   return showModalBottomSheet<T>(
     context: context,
@@ -1035,6 +1058,7 @@ Future<T?> showCalendarEventDetailSheet<T>({
         eventId: eventId,
         originalDate: originalDate,
         sheetPresentation: true,
+        initialHeading: initialHeading,
       ),
     ),
   );
@@ -1129,9 +1153,9 @@ final class _DetailField extends StatelessWidget {
               children: <Widget>[
                 Text(
                   label,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.labelMedium?.copyWith(color: Colors.white60),
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: AppTheme.detailCaptionOf(context),
+                  ),
                 ),
                 const SizedBox(height: 2),
                 Text(value),

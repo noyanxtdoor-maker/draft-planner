@@ -74,6 +74,28 @@ abstract final class PlannerEventReportStatus {
     };
   }
 
+  /// NX-02: brightness-aware color for the detail sheet's current-status
+  /// VALUE label and any status text that must read on a surface.
+  ///
+  /// Dark keeps the exact pre-NX dark-tuned constants byte-identical; Light
+  /// resolves darker readable semantic equivalents so the muted amber/
+  /// coral/green never wash out on the Light surface.  The display disc
+  /// colors ([colorFor]) are unchanged for block badges.
+  static Color labelColorFor(BuildContext context, PlannerReportStatusKind kind) {
+    if (Theme.of(context).brightness == Brightness.dark) {
+      return colorFor(kind);
+    }
+    final scheme = Theme.of(context).colorScheme;
+    return switch (kind) {
+      PlannerReportStatusKind.unreported => const Color(0xFF8A5A00),
+      PlannerReportStatusKind.didNotAttempt => scheme.onSurfaceVariant,
+      PlannerReportStatusKind.missedAttempted => const Color(0xFFA63D53),
+      PlannerReportStatusKind.completed => const Color(0xFF2F6B2A),
+      PlannerReportStatusKind.backup ||
+      PlannerReportStatusKind.linked => scheme.onSurfaceVariant,
+    };
+  }
+
   static String labelFor(
     PlannerReportStatusKind kind, {
     bool isContactEvent = false,
@@ -81,13 +103,12 @@ abstract final class PlannerEventReportStatus {
     return switch (kind) {
       PlannerReportStatusKind.unreported => 'Unreported',
       PlannerReportStatusKind.didNotAttempt => 'Did Not Attempt',
-      // Planner Polish Delta 2: 'Missed' for generic non-Contact Events,
-      // 'Missed — Attempted' for Contact Events.  Both read the same stored
-      // partial outcome, so history is untouched.  The completed outcome is
+      // NX-03: the user-facing label for the partial outcome is 'Missed' for
+      // Contact and generic Events alike (the stored MISSED_ATTEMPTED value
+      // stays internal, so history is untouched).  The completed outcome is
       // 'Completed' for BOTH Contact and generic Events (Delta 2 final
       // status matrix); there is no separate 'Contacted' label.
-      PlannerReportStatusKind.missedAttempted =>
-        isContactEvent ? 'Missed — Attempted' : 'Missed',
+      PlannerReportStatusKind.missedAttempted => 'Missed',
       PlannerReportStatusKind.completed => 'Completed',
       PlannerReportStatusKind.backup => 'Backup Appointment',
       PlannerReportStatusKind.linked => 'Linked Tasks',
@@ -176,8 +197,8 @@ class PlannerEventStatusBadge extends StatelessWidget {
   final PlannerReportStatusKind kind;
   final double diameter;
 
-  /// Contact Events announce 'Missed - Attempted'; generic Events announce
-  /// 'Missed' (Planner Polish Delta 2).
+  /// NX-03: the user-facing label for the partial outcome is 'Missed' in
+  /// every context; the parameter remains for caller symmetry.
   final bool isContactEvent;
 
   @override

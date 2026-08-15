@@ -35,9 +35,10 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('More'));
+    // NX-07/08: no More tab — Settings lives in the drawer.
+    await tester.tap(find.byKey(const Key('home-hamburger')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('more-settings')));
+    await tester.tap(find.byKey(const Key('drawer-account-settings')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('settings-colors')));
     await tester.pumpAndSettle();
@@ -278,9 +279,10 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('More'));
+    // NX-07/08: no More tab — Settings lives in the drawer.
+    await tester.tap(find.byKey(const Key('home-hamburger')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('more-settings')));
+    await tester.tap(find.byKey(const Key('drawer-account-settings')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('settings-colors')));
     await tester.pumpAndSettle();

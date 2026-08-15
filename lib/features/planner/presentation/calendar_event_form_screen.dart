@@ -58,7 +58,9 @@ final class CalendarEventFormScreen extends ConsumerStatefulWidget {
        originalDate = null,
        scope = null,
        deferRecurrenceScopeToSave = false,
-       sourceTaskId = null;
+       sourceTaskId = null,
+       initialTitle = null,
+       initialEventTypeLabel = null;
 
   const CalendarEventFormScreen.createFromTask({
     required this.sourceTaskId,
@@ -81,7 +83,9 @@ final class CalendarEventFormScreen extends ConsumerStatefulWidget {
        deferRecurrenceScopeToSave = false,
        initialDraftId = null,
        initialDurationMinutes = null,
-       onClose = null;
+       onClose = null,
+       initialTitle = null,
+       initialEventTypeLabel = null;
 
   const CalendarEventFormScreen.edit({
     required this.eventId,
@@ -93,6 +97,11 @@ final class CalendarEventFormScreen extends ConsumerStatefulWidget {
     this.sheetController,
     this.sheetMinChildSize = 0.36,
     this.sheetMaxChildSize = 0.94,
+    // NX-06: known identity seeds from the detail sheet (which already holds
+    // the loaded occurrence). When set, the loading shell shows the truthful
+    // 'Edit <label> Event' heading + seeded title instead of a blank pause.
+    this.initialTitle,
+    this.initialEventTypeLabel,
     super.key,
   }) : mode = CalendarEventFormMode.edit,
        initialDate = null,
@@ -127,7 +136,9 @@ final class CalendarEventFormScreen extends ConsumerStatefulWidget {
        onClose = null,
        sourceTaskId = null,
        deferRecurrenceScopeToSave = false,
-       initialContactIds = const <String>[];
+       initialContactIds = const <String>[],
+       initialTitle = null,
+       initialEventTypeLabel = null;
 
   final CalendarEventFormMode mode;
   final PlannerDate? initialDate;
@@ -155,6 +166,12 @@ final class CalendarEventFormScreen extends ConsumerStatefulWidget {
   final bool deferRecurrenceScopeToSave;
   final String? sourceTaskId;
   final List<String> initialContactIds;
+
+  /// NX-06: identity seeds for the Edit Event loading shell (known from the
+  /// detail sheet at open time). Null keeps the previous blank-pause behavior
+  /// for deep-link/direct edit entries.
+  final String? initialTitle;
+  final String? initialEventTypeLabel;
   final bool sheetPresentation;
   final ScrollController? sheetScrollController;
   final DraggableScrollableController? sheetController;
@@ -818,7 +835,7 @@ final class _CalendarEventFormScreenState
         ? 24.0 + MediaQuery.of(context).viewInsets.bottom
         : 120.0;
     final content = _loading || _configurationLoading
-        ? const Center(child: CircularProgressIndicator())
+        ? _loadingShell(context)
         : SafeArea(
             top: !widget.sheetPresentation,
             child: Form(
@@ -1780,10 +1797,49 @@ final class _CalendarEventFormScreenState
           : 'Create ${_selectedEventType!.label}',
     CalendarEventFormMode.edit =>
       _selectedEventType == null
-          ? 'Edit Event'
+          ? widget.initialEventTypeLabel?.trim().isNotEmpty == true
+                ? 'Edit ${widget.initialEventTypeLabel} Event'
+                : 'Edit Event'
           : 'Edit ${_selectedEventType!.label} Event',
     CalendarEventFormMode.reschedule => 'Reschedule Event',
   };
+
+  /// NX-06: truthful Edit loading shell. When the detail sheet has already
+  /// seeded the known identity, the loading state shows the seeded title
+  /// above the spinner instead of a bare blank pause; entries with no seeds
+  /// (deep-link / direct edit) keep the plain centered spinner.
+  Widget _loadingShell(BuildContext context) {
+    final seededTitle = widget.initialTitle?.trim().isNotEmpty == true
+        ? widget.initialTitle
+        : null;
+    final hasSeeds =
+        widget.mode == CalendarEventFormMode.edit &&
+        (seededTitle != null ||
+            widget.initialEventTypeLabel?.trim().isNotEmpty == true);
+    if (!hasSeeds) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    return SafeArea(
+      top: !widget.sheetPresentation,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
+        children: <Widget>[
+          if (seededTitle != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 18),
+              child: Text(
+                seededTitle,
+                key: const Key('edit-loading-seed-title'),
+                style: Theme.of(context).textTheme.titleMedium,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          const Center(child: CircularProgressIndicator()),
+        ],
+      ),
+    );
+  }
 
   ButtonStyle _compactFormActionStyle() {
     return TextButton.styleFrom(

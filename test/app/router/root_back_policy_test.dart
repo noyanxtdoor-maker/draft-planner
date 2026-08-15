@@ -14,8 +14,9 @@ import '../../support/test_dependencies.dart';
 
 /// Pack 2 focused navigation tests.
 ///
-/// Root tabs: Planner/More + Android Back reveal the existing Home root;
-/// Home + Back is left unhandled so the platform exits.  Child pages pop to
+/// Root tabs: Planner/Contacts + Android Back reveal the existing Home
+/// root; the legacy /more route compat-redirects to Home (NX-07/08).  Home +
+/// Back is left unhandled so the platform exits.  Child pages pop to
 /// their logical parent; Planning week browsing stays local; Plan History
 /// returns to Planning; dialogs dismiss before navigation; dirty forms keep
 /// their existing unsaved-change protection on both toolbar and Android Back.
@@ -99,19 +100,18 @@ void main() {
     expect(plannerDateLabel(), findsNothing);
   });
 
-  testWidgets('More tab + Android Back reveals the existing Home root', (
-    tester,
-  ) async {
-    await pumpApp(tester);
-    await tapTab(tester, 'More');
-    expect(find.byKey(const Key('more-settings')), findsOneWidget);
-
-    final handled = await tester.binding.handlePopRoute();
-    await tester.pumpAndSettle();
-    expect(handled, isTrue);
-    expect(homeAppBar(), findsOneWidget);
-    expect(find.byKey(const Key('more-settings')), findsNothing);
-  });
+  testWidgets(
+    'NX-07/08: the legacy /more route compat-redirects to Home and never '
+    'renders a More landing page',
+    (tester) async {
+      await pumpApp(tester);
+      final context = tester.element(find.byType(Scaffold).first);
+      GoRouter.of(context).go(RoutePaths.more);
+      await tester.pumpAndSettle();
+      expect(homeAppBar(), findsOneWidget);
+      expect(find.byKey(const Key('more-settings')), findsNothing);
+    },
+  );
 
   testWidgets('Home + Android Back is left unhandled so the platform exits', (
     tester,
@@ -128,18 +128,9 @@ void main() {
     (tester) async {
       await pumpApp(tester);
       await tapTab(tester, 'Planner');
-      await tapTab(tester, 'More');
+      await tapTab(tester, 'Contacts');
       await tapTab(tester, 'Planner');
-      // Pathways/Contacts are placeholders in the authorized build; they only
-      // show a snackbar and leave the current root untouched.
-      await tester.tap(
-        find.descendant(of: bottomNav(), matching: find.text('Pathways')),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(
-        find.descendant(of: bottomNav(), matching: find.text('Contacts')),
-      );
-      await tester.pumpAndSettle();
+      await tapTab(tester, 'Home');
 
       // One Android Back goes straight to Home (no tab-by-tab unwinding).
       await tester.binding.handlePopRoute();
@@ -152,18 +143,19 @@ void main() {
   );
 
   testWidgets(
-    'Child page Back returns to its logical parent (More -> Settings)',
+    'NX-07/08: Settings (a /more child) opened from the drawer; Android Back '
+    'returns to the Home root (no More root)',
     (tester) async {
       await pumpApp(tester);
-      await tapTab(tester, 'More');
-      await tester.tap(find.byKey(const Key('more-settings')));
+      await tester.tap(find.byKey(const Key('home-hamburger')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('drawer-account-settings')));
       await tester.pumpAndSettle();
       expect(find.text('Settings'), findsOneWidget);
 
       await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
-      expect(find.byKey(const Key('more-settings')), findsOneWidget);
-      expect(homeAppBar(), findsNothing);
+      expect(homeAppBar(), findsOneWidget);
     },
   );
 
@@ -281,21 +273,21 @@ void main() {
     expect(homeAppBar(), findsNothing);
   });
 
-  testWidgets('Direct-entered /more child falls back to More root (B7)', (
-    tester,
-  ) async {
-    await pumpApp(tester);
-    final context = tester.element(find.byType(Scaffold).first);
-    GoRouter.of(context).go(RoutePaths.settings);
-    await tester.pumpAndSettle();
-    expect(find.text('Settings'), findsOneWidget);
+  testWidgets(
+    'NX-07/08: Direct-entered /more child falls back to Home root (B7)',
+    (tester) async {
+      await pumpApp(tester);
+      final context = tester.element(find.byType(Scaffold).first);
+      GoRouter.of(context).go(RoutePaths.settings);
+      await tester.pumpAndSettle();
+      expect(find.text('Settings'), findsOneWidget);
 
-    final handled = await tester.binding.handlePopRoute();
-    await tester.pumpAndSettle();
-    expect(handled, isTrue);
-    expect(find.byKey(const Key('more-settings')), findsOneWidget);
-    expect(homeAppBar(), findsNothing);
-  });
+      final handled = await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(handled, isTrue);
+      expect(homeAppBar(), findsOneWidget);
+    },
+  );
 
   testWidgets(
     'Dirty Edit Goal: toolbar Back and Android Back share one guard (B4)',

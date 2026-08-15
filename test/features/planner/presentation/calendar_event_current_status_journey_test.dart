@@ -342,15 +342,16 @@ void main() {
     expect(reports, hasLength(1));
     expect(reports.single.outcome, OutcomeKind.didNotHappen.name);
 
-    // Contact reads 'Missed — Attempted' (never the generic 'Missed').
+    // NX-03: Contact partial reads the user-facing 'Missed' label
+    // (the stored MISSED_ATTEMPTED outcome stays internal).
     await tester.tap(
       find.byKey(const Key('event-status-option-partiallyCompleted')),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Missed — Attempted'), findsOneWidget);
+    expect(find.text('Missed'), findsOneWidget);
     await tester.tap(find.byKey(const Key('event-status-save')));
     await tester.pumpAndSettle();
-    expect(find.text('Missed — Attempted'), findsOneWidget);
+    expect(find.text('Missed'), findsOneWidget);
 
     // Delta 2 final matrix: Completed reads 'Completed' for Contact Events
     // too (no separate 'Contacted' status).

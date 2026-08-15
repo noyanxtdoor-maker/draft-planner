@@ -176,6 +176,14 @@ abstract final class AppTheme {
           ? const Color(0xFF9CA0A6)
           : Theme.of(context).colorScheme.onSurfaceVariant;
 
+  /// Detail-sheet caption/label color (NX-01).  Dark keeps the exact
+  /// pre-NX white60 pixels byte-identical; Light resolves the semantic
+  /// onSurfaceVariant so captions stay readable on the Light surface.
+  static Color detailCaptionOf(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark
+          ? Colors.white60
+          : Theme.of(context).colorScheme.onSurfaceVariant;
+
   /// Elevated surface / container (dark #2A2D31, light container/well).
   static Color surfaceVariantOf(BuildContext context) =>
       Theme.of(context).brightness == Brightness.dark

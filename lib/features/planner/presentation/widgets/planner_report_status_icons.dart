@@ -58,6 +58,24 @@ class PlannerReportStatusIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // NX-02: the unselected (inactive) control treatment resolves Light
+    // neutrals from the theme so inactive status controls stay visible on a
+    // Light surface.  Dark keeps the exact pre-NX white38/white54 pixels.
+    final brightness = Theme.of(context).brightness;
+    final ringColor = switch (style) {
+      PlannerReportStatusIconStyle.unselected =>
+        brightness == Brightness.dark
+            ? Colors.white38
+            : Theme.of(context).colorScheme.outline,
+      _ => Colors.transparent,
+    };
+    final glyphColor = switch (style) {
+      PlannerReportStatusIconStyle.unselected =>
+        brightness == Brightness.dark
+            ? Colors.white54
+            : Theme.of(context).colorScheme.onSurfaceVariant,
+      _ => Colors.transparent,
+    };
     return Semantics(
       label:
           semanticLabel ??
@@ -73,6 +91,8 @@ class PlannerReportStatusIcon extends StatelessWidget {
             kind: kind,
             style: style,
             strokeWidth: _strokeWidthFor(size),
+            ringColor: ringColor,
+            glyphColor: glyphColor,
           ),
         ),
       ),
@@ -96,11 +116,18 @@ class _ReportStatusCirclePainter extends CustomPainter {
     required this.kind,
     required this.style,
     required this.strokeWidth,
+    this.ringColor = Colors.white38,
+    this.glyphColor = Colors.white54,
   });
 
   final PlannerReportStatusKind kind;
   final PlannerReportStatusIconStyle style;
   final double strokeWidth;
+
+  /// NX-02: resolved unselected ring/glyph colors (Dark default white38/
+  /// white54; Light resolved by the widget from the theme).
+  final Color ringColor;
+  final Color glyphColor;
 
   /// Dark ink for glyphs on filled discs (matches the sheet's dark glyphs).
   static const Color _darkInk = Color(0xFF1A1B1E);
@@ -114,7 +141,7 @@ class _ReportStatusCirclePainter extends CustomPainter {
 
   Color get _glyphColor {
     if (style == PlannerReportStatusIconStyle.unselected) {
-      return Colors.white54;
+      return glyphColor;
     }
     return _filledDisc ? _darkInk : _discColor;
   }
@@ -125,11 +152,13 @@ class _ReportStatusCirclePainter extends CustomPainter {
     final radius = size.shortestSide / 2;
 
     if (style == PlannerReportStatusIconStyle.unselected) {
-      // Neutral outline ring + subdued glyph on a transparent surface.
+      // Neutral outline ring + subdued glyph on a transparent surface
+      // (NX-02: ringColor/glyphColor are theme-resolved; Dark keeps the
+      // exact white38/white54 pixels).
       final ring = Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = strokeWidth
-        ..color = Colors.white38;
+        ..color = ringColor;
       canvas.drawCircle(center, radius - strokeWidth, ring);
       _paintGlyph(canvas, center, radius, _glyphColor);
       return;
@@ -234,5 +263,7 @@ class _ReportStatusCirclePainter extends CustomPainter {
   bool shouldRepaint(covariant _ReportStatusCirclePainter oldDelegate) =>
       oldDelegate.kind != kind ||
       oldDelegate.style != style ||
-      oldDelegate.strokeWidth != strokeWidth;
+      oldDelegate.strokeWidth != strokeWidth ||
+      oldDelegate.ringColor != ringColor ||
+      oldDelegate.glyphColor != glyphColor;
 }

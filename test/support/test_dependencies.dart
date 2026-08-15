@@ -1,6 +1,7 @@
 import 'package:drift/native.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:rmplanner/app/next_transfer_app.dart';
 import 'package:rmplanner/app/theme/theme_color_mode.dart';
 import 'package:rmplanner/core/database/app_database.dart';
@@ -275,6 +276,9 @@ final class TestPrivacyDependencies {
     /// B2-CORRECTION: the independent Theme Color this app build starts in.
     /// Defaults to Rose (the compatibility/fresh default).
     ThemeColorMode? initialThemeColor = ThemeColorMode.rose,
+    /// NX pack: extra Riverpod overrides appended AFTER the defaults so they
+    /// take precedence (used by deterministic pending-read contract tests).
+    List<Override> extraOverrides = const <Override>[],
   }) {
     final resolvedContactRepository =
         contactRepository ??
@@ -352,54 +356,65 @@ final class TestPrivacyDependencies {
           ),
           indicators: resolvedIndicatorRepository,
         );
+    final defaultOverrides = <Override>[
+      appEnvironmentProvider.overrideWithValue(environment),
+      diagnosticsProvider.overrideWithValue(diagnostics),
+      startupRepositoryProvider.overrideWithValue(startupRepository),
+      privacyRepositoryProvider.overrideWithValue(repository),
+      privacyGateProvider.overrideWithValue(gate),
+      deviceAuthenticatorProvider.overrideWithValue(authenticator),
+      permissionGatewayProvider.overrideWithValue(permissionGateway),
+      authTokenStoreProvider.overrideWithValue(
+        SecureAuthTokenStore(secureStorage),
+      ),
+      calendarEventRepositoryProvider.overrideWithValue(
+        resolvedCalendarEventRepository,
+      ),
+      eventTypeRepositoryProvider.overrideWithValue(
+        resolvedEventTypeRepository,
+      ),
+      outcomeReportingRepositoryProvider.overrideWithValue(
+        outcomeReportingRepository,
+      ),
+      plannerRepositoryProvider.overrideWithValue(resolvedPlannerRepository),
+      indicatorRepositoryProvider.overrideWithValue(resolvedIndicatorRepository),
+      goalRepositoryProvider.overrideWithValue(goalRepository),
+      weeklyPlanningRepositoryProvider.overrideWithValue(
+        resolvedWeeklyPlanningRepository,
+      ),
+      startOfWeekRepositoryProvider.overrideWithValue(
+        resolvedStartOfWeekRepository,
+      ),
+      contactRepositoryProvider.overrideWithValue(resolvedContactRepository),
+      taskEventLinkRepositoryProvider.overrideWithValue(linkRepository),
+      taskEventLinkCoordinatorProvider.overrideWithValue(linkCoordinator),
+      deviceAppearanceRepositoryProvider.overrideWithValue(
+        DriftAppearanceRepository(
+          database: repository.database,
+          clock: FixedClock(DateTime.utc(2026, 7, 27, 12)),
+        ),
+      ),
+      initialAppearanceProvider.overrideWithValue(initialAppearance),
+      initialThemeColorProvider.overrideWithValue(initialThemeColor),
+      plannerDateSourceProvider.overrideWithValue(plannerDateSource),
+      if (plannerIdentifierSource != null)
+        plannerIdentifierSourceProvider.overrideWithValue(
+          plannerIdentifierSource,
+        ),
+    ];
+    // NX pack: extra overrides take precedence, and any provider they cover
+    // is dropped from the defaults so the same provider is never overridden
+    // twice within one container (Riverpod forbids duplicate overrides).
+    final extraOrigins = extraOverrides
+        .map((override) => override.origin)
+        .whereType<Object>()
+        .toSet();
     return ProviderScope(
       overrides: [
-        appEnvironmentProvider.overrideWithValue(environment),
-        diagnosticsProvider.overrideWithValue(diagnostics),
-        startupRepositoryProvider.overrideWithValue(startupRepository),
-        privacyRepositoryProvider.overrideWithValue(repository),
-        privacyGateProvider.overrideWithValue(gate),
-        deviceAuthenticatorProvider.overrideWithValue(authenticator),
-        permissionGatewayProvider.overrideWithValue(permissionGateway),
-        authTokenStoreProvider.overrideWithValue(
-          SecureAuthTokenStore(secureStorage),
+        ...defaultOverrides.where(
+          (override) => !extraOrigins.contains(override.origin),
         ),
-        calendarEventRepositoryProvider.overrideWithValue(
-          resolvedCalendarEventRepository,
-        ),
-        eventTypeRepositoryProvider.overrideWithValue(
-          resolvedEventTypeRepository,
-        ),
-        outcomeReportingRepositoryProvider.overrideWithValue(
-          outcomeReportingRepository,
-        ),
-        plannerRepositoryProvider.overrideWithValue(resolvedPlannerRepository),
-        indicatorRepositoryProvider.overrideWithValue(
-          resolvedIndicatorRepository,
-        ),
-        goalRepositoryProvider.overrideWithValue(goalRepository),
-        weeklyPlanningRepositoryProvider.overrideWithValue(
-          resolvedWeeklyPlanningRepository,
-        ),
-        startOfWeekRepositoryProvider.overrideWithValue(
-          resolvedStartOfWeekRepository,
-        ),
-        contactRepositoryProvider.overrideWithValue(resolvedContactRepository),
-        taskEventLinkRepositoryProvider.overrideWithValue(linkRepository),
-        taskEventLinkCoordinatorProvider.overrideWithValue(linkCoordinator),
-        deviceAppearanceRepositoryProvider.overrideWithValue(
-          DriftAppearanceRepository(
-            database: repository.database,
-            clock: FixedClock(DateTime.utc(2026, 7, 27, 12)),
-          ),
-        ),
-        initialAppearanceProvider.overrideWithValue(initialAppearance),
-        initialThemeColorProvider.overrideWithValue(initialThemeColor),
-        plannerDateSourceProvider.overrideWithValue(plannerDateSource),
-        if (plannerIdentifierSource != null)
-          plannerIdentifierSourceProvider.overrideWithValue(
-            plannerIdentifierSource,
-          ),
+        ...extraOverrides,
       ],
       child: const NextTransferApp(),
     );

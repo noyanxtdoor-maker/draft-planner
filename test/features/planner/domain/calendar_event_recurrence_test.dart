@@ -369,7 +369,9 @@ void main() {
         status: CalendarEventStatus.partiallyCompleted,
         isContactEvent: true,
       ),
-      'Missed — Attempted',
+      // NX-03: the user-facing partial outcome is 'Missed' for Contact and
+      // generic Events alike (the stored MISSED_ATTEMPTED value is internal).
+      'Missed',
     );
     expect(
       calendarEventOutcomeLabel(
@@ -378,8 +380,8 @@ void main() {
       ),
       'Missed',
     );
-    // Delta 2: the generic status helper reads 'Missed' by default and the
-    // richer label only for Contact contexts; legacy Did Not Attempt stays
+    // NX-03: the status helper reads 'Missed' for the partial outcome in
+    // every context (Contact and generic); legacy Did Not Attempt stays
     // historically readable for non-Contact records.
     expect(
       calendarEventStatusLabel(CalendarEventStatus.partiallyCompleted),
@@ -390,7 +392,7 @@ void main() {
         CalendarEventStatus.partiallyCompleted,
         isContactEvent: true,
       ),
-      'Missed — Attempted',
+      'Missed',
     );
     expect(
       calendarEventStatusLabel(CalendarEventStatus.didNotHappen),

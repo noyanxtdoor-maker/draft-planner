@@ -176,8 +176,11 @@ class GlobalAppDrawer extends StatelessWidget {
     return Drawer(
       key: const Key('global-app-drawer'),
       width: width,
-      backgroundColor: AppTheme.surface,
-      surfaceTintColor: AppTheme.surface,
+      // NX-04: theme-aware surface.  Dark keeps the exact #181A1E surface
+      // token byte-identical; Light resolves the semantic Light surface so
+      // the drawer is never dark in Light appearance.
+      backgroundColor: AppTheme.surfaceOf(context),
+      surfaceTintColor: AppTheme.surfaceOf(context),
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
       child: SafeArea(
         top: false,
@@ -224,9 +227,15 @@ class _DrawerHeader extends StatelessWidget {
     return Container(
       key: const Key('global-app-drawer-header'),
       padding: const EdgeInsets.fromLTRB(20, 22, 20, 18),
-      decoration: const BoxDecoration(
-        color: AppTheme.background,
-        border: Border(bottom: BorderSide(color: AppTheme.outline)),
+      decoration: BoxDecoration(
+        // NX-04: header fill is the same theme-aware surface in Light and
+        // keeps the exact darker #0D0E10 band in Dark.
+        color: Theme.of(context).brightness == Brightness.dark
+            ? AppTheme.background
+            : Theme.of(context).colorScheme.surfaceContainerLow,
+        border: Border(
+          bottom: BorderSide(color: AppTheme.outlineOf(context)),
+        ),
       ),
       child: Row(
         children: <Widget>[
@@ -282,13 +291,14 @@ class _DrawerGroupHeader extends StatelessWidget {
         child: Text(
           label,
           key: Key('drawer-group-${label.toLowerCase().replaceAll(' ', '-')}'),
-          style: const TextStyle(
+          style: TextStyle(
             fontFamily: 'Roboto',
             fontSize: 12.5,
             height: 16 / 12.5,
             fontWeight: FontWeight.w600,
             letterSpacing: 0.5,
-            color: Color(0xFF9CA0A6),
+            // NX-04: Dark keeps #9CA0A6; Light resolves onSurfaceVariant.
+            color: AppTheme.secondaryTextOf(context),
           ),
         ),
       ),
@@ -364,7 +374,12 @@ class _DrawerEntryTile extends StatelessWidget {
               Icon(
                 entry.icon,
                 size: 23,
-                color: isCurrent ? accent : const Color(0xFFD6D8DB),
+                // NX-04: Dark keeps #D6D8DB; Light resolves onSurfaceVariant.
+                color: isCurrent
+                    ? accent
+                    : Theme.of(context).brightness == Brightness.dark
+                    ? const Color(0xFFD6D8DB)
+                    : Theme.of(context).colorScheme.onSurfaceVariant,
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -375,7 +390,12 @@ class _DrawerEntryTile extends StatelessWidget {
                     fontSize: 15.5,
                     height: 20 / 15.5,
                     fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w500,
-                    color: isCurrent ? accent : const Color(0xFFECEDEF),
+                    // NX-04: Dark keeps #ECEDEF; Light resolves onSurface.
+                    color: isCurrent
+                        ? accent
+                        : Theme.of(context).brightness == Brightness.dark
+                        ? const Color(0xFFECEDEF)
+                        : Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
               ),

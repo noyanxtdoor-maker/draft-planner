@@ -35,9 +35,7 @@ final class _MainShellState extends State<MainShell> {
     final selectedIndex = location.startsWith(RoutePaths.planner)
         ? 1
         : location.startsWith(RoutePaths.contacts)
-        ? 3
-        : location.startsWith(RoutePaths.more)
-        ? 4
+        ? 2
         : 0;
     final isGoalIconPicker = location.endsWith('/icon');
     // Pack 2 root Back policy (B1 + B7).  Child pages are popped by the
@@ -46,18 +44,18 @@ final class _MainShellState extends State<MainShell> {
     // sees a pop that reached the shell page itself, i.e. a root tab or a
     // child page that was entered directly and has no parent beneath it:
     //   Home            -> pop flows on; the platform exits the app;
-    //   Planner/More    -> reveal the existing Home root;
+    //   Planner         -> reveal the existing Home root;
     //   direct /planner -> Planner root;
-    //   direct /more    -> More root;
+    //   direct /more/*  -> Home root (NX-07/08: the More landing is gone;
+    //                      its children stay reachable, Home is the fallback);
     //   anything else   -> Home root.
     // Root-level routes pushed above the shell (tasks, events, privacy, ...)
     // are popped by the root navigator before this route is consulted.
     final isHomeRoot = location == RoutePaths.home;
-    // Root tabs are exactly `/planner` and `/more`; anything deeper under
-    // those prefixes is a direct-entered child page that needs a root
-    // fallback.
+    // Root tab is exactly `/planner`; anything deeper under those prefixes is
+    // a direct-entered child page that needs a root fallback.  `/more` is no
+    // longer a root tab: a direct /more child falls back to Home.
     final isPlannerChild = location.startsWith('${RoutePaths.planner}/');
-    final isMoreChild = location.startsWith('${RoutePaths.more}/');
     final isContactsChild = location.startsWith('${RoutePaths.contacts}/');
 
     return GlobalDrawerScope(
@@ -88,16 +86,15 @@ final class _MainShellState extends State<MainShell> {
             // Reveal the existing logical root; `go` replaces the current
             // page, so no duplicate Home route or tab-history stack is ever
             // created.
-            //   Planner/More root tabs -> Home;
-            //   direct /planner child   -> Planner root;
-            //   direct /more child      -> More root;
-            //   everything else         -> Home root.
+            //   Planner root tab  -> Home;
+            //   direct /planner   -> Planner root;
+            //   direct /contacts  -> Contacts root;
+            //   direct /more/*    -> Home (NX-07/08: no More landing);
+            //   everything else   -> Home root.
             if (isPlannerChild) {
               context.go(RoutePaths.planner);
             } else if (isContactsChild) {
               context.go(RoutePaths.contacts);
-            } else if (isMoreChild) {
-              context.go(RoutePaths.more);
             } else {
               context.go(RoutePaths.home);
             }
@@ -118,22 +115,7 @@ final class _MainShellState extends State<MainShell> {
                       context.go(RoutePaths.planner);
                       return;
                     case 2:
-                      ScaffoldMessenger.of(context)
-                        ..hideCurrentSnackBar()
-                        ..showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'Pathways is not available in the current '
-                              'authorized build.',
-                            ),
-                          ),
-                        );
-                      return;
-                    case 3:
                       context.go(RoutePaths.contacts);
-                      return;
-                    case 4:
-                      context.go(RoutePaths.more);
                       return;
                   }
                 },
@@ -149,19 +131,9 @@ final class _MainShellState extends State<MainShell> {
                     label: 'Planner',
                   ),
                   NavigationDestination(
-                    icon: Icon(Icons.layers_outlined),
-                    selectedIcon: Icon(Icons.layers),
-                    label: 'Pathways',
-                  ),
-                  NavigationDestination(
                     icon: Icon(Icons.people_outline),
                     selectedIcon: Icon(Icons.people),
                     label: 'Contacts',
-                  ),
-                  NavigationDestination(
-                    icon: Icon(Icons.more_horiz),
-                    selectedIcon: Icon(Icons.more_horiz),
-                    label: 'More',
                   ),
                 ],
               ),

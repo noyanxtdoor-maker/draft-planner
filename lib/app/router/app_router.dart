@@ -46,7 +46,6 @@ import 'package:rmplanner/features/privacy/presentation/privacy_center_screen.da
 import 'package:rmplanner/features/settings/application/start_of_week_providers.dart';
 import 'package:rmplanner/features/settings/presentation/appearance_screen.dart';
 import 'package:rmplanner/features/settings/presentation/colors_screen.dart';
-import 'package:rmplanner/features/settings/presentation/more_screen.dart';
 import 'package:rmplanner/features/settings/presentation/planner_event_colors_screen.dart';
 import 'package:rmplanner/features/settings/presentation/settings_screen.dart';
 import 'package:rmplanner/features/settings/presentation/start_of_week_screen.dart';
@@ -115,7 +114,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             name: RouteNames.more,
             path: RoutePaths.more,
-            builder: (context, state) => const MoreScreen(),
+            // NX-07/08: the standalone More landing page is removed from the
+            // IA.  The old /more location is kept ONLY as a compatibility
+            // redirect to Home (never renders a More landing); its former
+            // child destinations (Settings, Colors, Start-of-week, Appearance,
+            // Planner Event Colors, Privacy) remain reachable from the drawer
+            // and their direct routes.
+            redirect: (context, state) => RoutePaths.home,
           ),
           GoRoute(
             name: RouteNames.contacts,
@@ -397,6 +402,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 // Save.  The form only asks when this flag is set.
                 deferRecurrenceScopeToSave:
                     state.uri.queryParameters['deferScope'] == '1',
+                // NX-06: identity seeds for the Edit loading shell (known
+                // from the detail sheet at open time). Null on deep-link /
+                // direct entries keeps the previous behavior.
+                initialTitle: state.uri.queryParameters['title'],
+                initialEventTypeLabel:
+                    state.uri.queryParameters['eventTypeLabel'],
               );
             },
           ),

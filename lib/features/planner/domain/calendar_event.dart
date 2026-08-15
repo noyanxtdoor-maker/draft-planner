@@ -1141,8 +1141,9 @@ String calendarEventStatusLabel(
   return switch (status) {
     CalendarEventStatus.scheduled => 'Unreported',
     CalendarEventStatus.completedHappened => 'Completed',
-    CalendarEventStatus.partiallyCompleted =>
-      isContactEvent ? 'Missed — Attempted' : 'Missed',
+    // NX-03: the user-facing partial outcome is 'Missed' for Contact and
+    // generic Events alike; the stored MISSED_ATTEMPTED value is internal.
+    CalendarEventStatus.partiallyCompleted => 'Missed',
     CalendarEventStatus.didNotHappen => 'Did Not Attempt',
     CalendarEventStatus.cancelled => 'Cancelled',
     CalendarEventStatus.rescheduled => 'Rescheduled',
@@ -1158,12 +1159,10 @@ String calendarEventOutcomeLabel({
     // Planner Polish Delta 2 final matrix: the success state reads
     // 'Completed' for BOTH Contact and generic Events.
     CalendarEventStatus.completedHappened => 'Completed',
-    // Planner Polish Delta 2: the internal partial outcome stores as
-    // MISSED_ATTEMPTED; the user-facing label is 'Missed' for generic
-    // (non-Contact) Events and the richer 'Missed — Attempted' for Contact
-    // Events.  Storage never changes, so historical reports stay readable.
-    CalendarEventStatus.partiallyCompleted =>
-      isContactEvent ? 'Missed — Attempted' : 'Missed',
+    // NX-03: the internal partial outcome stores as MISSED_ATTEMPTED; the
+    // user-facing label is 'Missed' for Contact and generic Events alike.
+    // Storage never changes, so historical reports stay readable.
+    CalendarEventStatus.partiallyCompleted => 'Missed',
     // Legacy non-Contact Did Not Attempt records remain historically true
     // and readable (Delta 2 preserves them; the choice is only no longer
     // offered to new non-Contact reports).
