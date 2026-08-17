@@ -1,0 +1,125 @@
+NEXT_TRANSFER_DEFERRED_FINDINGS_2026-08-15_LIGHT_UI_FINAL_POLISH.txt
+
+SOURCE OF TRUTH: Screen_Recording_20260815_101449.mp4 (36.7s) supplied by the
+owner, frame-by-frame reviewed at 10fps dense + 2fps main.  Working evidence
+table preserved in $TEMP/lpolish/evidence_table.md.
+
+Items marked FIX NOW in the evidence table were all implemented in this
+session (A/B/C/D).  The items below are everything else observed that was NOT
+directly authorized for this pack.  Nothing here was silently fixed.
+
+================================================================================
+DEFERRED ITEMS
+================================================================================
+
+ID: DF-01
+TIMESTAMP / SCREEN: ~35.0s / end of recording
+OBSERVATION: Screen goes dark and never returns to the app.
+SEVERITY: LOW
+LIKELY OWNER: OS / device (app switch or screen off), not app routing
+WHY DEFERRED: No app code path can produce an unrecoverable black frame at
+  recording end; there is no crash log in the capture and the app returned
+  normally in prior frames.  No reproduction in code.
+RISK: None for the product; risk is misattributing an OS event to the app.
+RECOMMENDED FUTURE PACK: None unless the owner can reproduce it while staying
+  inside the app.
+OWNER DECISION NEEDED?: No
+EVIDENCE PATH / SCREENSHOT: frames/f_071..f_073 (dense analysis)
+
+ID: DF-02
+TIMESTAMP / SCREEN: throughout / all screens
+OBSERVATION: DEBUG build banner visible on every frame of the recording.
+SEVERITY: LOW
+LIKELY OWNER: build/install pipeline (debug APK)
+WHY DEFERRED: Debug builds are the established implementation-evidence build
+  for every pack in this workstream; the banner is expected and not a UI
+  defect.  Owner has never asked to change the evidence build.
+RISK: A reviewer could mistake the banner for a product defect.
+RECOMMENDED FUTURE PACK: None; note that release/profile builds remove it.
+OWNER DECISION NEEDED?: No
+EVIDENCE PATH / SCREENSHOT: frames/f_001..f_070
+
+ID: DF-03
+TIMESTAMP / SCREEN: 0.0-5.5s / Home
+STATUS: RESOLVED BY HR-01 (2026-08-15 HOME_LIFE_GOALS_RESTORE)
+OBSERVATION (original): After the authorized GI-02 2x card growth (148dp
+  two-region wide card, 148dp stacked compact cards), the "Goal Planning" pill
+  and the whole Active Pathways section sat below the fold on short viewports.
+  On small phones the Life Goals section alone filled the first screen.
+RESOLUTION: HR-01 restored the owner-approved compact Home Life Goals layout
+  (approve home light.png): a single 76dp daily Goal card row (icon | title +
+  ratio | Today's Goal block | + action), 76dp half-width compact icon+text
+  pairs in the two-column grid, and a 76dp [Temple Visit] [August Goal] bottom
+  pair.  Four compact rows replace the two tall two-region/stacked cards, so
+  Goal Planning and Active Pathways render on-screen again without scrolling.
+BEFORE/AFTER EVIDENCE: home_pack1 golden masters regenerated (01-20); the new
+  masters' diff rows 134-801 are the compact geometry pulling all content up
+  (same content, denser layout); home_indicator_journey_test now pins 76dp
+  card heights (was 148).  Device screenshot (post-install, Light + Blue)
+  confirms ~222px card bands at 1080x2400 (2.75 dpr) = 76dp, not the old
+  ~407px/148dp bands.
+SEVERITY: POLISH (resolved)
+RISK: None remaining beyond the normal compact-card ellipsis contract for very
+  long titles (maxLines 1 + ellipsis, approved treatment).
+RECOMMENDED FUTURE PACK: None for this item; compact layout is now the
+  committed baseline.
+OWNER DECISION NEEDED?: No (approved reference governs; owner physical review
+  of the restored Home remains the final gate).
+
+ID: DF-04
+TIMESTAMP / SCREEN: 0.0-5.5s / Home temple card
+OBSERVATION: Behavior change, not a bug: before POLISH-02, tapping the center
+  of the temple monthly card accidentally hit the "Set Schedule" secondary
+  action (the create-gate flow opened).  After the two-region wide-card
+  layout, the card center opens Goal Edit; "Set Schedule" is now only
+  reachable by tapping the actual keyed TextButton.  The journey test was
+  updated to tap the keyed affordance (home-temple-schedule) so the create-gate
+  contract is still covered.
+SEVERITY: LOW
+LIKELY OWNER: lib/features/startup/presentation/home_screen.dart
+WHY DEFERRED: The card-center behavior was incidental hit-test luck, not a
+  designed interaction.  Making the whole card open the schedule flow again
+  would fight the main tap-to-edit contract.
+RISK: An owner who used to tap the card center to schedule a temple visit will
+  now land on Goal Edit instead.
+RECOMMENDED FUTURE PACK: None unless the owner wants the whole temple card to
+  open scheduling; then a dedicated secondary-tap target decision is needed.
+OWNER DECISION NEEDED?: Yes - confirm the keyed "Set Schedule" button is the
+  intended target.
+EVIDENCE PATH / SCREENSHOT: home_screen.dart _wideContent (home-temple-schedule)
+
+ID: DF-05
+TIMESTAMP / SCREEN: 29.9-33.4s / Contact detail
+OBSERVATION: The flicker fix retains the last valid Contact content while a
+  refresh is in flight.  Trade-off: if the same provider instance were ever
+  re-targeted to a different contact id, one stale frame could render before
+  the new data arrives.  The provider is keyed per contactId, so this requires
+  a widget identity change that does not exist today.
+SEVERITY: LOW
+LIKELY OWNER: lib/features/contacts/presentation/contact_detail_screen.dart
+WHY DEFERRED: The per-contact provider makes the stale window unreachable in
+  the current architecture; adding a contact-identity guard would be defense
+  in depth, not a fix for an observed defect.
+RISK: Negligible; documented for completeness.
+RECOMMENDED FUTURE PACK: None, or a contactId-equality guard if Contact
+  navigation is ever refactored.
+OWNER DECISION NEEDED?: No
+EVIDENCE PATH / SCREENSHOT: contact_detail_screen.dart POLISH-07 change
+
+ID: DF-06
+TIMESTAMP / SCREEN: 3.0-5.5s / Home drawer
+OBSERVATION: The global drawer renders dark while the Home behind it is Light.
+SEVERITY: LOW (Info)
+LIKELY OWNER: app/shell drawer (inherited M3 behavior)
+WHY DEFERRED: The drawer intentionally follows the dark-theme surface roles
+  and the owner recording showed no complaint about it; it is standard M3
+  drawer behavior and matches the pre-existing accepted design.
+RISK: None observed.
+RECOMMENDED FUTURE PACK: None unless the owner wants the drawer to follow the
+  active Light/Dark mode more closely.
+OWNER DECISION NEEDED?: No
+EVIDENCE PATH / SCREENSHOT: frames/f_010..f_020
+
+================================================================================
+END OF DEFERRED FINDINGS
+================================================================================

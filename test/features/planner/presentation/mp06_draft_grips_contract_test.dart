@@ -1,12 +1,14 @@
-// MP-06 contract: the provisional pink draft renders exactly TWO integrated
-// compact corner grips - upper-right START, bottom-left END - on top of the
-// existing 44 dp invisible hit targets, reusing the approved saved-Event
-// Corner Tab Grip visual.  No floating dots, no upper-left/bottom-right
-// handles, no saved-Event behavior change.
+// MP-06 / MP-06B contract: the provisional draft renders exactly TWO
+// integrated compact corner grips - upper-right START, bottom-left END - on
+// top of the existing 44 dp invisible hit targets, reusing the approved
+// saved-Event Corner Tab Grip visual. MP-06B (owner correction 2026-08-17):
+// the visible 14 dp caps sit FULLY INSIDE the filled theme-family draft
+// block, and the draft surface follows the app theme family
+// (colorScheme.primaryContainer). No floating dots, no upper-left/
+// bottom-right handles, no saved-Event behavior change.
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:rmplanner/app/theme/app_theme.dart';
 import 'package:rmplanner/core/database/app_database.dart';
 import 'package:rmplanner/core/diagnostics/sanitized_diagnostics.dart';
 import 'package:rmplanner/core/platform/app_environment.dart';
@@ -105,18 +107,23 @@ void main() {
       expect(tester.getSize(startDot), const Size(14, 14));
       expect(tester.getSize(endDot), const Size(14, 14));
 
-      // START grip hugs the block's upper-right corner: the dot's top-right
-      // corner coincides with the block's top-right corner.
+      // MP-06B: the 14 dp caps sit FULLY INSIDE the filled draft block.
+      // START: top edge flush with the block's upper-right corner, right
+      // edge on the block corner, cap extends downward inside the block.
+      // END: bottom edge flush with the block's lower-left corner, cap
+      // extends upward inside the block. No straddle; the grip/fill
+      // contrast (primary on primaryContainer) keeps the caps visible.
       final block = find.byKey(const Key('planner-provisional-event-block'));
       final blockRect = tester.getRect(block);
       final startRect = tester.getRect(startDot);
       expect(startRect.right, closeTo(blockRect.right, 0.01));
       expect(startRect.top, closeTo(blockRect.top, 0.01));
+      expect(startRect.bottom, lessThanOrEqualTo(blockRect.bottom + 0.01));
 
-      // END grip hugs the block's bottom-left corner.
       final endRect = tester.getRect(endDot);
       expect(endRect.left, closeTo(blockRect.left, 0.01));
       expect(endRect.bottom, closeTo(blockRect.bottom, 0.01));
+      expect(endRect.top, greaterThanOrEqualTo(blockRect.top - 0.01));
 
       await tester.tap(find.byKey(const Key('calendar-event-sheet-close')));
       await tester.pump(const Duration(milliseconds: 600));
@@ -171,7 +178,7 @@ void main() {
       expect(draft.startMinute, startMinute - 30);
       expect(draft.endMinute, endMinute + 30, reason: 'START must not move end');
 
-      // The grips still hug the (now taller) block corners.
+      // MP-06B: the grips stay FULLY INSIDE the (now taller) block corners.
       final block = find.byKey(const Key('planner-provisional-event-block'));
       final blockRect = tester.getRect(block);
       final startRect = tester.getRect(
@@ -182,17 +189,23 @@ void main() {
       );
       expect(startRect.right, closeTo(blockRect.right, 0.01));
       expect(startRect.top, closeTo(blockRect.top, 0.01));
+      expect(startRect.bottom, lessThanOrEqualTo(blockRect.bottom + 0.01));
       expect(endRect.left, closeTo(blockRect.left, 0.01));
       expect(endRect.bottom, closeTo(blockRect.bottom, 0.01));
+      expect(endRect.top, greaterThanOrEqualTo(blockRect.top - 0.01));
 
-      // Draft surface stays the pink provisional fill (no regression).
+      // MP-06B: the draft surface follows the app theme family (container
+      // token), never a hardcoded pink.
       final visibleBlock = find.byKey(
         const Key('planner-provisional-event-visible'),
       );
       final material = tester.widget<Material>(
         find.descendant(of: visibleBlock, matching: find.byType(Material)).first,
       );
-      expect(material.color, AppTheme.rose);
+      expect(
+        material.color,
+        Theme.of(tester.element(visibleBlock)).colorScheme.primaryContainer,
+      );
 
       await tester.tap(find.byKey(const Key('calendar-event-sheet-close')));
       await tester.pump(const Duration(milliseconds: 600));

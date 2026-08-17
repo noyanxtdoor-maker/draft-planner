@@ -26,6 +26,8 @@ import 'package:rmplanner/features/indicators/presentation/indicator_detail_scre
 import 'package:rmplanner/features/indicators/presentation/indicator_edit_screen.dart';
 import 'package:rmplanner/features/indicators/presentation/indicator_list_screen.dart';
 import 'package:rmplanner/features/indicators/presentation/weekly_target_prompt_screen.dart';
+import 'package:rmplanner/features/maps/presentation/map_location_picker_screen.dart';
+import 'package:rmplanner/features/maps/presentation/maps_screen.dart';
 import 'package:rmplanner/features/planner/application/planner_providers.dart';
 import 'package:rmplanner/features/planner/domain/calendar_event.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
@@ -126,6 +128,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             name: RouteNames.contacts,
             path: RoutePaths.contacts,
             builder: (context, state) => const ContactsScreen(),
+          ),
+          GoRoute(
+            name: RouteNames.maps,
+            path: RoutePaths.maps,
+            builder: (context, state) => const MapsScreen(),
           ),
           GoRoute(
             name: RouteNames.settings,
@@ -503,6 +510,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: RouteNames.contactSearch,
         path: RoutePaths.contactSearch,
         builder: (context, state) => const ContactSearchScreen(),
+      ),
+      GoRoute(
+        name: RouteNames.mapPicker,
+        path: RoutePaths.mapPicker,
+        builder: (context, state) {
+          final args = state.extra is MapPickerArgs
+              ? state.extra! as MapPickerArgs
+              : const MapPickerArgs(displayName: 'Pin');
+          return MapLocationPickerScreen(args: args);
+        },
       ),
       GoRoute(
         name: RouteNames.contactCreate,

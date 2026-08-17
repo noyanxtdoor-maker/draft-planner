@@ -107,11 +107,12 @@ void main() {
       expect(quarterEnd.difference(quarterStart), const Duration(minutes: 15));
     }
 
-    // Delta 4.2R3 R3-04 adaptive floor at the compact preset (44px/h): the
-    // 15-minute Event renders 11px and the 30-minute Event 22px, both below
-    // the 28px readability threshold, so they switch to OVERVIEW MODE and
-    // occupy their whole hour row. Stored durations stay exact; the
-    // 45/60-minute Events keep EXACT geometry (33px / 44px >= 28px).
+    // R3 owner override (2026-08-16, FINAL): at the compact preset (44px/h)
+    // — the overview band — EVERY 15/30/45-minute Event switches to OVERVIEW
+    // MODE and occupies its whole hour row (15m=11px, 30m=22px below the
+    // 28px threshold; 45m=33px is readable but the owner requires it to read
+    // as a one-hour overview card at zoom-out). The 60-minute Event keeps
+    // EXACT geometry (44px >= 28px). Stored durations stay exact.
     final compact = resolve(
       events,
       hourHeight: PlannerZoomPolicy.compactHourHeight,
@@ -132,23 +133,25 @@ void main() {
     final halfStart = half.event.startLocal!;
     final halfEnd = half.event.endLocal!;
     expect(halfEnd.difference(halfStart), const Duration(minutes: 30));
-    for (final id in <String>['threeQuarter', 'hour']) {
-      final placement = compact.singleWhere((item) => item.event.id == id);
-      final start = placement.event.startLocal!;
-      final end = placement.event.endLocal!;
-      final startMinute = start.hour * 60 + start.minute;
-      final endMinute = plannerEndMinuteOfDay(start, end);
-      expect(
-        placement.top,
-        closeTo(startMinute * compactPpm, 0.001),
-        reason: '$id top at compact zoom',
-      );
-      expect(
-        placement.height,
-        closeTo((endMinute - startMinute) * compactPpm, 0.001),
-        reason: '$id height at compact zoom',
-      );
-    }
+    final threeQuarter = compact.singleWhere(
+      (item) => item.event.id == 'threeQuarter',
+    );
+    expect(threeQuarter.top, closeTo(13 * 60 * compactPpm, 0.001));
+    expect(threeQuarter.height, closeTo(60 * compactPpm, 0.001));
+    expect(threeQuarter.bottom, closeTo(14 * 60 * compactPpm, 0.001));
+    final threeQuarterStart = threeQuarter.event.startLocal!;
+    final threeQuarterEnd = threeQuarter.event.endLocal!;
+    expect(
+      threeQuarterEnd.difference(threeQuarterStart),
+      const Duration(minutes: 45),
+    );
+    final hour = compact.singleWhere((item) => item.event.id == 'hour');
+    final hourStart = hour.event.startLocal!;
+    final hourEnd = hour.event.endLocal!;
+    final hourStartMinute = hourStart.hour * 60 + hourStart.minute;
+    final hourEndMinute = plannerEndMinuteOfDay(hourStart, hourEnd);
+    expect(hour.top, closeTo(hourStartMinute * compactPpm, 0.001));
+    expect(hour.height, closeTo((hourEndMinute - hourStartMinute) * compactPpm, 0.001));
   });
 
   test('Delta 4.2R R10: short Events use a display-only hour-row floor at '
@@ -347,26 +350,41 @@ void main() {
     }
   });
 
-  test('R4-06: readability footprints never create false logical overlap', () {
+  test('R4-06/R3: same-hour short Event footprints are packed into display '
+      'columns - never cover, never reserve a logical lane', () {
+    // R3 owner override (2026-08-16, FINAL): at zoom-out EVERY short Event
+    // is a one-hour visual card; two same-hour short Events (9:00-9:15 and
+    // 9:30-9:45 both expand to the 09:00-10:00 band) are packed into two
+    // DISPLAY columns so neither covers the other. The logical lane count
+    // stays 1 (the floor never reserves a real lane) and both Events keep
+    // their exact canonical times.
     final placements = resolve(<PlannerCalendarItem>[
       event('firstShort', 9 * 60, 9 * 60 + 15),
       event('secondShort', 9 * 60 + 30, 9 * 60 + 45),
     ], hourHeight: minimumHourHeight());
-
+    final first = placements.singleWhere((p) => p.event.id == 'firstShort');
+    final second = placements.singleWhere((p) => p.event.id == 'secondShort');
     for (final placement in placements) {
       expect(
         placement.columnCount,
         1,
-        reason: 'the 28px visual floor must not reserve a logical lane',
-      );
-      expect(placement.spanCount ?? 1, 1);
-      expect(
-        placement.height,
-        closeTo(minimumHourHeight(), 0.001),
-        reason: 'the approved readability footprint remains visual',
+        reason: 'the visual floor must not reserve a logical lane',
       );
     }
-    expect(placements[0].event.id, 'firstShort');
-    expect(placements[1].event.id, 'secondShort');
+    // Both Events own the whole hour visually.
+    final ppm = PlannerTimelineGeometry.pixelsPerMinute(minimumHourHeight());
+    expect(first.height, closeTo(60 * ppm, 0.001));
+    expect(second.height, closeTo(60 * ppm, 0.001));
+    // Distinct display slices (packed side by side, never covering).
+    expect(first.widthFactor, closeTo(0.5, 0.001));
+    expect(second.widthFactor, closeTo(0.5, 0.001));
+    expect(first.offsetFactor, closeTo(0, 0.001));
+    expect(second.offsetFactor, closeTo(0.5, 0.001));
+    // Same canonical lane; canonical times stay exact.
+    expect(first.column, second.column);
+    expect(
+      second.event.startLocal!.difference(first.event.startLocal!),
+      const Duration(minutes: 30),
+    );
   });
 }

@@ -446,13 +446,14 @@ final class PlannerEventBlockContent {
       // tall. Keep the approved inline schedule for compact blocks that can
       // still contain it, but collapse smaller blocks to title-only and hide
       // the recurrence affordance so it cannot bleed outside the block.
-      // Delta 3: a 12-14 dp repeat icon needs only ~12 px, so a one-hour
-      // block at the widest zoom-out (>= ~17 px) always shows it — the
-      // previous 18 px threshold hid recurrence from exactly the view the
-      // owner records in.
+      // R3 (owner override 2026-08-16): content priority is identity first.
+      // The recurrence affordance must NEVER render while the Event title is
+      // hidden (12-17 px blocks previously showed a recurrence icon with no
+      // title) — it requires the same height as the title line so secondary
+      // metadata never outranks identity.
       showTimeInline:
           height >= 15 && PlannerEventBlockLayoutPolicy.showTimeInline(density),
-      showRecurrence: height >= 12,
+      showRecurrence: height >= PlannerEventBlockLayoutPolicy.titleLineHeight,
       // A medium block can be only a few pixels taller than the title/time
       // rows. Keep the status row until there is enough room for all three
       // rows and their measured gaps; compact blocks must never rely on

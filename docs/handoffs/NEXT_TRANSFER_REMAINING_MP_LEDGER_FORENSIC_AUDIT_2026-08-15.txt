@@ -1,0 +1,428 @@
+================================================================================
+NEXT TRANSFER — COMPLETE MP-01..MP-19 LEDGER RECONCILIATION
+READ-ONLY FORENSIC AUDIT FROM CLEAN CHECKPOINT 333bc48
+DATE: 2026-08-15
+MODE: READ-ONLY · NO PRODUCTION/TEST/GOLDEN/SCHEMA EDITS · NO COMMIT · NO PUSH
+================================================================================
+
+1. CHECKPOINT AND READ-ONLY PROOF
+================================================================================
+- Repo: C:\Users\sherl\Documents\Next Transfer-Temp
+- Branch: autonomous/stability-ux-pack-a-20260814
+- HEAD: 333bc48f664b399e1d5f8007f80612de3246093f (== origin HEAD)
+- Tracked tree: CLEAN (git status --porcelain shows zero modified tracked files)
+- Index: EMPTY (git diff --cached empty)
+- Schema: v27 (unchanged; no migration, no DB touch this session)
+- Untracked artifacts (74): .accept/, .agents/, .audit_scratch*/, docs/handoffs/**,
+  tool/*, and prior scratch dirs — inherited owner artifacts, NOT attributed to
+  this session. None were modified.
+- No merge/rebase/detached-HEAD state. No reset/clean/checkout-over/stash run.
+- No temporary files were created inside the tracked repo; all greps/reads were
+  read-only. No device/preference/data mutation.
+
+2. HISTORICAL SOURCES SEARCHED
+================================================================================
+Primary chronological evidence (SESSION_AUDIT + handoff zips):
+- NEXT_TRANSFER_SESSION_AUDIT_2026-08-13_EDIT_EVENT_TYPE_COLOR_COMPLETE_CHECKPOINT.txt
+  (first MP-01..MP-08 definition list)
+- NEXT_TRANSFER_SESSION_AUDIT_2026-08-13_GOAL_ICON_COMPLETE_CHECKPOINT.txt
+  (MP-11..MP-15 ledger state + owner physical PASS)
+- AUTO_2026-08-14_STABILITY_UX_PACK_A_01_FORENSIC_AUDIT.txt (Pack A source recording
+  + A1-A9 analysis, MP-04/MP-06 no-touch)
+- AUTO_2026-08-14_STABILITY_UX_PACK_A_07_FINAL_SESSION_AUDIT.txt (A1-A9 items,
+  MP-11..MP-14 ledger, ITEM_PASS engineering status)
+- NEXT_TRANSFER_PACK_A_PHYSICAL_REVIEW_DELTA_AUDIT_2026-08-14.txt (A1-A9 physical
+  verdicts: A1/A2/A8 FAIL-OPEN, A3-A7/A9 PASS)
+- NEXT_TRANSFER_SESSION_AUDIT_2026-08-14_PACK_A_A1_A2_A8.txt + ..._CHECKPOINT.txt
+  (A1/A2/A8/A9 fix + owner physical PASS; MP-16/MP-17 first logged as NEW)
+- NEXT_TRANSFER_MP16_FORENSIC_AUDIT_2026-08-14.txt +
+  NEXT_TRANSFER_SESSION_AUDIT_2026-08-14_MP16_CHECKPOINT.txt + MP16_CORRECTION.txt
+  (MP-16 definition + fix + "MP-16 is CLOSED")
+- NEXT_TRANSFER_PACK_B1_PHYSICAL_PASS_CHECKPOINT_PACK_2026-08-14/
+  02-OWNER-PHYSICAL-PASS-AND-MP18.txt  (MP-18 FIRST DEFINITION — recovered)
+- NEXT_TRANSFER_PACK_B_APPEARANCE_DEEPSEEK_FORENSIC_AUDIT_2026-08-14.txt
+  (B1/B2/B3; MP-12/13/14/17 deferred list)
+- NEXT_TRANSFER_B2_FINAL_THEME_POLISH_FORENSIC_AUDIT_2026-08-14.txt +
+  NEXT_TRANSFER_SESSION_AUDIT_2026-08-14_B2_FINAL_THEME_POLISH_DARK_BLUE_DEFAULT.txt
+  (MP-17/MP-18 no-touch; MP-19 implementation)
+- NEXT_TRANSFER_B3_THEME_GOAL_ICONS_TASK_CONSISTENCY_FORENSIC_AUDIT_2026-08-14.txt
+  (MP-12 contrast quantification; MP-14 excluded unless promoted)
+- NEXT_TRANSFER_GI01_GI02_CT03_FORENSIC_AUDIT_2026-08-15.txt (raw-art Light
+  contrast ~1.7-2.4:1; halo/plate options)
+- NEXT_TRANSFER_SESSION_AUDIT_2026-08-15_LIGHT_UI_FINAL_POLISH.txt (halo removal,
+  POLISH-06 temple optical scale)
+- NEXT_TRANSFER_SESSION_AUDIT_2026-08-15_HI02_GP01.txt + CHECKPOINT (latest Home
+  visual state)
+- NEXT_TRANSFER_DEFERRED_FINDINGS_2026-08-15_LIGHT_UI_FINAL_POLISH.txt (DF-01..06)
+- NEXT_TRANSFER_PHASE3_NEXT_FUNCTIONAL_PACK_FORENSIC_AUDIT_2026-08-15.txt
+- REPO_FORENSIC_AUDIT/10-Date-Switch-Flow.txt, 17-Runtime-Performance-Evidence.txt,
+  RUNTIME_PROFILE/ (Pack A era runtime evidence)
+- 01_OWNER_ROADMAP_LOCK.txt (current authority for this audit)
+
+3. MP-01..MP-19 CHRONOLOGY / CURRENT-STATE MATRIX
+================================================================================
+MP | SHORT NAME | ORIGINAL STATUS | LATEST OWNER STATUS | CURRENT CODE STATUS |
+FINAL CLASSIFICATION | NEXT ACTION
+
+MP-01  Goal Planning navigation latency (A1)
+  First: 2026-08-13 EDIT_EVENT_TYPE checkpoint. Physical Review Delta: FAIL-OPEN.
+  Fixed by Pack A A1 session; A1A2A8 checkpoint: OWNER PHYSICAL PASS.
+  Code: route mounts promptly, useful content latency removed.
+  CLASS: CLOSED. Action: none.
+
+MP-02  Home/app reopen loading + spinner exposure (A2)
+  First: 2026-08-13. Delta audit: FAIL-OPEN (2-3s Life Goals spinner on fresh
+  launch). Fixed (honest skeleton, no central spinner); A1A2A8 checkpoint:
+  OWNER PHYSICAL PASS.
+  CLASS: CLOSED. Action: none.
+
+MP-03  Today's Goal +/- refresh flash (A3)
+  First: 2026-08-13. Delta audit: OWNER PASS - FROZEN. Optimistic target-local
+  update shipped in Pack A.
+  CLASS: CLOSED. Action: none.
+
+MP-04  Planner date-swipe Event border late/temporary disappearance
+  First: 2026-08-13. NEVER implemented; frozen in Pack A and every later pack
+  (Planner no-touch). Current code: the left accent BorderSide is painted
+  inline and unconditionally as a pure function of the event
+  (planner_interactive_day_pager.dart _buildPreviewBlock, DecoratedBox), no
+  async/conditional border state exists. Date-switch flow doc
+  (REPO_FORENSIC_AUDIT/10) lists swipe blip sources (preview omits all-day/
+  tasks -> content pop; redundant readDays) but no border-specific delay path.
+  No deterministic automated reproduction test exists. Fresh device
+  reproduction was never re-attempted after the stabilization rework.
+  CLASS: STILL OPEN (risk possibly reduced by later pager rework; unproven
+  either way). Action: owner reproduction/evidence capture first.
+
+MP-05  Edit Goal -> Edit Event Type transition delay (A4)
+  First: 2026-08-13. Delta audit: OWNER PASS (populated ~0.6s).
+  CLASS: CLOSED. Action: none.
+
+MP-06  Draft pink Event integrated corner-grip redesign
+  First: 2026-08-13 ("integrated upper-right + bottom-left corner grips").
+  NEVER implemented. Current code: PlannerEventBlockLayoutPolicy
+  .showResizeHandle() returns false since commit acf33b6e (2026-08-02, BEFORE
+  the MP ledger was written) — "the approved timeline surface does not render
+  a visible grip"; resize uses invisible 12dp edge hit zones
+  (resizeHitAreaHeight / topResizeHitAreaHeight). The draft pink block renders
+  only its time range (Delta 4.1 D4.1-04 approved).
+  CLASS: SUPERSEDED BY LATER OWNER-APPROVED DIRECTION (no-visible-grip
+  timeline surface approved before the MP was even logged).
+  Action: close ledger entry; no code change.
+
+MP-07  Save Event Type "Saving..." delay (A5)
+  First: 2026-08-13. Delta audit: OWNER PASS (returns ~1.2s).
+  CLASS: CLOSED. Action: none.
+
+MP-08  Legacy crossed Event Type labels (A6, budget_review / meaningful_connection)
+  First: 2026-08-13. Delta audit: OWNER PASS (labels physically correct).
+  MP-16 later closed the separate repo-level Goal assignment cross.
+  CLASS: CLOSED. Action: none.
+
+MP-09  Built-in Work -> Shopping rename (A7)
+  First: 2026-08-13. Delta audit: OWNER PASS (Shopping separate; Job separate).
+  CLASS: CLOSED. Action: none.
+
+MP-10  Choose Icon scroll-under app-bar tint (A8)
+  First: 2026-08-13. Delta audit: FAIL-OPEN (surface -> brown/maroon while
+  scrolled, pixel-proven #191A1E -> #271C20). Fixed in A1A2A8 session; A1A2A8
+  checkpoint: OWNER PHYSICAL PASS.
+  CLASS: CLOSED. Action: none.
+
+MP-11  Goal Icon optical-size scope
+  First: Goal Icon complete checkpoint 2026-08-13. Accepted as-is at Stage-1.2
+  (no per-icon fit hacks); owner physical PASS for Stage-1/1.1/1.2.
+  NOTE: POLISH-06 (2026-08-15) later added a single renderer-only optical
+  scale for spiritual_temple (1.15x) with owner approval of Temple optical
+  normalization — a later superseding exception, not an MP-11 reopen.
+  CLASS: CLOSED. Action: none.
+
+MP-12  Light Goal Icon contrast/theming
+  First: Goal Icon checkpoint 2026-08-13 (deferred). Trajectory: dark plate
+  (B3.3 R2, >=3:1 achieved 7.14-7.88:1 vs dark; raw 2.18/1.97 vs light) ->
+  GI-01 halo (1.06x #181A1E) -> Light UI Final Polish REMOVED plate AND halo;
+  current renderer (goal_icon.dart, HEAD) = raw two-tone SVG only, colorFilter
+  null, Light and Dark identical raw path. Measured raw-art Light contrast:
+  ~1.7-2.4:1 (below 3:1), documented honestly in GI-01 audit and the
+  Light-UI session audit (icon never sole information carrier; text labels
+  accompany icons). 01_OWNER_ROADMAP_LOCK explicitly locks raw two-tone as
+  accepted.
+  CLASS: SUPERSEDED BY LATER OWNER-APPROVED DIRECTION (accessibility tradeoff
+  documented, not dropped silently).
+  Action: close ledger entry; owner has accepted the documented tradeoff.
+
+MP-13  Stacked Coins stroke-weight harmonization
+  First: Goal Icon checkpoint 2026-08-13 (deferred). Asset
+  assets/icons/goals/stacked_coins.svg committed once (47d283d, library
+  expansion); registry entry approved ("approved stacked_coins style block"
+  comment at goal_icon_registry.dart:993); NO stroke change ever applied. No
+  dedicated owner visual verdict beyond the general Stage PASS.
+  CLASS: STILL OPEN / OWNER DECISION REQUIRED (purely visual).
+  Action: owner visual decision (peer-size comparison); no asset edits without
+  a decision.
+
+MP-14  Original light-blue/warm-gold palette restoration
+  First: Goal Icon checkpoint 2026-08-13 (deferred). B3 theme audit kept it
+  "excluded unless promoted". Current accepted palette = raw two-tone
+  (teal/gold/rose families), owner-locked as accepted (roadmap lock: "raw
+  two-tone Goal Icon appearance is accepted").
+  CLASS: SUPERSEDED BY LATER OWNER-APPROVED DIRECTION.
+  Action: close ledger entry.
+
+MP-15  Choose Icon Back navigation (A9)
+  First: Goal Icon checkpoint 2026-08-13 (NEW, deferred). A9 physical PASS
+  confirmed in A1A2A8 checkpoint (Back returns to the same Edit Goal draft).
+  CLASS: CLOSED. Action: none.
+
+MP-16  Legacy fixed Goal <-> Event Type assignment cross
+  First: NEXT_TRANSFER_MP16_FORENSIC_AUDIT_2026-08-14 (distinct from MP-08;
+  Goal assigned_event_type_stable_key pointing at wrong rows).
+  Implemented (drift_goal_repository, 257 lines) + checkpoint PASS; audit
+  states verbatim: "MP-16 is CLOSED. Do not reopen unless a verification gate
+  fails." Full suite 950/950, device data applied and preserved.
+  CLASS: CLOSED. Action: none.
+
+MP-17  Overall cold/warm launch splash/startup duration before Home appears
+  First: Pack A A1A2A8 checkpoint 2026-08-14 ("NEW, lower priority ... NOT
+  touched"). Never implemented; deferred in every later audit. Current
+  startup phases (read-only, lib/main.dart): ensureInitialized ->
+  setPreferredOrientations -> AppDatabase.defaults() ->
+  await IanaCalendarEventTimeZones.forDevice() -> ~10 repository constructor
+  calls -> await readAppearance() + readThemeColor() (two sequential
+  pre-runApp reads) -> runApp(ProviderScope) -> startupControllerProvider
+  (profile/onboarding bootstrap) -> router/shell first frame -> Home skeleton
+  -> data. No cold-start phase timing instrumentation exists; Pack A
+  RUNTIME_PROFILE evidence is planner runtime frames, not cold-start phases.
+  CLASS: STILL OPEN (never touched).
+  Action: dedicated read-only MP-17 startup-performance forensic audit.
+
+MP-18  Temple Visit Home card secondary-line flicker  [RECOVERED — see §6]
+  First: 02-OWNER-PHYSICAL-PASS-AND-MP18.txt (B1 physical pass pack,
+  2026-08-14). Deferred in B1/B2/B3 and every later audit; source
+  (home_screen.dart) confirmed untouched by B1/B2. Current code root cause
+  STILL PRESENT (see §6). No test covers the reload-stability of the line.
+  CLASS: STILL OPEN.
+  Action: fail-first surgical implementation (small, safe, deterministic).
+
+MP-19  Event form Save button -> circular primary check button
+  First: B2 Final Theme Polish audit 2026-08-14 (section "IMPLEMENT MP-19").
+  Implemented (calendar_event_form_screen.dart _buildSaveButton: 48x48
+  circular FilledButton, colorScheme.primary, check onPrimary, key
+  save-event-button preserved, tooltip/semantics "Save event"); targeted 5/5,
+  goldens 118/118, B2 checkpoint committed; on-device dark|blue survival
+  proven. Later audits list MP-19 as complete/preserved.
+  CLASS: CLOSED. Action: none.
+
+4. DEEP FINDINGS — MP-04 / MP-06 / MP-12 / MP-13 / MP-14 / MP-17 / MP-18 / MP-19
+================================================================================
+MP-04 — Event border is synchronous/pure in current code; the original symptom
+(observed on the frozen pre-stabilization build) has no deterministic
+automated reproduction in the suite and no fresh device reproduction since the
+stabilization rework re-architected the date-swipe flow (cache publish,
+settlement, preview column). Risk: possibly reduced; unproven removed. Any fix
+would touch frozen Planner geometry and MUST be reproduction-first.
+
+MP-06 — Superseded BEFORE the ledger existed: the approved timeline surface
+(commit acf33b6e, 2026-08-02) intentionally renders no visible grip and relies
+on invisible edge hit zones; the MP-06 "integrated corner grips" concept was
+already obsolete when logged (2026-08-13). Closing requires no code change and
+no owner decision (the no-visible-grip surface is the accepted baseline).
+
+MP-12 — Current renderer (HEAD) is raw two-tone SVG on both modes; Light
+contrast ~1.7-2.4:1 for representative art families vs Light surfaces — a
+documented, owner-accepted tradeoff (roadmap lock + Light UI audit). The
+plate/halo alternatives measured >=3:1 but were explicitly removed by later
+owner direction. Not a defect to "fix"; close the ledger entry with the
+documented accessibility note.
+
+MP-13 — Single committed asset, never stroked differently; purely visual;
+owner decision required (compare stacked_coins vs peer icons at same size).
+No asset edits were made or are recommended before a decision.
+
+MP-14 — Explicitly excluded by B3 unless promoted; latest owner physical
+acceptance + roadmap lock own the raw two-tone palette. Close.
+
+MP-17 — Never touched; startup phases inventoried (pre-runApp await chain:
+orientation + IANA timezone + two sequential appearance reads; then
+profile/onboarding bootstrap + first frame). No instrumentation exists; a
+read-only phase-profile session is the correct first step, not a blind
+"optimize startup" change.
+
+MP-18 — Recovered; root cause structurally present (see §6). This is the only
+open MP with a proven in-code cause, a deterministic test recipe, and a tiny
+surgical fix surface.
+
+MP-19 — Closed and preserved; no regression found in any later audit.
+
+5. DEEP FORENSIC — MP-04 (code read)
+================================================================================
+planner_interactive_day_pager.dart _buildPreviewBlock (lines ~1390-1470):
+the left accent border is a DecoratedBox with a Border(left: BorderSide(...))
+wrapped around the content, unconditional except for backup appointments; it
+renders in the same frame as the block from already-published provider data.
+No code path paints a block without its border, and no code path delays the
+border. The recorded symptom therefore most plausibly came from the pre-
+stabilization preview/content-pop behavior documented in
+REPO_FORENSIC_AUDIT/10-Date-Switch-Flow.txt (preview omits all-day events and
+tasks, then the authoritative day lands with a content pop; borderless
+preview columns could read as "late/missing border" during the 240ms settle +
+read window). No automated reproduction exists today. Fresh owner/device
+reproduction is required before any implementation; do NOT reopen Planner
+geometry without it.
+
+6. MP-18 — MANDATORY EXACT RECOVERY  (RECOVERED)
+================================================================================
+FIRST PRIMARY SOURCE:
+  File:  .../NEXT_TRANSFER_PACK_B1_PHYSICAL_PASS_CHECKPOINT_PACK_2026-08-14/
+         02-OWNER-PHYSICAL-PASS-AND-MP18.txt   (B1 owner physical pass pack,
+         SESSION_AUDIT archive)
+  Date:  2026-08-14
+  EXACT FIRST WORDING (verbatim):
+    "MP-18 — Temple Visit Home card secondary line briefly changes from
+    `Next Visit: Aug 16` to `Set Schedule`, then restores itself.
+    Frame-by-frame evidence around 8.5–8.6s and 10.9–11.0s.
+    This does not block B1 and is not authorized for checkpoint repair."
+
+PHYSICAL EVIDENCE THAT CREATED IT:
+  Owner B1 screen-recording review (Screen_Recording_20260814_135802.mp4),
+  frame-by-frame; two flash episodes at ~8.5-8.6s and ~10.9-11.0s.
+
+EVERY LATER "DEFERRED / NOT FIXED" REFERENCE:
+  - B1 checkpoint audit: MP-18 LOGGED, source home_screen.dart confirmed
+    untouched, NOT FIXED, intentionally deferred.
+  - B2 final theme polish audit: MP-18 stays deferred / in no-touch list.
+  - B3.3/TF-01/CT-02 audits: MP-18 untouched (Planner/Home geometry excluded).
+
+WHETHER HR-01/HR-02/HI-01/HI-02 RESOLVED OR SUPERSEDED IT: NO.
+  Those packs changed Home layout, insets, and icon sizes only. The secondary-
+  line render logic is unchanged: home_screen.dart:87 reads
+  ref.watch(nextTempleVisitProvider).asData?.value, and the temple card
+  (lines 845-848) renders 'Set Schedule' whenever nextTempleVisit == null,
+  else 'Next Visit: <date>'. nextTempleVisitProvider is a FutureProvider
+  (indicator_providers.dart:31) that awaits an async repository read and
+  watches the indicator change stream. Two windows still produce the flash:
+  (a) cold start — first frame has no value yet, so the line shows
+  'Set Schedule' until the read lands; (b) Home pull-to-refresh —
+  RefreshIndicator.onRefresh (home_screen.dart:128-129) explicitly
+  ref.invalidate(nextTempleVisitProvider) then awaits its future; during that
+  window asData is null and the line again flips to 'Set Schedule'. Riverpod
+  3.3.2 retains the previous value during dependency-driven reload, but
+  invalidate() drops it — exactly the recorded 8.5/10.9s double flash pattern
+  (reload after resume/refresh). No test asserts the line stays stable while
+  the provider reloads.
+
+WHETHER DF-04 IS PROVEN RELATED / DESCENDANT / UNRELATED / UNPROVEN:
+  UNRELATED (distinct defect, same card region). DF-04 is the hit-target
+  behavior change introduced by HR-01/HR-02 layout restructure (card center
+  opens Goal Edit; the keyed 'Set Schedule' button is the only schedule
+  target). MP-18 is a transient label flash caused by async provider state.
+  No primary evidence connects them; do NOT merge. (DF-04 remains OPEN with
+  its own owner decision.)
+
+CURRENT MP-18 CLASSIFICATION: STILL OPEN — root cause structurally present,
+no reproduction test, no fix ever authorized.
+
+7. DF CROSSWALK
+================================================================================
+DF ID | PROVEN MP ANCESTOR | PRIMARY EVIDENCE | CURRENT STATUS
+DF-01  NONE/UNPROVEN | OS task-switch/screen-off at recording end; no app code
+       path can produce it | OPEN (low; OS-owned)
+DF-02  NONE | DEBUG banner; build-pipeline artifact | OPEN (informational)
+DF-03  NONE/UNPROVEN (GI-02-adjacent, not an MP item) | below-fold Goal
+       Planning caused by authorized 2x card growth | RESOLVED BY HR-01
+DF-04  NONE/UNPROVEN (NOT MP-18 — distinct defect) | temple card hit-target
+       change from HR-01/02 restructure | OPEN (owner decision: keyed button
+       is the intended target)
+DF-05  NONE | Contact flicker fix trade-off, unreachable in current
+       architecture | OPEN (defense-in-depth only)
+DF-06  NONE | inherited M3 drawer behavior | OPEN (informational)
+
+8. REMAINING-ITEM RANKING (genuinely open only)
+================================================================================
+Rank by user-visible impact / reproducibility / regression risk / frozen-
+subsystem risk / owner-decision dependency:
+
+1. MP-18  Temple line flicker — high user visibility; reproducible in code
+   deterministically (invalidate window); low regression risk (label subtree,
+   reuse the established Contact-flicker "retain last value" pattern);
+   not in a frozen subsystem (Home card, not Planner); no owner decision
+   required for the fix approach.
+   NEXT SESSION TYPE: fail-first surgical implementation.
+
+2. MP-17  Startup duration — medium-high visibility; evidence currently
+   anecdotal (no phase timings); medium regression risk; touches startup only;
+   no owner decision needed to profile.
+   NEXT SESSION TYPE: read-only startup-performance forensic audit.
+
+3. MP-04  Date-swipe border — medium visibility; NOT reproducible
+   deterministically today; high regression risk (frozen Planner geometry);
+   fresh owner/device reproduction required first.
+   NEXT SESSION TYPE: owner reproduction/evidence capture, then a dedicated
+   reproduction-first audit.
+
+4. MP-13  Stacked Coins stroke — low visibility; trivially reproducible
+   (static asset); no code risk; purely visual.
+   NEXT SESSION TYPE: owner visual decision.
+
+No action: MP-06 (superseded), MP-12/14 (superseded by owner acceptance),
+MP-01..03/05/07..11/15/16/19 (closed with owner physical PASS where applicable).
+
+9. EXACTLY ONE RECOMMENDED NEXT MP STEP
+================================================================================
+MP-18 FAIL-FIRST SURGICAL IMPLEMENTATION.
+Rationale: it is the only open MP with (a) a recovered primary definition,
+(b) a proven in-code root cause with an exact deterministic test recipe (fix
+nextTempleVisitProvider to retain its last confirmed value across invalidate
+— same pattern already accepted for the Contact flicker fix), (c) a tiny
+no-touch-respecting change surface, and (d) no owner decision dependency. It
+also retires the one remaining item the owner explicitly required recovery
+for, and its fix does not touch Planner geometry, Goal Icons, schema, or
+B3.2 semantics. MP-17's read-only profiling audit is the recommended second
+step (independent and can be scheduled in the same or a later session).
+
+10. PREDICTED FILES / TESTS / NO-TOUCH BOUNDARY (MP-18, for the next session)
+================================================================================
+Predicted production:
+- lib/features/indicators/application/indicator_providers.dart
+  (nextTempleVisitProvider: retain last confirmed value during invalidate/
+  reload, e.g. a small stateful provider or .copyWithPrevious-equivalent;
+  do NOT fabricate data — null may still legitimately mean "no schedule")
+- lib/features/startup/presentation/home_screen.dart (ONLY if a guard proves
+  necessary in the label subtree; prefer provider-side fix)
+
+Predicted tests:
+- test/features/indicators/presentation/... new focused test:
+  (1) cold start: line does not flash 'Set Schedule' before the read lands
+  (stable loading/skeleton OR last value);
+  (2) invalidate/reload: previous 'Next Visit: <date>' stays visible during
+  refresh, then updates to the new value;
+  (3) true null (no schedule ever) still shows 'Set Schedule';
+  (4) home_indicator_journey_test stays green unchanged.
+
+NO-TOUCH: Planner geometry/gestures (MP-04 stays frozen), Goal Icon assets/
+registry/renderer, schema v27, B3.2 semantics, task_contact_links, TF-01,
+CT-03, GI-02 sizes, Contact/Home layout, Choose Icon, ledger DF items.
+
+11. OWNER DECISIONS NEEDED
+================================================================================
+- None to start MP-18 implementation (fix approach is the established
+  retain-last-value pattern; behavior contract below is the only judgment,
+  and it can be defaulted: show the last confirmed value while refreshing,
+  show nothing/skeleton on first-ever load).
+- MP-13: owner visual decision on stacked_coins stroke (optional, separate).
+- DF-04: existing open decision (keyed Set Schedule button as intended target).
+- If the owner prefers MP-17 profiling first, that replaces the MP-18
+  recommendation without conflict (both are independent).
+
+12. FINAL ROADMAP GATE
+================================================================================
+MP CLEANUP STILL OPEN.
+Genuinely remaining: MP-18 (recommended next), MP-17, MP-04 (reproduction
+first), MP-13 (owner decision). Superseded/closed: MP-01..03, MP-05..12,
+MP-14..16, MP-19. No implementation was performed; the tree remains clean at
+333bc48 with an empty index. The previously completed Phase 3 gap audit
+(NEXT_TRANSFER_PHASE3_NEXT_FUNCTIONAL_PACK_FORENSIC_AUDIT_2026-08-15.txt,
+VS-09 recommendation) remains future roadmap evidence only and is NOT
+authorized for implementation.
+
+END OF AUDIT — READ-ONLY SESSION COMPLETE.

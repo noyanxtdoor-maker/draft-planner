@@ -161,6 +161,15 @@ class PlannerInteractiveDayPagerController {
     _progress.value = value.clamp(-1.0, 1.0).toDouble();
   }
 
+  /// Test-only: pin the normalized pager progress directly, bypassing the
+  /// gesture arena, so widget tests can capture deterministic partial
+  /// page-offset frames (MP-04 screen-space preview accent). Mirrors the
+  /// existing `liveDragOffsetForTest` hook; not part of the public
+  /// production contract.
+  void setProgressForTest(double value) {
+    _setProgress(value);
+  }
+
   /// The most recently attached recenter callback. The pager
   /// holds a private implementation in
   /// [_PlannerInteractiveDayPagerState]; the controller does
@@ -997,6 +1006,21 @@ class _PlannerInteractiveDayPagerState extends State<PlannerInteractiveDayPager>
                       ),
                     ),
                   ),
+                  // MP-04 (owner evidence 2026-08-16): during a horizontal
+                  // rightward pager transition the previous day's wide Event
+                  // body becomes visible in the viewport BEFORE its true left
+                  // edge — and its left accent strip — enters. This
+                  // preview-only overlay paints the accent at the visible
+                  // fragment boundary (the viewport's left edge) in the SAME
+                  // frame, and disappears the moment the true accent becomes
+                  // visible (no double accent, no accent pop on settle, no
+                  // settled delta). Anchored to the pager's own Stack so the
+                  // screen-space position is exact regardless of preview
+                  // column coordinate conventions.
+                  ..._previewFragmentAccentStrips(
+                    context: context,
+                    viewportWidth: viewportWidth,
+                  ),
                 ],
               ),
             ),
@@ -1004,6 +1028,99 @@ class _PlannerInteractiveDayPagerState extends State<PlannerInteractiveDayPager>
         },
       ),
     );
+  }
+
+  /// MP-04: preview-only fragment-accent overlay strips for the previous
+  /// day's Events while a rightward drag reveals them from the left. Painted
+  /// at the pager Stack's left edge (the viewport's left edge) — the exact
+  /// screen-space fragment boundary — for every preview Event whose body is
+  /// already visible but whose true left accent is still clipped offscreen.
+  List<Widget> _previewFragmentAccentStrips({
+    required BuildContext context,
+    required double viewportWidth,
+  }) {
+    final liveDrag = _liveDragOffset;
+    // Only a rightward partial reveal needs the fragment accent: the
+    // incoming-from-left previous day's blocks enter with their left edges
+    // (and accents) last. Leftward drags reveal the next day from the right,
+    // whose true left accents enter first.
+    if (liveDrag < kPlannerPagerMinDistance) {
+      return const <Widget>[];
+    }
+    final pageDay = widget.previousDay;
+    final settings = widget.settings;
+    if (pageDay == null) {
+      return const <Widget>[];
+    }
+    final events = pageDay.timedEvents
+        .where(
+          (event) =>
+              event.startLocal != null &&
+              event.endLocal != null &&
+              (settings.showCancelledItems ||
+                  event.state != PlannerEventState.cancelled),
+        )
+        .toList(growable: false);
+    if (events.isEmpty) {
+      return const <Widget>[];
+    }
+    final placements = PlannerDisplayGeometry.resolve(
+      events: events,
+      hourHeight: widget.previewHourHeight ?? widget.hourHeight,
+      viewportHeight: widget.viewportHeight,
+      configuredHours: settings.visibleEndHour - settings.visibleStartHour,
+    );
+    final accentWidth = PlannerEventBlockLayoutPolicy.eventAccentWidth;
+    final strips = <Widget>[];
+    for (final placement in placements) {
+      final event = placement.event;
+      final horizontal = PlannerPagerEventHorizontalGeometry.resolve(
+        placement: placement,
+        width: viewportWidth,
+        timeColumnWidth: kPlannerPagerTimeColumnWidth,
+        laneGap: PlannerEventBlockLayoutPolicy.eventLaneGap,
+      );
+      // The previous column sits at Row x 0, so the block's left edge in
+      // viewport coordinates is the strip translation plus its column-local
+      // left. The strip translation already includes the live drag offset.
+      final blockLeftInViewport =
+          -viewportWidth + liveDrag + horizontal.left;
+      final blockRightInViewport = blockLeftInViewport + horizontal.width;
+      // Fragment accent only when the body is visible but the true left
+      // accent (the first `accentWidth` px of the block) is fully clipped.
+      if (blockLeftInViewport < -accentWidth &&
+          blockRightInViewport > accentWidth) {
+        final resolvedAccent = PlannerEventColorResolver.accentColor(
+          context,
+          event,
+          widget.eventColorsByTypeId,
+        );
+        final resolvedSurface = PlannerEventColorResolver.surfaceColor(
+          context,
+          event,
+          widget.eventColorsByTypeId,
+        );
+        strips.add(
+          Positioned(
+            key: Key('planner-pager-fragment-accent-${event.id}'),
+            left: 0,
+            top: placement.top,
+            width: accentWidth,
+            height: placement.height,
+            child: IgnorePointer(
+              child: event.isBackupAppointment
+                  ? PlannerBackupStripeBackground(
+                      accent: resolvedAccent,
+                      surfaceColor: resolvedSurface,
+                      child: SizedBox(width: accentWidth),
+                    )
+                  : ColoredBox(color: resolvedAccent),
+            ),
+          ),
+        );
+      }
+    }
+    return strips;
   }
 }
 
@@ -1338,7 +1455,12 @@ class _PagerPreviewColumnState extends State<_PagerPreviewColumn> {
                 softWrap: false,
                 textAlign: TextAlign.right,
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: AppTheme.onFillTextOf(context, 0xB3 / 0xFF),
+                  // Preview/settled parity (audit 2026-08-16): the preview
+                  // column must render the EXACT same hour labels as the
+                  // settled timeline — the old 0xB3/0xFF (white70) made the
+                  // preview labels visibly stronger than the settled 0.54
+                  // (white54) and the labels changed opacity at commit.
+                  color: AppTheme.onFillTextOf(context, 0.54),
                 ),
               ),
             ),

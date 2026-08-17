@@ -1,0 +1,220 @@
+NEXT TRANSFER — SESSION AUDIT
+R1 + PLANNER PREVIEW/SETTLED PARITY (AUDIT-FIRST SURGICAL RUN)
+DATE: 2026-08-16
+MODE: COMBINED AUDIT-FIRST / FAIL-FIRST / SURGICAL IMPLEMENTATION
+GIT: NO COMMIT · NO PUSH · NOTHING STAGED · STOP FOR OWNER PHYSICAL REVIEW
+
+================================================================================
+0. START / END STATE
+================================================================================
+Repo:        C:\Users\sherl\Documents\Next Transfer-Temp
+Branch:      autonomous/stability-ux-pack-a-20260814
+HEAD:        109417052acf94b02b2fa0e16d6785d0bb70e8ed (unchanged)
+Origin:      109417052acf94b02b2fa0e16d6785d0bb70e8ed
+Index:       EMPTY throughout (verified)
+Start dirty: uncommitted Maps V1 + regression-recovery tree
+             (46 modified tracked + 101 untracked at backup)
+End dirty:   same accepted tree + THIS session's bounded R1/parity delta
+Device:      Infinix X6731, status `device`, USB debugging OK
+
+================================================================================
+1. MANDATORY PRE-EDIT BACKUP
+================================================================================
+Folder:  C:\Users\sherl\Documents\Next Transfer-Backups\
+         2026-08-16_1947_R1_PREVIEW_PARITY\
+Artifacts (all verified):
+  BASELINE_IDENTITY.txt        branch/HEAD/origin/status/diff-stat
+  next_transfer_repo.bundle    git bundle --all, verify OK (39 refs)
+  tracked_worktree.patch       binary-capable unstaged diff (46 files)
+  staged_index.patch           recorded EMPTY
+  untracked_files_manifest.txt 101 untracked entries, hashes+sizes
+  untracked_source_snapshot.zip
+  source_worktree_snapshot.zip
+  SHA256_MANIFEST.txt          every artifact hash-verified
+Single-writer lock written outside the repo for the session duration.
+Rollback note: the R5-era home golden state (dirty at session start) was
+accidentally reverted once by `git checkout -- .../home_pack1/` during this
+session and was RESTORED EXACTLY from the backup patch before regenerating.
+
+================================================================================
+2. FORENSIC AUDIT (written BEFORE any edit)
+================================================================================
+File: C:\Users\sherl\Downloads\monday review pack 1 fix regression\SESSION_AUDIT\
+      NEXT_TRANSFER_R1_PREVIEW_PARITY_FORENSIC_AUDIT_2026-08-16.txt
+      (also copied to docs/handoffs/)
+Verdict: SAFE TO IMPLEMENT BOUNDED FIX
+
+R1 root cause (MEASURED, lossless device crops):
+  The six owner-visible Goal Icons render BYTE-IDENTICAL raw art in Light and
+  Dark (core (77,175,207)x1546, (100,180,205)x1738, (91,174,202)x1268,
+  (86,173,205)x737 in both; single assetPath; colorFilter null; no palette
+  substitution; SVGs are flat two-tone cyan+gold, no opacity/masks). The
+  visible difference is EDGE/AA COMPOSITING + simultaneous contrast: Light
+  edges blend toward the near-white card (212,217,223 / 163,209,225), Dark
+  edges blend toward the dark card (62,137,163 / 73,136,159), so the SAME art
+  reads lighter/airier in Light and deeper/royal in Dark. Cyan on-screen mean
+  Light (127.2,191.8,213.9) vs Dark (86.5,170.7,198.8). This is exactly the
+  case the owner prompt pre-authorizes a "GoalIcon-only Dark-mode cyan
+  compensation layer" for.
+
+Preview/settled root cause (code-level, frame-supported):
+  The preview column and the settled timeline share the identical Event
+  projection (PlannerDisplayGeometry.resolve, same horizontal geometry
+  constants, same color resolver, same content policy, same block decoration,
+  same grid positions/constants, same viewportHeight source). The ONLY
+  confirmed shared-surface visual delta is the HOUR-LABEL OPACITY:
+  preview AppTheme.onFillTextOf(0xB3/0xFF)=0.702 vs settled 0.54 (white70 vs
+  white54 in dark; 0.70 vs 0.54 onSurface in light) — the labels visibly
+  change at commit. The MP-04 fragment-accent overlay handoff is continuous
+  by code (no double-accent frame). Time-ruler architecture audited and NOT
+  restructured (per the prompt default). Owner stills were static; the
+  recording's swipe windows did not hold partial transitions with blocks in
+  view, so the code-level delta list is authoritative.
+
+================================================================================
+3. FAIL-FIRST TESTS / RED EVIDENCE (captured before implementation)
+================================================================================
+R1 (rewritten test/features/goals/presentation/r1_goal_icon_theme_parity_test.dart):
+  Deterministic invariant: the compensation recolors the SAME pixels, so the
+  Dark exact-count of the compensated cyan must EQUAL the Light exact-count of
+  the raw cyan. RED on current build for all six icons: Light painted 82-305
+  raw-cyan core pixels; Dark painted 0 compensated pixels (e.g. dating 223 vs
+  0). The widget-test rasterizer does NOT reproduce the perceptual AA deficit,
+  so a "dark mean darker" assertion passes trivially on the rejected build —
+  the pixel-count invariant is the honest fail-first gate. 6 tests RED.
+
+Preview/settled (new test/features/planner/presentation/preview_settled_render_parity_test.dart):
+  Full-app harness (MP-04 pattern); reads the REAL hour-label Texts in both
+  preview columns and the settled timeline at rest; asserts identical style
+  color per hour rank. RED on current build: settled white54 (alpha 0.5412)
+  vs preview white70 (alpha 0.7020).
+
+================================================================================
+4. SURGICAL IMPLEMENTATION (proven root causes only)
+================================================================================
+1) lib/features/goals/presentation/widgets/goal_icon.dart
+   - R1 dark-mode cyan-family compensation: in Dark only, valid icon art
+     renders through remapDarkCyan (cyan-family hexes #45abce..#65b7d4
+     lightened by dR=20 dG=28 dB=34, first-pass derived from the measured
+     deficit; gold and all other colors untouched by construction; Light path
+     byte-identical; colorFilter stays null; opticalScale/size/semantics
+     unchanged).
+   - Warm builds use a resolved string cache (SvgPicture.string synchronously);
+     the very first dark build of an asset waits for the load. This avoids the
+     FutureBuilder-completed-future lag observed in widget tests.
+2) lib/features/planner/presentation/widgets/planner_interactive_day_pager.dart
+   - One line: preview hour-label opacity 0xB3/0xFF -> 0.54 to match the
+     settled timeline exactly (preview/settled parity).
+No other production file. No schema/package/manifest change. No Maps change.
+No R3/MP-06/R5 change. No time-ruler restructure.
+
+================================================================================
+5. GREEN GATES (actual totals)
+================================================================================
+R1 parity suite (new contract)               14/14
+Preview/settled parity (new)                 1/1
+Goals full suite (incl. renderer/registry)   171/171
+Goal Icon D1 goldens (43 dark regenerated)   79/79
+Focused planner batch
+  (MP-04 screen-space 3 + date-swipe + parity + R3 contract + MP-06 8 +
+   pager/swipe)                              75/75
+Full Planner suite                           702/702
+Startup/Home full suite (incl. R5, MP-18)    64/64
+Home pack1 goldens (4 dark regenerated)      19/19
+Maps + Shell + Contacts                      48/48
+Privacy + Settings + Weekly + Indicators + Core  134/134
+FULL FLUTTER SUITE                           1150/1150
+dart analyze --fatal-infos lib test          No issues found
+git diff --check                              clean (benign CRLF warnings only)
+
+Golden RED-inspection (before regeneration):
+  - 43 D1 dark goldens: diffs strictly cyan-family AA blends lightening;
+    backgrounds identical; gold cores identical (lone ±1 gold px = AA boundary
+    artifact where gold meets the now-lighter cyan art). Zero light goldens
+    changed.
+  - 4 Home dark goldens (02/03/10/20): diffs confined to icon regions
+    (bbox x39-77/x39-269, y148-427), 0 gold-touched pixels.
+
+================================================================================
+6. BUILD + SAFE INSTALL + DATA PRESERVATION
+================================================================================
+APK: build/app/outputs/flutter-apk/app-debug.apk
+     SHA-256 f87de268d6d6ebe444e7a86f0ee233c59ff6e9db985eac264c23d5f6212e8960
+     bytes 239,441,828 (JDK 21 toolchain, maplibre requirement)
+adb devices:  device (Infinix X6731)
+adb install -r:  Success (no uninstall, no clear, no app-data deletion)
+Pre  (pulled read-only copy): schema v28, quick_check ok,
+      planner_tasks 3 / goals 16 / contacts 5 / calendar_events 225 /
+      weekly_plans 11, appearance ('primary','dark',…,'blue'),
+      0 coordinates, 0 address/location-text rows
+Post (pulled read-only copy): schema v28, quick_check ok, identical counts,
+      identical appearance row, coordinates preserved (0)
+App launched after install: running (pid), no crash
+Permissions: no location permission prompt; the merged maplibre AAR
+      ACCESS_FINE/COARSE_LOCATION entries remain granted=false (the app's own
+      manifests declare none — the platform contract test passes)
+
+================================================================================
+7. ON-DEVICE EVIDENCE (files in docs/handoffs/_screenshots/r1_preview_parity/)
+================================================================================
+01_home_dark_compensated.png  Dark Home: six icons now render the EXACT
+  compensated light-blue family — (97,203,241)x1356 dating,
+  (111,202,236)x1268 elders, (120,208,239)x1738 target_arrow (= #61CBF1 /
+  #6FCAEC / #78D0EF from the R1 test matrix).
+02_home_light_raw.png         Light Home: the same icons render the raw
+  family — (77,175,207)x1551 dating, (91,174,202)x1268 elders,
+  (100,180,205)x1747 target_arrow (+ light edges 212,217,223).
+  => The Dark on-screen cyan now matches the Light perceived family; owner
+     Light-vs-Dark screenshot comparison remains the FINAL authority.
+03_maps_preservation.png      Maps 4th tab open: Home/Planner/Contacts/Maps
+  nav, honest empty state ("No saved locations yet" text block), no crash
+  (device offline -> offline/empty state rendered).
+04_home_dark_restored.png     Home after restoring the owner's Dark+Blue
+  appearance preference (persisted via the real UI; DB row now matches the
+  pre-install ('primary','dark',…,'blue')).
+
+Not captured this run (owner physical items per contract): MP-04 held-swipe
+25/50/75% screenrecord, R3 min-zoom recording, MP-06 4x2 theme matrix. These
+are covered by the green test gates; the prompt requires owner physical
+review to accept.
+
+================================================================================
+8. EXACT FILES CHANGED THIS SESSION
+================================================================================
+Production:
+  lib/features/goals/presentation/widgets/goal_icon.dart
+  lib/features/planner/presentation/widgets/planner_interactive_day_pager.dart
+Tests:
+  test/features/goals/presentation/r1_goal_icon_theme_parity_test.dart (rewritten)
+  test/features/planner/presentation/preview_settled_render_parity_test.dart (new)
+Goldens (regenerated after RED-inspection; all dark variants):
+  43 x test/features/goals/presentation/goldens/goldens/goal_icon_d1/*_dark*.png
+  4 x test/features/startup/presentation/goldens/goldens/home_pack1/
+      {02_six_replacement_goals,03_mixed_default_and_replacement_goals,
+       10_long_titles_360_scale_1_30,20_home_custom_long_titles_411}.png
+Documentation:
+  SESSION_AUDIT\NEXT_TRANSFER_R1_PREVIEW_PARITY_FORENSIC_AUDIT_2026-08-16.txt
+  SESSION_AUDIT\NEXT_TRANSFER_SESSION_AUDIT_2026-08-16_R1_PREVIEW_PARITY.txt
+  (both also copied to docs/handoffs/)
+
+================================================================================
+9. NO-TOUCH LEDGER (verified unchanged this run)
+================================================================================
+R3 one-hour overview cards + display-lane packing · MP-06 theme-color grips ·
+R5 Pathways removal · Maps V1 / v28 / 4th tab / maplibre stack · Home Life
+Goal geometry/sizes · Temple opticalScale · MP-18 · global Dark
+colorScheme.primary · gold palette · Event colors · recurrence/status ·
+lane solver · pager architecture/timing/gestures · zoom policy ·
+time-ruler scaffold · Contact UI. No commit / push / staging.
+
+================================================================================
+10. KNOWN UNVERIFIED CLAIMS / OWNER CHECKLIST
+================================================================================
+- R1 compensation value (+20/+28/+34) is a measured FIRST PASS; the owner's
+  physical Light-vs-Dark screenshot comparison decides whether to keep, raise,
+  or lower it. Gold untouched; light untouched; global palette untouched.
+- MP-04/R3/MP-06 physical gestures remain owner items (tests green).
+- The maplibre JDK 21 build requirement is re-recorded as a checkpoint-risk
+  note (ephemeral Temurin JDK 21 toolchain needed; the environment must be
+  reproducible before any eventual checkpoint).
+- No claim of OWNER PASS. STOP FOR OWNER PHYSICAL REVIEW.

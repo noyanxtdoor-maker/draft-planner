@@ -145,6 +145,14 @@ abstract final class AppTheme {
 
   // Blue Light ------------------------------------------------------------
   static const Color blueLightPrimary = Color(0xFF175A8F);
+
+  /// R1 (2026-08-16 owner re-lock): theme-independent blue for Goal Icon
+  /// FALLBACK rendering (null/unknown iconId). The raw Goal Icon SVG artwork
+  /// family uses literal light-teal blues (~0xFF5CAEC9 / #5baeca); the
+  /// fallback Material icon must use the SAME raw-art family in BOTH themes
+  /// so no icon color can be substituted by the active theme (previously
+  /// Light navy primary vs Dark periwinkle primary). Not the theme primary.
+  static const Color goalIconFallbackBlue = Color(0xFF5CAEC9);
   static const Color blueLightOnPrimary = Color(0xFFFFFFFF);
   static const Color blueLightPrimaryContainer = Color(0xFFD3E3F4);
   static const Color blueLightOnPrimaryContainer = Color(0xFF123A5C);

@@ -15,6 +15,10 @@ import 'package:rmplanner/features/goals/application/goal_providers.dart';
 import 'package:rmplanner/features/goals/domain/goal.dart';
 import 'package:rmplanner/features/goals/presentation/widgets/goal_icon.dart';
 import 'package:rmplanner/features/indicators/domain/life_indicator.dart';
+import 'package:rmplanner/features/maps/application/map_coordinate_repository.dart';
+import 'package:rmplanner/features/maps/application/map_providers.dart';
+import 'package:rmplanner/features/maps/domain/map_coordinate.dart';
+import 'package:rmplanner/features/maps/presentation/map_pin_section.dart';
 import 'package:rmplanner/features/planner/application/calendar_event_creation_draft_provider.dart';
 import 'package:rmplanner/features/planner/application/calendar_event_providers.dart';
 import 'package:rmplanner/features/planner/application/event_type_providers.dart';
@@ -237,6 +241,8 @@ final class _CalendarEventFormScreenState
   Future<void>? _goalsLoad;
   bool _locationExpanded = false;
   bool _addressExpanded = false;
+  MapCoordinate? _mapCoordinate;
+  MapCoordinate? _initialMapCoordinate;
   TaskEventCanonicalSource _canonicalSource = TaskEventCanonicalSource.task;
   // Contact people linked to this Event draft.  Saved through the Contacts
   // repository after the Event itself persists, keyed by [_draftId] (the
@@ -724,6 +730,24 @@ final class _CalendarEventFormScreenState
     _locationController.text = draft.locationText ?? '';
     _locationExpanded = _locationController.text.trim().isNotEmpty;
     _addressExpanded = _locationExpanded;
+    if (widget.mode == CalendarEventFormMode.edit ||
+        widget.mode == CalendarEventFormMode.reschedule) {
+      MapCoordinate? coordinate;
+      try {
+        coordinate = await ref
+            .read(mapCoordinateRepositoryProvider)
+            .readCoordinate(
+              profileId: ref.read(mapProfileIdProvider),
+              owner: MapCoordinateOwner.event,
+              recordId: widget.eventId!,
+            );
+      } on Object {
+        // Maps layer unavailable: edit still works without a pin.
+        coordinate = null;
+      }
+      _mapCoordinate = coordinate;
+      _initialMapCoordinate = coordinate;
+    }
     _timeZoneController.text =
         occurrence?.timeZoneId ??
         draft.timeZoneId ??
@@ -1344,6 +1368,14 @@ final class _CalendarEventFormScreenState
             ),
           ),
         ],
+        const SizedBox(height: 12),
+        MapPinSection(
+          displayName: _titleController.text.trim().isEmpty
+              ? 'Event'
+              : _titleController.text.trim(),
+          coordinate: _mapCoordinate,
+          onChanged: (value) => setState(() => _mapCoordinate = value),
+        ),
       ],
     );
   }
@@ -2024,7 +2056,35 @@ final class _CalendarEventFormScreenState
       if (!mounted) {
         return;
       }
+      await _persistMapPin();
+      if (!mounted) {
+        return;
+      }
       _closeForm(true);
+    }
+  }
+
+  Future<void> _persistMapPin() async {
+    try {
+      final maps = ref.read(mapCoordinateRepositoryProvider);
+      final profileId = ref.read(mapProfileIdProvider);
+      final current = _mapCoordinate;
+      if (current != null) {
+        await maps.setCoordinate(
+          profileId: profileId,
+          owner: MapCoordinateOwner.event,
+          recordId: _draftId,
+          coordinate: current,
+        );
+      } else if (_initialMapCoordinate != null) {
+        await maps.clearCoordinate(
+          profileId: profileId,
+          owner: MapCoordinateOwner.event,
+          recordId: _draftId,
+        );
+      }
+    } on Object {
+      // A missing/offline Maps layer must never block saving the Event.
     }
   }
 

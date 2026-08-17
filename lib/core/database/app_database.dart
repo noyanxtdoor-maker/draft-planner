@@ -300,6 +300,12 @@ class CalendarEvents extends Table {
   IntColumn get endMinute => integer().nullable()();
   TextColumn get timeZoneId => text().nullable()();
   TextColumn get locationText => text().nullable()();
+  // MAPS V1 (v28): explicitly user-picked coordinates. Both-or-null pair;
+  // coordinate_source records the provenance ('map_pick' in V1) and is null
+  // whenever the pair is null. NEVER derived from locationText/address.
+  RealColumn get latitude => real().nullable()();
+  RealColumn get longitude => real().nullable()();
+  TextColumn get coordinateSource => text().nullable()();
   BoolColumn get requiresReport =>
       boolean().withDefault(const Constant(false))();
   TextColumn get activityTypeId => text().nullable()();
@@ -730,6 +736,12 @@ class Contacts extends Table {
       text().withDefault(const Constant('active'))();
   TextColumn get source => text().withDefault(const Constant('manual'))();
   TextColumn get addressText => text().nullable()();
+  // MAPS V1 (v28): explicitly user-picked coordinates. Both-or-null pair;
+  // coordinate_source records provenance ('map_pick' in V1) and is null
+  // whenever the pair is null. NEVER derived from addressText.
+  RealColumn get latitude => real().nullable()();
+  RealColumn get longitude => real().nullable()();
+  TextColumn get coordinateSource => text().nullable()();
 
   /// Set when this Contact is merged into another.  Historical links,
   /// methods, groups, tags, notes, and Timeline stay attached so the absorbed
@@ -1121,7 +1133,7 @@ final class AppDatabase extends _$AppDatabase {
   final bool _injectContactsMigrationFailure;
 
   @override
-  int get schemaVersion => _schemaVersionOverride ?? 27;
+  int get schemaVersion => _schemaVersionOverride ?? 28;
 
   @override
   MigrationStrategy get migration {
@@ -1875,6 +1887,43 @@ final class AppDatabase extends _$AppDatabase {
               'CREATE INDEX IF NOT EXISTS task_contact_link_contact '
               'ON task_contact_links (contact_id)',
             );
+          }
+          if (from < 28 && to >= 28) {
+            // MAPS V1 (v28): additive nullable explicit-coordinate columns on
+            // contacts + calendar_events. NO backfill; existing rows stay
+            // null; free-text locationText/addressText untouched. The pair is
+            // validated by the domain value type (both-or-null); the schema
+            // itself is purely additive and idempotent-guarded.
+            if (!await _columnExists('calendar_events', 'latitude')) {
+              await migrator.addColumn(
+                calendarEvents,
+                calendarEvents.latitude,
+              );
+            }
+            if (!await _columnExists('calendar_events', 'longitude')) {
+              await migrator.addColumn(
+                calendarEvents,
+                calendarEvents.longitude,
+              );
+            }
+            if (!await _columnExists('calendar_events', 'coordinate_source')) {
+              await migrator.addColumn(
+                calendarEvents,
+                calendarEvents.coordinateSource,
+              );
+            }
+            if (!await _columnExists('contacts', 'latitude')) {
+              await migrator.addColumn(contacts, contacts.latitude);
+            }
+            if (!await _columnExists('contacts', 'longitude')) {
+              await migrator.addColumn(contacts, contacts.longitude);
+            }
+            if (!await _columnExists('contacts', 'coordinate_source')) {
+              await migrator.addColumn(
+                contacts,
+                contacts.coordinateSource,
+              );
+            }
           }
         });
       },

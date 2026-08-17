@@ -1,0 +1,96 @@
+NEXT_TRANSFER_HOME_ICON_SIZE_FORENSIC_AUDIT_2026-08-15.txt
+
+================================================================================
+1. BASELINE
+================================================================================
+- checkpoint SHA: 720c14c8ae63d53e9a50daa312f45b8dbd9d2280 (clean, pushed,
+  HEAD == origin; tracked tree clean; index empty throughout Phase 2)
+- read-only proof: one disposable probe test file created, run, and REMOVED
+  before this audit was written; no production/test/golden edits occurred in
+  Phase 2; git status shows 0 tracked modifications after removal.
+- current sizes: top daily 48, middle compact 44, Temple/monthly 48
+
+================================================================================
+2. CURRENT GEOMETRY (measured on-device-equivalent widget harness, Ahem font,
+   textScale 1.0 unless noted; MediaQuery text clamp = 1.0 inside cards)
+================================================================================
+SURFACE         | CURR ICON | CARD H | CARD INNER | TITLE/REGION @360/393/411
+top daily       | 48        | 76     | 304/337/355 | titleRegion 96 / 129 / 147
+middle compact  | 44        | 76     | 137/153.5/162.5 | textRegion 85 / 101.5 / 110.5
+Temple          | 48        | 76     | 304/337/355 | templeRegion 113.8 / 146.8 / 164.8
+Today's inset   | n/a       | n/a    | width 152 (fixed constants: 64 label col + 4 + 68 controls + 16 padding)
+August inset    | n/a       | n/a    | width 134.3 (content-sized, width-invariant)
+
+Card heights all 76.  textScale 1.3 @360: titleRegion 96 (unchanged; the card
+clamp keeps internal text at scale 1.0).
+
+================================================================================
+3. CANDIDATE MATRIX (region shrinks linearly by the icon-size delta; Expanded
+   absorbs; no overflow possible at any candidate)
+================================================================================
+TOP/TEMPLE (from 48):
+candidate | titleRegion @360 | @393 | @411 | templeRegion @360 | card height
+50        | 94               | 127  | 145  | 111.8             | 76 (fits)
+52        | 92               | 125  | 143  | 109.8             | 76 (fits)
+54        | 90               | 123  | 141  | 107.8             | 76 (fits)
+56        | 88               | 121  | 139  | 105.8             | 76 (fits)
+
+MIDDLE (from 44):
+candidate | textRegion @360 | @393 | @411 | card height
+46        | 83              | 99.5 | 108.5 | 76 (fits)
+48        | 81              | 97.5 | 106.5 | 76 (fits)
+50        | 79              | 95.5 | 104.5 | 76 (fits)
+52        | 77              | 93.5 | 102.5 | 76 (fits)
+
+Height check: content band = 76 - vertical padding (6+6) = 64; icon boxes up to
+56 leave >= 8dp slack; inset height 56 unchanged; title column ~39.  All
+candidates preserve the 76dp card height (0dp increase).
+
+Inset geometry: Today's inset width is a fixed composition (64+4+68+16=152);
+August inset is content-sized (134.3).  Neither depends on the icon size, so
+both remain byte-identical for every candidate.
+
+Goal Planning / Active Pathways position: section height = 4 rows x 76 + gaps,
+independent of icon size.  Zero vertical displacement for all candidates.
+
+================================================================================
+4. SELECTION RULE EVALUATION
+================================================================================
+Criterion "preserves readable titles/ratios": the longest common Home title is
+"Job Applications" (~90-108px at Roboto 13 depending on glyph metrics).  At
+360dp the 54dp top icon keeps a 90dp title region (reads fully at the low end,
+ellipsis only at the wide-font end); 56 shrinks it to 88 (guaranteed ellipsis
+for the longest title on the smallest phone).  B2's committed floor (title
+region >= 100 at 393) holds for 54 (123) and 56 (121).
+
+Criterion "prefer the visually larger pair if equally safe": 54/50 is the
+largest pair with a real readability margin at 360; 56/52 trades that margin
+for 2dp more art with no density or structure gain.
+
+Criterion "Today's/August inset geometry unchanged": true for all candidates.
+
+RECOMMENDED PAIR: top/Temple 54, middle 50.  +6dp over HR-02 on every Home
+icon, 76dp card height preserved, insets unchanged, zero Goal Planning
+displacement, no clipping/scale-down/overflow at 360/393/411, textScale 1.3
+holds (card-level clamp).
+
+================================================================================
+5. PREDICTED IMPACT
+================================================================================
+- production: lib/features/startup/presentation/home_screen.dart (three icon
+  constants only: 48 -> 54 top, 44 -> 50 middle, 48 -> 54 temple)
+- tests: home_light_polish B5 (48/44 -> 54/50), B7 (temple 48 -> 54),
+  home_week_start (44/48 -> 50/54); journey/week-start pins unaffected except
+  icon assertions; B2 title-region floor (>=100 @393) re-verified (123)
+- goldens: 18 Home pack1 masters + skeleton masters expected RED (larger
+  icons, local spacing shift only); no Dark-master color delta
+- no renderer / SVG / registry / non-Home GI-02 / CT-03 / inset / card-height
+  changes
+
+================================================================================
+6. CONCLUSION
+================================================================================
+SAFE TO IMPLEMENT, NO OWNER DECISION REQUIRED.
+Exact pair: TOP/TEMPLE 54, MIDDLE 50.  Card height stays 76 (0dp growth).
+Proceed to Phase 3.
+================================================================================

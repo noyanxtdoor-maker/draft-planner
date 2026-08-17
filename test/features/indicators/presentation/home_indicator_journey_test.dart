@@ -89,18 +89,17 @@ void main() {
       }
       expect(find.text('Scheduled'), findsNothing);
       expect(find.textContaining('worthiness'), findsNothing);
-      // POLISH-02: the taller two-region Goal cards push Active Pathways
-      // below the fold of the lazy Home list; scroll it into view first.
+      // R5 (owner 2026-08-16): the Active Pathways section is removed, so
+      // the Goal Planning pill is the last element of the Home list; scroll
+      // it into view (it may sit below the fold of the lazy list).
       await tester.scrollUntilVisible(
-        find.byKey(const Key('home-pathway-employment')),
+        find.byKey(const Key('weekly-targets-button')),
         200,
         scrollable: find.byType(Scrollable).first,
       );
-      expect(find.byKey(const Key('home-pathway-employment')), findsOneWidget);
-      await tester.scrollUntilVisible(
-        find.byKey(const Key('weekly-targets-button')),
-        -200,
-        scrollable: find.byType(Scrollable).first,
+      expect(
+        find.byKey(const Key('home-pathway-employment')),
+        findsNothing,
       );
       await tester.tap(find.byKey(const Key('weekly-targets-button')));
       await tester.pumpAndSettle();
@@ -179,15 +178,18 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Life Goals'), findsOneWidget);
+    // R5 (owner 2026-08-16): the Active Pathways section is removed; scroll
+    // to the last Home element (Goal Planning pill) to prove the whole list
+    // renders without exception at 200% scale.
     await tester.scrollUntilVisible(
-      find.byKey(const Key('home-pathway-documents')),
+      find.byKey(const Key('weekly-targets-button')),
       220,
       scrollable: find.descendant(
         of: find.byKey(const Key('home-indicator-list')),
         matching: find.byType(Scrollable),
       ),
     );
-    expect(find.byKey(const Key('home-pathway-documents')), findsOneWidget);
+    expect(find.byKey(const Key('home-pathway-documents')), findsNothing);
     expect(tester.takeException(), isNull);
 
     await tester.pumpWidget(const SizedBox.shrink());
@@ -591,17 +593,11 @@ void main() {
       );
       expect(find.text('New People'), findsNothing);
       expect(find.text('Ministering Visit'), findsNothing);
-      // POLISH-02: the taller Goal cards push the major separator below the
-      // lazy Home list's initial build window; scroll it into view first.
-      await tester.scrollUntilVisible(
-        find.byKey(const Key('home-major-separator')),
-        200,
-        scrollable: find.byType(Scrollable).first,
-      );
-      expect(find.byKey(const Key('home-major-separator')), findsOneWidget);
-      // POLISH-02: return the Home list to the top so the daily quick
-      // controls are fully hittable again (ensureVisible stops short of the
-      // app-bar edge).
+      // R5 (owner 2026-08-16): the Active Pathways Home section and its
+      // major separator were removed, so no separator scroll is performed.
+      // Return the Home list to the top so the daily quick controls are
+      // fully hittable again (ensureVisible stops short of the app-bar
+      // edge).
       await tester.drag(
         find.byType(Scrollable).first,
         const Offset(0, 800),

@@ -15,6 +15,8 @@ import 'package:rmplanner/features/goals/application/goal_providers.dart';
 import 'package:rmplanner/features/goals/data/drift_goal_repository.dart';
 import 'package:rmplanner/features/indicators/application/indicator_providers.dart';
 import 'package:rmplanner/features/indicators/data/drift_indicator_repository.dart';
+import 'package:rmplanner/features/maps/application/map_providers.dart';
+import 'package:rmplanner/features/maps/data/drift_map_coordinate_repository.dart';
 import 'package:rmplanner/features/planner/application/calendar_event_providers.dart';
 import 'package:rmplanner/features/planner/application/event_type_providers.dart';
 import 'package:rmplanner/features/planner/application/outcome_reporting_providers.dart';
@@ -125,6 +127,10 @@ Future<void> main() async {
     database: database,
     clock: clock,
   );
+  final mapCoordinateRepository = DriftMapCoordinateRepository(
+    database: database,
+    clock: clock,
+  );
   // Pack B2: the persisted device Appearance is read BEFORE runApp so the
   // first MaterialApp build already has the correct ThemeMode (no
   // wrong-theme first frame).  B2-CORRECTION: the independent Theme Color is
@@ -166,6 +172,9 @@ Future<void> main() async {
         indicatorRepositoryProvider.overrideWithValue(indicatorRepository),
         goalRepositoryProvider.overrideWithValue(goalRepository),
         contactRepositoryProvider.overrideWithValue(contactRepository),
+        mapCoordinateRepositoryProvider.overrideWithValue(
+          mapCoordinateRepository,
+        ),
         weeklyPlanningRepositoryProvider.overrideWithValue(
           weeklyPlanningRepository,
         ),

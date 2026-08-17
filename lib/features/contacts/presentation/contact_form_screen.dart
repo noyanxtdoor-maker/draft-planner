@@ -6,6 +6,10 @@ import 'package:rmplanner/app/theme/app_theme.dart';
 import 'package:rmplanner/app/theme/internal_screen.dart';
 import 'package:rmplanner/features/contacts/application/contact_providers.dart';
 import 'package:rmplanner/features/contacts/domain/contact.dart';
+import 'package:rmplanner/features/maps/application/map_coordinate_repository.dart';
+import 'package:rmplanner/features/maps/application/map_providers.dart';
+import 'package:rmplanner/features/maps/domain/map_coordinate.dart';
+import 'package:rmplanner/features/maps/presentation/map_pin_section.dart';
 import 'package:rmplanner/features/planner/application/planner_providers.dart';
 
 enum ContactFormMode { create, edit }
@@ -44,6 +48,8 @@ final class _ContactFormScreenState extends ConsumerState<ContactFormScreen> {
   final _noteController = TextEditingController();
   final List<_MethodRow> _methodRows = <_MethodRow>[];
   final List<ContactAvailability> _availability = <ContactAvailability>[];
+  MapCoordinate? _mapCoordinate;
+  MapCoordinate? _initialMapCoordinate;
   List<String> _groupIds = <String>[];
   String? _primaryGroupId;
   ContactPreferredMethod _preferredMethod = ContactPreferredMethod.message;
@@ -79,6 +85,23 @@ final class _ContactFormScreenState extends ConsumerState<ContactFormScreen> {
       if (!mounted) {
         return;
       }
+      MapCoordinate? loadedCoordinate;
+      try {
+        final profileId = ref.read(contactProfileIdProvider);
+        loadedCoordinate = await ref
+            .read(mapCoordinateRepositoryProvider)
+            .readCoordinate(
+              profileId: profileId,
+              owner: MapCoordinateOwner.contact,
+              recordId: widget.contactId!,
+            );
+      } on Object {
+        // Coordinate read failure must not block editing the contact.
+        loadedCoordinate = null;
+      }
+      if (!mounted) {
+        return;
+      }
       setState(() {
         _firstNameController.text = detail.contact.firstName ?? '';
         _lastNameController.text = detail.contact.lastName ?? '';
@@ -87,6 +110,8 @@ final class _ContactFormScreenState extends ConsumerState<ContactFormScreen> {
         _groupIds = detail.groups.map((group) => group.id).toList();
         _primaryGroupId = detail.primaryGroupId;
         _availability.addAll(detail.availability);
+        _mapCoordinate = loadedCoordinate;
+        _initialMapCoordinate = loadedCoordinate;
         for (final method in detail.methods) {
           _methodRows.add(
             _MethodRow(
@@ -204,6 +229,12 @@ final class _ContactFormScreenState extends ConsumerState<ContactFormScreen> {
                       ),
                       const SizedBox(height: 8),
                     ],
+                    MapPinSection(
+                      displayName: _displayName.isEmpty ? 'Contact' : _displayName,
+                      coordinate: _mapCoordinate,
+                      onChanged: (value) => setState(() => _mapCoordinate = value),
+                    ),
+                    const SizedBox(height: 12),
                     if (_availability.isEmpty) ...<Widget>[
                       _ProgressiveRow(
                         key: const Key('add-availability-row'),
@@ -376,6 +407,7 @@ final class _ContactFormScreenState extends ConsumerState<ContactFormScreen> {
               text: _noteController.text,
             );
       }
+      await _persistMapPin(contactId: contactId);
       if (!mounted) {
         return;
       }
@@ -396,6 +428,30 @@ final class _ContactFormScreenState extends ConsumerState<ContactFormScreen> {
           ),
         );
       }
+    }
+  }
+
+  Future<void> _persistMapPin({required String contactId}) async {
+    try {
+      final maps = ref.read(mapCoordinateRepositoryProvider);
+      final profileId = ref.read(contactProfileIdProvider);
+      final current = _mapCoordinate;
+      if (current != null) {
+        await maps.setCoordinate(
+          profileId: profileId,
+          owner: MapCoordinateOwner.contact,
+          recordId: contactId,
+          coordinate: current,
+        );
+      } else if (_initialMapCoordinate != null) {
+        await maps.clearCoordinate(
+          profileId: profileId,
+          owner: MapCoordinateOwner.contact,
+          recordId: contactId,
+        );
+      }
+    } on Object {
+      // A missing/offline Maps layer must never block saving the Contact.
     }
   }
 }

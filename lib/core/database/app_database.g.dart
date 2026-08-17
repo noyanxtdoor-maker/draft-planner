@@ -6726,6 +6726,39 @@ class $CalendarEventsTable extends CalendarEvents
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _latitudeMeta = const VerificationMeta(
+    'latitude',
+  );
+  @override
+  late final GeneratedColumn<double> latitude = GeneratedColumn<double>(
+    'latitude',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _longitudeMeta = const VerificationMeta(
+    'longitude',
+  );
+  @override
+  late final GeneratedColumn<double> longitude = GeneratedColumn<double>(
+    'longitude',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _coordinateSourceMeta = const VerificationMeta(
+    'coordinateSource',
+  );
+  @override
+  late final GeneratedColumn<String> coordinateSource = GeneratedColumn<String>(
+    'coordinate_source',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _requiresReportMeta = const VerificationMeta(
     'requiresReport',
   );
@@ -6977,6 +7010,9 @@ class $CalendarEventsTable extends CalendarEvents
     endMinute,
     timeZoneId,
     locationText,
+    latitude,
+    longitude,
+    coordinateSource,
     requiresReport,
     activityTypeId,
     activityTypeMappingVersion,
@@ -7084,6 +7120,27 @@ class $CalendarEventsTable extends CalendarEvents
         locationText.isAcceptableOrUnknown(
           data['location_text']!,
           _locationTextMeta,
+        ),
+      );
+    }
+    if (data.containsKey('latitude')) {
+      context.handle(
+        _latitudeMeta,
+        latitude.isAcceptableOrUnknown(data['latitude']!, _latitudeMeta),
+      );
+    }
+    if (data.containsKey('longitude')) {
+      context.handle(
+        _longitudeMeta,
+        longitude.isAcceptableOrUnknown(data['longitude']!, _longitudeMeta),
+      );
+    }
+    if (data.containsKey('coordinate_source')) {
+      context.handle(
+        _coordinateSourceMeta,
+        coordinateSource.isAcceptableOrUnknown(
+          data['coordinate_source']!,
+          _coordinateSourceMeta,
         ),
       );
     }
@@ -7323,6 +7380,18 @@ class $CalendarEventsTable extends CalendarEvents
         DriftSqlType.string,
         data['${effectivePrefix}location_text'],
       ),
+      latitude: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}latitude'],
+      ),
+      longitude: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}longitude'],
+      ),
+      coordinateSource: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}coordinate_source'],
+      ),
       requiresReport: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}requires_report'],
@@ -7428,6 +7497,9 @@ class CalendarEventRow extends DataClass
   final int? endMinute;
   final String? timeZoneId;
   final String? locationText;
+  final double? latitude;
+  final double? longitude;
+  final String? coordinateSource;
   final bool requiresReport;
   final String? activityTypeId;
   final int? activityTypeMappingVersion;
@@ -7460,6 +7532,9 @@ class CalendarEventRow extends DataClass
     this.endMinute,
     this.timeZoneId,
     this.locationText,
+    this.latitude,
+    this.longitude,
+    this.coordinateSource,
     required this.requiresReport,
     this.activityTypeId,
     this.activityTypeMappingVersion,
@@ -7504,6 +7579,15 @@ class CalendarEventRow extends DataClass
     }
     if (!nullToAbsent || locationText != null) {
       map['location_text'] = Variable<String>(locationText);
+    }
+    if (!nullToAbsent || latitude != null) {
+      map['latitude'] = Variable<double>(latitude);
+    }
+    if (!nullToAbsent || longitude != null) {
+      map['longitude'] = Variable<double>(longitude);
+    }
+    if (!nullToAbsent || coordinateSource != null) {
+      map['coordinate_source'] = Variable<String>(coordinateSource);
     }
     map['requires_report'] = Variable<bool>(requiresReport);
     if (!nullToAbsent || activityTypeId != null) {
@@ -7589,6 +7673,15 @@ class CalendarEventRow extends DataClass
       locationText: locationText == null && nullToAbsent
           ? const Value.absent()
           : Value(locationText),
+      latitude: latitude == null && nullToAbsent
+          ? const Value.absent()
+          : Value(latitude),
+      longitude: longitude == null && nullToAbsent
+          ? const Value.absent()
+          : Value(longitude),
+      coordinateSource: coordinateSource == null && nullToAbsent
+          ? const Value.absent()
+          : Value(coordinateSource),
       requiresReport: Value(requiresReport),
       activityTypeId: activityTypeId == null && nullToAbsent
           ? const Value.absent()
@@ -7662,6 +7755,9 @@ class CalendarEventRow extends DataClass
       endMinute: serializer.fromJson<int?>(json['endMinute']),
       timeZoneId: serializer.fromJson<String?>(json['timeZoneId']),
       locationText: serializer.fromJson<String?>(json['locationText']),
+      latitude: serializer.fromJson<double?>(json['latitude']),
+      longitude: serializer.fromJson<double?>(json['longitude']),
+      coordinateSource: serializer.fromJson<String?>(json['coordinateSource']),
       requiresReport: serializer.fromJson<bool>(json['requiresReport']),
       activityTypeId: serializer.fromJson<String?>(json['activityTypeId']),
       activityTypeMappingVersion: serializer.fromJson<int?>(
@@ -7721,6 +7817,9 @@ class CalendarEventRow extends DataClass
       'endMinute': serializer.toJson<int?>(endMinute),
       'timeZoneId': serializer.toJson<String?>(timeZoneId),
       'locationText': serializer.toJson<String?>(locationText),
+      'latitude': serializer.toJson<double?>(latitude),
+      'longitude': serializer.toJson<double?>(longitude),
+      'coordinateSource': serializer.toJson<String?>(coordinateSource),
       'requiresReport': serializer.toJson<bool>(requiresReport),
       'activityTypeId': serializer.toJson<String?>(activityTypeId),
       'activityTypeMappingVersion': serializer.toJson<int?>(
@@ -7768,6 +7867,9 @@ class CalendarEventRow extends DataClass
     Value<int?> endMinute = const Value.absent(),
     Value<String?> timeZoneId = const Value.absent(),
     Value<String?> locationText = const Value.absent(),
+    Value<double?> latitude = const Value.absent(),
+    Value<double?> longitude = const Value.absent(),
+    Value<String?> coordinateSource = const Value.absent(),
     bool? requiresReport,
     Value<String?> activityTypeId = const Value.absent(),
     Value<int?> activityTypeMappingVersion = const Value.absent(),
@@ -7800,6 +7902,11 @@ class CalendarEventRow extends DataClass
     endMinute: endMinute.present ? endMinute.value : this.endMinute,
     timeZoneId: timeZoneId.present ? timeZoneId.value : this.timeZoneId,
     locationText: locationText.present ? locationText.value : this.locationText,
+    latitude: latitude.present ? latitude.value : this.latitude,
+    longitude: longitude.present ? longitude.value : this.longitude,
+    coordinateSource: coordinateSource.present
+        ? coordinateSource.value
+        : this.coordinateSource,
     requiresReport: requiresReport ?? this.requiresReport,
     activityTypeId: activityTypeId.present
         ? activityTypeId.value
@@ -7866,6 +7973,11 @@ class CalendarEventRow extends DataClass
       locationText: data.locationText.present
           ? data.locationText.value
           : this.locationText,
+      latitude: data.latitude.present ? data.latitude.value : this.latitude,
+      longitude: data.longitude.present ? data.longitude.value : this.longitude,
+      coordinateSource: data.coordinateSource.present
+          ? data.coordinateSource.value
+          : this.coordinateSource,
       requiresReport: data.requiresReport.present
           ? data.requiresReport.value
           : this.requiresReport,
@@ -7942,6 +8054,9 @@ class CalendarEventRow extends DataClass
           ..write('endMinute: $endMinute, ')
           ..write('timeZoneId: $timeZoneId, ')
           ..write('locationText: $locationText, ')
+          ..write('latitude: $latitude, ')
+          ..write('longitude: $longitude, ')
+          ..write('coordinateSource: $coordinateSource, ')
           ..write('requiresReport: $requiresReport, ')
           ..write('activityTypeId: $activityTypeId, ')
           ..write('activityTypeMappingVersion: $activityTypeMappingVersion, ')
@@ -7985,6 +8100,9 @@ class CalendarEventRow extends DataClass
     endMinute,
     timeZoneId,
     locationText,
+    latitude,
+    longitude,
+    coordinateSource,
     requiresReport,
     activityTypeId,
     activityTypeMappingVersion,
@@ -8021,6 +8139,9 @@ class CalendarEventRow extends DataClass
           other.endMinute == this.endMinute &&
           other.timeZoneId == this.timeZoneId &&
           other.locationText == this.locationText &&
+          other.latitude == this.latitude &&
+          other.longitude == this.longitude &&
+          other.coordinateSource == this.coordinateSource &&
           other.requiresReport == this.requiresReport &&
           other.activityTypeId == this.activityTypeId &&
           other.activityTypeMappingVersion == this.activityTypeMappingVersion &&
@@ -8058,6 +8179,9 @@ class CalendarEventsCompanion extends UpdateCompanion<CalendarEventRow> {
   final Value<int?> endMinute;
   final Value<String?> timeZoneId;
   final Value<String?> locationText;
+  final Value<double?> latitude;
+  final Value<double?> longitude;
+  final Value<String?> coordinateSource;
   final Value<bool> requiresReport;
   final Value<String?> activityTypeId;
   final Value<int?> activityTypeMappingVersion;
@@ -8091,6 +8215,9 @@ class CalendarEventsCompanion extends UpdateCompanion<CalendarEventRow> {
     this.endMinute = const Value.absent(),
     this.timeZoneId = const Value.absent(),
     this.locationText = const Value.absent(),
+    this.latitude = const Value.absent(),
+    this.longitude = const Value.absent(),
+    this.coordinateSource = const Value.absent(),
     this.requiresReport = const Value.absent(),
     this.activityTypeId = const Value.absent(),
     this.activityTypeMappingVersion = const Value.absent(),
@@ -8125,6 +8252,9 @@ class CalendarEventsCompanion extends UpdateCompanion<CalendarEventRow> {
     this.endMinute = const Value.absent(),
     this.timeZoneId = const Value.absent(),
     this.locationText = const Value.absent(),
+    this.latitude = const Value.absent(),
+    this.longitude = const Value.absent(),
+    this.coordinateSource = const Value.absent(),
     this.requiresReport = const Value.absent(),
     this.activityTypeId = const Value.absent(),
     this.activityTypeMappingVersion = const Value.absent(),
@@ -8165,6 +8295,9 @@ class CalendarEventsCompanion extends UpdateCompanion<CalendarEventRow> {
     Expression<int>? endMinute,
     Expression<String>? timeZoneId,
     Expression<String>? locationText,
+    Expression<double>? latitude,
+    Expression<double>? longitude,
+    Expression<String>? coordinateSource,
     Expression<bool>? requiresReport,
     Expression<String>? activityTypeId,
     Expression<int>? activityTypeMappingVersion,
@@ -8199,6 +8332,9 @@ class CalendarEventsCompanion extends UpdateCompanion<CalendarEventRow> {
       if (endMinute != null) 'end_minute': endMinute,
       if (timeZoneId != null) 'time_zone_id': timeZoneId,
       if (locationText != null) 'location_text': locationText,
+      if (latitude != null) 'latitude': latitude,
+      if (longitude != null) 'longitude': longitude,
+      if (coordinateSource != null) 'coordinate_source': coordinateSource,
       if (requiresReport != null) 'requires_report': requiresReport,
       if (activityTypeId != null) 'activity_type_id': activityTypeId,
       if (activityTypeMappingVersion != null)
@@ -8245,6 +8381,9 @@ class CalendarEventsCompanion extends UpdateCompanion<CalendarEventRow> {
     Value<int?>? endMinute,
     Value<String?>? timeZoneId,
     Value<String?>? locationText,
+    Value<double?>? latitude,
+    Value<double?>? longitude,
+    Value<String?>? coordinateSource,
     Value<bool>? requiresReport,
     Value<String?>? activityTypeId,
     Value<int?>? activityTypeMappingVersion,
@@ -8279,6 +8418,9 @@ class CalendarEventsCompanion extends UpdateCompanion<CalendarEventRow> {
       endMinute: endMinute ?? this.endMinute,
       timeZoneId: timeZoneId ?? this.timeZoneId,
       locationText: locationText ?? this.locationText,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
+      coordinateSource: coordinateSource ?? this.coordinateSource,
       requiresReport: requiresReport ?? this.requiresReport,
       activityTypeId: activityTypeId ?? this.activityTypeId,
       activityTypeMappingVersion:
@@ -8342,6 +8484,15 @@ class CalendarEventsCompanion extends UpdateCompanion<CalendarEventRow> {
     }
     if (locationText.present) {
       map['location_text'] = Variable<String>(locationText.value);
+    }
+    if (latitude.present) {
+      map['latitude'] = Variable<double>(latitude.value);
+    }
+    if (longitude.present) {
+      map['longitude'] = Variable<double>(longitude.value);
+    }
+    if (coordinateSource.present) {
+      map['coordinate_source'] = Variable<String>(coordinateSource.value);
     }
     if (requiresReport.present) {
       map['requires_report'] = Variable<bool>(requiresReport.value);
@@ -8439,6 +8590,9 @@ class CalendarEventsCompanion extends UpdateCompanion<CalendarEventRow> {
           ..write('endMinute: $endMinute, ')
           ..write('timeZoneId: $timeZoneId, ')
           ..write('locationText: $locationText, ')
+          ..write('latitude: $latitude, ')
+          ..write('longitude: $longitude, ')
+          ..write('coordinateSource: $coordinateSource, ')
           ..write('requiresReport: $requiresReport, ')
           ..write('activityTypeId: $activityTypeId, ')
           ..write('activityTypeMappingVersion: $activityTypeMappingVersion, ')
@@ -19706,6 +19860,39 @@ class $ContactsTable extends Contacts
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _latitudeMeta = const VerificationMeta(
+    'latitude',
+  );
+  @override
+  late final GeneratedColumn<double> latitude = GeneratedColumn<double>(
+    'latitude',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _longitudeMeta = const VerificationMeta(
+    'longitude',
+  );
+  @override
+  late final GeneratedColumn<double> longitude = GeneratedColumn<double>(
+    'longitude',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _coordinateSourceMeta = const VerificationMeta(
+    'coordinateSource',
+  );
+  @override
+  late final GeneratedColumn<String> coordinateSource = GeneratedColumn<String>(
+    'coordinate_source',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _mergedIntoContactIdMeta =
       const VerificationMeta('mergedIntoContactId');
   @override
@@ -19763,6 +19950,9 @@ class $ContactsTable extends Contacts
     lifecycleState,
     source,
     addressText,
+    latitude,
+    longitude,
+    coordinateSource,
     mergedIntoContactId,
     createdAtUtc,
     updatedAtUtc,
@@ -19855,6 +20045,27 @@ class $ContactsTable extends Contacts
         ),
       );
     }
+    if (data.containsKey('latitude')) {
+      context.handle(
+        _latitudeMeta,
+        latitude.isAcceptableOrUnknown(data['latitude']!, _latitudeMeta),
+      );
+    }
+    if (data.containsKey('longitude')) {
+      context.handle(
+        _longitudeMeta,
+        longitude.isAcceptableOrUnknown(data['longitude']!, _longitudeMeta),
+      );
+    }
+    if (data.containsKey('coordinate_source')) {
+      context.handle(
+        _coordinateSourceMeta,
+        coordinateSource.isAcceptableOrUnknown(
+          data['coordinate_source']!,
+          _coordinateSourceMeta,
+        ),
+      );
+    }
     if (data.containsKey('merged_into_contact_id')) {
       context.handle(
         _mergedIntoContactIdMeta,
@@ -19944,6 +20155,18 @@ class $ContactsTable extends Contacts
         DriftSqlType.string,
         data['${effectivePrefix}address_text'],
       ),
+      latitude: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}latitude'],
+      ),
+      longitude: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}longitude'],
+      ),
+      coordinateSource: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}coordinate_source'],
+      ),
       mergedIntoContactId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}merged_into_contact_id'],
@@ -19980,6 +20203,9 @@ class ContactRow extends DataClass implements Insertable<ContactRow> {
   final String lifecycleState;
   final String source;
   final String? addressText;
+  final double? latitude;
+  final double? longitude;
+  final String? coordinateSource;
 
   /// Set when this Contact is merged into another.  Historical links,
   /// methods, groups, tags, notes, and Timeline stay attached so the absorbed
@@ -19999,6 +20225,9 @@ class ContactRow extends DataClass implements Insertable<ContactRow> {
     required this.lifecycleState,
     required this.source,
     this.addressText,
+    this.latitude,
+    this.longitude,
+    this.coordinateSource,
     this.mergedIntoContactId,
     required this.createdAtUtc,
     required this.updatedAtUtc,
@@ -20022,6 +20251,15 @@ class ContactRow extends DataClass implements Insertable<ContactRow> {
     map['source'] = Variable<String>(source);
     if (!nullToAbsent || addressText != null) {
       map['address_text'] = Variable<String>(addressText);
+    }
+    if (!nullToAbsent || latitude != null) {
+      map['latitude'] = Variable<double>(latitude);
+    }
+    if (!nullToAbsent || longitude != null) {
+      map['longitude'] = Variable<double>(longitude);
+    }
+    if (!nullToAbsent || coordinateSource != null) {
+      map['coordinate_source'] = Variable<String>(coordinateSource);
     }
     if (!nullToAbsent || mergedIntoContactId != null) {
       map['merged_into_contact_id'] = Variable<String>(mergedIntoContactId);
@@ -20052,6 +20290,15 @@ class ContactRow extends DataClass implements Insertable<ContactRow> {
       addressText: addressText == null && nullToAbsent
           ? const Value.absent()
           : Value(addressText),
+      latitude: latitude == null && nullToAbsent
+          ? const Value.absent()
+          : Value(latitude),
+      longitude: longitude == null && nullToAbsent
+          ? const Value.absent()
+          : Value(longitude),
+      coordinateSource: coordinateSource == null && nullToAbsent
+          ? const Value.absent()
+          : Value(coordinateSource),
       mergedIntoContactId: mergedIntoContactId == null && nullToAbsent
           ? const Value.absent()
           : Value(mergedIntoContactId),
@@ -20081,6 +20328,9 @@ class ContactRow extends DataClass implements Insertable<ContactRow> {
       lifecycleState: serializer.fromJson<String>(json['lifecycleState']),
       source: serializer.fromJson<String>(json['source']),
       addressText: serializer.fromJson<String?>(json['addressText']),
+      latitude: serializer.fromJson<double?>(json['latitude']),
+      longitude: serializer.fromJson<double?>(json['longitude']),
+      coordinateSource: serializer.fromJson<String?>(json['coordinateSource']),
       mergedIntoContactId: serializer.fromJson<String?>(
         json['mergedIntoContactId'],
       ),
@@ -20105,6 +20355,9 @@ class ContactRow extends DataClass implements Insertable<ContactRow> {
       'lifecycleState': serializer.toJson<String>(lifecycleState),
       'source': serializer.toJson<String>(source),
       'addressText': serializer.toJson<String?>(addressText),
+      'latitude': serializer.toJson<double?>(latitude),
+      'longitude': serializer.toJson<double?>(longitude),
+      'coordinateSource': serializer.toJson<String?>(coordinateSource),
       'mergedIntoContactId': serializer.toJson<String?>(mergedIntoContactId),
       'createdAtUtc': serializer.toJson<DateTime>(createdAtUtc),
       'updatedAtUtc': serializer.toJson<DateTime>(updatedAtUtc),
@@ -20123,6 +20376,9 @@ class ContactRow extends DataClass implements Insertable<ContactRow> {
     String? lifecycleState,
     String? source,
     Value<String?> addressText = const Value.absent(),
+    Value<double?> latitude = const Value.absent(),
+    Value<double?> longitude = const Value.absent(),
+    Value<String?> coordinateSource = const Value.absent(),
     Value<String?> mergedIntoContactId = const Value.absent(),
     DateTime? createdAtUtc,
     DateTime? updatedAtUtc,
@@ -20139,6 +20395,11 @@ class ContactRow extends DataClass implements Insertable<ContactRow> {
     lifecycleState: lifecycleState ?? this.lifecycleState,
     source: source ?? this.source,
     addressText: addressText.present ? addressText.value : this.addressText,
+    latitude: latitude.present ? latitude.value : this.latitude,
+    longitude: longitude.present ? longitude.value : this.longitude,
+    coordinateSource: coordinateSource.present
+        ? coordinateSource.value
+        : this.coordinateSource,
     mergedIntoContactId: mergedIntoContactId.present
         ? mergedIntoContactId.value
         : this.mergedIntoContactId,
@@ -20170,6 +20431,11 @@ class ContactRow extends DataClass implements Insertable<ContactRow> {
       addressText: data.addressText.present
           ? data.addressText.value
           : this.addressText,
+      latitude: data.latitude.present ? data.latitude.value : this.latitude,
+      longitude: data.longitude.present ? data.longitude.value : this.longitude,
+      coordinateSource: data.coordinateSource.present
+          ? data.coordinateSource.value
+          : this.coordinateSource,
       mergedIntoContactId: data.mergedIntoContactId.present
           ? data.mergedIntoContactId.value
           : this.mergedIntoContactId,
@@ -20198,6 +20464,9 @@ class ContactRow extends DataClass implements Insertable<ContactRow> {
           ..write('lifecycleState: $lifecycleState, ')
           ..write('source: $source, ')
           ..write('addressText: $addressText, ')
+          ..write('latitude: $latitude, ')
+          ..write('longitude: $longitude, ')
+          ..write('coordinateSource: $coordinateSource, ')
           ..write('mergedIntoContactId: $mergedIntoContactId, ')
           ..write('createdAtUtc: $createdAtUtc, ')
           ..write('updatedAtUtc: $updatedAtUtc, ')
@@ -20218,6 +20487,9 @@ class ContactRow extends DataClass implements Insertable<ContactRow> {
     lifecycleState,
     source,
     addressText,
+    latitude,
+    longitude,
+    coordinateSource,
     mergedIntoContactId,
     createdAtUtc,
     updatedAtUtc,
@@ -20237,6 +20509,9 @@ class ContactRow extends DataClass implements Insertable<ContactRow> {
           other.lifecycleState == this.lifecycleState &&
           other.source == this.source &&
           other.addressText == this.addressText &&
+          other.latitude == this.latitude &&
+          other.longitude == this.longitude &&
+          other.coordinateSource == this.coordinateSource &&
           other.mergedIntoContactId == this.mergedIntoContactId &&
           other.createdAtUtc == this.createdAtUtc &&
           other.updatedAtUtc == this.updatedAtUtc &&
@@ -20254,6 +20529,9 @@ class ContactsCompanion extends UpdateCompanion<ContactRow> {
   final Value<String> lifecycleState;
   final Value<String> source;
   final Value<String?> addressText;
+  final Value<double?> latitude;
+  final Value<double?> longitude;
+  final Value<String?> coordinateSource;
   final Value<String?> mergedIntoContactId;
   final Value<DateTime> createdAtUtc;
   final Value<DateTime> updatedAtUtc;
@@ -20270,6 +20548,9 @@ class ContactsCompanion extends UpdateCompanion<ContactRow> {
     this.lifecycleState = const Value.absent(),
     this.source = const Value.absent(),
     this.addressText = const Value.absent(),
+    this.latitude = const Value.absent(),
+    this.longitude = const Value.absent(),
+    this.coordinateSource = const Value.absent(),
     this.mergedIntoContactId = const Value.absent(),
     this.createdAtUtc = const Value.absent(),
     this.updatedAtUtc = const Value.absent(),
@@ -20287,6 +20568,9 @@ class ContactsCompanion extends UpdateCompanion<ContactRow> {
     this.lifecycleState = const Value.absent(),
     this.source = const Value.absent(),
     this.addressText = const Value.absent(),
+    this.latitude = const Value.absent(),
+    this.longitude = const Value.absent(),
+    this.coordinateSource = const Value.absent(),
     this.mergedIntoContactId = const Value.absent(),
     required DateTime createdAtUtc,
     required DateTime updatedAtUtc,
@@ -20308,6 +20592,9 @@ class ContactsCompanion extends UpdateCompanion<ContactRow> {
     Expression<String>? lifecycleState,
     Expression<String>? source,
     Expression<String>? addressText,
+    Expression<double>? latitude,
+    Expression<double>? longitude,
+    Expression<String>? coordinateSource,
     Expression<String>? mergedIntoContactId,
     Expression<DateTime>? createdAtUtc,
     Expression<DateTime>? updatedAtUtc,
@@ -20326,6 +20613,9 @@ class ContactsCompanion extends UpdateCompanion<ContactRow> {
       if (lifecycleState != null) 'lifecycle_state': lifecycleState,
       if (source != null) 'source': source,
       if (addressText != null) 'address_text': addressText,
+      if (latitude != null) 'latitude': latitude,
+      if (longitude != null) 'longitude': longitude,
+      if (coordinateSource != null) 'coordinate_source': coordinateSource,
       if (mergedIntoContactId != null)
         'merged_into_contact_id': mergedIntoContactId,
       if (createdAtUtc != null) 'created_at_utc': createdAtUtc,
@@ -20346,6 +20636,9 @@ class ContactsCompanion extends UpdateCompanion<ContactRow> {
     Value<String>? lifecycleState,
     Value<String>? source,
     Value<String?>? addressText,
+    Value<double?>? latitude,
+    Value<double?>? longitude,
+    Value<String?>? coordinateSource,
     Value<String?>? mergedIntoContactId,
     Value<DateTime>? createdAtUtc,
     Value<DateTime>? updatedAtUtc,
@@ -20364,6 +20657,9 @@ class ContactsCompanion extends UpdateCompanion<ContactRow> {
       lifecycleState: lifecycleState ?? this.lifecycleState,
       source: source ?? this.source,
       addressText: addressText ?? this.addressText,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
+      coordinateSource: coordinateSource ?? this.coordinateSource,
       mergedIntoContactId: mergedIntoContactId ?? this.mergedIntoContactId,
       createdAtUtc: createdAtUtc ?? this.createdAtUtc,
       updatedAtUtc: updatedAtUtc ?? this.updatedAtUtc,
@@ -20407,6 +20703,15 @@ class ContactsCompanion extends UpdateCompanion<ContactRow> {
     if (addressText.present) {
       map['address_text'] = Variable<String>(addressText.value);
     }
+    if (latitude.present) {
+      map['latitude'] = Variable<double>(latitude.value);
+    }
+    if (longitude.present) {
+      map['longitude'] = Variable<double>(longitude.value);
+    }
+    if (coordinateSource.present) {
+      map['coordinate_source'] = Variable<String>(coordinateSource.value);
+    }
     if (mergedIntoContactId.present) {
       map['merged_into_contact_id'] = Variable<String>(
         mergedIntoContactId.value,
@@ -20440,6 +20745,9 @@ class ContactsCompanion extends UpdateCompanion<ContactRow> {
           ..write('lifecycleState: $lifecycleState, ')
           ..write('source: $source, ')
           ..write('addressText: $addressText, ')
+          ..write('latitude: $latitude, ')
+          ..write('longitude: $longitude, ')
+          ..write('coordinateSource: $coordinateSource, ')
           ..write('mergedIntoContactId: $mergedIntoContactId, ')
           ..write('createdAtUtc: $createdAtUtc, ')
           ..write('updatedAtUtc: $updatedAtUtc, ')
@@ -33286,6 +33594,9 @@ typedef $$CalendarEventsTableCreateCompanionBuilder =
       Value<int?> endMinute,
       Value<String?> timeZoneId,
       Value<String?> locationText,
+      Value<double?> latitude,
+      Value<double?> longitude,
+      Value<String?> coordinateSource,
       Value<bool> requiresReport,
       Value<String?> activityTypeId,
       Value<int?> activityTypeMappingVersion,
@@ -33321,6 +33632,9 @@ typedef $$CalendarEventsTableUpdateCompanionBuilder =
       Value<int?> endMinute,
       Value<String?> timeZoneId,
       Value<String?> locationText,
+      Value<double?> latitude,
+      Value<double?> longitude,
+      Value<String?> coordinateSource,
       Value<bool> requiresReport,
       Value<String?> activityTypeId,
       Value<int?> activityTypeMappingVersion,
@@ -33449,6 +33763,21 @@ class $$CalendarEventsTableFilterComposer
 
   ColumnFilters<String> get locationText => $composableBuilder(
     column: $table.locationText,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get latitude => $composableBuilder(
+    column: $table.latitude,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get longitude => $composableBuilder(
+    column: $table.longitude,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get coordinateSource => $composableBuilder(
+    column: $table.coordinateSource,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -33661,6 +33990,21 @@ class $$CalendarEventsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<double> get latitude => $composableBuilder(
+    column: $table.latitude,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get longitude => $composableBuilder(
+    column: $table.longitude,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get coordinateSource => $composableBuilder(
+    column: $table.coordinateSource,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get requiresReport => $composableBuilder(
     column: $table.requiresReport,
     builder: (column) => ColumnOrderings(column),
@@ -33831,6 +34175,17 @@ class $$CalendarEventsTableAnnotationComposer
 
   GeneratedColumn<String> get locationText => $composableBuilder(
     column: $table.locationText,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get latitude =>
+      $composableBuilder(column: $table.latitude, builder: (column) => column);
+
+  GeneratedColumn<double> get longitude =>
+      $composableBuilder(column: $table.longitude, builder: (column) => column);
+
+  GeneratedColumn<String> get coordinateSource => $composableBuilder(
+    column: $table.coordinateSource,
     builder: (column) => column,
   );
 
@@ -34031,6 +34386,9 @@ class $$CalendarEventsTableTableManager
                 Value<int?> endMinute = const Value.absent(),
                 Value<String?> timeZoneId = const Value.absent(),
                 Value<String?> locationText = const Value.absent(),
+                Value<double?> latitude = const Value.absent(),
+                Value<double?> longitude = const Value.absent(),
+                Value<String?> coordinateSource = const Value.absent(),
                 Value<bool> requiresReport = const Value.absent(),
                 Value<String?> activityTypeId = const Value.absent(),
                 Value<int?> activityTypeMappingVersion = const Value.absent(),
@@ -34067,6 +34425,9 @@ class $$CalendarEventsTableTableManager
                 endMinute: endMinute,
                 timeZoneId: timeZoneId,
                 locationText: locationText,
+                latitude: latitude,
+                longitude: longitude,
+                coordinateSource: coordinateSource,
                 requiresReport: requiresReport,
                 activityTypeId: activityTypeId,
                 activityTypeMappingVersion: activityTypeMappingVersion,
@@ -34102,6 +34463,9 @@ class $$CalendarEventsTableTableManager
                 Value<int?> endMinute = const Value.absent(),
                 Value<String?> timeZoneId = const Value.absent(),
                 Value<String?> locationText = const Value.absent(),
+                Value<double?> latitude = const Value.absent(),
+                Value<double?> longitude = const Value.absent(),
+                Value<String?> coordinateSource = const Value.absent(),
                 Value<bool> requiresReport = const Value.absent(),
                 Value<String?> activityTypeId = const Value.absent(),
                 Value<int?> activityTypeMappingVersion = const Value.absent(),
@@ -34138,6 +34502,9 @@ class $$CalendarEventsTableTableManager
                 endMinute: endMinute,
                 timeZoneId: timeZoneId,
                 locationText: locationText,
+                latitude: latitude,
+                longitude: longitude,
+                coordinateSource: coordinateSource,
                 requiresReport: requiresReport,
                 activityTypeId: activityTypeId,
                 activityTypeMappingVersion: activityTypeMappingVersion,
@@ -41634,6 +42001,9 @@ typedef $$ContactsTableCreateCompanionBuilder =
       Value<String> lifecycleState,
       Value<String> source,
       Value<String?> addressText,
+      Value<double?> latitude,
+      Value<double?> longitude,
+      Value<String?> coordinateSource,
       Value<String?> mergedIntoContactId,
       required DateTime createdAtUtc,
       required DateTime updatedAtUtc,
@@ -41652,6 +42022,9 @@ typedef $$ContactsTableUpdateCompanionBuilder =
       Value<String> lifecycleState,
       Value<String> source,
       Value<String?> addressText,
+      Value<double?> latitude,
+      Value<double?> longitude,
+      Value<String?> coordinateSource,
       Value<String?> mergedIntoContactId,
       Value<DateTime> createdAtUtc,
       Value<DateTime> updatedAtUtc,
@@ -41909,6 +42282,21 @@ class $$ContactsTableFilterComposer
 
   ColumnFilters<String> get addressText => $composableBuilder(
     column: $table.addressText,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get latitude => $composableBuilder(
+    column: $table.latitude,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get longitude => $composableBuilder(
+    column: $table.longitude,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get coordinateSource => $composableBuilder(
+    column: $table.coordinateSource,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -42217,6 +42605,21 @@ class $$ContactsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<double> get latitude => $composableBuilder(
+    column: $table.latitude,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get longitude => $composableBuilder(
+    column: $table.longitude,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get coordinateSource => $composableBuilder(
+    column: $table.coordinateSource,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get mergedIntoContactId => $composableBuilder(
     column: $table.mergedIntoContactId,
     builder: (column) => ColumnOrderings(column),
@@ -42304,6 +42707,17 @@ class $$ContactsTableAnnotationComposer
 
   GeneratedColumn<String> get addressText => $composableBuilder(
     column: $table.addressText,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get latitude =>
+      $composableBuilder(column: $table.latitude, builder: (column) => column);
+
+  GeneratedColumn<double> get longitude =>
+      $composableBuilder(column: $table.longitude, builder: (column) => column);
+
+  GeneratedColumn<String> get coordinateSource => $composableBuilder(
+    column: $table.coordinateSource,
     builder: (column) => column,
   );
 
@@ -42608,6 +43022,9 @@ class $$ContactsTableTableManager
                 Value<String> lifecycleState = const Value.absent(),
                 Value<String> source = const Value.absent(),
                 Value<String?> addressText = const Value.absent(),
+                Value<double?> latitude = const Value.absent(),
+                Value<double?> longitude = const Value.absent(),
+                Value<String?> coordinateSource = const Value.absent(),
                 Value<String?> mergedIntoContactId = const Value.absent(),
                 Value<DateTime> createdAtUtc = const Value.absent(),
                 Value<DateTime> updatedAtUtc = const Value.absent(),
@@ -42624,6 +43041,9 @@ class $$ContactsTableTableManager
                 lifecycleState: lifecycleState,
                 source: source,
                 addressText: addressText,
+                latitude: latitude,
+                longitude: longitude,
+                coordinateSource: coordinateSource,
                 mergedIntoContactId: mergedIntoContactId,
                 createdAtUtc: createdAtUtc,
                 updatedAtUtc: updatedAtUtc,
@@ -42642,6 +43062,9 @@ class $$ContactsTableTableManager
                 Value<String> lifecycleState = const Value.absent(),
                 Value<String> source = const Value.absent(),
                 Value<String?> addressText = const Value.absent(),
+                Value<double?> latitude = const Value.absent(),
+                Value<double?> longitude = const Value.absent(),
+                Value<String?> coordinateSource = const Value.absent(),
                 Value<String?> mergedIntoContactId = const Value.absent(),
                 required DateTime createdAtUtc,
                 required DateTime updatedAtUtc,
@@ -42658,6 +43081,9 @@ class $$ContactsTableTableManager
                 lifecycleState: lifecycleState,
                 source: source,
                 addressText: addressText,
+                latitude: latitude,
+                longitude: longitude,
+                coordinateSource: coordinateSource,
                 mergedIntoContactId: mergedIntoContactId,
                 createdAtUtc: createdAtUtc,
                 updatedAtUtc: updatedAtUtc,

@@ -1,0 +1,209 @@
+NEXT TRANSFER — SESSION AUDIT
+RECOVERY RE-RUN + LIVE DEVICE VERIFICATION
+DATE: 2026-08-16
+MODE: VERIFY EXISTING IMPLEMENTATION FIRST · SAFE INSTALL · OWNER PHYSICAL REVIEW
+GIT: NO COMMIT · NO PUSH · NOTHING STAGED
+
+================================================================================
+0. SCOPE
+================================================================================
+Run per:
+- NEXT_TRANSFER_RECOVERY_RERUN_LIVE_DEVICE_PROMPT_2026-08-16.txt
+- Standing rules: NEXT_TRANSFER_UNIVERSAL_PRE_EDIT_BACKUP_CONTRACT_2026-08-16.txt,
+  NEXT_TRANSFER_POST_MAPS_REGRESSION_RECOVERY_FORENSIC_AUDIT_V2_2026-08-16.txt
+The owner's phone was attached this session, so the missing safe-install and
+on-device verification from the prior recovery session were executed.
+
+================================================================================
+1. START GATE
+================================================================================
+- Repo:    C:\Users\sherl\Documents\Next Transfer-Temp
+- Branch:  autonomous/stability-ux-pack-a-20260814
+- HEAD:    109417052acf94b02b2fa0e16d6785d0bb70e8ed
+- origin:  same SHA
+- Index:   EMPTY
+- Dirty tree: 46 modified tracked paths, 101 untracked (the accepted Maps V1
+  + post-Maps regression recovery tree)
+- Device:  adb-10620253B3004617-2m7ZVB._adb-tls-connect._tcp  device
+           (Infinix X6731, model Infinix-X6731) — status `device` at start
+
+================================================================================
+2. MANDATORY PRE-EDIT BACKUP
+================================================================================
+- Folder: C:\Users\sherl\Documents\Next Transfer-Backups\
+  2026-08-16_1840_RECOVERY_RERUN_LIVE_DEVICE\
+- Artifacts (all present + verified):
+  * BASELINE_IDENTITY.txt (branch/HEAD/origin/status v2/index/diff stat)
+  * next_transfer_repo.bundle — `git bundle verify` PASS, 39 refs, complete
+    history, sha1
+  * tracked_worktree.patch (--binary, 650,167 bytes, 10,641 lines)
+  * staged_index.patch (empty file, recorded as empty — e3b0c442...)
+  * untracked_files_manifest.txt (220 entries, hash+path)
+  * untracked_source_snapshot.zip (141 entries, testzip OK)
+  * source_worktree_snapshot.zip (598 entries, testzip OK; build/.dart_tool/
+    .gradle/generated-APK/excluded per contract)
+  * SHA256_MANIFEST.txt (all 7 artifacts)
+- Restore-check was not run over the active repo (no active edits were
+  needed; contract permits deferring the disposable restore test for
+  non-destructive verification runs).
+
+================================================================================
+3. IMPLEMENTATION VERIFICATION — CLASSIFY
+================================================================================
+CLASSIFY = RECOVERY_IMPLEMENTATION_ALREADY_PRESENT
+ZERO production/test/golden/schema/package edits made this run.
+
+Verified present in the dirty tree:
+- R1:  Home _IndicatorCard fallback uses AppTheme.goalIconFallbackBlue
+  (0xFF5CAEC9) in both themes; GoalIcon renders valid IDs as raw SVG with
+  colorFilter:null; no dark-only palette/filter change; no plate/halo.
+- MP-04: viewport-anchored preview fragment-accent overlay in
+  planner_interactive_day_pager.dart (_previewFragmentAccentStrips +
+  _buildFragmentAccentStrip geometry); clipped preview fragments get a
+  visible accent at the viewport boundary; no accent when settled.
+- R3:  overview display-lane packing in planner_display_geometry.dart
+  (R3 display-lane packing; short Events get a one-hour display interval;
+  colliding cards go to extra display lanes; real start/end/time labels
+  unchanged; widthFactor/offsetFactor span-null path keeps packed cards from
+  painting over); content priority in planner_event_block_layout_policy.dart
+  (recurrence requires title-line height).
+- MP-06: provisional draft grips use Theme.of(context).colorScheme.primary
+  (app Theme Color) in planner_screen.dart _positionedEndpointHandles;
+  saved-event handles keep the Event accent.
+- R5:  Active Pathways section (header/card/View All/snackbar) removed from
+  home_screen.dart; Pathways domain/data untouched.
+- Maps: v28 schema (latitude/longitude/coordinate_source on contacts +
+  calendar_events), maplibre_gl 0.26.2, Maps 4th tab in the shell, picker/
+  repository/routes intact, release+debug INTERNET present, ZERO location
+  permissions in the app's own manifests.
+- All recovery tests present (r1_goal_icon_theme_parity, mp04_screen_space,
+  mp04_date_swipe_border, mp04_live_transition, r3_zoom_geometry,
+  mp06_theme_grip_color, mp06_draft_grips, r5_home_pathways_hidden).
+
+No delta was missing, so nothing was reapplied.
+
+================================================================================
+4. THIS-RUN FILES CHANGED
+================================================================================
+None (implementation already present; verification-only run).
+Files created this run: device evidence screenshots under
+docs/handoffs/_screenshots/recovery_rerun/ and the two audits
+(SESSION_AUDIT + docs/handoffs copy) — all untracked, none staged.
+
+================================================================================
+5. TEST GATES (rerun) — ACTUAL COUNTS
+================================================================================
+Focused recovery batch (R1 parity, MP-04 x3, R3 geometry, MP-06 x2,
+R5 Home hidden):                    42/42  PASS
+Maps V1 + Shell + Startup suites:  102/102  PASS
+Full Planner suite:                701/701  PASS
+dart analyze --fatal-infos lib test: PASS — No issues found
+git diff --check:                    PASS (only CRLF notices)
+Full Flutter suite was covered by these subsets this run (the prior
+recovery session already ran the full suite 1142/1142 on the identical
+tree; no code changed since, so totals are preserved).
+
+================================================================================
+6. BUILD
+================================================================================
+flutter build apk --debug with JDK 21 toolchain (maplibre_gl requirement;
+Temurin JDK 21.0.12+8 at C:\Users\sherl\AppData\Local\Temp\
+next-transfer-toolchain\jdk-21.0.12+8 — re-provisioned this session, same
+as the prior run's requirement).
+- Output: build\app\outputs\flutter-apk\app-debug.apk
+- Size:   239,435,413 bytes
+- SHA-256: f392f3c83d392c886b78cbb68b915e3bbaf1b704783e17773430e3bd6e98e237
+  (identical to the prior run's APK — expected, zero code change)
+
+================================================================================
+7. SAFE INSTALL (adb install -r)
+================================================================================
+adb devices:            device (Infinix X6731) — authorized, proceeded
+adb install -r:         Success (Streamed Install)
+No adb uninstall. No pm clear. No app-data deletion.
+
+Launch: am force-stop then monkey launch; pid observed running; no
+FATAL EXCEPTION in logcat (0 crashes since install).
+
+DATA PRESERVATION (privacy-safe counts, no names/addresses written):
+                PRE-INSTALL   POST-INSTALL
+  schema          v28            v28
+  quick_check     ok             ok
+  planner_tasks   3              3
+  goals           16             16
+  contacts        5              5
+  calendar_events 225            225
+  weekly_plans    11             11
+  coordinates     0              0   (contacts + calendar_events)
+  location text  0 non-null     0 non-null
+  appearance     light+blue     light+blue (value preserved; timestamp
+                                advanced by the temporary Dark toggle —
+                                see R1 evidence below; restored to Light)
+No location permission prompt appeared (logcat permission-dialog scan:
+none; requested-permission dump shows INTERNET granted, ACCESS_FINE/
+COARSE_LOCATION present ONLY via the maplibre_gl AAR manifest merge with
+granted=false — the app's own manifests declare no location permissions).
+
+================================================================================
+8. ON-DEVICE EVIDENCE
+================================================================================
+Files: docs/handoffs/_screenshots/recovery_rerun/
+- 01_home_light.png          Home, Light (R1 Light + R5 no-Pathways proof)
+- 02_planner_open.png        Planner day (has events)
+- 03..21                     navigation/intermediate evidence
+- 23_home_dark.png           Home, Dark (R1 Dark)
+- 26_maps_tab.png            Maps tab — honest empty state, 4-tab nav
+- 27_planner_day.png         Planner day
+
+R1 (ON-DEVICE, measured):
+- The six Goal Icon art regions render the RAW teal byte-identically in
+  Light and Dark: dominant stroke (77,175,207) = exactly 773 px in both
+  screenshots at identical coordinates; gold (224,167,78)/(221,164,75)/
+  (223,166,76) populations are IDENTICAL counts in both themes. Icon band
+  y-positions match between themes (icon layout unchanged).
+- The theme-primary navy (23,90,143) in Light vs periwinkle (159,200,240)
+  in Dark at x240-520 is the card's ratio/value TEXT (adaptive UI), NOT the
+  icon art. No colorFilter, no dark-only substitution, no plate/halo.
+- Conclusion: raw Goal Icon art parity is PROVEN on-device; the owner's
+  perceptual check (Light vs Dark screenshot) remains the final gate, and
+  any residual perception is bounded to AA/contrast and the primary-colored
+  ratio text — no arbitrary dark-only compensation was applied.
+- The owner's Light preference was temporarily toggled to Dark to capture
+  the Dark Home screenshot and restored to Light immediately after; final
+  DB preference = light + blue (value preserved).
+
+MP-04 / R3 / MP-06: not re-driven via pinch/swipe/draft gestures this run
+(codes+tests prove the contracts; the 42/42 + 701/701 test gates cover the
+geometry/overlay/grip behaviors). These remain owner-physical items:
+- MP-04 slow swipe held 25/50/75% both directions — accent visible in the
+  same frame as the Event fragment;
+- R3 max zoom-out with 15/30/45/60 events — one-hour readable cards;
+- MP-06 draft grips in all four theme states x two Event Types.
+
+R5: 01_home_light.png shows no Active Pathways / Employment / milestone
+section (code + tests also assert absence).
+
+Maps: 26_maps_tab.png shows the Maps tab selected in the 4-tab shell with
+the truthful empty state ("No saved locations yet" / "Set a pin from a
+Contact or Event") — preservation only, no expansion.
+
+================================================================================
+9. UNRESOLVED / PENDING OWNER PHYSICAL REVIEW
+================================================================================
+- R1 perceptual parity (owner compares 01_home_light.png vs 23_home_dark.png;
+  art is byte-identical — owner decides acceptability).
+- MP-04 held-swipe recording, R3 min-zoom recording, MP-06 4-theme x 2-type
+  draft matrix — owner physical.
+- JDK 21 build dependency (maplibre_gl) remains a checkpoint-risk note
+  (machine default JDK is 17).
+- Maps physical check (open once, marker flow via disposable record) —
+  owner physical; device was offline this session so the basemap tiles
+  could not be loaded (honest offline/empty state was shown instead).
+
+================================================================================
+10. GIT / STOP
+================================================================================
+- NO COMMIT. NO PUSH. NOTHING STAGED (index EMPTY).
+- Branch/HEAD unchanged: autonomous/stability-ux-pack-a-20260814 @
+  109417052acf94b02b2fa0e16d6785d0bb70e8ed.
+- STOP FOR OWNER PHYSICAL REVIEW. No new feature work.

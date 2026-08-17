@@ -1,0 +1,75 @@
+NEXT TRANSFER — FINAL MP CLEANUP CHECKPOINT
+SESSION AUDIT
+DATE: 2026-08-15
+
+================================================================================
+1. START GATE / RECONCILIATION
+================================================================================
+- repo: C:\Users\sherl\Documents\Next Transfer-Temp
+- branch: autonomous/stability-ux-pack-a-20260814
+- HEAD before commit: aa03417c269d0493bb5aab85ad58b5d091da83e9 == origin
+- index: EMPTY
+- schema: v27
+- dirty set reconciled against NEXT_TRANSFER_SESSION_AUDIT_2026-08-15_FINAL_
+  REMAINING_MP_CLEANUP.txt — exactly the accepted 4 files:
+  * lib/features/planner/presentation/planner_screen.dart (MP-06 draft grips)
+  * test/features/planner/presentation/planner_delta4_creation_session_test.dart
+    (Delta 4.2C grip-geometry reconciliation)
+  * test/features/planner/presentation/mp06_draft_grips_contract_test.dart (new)
+  * test/features/planner/presentation/mp04_date_swipe_border_regression_test.dart (new)
+- No unexplained tracked change, no staged file, no merge/rebase/detached state,
+  no divergence.
+
+================================================================================
+2. CHECKPOINT GATES (RE-RUN FRESH, ACTUAL COUNTS)
+================================================================================
+- MP-06 focused ....................... 3/3 PASS
+- MP-04 border regression ............. 1/1 PASS (24 swipes, every frame)
+- Delta 4.1/4.2 draft/editor/gesture/
+  resize (contract+creation+edit+pinch+
+  issue5_6) ........................... 39/39 PASS
+- horizontal day swipe ................ 31/31 PASS
+- recurrence / pager / lane / S1B ..... in 108/108 batch
+- CT-03 current-time .................. in 108/108 batch
+- Goal Icon registry/render/lifecycle . in 108/108 batch
+- MP-18 / Home preservation ........... in 48/48 batch
+- Contact flicker ..................... in 48/48 batch
+- B3.2 direct-Goal / Task People /
+  TF-01 ............................... in 48/48 batch
+- FULL FLUTTER SUITE .................. 1080/1080 PASS
+- dart analyze lib test ............... No issues found
+- git diff --check .................... clean
+- debug APK build ..................... SUCCESS
+  (SHA-256 5d6ef2566028221fec4af75255f482c58b9f82e005fe06ac15290ce29a30f7a0;
+   same source tree as the 1080/1080 run)
+
+================================================================================
+3. COMMIT / PUSH
+================================================================================
+- One commit, normal push:
+  a9c9569f02260542f3100a557b87e6d38e44b45a
+  "fix(planner): finalize draft grips and swipe regressions"
+  (parent aa03417)
+- Verified after push:
+  HEAD == origin == a9c9569
+  tracked tree CLEAN (0 modified)
+  index EMPTY (0 staged)
+- Staged ONLY the accepted final-MP implementation files; no scratch/evidence/
+  session audits or unrelated untracked artifacts.
+
+================================================================================
+4. OWNER DISPOSITION (RECORDED VERBATIM)
+================================================================================
+"OWNER APPROVED THE FINAL REMAINING MP CLEANUP FOR CHECKPOINT. MP-06 IS
+ACCEPTED; MP-04 IS CLOSED AS NOT REPRODUCIBLE ON THE CURRENT BUILD WITH
+REGRESSION COVERAGE; MP-13 IS CLOSED WITH NO ASSET CHANGE. THE HISTORICAL MP
+STABILIZATION LEDGER IS CLOSED."
+
+================================================================================
+5. NEXT STEP
+================================================================================
+Proceeding in the SAME run, from this clean checkpoint, to the read-only
+NX-01..NX-09 forensic audit (Light detail/status contrast, status label
+normalization, drawer/settings Light surfaces, detail identity flash, edit
+spinner pause, revised navigation/IA, Maps reality check, video-wide UX) and
+then to the approved surgical implementation boundary.

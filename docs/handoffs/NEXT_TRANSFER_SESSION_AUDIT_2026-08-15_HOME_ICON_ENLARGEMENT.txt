@@ -1,0 +1,204 @@
+NEXT TRANSFER — SESSION AUDIT
+HI-01 HOME ICON ENLARGEMENT (post HR-02 checkpoint)
+DATE: 2026-08-15
+IMPLEMENTOR: FREEBUFF CODING AGENT
+MODE: AUDIT-FIRST · FAIL-FIRST · SURGICAL · OWNER-LOCKED
+
+================================================================================
+1. SCOPE / AUTHORITY
+================================================================================
+One run: HR-02 CHECKPOINT -> HI-01 READ-ONLY FORENSIC AUDIT -> HI-01 SURGICAL
+IMPLEMENTATION, per:
+- NEXT_TRANSFER_HR02_CHECKPOINT_HI01_AUDIT_IMPLEMENT_ONE_RUN_PROMPT_2026-08-15.txt
+- 01_OWNER_LOCKS_ONE_RUN_HR02_HI01.txt
+- REFERENCES/NEXT_TRANSFER_SESSION_AUDIT_2026-08-15_HOME_SPECIAL_ROWS_ICON_VISIBILITY.txt
+
+Owner disposition recorded verbatim in the checkpoint audit:
+"OWNER APPROVED HR-02 FOR CHECKPOINT. HI-01 HOME ICON ENLARGEMENT AUTHORIZED
+FOR AUDIT-FIRST SURGICAL IMPLEMENTATION IN THE SAME RUN."
+
+================================================================================
+2. PHASE 1 — HR-02 CHECKPOINT (COMPLETE)
+================================================================================
+- Starting baseline: branch autonomous/stability-ux-pack-a-20260814,
+  HEAD a6141d7e2a7798ff822150381d5c3b3981d0530d == origin, index empty,
+  tracked tree dirty with the accepted cumulative continuation implementation.
+- Reconcile: 155 dirty entries all attributable to the accepted HR-01 / Light
+  UI polish / GI-01 / GI-02 / CT-03 / B3.2 / TF-01 work (verified against the
+  respective session audits). No unexplained tracked modification.
+- Checkpoint gates re-run fresh: full Flutter suite 1070/1070, dart analyze
+  --fatal-infos lib test 0 issues, git diff --check clean, debug APK built.
+- Three new accepted test files were untracked and staged with the tracked
+  set: home_light_polish_test.dart was tracked; the new files staged were the
+  polish-session contract tests not yet committed.
+- Exactly ONE checkpoint commit created and pushed normally (no force):
+  - new HEAD: 720c14c8ae63d53e9a50daa312f45b8dbd9d2280
+  - parent:   a6141d7e2a7798ff822150381d5c3b3981d0530d
+  - 88 files staged (tracked implementation + the 3 new accepted tests).
+  - Commit message factual, does not claim HI-01 is implemented.
+- Post-push verification: local HEAD == origin HEAD (720c14c), index empty,
+  tracked tree clean.
+- Checkpoint audit written:
+  C:\Users\sherl\Downloads\monday review pack 1 fix regression\SESSION_AUDIT\
+  NEXT_TRANSFER_SESSION_AUDIT_2026-08-15_HR02_CHECKPOINT.txt
+
+================================================================================
+3. PHASE 2 — HI-01 READ-ONLY FORENSIC AUDIT (COMPLETE)
+================================================================================
+Performed from the clean checkpoint 720c14c with disposable host-side probe
+(test/features/startup/presentation/hi01_size_probe_test.dart — created, run,
+then removed; tracked tree remained clean throughout the audit).
+
+CURRENT LAYOUT MEASURED (at 360 / 393 / 411):
+- Daily top card: icon 48dp inside a 76dp card; title region Expanded; gray
+  Today inset is a fixed-width constant (~112dp) independent of icon size.
+- Weekly compact cards: icon 44dp in half-width cards inside 76dp rows.
+- Temple monthly card: icon 48dp; August inset fixed width.
+- The Expanded title region absorbs the icon-size delta in every candidate;
+  insets are fixed constants; card height is fixed at 76dp; Goal Planning
+  vertical position is height-invariant (all candidates keep 76dp).
+
+CANDIDATE MATRIX (middle / top+Temple):
+  46/50, 48/52, 50/54, 52/56
+- All candidates fit at 76dp with no overflow at 360/393/411 and no inset
+  intersection (Expanded absorbs width; insets unchanged).
+- Title-width check at 360 with the longest realistic current title
+  ("Job Applications"): at middle 50dp the title region still measures
+  ~90dp vs ~90px needed — the largest pair that keeps the longest realistic
+  title fully readable without mid-word wrap.
+- Selection: TOP/TEMPLE 54, MIDDLE 50 (largest pair preserving 76dp).
+- Card-height impact: NONE (76dp preserved).
+- Inset bounds: unchanged.
+- Goal Planning / Active Pathways density: unchanged (height-invariant).
+
+AUDIT CONCLUSION (verbatim from audit file): SAFE TO IMPLEMENT,
+NO OWNER DECISION REQUIRED.
+
+Audit written before implementation:
+C:\Users\sherl\Downloads\monday review pack 1 fix regression\SESSION_AUDIT\
+NEXT_TRANSFER_HOME_ICON_SIZE_FORENSIC_AUDIT_2026-08-15.txt
+
+================================================================================
+4. PHASE 3 — HI-01 FAIL-FIRST IMPLEMENTATION
+================================================================================
+A. FAIL-FIRST TESTS (written/updated BEFORE production changes):
+   - home_light_polish_test.dart B5: top wide icon 48 -> 54, compact 44 -> 50,
+     all Home icons must be exactly 50 or 54, no 72/80 GI-02 sizes.
+   - home_light_polish_test.dart B7 Temple pin: 48 -> 54.
+   - home_week_start_test.dart: Home card art 44/48 -> 50/54.
+   RED captured before production edits (exactly these 3 tests):
+     - B5 HI-01 Home icon sizes [E]
+     - B7 HR-02 special rows (Temple 54 pin) [E]
+     - week_start deliberate entry (icon-size pin) [E]
+   All other Home tests passed against the pre-change tree.
+
+B. PRODUCTION CHANGE (home_screen.dart ONLY):
+   - daily top card iconSize 48 -> 54
+   - weekly compact cards iconSize 44 -> 50 (both halves)
+   - Temple monthly card iconSize 48 -> 54
+   - No other Home structure changed; insets, paddings, card height, spacing,
+     semantics, and the gray-surface roles are byte-identical to HR-02.
+   - GoalIcon renderer NOT touched. Temple opticalScale untouched. Non-Home
+     GI-02 call sites untouched (verified unchanged via git diff scope).
+
+C. SKELETON: no change required — the skeleton has no size-coupled icon
+   geometry (generic blocks + inset placeholders at fixed 76dp heights).
+
+D. GOLDEN DISCIPLINE:
+   - 14 Home masters RED before update (18/20 pack1 + skeleton files:
+     the two dialog masters 14/15/16/17/18 and skeleton-with-content masters
+     with no Goal Icon artwork did not change).
+   - Inspected the 01 failure diff: changed pixels confined to rows 139-425
+     (the four Life Goals card-row bands, each ~46px tall = icon artwork
+     delta within the fixed 76dp rows). No inset geometry, no color, no
+     section-movement delta.
+   - Updated ONLY the 14 proven affected masters:
+     01, 02, 03, 05, 06, 07, 08, 09, 10, 11, 12, 13, 19, 20.
+   - Zero Dark delta; zero non-Home renderer delta.
+
+================================================================================
+5. PHASE 4 — GREEN GATES (actual counts)
+================================================================================
+1. HI-01 focused Home tests (B5/B7/week_start/journey/phase_a): 30/30 PASS
+2. Goal Icon widget + D1 goldens + registry: PASS (goal_icon_widget_test,
+   goal_icon_d1_golden_test, goal_icon_registry_test)
+3. non-Home GI-02 exact-size + CT-03 + Blue/Rose theme + Contact flicker +
+   B3.2 direct-Goal/People + TF-01: 153/153 PASS (preservation batch)
+4. Full Flutter suite: 1070/1070 PASS
+5. dart analyze --fatal-infos lib test (repo-equivalent dart analyze):
+   "No issues found!" (0 issues)
+6. git diff --check: clean (exit 0)
+7. Debug APK build: success, SHA-256
+   00e34282fb95e6adfdec3112b383fa71047824f28d4923cf2d5244e24564aca1
+
+================================================================================
+6. SAFE INSTALL / DATA PRESERVATION (actual evidence)
+================================================================================
+Device: adb-10620253B3004617 (wireless, adb-tls-connect), package
+com.nexttransfer.rmplanner.
+Pre-install (binary-safe pull of app_flutter/next_transfer.sqlite):
+- user_version 27, integrity ok
+- planner_tasks 3, contacts 5, goals 16
+- appearance_preferences: (primary, light, ..., blue)
+adb install -r (update-in-place ONLY; no uninstall; no clear data): Success
+Relaunch: process started normally.
+Post-install: user_version 27 -> 27, integrity ok, planner_tasks 3 /
+contacts 5 / goals 16 identical, appearance Light + Blue preserved.
+Device evidence (implementor only, NOT owner PASS):
+- %TEMP%\hi01\shots\home_light.png (1080x2400)
+- Top-card crop analysis: gray Today inset present (86,364 gray px in the
+  right half), two-tone icon artwork present on the left (2,145 saturated px
+  — larger than the pre-HI-01 capture), confirming the installed build shows
+  the larger 54dp daily icon inside the unchanged HR-02 structure.
+
+================================================================================
+7. EXACT FILES CHANGED (HI-01 only)
+================================================================================
+Production:
+- lib/features/startup/presentation/home_screen.dart (4 icon-size constants:
+  top 54, weekly 50 x2, temple 54)
+
+Tests:
+- test/features/startup/presentation/home_light_polish_test.dart (B5 + B7 pins)
+- test/features/startup/presentation/home_week_start_test.dart (icon-size pin)
+
+Goldens (14 masters, icon-size delta only):
+- test/features/startup/presentation/goldens/goldens/home_pack1/01, 02, 03,
+  05, 06, 07, 08, 09, 10, 11, 12, 13, 19, 20
+
+Disposable probe (created and removed, not in the final diff):
+- test/features/startup/presentation/hi01_size_probe_test.dart (Phase 2 only)
+
+================================================================================
+8. DEFERRED LEDGER
+================================================================================
+NEXT_TRANSFER_DEFERRED_FINDINGS_2026-08-15_LIGHT_UI_FINAL_POLISH.txt
+- DF-03: stays RESOLVED (by HR-01; not re-opened).
+- DF-04: stays OPEN (Temple full-width restructure preserved the keyed
+  home-temple-schedule affordance; no factual resolution trigger).
+- DF-01/02/05/06: unchanged.
+HI-01 revealed no new unrelated issue; nothing appended.
+
+================================================================================
+9. OWNER PHYSICAL CHECKLIST (shortest)
+================================================================================
+1. Home icons are visibly larger than the previous build: daily top and
+   Temple 54dp, weekly compact 50dp — inside the same compact 76dp cards.
+2. No overflow/clipping; long titles still single-line ellipsis; Today's and
+   August gray insets unchanged in position/size.
+3. Goal Planning and Active Pathways appear at the same screen position
+   (card heights unchanged).
+4. Choose Icon picker still 96dp / 3 columns; non-Home icons unchanged.
+5. Dark Home unchanged; Blue stays Blue; data (v27, Light+Blue, 3/5/16)
+   preserved.
+
+================================================================================
+10. GIT / STOP STATE
+================================================================================
+- NO SECOND COMMIT.
+- NO SECOND PUSH.
+- NOTHING STAGED — index empty.
+- Stopped for owner physical review.
+- After owner approval, the next session should checkpoint the ENTIRE accepted
+  dirty implementation in exactly one commit + normal push, then run the next
+  fresh read-only forensic audit.

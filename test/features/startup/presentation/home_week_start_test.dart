@@ -231,8 +231,10 @@ void main() {
     expect(find.text('Start Planning'), findsOneWidget);
     // The established pill is NOT shown.
     expect(find.text('Goal Planning'), findsNothing);
-    // Active Pathways unchanged.
-    expect(find.byKey(const Key('home-pathway-employment')), findsOneWidget);
+    // R5 (owner 2026-08-16): Pathways is deferred; the fabricated Active
+    // Pathways card must not render on Home at all.
+    expect(find.byKey(const Key('home-pathway-employment')), findsNothing);
+    expect(find.text('Active Pathways'), findsNothing);
   });
 
   testWidgets(

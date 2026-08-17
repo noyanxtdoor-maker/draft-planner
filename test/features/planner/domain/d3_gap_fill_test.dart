@@ -295,12 +295,29 @@ void main() {
   });
 
   group('repeat icon visibility (Delta 3 card affordance)', () {
-    test('a one-hour block at max zoom-out shows the repeat icon', () {
-      // At maximum zoom-out a one-hour block is ~17 px tall; the previous
-      // 18 px threshold hid recurrence from exactly this view.
+    test('repeat icon renders only when the title line can render', () {
+      // R3 (owner override 2026-08-16): content priority is identity first —
+      // the recurrence affordance must NEVER render while the Event title is
+      // hidden (a 17 px block previously showed a repeat icon with no
+      // title).  It requires the same height as the title line.
       expect(
         PlannerEventBlockContent.forHeight(
           17,
+          interactive: true,
+        ).showRecurrence,
+        isFalse,
+      );
+      expect(
+        PlannerEventBlockContent.forHeight(
+          17,
+          interactive: true,
+        ).showTitle,
+        isFalse,
+      );
+      // At/above title line height the icon is available.
+      expect(
+        PlannerEventBlockContent.forHeight(
+          PlannerEventBlockLayoutPolicy.titleLineHeight,
           interactive: true,
         ).showRecurrence,
         isTrue,

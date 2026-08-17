@@ -1,0 +1,195 @@
+NEXT_TRANSFER_SESSION_AUDIT_2026-08-15_HOME_SPECIAL_ROWS_ICON_VISIBILITY.txt
+
+================================================================================
+1. SESSION IDENTITY
+================================================================================
+- date/time: 2026-08-15 (local +0800)
+- implementor/model: Freebuff coding agent (Buffy)
+- repo/worktree: C:\Users\sherl\Documents\Next Transfer-Temp
+- branch: autonomous/stability-ux-pack-a-20260814
+- starting HEAD: a6141d7e2a7798ff822150381d5c3b3981d0530d
+- ending HEAD:   a6141d7e2a7798ff822150381d5c3b3981d0530d (unchanged)
+- commit/push: NONE (continuation implementation session; index empty, NO
+  stage, NO commit, NO push)
+- baseline rule: tree was EXPECTED DIRTY (accepted HR-01 + Light UI Final
+  Polish + GI-01/GI-02/CT-03 implementation).  No reset/clean/stash/
+  checkout-over/destructive Git op ran.
+
+================================================================================
+2. DIRTY BASELINE RECONCILIATION
+================================================================================
+Reconciled the inherited tracked diff against the HR-01 + Light UI audits.
+Verified intact before any edit:
+- HR-01 compact Home (76dp rows, single wide daily card, half-width pairs,
+  temple + month bottom pair, 36/40 Home icons)
+- raw/no-halo Goal Icon renderer + Temple opticalScale 1.15
+- non-Home GI-02 sizes (weekly 64, choice row 72, archive 56, picker 96,
+  event 48/52, task 48/48)
+- CT-03 current-time 15px / 62dp / 4dp
+- Blue/Rose semantic cleanup + Contact flicker fix
+- schema v27; index empty; no merge/rebase/detached HEAD; origin == HEAD
+
+STOP conditions clear.  Inherited untracked artifacts inventoried and NOT
+attributed to this session.
+
+================================================================================
+3. HR-02 EXACT FILES
+================================================================================
+Production:
+- lib/features/startup/presentation/home_screen.dart (special rows + inset
+  surfaces + larger Home icons + skeleton)
+
+Tests (updated to the approved mockup contract):
+- test/features/startup/presentation/home_light_polish_test.dart
+  (B2 -> opaque-gray inset contract; B5 -> 48/44 icons; NEW B7 -> one-card
+   top/bottom + insets-inside-card + gray surface)
+- test/features/startup/presentation/home_phase_a_polish_test.dart
+  (A2/A3/A5 -> controls inside inset; A8 -> inset <= 60 tall)
+- test/features/startup/presentation/home_week_start_test.dart (44/48 icons)
+- test/features/indicators/presentation/home_indicator_journey_test.dart
+  (temple full-width 357, August inset inside card, quick-control inset <= 170
+   wide / <= 60 tall)
+
+Goldens (regenerated; authorized Home geometry/inset delta only):
+- test/features/startup/presentation/goldens/goldens/home_pack1/*.png (18)
+- test/features/startup/presentation/goldens/goldens/home_skeleton/*.png
+
+No other production file touched.  All other tracked modifications are
+inherited accepted work.
+
+================================================================================
+4. FINAL HOME STRUCTURE (approved mockup: approved_home_special_rows_compact_mockup.png)
+================================================================================
+TOP ROW (HR-02A): ONE full-width white/near-white Goal card, single 76 dp
+row: [GoalIcon 48] [title maxLines 1 ellipsis + ratio accent] [OPAQUE GRAY
+Today's Goal inset].  The inset is a rounded neutral-gray surface
+(AppTheme.blockOf: Light surfaceContainerHighest / Dark #23262C) containing
+the "Today's Goal" label, the 0/0 value, AND the +/- quick controls — no
+loose text, no floating + on the white card.
+
+MIDDLE 2x2 (HR-02B): compact horizontal cards unchanged in shape, icons
+enlarged to 44 dp (was 36).  Titles single-line ellipsis; no vertical
+icon-above-text regression; card height stays 76.
+
+BOTTOM TEMPLE ROW (HR-02C): ONE full-width white card: [GoalIcon 48]
+[Temple Visit title + "Next Visit"/"Set Schedule"] [OPAQUE GRAY August Goal
+inset: "August Goal" label + ratio value].  No more two half-width bottom
+cards.  The keyed schedule affordance (home-temple-schedule) and Temple
+opticalScale are preserved.
+
+ICON SIZES (HR-02D, pinned): top/Temple 48 dp, middle compact 44 dp — both
+visibly larger than HR-01's 40/36.  Non-Home GI-02 sizes untouched.
+
+SPACING (HR-02E): inset internal padding 8/4, icon-to-text gap 8, controls
+footprint 68, card height 76.  The Today inset measures ~152-160 dp wide at
+393 (label col 64 + gap 4 + controls 68 + padding 16); title region >= 100 dp
+at 393; no overflow at 360/393/411 (B6/A8 green).
+
+SKELETON: wide card with right inset placeholder, two compact 2x2 rows, wide
+Temple row with right inset placeholder, then Goal Planning — mirroring the
+final structure (no split bottom pair).
+
+================================================================================
+5. RED -> GREEN EVIDENCE
+================================================================================
+RED (before the fix, against the new layout): 6 stale pins —
+A2/A3/A5 (controls-right-of-block), B2 (112dp block width + floating +),
+week_start (36/40 icons), B5 (40/36 icons), journey (temple half-width,
+month-card width, quick-control 112), A8 (inset height 48).
+
+GREEN after: all updated to the HR-02 contract; 7 light_polish tests
+(incl. new B7 one-card/inset/gray-surface proof), 7 phase_a, week_start,
+journey — 30/30 Home tests green.  Preservation batch (startup_journey,
+light_ui_c, b3_2_task_form, calendar_event_indicator_link, goal_icon widget +
+registry, CT-03 x2, contact flicker) 74/74 green.
+
+GOLDENS: 18 pack1 masters + skeleton masters RED; inspected 01 before
+updating — changed rows 138-450 confined to the Life Goals band; the new
+master shows the top card's gray inset at right and the bottom Temple card's
+August inset at right.  Only Home masters regenerated; no Dark/Goal Icon/
+unrelated masters touched by this session.
+
+================================================================================
+6. FULL GATES
+================================================================================
+- HR-02 focused + Home suites: 30/30 PASS
+- Preservation batch: 74/74 PASS
+- Full Flutter suite: 1070/1070 PASS (1069 + new B7)
+- dart analyze --fatal-infos lib test: 0 issues
+- git diff --check: clean (LF/CRLF notices only)
+- Debug APK: built; SHA-256 5fcf48ccdc1a864095c83ace287ce59b231cd9bb20ad2189097dee5ced4fa411
+
+================================================================================
+7. SAFE INSTALL / DATA PRESERVATION / DEVICE EVIDENCE
+================================================================================
+- Device: wireless debugging (adb-tls-connect), com.nexttransfer.rmplanner
+- Pre-install (binary-safe exec-out pull): user_version 27, integrity ok,
+  3 tasks, 5 contacts, 16 goals, appearance Light + Blue
+- adb install -r: Success (update-in-place; no uninstall, no clear data)
+- Relaunch + settle; post-install: v27 -> v27, integrity ok, counts identical
+  (3/5/16), Light + Blue preserved
+- Device screenshots: %TEMP%\hr02\device\hr02_home_light.png (initial,
+  skeleton still settling) and hr02_home_light_2.png (settled Home Light).
+  Pixel analysis of the settled shot:
+  * Top card row (y 528-684): white card spanning the width with the OPAQUE
+    gray Today's Goal inset at cols ~540-996 (~160 dp) — icon + title on the
+    white left, label/value/controls inside the gray inset.
+  * Middle rows: white 2x2 cards (no gray).
+  * Bottom Temple row (y ~1290-1390): gray August Goal inset at cols
+    ~749-996 (~76-90 dp) inside the single full-width white Temple card.
+  Implementor evidence only — NOT owner physical PASS.  (In-session preview
+  webview was non-compositing; verification used widget geometry tests +
+  regenerated goldens + device pixel analysis.)
+
+================================================================================
+8. DEFERRED LEDGER DISPOSITION
+================================================================================
+DF-03: stays RESOLVED (HR-01 compact rows unchanged; density preserved —
+Goal Planning and Active Pathways remain early; the tighter HR-02 spacing
+keeps them even closer to the fold).
+DF-04: NOT resolved — the Temple full-width restructure preserved the keyed
+home-temple-schedule affordance and its behavior (journey test still taps it
+and reaches the create gate), so the documented card-center hit-test note
+remains deferred as-is.
+DF-01/02/05/06: untouched.
+
+Ledger updated/copied to both docs/handoffs and the owner-facing
+SESSION_AUDIT directory.
+
+================================================================================
+9. NO-TOUCH COMPLIANCE
+================================================================================
+- schema/migrations v1-v27: untouched (v27 -> v27)
+- B3.2 direct Goal engine / task_contact_links / TF-01: untouched
+- CT-03 current-time contract: untouched
+- Goal Icon renderer, SVG assets, registry IDs/categories/aliases, MP-14,
+  R1, R3: untouched (only the Home call-site icon SIZE changed)
+- non-Home GI-02 exact sizes: untouched (suites green unchanged)
+- Event recurrence / Event direct Goal / Event People freeze: untouched
+- Planner geometry: untouched
+- warning/error/status colors, Event Type colors: untouched
+- Ads workstream, unrelated refactors/format sweeps: untouched
+
+================================================================================
+10. OWNER PHYSICAL CHECKLIST (shortest)
+================================================================================
+1. Top: ONE white card; opaque gray Today's Goal inset visibly distinct;
+   0/0 and +/- are INSIDE the inset; title/progress never overlap it; icon
+   visibly larger than HR-01 (48).
+2. Middle: compact 2x2, icons larger (44), titles readable, no giant-card
+   regression.
+3. Bottom: Temple Visit + August Goal are ONE full-width card; August Goal is
+   a gray inset box on the right; Temple icon large; schedule affordance works.
+4. Density: tighter spacing; Goal Planning early; Active Pathways visible.
+5. Regressions: no gray icon plate/halo; Blue stays Blue; Dark sane; current
+   time unchanged; Choose Icon still 96/3 columns; Contact flicker fix holds;
+   data/preferences survive.
+
+================================================================================
+11. STOP / GIT STATE
+================================================================================
+NO COMMIT / NO PUSH / index empty.  Stopped for owner physical review.
+Next session (after owner approval) should checkpoint the ENTIRE accepted
+dirty implementation in exactly one commit, push normally, then run the next
+read-only forensic audit.
+================================================================================

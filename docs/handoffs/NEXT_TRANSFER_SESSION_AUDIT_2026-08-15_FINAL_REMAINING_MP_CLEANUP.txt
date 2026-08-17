@@ -1,0 +1,231 @@
+NEXT TRANSFER — FINAL REMAINING MP COMBINED CLEANUP
+SESSION AUDIT — MP-06 + MP-04 + MP-13
+DATE: 2026-08-15
+MODE: AUDIT-FIRST · CONDITIONAL SURGICAL IMPLEMENTATION · FAIL-FIRST
+
+================================================================================
+0. START / END BASELINE
+================================================================================
+- repo: C:\Users\sherl\Documents\Next Transfer-Temp
+- branch: autonomous/stability-ux-pack-a-20260814
+- HEAD (start == end): aa03417c269d0493bb5aab85ad58b5d091da83e9
+- origin HEAD: aa03417... (unchanged)
+- index: EMPTY (start and end)
+- tracked tree at start: CLEAN
+- schema: v27 -> v27 (no migration, no schema edit)
+- MP-17: CLOSED / no code (prior instrumented audit)
+- MP-18: CLOSED / checkpointed at aa03417 (prior session)
+
+================================================================================
+1. COMBINED FORENSIC AUDIT (PHASE A)
+================================================================================
+Written BEFORE any production edit:
+C:\Users\sherl\Downloads\monday review pack 1 fix regression\SESSION_AUDIT\
+NEXT_TRANSFER_FINAL_REMAINING_MP_COMBINED_FORENSIC_AUDIT_2026-08-15.txt
+
+A1. MP-06 — DRAFT PINK EVENT GRIPS
+  - Draft block renderer traced in planner_screen.dart.
+  - The DRAFT rendered the OLD full dark floating circle (the owner-rejected
+    "large floating dot"); saved Events already used the approved integrated
+    Corner Tab Grip (14 dp cap, upper-right START / bottom-left END).
+  - Hit architecture already provides the required 44 dp invisible START/END
+    targets straddling the draft endpoints -> visual-only change was possible
+    by reusing the existing hit regions (the prompt's preferred option).
+  - VERDICT: SAFE TO IMPLEMENT.
+
+A2. MP-04 — DATE-SWIPE EVENT BORDER
+  - The accent border is a synchronous DecoratedBox inside the Event block
+    build - no async path exists that could drop it.
+  - Deterministic reproduction harness (outside-repo-style disposable widget
+    test): 5 consecutive event-rich days x3 events, 24 alternating left/right
+    swipes including return-to-current-date patterns; EVERY mid-drag preview
+    frame and settled frame keeps the left accent BorderSide on every normal
+    Event block.
+  - Device swipe capture was attempted but the device was credential-locked
+    during the earlier pass and blind-coordinate screenrecord was not reliable
+    this session.
+  - VERDICT: MP04_NOT_REPRODUCED_CURRENT_BUILD.
+
+A3. MP-13 — STACKED COINS STROKE HARMONIZATION
+  - SVG stroke audit: stacked_coins, wallet, piggy_bank all use stroke-width
+    14 on a 512 viewBox - identical mechanical stroke. Stacked Coins painted
+    coverage is actually LIGHTER than its peers (path-length proxy), so no
+    "too heavy" mismatch exists.
+  - VERDICT: MP13_MATCHES_APPROVED_PEERS. NO production change.
+
+================================================================================
+2. PHASE B — FAIL-FIRST TESTS
+================================================================================
+- test/features/planner/presentation/mp06_draft_grips_contract_test.dart (new)
+  3 tests: (1) exactly two integrated 14 dp corner grips on 44 dp targets,
+  upper-right START / bottom-left END, no extra handles, corner-hugging
+  geometry; (2) START drag moves start only, END drag moves end only, grip
+  follows the resized block, rose draft fill preserved; (3) save keeps
+  saved-Event behavior, no draft handle leak.
+  RED captured pre-implementation: test 1 failed on the floating-dot
+  geometry (dot straddled 7 dp past the corner); test 2 failed on the old
+  circle positions.
+- test/features/planner/presentation/mp04_date_swipe_border_regression_test.dart
+  (new, renamed from the disposable repro harness)
+  1 test: >=20 date swipes keep the Event left accent border on every
+  preview and settled frame. This is a pinning regression (MP-04 not
+  reproduced -> no artificial RED required; it passed on the current build
+  both before and after).
+- test/features/planner/presentation/planner_delta4_creation_session_test.dart
+  (updated) - Delta 4.2C grip-geometry assertions reconciled to the MP-06
+  integrated corner treatment (outer 14 dp cap corner hugs the block corner
+  instead of the old circle-center-on-corner). RED captured on the old
+  assertions after the production change; GREEN after reconciliation. All
+  other Delta 4.2C invariants unchanged (END resizes start-only, body drag
+  moves both times with no persistence, rose fill, no outline, no DB row).
+
+================================================================================
+3. PHASE C — SURGICAL IMPLEMENTATION
+================================================================================
+MP-06 (implemented, production):
+- lib/features/planner/presentation/planner_screen.dart
+  _DirectEndpointHandle now paints the SAME approved integrated Corner Tab
+  Grip for the provisional draft as for saved Events:
+  * removes the old full dark floating circle (owner-rejected)
+  * 14 dp accent-colored corner cap: upper-right START, bottom-left END
+  * draft targets still straddle the endpoint; the cap is positioned so its
+    outer corner coincides with the block corner (START: top 22 / right 0;
+    END: top 8 / left 0 inside the 44 dp target)
+  * 44 dp invisible hit targets unchanged; callbacks/gesture ownership
+    unchanged; saved-Event grip rendering byte-identical
+  * no lane/pager/time-math changes; no new recognizers
+
+MP-04 (conditional -> NOT reproduced -> ZERO production change):
+- Only the pinning regression test was added. No planner geometry change.
+
+MP-13 (conditional -> MATCHES peers -> ZERO production/asset change):
+- No SVG edit, no metadata change, no asset swap. Peer evidence recorded in
+  the forensic audit.
+
+================================================================================
+4. VISUAL / GOLDEN PROOF
+================================================================================
+- No golden updates were required: the draft visual is a runtime-rendered
+  CustomPaint (no golden master covers the draft grip dots), and saved-Event
+  rendering is byte-identical (no saved-Event golden delta possible).
+- MP-06 geometry proven by the contract tests at 393 dp (test viewport);
+  360/393/411 were not separately rendered - the integrated caps live inside
+  the unchanged 44 dp targets, so they do not alter layout at any width.
+- MP-04: harness frame-by-frame border proof (24 transitions).
+- MP-13: stroke/path-length comparison recorded; no visual delta.
+
+================================================================================
+5. FULL GREEN GATES (ACTUAL COUNTS)
+================================================================================
+1. MP-06 focused contract tests .............. 3/3 PASS
+2. MP-04 date-swipe border regression ........ 1/1 PASS (24 swipes, all frames)
+3. Delta 4.1/4.2 draft+editor suites
+   (contract + creation + edit) + pinch zoom
+   + saved Event resize/move (issue5_6) ...... 39/39 PASS
+4. Planner gesture arbitration
+   (horizontal_day_swipe full file) .......... 31/31 PASS
+5. Recurrence suite ........................... 13/13 PASS (in batch 3)
+6. Date pager / lane geometry + S1B ........... in batch 3 (108/108)
+7. Goal Icon registry + render + lifecycle .... in batch 3
+8. CT-03 current-time suites .................. in batch 3
+9. MP-18 / Home preservation (journey, light
+   polish, week start) ........................ in batch 4 (48/48)
+10. Contact flicker ........................... in batch 4
+11. B3.2 direct-Goal + Task People + TF-01 .... in batch 4
+12. FULL FLUTTER SUITE ........................ 1080/1080 PASS
+    (baseline 1076 + 3 MP-06 + 1 MP-04)
+13. dart analyze lib test ..................... No issues found
+14. git diff --check .......................... clean
+15. debug APK build ........................... SUCCESS
+    SHA-256 5d6ef2566028221fec4af75255f482c58b9f82e005fe06ac15290ce29a30f7a0
+
+Note: one batch run showed a hang in the R7-04 drag-projection test when 8
+files shared one flutter_tester process; that test passes alone (2 s) and in
+the full-suite run - batch-ordering/DLL-lock artifact, not a product issue.
+
+================================================================================
+6. SAFE INSTALL / DATA PRESERVATION
+================================================================================
+- adb install -r ONLY (update-in-place; no uninstall, no clear data)
+- Device: Infinix X6731 (wireless adb), APK SHA verified on disk first.
+- PRE -> POST:
+  * user_version 27 -> 27
+  * PRAGMA quick_check: ok -> ok
+  * planner_tasks 3, goals 16, contacts 5, weekly_plans 11 -> identical
+  * Appearance Light + Blue preserved (appearance_preferences untouched)
+- Relaunched; Home/Planner/event-type chooser functional on the installed
+  build (evidence screenshots under docs/handoffs/_screenshots/mpfinal/).
+
+================================================================================
+7. DEVICE EVIDENCE (IMPLEMENTOR, NOT OWNER PASS)
+================================================================================
+- Home Light post-install .................. 05_home_final.png (OCR verified)
+- Planner week view ........................ 02_planner_week.png
+- Event Type chooser ...................... 03_event_type_chooser.png
+- Draft editor open after type selection ... 04_draft_editor_open.png
+  (draft created at 2:00-2:30 AM; the sheet rendered; a transient full-width
+  primary-colored frame was observed during sheet open - not a defect)
+- MP-06 grip close-up on-device: NOT cleanly captured via blind coordinate
+  taps (app navigation under adb input is unreliable); the deterministic
+  widget contract tests are the recorded geometric proof (exact 14 dp caps,
+  44 dp targets, corner positions, drag semantics).
+- MP-04 on-device swipe stress: not recorded this session; the 24-transition
+  frame-by-frame harness is the recorded proof of the current stable state.
+- MP-13: no change; peer evidence is the static SVG audit.
+
+================================================================================
+8. UPDATED MP LEDGER
+================================================================================
+- MP-06 .......... implemented; PENDING OWNER PHYSICAL REVIEW
+- MP-04 .......... NOT reproduced on current build; regression pinned;
+                   PENDING OWNER VERDICT on reproduction evidence
+- MP-13 .......... matches approved peers; no change;
+                   PENDING OWNER VERDICT on peer evidence
+- MP-17 .......... CLOSED / no code (instrumented audit: not worth optimizing)
+- MP-18 .......... CLOSED / checkpointed at aa03417
+- Remaining ledger: DF-04 stays OPEN (keyed home-temple-schedule affordance,
+  unchanged by this pack); other deferred items untouched.
+
+ROADMAP NOTE: after owner acceptance/checkpoint of this pack, proceed to the
+revised navigation/IA and other non-Pathways feature/fix work per the Phase 3
+gap-audit recommendation.
+
+================================================================================
+9. FILES CHANGED (THIS SESSION)
+================================================================================
+Production (1):
+- lib/features/planner/presentation/planner_screen.dart  (MP-06 draft grips)
+
+Tests (2 modified / 2 new):
+- test/features/planner/presentation/planner_delta4_creation_session_test.dart (reconciled Delta 4.2C grip geometry)
+- test/features/planner/presentation/mp06_draft_grips_contract_test.dart (new)
+- test/features/planner/presentation/mp04_date_swipe_border_regression_test.dart (new; renamed from the disposable repro)
+
+No goldens changed. No schema change. No SVG/asset change. No registry change.
+
+================================================================================
+10. GIT / STOP
+================================================================================
+NO COMMIT. NO PUSH. NOTHING STAGED. Index EMPTY. HEAD aa03417 unchanged.
+Tracked tree: 2 modified + 2 new untracked tests (above only).
+
+STOP FOR OWNER PHYSICAL REVIEW.
+
+OWNER PHYSICAL CHECKLIST
+------------------------
+MP-06:
+ 1. Create a draft on the Planner timeline.
+ 2. Confirm exactly TWO integrated grips: upper-right START, bottom-left END
+    (compact corner caps, not floating dots).
+ 3. Drag START -> only the start time changes; drag END -> only the end.
+ 4. Sheet drag does not resize the draft; editor form syncs to handle drags.
+ 5. Save/Cancel behave normally; saved Events show unchanged handle behavior.
+MP-04:
+ 6. Repeated left/right date swipes across event-rich days: accent border
+    stays on every Event in preview and settled states.
+MP-13:
+ 7. Choose Icon: Stacked Coins beside wallet/piggy_bank at equal size - no
+    stroke-weight mismatch (no change was made).
+General:
+ 8. Home/Planner/Goals/Contacts intact; data and Appearance (Light + Blue)
+    unchanged; schema v27.

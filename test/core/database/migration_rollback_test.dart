@@ -788,8 +788,9 @@ void main() {
           // 60 -> 30 default-duration migration; Pack B1 bumped it to 25 for
           // the AppearancePreferences table; B2-CORRECTION bumped it to 26
           // for the themeColor column; B3.2 bumped it to 27 for the direct
-          // Task Goal + contact-link columns.
-          27,
+          // Task Goal + contact-link columns; MAPS V1 bumped it to 28 for
+          // the additive Contact/Event coordinate columns.
+          28,
         );
         final taskColumns = await versionTen
             .customSelect('PRAGMA table_info(planner_tasks)')
@@ -947,7 +948,7 @@ void main() {
         // Pack B1: current schema is 25 (AppearancePreferences table);
         // B2-CORRECTION: current schema is 26 (themeColor column);
         // B3.2: current schema is 27 (direct Task Goal + contact-link columns).
-        expect(version.read<int>('user_version'), 27);
+        expect(version.read<int>('user_version'), 28);
         await current.close();
       } finally {
         sqliteDatabase.close();

@@ -1,0 +1,253 @@
+NEXT TRANSFER — NAV / LIGHT DETAIL / IA FORENSIC AUDIT
+READ-ONLY · FROM CLEAN CHECKPOINT a9c9569
+DATE: 2026-08-15
+
+================================================================================
+1. BASELINE / CLEAN PROOF
+================================================================================
+- repo: C:\Users\sherl\Documents\Next Transfer-Temp
+- branch: autonomous/stability-ux-pack-a-20260814
+- HEAD == origin == a9c9569f02260542f3100a557b87e6d38e44b45a (final-MP checkpoint)
+- tracked tree CLEAN, index EMPTY, schema v27
+- This audit is READ-ONLY: no production/test/golden/schema edits, no commit.
+
+================================================================================
+2. EVIDENCE REVIEWED
+================================================================================
+- EVIDENCE/SCREENSHOTS/NEXT_TRANSFER_EVENT_DETAIL_LIGHT.jpg
+- EVIDENCE/SCREENSHOTS/NEXT_TRANSFER_CONTACT_DETAIL_LIGHT.jpg
+- EVIDENCE/SCREENSHOTS/NEXT_TRANSFER_DRAWER_LIGHT_CURRENT.jpg
+- EVIDENCE/SCREENSHOTS/OWNER_RECORDING_CONTACT_SHEET.jpg
+- EVIDENCE/SCREENSHOTS/PMG_REFERENCE_EVENT_DETAIL_LIGHT.jpg
+- EVIDENCE/SCREENSHOTS/PMG_REFERENCE_HAMBURGER_LIGHT.jpg
+- EVIDENCE/OWNER_RECORDING_NOTE.txt (recording findings)
+- Pixel/ink analysis of every still (dominant-color + layout maps).
+  Drawer still: dominant surface #191A1E (dark) with a Light app behind it —
+  confirms "Light app opens a dark drawer".
+
+================================================================================
+3. NX-01 — LIGHT DETAIL CAPTION/LABEL CONTRAST  (FOUND · FIX)
+================================================================================
+OWNER: lib/features/planner/presentation/calendar_event_detail_screen.dart
+- _EventStatusControlRow 'Current Status' caption: line 900
+    labelMedium?.copyWith(color: Colors.white60)
+- _DetailField caption label (Title / Date / Time / Event Type / Created /
+  Updated / Contact Type): line 1134
+    labelMedium?.copyWith(color: Colors.white60)
+ROOT CAUSE: Colors.white60 (60% white) on the Light detail surface is
+near-invisible (the token was authored for the dark sheet).
+FIX: brightness-aware caption color — Dark keeps the exact white60 pixels
+(byte-identical), Light resolves to Theme colorScheme.onSurfaceVariant.
+Both the Event sheet and the Contact-event sheet (same screen family) are
+covered. The evidence CONTACT_DETAIL still is this same sheet for a Contact
+Event, so one shared fix covers both.
+No white/near-white-on-Light occurrences found elsewhere in this component
+family (only these two call sites).
+
+================================================================================
+4. NX-02 — LIGHT STATUS CONTROLS  (FOUND · FIX)
+================================================================================
+OWNER: lib/features/planner/presentation/widgets/planner_report_status_icons.dart
+- Unselected control treatment (the inactive status buttons):
+    ring  = Colors.white38
+    glyph = Colors.white54
+  both near-invisible on a Light surface -> inactive status controls are
+  effectively invisible in Light mode (matches the owner evidence).
+- The SELECTED control is a filled disc (status color + dark glyph) — already
+  visible; the disc colors stay as-is (owner allows status color for selected).
+FIX: the icon widget resolves Light neutrals from Theme (outline + onSurface
+Variant for ring/glyph) and Dark keeps white38/white54 byte-identical; the
+CustomPainter receives resolved colors.
+Additionally the detail sheet's current-status VALUE label uses
+PlannerEventReportStatus.colorFor(kind) — dark-tuned muted amber/coral/green
+(1.7-2.3:1 on Light). Add a brightness-aware label color used ONLY at the
+detail current-status label (Dark: exact constants; Light: darker semantic
+variants). Planner block badges keep their existing colors (display-only
+discs, not part of the reported issue).
+
+================================================================================
+5. NX-03 — STATUS LABEL NORMALIZATION  (FOUND · FIX)
+================================================================================
+OWNER: user-facing current-status label "Missed — Attempted" must not exist.
+Sources (all user-facing label renderers; storage/enums unchanged):
+- lib/features/planner/domain/calendar_event.dart:1145 calendarEventStatusLabel
+- lib/features/planner/domain/calendar_event.dart:1166 calendarEventOutcomeLabel
+- lib/features/planner/presentation/widgets/planner_event_report_status.dart:89
+  PlannerEventReportStatus.labelFor
+- lib/features/planner/presentation/activity_history_screen.dart:230
+FIX: partiallyCompleted renders 'Missed' for BOTH Contact and generic Events.
+The PlannerReportStatusKind.missedAttempted enum, the stored
+CalendarEventStatus.partiallyCompleted value, the icon kind, and the muted
+coral disc color remain — only the label string normalizes. Doc comments
+updated where they describe the old label.
+
+================================================================================
+6. NX-04 — DRAWER LIGHT SURFACE  (FOUND · FIX)
+================================================================================
+OWNER: lib/features/shell/global_app_drawer.dart
+Hard-coded DARK constants regardless of theme:
+- Drawer backgroundColor: AppTheme.surface (#181A1E)
+- header color: AppTheme.background (#0D0E10); border AppTheme.outline
+- group header text: Color(0xFF9CA0A6)
+- unselected entry icon: Color(0xFFD6D8DB); text: Color(0xFFECEDEF)
+The selected row already uses Theme colorScheme.primary (theme-aware).
+FIX: convert every hard-coded tone to the brightness-aware accessor pattern
+used elsewhere (AppTheme.surfaceOf(context) / outlineOf(context) /
+secondaryTextOf(context) / onSurface):
+  Dark -> byte-identical constants (goldens/tests safe);
+  Light -> colorScheme.surfaceContainer / outlineVariant / onSurfaceVariant /
+           onSurface.
+Header brand mark (rose NT chip) stays. Drawer animation/gesture untouched.
+
+================================================================================
+7. NX-05 — DETAIL IDENTITY FLASH  (FOUND · FIX)
+================================================================================
+OWNER: lib/features/planner/presentation/calendar_event_detail_screen.dart
+- _detailHeading initialized to 'Calendar Event' (line 43), body shows a
+  spinner; after readOccurrence resolves, the heading morphs to
+  activityTypeLabel/displayTitle -> "Calendar Event" -> "Contact" morph.
+- The planner caller (planner_screen.dart _openCalendarEvent) ALREADY holds
+  PlannerCalendarItem with activityTypeLabel + displayTitle synchronously.
+FIX: seed the sheet with the known identity:
+  showCalendarEventDetailSheet(..., String? initialHeading) and
+  CalendarEventDetailScreen(..., this.initialHeading)
+  passed from the planner tap (activityTypeLabel ?? displayTitle). Heading
+  starts truthful; no morph when known. The deep-link route (app_router.dart
+  /calendar-events/:eventId/:originalDate) has no synchronous label -> keeps
+  the 'Calendar Event' default (truthful fallback, still resolves after load).
+  No fabricated data; the loaded occurrence may still refine the heading if
+  the stored label differs.
+
+================================================================================
+8. NX-06 — EDIT EVENT BLANK/SPINNER PAUSE  (FOUND · BOUNDED FIX)
+================================================================================
+OWNER: lib/features/planner/presentation/calendar_event_form_screen.dart
+- edit factory passes only eventId/originalDate/scope; body is a bare
+  Center(CircularProgressIndicator) while _loading/_configurationLoading;
+  heading is 'Edit Event' until _selectedEventType loads.
+- Classification: (1)+(3) hybrid. The deep DB read is a correctness load
+  (no fabrication); the MP-17 instrumented audit showed debug-mode overhead
+  dominates latency, but the BLANK shell is a real UX artifact in every mode.
+FIX (no form rewrite): the detail sheet (which holds the loaded occurrence)
+passes the known title + event type label through the edit route query
+params; the edit factory accepts optional initialTitle/initialEventTypeLabel
+(defaults null -> current behavior); the loading branch renders a truthful
+shell — heading 'Edit <label> Event' + the seeded title line above the
+spinner — instead of a bare blank pause. Deep-link / direct edit without
+seeds keeps current behavior.
+
+================================================================================
+9. NX-07/NX-08 — REVISED NAVIGATION / IA  (FOUND · FIX)
+================================================================================
+OWNER: lib/app/shell/main_shell.dart, lib/app/router/app_router.dart,
+       lib/app/router/route_names.dart, lib/features/settings/presentation/
+       more_screen.dart
+Current: 5-tab NavigationBar Home/Planner/Pathways(stub snackbar)/Contacts/
+More; MoreScreen landing at /more; drawer already provides Planner, Goal
+Planning, Plan History, Activity History, Life Goals, Messages, Settings,
+About (no More entry).
+Target (owner lock, overrides older IA):
+- PRIMARY: Home / Planner / Contacts (Maps owner-gated this run -> NO fake
+  Maps tab).
+- Remove Pathways + More destinations from the bottom bar.
+- /more route: keep ONLY as a compatibility redirect -> /home (children under
+  /more/* remain reachable: Settings, Colors, Start-of-week, Appearance,
+  Planner Event Colors, plus Privacy at /privacy).
+- MoreScreen landing page: no longer routed or exposed (file removed).
+- Drawer keeps canonical secondary destinations; Settings sub-screen keeps
+  Privacy/Appearance reachability. Back policy: direct-entered /more child
+  falls back to Home root (replacing the old "More root" fallback).
+- Contextual create FAB behavior unchanged (enum 'more' value retained for
+  compat; no More tab uses it after removal).
+TEST SURFACE to migrate (fail-first): root_back_policy_test.dart
+(More-tab/More-root cases), global_app_drawer_pack3_test.dart (More-root
+drawer-open cases), and any shell/journey tests that tap the More/Pathways
+tabs.
+
+================================================================================
+10. NX-09 — SETTINGS LIGHT SURFACES  (FOUND · SMALL FIX)
+================================================================================
+OWNER: lib/features/settings/presentation/settings_screen.dart
+- Card borders use BorderSide(color: AppTheme.outline) (#454850) — a dark
+  border on Light cards (wrong Light role). Lines 56, 100, 133.
+FIX: AppTheme.outlineOf(context) — Dark keeps #454850 exact; Light uses
+colorScheme.outlineVariant. No hierarchy flattening; no other Settings
+surface uses a wrong container role (rest already theme-aware).
+
+================================================================================
+11. MAPS REALITY CHECK  → MAPS_OWNER_DECISION_REQUIRED
+================================================================================
+Evidence:
+- pubspec.yaml: NO map SDK/provider (no google_maps_flutter, flutter_map,
+  mapbox_gl, etc.), no API keys, no map service dependencies.
+- CalendarEventLocationSelection model exists (placeName, formattedAddress,
+  latitude, longitude, externalPlaceId) with a picker interface, but the DB
+  only stores locationText (no persisted coordinates).
+- No geocoding helpers; url_launcher exists (could open external navigation
+  later); permission_handler is generic.
+CLASSIFICATION: MAPS_OWNER_DECISION_REQUIRED — a real minimum Maps surface
+cannot be proven from existing contracts/dependencies without adding a
+provider/SDK/API key, which is explicitly disallowed without owner approval.
+DECISION FOR THIS RUN: do NOT create a fake Maps screen. Temporary primary
+nav ships as Home / Planner / Contacts. The exact Maps provider/product
+decision (which SDK, offline contract, saved-locations source, external-navigation
+action) is recorded as an owner decision for the next feature pack.
+
+================================================================================
+12. VIDEO-WIDE UX CHECK  (NO ADDITIONAL REPRODUCIBLE FINDINGS)
+================================================================================
+- No crash/ANR observed in the owner recording.
+- The four recording-flagged items map 1:1 to audited fixes:
+  * generic 'Calendar Event' -> Contact identity shell  = NX-05
+  * Edit blank/spinner interval                        = NX-06
+  * Light drawer opening dark                          = NX-04
+  * Light detail captions/status contrast              = NX-01/NX-02
+- No other reproducible flicker/layout-jump/duplicate-tap finding was
+  observed in the bundled stills. Debug ribbon + OS screenshot overlays in
+  the stills are not app bugs.
+
+================================================================================
+13. IMPLEMENTATION BOUNDARY
+================================================================================
+PRODUCTION FILES (expected):
+- lib/features/planner/presentation/calendar_event_detail_screen.dart
+  (NX-01 captions, NX-05 heading seed, NX-06 edit-route seed origin)
+- lib/features/planner/presentation/widgets/planner_report_status_icons.dart
+  (NX-02 unselected Light treatment)
+- lib/features/planner/presentation/widgets/planner_event_report_status.dart
+  (NX-02 label color accessor; NX-03 label)
+- lib/features/planner/domain/calendar_event.dart (NX-03 labels)
+- lib/features/planner/presentation/activity_history_screen.dart (NX-03)
+- lib/features/planner/presentation/calendar_event_form_screen.dart
+  (NX-06 loading shell + seeds)
+- lib/app/router/app_router.dart + route_names.dart (NX-06 query params;
+  NX-07/08 /more redirect)
+- lib/features/planner/presentation/planner_screen.dart (NX-05 seed origin)
+- lib/features/shell/global_app_drawer.dart (NX-04 theme-aware)
+- lib/app/shell/main_shell.dart (NX-07/08 3-tab nav)
+- lib/features/settings/presentation/settings_screen.dart (NX-09 borders)
+- lib/features/settings/presentation/more_screen.dart (REMOVE — no landing)
+TESTS (expected):
+- new NX contract tests (detail captions/status Light, drawer theme,
+  heading stability, edit shell, 3-tab nav, /more redirect, status label)
+- updated: root_back_policy_test.dart, global_app_drawer_pack3_test.dart,
+  calendar_event_recurrence_test.dart, calendar_event_current_status_journey_
+  test.dart, planner_report_status_icons_test.dart, plus any shell/journey
+  tests that tap More/Pathways tabs (discovered by RED).
+GOLDENS: no planner goldens exist. Home/Goal Icon goldens untouched (drawer,
+detail, nav are not golden-covered). No golden updates expected.
+SCHEMA: v27 -> v27 (none). PERMISSIONS: none. PRIVACY: none.
+NO-TOUCH: MP-06 grips, MP-04 border path, MP-13 assets, Home Life Goal
+layout/icon sizes, Today/August insets, MP-18 tri-state, Contact flicker
+fix, CT-03, B3.2/TF-01, Pathways domain code/data, schema.
+
+================================================================================
+14. VERDICT
+================================================================================
+SAFE TO IMPLEMENT APPROVED BOUNDARY
+- Light/detail/drawer/transition fixes (NX-01..06, NX-09): safe, bounded.
+- Navigation/IA (NX-07/08): owner-authorized exact migration (Home/Planner/
+  Contacts; More removed; /more compat redirect; Pathways hidden).
+- Maps: MAPS_OWNER_DECISION_REQUIRED — shipped as NO fake tab; exact
+  provider decision recorded for the next feature pack.
+- No owner decision blocks the Light/detail/drawer/transition portion.

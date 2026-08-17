@@ -3132,8 +3132,14 @@ enum _TimelineResizeEdge { top, bottom }
 /// MP-06 (owner lock): the PROVISIONAL DRAFT now uses the SAME integrated
 /// corner treatment instead of the former full-circle floating dot — two
 /// compact corner caps at upper-right START and bottom-left END, colored
-/// with the draft's Event Type accent.  The 44 dp invisible hit targets and
-/// the straddling draft geometry are unchanged.
+/// with the selected APP THEME COLOR (Blue theme -> blue grips, Rose theme
+/// -> rose grips, invariant across the draft's Event Type accent).
+/// MP-06 FINAL POLISH (owner-approved 2026-08-16): each draft cap straddles
+/// the block edge by half its 14 dp size so it stays VISIBLE on the filled
+/// pink provisional surface in every appearance state (a flush-inside cap
+/// colored like the fill is invisible).  The 44 dp invisible hit targets and
+/// the straddling draft geometry are unchanged; saved-Event caps remain
+/// flush-inside and accent-colored (unchanged).
 final class _DirectEndpointHandle extends StatelessWidget {
   const _DirectEndpointHandle({
     required this.hitTargetKey,
@@ -3163,14 +3169,22 @@ final class _DirectEndpointHandle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Draft targets straddle the endpoint by half their 44 dp height, so the
-    // block edge crosses the target at y = 22.  The integrated corner cap
-    // therefore sits flush against the block corner INSIDE the target:
-    //   - START (upper-right): the cap's top-right corner at the target's
-    //     bottom-right (top: 22, right: 0) = the block's upper-right corner;
-    //   - END (bottom-left): the cap's bottom-left corner at the target's
-    //     top-left (top: 22 - 14, left: 0) = the block's bottom-left corner.
-    // Saved targets are already flush with the block, so their caps sit at
-    // the target's own corner (top: 0 / bottom: 0).
+    // block edge crosses the target at y = 22 (the invisible 44 dp hit area
+    // may extend beyond the block - unchanged).  MP-06B (owner correction
+    // 2026-08-17, HIGHEST AUTHORITY): the VISIBLE 14 dp caps sit FULLY
+    // INSIDE the filled draft block, reusing the saved-event Corner Tab Grip
+    // shape:
+    //   - START (upper-right): cap top = 22, right = 0 -> the cap's top
+    //     edge is flush with the block's upper-right corner and the cap
+    //     extends downward inside the block;
+    //   - END (bottom-left): cap top = 22 - 14 = 8, left = 0 -> the cap's
+    //     bottom edge is flush with the block's lower-left corner and the
+    //     cap extends upward inside the block.
+    // The grip is visible because it uses colorScheme.primary while the
+    // filled surface uses colorScheme.primaryContainer (contrast contract),
+    // so no straddle is needed. Saved targets stay flush with the block and
+    // their caps sit at the target's own corner (top: 0 / bottom: 0) -
+    // saved-Event grip geometry is unchanged.
     const double draftStraddle = 44 / 2; // 22
     final isStart = edge == _TimelineResizeEdge.top;
     final isEnd = edge == _TimelineResizeEdge.bottom;
@@ -4876,11 +4890,17 @@ final class _TimedEventTimelineState extends State<_TimedEventTimeline> {
     final originalEndMinute = plannerEndMinuteOfDay(originalStart, originalEnd);
     final horizontal = _horizontalGeometry(placement, totalWidth);
     final provisional = _isProvisionalEvent(event);
-    final handleAccent = PlannerEventColorResolver.accentColor(
-      context,
-      event,
-      widget.eventColorsByTypeId,
-    );
+    // MP-06 (owner 2026-08-16): the provisional draft grips are colored by
+    // the selected APP THEME COLOR (Blue theme -> blue grips, Rose theme ->
+    // rose grips) in both Light and Dark, invariant across the draft's Event
+    // Type accent. Saved Event handles keep the Event accent (unchanged).
+    final handleAccent = provisional
+        ? Theme.of(context).colorScheme.primary
+        : PlannerEventColorResolver.accentColor(
+            context,
+            event,
+            widget.eventColorsByTypeId,
+          );
     final horizontalDragOffset = widget.activeMoveEventId == event.id
         ? _activeMoveHorizontalOffset(event.id, horizontal.left)
         : 0.0;
@@ -5733,23 +5753,26 @@ final class _TimelineEventBlockState extends State<_TimelineEventBlock> {
       event,
       eventColorsByTypeId,
     );
-    // Delta 4.1 D4.1-04: the unsaved draft is a strong pink provisional
-    // surface, clearly different from a saved Event-Type-colored card, with
-    // dark text so the time range stays legible on the light pink fill.
+    // Delta 4.1 D4.1-04: the unsaved draft is a provisional TIME-ONLY
+    // surface clearly different from a saved Event-Type-colored card.
     // Saved Events keep their resolved Event Type colors and the locked
     // white-text rule untouched.
-    // The provisional draft uses the semantic Theme Color primary (Rose
-    // Dark resolves to the exact canonical rose; Blue resolves to Blue).
-    // The text override keeps Rose Dark's exact maroon and uses onPrimary
-    // elsewhere so the time range stays legible on the fill.
+    // MP-06B (owner correction 2026-08-17, HIGHEST AUTHORITY): the draft
+    // surface follows the APP THEME FAMILY using existing semantic tokens
+    // only - fill = colorScheme.primaryContainer (soft same-family
+    // container), accent = colorScheme.primary (strong same-family token
+    // for the left accent bar and the grips), text =
+    // colorScheme.onPrimaryContainer. Blue appearance -> blue-family draft,
+    // Rose appearance -> rose-family draft, in both Light and Dark; the
+    // Event Type never recolors the draft. Grip vs fill stay distinguishable
+    // in every appearance (contrast contract).
     final colorScheme = Theme.of(context).colorScheme;
-    final isRoseDark =
-        Theme.of(context).brightness == Brightness.dark &&
-        colorScheme.primary == AppTheme.rose;
     final accent = provisional ? colorScheme.primary : resolvedAccent;
-    final fill = provisional ? colorScheme.primary : resolvedFill;
+    final fill = provisional
+        ? colorScheme.primaryContainer
+        : resolvedFill;
     final textColorOverride = provisional
-        ? (isRoseDark ? const Color(0xFF3A0610) : colorScheme.onPrimary)
+        ? colorScheme.onPrimaryContainer
         : null;
     return LayoutBuilder(
       builder: (context, constraints) {

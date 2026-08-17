@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:rmplanner/app/theme/app_theme.dart';
 import 'package:rmplanner/core/database/app_database.dart';
 import 'package:rmplanner/core/diagnostics/sanitized_diagnostics.dart';
 import 'package:rmplanner/core/platform/app_environment.dart';
@@ -240,8 +239,8 @@ void main() {
   );
 
   testWidgets('Delta 4.2C: the END handle resizes directly, the draft body '
-      'moves without persistence, both handles straddle, and no outline '
-      'is painted', (tester) async {
+      'moves without persistence, both handles sit fully inside, and no '
+      'outline is painted', (tester) async {
     final database = await pumpPlanner(tester);
     final surface = find.byKey(const Key('planner-timeline-create-surface'));
     // 3:30 AM -> minute 210 at the default 60 px/hour density.  Early in
@@ -279,8 +278,10 @@ void main() {
     );
     expect(draft.endMinute, 4 * 60 + 30);
 
-    // Pink draft surface: the provisional block fill is the app rose and
-    // its time text is dark (unlike the locked white text of saved Events).
+    // MP-06B theme-family draft surface: the provisional block fill is the
+    // active appearance's primaryContainer token (Blue -> blue family,
+    // Rose -> rose family) and its time text is onPrimaryContainer (unlike
+    // the locked white text of saved Events).
     final visibleBlock = find.byKey(
       const Key('planner-provisional-event-visible'),
     );
@@ -303,7 +304,10 @@ void main() {
     final material = tester.widget<Material>(
       find.descendant(of: visibleBlock, matching: find.byType(Material)).first,
     );
-    expect(material.color, AppTheme.rose);
+    expect(
+      material.color,
+      Theme.of(tester.element(visibleBlock)).colorScheme.primaryContainer,
+    );
     final shape = material.shape! as RoundedRectangleBorder;
     expect(shape.side, BorderSide.none);
     final visibleRect = tester.getRect(visibleBlock);
@@ -311,15 +315,17 @@ void main() {
       const Key('planner-provisional-start-handle-dot'),
     );
     final endDot = find.byKey(const Key('planner-provisional-end-handle-dot'));
-    // MP-06: the integrated corner grip is a 14 dp cap whose OUTER corner
-    // hugs the block corner (upper-right START, bottom-left END) instead of
-    // the former floating circle centered on it.
+    // MP-06B: the integrated corner grip is a 14 dp cap fully INSIDE the
+    // filled draft block (upper-right START, bottom-left END) - START top is
+    // flush with the block top, END bottom is flush with the block bottom.
     final startRect = tester.getRect(startDot);
     final endRect = tester.getRect(endDot);
     expect(startRect.right, closeTo(visibleRect.right, .01));
     expect(startRect.top, closeTo(visibleRect.top, .01));
+    expect(startRect.bottom, lessThanOrEqualTo(visibleRect.bottom + 0.01));
     expect(endRect.left, closeTo(visibleRect.left, .01));
     expect(endRect.bottom, closeTo(visibleRect.bottom, .01));
+    expect(endRect.top, greaterThanOrEqualTo(visibleRect.top - 0.01));
     final timeText = tester.widget<Text>(
       find
           .descendant(of: visibleBlock, matching: find.textContaining('4:00'))

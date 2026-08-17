@@ -1,0 +1,205 @@
+NEXT TRANSFER — SESSION AUDIT
+NAVIGATION / LIGHT DETAIL / IA (NX-01..NX-09) IMPLEMENTATION
+DATE: 2026-08-15
+MODE: AUDIT-FIRST · SURGICAL · DIRTY TREE (NO COMMIT)
+
+================================================================================
+1. BASELINE / START GATE
+================================================================================
+- repo: C:\Users\sherl\Documents\Next Transfer-Temp
+- branch: autonomous/stability-ux-pack-a-20260814
+- starting HEAD == origin == a9c9569f02260542f3100a557b87e6d38e44b45a
+  (final-MP checkpoint, committed + pushed in Phase 1 of this run)
+- Phase 1 checkpoint audit written:
+  NEXT_TRANSFER_SESSION_AUDIT_2026-08-15_FINAL_MP_CLEANUP_CHECKPOINT.txt
+- ending HEAD: a9c9569 (UNCHANGED — this implementation is NOT committed)
+- index EMPTY; tracked tree DIRTY with the NX implementation only
+- schema v27 (unchanged)
+
+================================================================================
+2. FORENSIC AUDIT (READ-ONLY, BEFORE ANY EDIT)
+================================================================================
+NEXT_TRANSFER_NAV_LIGHT_DETAIL_IA_FORENSIC_AUDIT_2026-08-15.txt
+- NX-01/02/03/04/05/06/09: FOUND · FIX
+- NX-07/08: FOUND · FIX (owner-authorized exact migration)
+- Maps: MAPS_OWNER_DECISION_REQUIRED -> NO fake Maps tab; primary nav ships
+  Home / Planner / Contacts; exact provider decision recorded for the next
+  feature pack.
+- Video-wide check: the four recording-flagged items map 1:1 to the audited
+  fixes; no additional reproducible finding.
+- Verdict: SAFE TO IMPLEMENT APPROVED BOUNDARY.
+
+================================================================================
+3. RED -> GREEN (FAIL-FIRST)
+================================================================================
+RED captured before production edits:
+- NX-01 caption assertion failed: white60 vs expected Light onSurfaceVariant.
+- Nav contract: 2 failures (old 5-tab / More assumptions).
+After implementation + test reconciliation:
+- nx_light_detail_contract_test.dart 6/6 GREEN
+- nx_nav_ia_contract_test.dart 4/4 GREEN
+- migrated suites: root_back_policy 44 + drawer pack3 + recurrence + status
+  journey (45/45 in the combined migrated batch)
+- 6 More-tab-dependent legacy tests migrated to the drawer path and GREEN
+  (planner_correction_pack, planner_experience_refinement, planner_event_
+  colors x2, light_walkthrough, home_app_bar)
+
+================================================================================
+4. NX IMPLEMENTATION (EXACT FILES)
+================================================================================
+PRODUCTION (13 modified + 1 deleted):
+- lib/features/planner/presentation/calendar_event_detail_screen.dart
+  NX-01 captions (detailCaptionOf), NX-02 status-row label color + unselected
+  control wiring, NX-05 heading seed (initialHeading), NX-06 edit-route seeds
+  (title + eventTypeLabel query params)
+- lib/features/planner/presentation/widgets/planner_report_status_icons.dart
+  NX-02: unselected ring/glyph resolve Light theme (outline/onSurfaceVariant);
+  Dark byte-identical (white38/white54)
+- lib/features/planner/presentation/widgets/planner_event_report_status.dart
+  NX-02 labelColorFor (Dark exact constants / Light darker semantic);
+  NX-03 normalized label
+- lib/features/planner/domain/calendar_event.dart  NX-03: calendarEventStatus
+  Label + calendarEventOutcomeLabel render 'Missed' (partial outcome) for both
+  Contact and generic Events; storage/enum unchanged
+- lib/features/planner/presentation/activity_history_screen.dart  NX-03 label
+- lib/features/planner/presentation/calendar_event_form_screen.dart  NX-06:
+  edit factory initialTitle/initialEventTypeLabel + truthful loading shell
+  (heading 'Edit <label> Event' + seeded title above spinner)
+- lib/app/router/route_names.dart  NX-06 edit-route seed query params;
+  NX-07/08 /more redirect target
+- lib/app/router/app_router.dart  NX-06 edit seeds from query params;
+  NX-07/08 /more -> redirect to /home (no landing render)
+- lib/features/planner/presentation/planner_screen.dart  NX-05 seed origin
+  (activityTypeLabel ?? displayTitle from the tapped planner item)
+- lib/features/shell/global_app_drawer.dart  NX-04: theme-aware drawer
+  (Light surface/outlineVariant/onSurface/onSurfaceVariant; Dark byte-identical
+  #181A1E/#0D0E10/#454850/#9CA0A6/#D6D8DB/#ECEDEF)
+- lib/app/theme/app_theme.dart  NX-01 detailCaptionOf accessor
+- lib/app/shell/main_shell.dart  NX-07/08: 3-tab NavigationBar
+  (Home/Planner/Contacts); Pathways + More destinations removed; back policy:
+  /more child fallback -> Home
+- lib/features/settings/presentation/settings_screen.dart  NX-09: card borders
+  -> AppTheme.outlineOf (Dark #454850 exact / Light outlineVariant)
+- lib/features/settings/presentation/more_screen.dart  DELETED (no More
+  landing; children reachable from drawer/direct routes)
+
+TESTS (10 modified + 2 new):
+- NEW test/features/planner/presentation/nx_light_detail_contract_test.dart
+  (NX-01 captions Light/Dark, NX-02 status controls Light/Dark, NX-05 heading
+  stability with pending-read harness, NX-06 seeded Edit shell with
+  hold-gate repository)
+- NEW test/features/shell/nx_nav_ia_contract_test.dart
+  (3-tab nav, no Pathways/More, /more redirect, drawer child reachability,
+  drawer theme Light/Dark)
+- test/support/test_dependencies.dart  additive extraOverrides hook with
+  override dedupe (same provider never overridden twice)
+- root_back_policy_test, global_app_drawer_pack3_test, calendar_event_
+  recurrence_test, calendar_event_current_status_journey_test, planner_
+  correction_pack_test, planner_experience_refinement_test, light_walkthrough_
+  test, planner_event_colors_test, home_app_bar_test — migrated to the
+  NX-07/08 IA (drawer path instead of the More tab; 3-tab assertions)
+
+GOLDENS: none exist for drawer/detail/nav; no golden updates were required
+or made. Home/Goal Icon goldens untouched.
+
+================================================================================
+5. FINAL NAV / STRUCTURE
+================================================================================
+- PRIMARY bottom navigation: Home / Planner / Contacts (Maps owner-gated).
+- Pathways: removed from primary nav; code/data untouched (hidden/deferred).
+- More: standalone destination + /more landing removed; /more is a
+  compatibility redirect to /home; children (Settings, Colors, Start-of-week,
+  Appearance, Planner Event Colors, Privacy) reachable from the drawer and
+  direct routes.
+- Drawer: canonical secondary destinations (Planner, Goal Planning, Plan
+  History, Activity History, Life Goals, Messages, Settings, About), fully
+  theme-aware.
+- Back policy: direct-entered /more child falls back to Home root.
+
+================================================================================
+6. FULL GREEN GATES (ACTUAL COUNTS)
+================================================================================
+1. NX focused (light detail 6 + nav IA 4)               10/10 PASS
+2. migrated drawer/settings/back-policy/recurrence/status suites
+                                                         45/45 PASS (batch)
+3. migrated More-tab legacy files (6 files)              24/24 PASS (incl.
+   VS08-OWNER; batch total 23+1 after hamburger fix)
+4. FULL FLUTTER SUITE                                   1090/1090 PASS
+   (1080 final-MP baseline + 10 new NX tests)
+5. dart analyze --fatal-infos lib test                   0 issues
+6. git diff --check                                      clean
+7. debug APK build                                       Success
+   SHA-256 daf7b9112f247e84f1329ce42dfb397ce4a65507d593ff3d514f33da736c7b44
+(No golden gates exist for these surfaces.)
+
+================================================================================
+7. SAFE INSTALL / DATA PRESERVATION (VERIFIED ON DEVICE)
+================================================================================
+- adb install -r ONLY (no uninstall, no clear data): Success
+- schema: v27 -> v27
+- integrity: ok -> ok
+- data counts: planner_tasks 3 / goals 16 / contacts 5 / weekly_plans 11
+  -> identical
+- appearance_preferences: ('primary','dark',ts,'blue') -> identical
+  (appearance + theme color preserved)
+- app relaunched successfully after install
+
+================================================================================
+8. DEVICE EVIDENCE / KNOWN UNVERIFIED CLAIMS
+================================================================================
+On-device UI capture was BLOCKED: the phone is credential-locked (secure
+keyguard; `wm dismiss-keyguard` does not bypass it) and the interactive state
+keeps dropping to SLEEP during capture attempts. Same constraint as the MP-04
+session.
+- Verified ON DEVICE: install -r Success, v27/data/appearance preservation,
+  app relaunch.
+- NOT captured on device: Light Event/Contact detail, drawer Light, Edit
+  loading shell, 3-tab nav screenshots.
+- AUTHORITATIVE NX PROOF: the deterministic widget contract tests (6 light-
+  detail + 4 nav-IA) pin every NX behavior (caption colors, status-control
+  colors, drawer theme both modes, heading stability, seeded Edit shell,
+  /more redirect, 3-tab nav). Full suite 1090/1090 green.
+- Owner physical review remains the final authority for the visual pass.
+
+================================================================================
+9. DEFERRED LEDGER STATUS
+================================================================================
+- DF-03: stays RESOLVED (by HR-01).
+- DF-04: stays OPEN (no relationship to this pack).
+- DF-01/02/05/06: unchanged.
+- New: Maps provider decision recorded as the next feature-pack owner
+  decision (MAPS_OWNER_DECISION_REQUIRED from the forensic audit).
+
+================================================================================
+10. OWNER PHYSICAL CHECKLIST
+================================================================================
+1. Primary bottom nav shows exactly Home / Planner / Contacts (no Pathways,
+   no More).
+2. Hamburger drawer opens in Light with a Light surface + readable text/icons
+   (no dark drawer flash); Dark drawer unchanged.
+3. Event/Contact detail sheet: captions (Current Status / Title / Date / Time /
+   Event Type / Created / Updated) readable in Light; Dark identical.
+4. Inactive status controls visibly neutral in Light; selected status clear;
+   Dark identical.
+5. User-facing status labels are Unreported / Missed / Completed only (no
+   'Missed — Attempted').
+6. Opening an Event detail from the Planner shows the real identity title from
+   the first frame (no 'Calendar Event' -> Contact morph).
+7. Edit Event opens with a stable shell (Edit <type> Event + title) instead of
+   a blank pause, then fills with the real values.
+8. Settings cards show Light-appropriate subtle borders.
+9. Old /more links redirect to Home; every Settings/Privacy/Appearance/About/
+   Messages/Goal Planning/Plan History/Activity History/Life Goals destination
+   stays reachable.
+10. Data + Appearance + schema v27 intact after the install.
+
+================================================================================
+11. GIT / STOP
+================================================================================
+- NO COMMIT. NO PUSH. index EMPTY. HEAD == origin == a9c9569.
+- Dirty tree = this NX implementation only (13 M + 1 D production,
+  10 M + 2 new tests) + pre-existing untracked artifacts (unchanged).
+- STOP FOR OWNER PHYSICAL REVIEW.
+- After owner approval, the NEXT session should checkpoint the entire accepted
+  dirty implementation in exactly one commit, push, verify clean, then run a
+  fresh read-only audit for the next pack (per the standard handoff flow).

@@ -10,6 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rmplanner/core/diagnostics/sanitized_diagnostics.dart';
 import 'package:rmplanner/core/platform/app_environment.dart';
+import 'package:rmplanner/features/maps/presentation/maps_screen.dart';
 import 'package:rmplanner/features/settings/application/appearance_repository.dart';
 import 'package:rmplanner/features/settings/presentation/settings_screen.dart';
 import 'package:rmplanner/features/startup/presentation/home_screen.dart';
@@ -60,11 +61,14 @@ void main() {
   }
 
   testWidgets(
-    'NX-07/08: primary bottom navigation is exactly Home / Planner / '
-    'Contacts — no More tab, no Pathways tab',
+    'NX-07/08 + MAPS V1: primary bottom navigation is exactly Home / '
+    'Planner / Contacts / Maps — no More tab, no Pathways tab',
     (tester) async {
       await pumpApp(tester);
-      expect(navLabels(tester), <String>['Home', 'Planner', 'Contacts']);
+      expect(
+        navLabels(tester),
+        <String>['Home', 'Planner', 'Contacts', 'Maps'],
+      );
       expect(
         find.descendant(
           of: navFinder(),
@@ -79,6 +83,32 @@ void main() {
         ),
         findsNothing,
       );
+    },
+  );
+
+  testWidgets(
+    'MAPS V1: the fourth tab opens the Maps screen (no fake placeholder) '
+    'and back from it returns to Home',
+    (tester) async {
+      await pumpApp(tester);
+      await tester.tap(
+        find.descendant(
+          of: navFinder(),
+          matching: find.text('Maps'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(MapsScreen), findsOneWidget);
+      // Switching back to Home restores the first tab (index 0).
+      await tester.tap(
+        find.descendant(
+          of: navFinder(),
+          matching: find.text('Home'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(HomeScreen), findsOneWidget);
+      expect(find.byType(MapsScreen), findsNothing);
     },
   );
 

@@ -2,6 +2,11 @@
     <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
     <!-- VS-11 Contacts: selected device-contact import (just-in-time, never silently). -->
     <uses-permission android:name="android.permission.READ_CONTACTS"/>
+    <!-- MAPS V1 (owner lock 2026-08-16): OpenFreeMap Liberty basemap requires
+         network for style/tiles. Release was intentionally offline-first; this
+         is the ONLY authorized release network addition. NO location
+         permissions (coarse/fine/background) are added in V1. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:allowBackup="false"
         android:label="Next Transfer"

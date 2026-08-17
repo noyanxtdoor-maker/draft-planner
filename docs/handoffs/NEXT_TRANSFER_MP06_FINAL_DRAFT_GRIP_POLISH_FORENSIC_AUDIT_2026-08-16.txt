@@ -1,0 +1,184 @@
+NEXT TRANSFER — MP-06 FINAL DRAFT GRIP POLISH — FORENSIC AUDIT
+DATE: 2026-08-16
+MODE: READ-ONLY FORENSICS + FAIL-FIRST PLAN · AUDIT WRITTEN BEFORE ANY EDIT
+
+================================================================================
+0. BASELINE / BACKUP PROOF
+================================================================================
+Repo:    C:\Users\sherl\Documents\Next Transfer-Temp
+Branch:  autonomous/stability-ux-pack-a-20260814
+HEAD:    109417052acf94b02b2fa0e16d6785d0bb70e8ed
+Index:   EMPTY (verified)
+Dirty tree: uncommitted Maps V1 + R1 + MP-04 + R3 + MP-06 + R5 dirty tree
+           (unchanged from the previous session end).
+
+Pre-edit backup (MANDATORY PRE-EDIT BACKUP CONTRACT) — created and VERIFIED:
+  Backup folder: Next Transfer-Backups\<TS>_MP06_FINAL_GRIP_POLISH\
+  - BASELINE_IDENTITY.txt (branch/HEAD/origin/status/index)
+  - next_transfer_repo.bundle (git bundle --all) — verify PASS
+  - tracked_worktree.patch (binary-capable)
+  - staged_index.patch (empty — index empty)
+  - untracked_files_manifest.txt
+  - untracked_source_snapshot.zip (re-created as true ZIP, integrity-tested)
+  - source_worktree_snapshot.zip (true ZIP, integrity-tested)
+  - SHA256_MANIFEST.txt — every artifact present + hash-matched
+Single-writer advisory lock set outside the repo.
+
+================================================================================
+1. EVIDENCE REVIEWED
+================================================================================
+Pack evidence (NEXT_TRANSFER_MP06_FINAL_DRAFT_GRIP_POLISH_2026-08-16):
+- EVIDENCE/APPROVED_DRAFT_GRIP_MOCKUP.png   (941x1672, dark screenshot)
+- EVIDENCE/CURRENT_DRAFT_LIGHT_BLUE.jpg     (921x2048)
+- EVIDENCE/CURRENT_DRAFT_DARK_BLUE.jpg      (921x2048)
+- EVIDENCE/CURRENT_DRAFT_DARK_ROSE.jpg      (921x2048)
+- EVIDENCE/SAVED_EVENT_GRIP_REFERENCE.jpg   (921x2048)
+
+Live device (adb-10620253B3004617, current dirty-tree debug APK installed):
+- Provisional draft created through the real UI in Light+Blue.
+- Pixel-measured draft block + grip regions.
+
+================================================================================
+2. SAVED GRIP CODE PATH (current dirty tree)
+================================================================================
+- _DirectEndpointHandle (planner_screen.dart): shared 44dp invisible hit target
+  + 14dp visible cap (visibleCapSize = 14) rendered via
+  _SavedEndpointCornerTabPainter (R4-01 approved Corner Tab Grip).
+- Saved Event START: cap top-right hugs block upper-right corner (flush inside).
+- Saved Event END:   cap bottom-left hugs block lower-left corner (flush inside).
+- Saved caps are painted in the EVENT ACCENT color against the muted EVENT
+  SURFACE color -> accent != surface -> caps VISIBLE (this is why the saved
+  grip "reads" on saved Events).
+
+================================================================================
+3. DRAFT GRIP CODE PATH (current dirty tree)
+================================================================================
+- The draft reuses the SAME _DirectEndpointHandle + _SavedEndpointCornerTabPainter
+  (ONE visual geometry source — already satisfied).
+- Draft START target: top = placement.top - 22 (straddles the endpoint).
+- Draft END target:   top = placement.bottom - 22 (straddles the endpoint).
+- Draft caps (MP-06 theme fix): color = Theme.of(context).colorScheme.primary.
+- Draft block fill/accent (planner_screen.dart ~5755):
+      accent = provisional ? colorScheme.primary : resolvedAccent;
+      fill   = provisional ? colorScheme.primary : resolvedFill;
+  i.e. the DRAFT BLOCK FILL IS ALSO THE THEME PRIMARY.
+
+================================================================================
+4. ROOT CAUSE — DEVICE-PROVEN
+================================================================================
+ROOT CAUSE: THE DRAFT GRIP CAPS ARE PAINTED ENTIRELY INSIDE THE FILLED DRAFT
+BLOCK IN EXACTLY THE SAME COLOR AS THE FILL (both = theme primary). The caps
+are therefore LITERALLY INVISIBLE in every appearance state.
+
+Device proof (Light+Blue, current build):
+- Draft block = solid navy 0xFF175A8F (23,90,143) = blueLightPrimary.
+- START cap region (block upper-right corner, x1010-1050 / y1415-1450):
+  background above the block edge is plain canvas; the cap's 14dp square is
+  INSIDE the block (top-right corner flush at the block corner per the
+  current flush geometry) and the cap color == fill color -> zero visible
+  cap pixels.
+- END cap region (block lower-left corner): identical result.
+- Cap geometry is flush-inside for BOTH saved and draft (identical global
+  position); saved caps read because accent != surface, draft caps vanish
+  because cap == fill.
+
+The previous MP-06 session changed ONLY the draft grip color source to the
+theme primary (owner color contract) but the draft FILL was already the theme
+primary (since the appearance-system commit 86cda8c), producing the collision.
+Widget-level tests passed because they asserted the CustomPaint color, never
+pixel visibility or contrast.
+
+SECONDARY FINDING — BLUE-THEME DRAFT IS BLUE, NOT PINK:
+- Existing tests assert the draft surface == AppTheme.rose (0xFFF9B7C7)
+  (mp06_draft_grips_contract_test.dart:195, planner_delta4_creation_session_
+  test.dart:282). They pass ONLY because the test harness defaults to
+  Dark+Rose where colorScheme.primary == AppTheme.rose. In BLUE themes the
+  fill silently renders navy/periwinkle.
+- The owner-approved mockup shows a PINK-FILLED draft block (dark-pink body,
+  pink left accent) with blue theme UI: i.e. the draft stays the Delta 4.1
+  "strong pink provisional surface" (AppTheme.rose) regardless of theme, and
+  only the GRIPS follow the theme color. The current blue fill deviates from
+  the approved target and from the owner's own earlier wording ("the
+  provisional pink draft").
+
+================================================================================
+5. APPROVED TARGET (owner pack)
+================================================================================
+- Draft remains FILLED / provisional (pink "strong provisional" surface).
+- Draft grips reuse the SAVED grip visual language (already true).
+- Grip color = selected app Theme Color (Blue -> blue, Rose -> rose) in both
+  Light and Dark; Event Type must not change grip color (already true).
+- Grips must be VISIBLE in all four appearance states (Light+Blue, Light+Rose,
+  Dark+Blue, Dark+Rose) x 2 Event Types.
+- Saved Events keep their current surface/opacity and accent-colored grips.
+
+================================================================================
+6. SURGICAL FIX BOUNDARY (smallest delta)
+================================================================================
+A. FILL/ACCENT (planner_screen.dart):
+   draft fill/accent = AppTheme.rose (0xFFF9B7C7) — restore the Delta 4.1
+   approved pink provisional surface, theme-independent. Draft time text =
+   dark maroon 0xFF3A0610 (restore the original override; drop the
+   isRoseDark/onPrimary branch for the draft).
+   This matches: the approved mockup, the owner's "provisional pink draft"
+   wording, and the EXISTING test contract (material.color == AppTheme.rose).
+
+B. GRIP VISIBILITY (_DirectEndpointHandle):
+   Draft caps straddle the block edge symmetrically (7dp of the 14dp cap on
+   the background, 7dp on the fill) instead of flush-inside, so the outside
+   half is always visible against the timeline background in all four states
+   (including Dark+Rose, where the light-pink caps would otherwise blend into
+   the light-pink fill). Saved caps stay flush-inside (unchanged).
+   - START cap top: draftStraddle - visibleCapSize/2 (= 15) [was 22]
+   - END cap top:   draftStraddle - visibleCapSize/2 (= 15) [was 8]
+   Both caps stay inside the 44dp invisible target (target extends 22dp beyond
+   the edge), so hit-target and gesture ownership are unchanged.
+
+C. NO-TOUCH: saved-event caps, cap painter path, cap size (14dp), hit targets
+   (44dp), START/END semantics, drag/resize behavior, time-only draft, R1,
+   MP-04, R3, R5, Maps, pager, zoom, lanes, recurrence.
+
+================================================================================
+7. EXACT FILES PERMITTED TO CHANGE
+================================================================================
+Production:
+- lib/features/planner/presentation/planner_screen.dart (fill/accent/text + cap straddle)
+
+Tests:
+- test/features/planner/presentation/mp06_theme_grip_color_test.dart
+  (add fill==rose assertion per matrix cell; keep grip-color assertions)
+- test/features/planner/presentation/mp06_draft_grips_contract_test.dart
+  (update flush geometry to straddle; keep all other assertions)
+- test/features/planner/presentation/planner_delta4_creation_session_test.dart
+  (update flush geometry to straddle)
+
+Goldens: none expected to change (draft blocks are not golden-pinned). If the
+full suite shows a draft-bearing golden, RED-inspect before regenerating.
+
+================================================================================
+8. FAIL-FIRST PLAN (RED first)
+================================================================================
+1. MP-06 theme matrix: add `material.color == AppTheme.rose` per cell
+   (Light+Blue / Light+Rose / Dark+Blue / Dark+Rose x Temple Visit / Study or
+   Plan). Current code = theme-primary fill -> RED in the three non-dark-rose
+   cells.
+2. New visibility assertion (same matrix): START cap rect.top must be ABOVE
+   the block rect.top (cap straddles the edge -> outside half on background);
+   END cap rect.bottom must be BELOW block rect.bottom. Current flush geometry
+   -> RED on every cell.
+3. Existing assertions to update only AFTER the fix: flush-inside geometry in
+   mp06_draft_grips_contract_test.dart and
+   planner_delta4_creation_session_test.dart (both currently pin
+   startRect.top == blockRect.top / endRect.bottom == blockRect.bottom).
+
+================================================================================
+9. VERDICT
+================================================================================
+SAFE TO IMPLEMENT BOUNDED MP06 POLISH.
+
+Root cause is device-proven and bounded to two production spots (draft fill
+color source + draft cap straddle placement). All colors used are already
+approved constants (AppTheme.rose for the fill; colorScheme.primary for the
+caps). No new color is invented. Saved-event rendering is untouched. The
+change is covered by a 4x2 fail-first matrix plus the existing draft-grip
+contract suites.

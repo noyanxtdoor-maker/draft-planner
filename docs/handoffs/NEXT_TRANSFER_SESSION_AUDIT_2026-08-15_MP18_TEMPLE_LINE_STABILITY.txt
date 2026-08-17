@@ -1,0 +1,226 @@
+================================================================================
+NEXT TRANSFER — SESSION AUDIT
+MP-18 TEMPLE VISIT SECONDARY-LINE STABILITY
+DATE: 2026-08-15
+MODE: FAIL-FIRST SURGICAL IMPLEMENTATION
+BRANCH: autonomous/stability-ux-pack-a-20260814
+================================================================================
+
+1. STARTING BASELINE (verified before any edit)
+--------------------------------------------------------------------------------
+- Repo: C:\Users\sherl\Documents\Next Transfer-Temp
+- Branch: autonomous/stability-ux-pack-a-20260814
+- HEAD: 333bc48f664b399e1d5f8007f80612de3246093f (== origin HEAD)
+- Index: EMPTY; tracked tree: CLEAN (0 modified tracked files at start)
+- Schema: v27 (unchanged; no migration, no DB touch)
+- Untracked artifacts (inherited, not attributed to this session):
+  .accept/, .agents/, .audit_scratch*/, docs/handoffs/**, tool/*
+- No merge/rebase/detached state. No reset/clean/checkout-over/stash run.
+
+2. MP-18 EXACT HISTORICAL DEFINITION (recovered in the prior ledger audit)
+--------------------------------------------------------------------------------
+Source: REFERENCES\02-OWNER-PHYSICAL-PASS-AND-MP18.txt (B1 physical-pass pack,
+2026-08-14), verbatim:
+  "MP-18 — Temple Visit Home card secondary line briefly changes from
+   `Next Visit: Aug 16` to `Set Schedule`, then restores itself.
+   Frame-by-frame evidence around 8.5–8.6s and 10.9–11.0s.
+   This does not block B1 and is not authorized for checkpoint repair."
+
+3. EXACT ROOT CAUSE (before this fix)
+--------------------------------------------------------------------------------
+- home_screen.dart read `nextTempleVisitProvider.asData?.value` and rendered
+  the Temple card secondary line purely from null-ness:
+    non-null -> 'Next Visit: <date>'; null -> 'Set Schedule'.
+- That collapsed two distinct semantic states into one visual state:
+    A. unresolved/loading (first-ever read in flight)
+    B. resolved true-null (confirmed no schedule)
+- The first-ever read therefore rendered "Set Schedule" while merely loading
+  (the cold-start half of the defect), and Home's pull-to-refresh invalidated
+  the provider, re-creating the flash window on every reload (the 8.5/10.9s
+  pattern from the owner recording).
+- Verified empirically on the unfixed build with a staged/pending repository:
+  during the first unresolved read the line DID render "Set Schedule"
+  (deterministic RED).  During a refresh, Riverpod 3.3.2's copyWithPrevious
+  already retained the prior value, so the refresh window did not flash on the
+  current code; the explicit tri-state contract below makes retention a
+  guaranteed, tested behavior rather than an implicit framework detail.
+
+4. CHOSEN TRI-STATE IMPLEMENTATION
+--------------------------------------------------------------------------------
+lib/features/indicators/application/indicator_providers.dart
+- Added:
+    enum NextTempleVisitStatus { loading, ready, failure }
+    final class NextTempleVisitState { status; value; hasConfirmedValue;
+      isResolvedNull (ready && value == null) }
+- Replaced `nextTempleVisitProvider` (FutureProvider<PlannerDate?>) with
+  `nextTempleVisitControllerProvider` (NotifierProvider<NextTempleVisitController,
+  NextTempleVisitState>) following the established HomeIndicatorController
+  pattern in the same file:
+  - build(): watches startupControllerProvider + plannerDateSourceProvider
+    (same dependency contract as the old FutureProvider: re-read on resume
+    date-source invalidation / startup readiness), subscribes to the
+    repository change stream (calendar-event writes auto-refresh), schedules a
+    microtask refresh, returns the loading state.
+  - refresh(): retains the previous CONFIRMED value while the read is in
+    flight (never fabricates a date), applies the newer resolved result
+    immediately on arrival (including a newer true-null -> Set Schedule),
+    generation-guards against out-of-order completions, and on failure
+    retains the previous value (failure never claims "no schedule").
+- State semantics:
+    loading (no confirmed value)  -> Home renders NEUTRAL empty secondary line
+    ready + date                  -> 'Next Visit: <date>'
+    ready + null                  -> 'Set Schedule' (keyed affordance active)
+    failure + no previous         -> NEUTRAL (same as loading)
+
+lib/features/startup/presentation/home_screen.dart
+- Line ~90: `ref.watch(nextTempleVisitControllerProvider)` (the state, not
+  .asData).  The state flows into _CanonicalHomePlan -> _CanonicalIndicatorGrid.
+- Pull-to-refresh (RefreshIndicator onRefresh): replaced
+  `ref.invalidate(nextTempleVisitProvider); await read(.future)` with
+  `await ref.read(nextTempleVisitControllerProvider.notifier).refresh()`
+  (the controller retains the prior line during the reload — the same
+  retain-last-confirmed pattern already accepted for the Contact flicker fix).
+- Temple card secondary line via new `_templeSecondaryLabel(...)`:
+    value != null                -> 'Next Visit: ...'
+    isResolvedNull               -> 'Set Schedule' + onSecondaryTap
+    otherwise (loading/failure)  -> null label AND new `hideSecondaryLine`
+                                    flag so the card renders NO secondary
+                                    line (never the monthly ratio, never
+                                    'Set Schedule') while unresolved.
+- _goalCard / _IndicatorCard gained `hideSecondaryLine` (default false);
+  only the Temple unresolved state sets it.
+
+5. FAIL-FIRST TESTS (written BEFORE production changes; RED then GREEN)
+--------------------------------------------------------------------------------
+New: test/features/indicators/presentation/mp18_temple_line_stability_test.dart
+- StagedTempleRepository: a real DriftIndicatorRepository whose
+  readNextTempleVisit returns per-call pending futures the test completes
+  explicitly (deterministic loading windows); everything else delegates to
+  the real repository.  Injected through a new optional `indicatorRepository`
+  parameter added to TestPrivacyDependencies.buildApp (test-support only).
+- Cases:
+  A/D first-ever unresolved load -> NEUTRAL (no Set Schedule, no Next Visit),
+      then resolve date -> 'Next Visit: Aug 16'.
+  D2 first-ever unresolved load -> NEUTRAL, then resolve null -> 'Set Schedule'
+      + keyed home-temple-schedule.
+  B/E real pull-to-refresh gesture with a previous confirmed date -> the
+      prior 'Next Visit: Aug 16' stays visible while the refreshed read is
+      pending (no Set Schedule flash), then updates to 'Next Visit: Aug 18'.
+  C   refresh resolving to true null -> prior date retained while pending,
+      'Set Schedule' only after the null is CONFIRMED.
+  F   DF-04 preservation: resolved true-null keyed affordance still opens the
+      temple-visit create gate ('Select Event Type').
+- RED on the unfixed build: A/D and D2 failed deterministically — the pending
+  first load rendered "Set Schedule" (Found 1 widget with text "Set Schedule"
+  vs expected none).  B/E, C, F passed on the unfixed build (Riverpod's
+  implicit refresh retention) and remain green as regression guards.
+- GREEN after the fix: 5/5.
+
+Also updated (test-only):
+- test/support/test_dependencies.dart — optional `IndicatorRepository?
+  indicatorRepository` param in buildApp (default: the real Drift repository,
+  identical wiring as before).
+- test/features/settings/presentation/appearance_activation_test.dart —
+  4 reads of nextTempleVisitProvider -> nextTempleVisitControllerProvider
+  (the provider-identity isolation assertions are unchanged and pass: a
+  theme/color change does not rebuild the controller).
+
+6. NO-TOUCH PROOF
+--------------------------------------------------------------------------------
+- Home layout/card geometry, icon sizes (64/60), Today's Goal inset, August
+  Goal inset: UNCHANGED (only the temple secondary-line subtree logic).
+- Choose Icon styling, Goal Icon renderer/assets/registry: UNCHANGED.
+- Planner geometry/gestures (MP-04), MP-13, MP-17: UNCHANGED.
+- DF-04 hit-target behavior: UNCHANGED — the keyed home-temple-schedule button
+  is the only schedule target and is proven again by case F.
+- CT-03, Contact flicker fix, B3.2 direct Goal/task_contact_links, TF-01:
+  untouched (no imports or logic near them changed).
+- Schema v27 -> v27; no migration.
+
+7. FULL GREEN GATES (actual counts)
+--------------------------------------------------------------------------------
+1. MP-18 focused tests .................... 5/5 PASS
+2. Home indicator journey ................. green (in batch)
+3. Home structure/light-polish suites ...... green (in batch)
+4. Appearance activation (DF-04/B2 provider isolation) ... green (in batch)
+   batch subtotal: 45/45 PASS (appearance_activation + journey + 3 Home suites)
+5. Contact flicker preservation ........... covered by full suite (below)
+6. Full Flutter suite ...................... 1076/1076 PASS (1071 baseline
+   + 5 new MP-18 tests)
+7. dart analyze lib test ................... No issues found (0)
+8. git diff --check ........................ clean
+9. Debug APK build ......................... built
+   build/app/outputs/flutter-apk/app-debug.apk
+   SHA-256 c0ae89ce8a6109d1ecd4242034aa2982497c7c590489bc66dc8c4fb8ff8ab163
+
+8. SAFE INSTALL / DATA PRESERVATION
+--------------------------------------------------------------------------------
+FOLLOW-UP EXECUTION (2026-08-15, later session, device Infinix X6731 live via
+wireless adb, transport_id:1):
+
+PRE-INSTALL (recorded from the live device):
+- user_version = 27; PRAGMA quick_check = ok; 38 tables.
+- privacy-safe counts: planner_tasks 3, goals 16, contacts 5, weekly_plans 11.
+- Appearance sentinel: appearance_preferences = (mode 'light', theme 'blue').
+
+INSTALL:
+- `adb install -r build\app\outputs\flutter-apk\app-debug.apk` -> "Success"
+  (Streamed Install, update-in-place ONLY; no uninstall, no data clear).
+- APK SHA-256 recorded in section 7 (c0ae89ce...ab163) re-verified on disk
+  before install.
+
+POST-INSTALL (relaunched via launcher intent):
+- user_version = 27 (v27 -> v27, unchanged); quick_check = ok.
+- counts identical: planner_tasks 3, goals 16, contacts 5, weekly_plans 11.
+- Appearance preserved: mode 'light', theme 'blue' (unchanged).
+
+ON-DEVICE TEMPLE-LINE EVIDENCE (OCR-verified from screenshots saved under
+repo docs/handoffs/_screenshots/mp18/):
+- Cold launch: the Temple Visit card secondary line renders
+  "Next Visit: Aug 16" (NOT "Set Schedule").  Ground truth: the device
+  contains 24 temple_visit events (activity_type_id 7bc431df-...); exactly
+  one starts 2026-08-16, so the provider legitimately resolves a confirmed
+  date.  Simulated _readNextTempleVisit against the live DB (today=2026-08-15,
+  horizon=+366d) resolves 2026-08-16 -> matches the rendered label.
+- Pull-to-refresh: 9-frame screencap burst during the RefreshIndicator
+  settle; the lower-half content band is pixel-stable across all frames after
+  the initial scroll offset (the only frame-to-frame delta is the refresh
+  spinner at the top, +418 px in a 1080x2400 frame).  No "Set Schedule"
+  appears/disappears during the pending window -> retention confirmed on
+  device.
+- Schema impact: NONE (v27 -> v27, presentation/provider-only change).
+- Deterministic held-pending tests (cases A/D/D2/B/E/C) remain the proof for
+  the sub-100ms flash windows; on-device frames corroborate them.
+
+9. KNOWN UNVERIFIED PHYSICAL CLAIMS
+--------------------------------------------------------------------------------
+- RESOLVED by the follow-up execution above: cold-launch resolved-date render
+  and pull-to-refresh retention are now device-captured and OCR-verified.
+- STILL UNVERIFIED on device: the "resolved date updates to a NEW date after
+  refresh" and "true-null -> Set Schedule" transitions (device DB has no
+  reachable true-null state without mutating calendar data, which this
+  session does not authorize).  Both are covered by the deterministic
+  held-pending tests (B step 5-6, C, D2) and remain owner-physical items.
+- Owner physical review remains the final authority for the visual result.
+
+10. CHANGED FILES (exact)
+--------------------------------------------------------------------------------
+Production (2):
+- lib/features/indicators/application/indicator_providers.dart
+- lib/features/startup/presentation/home_screen.dart
+Tests (2 modified, 1 new):
+- test/support/test_dependencies.dart
+- test/features/settings/presentation/appearance_activation_test.dart
+- test/features/indicators/presentation/mp18_temple_line_stability_test.dart (NEW)
+No goldens changed (no visual delta: the neutral unresolved state is an empty
+secondary line; resolved states render exactly as before).
+
+11. GIT / STOP
+--------------------------------------------------------------------------------
+NO COMMIT. NO PUSH. INDEX EMPTY.
+Tracked tree: 4 modified files (the above, minus the new untracked test) +
+1 new untracked test file.  Stopped for owner physical review.
+The recommended next MP step from the ledger audit (MP-17 startup profiling)
+remains OPEN and separate.
+
+END OF AUDIT.

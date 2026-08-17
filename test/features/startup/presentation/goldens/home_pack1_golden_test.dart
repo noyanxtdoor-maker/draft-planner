@@ -147,22 +147,9 @@ void main() {
     },
     captureKey: const Key('weekly-plan-list'),
   );
-  _registerHomeGolden(
-    name: '18_home_major_separator',
-    captureKey: const Key('home-major-separator'),
-    // POLISH-02: the 2x Goal cards grow the Life Goals section, pushing the
-    // separator past the lazy ListView's initial build window.  Scroll it
-    // into view before capture so the separator itself is the unchanged
-    // subject.
-    beforeCapture: (tester) async {
-      await tester.scrollUntilVisible(
-        find.byKey(const Key('home-major-separator')),
-        120,
-        scrollable: find.byType(Scrollable).first,
-      );
-      await tester.pumpAndSettle();
-    },
-  );
+  // R5 (owner 2026-08-16): the Active Pathways Home section is removed, so
+  // the Life Goals -> Pathways major separator no longer exists; golden 18
+  // was retired with it.
   _registerHomeGolden(
     name: '19_daily_target_maximum',
     arrange: _setDailyTargetMaximum,

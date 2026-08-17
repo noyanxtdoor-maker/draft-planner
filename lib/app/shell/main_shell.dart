@@ -36,6 +36,8 @@ final class _MainShellState extends State<MainShell> {
         ? 1
         : location.startsWith(RoutePaths.contacts)
         ? 2
+        : location.startsWith(RoutePaths.maps)
+        ? 3
         : 0;
     final isGoalIconPicker = location.endsWith('/icon');
     // Pack 2 root Back policy (B1 + B7).  Child pages are popped by the
@@ -117,6 +119,9 @@ final class _MainShellState extends State<MainShell> {
                     case 2:
                       context.go(RoutePaths.contacts);
                       return;
+                    case 3:
+                      context.go(RoutePaths.maps);
+                      return;
                   }
                 },
                 destinations: const <NavigationDestination>[
@@ -134,6 +139,11 @@ final class _MainShellState extends State<MainShell> {
                     icon: Icon(Icons.people_outline),
                     selectedIcon: Icon(Icons.people),
                     label: 'Contacts',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.map_outlined),
+                    selectedIcon: Icon(Icons.map),
+                    label: 'Maps',
                   ),
                 ],
               ),

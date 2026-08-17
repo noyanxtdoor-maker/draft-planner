@@ -1,0 +1,240 @@
+NEXT TRANSFER — MP-17 STARTUP PERFORMANCE FORENSIC AUDIT
+DATE: 2026-08-15
+MODE: READ-ONLY (from clean MP-18 checkpoint aa03417)
+MP-17 DEFINITION (owner lock): "Overall cold/warm launch splash/startup
+duration before Home appears."  Distinct from MP-01 (navigation latency) and
+MP-02 (Home spinner exposure).
+
+================================================================================
+1. CHECKPOINT BASELINE (MP-18 checkpoint performed first, same run)
+================================================================================
+- New checkpoint SHA: aa03417c269d0493bb5aab85ad58b5d091da83e9
+  ("fix(home): stabilize Temple visit secondary state", parent 333bc48)
+- Branch autonomous/stability-ux-pack-a-20260814; HEAD == origin == aa03417
+- Tracked tree CLEAN, index EMPTY (verified after push)
+- Schema v27 (unchanged by the checkpoint)
+- MP-18 checkpoint audit written:
+  NEXT_TRANSFER_SESSION_AUDIT_2026-08-15_MP18_CHECKPOINT.txt
+- This MP-17 phase started FROM that clean checkpoint.
+
+2. READ-ONLY CLEAN PROOF
+================================================================================
+- No production/test/golden/schema/generated edits.  No commit/push/stage
+  (git status: 0 tracked modifications, index empty at end of audit).
+- No preference or device-data mutation.  Only: am force-stop, am start -W,
+  logcat -d, screencap (all non-destructive; app data untouched).
+- Temporary probe artifacts live outside the tracked repo
+  (C:\Users\sherl\AppData\Local\Temp\mp17\*) and are NOT part of the tree.
+
+3. METHODOLOGY / DEVICE
+================================================================================
+- Device: Infinix X6731 (Infinix X6731, transport_id:1, wireless adb).
+- Build: debug APK (SHA c0ae89ce...ab163) already installed from the MP-18
+  session (update-in-place, data preserved, v27).
+- Modes measured separately:
+  * COLD: `am force-stop` + 1.5s settle + `am start -W` (fresh process)
+  * WARM: process/task retained (KEYCODE_HOME then am start -W)
+  * RESUME: already-foreground `am start -W`
+- Instruments:
+  * `am start -W` ThisTime/TotalTime/WaitTime
+  * logcat "Displayed" marker + ActivityManager "Start proc"
+  * the app's own existing debug diagnostics
+    (SanitizedDiagnostics -> debugPrint '[NextTransfer] <code>') with
+    logcat line timestamps
+  * timed screencap sequences classified by pixel signature + OCR
+    (Windows OCR) for the first Home-content frame
+- CAVEAT (recorded, not waived): debug build (JIT, checked mode) on a budget
+  MediaTek device; absolute ms are debug/OEM numbers.  Release/profile cold
+  start will be materially faster.  All findings below are relative
+  structure on THIS build; attribution of the debug/VM overhead itself is
+  not attempted.
+
+4. RAW SAMPLES
+================================================================================
+COLD (TotalTime = am start -W; excludes home-appearance):
+  2869, 2262, 2858, 2906, 2315, 2317, 2880, 2863, 2899
+  (two runs discarded as force-stop races: 1701/717 missing TotalTime)
+  TotalTime: median 2858 ms, min 2262, max 2906, n=9
+  WaitTime : median ~2865 ms (TotalTime + ~5-10 ms)
+  Displayed: "Start proc" -> "Displayed ... +2s906ms" observed; matches
+             TotalTime.
+
+WARM (process retained, task backgrounded):
+  72, 68, 80, 92, 71
+  TotalTime: median 72 ms, min 68, max 92, n=5
+
+RESUME (already foreground):
+  8, 8, 10, 5, 10 (WaitTime); ThisTime 0
+  median 8 ms, n=5
+
+HOME-APPEARANCE TRACES (cold; timed screencap frames, pixel-classified,
+OCR-confirmed on the settled Home):
+  Trace A (TotalTime 2906): native splash @3.0s -> startup screen @3.8s ->
+    Home content @4.6s -> stable @5.4s
+  Trace B (TotalTime 2315): native splash @2.9s -> startup screen @3.7s ->
+    Home content @4.4s -> stable @5.3s
+  => Home content appears ~+1.4-2.0s AFTER Displayed; full Home is stable
+     by ~+5.2s from launch on this device/debug build.
+
+APP-OWNED EVENTS (logcat, cold runs; the ONLY existing instrumentation):
+  startup_initialize  -> database_open_started (+~3ms)
+                       -> database_open_ready   (+724 / 737 / 749 ms; n=3)
+                       -> startup_resolved      (+~22 ms)
+  (database_open_started/ready bracket `PRAGMA quick_check` in
+   DatabaseBootstrap.verifyOpen, NOT the raw file open, which is kicked off
+   in main() and hidden behind later awaits.)
+
+5. STARTUP CRITICAL PATH (exact current implementations inspected)
+================================================================================
+PHASE | BEFORE/AFTER runApp | AWAITED? | SERIAL/PARALLEL | BLOCKS? | EVIDENCE
+------+--------------------+----------+-----------------+--------+---------
+WidgetsFlutterBinding.ensureInitialized | before | yes | serial | first frame | code main.dart
+SystemChrome.setPreferredOrientations(portrait) | before | yes | serial (platform channel) | first frame | code main.dart
+AppEnvironment.fromDartDefines / SanitizedDiagnostics | before | sync | serial | first frame | code
+AppDatabase.defaults() -> driftDatabase(name:'next_transfer') | before | kick-off only | background isolate | NO (open proceeds off main) | app_database.dart:1066
+Repository object constructions (12 drift repos) | before | sync | serial | first frame | code main.dart
+await IanaCalendarEventTimeZones.forDevice() -> initializeTimeZones() (parse bundled tz data) + FlutterTimezone.getLocalTimezone() (platform channel) | before | yes | serial | first frame | calendar_event_time_zones.dart:42
+await readAppearance() (select appearance_preferences single row) | before | yes | serial; first DB query | first frame (waits on background open if not done) | drift_appearance_repository.dart:24
+await readThemeColor() (same table, same single row, sequential after readAppearance) | before | yes | serial | first frame | drift_appearance_repository.dart:59
+runApp(ProviderScope...) | - | - | - | - | -
+First frame: StartupScreen (route guard StartupOpening -> /startup) | after | - | - | - | startup_route_guard.dart:17
+startupController.initialize() (unawaited) -> resolveStartup() | after | yes | serial | StartupReady/Home | startup_providers.dart:29
+  _verifyDatabase() -> PRAGMA quick_check (full-db page scan) | after | yes | serial | MEASURED 724-749ms | database_bootstrap.dart:11-22
+  localProfiles select + onboardingCheckpoints select + privacyGate.isUnlockRequired | after | yes | serial | ~20-30ms | drift_startup_repository.dart:39-51
+StartupReady -> router redirect -> /home | after | yes | serial | - | startup_route_guard.dart:27
+Home mounts goalPlanning/indicator providers (weekly plan, indicator reads incl. nextTempleVisit scan) | after | yes | serial (provider graph) | Home content ~+1.4-2.0s after Displayed (MP-02-adjacent; not fully attributed here) | home_screen.dart
+
+6. MEASURED vs INFERRED BOTTLENECKS
+================================================================================
+MEASURED (direct evidence):
+  M1. PRAGMA quick_check on the cold-start critical path: 724 / 737 / 749 ms
+      (median ~737 ms) — deterministic, per-process, run before every first
+      StartupReady on a fresh process.
+  M2. TotalTime (Displayed) cold: median 2858 ms (2262-2906).
+  M3. Warm launch: median 72 ms -> cold-only problem, not warm/resume.
+  M4. Home-content latency after Displayed: ~1.4-2.0 s (traces A/B).
+
+INFERRED (structural, NOT directly measured — no instrumentation exists):
+  I1. Dart VM/engine + plugin registration on cold process spawn: the
+      dominant part of M2 almost certainly; debug build on Helio-class SoC.
+      NOT attributed (would need instrumentation or a profile build).
+  I2. Timezone init (initializeTimeZones parse + platform channel) sits
+      pre-runApp serially; magnitude unknown (candidate for instrumented
+      audit).
+  I3. Two sequential same-row appearance reads pre-runApp: structurally
+      redundant (readAppearance then readThemeColor both select the single
+      appearance_preferences row); magnitude small (ms) but trivially
+      combinable.
+  I4. Home data resolution after StartupReady (~0.6-1.3 s in traces) —
+      MP-02 boundary, not MP-17 core.
+
+7. HYPOTHESES (evidence quality: H=high measured, L=low/inferred)
+================================================================================
+H1 timezone init material serial pre-runApp cost ....... L (structural only; not measured in isolation)
+H2 appearance+theme reads unnecessarily sequential ...... H (provably two sequential selects of the same row; combined benefit small)
+H3 DB defaults/open contributes material delay ......... L (open runs in background isolate; hidden behind timezone+appearance awaits)
+H4 startup profile/onboarding bootstrap dominates ...... PARTIAL-M (the PROFILE read is ~20ms; the quick_check gate in the same path is 737ms — the bootstrap path is quick_check-dominated, not profile-dominated)
+H5 Home data readiness dominates perceived startup ..... PARTIAL-M (1.4-2.0s post-Displayed; measured as a window, not per-provider)
+H6 OEM/debug/process overhead dominates ................ PARTIAL (debug build clearly material; exact share unmeasured)
+
+8. BOTTLENECK MATRIX
+================================================================================
+PHASE | MEASURED/INFERRED | VARIANCE | APP/OS | MUST BLOCK runApp? | OPTIMIZATION CANDIDATE | RISK | EVIDENCE QUALITY
+VM/engine/plugin init | inferred dominant (M2) | high | OS+Flutter debug | n/a | profile/release build; debug-only dev | none (build-mode) | L
+quick_check | 724-749ms measured | low (deterministic) | APP | runs post-runApp, pre-Home | defer/parallelize after first Home frame; async verify with recovery route | integrity-vs-latency tradeoff (presents Home before full-page verify) | H
+tz init + channel | inferred | n/a | APP+plugin | yes (pre-runApp) | defer timezone init until first calendar query | low; needs careful lazy wiring | L
+two same-row appearance reads | structural | n/a | APP | yes | merge into one row read (both columns) | very low | H (structure), L (magnitude)
+Home data resolution | 1.4-2.0s window | medium | APP | n/a | MP-02 territory; parallelize provider graph | medium | M (window)
+
+9. RECOMMENDED NEXT MP-17 STEP
+================================================================================
+A. NEED FURTHER INSTRUMENTED AUDIT  <-- SELECTED
+
+Rationale:
+- The measured cold Displayed is 2.86s, but the largest share (VM/engine/
+  plugin + the exact pre-runApp phase split) is NOT attributable with the
+  existing instrumentation.  The only directly measured app-owned cost is
+  quick_check (~737ms) plus ~20ms of startup reads.
+- Per "measure first, not guess", a surgical change now would optimize a
+  minority of the path on partial evidence and would force an owner decision
+  on the integrity-check timing tradeoff without the full phase picture.
+- The instrumented audit is cheap, read-only, and produces the attribution
+  that makes the follow-up implementation pack bounded and safe.
+
+WHAT THE INSTRUMENTED AUDIT MUST DO (debug-only, temporary, removed before
+any production change):
+- Add Stopwatch timings around each main() phase: ensureInitialized,
+  setPreferredOrientations, AppDatabase.defaults, tz forDevice,
+  readAppearance, readThemeColor, runApp->first frame.
+- Time quick_check separately (already possible via the existing events).
+- 5+ cold samples each; report per-phase medians.
+- Optionally build a PROFILE APK (no source change) to quantify the
+  debug-build overhead share of the 2.86s.
+
+LEADING IMPLEMENTATION CANDIDATE TO CONFIRM IN THAT AUDIT:
+- Defer/parallelize PRAGMA quick_check: run it after the first Home frame
+  (fire-and-forget) or concurrently with Home data loading, surfacing the
+  existing StartupRecovery route on failure.  Measured upside ~700ms of the
+  cold start.  REQUIRES an owner decision: integrity is currently verified
+  BEFORE any Home content is presented; deferring changes that guarantee.
+
+SECONDARY CANDIDATES (confirm magnitude first):
+- Merge readAppearance+readThemeColor into one row read (safe, trivial).
+- Defer IanaCalendarEventTimeZones.forDevice() past runApp until the first
+  calendar query (structural; needs careful lazy wiring; no-touch on the
+  IANA fallback 'Etc/UTC' behavior).
+
+10. PREDICTED FILES / TESTS (for the future implementation pack, NOT now)
+================================================================================
+If quick_check deferral is confirmed and owner-approved:
+- lib/core/database/database_bootstrap.dart (verifyOpen -> async/deferred path)
+- lib/features/startup/application/startup_providers.dart (fire verifyOpen,
+  await only where integrity must gate data)
+- lib/features/startup/presentation/recovery_screen.dart (unchanged reuse)
+Tests (fail-first):
+- startup: StartupReady proceeds without blocking on quick_check
+- recovery: quick_check failure still reaches StartupRecovery
+- home renders before verify completes; data providers unaffected
+- preservation: MP-18 tri-state, Contact flicker, CT-03, GI-02, B3.2/TF-01
+Performance acceptance target (to be pinned in the pack, on the SAME device/
+build): cold Home-content time (launch -> Home content frame) reduced by
+>= 500ms median without changing any rendered Home pixel; warm/resume and
+warm Data unchanged; zero integrity regressions (all failure paths covered).
+
+11. ROADMAP NO-TOUCH (this run and the recommended pack)
+================================================================================
+- VS-09/10/12/13/14 + Pathways work (deferred by owner roadmap)
+- The prior VS-09 recommendation (not implemented)
+- Future Home/Planner/Contacts/Maps IA + hamburger + standalone More removal
+- MP-04, MP-13, DF-04
+- Goal Icon visuals, Home layout/icon sizes (HI-01/02 locked)
+- Schema/migrations (v27 -> v27), appearance defaults/fallback rules,
+  privacy gate, onboarding routing, offline-first startup, MP-18 tri-state,
+  truthful Home loading state, Contact flicker fix
+
+12. OWNER DECISIONS REQUIRED
+================================================================================
+1. Integrity-check timing tradeoff (only if the quick_check deferral is
+   pursued): is presenting Home before the full-database quick_check
+   completes acceptable, with async verification + recovery route on
+   failure?  (Not required to run the instrumented audit.)
+2. Whether a PROFILE APK measurement is desired in the instrumented audit
+   (no source change; better debug-overhead attribution).
+
+13. VERDICT
+================================================================================
+MP-17 NEEDS FURTHER INSTRUMENTED AUDIT.
+
+- Cold Displayed median 2858 ms; warm 72 ms; resume 8 ms (measured).
+- Only app-owned measured cost: PRAGMA quick_check 724-749 ms on the cold
+  critical path + ~20ms startup reads; Home content ~1.4-2.0s after
+  Displayed (traces).
+- The dominant share of the 2.86s cold path is not yet attributable;
+  no surgical implementation is authorized or recommended on this evidence.
+- SAFE TO PREPARE: an instrumented, read-only startup-phase timing audit
+  (debug-only Stopwatch probes removed before any production change), with
+  the quick_check deferral as the leading owner-gated candidate.
+- NO startup implementation performed.  NO navigation/IA work.  NO Pathways
+  work.  HEAD aa03417 clean, index empty, schema v27.
+
+END OF MP-17 AUDIT.

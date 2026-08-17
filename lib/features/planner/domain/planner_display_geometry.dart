@@ -1,7 +1,10 @@
+import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart' show immutable;
 
 import 'package:rmplanner/features/planner/domain/planner_day.dart';
 import 'package:rmplanner/features/planner/domain/planner_timeline_layout.dart';
+import 'package:rmplanner/features/planner/domain/planner_view.dart';
 
 /// Delta 4.2R R10: longest logical duration that may receive the display-only
 /// readability floor. 15/30/45-minute Events are exactly the short
@@ -141,6 +144,15 @@ abstract final class PlannerDisplayGeometry {
     // The display list is a separate, presentation-only projection. It may
     // enlarge a short block to its readable hour footprint, but its minutes
     // are used only for y/height and contiguous-corner painting below.
+    //
+    // R3 (owner override 2026-08-16, FINAL): the hour-row readability floor
+    // is UNCONDITIONAL for short Events in overview — a neighbor must never
+    // shrink a 15/30/45-minute Event into a strip (the rejected collision
+    // gate produced exactly that neighbor-dependent height). Collision
+    // safety is instead solved by OVERVIEW DISPLAY-LANE PACKING below:
+    // same-canonical-lane Events whose enlarged display bands overlap are
+    // packed into additional horizontal display columns, so expanded cards
+    // never cover one another and isolated cards keep full width.
     final displayEvents = <PlannerCalendarItem>[
       for (final event in layoutEvents)
         _withDisplayInterval(
@@ -164,6 +176,13 @@ abstract final class PlannerDisplayGeometry {
     final displayById = <String, PlannerCalendarItem>{
       for (final event in displayEvents) event.id: event,
     };
+    // R3 display-lane packing: resolve per-event widthFactor/offsetFactor for
+    // same-lane display-band collisions (see class doc). The result is a map
+    // of event id -> (subColumn, subCount) for packed events only.
+    final packed = _resolveDisplayLanePacking(
+      canonical: canonical,
+      displayById: displayById,
+    );
     final geometry = <String, PlannerTimelineEventGeometry>{};
     for (final event in displayEvents) {
       final startMinute =
@@ -217,10 +236,22 @@ abstract final class PlannerDisplayGeometry {
           height: geometry[placement.event.id]!.height,
           column: placement.column,
           columnCount: placement.columnCount,
-          widthFactor: placement.widthFactor,
-          offsetFactor: placement.offsetFactor,
-          spanStart: placement.spanStart,
-          spanCount: placement.spanCount,
+          widthFactor: packed.containsKey(placement.event.id)
+              ? packed[placement.event.id]!.widthFactor
+              : placement.widthFactor,
+          offsetFactor: packed.containsKey(placement.event.id)
+              ? packed[placement.event.id]!.offsetFactor
+              : placement.offsetFactor,
+          // Packed Events drop the canonical free-space span so the renderers
+          // use the display-lane widthFactor/offsetFactor slice (the span
+          // path takes precedence in both renderers and would otherwise paint
+          // every packed card over the same full-lane rectangle).
+          spanStart: packed.containsKey(placement.event.id)
+              ? null
+              : placement.spanStart,
+          spanCount: packed.containsKey(placement.event.id)
+              ? null
+              : placement.spanCount,
           squareTop: squareTopOf[placement.event.id] ?? false,
           squareBottom: squareBottomOf[placement.event.id] ?? false,
         ),
@@ -267,6 +298,147 @@ abstract final class PlannerDisplayGeometry {
     return leftStart(left) < leftEnd(right) && leftStart(right) < leftEnd(left);
   }
 
+  /// R3 overview display-lane packing (owner override 2026-08-16, FINAL).
+  ///
+  /// Returns event id -> (offsetFactor, widthFactor) for every Event whose
+  /// ENLARGED display band collides with another Event in the SAME canonical
+  /// lane. Colliding Events are packed into horizontal DISPLAY sub-columns
+  /// (greedy interval partitioning sorted by display start, logical start as
+  /// tiebreak) so expanded one-hour cards never cover one another, while
+  /// isolated short Events keep full width. Fractions are expressed relative
+  /// to the full content width using the canonical lane frame (the widest
+  /// canonical columnCount in the component, so packed cards never paint over
+  /// a logically-overlapping neighbor in another lane):
+  ///
+  ///   offsetFactor = (column * k + i) / (columnCount * k)
+  ///   widthFactor  = 1 / (columnCount * k)
+  ///
+  /// This matches the widthFactor/offsetFactor path shared by the centered
+  /// timeline renderer and the pager preview renderer, so centered/preview
+  /// parity is preserved. The packing is presentation-only: canonical lanes,
+  /// drag/resize math, tap ownership, recurrence, and persistence keep the
+  /// logical intervals (placement.event stays the original domain item).
+  static Map<String, ({double offsetFactor, double widthFactor})>
+      _resolveDisplayLanePacking({
+    required List<PlannerTimelinePlacement> canonical,
+    required Map<String, PlannerCalendarItem> displayById,
+  }) {
+    final displayStartOf = <String, int>{};
+    final displayEndOf = <String, int>{};
+    for (final event in displayById.values) {
+      final start = event.startLocal!.hour * 60 + event.startLocal!.minute;
+      final end = plannerEndMinuteOfDay(event.startLocal!, event.endLocal!);
+      displayStartOf[event.id] = start;
+      displayEndOf[event.id] = end;
+    }
+    final byColumn = <int, List<PlannerTimelinePlacement>>{};
+    for (final placement in canonical) {
+      byColumn
+          .putIfAbsent(placement.column, () => <PlannerTimelinePlacement>[])
+          .add(placement);
+    }
+    final packed = <String, ({double offsetFactor, double widthFactor})>{};
+    for (final placements in byColumn.values) {
+      placements.sort((a, b) {
+        final aStart = displayStartOf[a.event.id]!;
+        final bStart = displayStartOf[b.event.id]!;
+        if (aStart != bStart) {
+          return aStart.compareTo(bStart);
+        }
+        final aLogical =
+            a.event.startLocal!.hour * 60 + a.event.startLocal!.minute;
+        final bLogical =
+            b.event.startLocal!.hour * 60 + b.event.startLocal!.minute;
+        return aLogical.compareTo(bLogical);
+      });
+      // Connected components of display overlap. Entries are sorted by
+      // display start, so an entry joins the current component iff it starts
+      // before the component's current maximum display end (transitive).
+      var component = <PlannerTimelinePlacement>[];
+      var componentMaxEnd = 0;
+      void flush() {
+        if (component.length >= 2) {
+          _packComponent(
+            component,
+            displayStartOf: displayStartOf,
+            displayEndOf: displayEndOf,
+            packed: packed,
+          );
+        }
+        component = <PlannerTimelinePlacement>[];
+        componentMaxEnd = 0;
+      }
+
+      for (final placement in placements) {
+        final start = displayStartOf[placement.event.id]!;
+        final end = displayEndOf[placement.event.id]!;
+        if (component.isEmpty) {
+          component = <PlannerTimelinePlacement>[placement];
+          componentMaxEnd = end;
+        } else if (start < componentMaxEnd) {
+          component.add(placement);
+          componentMaxEnd = math.max(componentMaxEnd, end);
+        } else {
+          flush();
+          component = <PlannerTimelinePlacement>[placement];
+          componentMaxEnd = end;
+        }
+      }
+      flush();
+    }
+    return packed;
+  }
+
+  static void _packComponent(
+    List<PlannerTimelinePlacement> component, {
+    required Map<String, int> displayStartOf,
+    required Map<String, int> displayEndOf,
+    required Map<String, ({double offsetFactor, double widthFactor})> packed,
+  }) {
+    // Greedy interval-column partition: each Event takes the first display
+    // column whose last display end does not overlap it; otherwise a new
+    // column opens.
+    final lastEndByColumn = <int>[];
+    final columnOf = <String, int>{};
+    for (final placement in component) {
+      final start = displayStartOf[placement.event.id]!;
+      final end = displayEndOf[placement.event.id]!;
+      var assigned = -1;
+      for (var c = 0; c < lastEndByColumn.length; c++) {
+        if (lastEndByColumn[c] <= start) {
+          assigned = c;
+          break;
+        }
+      }
+      if (assigned == -1) {
+        assigned = lastEndByColumn.length;
+        lastEndByColumn.add(0);
+      }
+      lastEndByColumn[assigned] = end;
+      columnOf[placement.event.id] = assigned;
+    }
+    final subCount = lastEndByColumn.length;
+    final canonicalColumn = component.first.column;
+    // Use the WIDEST canonical columnCount in the component: packed cards in
+    // a multi-lane region must never paint over a logically-overlapping
+    // neighbor in another lane, so the packing stays inside the narrowest
+    // lane frame.
+    var canonicalCount = 1;
+    for (final placement in component) {
+      canonicalCount = math.max(canonicalCount, placement.columnCount);
+    }
+    for (final placement in component) {
+      final subColumn = columnOf[placement.event.id]!;
+      final offsetFactor = (canonicalColumn * subCount + subColumn) /
+          (canonicalCount * subCount);
+      final widthFactor = 1 / (canonicalCount * subCount);
+      packed[placement.event.id] = (
+        offsetFactor: offsetFactor,
+        widthFactor: widthFactor,
+      );
+    }
+  }
+
   static PlannerCalendarItem _withDisplayInterval(
     PlannerCalendarItem event, {
     required int startMinute,
@@ -275,19 +447,28 @@ abstract final class PlannerDisplayGeometry {
   }) {
     var displayStart = startMinute;
     var displayEnd = endMinute;
-    // Delta 4.2R2 R2-06: OVERVIEW MODE is engaged when this Event's OWN
-    // canonical rendered height (exact duration x pixels-per-minute) falls
-    // below the readability pixel threshold — regardless of zoom percent.
-    // The display interval becomes the whole hour row (start-of-hour ..
-    // start-of-hour + 60), which stays visually owned by its own hour and
-    // never spills into the neighboring row. EXACT MODE keeps the canonical
-    // interval whenever enough pixels exist. The stored/logical interval is
-    // never changed: this clone is a strict display/lane input only.
+    // R3 (owner override 2026-08-16, FINAL): OVERVIEW MODE — the short Event
+    // occupies its whole hour row (start-of-hour .. start-of-hour + 60) — is
+    // engaged for every 15/30/45-minute Event whenever its canonical rendered
+    // height drops below the readability pixel threshold (no intermediate-
+    // zoom dead zone), OR whenever the current zoom is at/under the compact
+    // overview band (the owner's max-zoom-out rule: at zoom-out, 15/30/45m
+    // Events are ALWAYS one-hour visual cards — including a 45-minute Event
+    // whose 33 px canonical height at 44 px/hr is still readable, but which
+    // the owner requires to read as a one-hour overview card). There is NO
+    // collision gate: a neighbor never shrinks a short Event into a strip;
+    // same-band collisions are resolved by display-lane packing in [resolve].
+    // EXACT MODE keeps the canonical interval whenever enough pixels exist
+    // (normal/intermediate zoom). The stored/logical interval is never
+    // changed: this clone is a strict display/lane input only.
     final canonicalHeight =
         (endMinute - startMinute) *
         PlannerTimelineGeometry.pixelsPerMinute(hourHeight);
-    if (canonicalHeight < kPlannerReadableEventHeightThreshold &&
-        endMinute - startMinute <= kPlannerMaxZoomReadabilityDurationMinutes) {
+    final overviewByHeight =
+        canonicalHeight < kPlannerReadableEventHeightThreshold;
+    final overviewByZoom = hourHeight <= PlannerZoomPolicy.compactHourHeight;
+    if (endMinute - startMinute <= kPlannerMaxZoomReadabilityDurationMinutes &&
+        (overviewByHeight || overviewByZoom)) {
       displayStart = (startMinute ~/ 60) * 60;
       displayEnd = displayStart + 60;
     }

@@ -1,0 +1,224 @@
+// MAPS V1 — Maps screen widget contract tests.
+//
+// The real maplibre surface is a platform view and cannot mount in widget
+// tests, so the screen exposes a `mapBuilder` seam: tests exercise the
+// honest empty state, the marker data projection, the offline/error branch,
+// and the Light/Dark shell without ever mounting the platform view.
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
+import 'package:flutter_test/flutter_test.dart';
+import 'package:rmplanner/core/diagnostics/sanitized_diagnostics.dart';
+import 'package:rmplanner/core/platform/app_environment.dart';
+import 'package:rmplanner/features/contacts/data/drift_contact_repository.dart';
+import 'package:rmplanner/features/contacts/domain/contact.dart';
+import 'package:rmplanner/features/maps/application/map_coordinate_repository.dart';
+import 'package:rmplanner/features/maps/application/map_providers.dart';
+import 'package:rmplanner/features/maps/data/drift_map_coordinate_repository.dart';
+import 'package:rmplanner/features/maps/domain/map_coordinate.dart';
+import 'package:rmplanner/features/maps/presentation/maps_screen.dart';
+import 'package:rmplanner/features/planner/data/calendar_event_time_zones.dart';
+import 'package:rmplanner/features/planner/data/drift_calendar_event_repository.dart';
+import 'package:rmplanner/features/planner/domain/calendar_event.dart';
+import 'package:rmplanner/features/planner/domain/planner_date.dart';
+import 'package:rmplanner/features/settings/application/appearance_repository.dart';
+
+import '../../support/test_dependencies.dart';
+
+const _contactId = '11111111-1111-4111-8111-111111111111';
+const _eventId = '22222222-2222-4222-8222-222222222222';
+
+void main() {
+  testWidgets(
+    'MAPS V1: with no located records the screen shows the honest empty '
+    'state and never mounts a fake map',
+    (tester) async {
+      tester.view.physicalSize = const Size(431, 912);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final database = openMemoryDatabase();
+      addTearDown(database.close);
+      final privacy = TestPrivacyDependencies(database: database);
+      final startup = buildTestRepository(
+        database: database,
+        privacyGate: privacy.gate,
+      );
+      await startup.completeOnboarding();
+      await tester.pumpWidget(
+        privacy.buildApp(
+          environment: const AppEnvironment(
+            name: AppEnvironmentName.production,
+            label: 'PRODUCTION',
+          ),
+          diagnostics: SanitizedDiagnostics(),
+          startupRepository: startup,
+          initialAppearance: AppearanceMode.light,
+          extraOverrides: <Override>[
+            mapCoordinateRepositoryProvider.overrideWithValue(
+              DriftMapCoordinateRepository(
+                database: database,
+                clock: FixedClock(DateTime.utc(2026, 8, 16, 12)),
+              ),
+            ),
+          ],
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(const Key('main-bottom-navigation')),
+          matching: find.text('Maps'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('No saved map pins yet'), findsOneWidget);
+      expect(find.byKey(const Key('maps-screen-map')), findsNothing,
+          reason: 'no pins -> empty state, not a blank map');
+    },
+  );
+
+  testWidgets(
+    'MAPS V1: located Contact + Event markers reach the map builder with '
+    'their typed ownership and the empty state does not appear',
+    (tester) async {
+      tester.view.physicalSize = const Size(431, 912);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final database = openMemoryDatabase();
+      addTearDown(database.close);
+      final profileId = (await buildTestRepository(
+        database: database,
+      ).completeOnboarding()).id;
+
+      final contacts = DriftContactRepository(
+        database: database,
+        clock: FixedClock(DateTime.utc(2026, 8, 16, 12)),
+        identifiers: SequenceIdentifierSource(<String>[_contactId]),
+      );
+      await contacts.createContact(
+        profileId: profileId,
+        draft: const ContactDraft(
+          id: _contactId,
+          firstName: 'Ana',
+          lastName: 'Reyes',
+          displayName: 'Ana Reyes',
+          preferredContactMethod: ContactPreferredMethod.message,
+          isFavorite: false,
+          addressText: '123 Main St, Manila',
+        ),
+      );
+      final events = DriftCalendarEventRepository(
+        database: database,
+        clock: FixedClock(DateTime.utc(2026, 8, 16, 12)),
+        timeZones: IanaCalendarEventTimeZones(
+          displayTimeZoneId: 'Asia/Manila',
+        ),
+      );
+      await events.saveEvent(
+        profileId: profileId,
+        draft: CalendarEventDraft(
+          id: _eventId,
+          title: 'Temple Visit',
+          timing: CalendarEventTiming.timed,
+          startDate: const PlannerDate(year: 2026, month: 8, day: 16),
+          startMinute: 9 * 60 + 30,
+          endMinute: 10 * 60 + 30,
+          timeZoneId: 'Asia/Manila',
+          locationText: 'Chapel, 9:30 AM',
+          requiresReport: false,
+        ),
+      );
+      final maps = DriftMapCoordinateRepository(
+        database: database,
+        clock: FixedClock(DateTime.utc(2026, 8, 16, 12)),
+      );
+      await maps.setCoordinate(
+        profileId: profileId,
+        owner: MapCoordinateOwner.contact,
+        recordId: _contactId,
+        coordinate: const MapCoordinate(
+          latitude: 14.5995,
+          longitude: 120.9842,
+        ),
+      );
+      await maps.setCoordinate(
+        profileId: profileId,
+        owner: MapCoordinateOwner.event,
+        recordId: _eventId,
+        coordinate: const MapCoordinate(
+          latitude: 10.3157,
+          longitude: 123.8854,
+        ),
+      );
+
+      List<MapMarker>? received;
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: <Override>[
+            mapCoordinateRepositoryProvider.overrideWithValue(maps),
+            mapProfileIdProvider.overrideWithValue(profileId),
+          ],
+          child: MaterialApp(
+            home: MapsScreen(
+              mapBuilder: (context, markers) {
+                received = markers;
+                return const SizedBox(key: Key('maps-test-surface'));
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(received, hasLength(2));
+      final contactMarker = received!.singleWhere(
+        (marker) => marker.owner == MapCoordinateOwner.contact,
+      );
+      final eventMarker = received!.singleWhere(
+        (marker) => marker.owner == MapCoordinateOwner.event,
+      );
+      expect(contactMarker.displayName, 'Ana Reyes');
+      expect(contactMarker.ownerKey, 'contact:$_contactId');
+      expect(contactMarker.coordinate.latitude, 14.5995);
+      expect(eventMarker.displayName, 'Temple Visit');
+      expect(eventMarker.ownerKey, 'event:$_eventId');
+      expect(eventMarker.eventStartDate?.iso8601, '2026-08-16');
+      expect(find.byKey(const Key('maps-test-surface')), findsOneWidget);
+      expect(find.text('No saved map pins yet'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'MAPS V1: an offline/style failure surfaces the explicit error state, '
+    'never a crash or a blank map',
+    (tester) async {
+      tester.view.physicalSize = const Size(431, 912);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final database = openMemoryDatabase();
+      addTearDown(database.close);
+      final profileId = (await buildTestRepository(
+        database: database,
+      ).completeOnboarding()).id;
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: <Override>[
+            mapProfileIdProvider.overrideWithValue(profileId),
+            mapMarkersProvider.overrideWith(
+              (ref) => Stream<List<MapMarker>>.error(
+                StateError('network unavailable'),
+              ),
+            ),
+          ],
+          child: const MaterialApp(home: MapsScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Maps could not be loaded'), findsOneWidget);
+      expect(find.text('Try again'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+}

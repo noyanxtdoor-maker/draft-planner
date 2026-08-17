@@ -188,15 +188,10 @@ final class _HomeScreenState extends ConsumerState<HomeScreen> {
                   },
                 ),
                 const SizedBox(height: 22),
-                const _MajorSectionSeparator(),
-                const SizedBox(height: 10),
-                _SectionHeader(
-                  title: 'Active Pathways',
-                  onViewAll: () => _showPathwayMessage(context),
-                  viewAllKey: const Key('home-pathways-view-all'),
-                ),
-                const SizedBox(height: 10),
-                const _PathwaysCard(),
+                // R5 (owner 2026-08-16): Pathways is deferred; the Active
+                // Pathways Home section (fabricated milestone content) is
+                // hidden until a real Pathways foundation is authorized. The
+                // domain/data/routes remain untouched.
               ],
             ),
           ),
@@ -415,12 +410,6 @@ final class _HomeScreenState extends ConsumerState<HomeScreen> {
           indicatorKey: 'temple_visit',
         ),
       ),
-    );
-  }
-
-  static void _showPathwayMessage(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Pathways are not configured yet.')),
     );
   }
 
@@ -725,28 +714,6 @@ final class _StartPlanningButton extends StatelessWidget {
             textStyle: AppTypography.button,
           ),
           child: const Text('Start Planning'),
-        ),
-      ),
-    );
-  }
-}
-
-final class _MajorSectionSeparator extends StatelessWidget {
-  const _MajorSectionSeparator();
-
-  @override
-  Widget build(BuildContext context) {
-    final width = MediaQuery.sizeOf(context).width;
-    return SizedBox(
-      key: const Key('home-major-separator'),
-      height: 8,
-      child: OverflowBox(
-        alignment: Alignment.center,
-        minWidth: width,
-        maxWidth: width,
-        child: SizedBox(
-          height: 8,
-          child: ColoredBox(color: AppTheme.outlineOf(context)),
         ),
       ),
     );
@@ -1141,7 +1108,10 @@ final class _IndicatorCard extends StatelessWidget {
       size: size,
       semanticLabel: '${indicator.label} goal icon',
       fallbackIcon: goalIconFallbackForRole(goal?.role),
-      color: Theme.of(context).colorScheme.primary,
+      // R1 (2026-08-16): the null-iconId fallback uses the raw-art blue in
+      // BOTH themes - never Theme.primary (Light navy vs Dark periwinkle
+      // previously made the same icon render different colors per theme).
+      color: AppTheme.goalIconFallbackBlue,
     );
   }
 }
@@ -1395,146 +1365,10 @@ final class _DailyTargetButton extends StatelessWidget {
   }
 }
 
-final class _PathwaysCard extends StatelessWidget {
-  const _PathwaysCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: EdgeInsets.zero,
-      // POLISH-01: Light Pathways cards use the semantic near-white surface;
-      // Dark keeps its current transparent behavior.
-      color: Theme.of(context).brightness == Brightness.dark
-          ? Colors.transparent
-          : AppTheme.cardOf(context),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-        side: BorderSide(color: AppTheme.cardBorderOf(context)),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: const Column(
-        children: <Widget>[
-          _PathwayRow(
-            key: Key('home-pathway-employment'),
-            icon: Icons.work_outline,
-            label: 'Employment',
-            milestone: '3 of 7 milestones',
-          ),
-          Divider(height: 1),
-          _PathwayRow(
-            key: Key('home-pathway-education'),
-            icon: Icons.school_outlined,
-            label: 'Education',
-            milestone: '2 of 6 milestones',
-          ),
-          Divider(height: 1),
-          _PathwayRow(
-            key: Key('home-pathway-documents'),
-            icon: Icons.description_outlined,
-            label: 'Documents',
-            milestone: '4 of 8 milestones',
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-final class _PathwayRow extends StatelessWidget {
-  const _PathwayRow({
-    required this.icon,
-    required this.label,
-    required this.milestone,
-    super.key,
-  });
-
-  final IconData icon;
-  final String label;
-  final String milestone;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 76,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        child: Row(
-          children: <Widget>[
-            SizedBox.square(
-              dimension: 44,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                ),
-                child: Icon(
-                  icon,
-                  color: Theme.of(context).colorScheme.primary,
-                  size: 22,
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTypography.cardTitle,
-                  ),
-                  const Text(
-                    'On Track',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTypography.secondary,
-                  ),
-                ],
-              ),
-            ),
-            SizedBox(
-              width: 118,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(
-                    milestone,
-                    maxLines: 1,
-                    softWrap: false,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTypography.micro,
-                  ),
-                  const SizedBox(height: 5),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(3),
-                    child: SizedBox(
-                      height: 5,
-                      child: LinearProgressIndicator(
-                        value: .45,
-                        backgroundColor: AppTheme.raisedOf(context),
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          Theme.of(context).colorScheme.primary,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            const Icon(Icons.chevron_right, size: 20),
-          ],
-        ),
-      ),
-    );
-  }
-}
+// R5 (owner 2026-08-16): Pathways is deferred. The previously hardcoded,
+// non-authoritative "Active Pathways" Home card (Employment / N of M
+// milestones / On Track) is no longer rendered. The class definitions were
+// removed with the section; domain/data/routes are untouched.
 
 /// Home-only compact ratio text: an unset target renders as 0 (0/0) exactly
 /// like an explicit zero.  Domain semantics stay untouched — Goal Planning and

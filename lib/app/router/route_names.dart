@@ -47,6 +47,8 @@ abstract final class RouteNames {
   static const String messages = 'messages';
   static const String about = 'about';
   static const String contacts = 'contacts';
+  static const String maps = 'maps';
+  static const String mapPicker = 'map-picker';
   static const String contactSearch = 'contact-search';
   static const String contactCreate = 'contact-create';
   static const String contactEdit = 'contact-edit';
@@ -100,6 +102,8 @@ abstract final class RoutePaths {
   static const String messages = '/messages';
   static const String about = '/about';
   static const String contacts = '/contacts';
+  static const String maps = '/maps';
+  static const String mapPicker = '/maps/picker';
   static const String contactSearch = '/contacts/search';
   static const String contactCreate = '/contacts/new';
   static const String contactDetailPath = '/contacts/contact';

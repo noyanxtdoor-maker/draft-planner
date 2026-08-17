@@ -1,0 +1,280 @@
+NEXT TRANSFER — PHASE 3 NEXT FUNCTIONAL PACK FORENSIC AUDIT (READ-ONLY)
+DATE: 2026-08-15
+IMPLEMENTOR: FREEBUFF CODING AGENT
+BASELINE: clean checkpoint 333bc48f664b399e1d5f8007f80612de3246093f
+
+================================================================================
+1. READ-ONLY PROOF
+================================================================================
+- Started from the NEW checkpoint 333bc48 (== origin, index empty, tracked
+  tree clean).
+- No production edit, no test edit, no golden update, no generated source, no
+  schema edit, no commit, no push.
+- All evidence below was gathered by inspection (grep / file reads) and the
+  product-spec documents (docx narrative + xlsx workbook) shipped in the
+  handoff; no repo probe file was created.
+- Product requirements authority: NEXT_TRANSFER_PHASE3_VERTICAL_SLICE_
+  SPECIFICATIONS.docx + NEXT_TRANSFER_PHASE3_APPROVED_BASELINE_AND_VERTICAL_
+  SLICES.xlsx (95/95 OPDs approved; all slices "Pending product approval",
+  "Not Started" — the workbook is the spec baseline; the repository is the
+  implementation truth).
+
+================================================================================
+2. VS-01..VS-20 IMPLEMENTATION-STATUS MATRIX (repo truth)
+================================================================================
+Legend: IMPL = implemented/strong evidence; PART = partial; SHELL = UI shell/
+placeholder; MISS = missing; STALE = present but contradicts owner lock.
+Release-blocking counts are the workbook's per-slice AC-J/etc. counts (spec
+authority); risk is the audit's assessment.
+
+VS-01 Guest Startup + Local Profile ............ IMPL. Startup gate,
+  onboarding, local profile, link recovery, recovery screen, unlock gate.
+  Deps none. RB 13. Risk low. Built + tested (completeOnboarding harness).
+VS-02 Privacy Lock, Permissions, Privacy Center . IMPL. privacy/ feature:
+  local_auth DeviceAuthenticator + PrivacyGate wired into startup snapshot
+  (unlockRequired, protected content screen), permissions screen, privacy
+  center, diagnostic preview, deletion impact, permission_handler gateway.
+  Deps VS-01. RB 21. Risk low. Strong.
+VS-03 Planner Day + Tasks ......................... IMPL. planner_screen day
+  view, task create/edit/detail, statuses, due dates, reminder-permission
+  hooks, B3.2 direct Life Goal + task_contact_links, TF-01 form. RB 26.
+VS-04 Calendar Events + Recurrence ............... IMPL. recurrence enums
+  (daily/weekly/monthly/yearly, end modes, monthly modes, edit scopes
+  occurrence/thisAndFuture/series, custom pattern), event types/colors/
+  timezones. RB 17.
+VS-05 Task-Event Linking ......................... IMPL. task_event_link
+  repository/providers/UI. RB 15.
+VS-06 Outcome Reporting + Activity Ledger ........ IMPL. outcome_reporting
+  domain, drift repo, task_goal_contribution_engine, required reports,
+  ledger, canonical Actual-only writes. RB 28.
+VS-07 Home + Life Indicators ..................... IMPL. six canonical slots,
+  daily/weekly/monthly cards, indicator detail/history, target dialogs;
+  just polished (HR-01/02, HI-01/02). RB 13.
+VS-08 Weekly Planning Lifecycle .................. IMPL. weekly_planning
+  feature, plan/history/planning screens, week-start setting, target
+  prompts. RB 12.
+VS-09 Pathways, Goals, and Milestones ............ SHELL+PART. Goals pillar
+  is IMPL (create/edit/archive, icon picker/registry, canonical slots,
+  direct Goal contribution). Pathways: tab index 2 exists in main_shell but
+  shows "Pathways is not available in the current authorized build"
+  snackbar; no pathway route/table/repository. Milestones: MISS — the Home
+  "Active Pathways" card renders HARDCODED fake rows ("Employment — 3 of 7
+  milestones", "Education — 2 of 6", "Documents — 4 of 8") with no data
+  behind them (STALE — contradicts FR-J-014/015 factual-measure rules).
+  RB 16 (AC-J-001-008, 011, 013-015, 018-021).
+VS-10 Covenant Path .............................. PART. Scripture Study and
+  Temple Visit exist as two of the six canonical Life Indicators with
+  factual weekly plans/reports through the indicator/ledger loop; no
+  dedicated Covenant Path surface under Pathways, no private reflection
+  editor. Deps VS-02/06/09. RB 18.
+VS-11 Contacts + Follow-Ups ...................... PART. Contacts pillar IMPL
+  (CRUD, search, groups, merge, filters, device import, add-people
+  multi-select, task_contact_links). Follow-Ups MISS (no follow-up entity,
+  no follow-up intent creation; the follow-up ACs AC-L-001..020 unmet).
+  Deps VS-02/03/04. RB 16.
+VS-12 Employment Applications .................... MISS (no feature; the
+  "Job Applications" Life Indicator is a weekly target, not an application
+  tracker). Deps VS-03/04/09. RB 15.
+VS-13 Education Planning ......................... MISS. Deps VS-03/04/09.
+  RB 14.
+VS-14 Government Document Requirements ........... MISS. Deps VS-02/03/04/09.
+  RB 16.
+VS-15 Maps and Locations ......................... MISS (event_location
+  domain + timezone data only; no map picker/display, no navigation
+  action). Deps VS-02/03/04/11/12/13/14. RB 11.
+VS-16 Notifications + Background Work ............ SHELL. Reminder-offset
+  columns (defaultReminderMinutes) exist; event/task forms show
+  permission-aware "reminder capability follows notification capability"
+  notices; NO reminder scheduler, NO notification service, NO notification
+  tables. Deps VS-02/03/04/08. RB 28.
+VS-17 BetterCalendar Import ...................... MISS (ContactSource.
+  betterCalendarImport enum label only; no importer). Deps VS-02/03/04/05/11.
+  RB 15.
+VS-18 Backup, Export, and Restore ................ PART. Repository-level
+  JSON export/merge exists for canonical Goal data (exportBackup/
+  exportGoalBackup/merge in goal_repository; contacts export references).
+  NO .ntbackup portable format, NO passphrase protection, NO Backup/Restore
+  UI in More, NO full-schema restore. Deps VS-02 + VS-03..17. RB 19.
+VS-19 Account, Sync, More Center ................. PART. More center IMPL
+  (Settings/Privacy/About/Messages etc.). Account: MISS — auth token store
+  plumbing exists (core/security/auth_token_store.dart) but no sign-in
+  flow, no Sync Center, no conflict handling. Deps VS-01..18. RB 35.
+VS-20 Device-Calendar Manual Transfer ............ MISS (no ICS/device
+  calendar code; planner calendar import route-name matches only). Deps
+  VS-02/04/06/16/19. RB 13.
+
+================================================================================
+3. TOP 3 CANDIDATE NEXT PACKS
+================================================================================
+Scoring used the seven criteria (dependency readiness, V1 user value,
+release-blocker impact, implementation leverage, data/migration risk, owner
+product direction, scope coherence).
+
+CANDIDATE 1 — VS-09 Pathways, Goals, and Milestones (surgical completion):
+- The Pathways tab is a FROZEN fifth-... (third of five) nav destination that
+  currently shows a placeholder snackbar, and the Home renders fabricated
+  milestone strings. Directly visible product contradiction.
+- Goals pillar is STRONG (create/edit/archive/registry/direct contribution)
+  -> enormous leverage; the pack is Pathways activation + Milestones +
+  lifecycle + wiring.
+- Dependency gateway for VS-10/12/13/14 — the entire post-mission
+  life-administration branch the owner explicitly wants prioritized.
+- 'milestone' already exists as an Actual unit in the ledger policy.
+- OPDs are approved: bundled Pathways + custom Goals/Milestones (OPD-2-013),
+  exact lifecycle enums (OPD-2-014), explicit User Confirmation completion
+  (OPD-2-015), no universal percentage (OPD-2-016).
+
+CANDIDATE 2 — VS-11 Contacts + Follow-Ups (surgical gap): Contacts pillar is
+strong; the missing follow-up entity is a clean, well-scoped pack with the
+Contacts tab already built. Smaller value than VS-09 and not a dependency
+gateway; best as the pack AFTER VS-09.
+
+CANDIDATE 3 — VS-16 Notifications + Background Work: high V1 value and 28
+release blockers, but it is Wave 4, depends on VS-08 (ready) yet carries
+permission/background-service complexity and higher risk; it does not unlock
+the life-administration workflows the owner wants next.
+
+================================================================================
+4. RECOMMENDED NEXT PACK: VS-09 — PATHWAYS, GOALS, AND MILESTONES
+================================================================================
+PACK NAME / ID: VS-09 Pathways, Goals, and Milestones (surgical completion;
+   Goals pillar already implemented — this pack activates the Pathways shell
+   and adds Milestones + lifecycle + factual wiring).
+OWNER USER OUTCOME: A user can open the Pathways tab, activate bundled
+   Pathways (Employment, Education, Documents in V1), create/edit custom
+   Goals and Milestones inside them, pause/complete/reopen/archive with the
+   approved lifecycle enums, and see factual progress on Home — with no
+   invented percentages and no unexplained metrics.
+WHY THIS IS NEXT: frozen nav tab is a visible placeholder; Home renders
+   fabricated milestone data (must be replaced); the pack unlocks the whole
+   Wave-3 life-administration branch (VS-10/12/13/14) which is the owner's
+   stated priority; dependencies (VS-01/03/04) are fully implemented; the
+   Goals/ledger machinery is ready.
+CURRENT REPO STATE: Pathways tab snackbar placeholder; no pathway route/
+   table/repository; no milestone entity; Home _PathwaysCard hardcodes
+   "3 of 7 milestones" etc.; Goals fully built; 'milestone' Actual unit
+   supported by the ledger.
+EXACT MISSING BEHAVIORS:
+   1. Pathway entity + lifecycle (Available, Active, Paused, Completed,
+      Archived) with bundled V1 content (Employment/Education/Documents)
+      stored locally/offline (FR-J-001/002/005/021).
+   2. Milestone entity (Planned, Completed, Archived) with create/edit/
+      reorder inside a Goal or Pathway (FR-J-004/006), manual completion
+      only via explicit User Confirmation (OPD-2-015), completion history
+      preserved (FR-J-011), completion method displayed (FR-J-012).
+   3. Goal lifecycle completion parity (Active/Paused/Completed/Archived +
+      reopen) and archive distinct from completion (FR-J-007/008/009/010).
+   4. Separate identities for Pathway/Goal/Milestone (FR-J-005).
+   5. Factual progress only: no inferred progress from titles (FR-J-014),
+      no unexplained percentages (FR-J-015, OPD-2-016), derived progress
+      must expose its factual source (FR-J-013).
+   6. Create Tasks/Calendar Events from Pathway context; linked statuses
+      stay independent (FR-J-016/017).
+   7. Replace the Home _PathwaysCard hardcoded rows with real Pathway/
+      Milestone data (or an honest empty state).
+   8. Covenant Path neutrality guardrails (FR-J-019/020) and private
+      reflection non-contribution (FR-J-022) — carry-forward constraints
+      for the VS-10 pack; only enforced if this pack touches reflections.
+EXPLICIT EXCLUSIONS: custom Pathway creation (OPD-2-013 defers); Covenant
+   Path sections (VS-10); Employment/Education/Document trackers themselves
+   (VS-12/13/14); follow-ups; percentages; any spiritual scoring; recurrence
+   changes; Home/Light polish; the deferred ledger items.
+DEPENDENCIES: VS-01, VS-03, VS-04 (all implemented). No dependency on
+   VS-10..14 — bundled Pathway cards ship as shells with their own slices'
+   detail work deferred to VS-12/13/14.
+SCHEMA / MIGRATION IMPACT: additive v28 migration (repository convention:
+   guarded addTable like the v27 task_contact_links precedent):
+   - pathways(id, profile_id, key, title, description, lifecycle, created,
+     updated)
+   - milestones(id, profile_id, goal_id nullable, pathway_id, title,
+     description, lifecycle, order_index, completed_at, created, updated)
+   No column changes to existing tables; no backfill; no data rewrite.
+EXPECTED DOMAIN FILES: features/pathways/domain/pathway.dart,
+   milestone.dart, lifecycle.dart; goal.dart gains lifecycle enum + reopen.
+EXPECTED REPOSITORY FILES: features/pathways/data/drift_pathway_repository.dart
+   (+ drift tables in app_database + v28 migration + regenerated
+   app_database.g.dart via the repo's Drift workflow); goal_repository gains
+   lifecycle transitions.
+EXPECTED UI FILES: features/pathways/presentation/pathways_screen.dart,
+   pathway_detail_screen.dart, goal_milestone_edit_screens.dart;
+   main_shell.dart case 2 routes to Pathways instead of the snackbar;
+   home_screen.dart _PathwaysCard/Active Pathways bound to the repository
+   (remove hardcoded milestone strings); app_router route_names + routes.
+EXPECTED TEST FILES: features/pathways/... domain/repo contract tests;
+   lifecycle transition tests; milestone manual-completion confirmation
+   tests; Home Active Pathways data tests (no fake strings); shell tab
+   routing test; v28 migration preservation test; fail-first order.
+BACKUP/SYNC IMPACT: goal export/merge paths unaffected (new tables are
+   canonical Goal-adjacent; include pathways/milestones in the canonical
+   export only if the existing serializer pattern is proven to require it —
+   otherwise leave untouched this pack).
+PERMISSION/PRIVACY IMPACT: none (local-only; no new permissions).
+OFFLINE CONTRACT: bundled Pathway content ships in-app; all lifecycle
+   operations are local-first, offline-capable (FR-J-021); reflection
+   content (future) stays local-only.
+FAIL-FIRST TEST ORDER:
+   1. shell Pathways tab routes to Pathways screen (no snackbar)
+   2. pathway activation/pause/complete/reopen/archive enforces OPD-2-014
+      enums; archive != complete
+   3. milestone create/edit/reorder; manual completion requires explicit
+      User Confirmation; completed_at recorded; history preserved
+   4. goal lifecycle parity (active/paused/completed/archived/reopen)
+   5. separate identities preserved; linked Task/Event statuses independent
+   6. Home Active Pathways renders repository data; zero hardcoded
+      "N of M milestones" strings; no unexplained percentage
+   7. v28 migration preserves all v27 rows (tasks, contacts, goals,
+      contributions, ledger, preferences) with no backfill
+   8. full Flutter suite + analyzer + diff --check + debug APK
+FULL GREEN GATES: per the pack's later implementation prompt (focused tests,
+   preservation suites, full suite, analyzer --fatal-infos, diff --check,
+   debug APK, safe adb install -r, v27->v28 preservation proof).
+SAFE INSTALL / DATA-PRESERVATION PLAN: pre/post user_version 27->28 with
+   integrity_check; counts of tasks/contacts/goals/contributions unchanged;
+   Appearance/Theme preserved; install -r only; no uninstall, no clear data.
+OWNER PHYSICAL CHECKLIST:
+   1. Pathways tab opens a real screen (no "not available" snackbar)
+   2. Activate Employment/Education/Documents; pause/complete/reopen/archive
+      behave distinctly
+   3. Create a Goal and Milestones; complete a Milestone only with explicit
+      confirmation; reopen works; history preserved
+   4. Home Active Pathways shows real data; no "3 of 7 milestones" fake text
+   5. Data survives relaunch; v28 with all prior data intact
+RISK RANKING:
+   1. Home _PathwaysCard replacement (must not regress Home goldens/layout —
+      bounded: card content source change only)
+   2. Lifecycle state machine (strict enum enforcement + confirmation flow)
+   3. v28 additive migration (guarded, idempotent, no backfill — low, follows
+      the v27 precedent)
+   4. Drift regeneration (normal workflow; never hand-edit .g.dart)
+UNRESOLVED OWNER DECISIONS:
+   1. (Small) Exact V1 bundled Pathway set: audit proposes Employment,
+      Education, Documents (the three the Home already advertises); the
+      workbook does not enumerate pathway keys — confirm or adjust before
+      implementation.
+   2. (Small) Whether a Pathway-level completion requires ALL its Goals or is
+      independent (OPD-2-014 lists enums but not completion semantics) —
+      propose: manual, user-confirmed, independent of Goal completion.
+   Neither blocks scoping; both can be answered in one owner reply.
+
+================================================================================
+5. DEFERRED / NO-TOUCH
+================================================================================
+- Home/Light polish loop closed: Home Life Goal layout, icon sizes, Choose
+  Icon styling, Goal Icon renderer, CT-03, Contact flicker fix — not
+  reopened unless the pack proves a direct dependency (the Home Active
+  Pathways card content change is the ONLY Home touch, and it is required
+  to remove fabricated data).
+- Existing deferred ledger stays separate; DF-01..06 not consumed by this
+  pack.
+- Schema migrations v1-v27, B3.2 engine, task_contact_links, TF-01, Event
+  recurrence/direct Goal, Planner geometry — no-touch.
+
+================================================================================
+6. VERDICT
+================================================================================
+SAFE TO PREPARE IMPLEMENTATION PACK.
+Recommended next pack: VS-09 Pathways, Goals, and Milestones (surgical
+completion). Two small owner confirmations are requested before
+implementation (bundled Pathway set; Pathway completion semantics) but the
+pack boundary is stable under either answer.
+NO NEXT-FUNCTIONAL IMPLEMENTATION WAS PERFORMED IN THIS SESSION.
