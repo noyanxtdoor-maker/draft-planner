@@ -21,6 +21,8 @@ import 'package:rmplanner/features/planner/presentation/widgets/planner_event_bl
 ///      Light onSurface for the accent while the pastel surface stays.
 /// Stored Event data / history / export are never rewritten.
 abstract final class PlannerEventColorResolver {
+  static const String taskStableKey = 'planner_task';
+
   static EventColorPreference preferenceForType(
     EventType type,
     Map<String, EventColorPreference> preferencesByStableKey,
