@@ -4051,6 +4051,21 @@ class $PlannerTasksTable extends PlannerTasks
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _isBackupMeta = const VerificationMeta(
+    'isBackup',
+  );
+  @override
+  late final GeneratedColumn<bool> isBackup = GeneratedColumn<bool>(
+    'is_backup',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_backup" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   static const VerificationMeta _contributionRuleKeyMeta =
       const VerificationMeta('contributionRuleKey');
   @override
@@ -4138,6 +4153,7 @@ class $PlannerTasksTable extends PlannerTasks
     peopleJson,
     status,
     requiresReport,
+    isBackup,
     contributionRuleKey,
     linkedActivityTypeId,
     linkedActivityTypeStableKey,
@@ -4225,6 +4241,12 @@ class $PlannerTasksTable extends PlannerTasks
           data['requires_report']!,
           _requiresReportMeta,
         ),
+      );
+    }
+    if (data.containsKey('is_backup')) {
+      context.handle(
+        _isBackupMeta,
+        isBackup.isAcceptableOrUnknown(data['is_backup']!, _isBackupMeta),
       );
     }
     if (data.containsKey('contribution_rule_key')) {
@@ -4340,6 +4362,10 @@ class $PlannerTasksTable extends PlannerTasks
         DriftSqlType.bool,
         data['${effectivePrefix}requires_report'],
       )!,
+      isBackup: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_backup'],
+      )!,
       contributionRuleKey: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}contribution_rule_key'],
@@ -4388,6 +4414,7 @@ class PlannerTaskRow extends DataClass implements Insertable<PlannerTaskRow> {
   final String peopleJson;
   final String status;
   final bool requiresReport;
+  final bool isBackup;
   final String? contributionRuleKey;
   final String? linkedActivityTypeId;
   final String? linkedActivityTypeStableKey;
@@ -4406,6 +4433,7 @@ class PlannerTaskRow extends DataClass implements Insertable<PlannerTaskRow> {
     required this.peopleJson,
     required this.status,
     required this.requiresReport,
+    required this.isBackup,
     this.contributionRuleKey,
     this.linkedActivityTypeId,
     this.linkedActivityTypeStableKey,
@@ -4433,6 +4461,7 @@ class PlannerTaskRow extends DataClass implements Insertable<PlannerTaskRow> {
     map['people_json'] = Variable<String>(peopleJson);
     map['status'] = Variable<String>(status);
     map['requires_report'] = Variable<bool>(requiresReport);
+    map['is_backup'] = Variable<bool>(isBackup);
     if (!nullToAbsent || contributionRuleKey != null) {
       map['contribution_rule_key'] = Variable<String>(contributionRuleKey);
     }
@@ -4475,6 +4504,7 @@ class PlannerTaskRow extends DataClass implements Insertable<PlannerTaskRow> {
       peopleJson: Value(peopleJson),
       status: Value(status),
       requiresReport: Value(requiresReport),
+      isBackup: Value(isBackup),
       contributionRuleKey: contributionRuleKey == null && nullToAbsent
           ? const Value.absent()
           : Value(contributionRuleKey),
@@ -4515,6 +4545,7 @@ class PlannerTaskRow extends DataClass implements Insertable<PlannerTaskRow> {
       peopleJson: serializer.fromJson<String>(json['peopleJson']),
       status: serializer.fromJson<String>(json['status']),
       requiresReport: serializer.fromJson<bool>(json['requiresReport']),
+      isBackup: serializer.fromJson<bool>(json['isBackup']),
       contributionRuleKey: serializer.fromJson<String?>(
         json['contributionRuleKey'],
       ),
@@ -4546,6 +4577,7 @@ class PlannerTaskRow extends DataClass implements Insertable<PlannerTaskRow> {
       'peopleJson': serializer.toJson<String>(peopleJson),
       'status': serializer.toJson<String>(status),
       'requiresReport': serializer.toJson<bool>(requiresReport),
+      'isBackup': serializer.toJson<bool>(isBackup),
       'contributionRuleKey': serializer.toJson<String?>(contributionRuleKey),
       'linkedActivityTypeId': serializer.toJson<String?>(linkedActivityTypeId),
       'linkedActivityTypeStableKey': serializer.toJson<String?>(
@@ -4571,6 +4603,7 @@ class PlannerTaskRow extends DataClass implements Insertable<PlannerTaskRow> {
     String? peopleJson,
     String? status,
     bool? requiresReport,
+    bool? isBackup,
     Value<String?> contributionRuleKey = const Value.absent(),
     Value<String?> linkedActivityTypeId = const Value.absent(),
     Value<String?> linkedActivityTypeStableKey = const Value.absent(),
@@ -4589,6 +4622,7 @@ class PlannerTaskRow extends DataClass implements Insertable<PlannerTaskRow> {
     peopleJson: peopleJson ?? this.peopleJson,
     status: status ?? this.status,
     requiresReport: requiresReport ?? this.requiresReport,
+    isBackup: isBackup ?? this.isBackup,
     contributionRuleKey: contributionRuleKey.present
         ? contributionRuleKey.value
         : this.contributionRuleKey,
@@ -4623,6 +4657,7 @@ class PlannerTaskRow extends DataClass implements Insertable<PlannerTaskRow> {
       requiresReport: data.requiresReport.present
           ? data.requiresReport.value
           : this.requiresReport,
+      isBackup: data.isBackup.present ? data.isBackup.value : this.isBackup,
       contributionRuleKey: data.contributionRuleKey.present
           ? data.contributionRuleKey.value
           : this.contributionRuleKey,
@@ -4659,6 +4694,7 @@ class PlannerTaskRow extends DataClass implements Insertable<PlannerTaskRow> {
           ..write('peopleJson: $peopleJson, ')
           ..write('status: $status, ')
           ..write('requiresReport: $requiresReport, ')
+          ..write('isBackup: $isBackup, ')
           ..write('contributionRuleKey: $contributionRuleKey, ')
           ..write('linkedActivityTypeId: $linkedActivityTypeId, ')
           ..write('linkedActivityTypeStableKey: $linkedActivityTypeStableKey, ')
@@ -4684,6 +4720,7 @@ class PlannerTaskRow extends DataClass implements Insertable<PlannerTaskRow> {
     peopleJson,
     status,
     requiresReport,
+    isBackup,
     contributionRuleKey,
     linkedActivityTypeId,
     linkedActivityTypeStableKey,
@@ -4706,6 +4743,7 @@ class PlannerTaskRow extends DataClass implements Insertable<PlannerTaskRow> {
           other.peopleJson == this.peopleJson &&
           other.status == this.status &&
           other.requiresReport == this.requiresReport &&
+          other.isBackup == this.isBackup &&
           other.contributionRuleKey == this.contributionRuleKey &&
           other.linkedActivityTypeId == this.linkedActivityTypeId &&
           other.linkedActivityTypeStableKey ==
@@ -4728,6 +4766,7 @@ class PlannerTasksCompanion extends UpdateCompanion<PlannerTaskRow> {
   final Value<String> peopleJson;
   final Value<String> status;
   final Value<bool> requiresReport;
+  final Value<bool> isBackup;
   final Value<String?> contributionRuleKey;
   final Value<String?> linkedActivityTypeId;
   final Value<String?> linkedActivityTypeStableKey;
@@ -4747,6 +4786,7 @@ class PlannerTasksCompanion extends UpdateCompanion<PlannerTaskRow> {
     this.peopleJson = const Value.absent(),
     this.status = const Value.absent(),
     this.requiresReport = const Value.absent(),
+    this.isBackup = const Value.absent(),
     this.contributionRuleKey = const Value.absent(),
     this.linkedActivityTypeId = const Value.absent(),
     this.linkedActivityTypeStableKey = const Value.absent(),
@@ -4767,6 +4807,7 @@ class PlannerTasksCompanion extends UpdateCompanion<PlannerTaskRow> {
     this.peopleJson = const Value.absent(),
     this.status = const Value.absent(),
     this.requiresReport = const Value.absent(),
+    this.isBackup = const Value.absent(),
     this.contributionRuleKey = const Value.absent(),
     this.linkedActivityTypeId = const Value.absent(),
     this.linkedActivityTypeStableKey = const Value.absent(),
@@ -4791,6 +4832,7 @@ class PlannerTasksCompanion extends UpdateCompanion<PlannerTaskRow> {
     Expression<String>? peopleJson,
     Expression<String>? status,
     Expression<bool>? requiresReport,
+    Expression<bool>? isBackup,
     Expression<String>? contributionRuleKey,
     Expression<String>? linkedActivityTypeId,
     Expression<String>? linkedActivityTypeStableKey,
@@ -4812,6 +4854,7 @@ class PlannerTasksCompanion extends UpdateCompanion<PlannerTaskRow> {
       if (peopleJson != null) 'people_json': peopleJson,
       if (status != null) 'status': status,
       if (requiresReport != null) 'requires_report': requiresReport,
+      if (isBackup != null) 'is_backup': isBackup,
       if (contributionRuleKey != null)
         'contribution_rule_key': contributionRuleKey,
       if (linkedActivityTypeId != null)
@@ -4838,6 +4881,7 @@ class PlannerTasksCompanion extends UpdateCompanion<PlannerTaskRow> {
     Value<String>? peopleJson,
     Value<String>? status,
     Value<bool>? requiresReport,
+    Value<bool>? isBackup,
     Value<String?>? contributionRuleKey,
     Value<String?>? linkedActivityTypeId,
     Value<String?>? linkedActivityTypeStableKey,
@@ -4858,6 +4902,7 @@ class PlannerTasksCompanion extends UpdateCompanion<PlannerTaskRow> {
       peopleJson: peopleJson ?? this.peopleJson,
       status: status ?? this.status,
       requiresReport: requiresReport ?? this.requiresReport,
+      isBackup: isBackup ?? this.isBackup,
       contributionRuleKey: contributionRuleKey ?? this.contributionRuleKey,
       linkedActivityTypeId: linkedActivityTypeId ?? this.linkedActivityTypeId,
       linkedActivityTypeStableKey:
@@ -4904,6 +4949,9 @@ class PlannerTasksCompanion extends UpdateCompanion<PlannerTaskRow> {
     }
     if (requiresReport.present) {
       map['requires_report'] = Variable<bool>(requiresReport.value);
+    }
+    if (isBackup.present) {
+      map['is_backup'] = Variable<bool>(isBackup.value);
     }
     if (contributionRuleKey.present) {
       map['contribution_rule_key'] = Variable<String>(
@@ -4953,6 +5001,7 @@ class PlannerTasksCompanion extends UpdateCompanion<PlannerTaskRow> {
           ..write('peopleJson: $peopleJson, ')
           ..write('status: $status, ')
           ..write('requiresReport: $requiresReport, ')
+          ..write('isBackup: $isBackup, ')
           ..write('contributionRuleKey: $contributionRuleKey, ')
           ..write('linkedActivityTypeId: $linkedActivityTypeId, ')
           ..write('linkedActivityTypeStableKey: $linkedActivityTypeStableKey, ')
@@ -14075,6 +14124,17 @@ class $ActivityLedgerEntriesTable extends ActivityLedgerEntries
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _contactIdMeta = const VerificationMeta(
+    'contactId',
+  );
+  @override
+  late final GeneratedColumn<String> contactId = GeneratedColumn<String>(
+    'contact_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _recordedAtUtcMeta = const VerificationMeta(
     'recordedAtUtc',
   );
@@ -14102,6 +14162,7 @@ class $ActivityLedgerEntriesTable extends ActivityLedgerEntries
     idempotencyKey,
     reversalOfEntryId,
     replacesEntryId,
+    contactId,
     recordedAtUtc,
   ];
   @override
@@ -14234,6 +14295,12 @@ class $ActivityLedgerEntriesTable extends ActivityLedgerEntries
         ),
       );
     }
+    if (data.containsKey('contact_id')) {
+      context.handle(
+        _contactIdMeta,
+        contactId.isAcceptableOrUnknown(data['contact_id']!, _contactIdMeta),
+      );
+    }
     if (data.containsKey('recorded_at_utc')) {
       context.handle(
         _recordedAtUtcMeta,
@@ -14306,6 +14373,10 @@ class $ActivityLedgerEntriesTable extends ActivityLedgerEntries
         DriftSqlType.string,
         data['${effectivePrefix}replaces_entry_id'],
       ),
+      contactId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}contact_id'],
+      ),
       recordedAtUtc: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}recorded_at_utc'],
@@ -14334,6 +14405,7 @@ class ActivityLedgerEntryRow extends DataClass
   final String idempotencyKey;
   final String? reversalOfEntryId;
   final String? replacesEntryId;
+  final String? contactId;
   final DateTime recordedAtUtc;
   const ActivityLedgerEntryRow({
     required this.id,
@@ -14349,6 +14421,7 @@ class ActivityLedgerEntryRow extends DataClass
     required this.idempotencyKey,
     this.reversalOfEntryId,
     this.replacesEntryId,
+    this.contactId,
     required this.recordedAtUtc,
   });
   @override
@@ -14370,6 +14443,9 @@ class ActivityLedgerEntryRow extends DataClass
     }
     if (!nullToAbsent || replacesEntryId != null) {
       map['replaces_entry_id'] = Variable<String>(replacesEntryId);
+    }
+    if (!nullToAbsent || contactId != null) {
+      map['contact_id'] = Variable<String>(contactId);
     }
     map['recorded_at_utc'] = Variable<DateTime>(recordedAtUtc);
     return map;
@@ -14394,6 +14470,9 @@ class ActivityLedgerEntryRow extends DataClass
       replacesEntryId: replacesEntryId == null && nullToAbsent
           ? const Value.absent()
           : Value(replacesEntryId),
+      contactId: contactId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(contactId),
       recordedAtUtc: Value(recordedAtUtc),
     );
   }
@@ -14419,6 +14498,7 @@ class ActivityLedgerEntryRow extends DataClass
         json['reversalOfEntryId'],
       ),
       replacesEntryId: serializer.fromJson<String?>(json['replacesEntryId']),
+      contactId: serializer.fromJson<String?>(json['contactId']),
       recordedAtUtc: serializer.fromJson<DateTime>(json['recordedAtUtc']),
     );
   }
@@ -14439,6 +14519,7 @@ class ActivityLedgerEntryRow extends DataClass
       'idempotencyKey': serializer.toJson<String>(idempotencyKey),
       'reversalOfEntryId': serializer.toJson<String?>(reversalOfEntryId),
       'replacesEntryId': serializer.toJson<String?>(replacesEntryId),
+      'contactId': serializer.toJson<String?>(contactId),
       'recordedAtUtc': serializer.toJson<DateTime>(recordedAtUtc),
     };
   }
@@ -14457,6 +14538,7 @@ class ActivityLedgerEntryRow extends DataClass
     String? idempotencyKey,
     Value<String?> reversalOfEntryId = const Value.absent(),
     Value<String?> replacesEntryId = const Value.absent(),
+    Value<String?> contactId = const Value.absent(),
     DateTime? recordedAtUtc,
   }) => ActivityLedgerEntryRow(
     id: id ?? this.id,
@@ -14476,6 +14558,7 @@ class ActivityLedgerEntryRow extends DataClass
     replacesEntryId: replacesEntryId.present
         ? replacesEntryId.value
         : this.replacesEntryId,
+    contactId: contactId.present ? contactId.value : this.contactId,
     recordedAtUtc: recordedAtUtc ?? this.recordedAtUtc,
   );
   ActivityLedgerEntryRow copyWithCompanion(
@@ -14511,6 +14594,7 @@ class ActivityLedgerEntryRow extends DataClass
       replacesEntryId: data.replacesEntryId.present
           ? data.replacesEntryId.value
           : this.replacesEntryId,
+      contactId: data.contactId.present ? data.contactId.value : this.contactId,
       recordedAtUtc: data.recordedAtUtc.present
           ? data.recordedAtUtc.value
           : this.recordedAtUtc,
@@ -14533,6 +14617,7 @@ class ActivityLedgerEntryRow extends DataClass
           ..write('idempotencyKey: $idempotencyKey, ')
           ..write('reversalOfEntryId: $reversalOfEntryId, ')
           ..write('replacesEntryId: $replacesEntryId, ')
+          ..write('contactId: $contactId, ')
           ..write('recordedAtUtc: $recordedAtUtc')
           ..write(')'))
         .toString();
@@ -14553,6 +14638,7 @@ class ActivityLedgerEntryRow extends DataClass
     idempotencyKey,
     reversalOfEntryId,
     replacesEntryId,
+    contactId,
     recordedAtUtc,
   );
   @override
@@ -14572,6 +14658,7 @@ class ActivityLedgerEntryRow extends DataClass
           other.idempotencyKey == this.idempotencyKey &&
           other.reversalOfEntryId == this.reversalOfEntryId &&
           other.replacesEntryId == this.replacesEntryId &&
+          other.contactId == this.contactId &&
           other.recordedAtUtc == this.recordedAtUtc);
 }
 
@@ -14590,6 +14677,7 @@ class ActivityLedgerEntriesCompanion
   final Value<String> idempotencyKey;
   final Value<String?> reversalOfEntryId;
   final Value<String?> replacesEntryId;
+  final Value<String?> contactId;
   final Value<DateTime> recordedAtUtc;
   final Value<int> rowid;
   const ActivityLedgerEntriesCompanion({
@@ -14606,6 +14694,7 @@ class ActivityLedgerEntriesCompanion
     this.idempotencyKey = const Value.absent(),
     this.reversalOfEntryId = const Value.absent(),
     this.replacesEntryId = const Value.absent(),
+    this.contactId = const Value.absent(),
     this.recordedAtUtc = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -14623,6 +14712,7 @@ class ActivityLedgerEntriesCompanion
     required String idempotencyKey,
     this.reversalOfEntryId = const Value.absent(),
     this.replacesEntryId = const Value.absent(),
+    this.contactId = const Value.absent(),
     required DateTime recordedAtUtc,
     this.rowid = const Value.absent(),
   }) : id = Value(id),
@@ -14651,6 +14741,7 @@ class ActivityLedgerEntriesCompanion
     Expression<String>? idempotencyKey,
     Expression<String>? reversalOfEntryId,
     Expression<String>? replacesEntryId,
+    Expression<String>? contactId,
     Expression<DateTime>? recordedAtUtc,
     Expression<int>? rowid,
   }) {
@@ -14668,6 +14759,7 @@ class ActivityLedgerEntriesCompanion
       if (idempotencyKey != null) 'idempotency_key': idempotencyKey,
       if (reversalOfEntryId != null) 'reversal_of_entry_id': reversalOfEntryId,
       if (replacesEntryId != null) 'replaces_entry_id': replacesEntryId,
+      if (contactId != null) 'contact_id': contactId,
       if (recordedAtUtc != null) 'recorded_at_utc': recordedAtUtc,
       if (rowid != null) 'rowid': rowid,
     });
@@ -14687,6 +14779,7 @@ class ActivityLedgerEntriesCompanion
     Value<String>? idempotencyKey,
     Value<String?>? reversalOfEntryId,
     Value<String?>? replacesEntryId,
+    Value<String?>? contactId,
     Value<DateTime>? recordedAtUtc,
     Value<int>? rowid,
   }) {
@@ -14704,6 +14797,7 @@ class ActivityLedgerEntriesCompanion
       idempotencyKey: idempotencyKey ?? this.idempotencyKey,
       reversalOfEntryId: reversalOfEntryId ?? this.reversalOfEntryId,
       replacesEntryId: replacesEntryId ?? this.replacesEntryId,
+      contactId: contactId ?? this.contactId,
       recordedAtUtc: recordedAtUtc ?? this.recordedAtUtc,
       rowid: rowid ?? this.rowid,
     );
@@ -14751,6 +14845,9 @@ class ActivityLedgerEntriesCompanion
     if (replacesEntryId.present) {
       map['replaces_entry_id'] = Variable<String>(replacesEntryId.value);
     }
+    if (contactId.present) {
+      map['contact_id'] = Variable<String>(contactId.value);
+    }
     if (recordedAtUtc.present) {
       map['recorded_at_utc'] = Variable<DateTime>(recordedAtUtc.value);
     }
@@ -14776,6 +14873,7 @@ class ActivityLedgerEntriesCompanion
           ..write('idempotencyKey: $idempotencyKey, ')
           ..write('reversalOfEntryId: $reversalOfEntryId, ')
           ..write('replacesEntryId: $replacesEntryId, ')
+          ..write('contactId: $contactId, ')
           ..write('recordedAtUtc: $recordedAtUtc, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -31619,6 +31717,7 @@ typedef $$PlannerTasksTableCreateCompanionBuilder =
       Value<String> peopleJson,
       Value<String> status,
       Value<bool> requiresReport,
+      Value<bool> isBackup,
       Value<String?> contributionRuleKey,
       Value<String?> linkedActivityTypeId,
       Value<String?> linkedActivityTypeStableKey,
@@ -31640,6 +31739,7 @@ typedef $$PlannerTasksTableUpdateCompanionBuilder =
       Value<String> peopleJson,
       Value<String> status,
       Value<bool> requiresReport,
+      Value<bool> isBackup,
       Value<String?> contributionRuleKey,
       Value<String?> linkedActivityTypeId,
       Value<String?> linkedActivityTypeStableKey,
@@ -31770,6 +31870,11 @@ class $$PlannerTasksTableFilterComposer
 
   ColumnFilters<bool> get requiresReport => $composableBuilder(
     column: $table.requiresReport,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isBackup => $composableBuilder(
+    column: $table.isBackup,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -31938,6 +32043,11 @@ class $$PlannerTasksTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get isBackup => $composableBuilder(
+    column: $table.isBackup,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get contributionRuleKey => $composableBuilder(
     column: $table.contributionRuleKey,
     builder: (column) => ColumnOrderings(column),
@@ -32039,6 +32149,9 @@ class $$PlannerTasksTableAnnotationComposer
     column: $table.requiresReport,
     builder: (column) => column,
   );
+
+  GeneratedColumn<bool> get isBackup =>
+      $composableBuilder(column: $table.isBackup, builder: (column) => column);
 
   GeneratedColumn<String> get contributionRuleKey => $composableBuilder(
     column: $table.contributionRuleKey,
@@ -32192,6 +32305,7 @@ class $$PlannerTasksTableTableManager
                 Value<String> peopleJson = const Value.absent(),
                 Value<String> status = const Value.absent(),
                 Value<bool> requiresReport = const Value.absent(),
+                Value<bool> isBackup = const Value.absent(),
                 Value<String?> contributionRuleKey = const Value.absent(),
                 Value<String?> linkedActivityTypeId = const Value.absent(),
                 Value<String?> linkedActivityTypeStableKey =
@@ -32213,6 +32327,7 @@ class $$PlannerTasksTableTableManager
                 peopleJson: peopleJson,
                 status: status,
                 requiresReport: requiresReport,
+                isBackup: isBackup,
                 contributionRuleKey: contributionRuleKey,
                 linkedActivityTypeId: linkedActivityTypeId,
                 linkedActivityTypeStableKey: linkedActivityTypeStableKey,
@@ -32235,6 +32350,7 @@ class $$PlannerTasksTableTableManager
                 Value<String> peopleJson = const Value.absent(),
                 Value<String> status = const Value.absent(),
                 Value<bool> requiresReport = const Value.absent(),
+                Value<bool> isBackup = const Value.absent(),
                 Value<String?> contributionRuleKey = const Value.absent(),
                 Value<String?> linkedActivityTypeId = const Value.absent(),
                 Value<String?> linkedActivityTypeStableKey =
@@ -32256,6 +32372,7 @@ class $$PlannerTasksTableTableManager
                 peopleJson: peopleJson,
                 status: status,
                 requiresReport: requiresReport,
+                isBackup: isBackup,
                 contributionRuleKey: contributionRuleKey,
                 linkedActivityTypeId: linkedActivityTypeId,
                 linkedActivityTypeStableKey: linkedActivityTypeStableKey,
@@ -38129,6 +38246,7 @@ typedef $$ActivityLedgerEntriesTableCreateCompanionBuilder =
       required String idempotencyKey,
       Value<String?> reversalOfEntryId,
       Value<String?> replacesEntryId,
+      Value<String?> contactId,
       required DateTime recordedAtUtc,
       Value<int> rowid,
     });
@@ -38147,6 +38265,7 @@ typedef $$ActivityLedgerEntriesTableUpdateCompanionBuilder =
       Value<String> idempotencyKey,
       Value<String?> reversalOfEntryId,
       Value<String?> replacesEntryId,
+      Value<String?> contactId,
       Value<DateTime> recordedAtUtc,
       Value<int> rowid,
     });
@@ -38266,6 +38385,11 @@ class $$ActivityLedgerEntriesTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get contactId => $composableBuilder(
+    column: $table.contactId,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<DateTime> get recordedAtUtc => $composableBuilder(
     column: $table.recordedAtUtc,
     builder: (column) => ColumnFilters(column),
@@ -38382,6 +38506,11 @@ class $$ActivityLedgerEntriesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get contactId => $composableBuilder(
+    column: $table.contactId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get recordedAtUtc => $composableBuilder(
     column: $table.recordedAtUtc,
     builder: (column) => ColumnOrderings(column),
@@ -38490,6 +38619,9 @@ class $$ActivityLedgerEntriesTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get contactId =>
+      $composableBuilder(column: $table.contactId, builder: (column) => column);
+
   GeneratedColumn<DateTime> get recordedAtUtc => $composableBuilder(
     column: $table.recordedAtUtc,
     builder: (column) => column,
@@ -38594,6 +38726,7 @@ class $$ActivityLedgerEntriesTableTableManager
                 Value<String> idempotencyKey = const Value.absent(),
                 Value<String?> reversalOfEntryId = const Value.absent(),
                 Value<String?> replacesEntryId = const Value.absent(),
+                Value<String?> contactId = const Value.absent(),
                 Value<DateTime> recordedAtUtc = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ActivityLedgerEntriesCompanion(
@@ -38610,6 +38743,7 @@ class $$ActivityLedgerEntriesTableTableManager
                 idempotencyKey: idempotencyKey,
                 reversalOfEntryId: reversalOfEntryId,
                 replacesEntryId: replacesEntryId,
+                contactId: contactId,
                 recordedAtUtc: recordedAtUtc,
                 rowid: rowid,
               ),
@@ -38628,6 +38762,7 @@ class $$ActivityLedgerEntriesTableTableManager
                 required String idempotencyKey,
                 Value<String?> reversalOfEntryId = const Value.absent(),
                 Value<String?> replacesEntryId = const Value.absent(),
+                Value<String?> contactId = const Value.absent(),
                 required DateTime recordedAtUtc,
                 Value<int> rowid = const Value.absent(),
               }) => ActivityLedgerEntriesCompanion.insert(
@@ -38644,6 +38779,7 @@ class $$ActivityLedgerEntriesTableTableManager
                 idempotencyKey: idempotencyKey,
                 reversalOfEntryId: reversalOfEntryId,
                 replacesEntryId: replacesEntryId,
+                contactId: contactId,
                 recordedAtUtc: recordedAtUtc,
                 rowid: rowid,
               ),

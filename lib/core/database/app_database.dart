@@ -199,6 +199,11 @@ class PlannerTasks extends Table {
   TextColumn get status => text().withDefault(const Constant('incomplete'))();
   BoolColumn get requiresReport =>
       boolean().withDefault(const Constant(false))();
+  // VS-11C1B.3 (v30): additive Task Backup flag, symmetric with
+  // calendarEvents.isBackupAppointment. Default false: existing rows are
+  // regular Tasks; NO backfill of history. Backup Tasks are controlled by
+  // the Backups Planner filter and suppress reporting while enabled.
+  BoolColumn get isBackup => boolean().withDefault(const Constant(false))();
   TextColumn get contributionRuleKey => text().nullable()();
   TextColumn get linkedActivityTypeId => text().nullable()();
   TextColumn get linkedActivityTypeStableKey => text().nullable()();
@@ -552,6 +557,7 @@ class ActivityLedgerEntries extends Table {
   TextColumn get idempotencyKey => text()();
   TextColumn get reversalOfEntryId => text().nullable()();
   TextColumn get replacesEntryId => text().nullable()();
+  TextColumn get contactId => text().nullable()();
   DateTimeColumn get recordedAtUtc => dateTime()();
 
   @override
@@ -1133,7 +1139,7 @@ final class AppDatabase extends _$AppDatabase {
   final bool _injectContactsMigrationFailure;
 
   @override
-  int get schemaVersion => _schemaVersionOverride ?? 28;
+  int get schemaVersion => _schemaVersionOverride ?? 30;
 
   @override
   MigrationStrategy get migration {
@@ -1923,6 +1929,27 @@ final class AppDatabase extends _$AppDatabase {
                 contacts,
                 contacts.coordinateSource,
               );
+            }
+          }
+          if (from < 29 && to >= 29) {
+            // VS-11B1 OPD-3-004 (v29): additive nullable contact_id on the
+            // Activity Ledger for per-explicitly-confirmed-Contact
+            // meaningful-connections contributions. NO backfill: pre-v29 rows
+            // stay null and remain valid; no historical per-Contact fact is
+            // invented during migration. Idempotent-guarded.
+            if (!await _columnExists('activity_ledger_entries', 'contact_id')) {
+              await migrator.addColumn(
+                activityLedgerEntries,
+                activityLedgerEntries.contactId,
+              );
+            }
+          }
+          if (from < 30 && to >= 30) {
+            // VS-11C1B.3 (v30): additive planner_tasks.is_backup default
+            // FALSE. Existing Tasks stay regular (no backfill); Backup is an
+            // opt-in per-Task flag controlled by the Backups Planner filter.
+            if (!await _columnExists('planner_tasks', 'is_backup')) {
+              await migrator.addColumn(plannerTasks, plannerTasks.isBackup);
             }
           }
         });

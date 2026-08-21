@@ -789,8 +789,10 @@ void main() {
           // the AppearancePreferences table; B2-CORRECTION bumped it to 26
           // for the themeColor column; B3.2 bumped it to 27 for the direct
           // Task Goal + contact-link columns; MAPS V1 bumped it to 28 for
-          // the additive Contact/Event coordinate columns.
-          28,
+          // the additive Contact/Event coordinate columns; VS-11B1 bumped it
+          // to 29 for the additive Activity Ledger contact_id column;
+          // VS-11C1B.3 bumped it to 30 for planner_tasks.is_backup.
+          30,
         );
         final taskColumns = await versionTen
             .customSelect('PRAGMA table_info(planner_tasks)')
@@ -947,8 +949,25 @@ void main() {
         // Delta 4.2R R8: current schema is 24 (30-minute default migration);
         // Pack B1: current schema is 25 (AppearancePreferences table);
         // B2-CORRECTION: current schema is 26 (themeColor column);
-        // B3.2: current schema is 27 (direct Task Goal + contact-link columns).
-        expect(version.read<int>('user_version'), 28);
+        // B3.2: current schema is 27 (direct Task Goal + contact-link columns);
+        // MAPS V1: 28 (coordinate columns); VS-11B1: 29 (ledger contact_id);
+        // VS-11C1B.3: 30 (planner_tasks.is_backup).
+        expect(version.read<int>('user_version'), 30);
+        final taskColumns = await current
+            .customSelect('PRAGMA table_info(planner_tasks)')
+            .get();
+        expect(
+          taskColumns.map((row) => row.read<String>('name')),
+          contains('is_backup'),
+          reason: 'v30 must add planner_tasks.is_backup',
+        );
+        final migratedTask = await current
+            .customSelect(
+              'SELECT is_backup FROM planner_tasks '
+              'WHERE title = \'Preserve this task\'',
+            )
+            .getSingle();
+        expect(migratedTask.read<int>('is_backup'), 0);
         await current.close();
       } finally {
         sqliteDatabase.close();

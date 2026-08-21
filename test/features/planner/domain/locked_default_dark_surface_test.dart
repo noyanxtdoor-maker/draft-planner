@@ -251,15 +251,18 @@ void main() {
     );
   });
 
-  test('schema user_version stays 28 (v28 = MAPS V1 coordinate columns)',
+  test('schema user_version stays 30 (v30 = VS-11C1B.3 Task is_backup)',
       () async {
     // Pack B1 added the AppearancePreferences table (v24 -> v25);
     // B2-CORRECTION added the themeColor column (v25 -> v26);
     // B3.2 added the direct Task Goal + contact-link columns (v26 -> v27);
-    // MAPS V1 added additive Contact/Event coordinate columns (v27 -> v28).
+    // MAPS V1 added additive Contact/Event coordinate columns (v27 -> v28);
+    // VS-11B1 added the additive ledger contact_id column (v28 -> v29);
+    // VS-11C1B.3 added the additive planner_tasks.is_backup column
+    // (v29 -> v30).
     final version = await database.customSelect(
       'PRAGMA user_version',
     ).getSingle();
-    expect(version.read<int>('user_version'), 28);
+    expect(version.read<int>('user_version'), 30);
   });
 }

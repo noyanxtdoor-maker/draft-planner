@@ -103,8 +103,10 @@ void main() {
           .getSingle();
       // Delta 4.2R R8: current schema is 24 (30-minute default migration);
       // Pack B1: current schema is 25 (AppearancePreferences table);
-      // B3.2: current schema is 27 (direct Task Goal + contact-link columns).
-      expect(version.read<int>('user_version'), 28);
+      // B3.2: current schema is 27 (direct Task Goal + contact-link columns);
+      // MAPS V1: 28 (coordinate columns); VS-11B1: 29 (ledger contact_id);
+      // VS-11C1B.3: 30 (additive planner_tasks.is_backup).
+      expect(version.read<int>('user_version'), 30);
       await currentVersion.close();
     } finally {
       sqliteDatabase.close();
