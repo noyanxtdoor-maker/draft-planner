@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rmplanner/app/theme/app_theme.dart';
 import 'package:rmplanner/core/database/app_database.dart';
@@ -647,16 +648,16 @@ void main() {
   });
 
   testWidgets(
-    'R2 filter icon: traced funnel-plus replaces the generic Material funnel and opens the Filter screen',
+    'R2.2 filter icon: supplied SVG replaces the generic Material funnel and opens the Filter screen',
     (tester) async {
       await pumpContacts(tester);
 
-      // The top app bar Filter action renders the traced FilterPlusIcon.
+      // The top app bar Filter action renders the supplied SVG FilterPlusIcon.
       expect(find.byType(FilterPlusIcon), findsOneWidget);
       expect(
         find.descendant(
           of: find.byType(FilterPlusIcon),
-          matching: find.byType(CustomPaint),
+          matching: find.byType(SvgPicture),
         ),
         findsOneWidget,
       );

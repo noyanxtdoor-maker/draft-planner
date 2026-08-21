@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rmplanner/app/router/route_names.dart';
 import 'package:rmplanner/app/theme/app_theme.dart';
@@ -10,187 +11,125 @@ import 'package:rmplanner/features/contacts/presentation/filter_builder_screen.d
 final class SavedFilterSelection {
   const SavedFilterSelection({
     required this.criteria,
-    required this.appliedFilter,
+    this.appliedFilter,
+    this.standardView,
   });
 
   final ContactFilterCriteria criteria;
-  final SavedContactFilter appliedFilter;
+  final SavedContactFilter? appliedFilter;
+  final ContactStandardView? standardView;
 }
 
-/// Saved Filters manager.  System filters are protected; user filters can be
-/// renamed/reconfigured or deleted with confirmation.  Tapping a filter
-/// applies it and returns to the Contacts list.
-final class SavedFiltersScreen extends ConsumerStatefulWidget {
-  const SavedFiltersScreen({super.key, this.asOverlay = false});
-
-  final bool asOverlay;
+/// Compatibility route for the existing direct `/contacts/filters` path.
+/// The normal Contacts workflow uses [ContactViewSelectorPanel] inline below
+/// the app bar; it never opens this route or a modal overlay.
+final class SavedFiltersScreen extends StatelessWidget {
+  const SavedFiltersScreen({super.key});
 
   @override
-  ConsumerState<SavedFiltersScreen> createState() => _SavedFiltersScreenState();
-}
-
-final class _SavedFiltersScreenState extends ConsumerState<SavedFiltersScreen> {
-  bool _editMode = false;
-
-  static SavedContactFilter _system(
-    String id,
-    String name,
-    ContactFilterCriteria criteria,
-  ) {
-    return SavedContactFilter(
-      id: 'system:$id',
-      profileId: '',
-      name: name,
-      isSystem: true,
-      criteria: criteria,
-      sortBy: ContactSortBy.name,
-      createdAtUtc: DateTime(2020),
-      updatedAtUtc: DateTime(2020),
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Area Filters')),
+      body: ContactViewSelectorPanel(
+        onSelected: (selection) => Navigator.of(context).pop(selection),
+      ),
     );
   }
+}
 
-  List<SavedContactFilter> _systemFilters() {
-    return <SavedContactFilter>[
-      _system('all', 'All Contacts', const ContactFilterCriteria()),
-      _system(
-        'favorites',
-        'Favorites',
-        const ContactFilterCriteria(favoritesOnly: true),
-      ),
-      _system(
-        'today',
-        'Has Events Today',
-        const ContactFilterCriteria(withEventsToday: true),
-      ),
-      _system(
-        'archived',
-        'Archived',
-        const ContactFilterCriteria(archivedOnly: true),
-      ),
-      // C3 truthful semantics: a future Event is NOT "Needs Follow-Up". The
-      // false label is replaced with the actual criterion it represents.
-      _system(
-        'future',
-        'Has Future Events',
-        const ContactFilterCriteria(withFutureEvents: true),
-      ),
-      _system(
-        'no-future',
-        'No Future Events',
-        const ContactFilterCriteria(withoutFutureEvents: true),
-      ),
-      _system(
-        'has-phone',
-        'Has Phone',
-        const ContactFilterCriteria(hasPhone: true),
-      ),
-      _system(
-        'has-email',
-        'Has Email',
-        const ContactFilterCriteria(hasEmail: true),
-      ),
-      _system(
-        'has-address',
-        'Has Address',
-        const ContactFilterCriteria(hasAddress: true),
-      ),
-    ];
-  }
+final class ContactViewSelectorPanel extends ConsumerStatefulWidget {
+  const ContactViewSelectorPanel({required this.onSelected, super.key});
 
+  final ValueChanged<SavedFilterSelection> onSelected;
+
+  @override
+  ConsumerState<ContactViewSelectorPanel> createState() =>
+      _ContactViewSelectorPanelState();
+}
+
+final class _ContactViewSelectorPanelState
+    extends ConsumerState<ContactViewSelectorPanel> {
   @override
   Widget build(BuildContext context) {
     final userFilters =
         ref.watch(savedContactFiltersProvider).value ??
         const <SavedContactFilter>[];
-    final appliedId = ref.watch(contactsControllerProvider).appliedFilter?.id;
-    return Scaffold(
-      backgroundColor: widget.asOverlay ? AppTheme.surfaceOf(context) : null,
-      appBar: AppBar(
-        automaticallyImplyLeading: !widget.asOverlay,
-        title: const Text('Saved Filters'),
-        actions: <Widget>[
-          TextButton(
-            key: const Key('edit-saved-filters'),
-            onPressed: () => setState(() => _editMode = !_editMode),
-            child: Text(_editMode ? 'Done' : 'Edit'),
-          ),
-          if (widget.asOverlay)
-            IconButton(
-              key: const Key('saved-filters-close'),
-              tooltip: 'Close',
-              onPressed: () => Navigator.of(context).pop(),
-              icon: const Icon(Icons.close),
+    return ListView(
+      key: const Key('contact-view-selector-panel'),
+      padding: const EdgeInsets.only(bottom: 32),
+      children: <Widget>[
+        const _SelectorSectionTitle('Area Filters'),
+        if (userFilters.isEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
+            child: Text(
+              'Save a filter for one-tap access to a view you use often.',
+              style: TextStyle(color: AppTheme.secondaryTextOf(context)),
             ),
-        ],
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          key: const Key('saved-filters-list'),
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Column(
-            children: <Widget>[
-              const Padding(
-                padding: EdgeInsets.fromLTRB(16, 8, 16, 4),
-                child: Text(
-                  'Standard Views',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-                ),
+          ),
+        for (final filter in userFilters)
+          _AreaFilterRow(
+            key: Key('area-filter-${filter.id}'),
+            filter: filter,
+            onApply: () => _apply(filter),
+            onEdit: () => _editUserFilter(filter),
+            onDelete: () => _deleteUserFilter(filter),
+          ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 18),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              key: const Key('area-filter-create'),
+              onPressed: _createFilter,
+              style: TextButton.styleFrom(
+                foregroundColor: Theme.of(context).colorScheme.primary,
               ),
-              for (final filter in _systemFilters())
-                _FilterRow(
-                  key: Key('standard-filter-${filter.id}'),
-                  filter: filter,
-                  selected: appliedId == filter.id,
-                  onTap: () => _apply(filter),
-                ),
-              const SizedBox(height: 24),
-              const Padding(
-                padding: EdgeInsets.fromLTRB(16, 16, 16, 4),
-                child: Text(
-                  'Saved Filters',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-                ),
+              icon: const Icon(Icons.add, size: 24),
+              label: const Text(
+                'Area Filter',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
               ),
-              if (userFilters.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-                  child: Text(
-                    'Save a filter here for one-tap access to a view you use often.',
-                    style: TextStyle(color: AppTheme.secondaryTextOf(context)),
-                  ),
-                ),
-              for (final filter in userFilters)
-                _FilterRow(
-                  key: Key('saved-filter-${filter.id}'),
-                  filter: filter,
-                  selected: appliedId == filter.id,
-                  onTap: _editMode
-                      ? () => _editUserFilter(filter)
-                      : () => _apply(filter),
-                  onEdit: _editMode ? () => _editUserFilter(filter) : null,
-                  onDelete: _editMode ? () => _deleteUserFilter(filter) : null,
-                ),
-              const SizedBox(height: 4),
-              TextButton.icon(
-                key: const Key('new-filter-button'),
-                onPressed: _createFilter,
-                style: TextButton.styleFrom(
-                  minimumSize: const Size(0, 48),
-                  foregroundColor: Theme.of(context).colorScheme.primary,
-                ),
-                icon: const Icon(Icons.add, size: 22),
-                label: const Text('New Filter'),
-              ),
-            ],
+            ),
           ),
         ),
-      ),
+        const _SelectorSectionTitle('Standard Filters'),
+        _StandardFilterRow(
+          key: const Key('standard-filter-status'),
+          label: 'Status',
+          icon: _StandardFilterIconKind.status,
+          onTap: () => _applyStandard(
+            const ContactStandardView(filter: ContactStandardFilter.status),
+          ),
+        ),
+        for (final filter in const <ContactStandardFilter>[
+          ContactStandardFilter.recentlyViewed,
+          ContactStandardFilter.recentlyContacted,
+          ContactStandardFilter.noRecentContact,
+          ContactStandardFilter.recentlyCreated,
+        ])
+          _StandardFilterRow(
+            key: Key('standard-filter-${filter.name}'),
+            label: ContactStandardView(filter: filter).label,
+            icon: _StandardFilterIconKind.forFilter(filter),
+            onTap: () => _applyStandard(ContactStandardView(filter: filter)),
+          ),
+      ],
     );
   }
 
   void _apply(SavedContactFilter filter) {
-    Navigator.of(context).pop(
+    widget.onSelected(
       SavedFilterSelection(criteria: filter.criteria, appliedFilter: filter),
+    );
+  }
+
+  void _applyStandard(ContactStandardView view) {
+    widget.onSelected(
+      SavedFilterSelection(
+        criteria: const ContactFilterCriteria(),
+        standardView: view,
+      ),
     );
   }
 
@@ -223,19 +162,16 @@ final class _SavedFiltersScreenState extends ConsumerState<SavedFiltersScreen> {
   }
 
   Future<void> _applyResult(FilterBuilderResult result) async {
-    final controller = ref.read(contactsControllerProvider.notifier);
-    if (result.savedFilter != null) {
-      controller.applyFilter(
-        result.criteria,
-        appliedFilter: result.savedFilter,
-      );
-    } else {
-      controller.applyFilter(result.criteria, updateCurrentView: false);
+    if (result.savedFilter == null) {
+      return;
     }
     ref.invalidate(savedContactFiltersProvider);
-    if (mounted) {
-      Navigator.of(context).pop();
-    }
+    widget.onSelected(
+      SavedFilterSelection(
+        criteria: result.criteria,
+        appliedFilter: result.savedFilter,
+      ),
+    );
   }
 
   Future<void> _deleteUserFilter(SavedContactFilter filter) async {
@@ -265,14 +201,6 @@ final class _SavedFiltersScreenState extends ConsumerState<SavedFiltersScreen> {
       await ref
           .read(contactRepositoryProvider)
           .deleteSavedFilter(profileId: profileId, filterId: filter.id);
-      if (ref.read(contactsControllerProvider).appliedFilter?.id == filter.id) {
-        ref
-            .read(contactsControllerProvider.notifier)
-            .applyFilter(
-              const ContactFilterCriteria(),
-              clearAppliedFilter: true,
-            );
-      }
       ref.invalidate(savedContactFiltersProvider);
     } on ContactValidationException catch (error) {
       if (mounted) {
@@ -284,21 +212,107 @@ final class _SavedFiltersScreenState extends ConsumerState<SavedFiltersScreen> {
   }
 }
 
-final class _FilterRow extends StatelessWidget {
-  const _FilterRow({
+final class _SelectorSectionTitle extends StatelessWidget {
+  const _SelectorSectionTitle(this.title);
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 17,
+              height: 22 / 17,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Divider(height: 1, color: AppTheme.sectionDividerOf(context)),
+        ],
+      ),
+    );
+  }
+}
+
+final class _AreaFilterRow extends StatelessWidget {
+  const _AreaFilterRow({
     required this.filter,
-    required this.selected,
-    required this.onTap,
-    this.onEdit,
-    this.onDelete,
+    required this.onApply,
+    required this.onEdit,
+    required this.onDelete,
     super.key,
   });
 
   final SavedContactFilter filter;
-  final bool selected;
+  final VoidCallback onApply;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onApply,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+          child: Row(
+            children: <Widget>[
+              Expanded(
+                child: Text(
+                  filter.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    height: 21 / 16,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+              ),
+              IconButton(
+                key: Key('edit-filter-${filter.id}'),
+                tooltip: 'Edit',
+                onPressed: onEdit,
+                icon: Icon(
+                  Icons.edit_outlined,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+              IconButton(
+                key: Key('delete-filter-${filter.id}'),
+                tooltip: 'Delete',
+                onPressed: onDelete,
+                icon: Icon(
+                  Icons.delete_outline,
+                  color: Theme.of(context).colorScheme.error,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+final class _StandardFilterRow extends StatelessWidget {
+  const _StandardFilterRow({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+    super.key,
+  });
+
+  final String label;
+  final _StandardFilterIconKind icon;
   final VoidCallback onTap;
-  final VoidCallback? onEdit;
-  final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -307,69 +321,79 @@ final class _FilterRow extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
           child: Row(
             children: <Widget>[
-              Icon(
-                filter.criteria.isEmpty
-                    ? Icons.people_outline
-                    : filter.criteria.favoritesOnly
-                    ? Icons.star_outline
-                    : Icons.filter_alt_outlined,
-                size: 22,
-                color: AppTheme.secondaryTextOf(context),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(
-                      filter.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    if (filter.description.trim().isNotEmpty)
-                      Text(
-                        filter.description,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: AppTheme.secondaryTextOf(context),
-                        ),
-                      ),
-                  ],
+              _StandardFilterIcon(kind: icon),
+              const SizedBox(width: 16),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 16,
+                  height: 21 / 16,
+                  fontWeight: FontWeight.w400,
                 ),
               ),
-              if (onEdit != null)
-                IconButton(
-                  key: Key('edit-filter-${filter.id}'),
-                  tooltip: 'Edit',
-                  onPressed: onEdit,
-                  icon: const Icon(Icons.edit_outlined, size: 21),
-                ),
-              if (selected)
-                Icon(
-                  Icons.check,
-                  size: 22,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-              if (onDelete != null) ...<Widget>[
-                const SizedBox(width: 4),
-                IconButton(
-                  key: Key('delete-filter-${filter.id}'),
-                  tooltip: 'Delete',
-                  onPressed: onDelete,
-                  icon: const Icon(Icons.delete_outline, size: 22),
-                ),
-              ],
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+enum _StandardFilterIconKind {
+  status(
+    'assets/icons/contacts/standard_filters/status-list-circle-outline.svg',
+  ),
+  recentlyViewed(
+    'assets/icons/contacts/standard_filters/recently-viewed-eye-outline.svg',
+  ),
+  recentlyContacted(
+    'assets/icons/contacts/standard_filters/recently-contacted-link-outline.svg',
+  ),
+  noRecentContact(
+    'assets/icons/contacts/standard_filters/no-recent-contact-unlink-outline.svg',
+  ),
+  recentlyCreated(
+    'assets/icons/contacts/standard_filters/recently-created-person-add-outline.svg',
+  );
+
+  const _StandardFilterIconKind(this.assetPath);
+
+  final String assetPath;
+
+  factory _StandardFilterIconKind.forFilter(ContactStandardFilter filter) {
+    return switch (filter) {
+      ContactStandardFilter.recentlyViewed => recentlyViewed,
+      ContactStandardFilter.recentlyContacted => recentlyContacted,
+      ContactStandardFilter.noRecentContact => noRecentContact,
+      ContactStandardFilter.recentlyCreated => recentlyCreated,
+      ContactStandardFilter.status => status,
+    };
+  }
+}
+
+final class _StandardFilterIcon extends StatelessWidget {
+  const _StandardFilterIcon({required this.kind});
+
+  final _StandardFilterIconKind kind;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      key: Key('standard-filter-icon-${kind.name}'),
+      width: 24,
+      height: 24,
+      child: SvgPicture.asset(
+        kind.assetPath,
+        key: Key('standard-filter-svg-${kind.name}'),
+        width: 24,
+        height: 24,
+        fit: BoxFit.contain,
+        colorFilter: ColorFilter.mode(
+          Theme.of(context).colorScheme.onSurface,
+          BlendMode.srcIn,
         ),
       ),
     );

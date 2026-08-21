@@ -25,6 +25,8 @@ final class ContactsScreen extends ConsumerStatefulWidget {
 }
 
 final class _ContactsScreenState extends ConsumerState<ContactsScreen> {
+  bool _selectorExpanded = false;
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(contactsControllerProvider);
@@ -33,8 +35,12 @@ final class _ContactsScreenState extends ConsumerState<ContactsScreen> {
     final tags = ref.watch(contactTagsProvider).value ?? const <ContactTag>[];
 
     return Scaffold(
+      backgroundColor: AppTheme.surfaceOf(context),
       appBar: AppBar(
         automaticallyImplyLeading: false,
+        backgroundColor: AppTheme.surfaceOf(context),
+        surfaceTintColor: Colors.transparent,
+        scrolledUnderElevation: 0,
         toolbarHeight: 72,
         leadingWidth: 64,
         leading: IconButton(
@@ -48,22 +54,23 @@ final class _ContactsScreenState extends ConsumerState<ContactsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            const Text('Contacts', style: AppTypography.appBarTitle),
+            const Text(
+              'Contacts',
+              style: TextStyle(
+                fontFamily: 'Roboto',
+                fontSize: 20,
+                height: 24 / 20,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
             const SizedBox(height: 2),
             _CurrentFilterRow(
               appliedFilter: state.appliedFilter,
+              standardView: state.standardView,
               isFiltered: !state.criteria.isEmpty,
-              onTap: () async {
-                final result = await _openCurrentViewOverlay();
-                if (result != null && mounted) {
-                  ref
-                      .read(contactsControllerProvider.notifier)
-                      .applyFilter(
-                        result.criteria,
-                        appliedFilter: result.appliedFilter,
-                      );
-                }
-              },
+              expanded: _selectorExpanded,
+              onTap: () =>
+                  setState(() => _selectorExpanded = !_selectorExpanded),
             ),
           ],
         ),
@@ -116,7 +123,27 @@ final class _ContactsScreenState extends ConsumerState<ContactsScreen> {
           onRetry: () =>
               ref.read(contactsControllerProvider.notifier).refresh(),
         ),
-        ContactsLoadStatus.ready => _buildBody(state, groups, tags),
+        ContactsLoadStatus.ready =>
+          _selectorExpanded
+              ? ContactViewSelectorPanel(
+                  onSelected: (selection) {
+                    final controller = ref.read(
+                      contactsControllerProvider.notifier,
+                    );
+                    if (selection.standardView != null) {
+                      controller.applyStandardView(selection.standardView!);
+                    } else {
+                      controller.applyFilter(
+                        selection.criteria,
+                        appliedFilter: selection.appliedFilter,
+                      );
+                    }
+                    if (mounted) {
+                      setState(() => _selectorExpanded = false);
+                    }
+                  },
+                )
+              : _buildBody(state, groups, tags),
       },
       floatingActionButton: FloatingActionButton(
         key: const Key('add-contact-fab'),
@@ -164,19 +191,6 @@ final class _ContactsScreenState extends ConsumerState<ContactsScreen> {
     }
   }
 
-  Future<SavedFilterSelection?> _openCurrentViewOverlay() {
-    return showModalBottomSheet<SavedFilterSelection>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      backgroundColor: Colors.transparent,
-      builder: (sheetContext) => FractionallySizedBox(
-        heightFactor: .70,
-        child: SavedFiltersScreen(asOverlay: true),
-      ),
-    );
-  }
-
   void _showSortSheet() {
     final controller = ref.read(contactsControllerProvider.notifier);
     final current = ref.read(contactsControllerProvider).sortBy;
@@ -197,13 +211,11 @@ final class _ContactsScreenState extends ConsumerState<ContactsScreen> {
               for (final value in ContactSortBy.values)
                 ListTile(
                   key: Key('sort-option-${value.name}'),
-                  leading: Icon(
-                    switch (value) {
-                      ContactSortBy.name || ContactSortBy.nameDesc =>
-                        Icons.sort_by_alpha,
-                      _ => Icons.schedule,
-                    },
-                  ),
+                  leading: Icon(switch (value) {
+                    ContactSortBy.name ||
+                    ContactSortBy.nameDesc => Icons.sort_by_alpha,
+                    _ => Icons.schedule,
+                  }),
                   title: Text(_sortOptionLabel(value)),
                   trailing: current == value
                       ? Icon(
@@ -247,6 +259,7 @@ final class _ContactsScreenState extends ConsumerState<ContactsScreen> {
             contacts,
             criteria: state.criteria,
             sortBy: state.sortBy,
+            standardView: state.standardView,
             displayedFields:
                 state.appliedFilter?.displayedFields ??
                 ContactDisplayedFieldCodec.defaults,
@@ -299,9 +312,36 @@ final class _ContactsScreenState extends ConsumerState<ContactsScreen> {
     List<ContactSummary> contacts, {
     required ContactFilterCriteria criteria,
     required ContactSortBy sortBy,
+    required ContactStandardView? standardView,
     required List<ContactDisplayedField> displayedFields,
   }) {
     final widgets = <Widget>[];
+    if (standardView?.filter == ContactStandardFilter.status &&
+        standardView?.statusBucket == null) {
+      assert(
+        contacts.every((summary) => summary.statusBucket != null),
+        'Aggregate Status summaries must carry canonical repository buckets.',
+      );
+      for (final bucket in ContactStatusBucket.values) {
+        final members = contacts
+            .where((summary) => summary.statusBucket == bucket)
+            .toList(growable: false);
+        if (members.isEmpty) {
+          continue;
+        }
+        widgets.add(
+          _SectionHeader(
+            title: contactStatusBucketLabel(bucket),
+            showMajorDivider: widgets.isNotEmpty,
+            key: Key('contacts-status-section-${bucket.name}'),
+          ),
+        );
+        for (final summary in members) {
+          widgets.add(_row(summary, displayedFields: displayedFields));
+        }
+      }
+      return widgets;
+    }
     if (criteria.isEmpty && sortBy == ContactSortBy.name) {
       final favorites = contacts
           .where((summary) => summary.contact.isFavorite)
@@ -313,7 +353,7 @@ final class _ContactsScreenState extends ConsumerState<ContactsScreen> {
         widgets.add(
           _SectionHeader(
             title: 'Favorites',
-            dotColor: AppTheme.rose,
+            showMajorDivider: widgets.isNotEmpty,
             key: const Key('contacts-favorites-section'),
           ),
         );
@@ -342,8 +382,9 @@ final class _ContactsScreenState extends ConsumerState<ContactsScreen> {
         final primaryGroup = members.first.primaryGroup;
         if (groupId == null) {
           widgets.add(
-            const _SectionHeader(
+            _SectionHeader(
               title: 'Other',
+              showMajorDivider: widgets.isNotEmpty,
               key: Key('contacts-other-section'),
             ),
           );
@@ -351,7 +392,7 @@ final class _ContactsScreenState extends ConsumerState<ContactsScreen> {
           widgets.add(
             _SectionHeader(
               title: primaryGroup.name,
-              dotColor: Color(primaryGroup.colorValue),
+              showMajorDivider: widgets.isNotEmpty,
               key: Key('contacts-section-${primaryGroup.id}'),
             ),
           );
@@ -384,11 +425,15 @@ final class _CurrentFilterRow extends StatelessWidget {
   const _CurrentFilterRow({
     required this.onTap,
     required this.isFiltered,
+    required this.expanded,
+    this.standardView,
     this.appliedFilter,
   });
 
   final VoidCallback onTap;
   final bool isFiltered;
+  final bool expanded;
+  final ContactStandardView? standardView;
   final SavedContactFilter? appliedFilter;
 
   @override
@@ -402,20 +447,13 @@ final class _CurrentFilterRow extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Text(
-              'Current View',
-              style: TextStyle(
-                color: AppTheme.secondaryTextOf(context),
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
             Row(
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
                 Flexible(
                   child: Text(
-                    appliedFilter?.name ??
+                    standardView?.label ??
+                        appliedFilter?.name ??
                         (isFiltered ? 'Filtered Contacts' : 'All Contacts'),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -428,7 +466,9 @@ final class _CurrentFilterRow extends StatelessWidget {
                 ),
                 const SizedBox(width: 4),
                 Icon(
-                  Icons.arrow_drop_down,
+                  expanded
+                      ? Icons.keyboard_arrow_up
+                      : Icons.keyboard_arrow_down,
                   size: 20,
                   color: AppTheme.secondaryTextOf(context),
                 ),
@@ -442,42 +482,36 @@ final class _CurrentFilterRow extends StatelessWidget {
 }
 
 final class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.title, this.dotColor, super.key});
+  const _SectionHeader({
+    required this.title,
+    this.showMajorDivider = true,
+    super.key,
+  });
 
   final String title;
-  final Color? dotColor;
+  final bool showMajorDivider;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        const FullWidthSectionDivider(),
+        if (showMajorDivider) const FullWidthSectionDivider(),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 7),
-          child: Row(
-            children: <Widget>[
-              if (dotColor != null) ...<Widget>[
-                Container(
-                  width: 10,
-                  height: 10,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: dotColor,
-                  ),
-                ),
-                const SizedBox(width: 8),
-              ],
-              Text(
-                title,
-                style: const TextStyle(
-                  fontFamily: 'Roboto',
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
+          child: Text(
+            title,
+            style: const TextStyle(
+              fontFamily: 'Roboto',
+              fontSize: 17,
+              height: 22 / 17,
+              fontWeight: FontWeight.w600,
+            ),
           ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Divider(height: 1, color: AppTheme.sectionDividerOf(context)),
         ),
       ],
     );

@@ -28,6 +28,13 @@ abstract interface class ContactRepository {
     required String contactId,
   });
 
+  /// Records the successful opening of a Contact detail route without
+  /// changing the Contact's edit/update timestamp.
+  Future<void> markContactViewed({
+    required String profileId,
+    required String contactId,
+  });
+
   Future<Contact> setFavorite({
     required String profileId,
     required String contactId,
@@ -52,7 +59,13 @@ abstract interface class ContactRepository {
     required ContactFilterCriteria criteria,
     required ContactSortBy sortBy,
     required PlannerDate today,
+    ContactStandardView? standardView,
     String? query,
+  });
+
+  /// Returns only Status buckets with one or more eligible Contacts.
+  Future<List<ContactStatusBucket>> readAvailableStatusBuckets({
+    required String profileId,
   });
 
   Future<List<ContactSummary>> searchContacts({

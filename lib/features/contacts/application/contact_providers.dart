@@ -40,6 +40,7 @@ final class ContactsState {
     required this.viewCriteria,
     required this.sortBy,
     required this.contacts,
+    this.standardView,
     this.appliedFilter,
     this.message,
   });
@@ -49,6 +50,7 @@ final class ContactsState {
   final ContactFilterCriteria viewCriteria;
   final ContactSortBy sortBy;
   final List<ContactSummary> contacts;
+  final ContactStandardView? standardView;
   final SavedContactFilter? appliedFilter;
   final String? message;
 
@@ -62,6 +64,8 @@ final class ContactsState {
     String? message,
     bool clearMessage = false,
     bool clearAppliedFilter = false,
+    ContactStandardView? standardView,
+    bool clearStandardView = false,
     bool replaceViewCriteria = false,
   }) {
     return ContactsState(
@@ -72,6 +76,9 @@ final class ContactsState {
           : this.viewCriteria,
       sortBy: sortBy ?? this.sortBy,
       contacts: contacts ?? this.contacts,
+      standardView: clearStandardView
+          ? null
+          : standardView ?? this.standardView,
       appliedFilter: clearAppliedFilter
           ? null
           : appliedFilter ?? this.appliedFilter,
@@ -125,6 +132,7 @@ final class ContactsController extends Notifier<ContactsState> {
         criteria: state.criteria,
         sortBy: state.sortBy,
         today: ref.read(plannerDateSourceProvider).today(),
+        standardView: state.standardView,
       );
       if (generation != _generation) {
         return;
@@ -157,8 +165,20 @@ final class ContactsController extends Notifier<ContactsState> {
       criteria: criteria,
       appliedFilter: appliedFilter,
       clearAppliedFilter: clearAppliedFilter,
+      clearStandardView: true,
       viewCriteria: criteria,
       replaceViewCriteria: updateCurrentView,
+    );
+    unawaited(_load());
+  }
+
+  void applyStandardView(ContactStandardView standardView) {
+    state = state.copyWith(
+      criteria: const ContactFilterCriteria(),
+      viewCriteria: const ContactFilterCriteria(),
+      replaceViewCriteria: true,
+      standardView: standardView,
+      clearAppliedFilter: true,
     );
     unawaited(_load());
   }
@@ -211,6 +231,16 @@ final savedContactFiltersProvider = FutureProvider<List<SavedContactFilter>>((
   final profileId = ref.read(contactProfileIdProvider);
   ref.watch(contactChangesProvider(profileId));
   return ref.read(contactRepositoryProvider).readSavedFilters(profileId);
+});
+
+final contactStatusBucketsProvider = FutureProvider<List<ContactStatusBucket>>((
+  ref,
+) {
+  final profileId = ref.read(contactProfileIdProvider);
+  ref.watch(contactChangesProvider(profileId));
+  return ref
+      .read(contactRepositoryProvider)
+      .readAvailableStatusBuckets(profileId: profileId);
 });
 
 final contactDetailProvider = FutureProvider.family<ContactDetail, String>((

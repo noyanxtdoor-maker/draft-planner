@@ -499,6 +499,165 @@ void main() {
     expect(await contacts.readSavedFilters(profileId), isEmpty);
   });
 
+  test(
+    'standard filters use the persisted view stamp and 30-day cutoff',
+    () async {
+      final (database, contacts, _, profileId) = await arrange();
+      addTearDown(database.close);
+
+      await contacts.createContact(
+        profileId: profileId,
+        draft: draftFor(id: 'recent-view'),
+      );
+      await contacts.createContact(
+        profileId: profileId,
+        draft: draftFor(id: 'old-view', first: 'Ashley'),
+      );
+      await (database.update(
+        database.contacts,
+      )..where((table) => table.id.equals('recent-view'))).write(
+        ContactsCompanion(lastViewedAtUtc: Value(DateTime.utc(2026, 7, 5, 12))),
+      );
+      await (database.update(
+        database.contacts,
+      )..where((table) => table.id.equals('old-view'))).write(
+        ContactsCompanion(lastViewedAtUtc: Value(DateTime.utc(2026, 7, 2, 12))),
+      );
+
+      final viewed = await contacts.readContacts(
+        profileId: profileId,
+        criteria: const ContactFilterCriteria(),
+        sortBy: ContactSortBy.name,
+        today: today,
+        standardView: const ContactStandardView(
+          filter: ContactStandardFilter.recentlyViewed,
+        ),
+      );
+      expect(viewed.map((item) => item.contact.id), contains('recent-view'));
+      expect(
+        viewed.map((item) => item.contact.id),
+        isNot(contains('old-view')),
+      );
+
+      final created = await contacts.readContacts(
+        profileId: profileId,
+        criteria: const ContactFilterCriteria(),
+        sortBy: ContactSortBy.name,
+        today: today,
+        standardView: const ContactStandardView(
+          filter: ContactStandardFilter.recentlyCreated,
+        ),
+      );
+      expect(created, hasLength(2));
+    },
+  );
+
+  test(
+    'Status and Recent Contact use non-cancelled Event participation facts',
+    () async {
+      final (database, contacts, calendar, profileId) = await arrange();
+      addTearDown(database.close);
+
+      await contacts.createContact(
+        profileId: profileId,
+        draft: draftFor(id: 'contact-interacted'),
+      );
+      await contacts.createContact(
+        profileId: profileId,
+        draft: draftFor(id: 'contact-never', first: 'Ashley'),
+      );
+      await calendar.saveEvent(
+        profileId: profileId,
+        draft: CalendarEventDraft(
+        id: '44444444-4444-4444-8444-444444444444',
+          title: 'Planning conversation',
+          timing: CalendarEventTiming.timed,
+          startDate: const PlannerDate(year: 2026, month: 7, day: 25),
+          startMinute: 12 * 60,
+          endMinute: 13 * 60,
+          timeZoneId: 'Asia/Manila',
+          requiresReport: false,
+          recurrence: const CalendarRecurrenceRule(
+            frequency: CalendarRecurrenceFrequency.none,
+          ),
+        ),
+      );
+      await contacts.setEventPeople(
+        profileId: profileId,
+      eventId: '44444444-4444-4444-8444-444444444444',
+        occurrenceId: 'series',
+        contactIds: const <String>['contact-interacted'],
+      );
+
+      final contacted = await contacts.readContacts(
+        profileId: profileId,
+        criteria: const ContactFilterCriteria(),
+        sortBy: ContactSortBy.name,
+        today: today,
+        standardView: const ContactStandardView(
+          filter: ContactStandardFilter.recentlyContacted,
+        ),
+      );
+      expect(
+        contacted.map((item) => item.contact.id),
+        contains('contact-interacted'),
+      );
+      expect(
+        contacted.map((item) => item.contact.id),
+        isNot(contains('contact-never')),
+      );
+
+      final available = await contacts.readAvailableStatusBuckets(
+        profileId: profileId,
+      );
+      expect(available, contains(ContactStatusBucket.notInteractedYet));
+      expect(available, contains(ContactStatusBucket.oneToThreeMonthsAgo));
+      expect(available, isNot(contains(ContactStatusBucket.interactedToday)));
+
+      final status = await contacts.readContacts(
+        profileId: profileId,
+        criteria: const ContactFilterCriteria(),
+        sortBy: ContactSortBy.name,
+        today: today,
+        standardView: const ContactStandardView(
+          filter: ContactStandardFilter.status,
+          statusBucket: ContactStatusBucket.oneToThreeMonthsAgo,
+        ),
+      );
+      expect(status.single.contact.id, 'contact-interacted');
+      expect(
+        status.single.statusBucket,
+        ContactStatusBucket.oneToThreeMonthsAgo,
+      );
+
+      final aggregateStatus = await contacts.readContacts(
+        profileId: profileId,
+        criteria: const ContactFilterCriteria(),
+        sortBy: ContactSortBy.name,
+        today: today,
+        standardView: const ContactStandardView(
+          filter: ContactStandardFilter.status,
+        ),
+      );
+      expect(
+        aggregateStatus.map((item) => item.contact.id),
+        unorderedEquals(<String>['contact-interacted', 'contact-never']),
+      );
+      expect(
+        aggregateStatus
+            .singleWhere((item) => item.contact.id == 'contact-interacted')
+            .statusBucket,
+        ContactStatusBucket.oneToThreeMonthsAgo,
+      );
+      expect(
+        aggregateStatus
+            .singleWhere((item) => item.contact.id == 'contact-never')
+            .statusBucket,
+        ContactStatusBucket.notInteractedYet,
+      );
+    },
+  );
+
   test('search matches names, phone, email, groups, and tags', () async {
     final (database, contacts, _, profileId) = await arrange();
     addTearDown(database.close);
@@ -562,104 +721,130 @@ void main() {
     expect(byGroup.map((s) => s.contact.id), contains('c-1'));
   });
 
-  test('phone filter distinguishes No Phone, typed labels, and Other fallback', () async {
-    final (database, contacts, _, profileId) = await arrange();
-    addTearDown(database.close);
+  test(
+    'phone filter distinguishes No Phone, typed labels, and Other fallback',
+    () async {
+      final (database, contacts, _, profileId) = await arrange();
+      addTearDown(database.close);
 
-    Future<void> addPhone(String id, String number, {String? label}) async {
+      Future<void> addPhone(String id, String number, {String? label}) async {
+        await contacts.createContact(
+          profileId: profileId,
+          draft: draftFor(id: id, phone: number),
+        );
+        await (database.update(database.contactMethods)
+              ..where((t) => t.contactId.equals(id)))
+            .write(ContactMethodsCompanion(label: Value<String?>(label)));
+      }
+
+      await addPhone('p-mobile', '+1 555 0100', label: 'mobile');
+      await addPhone('p-home', '+1 555 0200', label: 'home');
+      await addPhone('p-work', '+1 555 0300', label: 'work');
+      await addPhone('p-custom', '+1 555 0400', label: 'custom');
+      await addPhone('p-null', '+1 555 0500');
       await contacts.createContact(
         profileId: profileId,
-        draft: draftFor(id: id, phone: number),
+        draft: draftFor(id: 'p-none'),
       );
-      await (database.update(database.contactMethods)
-            ..where((t) => t.contactId.equals(id)))
-          .write(ContactMethodsCompanion(label: Value<String?>(label)));
-    }
 
-    await addPhone('p-mobile', '+1 555 0100', label: 'mobile');
-    await addPhone('p-home', '+1 555 0200', label: 'home');
-    await addPhone('p-work', '+1 555 0300', label: 'work');
-    await addPhone('p-custom', '+1 555 0400', label: 'custom');
-    await addPhone('p-null', '+1 555 0500');
-    await contacts.createContact(
-      profileId: profileId,
-      draft: draftFor(id: 'p-none'),
-    );
+      Future<Set<String>> idsFor(List<String> phoneLabels) async {
+        final rows = await contacts.readContacts(
+          profileId: profileId,
+          criteria: ContactFilterCriteria(phoneLabels: phoneLabels),
+          sortBy: ContactSortBy.name,
+          today: today,
+        );
+        return rows.map((s) => s.contact.id).toSet();
+      }
 
-    Future<Set<String>> idsFor(List<String> phoneLabels) async {
-      final rows = await contacts.readContacts(
-        profileId: profileId,
-        criteria: ContactFilterCriteria(phoneLabels: phoneLabels),
-        sortBy: ContactSortBy.name,
-        today: today,
+      expect(
+        await idsFor(const <String>[]),
+        isNotEmpty,
+        reason: 'All is neutral',
       );
-      return rows.map((s) => s.contact.id).toSet();
-    }
-
-    expect(await idsFor(const <String>[]), isNotEmpty, reason: 'All is neutral');
-    expect(await idsFor(const <String>[ContactPhoneFilterKeys.mobile]), {
-      'p-mobile',
-    });
-    expect(await idsFor(const <String>[ContactPhoneFilterKeys.home]), {'p-home'});
-    expect(await idsFor(const <String>[ContactPhoneFilterKeys.work]), {'p-work'});
-    // Other catches null/blank/custom/unrecognized labels only.
-    expect(
-      await idsFor(const <String>[ContactPhoneFilterKeys.other]),
-      {'p-custom', 'p-null'},
-    );
-    // No Phone = zero phone methods.
-    expect(await idsFor(const <String>[ContactPhoneFilterKeys.noPhone]), {'p-none'});
-    // No Phone + Mobile ORs within the category.
-    expect(
-      await idsFor(const <String>[
-        ContactPhoneFilterKeys.noPhone,
-        ContactPhoneFilterKeys.mobile,
-      ]),
-      {'p-none', 'p-mobile'},
-    );
-  });
-
-  test('email filter maps personal/home, work, family, and Other fallback', () async {
-    final (database, contacts, _, profileId) = await arrange();
-    addTearDown(database.close);
-
-    Future<void> addEmail(String id, String address, {String? label}) async {
-      await contacts.createContact(
-        profileId: profileId,
-        draft: draftFor(id: id, email: address),
+      expect(await idsFor(const <String>[ContactPhoneFilterKeys.mobile]), {
+        'p-mobile',
+      });
+      expect(await idsFor(const <String>[ContactPhoneFilterKeys.home]), {
+        'p-home',
+      });
+      expect(await idsFor(const <String>[ContactPhoneFilterKeys.work]), {
+        'p-work',
+      });
+      // Other catches null/blank/custom/unrecognized labels only.
+      expect(await idsFor(const <String>[ContactPhoneFilterKeys.other]), {
+        'p-custom',
+        'p-null',
+      });
+      // No Phone = zero phone methods.
+      expect(await idsFor(const <String>[ContactPhoneFilterKeys.noPhone]), {
+        'p-none',
+      });
+      // No Phone + Mobile ORs within the category.
+      expect(
+        await idsFor(const <String>[
+          ContactPhoneFilterKeys.noPhone,
+          ContactPhoneFilterKeys.mobile,
+        ]),
+        {'p-none', 'p-mobile'},
       );
-      await (database.update(database.contactMethods)
-            ..where((t) => t.contactId.equals(id)))
-          .write(ContactMethodsCompanion(label: Value<String?>(label)));
-    }
+    },
+  );
 
-    await addEmail('e-personal', 'person@example.com', label: 'personal');
-    await addEmail('e-home', 'home@example.com', label: 'home');
-    await addEmail('e-work', 'work@example.com', label: 'work');
-    await addEmail('e-family', 'family@example.com', label: 'family');
-    await addEmail('e-custom', 'custom@example.com', label: 'custom');
-    await addEmail('e-null', 'null@example.com');
+  test(
+    'email filter maps personal/home, work, family, and Other fallback',
+    () async {
+      final (database, contacts, _, profileId) = await arrange();
+      addTearDown(database.close);
 
-    Future<Set<String>> idsFor(List<String> emailLabels) async {
-      final rows = await contacts.readContacts(
-        profileId: profileId,
-        criteria: ContactFilterCriteria(emailLabels: emailLabels),
-        sortBy: ContactSortBy.name,
-        today: today,
+      Future<void> addEmail(String id, String address, {String? label}) async {
+        await contacts.createContact(
+          profileId: profileId,
+          draft: draftFor(id: id, email: address),
+        );
+        await (database.update(database.contactMethods)
+              ..where((t) => t.contactId.equals(id)))
+            .write(ContactMethodsCompanion(label: Value<String?>(label)));
+      }
+
+      await addEmail('e-personal', 'person@example.com', label: 'personal');
+      await addEmail('e-home', 'home@example.com', label: 'home');
+      await addEmail('e-work', 'work@example.com', label: 'work');
+      await addEmail('e-family', 'family@example.com', label: 'family');
+      await addEmail('e-custom', 'custom@example.com', label: 'custom');
+      await addEmail('e-null', 'null@example.com');
+
+      Future<Set<String>> idsFor(List<String> emailLabels) async {
+        final rows = await contacts.readContacts(
+          profileId: profileId,
+          criteria: ContactFilterCriteria(emailLabels: emailLabels),
+          sortBy: ContactSortBy.name,
+          today: today,
+        );
+        return rows.map((s) => s.contact.id).toSet();
+      }
+
+      expect(
+        await idsFor(const <String>[ContactEmailFilterKeys.personal]),
+        {'e-personal', 'e-home'},
+        reason: 'Personal accepts both personal and device-home labels',
       );
-      return rows.map((s) => s.contact.id).toSet();
-    }
-
-    expect(
-      await idsFor(const <String>[ContactEmailFilterKeys.personal]),
-      {'e-personal', 'e-home'},
-      reason: 'Personal accepts both personal and device-home labels',
-    );
-    expect(await idsFor(const <String>[ContactEmailFilterKeys.work]), {'e-work'});
-    expect(await idsFor(const <String>[ContactEmailFilterKeys.family]), {'e-family'});
-    expect(await idsFor(const <String>[ContactEmailFilterKeys.other]), {'e-custom', 'e-null'});
-    expect(await idsFor(const <String>[ContactEmailFilterKeys.noEmail]), isEmpty);
-  });
+      expect(await idsFor(const <String>[ContactEmailFilterKeys.work]), {
+        'e-work',
+      });
+      expect(await idsFor(const <String>[ContactEmailFilterKeys.family]), {
+        'e-family',
+      });
+      expect(await idsFor(const <String>[ContactEmailFilterKeys.other]), {
+        'e-custom',
+        'e-null',
+      });
+      expect(
+        await idsFor(const <String>[ContactEmailFilterKeys.noEmail]),
+        isEmpty,
+      );
+    },
+  );
 
   test('address filter uses stored addressText only, not map pins', () async {
     final (database, contacts, _, profileId) = await arrange();

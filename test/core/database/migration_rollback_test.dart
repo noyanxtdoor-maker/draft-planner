@@ -791,8 +791,10 @@ void main() {
           // Task Goal + contact-link columns; MAPS V1 bumped it to 28 for
           // the additive Contact/Event coordinate columns; VS-11B1 bumped it
           // to 29 for the additive Activity Ledger contact_id column;
-          // VS-11C1B.3 bumped it to 30 for planner_tasks.is_backup.
-          30,
+           // VS-11C1B.3 bumped it to 30 for planner_tasks.is_backup; this
+           // Contacts selector sprint adds nullable contacts.last_viewed_at_utc
+           // as v31.
+           31,
         );
         final taskColumns = await versionTen
             .customSelect('PRAGMA table_info(planner_tasks)')
@@ -951,8 +953,9 @@ void main() {
         // B2-CORRECTION: current schema is 26 (themeColor column);
         // B3.2: current schema is 27 (direct Task Goal + contact-link columns);
         // MAPS V1: 28 (coordinate columns); VS-11B1: 29 (ledger contact_id);
-        // VS-11C1B.3: 30 (planner_tasks.is_backup).
-        expect(version.read<int>('user_version'), 30);
+        // VS-11C1B.3: 30 (planner_tasks.is_backup); Contacts selector sprint:
+        // 31 (nullable contacts.last_viewed_at_utc).
+        expect(version.read<int>('user_version'), 31);
         final taskColumns = await current
             .customSelect('PRAGMA table_info(planner_tasks)')
             .get();
@@ -961,6 +964,8 @@ void main() {
           contains('is_backup'),
           reason: 'v30 must add planner_tasks.is_backup',
         );
+        // VS-11C1B.3 §22: old Tasks migrate with is_backup = false (no
+        // backfill; Backup is opt-in).
         final migratedTask = await current
             .customSelect(
               'SELECT is_backup FROM planner_tasks '
@@ -969,6 +974,62 @@ void main() {
             .getSingle();
         expect(migratedTask.read<int>('is_backup'), 0);
         await current.close();
+      } finally {
+        sqliteDatabase.close();
+      }
+    },
+  );
+
+  test(
+    'v30 to v31 adds nullable Contact last-viewed data without backfill',
+    () async {
+      final sqliteDatabase = sqlite3.openInMemory();
+      try {
+        final version30 = AppDatabase.forTesting(
+          NativeDatabase.opened(sqliteDatabase, closeUnderlyingOnClose: false),
+          schemaVersionOverride: 30,
+        );
+        final profile = await buildTestRepository(
+          database: version30,
+        ).completeOnboarding();
+        final createdAt = DateTime.utc(2026, 8, 3, 12);
+        await version30
+            .into(version30.contacts)
+            .insert(
+              ContactsCompanion.insert(
+                id: 'legacy-contact',
+                profileId: profile.id,
+                displayName: 'Legacy Contact',
+                createdAtUtc: createdAt,
+                updatedAtUtc: createdAt,
+              ),
+            );
+        await version30.customStatement(
+          'ALTER TABLE contacts DROP COLUMN last_viewed_at_utc',
+        );
+        await version30.customStatement('PRAGMA user_version = 30');
+        await version30.close();
+
+        final version31 = AppDatabase.forTesting(
+          NativeDatabase.opened(sqliteDatabase, closeUnderlyingOnClose: false),
+        );
+        final columns = await version31
+            .customSelect('PRAGMA table_info(contacts)')
+            .get();
+        expect(
+          columns.map((row) => row.read<String>('name')),
+          contains('last_viewed_at_utc'),
+        );
+        final contact =
+            (await version31.select(version31.contacts).get()).single;
+        expect(contact.id, 'legacy-contact');
+        expect(contact.lastViewedAtUtc, isNull);
+        expect(
+          (await version31.customSelect('PRAGMA user_version').getSingle())
+              .read<int>('user_version'),
+          31,
+        );
+        await version31.close();
       } finally {
         sqliteDatabase.close();
       }

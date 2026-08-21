@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rmplanner/core/database/app_database.dart';
 import 'package:rmplanner/core/diagnostics/sanitized_diagnostics.dart';
 import 'package:rmplanner/core/platform/app_environment.dart';
 import 'package:rmplanner/features/contacts/data/drift_contact_repository.dart';
 import 'package:rmplanner/features/contacts/domain/contact.dart';
+import 'package:rmplanner/features/contacts/presentation/c3_contact_primitives.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 
 import '../../../support/test_dependencies.dart';
@@ -211,19 +213,44 @@ void main() {
     expect(find.byKey(const Key('filter-builder-scroll')), findsOneWidget);
   });
 
-  testWidgets('C3: standard views are truthful (no false Needs Follow-Up)', (
+  testWidgets('C3: standard catalog is truthful and PMG-shaped', (
     tester,
   ) async {
-    await pumpApp(tester);
+    await pumpApp(tester, seedContacts: true);
     await tester.tap(find.byKey(const Key('current-filter-row')));
     await tester.pumpAndSettle();
-    expect(find.text('Has Future Events'), findsOneWidget);
+    expect(find.text('Area Filters'), findsOneWidget);
+    expect(find.text('Standard Filters'), findsOneWidget);
+    expect(find.text('Status'), findsOneWidget);
+    expect(find.text('Recently Viewed'), findsOneWidget);
+    expect(find.text('Recently Contacted'), findsOneWidget);
+    expect(find.text('No Recent Contact'), findsOneWidget);
+    expect(find.text('Recently Created'), findsOneWidget);
     expect(find.text('Needs Follow-Up'), findsNothing);
-    expect(find.text('Has Phone'), findsOneWidget);
-    expect(find.text('Has Email'), findsOneWidget);
-    expect(find.text('Has Address'), findsOneWidget);
-    expect(find.text('Archived'), findsOneWidget);
-    expect(find.text('No Future Events'), findsOneWidget);
+    expect(find.text('Has Future Events'), findsNothing);
+    expect(find.text('Archived'), findsNothing);
+    for (final icon in <String>[
+      'status',
+      'recentlyViewed',
+      'recentlyContacted',
+      'noRecentContact',
+      'recentlyCreated',
+    ]) {
+      final iconFinder = find.byKey(Key('standard-filter-icon-$icon'));
+      expect(iconFinder, findsOneWidget);
+      expect(
+        find.descendant(of: iconFinder, matching: find.byType(SvgPicture)),
+        findsOneWidget,
+        reason:
+            '$icon must use the approved SVG asset, not the retired painter.',
+      );
+      final svg = tester.widget<SvgPicture>(
+        find.byKey(Key('standard-filter-svg-$icon')),
+      );
+      expect(svg.width, 24);
+      expect(svg.height, 24);
+      expect(svg.colorFilter, isNotNull);
+    }
   });
 
   testWidgets('C3: row subtitle shows one primary group only and favorite is '
@@ -237,19 +264,69 @@ void main() {
     expect(find.byIcon(Icons.star_border), findsNothing);
   });
 
-  testWidgets('C3: Archived standard view is archived-only', (tester) async {
+  testWidgets('Terra R2: only the first visible category omits its major '
+      'divider', (tester) async {
+    await pumpApp(tester, seedContacts: true);
+    final favorites = find.byKey(const Key('contacts-favorites-section'));
+    final other = find.byKey(const Key('contacts-other-section'));
+    expect(favorites, findsOneWidget);
+    expect(other, findsOneWidget);
+    expect(
+      find.descendant(
+        of: favorites,
+        matching: find.byType(FullWidthSectionDivider),
+      ),
+      findsNothing,
+    );
+    expect(
+      find.descendant(of: favorites, matching: find.byType(Divider)),
+      findsOneWidget,
+      reason: 'The thin rule remains directly below the first category title.',
+    );
+    expect(
+      find.descendant(
+        of: other,
+        matching: find.byType(FullWidthSectionDivider),
+      ),
+      findsOneWidget,
+      reason: 'The existing major divider remains before every later category.',
+    );
+  });
+
+  testWidgets('Terra: Status applies directly and renders canonical categories '
+      'in the main Contacts list', (tester) async {
     await pumpApp(tester, seedContacts: true);
     expect(find.text('Marilyn Gomez'), findsOneWidget);
     expect(find.text('Archived Person'), findsNothing);
 
     await tester.tap(find.byKey(const Key('current-filter-row')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Archived'));
+    expect(find.byIcon(Icons.keyboard_arrow_down), findsNothing);
+    expect(
+      find.byKey(const Key('standard-filter-status-notInteractedYet')),
+      findsNothing,
+    );
+    await tester.tap(find.byKey(const Key('standard-filter-status')));
     await tester.pumpAndSettle();
-
-    // Back on Contacts with the archived-only view applied.
-    expect(find.text('Archived Person'), findsOneWidget);
-    expect(find.text('Marilyn Gomez'), findsNothing);
+    expect(find.byKey(const Key('contact-view-selector-panel')), findsNothing);
+    expect(find.text('Not Interacted Yet'), findsOneWidget);
+    expect(find.text('Interacted Today'), findsNothing);
+    expect(find.text('1+ Year Ago'), findsNothing);
+    expect(
+      find.byKey(const Key('contacts-status-section-notInteractedYet')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('contacts-status-section-notInteractedYet')),
+        matching: find.byType(FullWidthSectionDivider),
+      ),
+      findsNothing,
+      reason:
+          'The first visible category keeps its thin title rule but no major divider.',
+    );
+    expect(find.text('Marilyn Gomez'), findsOneWidget);
+    expect(find.text('Archived Person'), findsNothing);
   });
 
   testWidgets('C3: Search route matches name and does not expose Notes', (

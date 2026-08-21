@@ -24,6 +24,53 @@ enum ContactSortBy {
   lastEvent,
 }
 
+enum ContactStandardFilter {
+  status,
+  recentlyViewed,
+  recentlyContacted,
+  noRecentContact,
+  recentlyCreated,
+}
+
+enum ContactStatusBucket {
+  notInteractedYet,
+  interactedToday,
+  interactedThisWeek,
+  interactedThisMonth,
+  oneToThreeMonthsAgo,
+  threeToSixMonthsAgo,
+  sixToTwelveMonthsAgo,
+  onePlusYearAgo,
+}
+
+final class ContactStandardView {
+  const ContactStandardView({required this.filter, this.statusBucket})
+    : assert(filter == ContactStandardFilter.status || statusBucket == null);
+
+  final ContactStandardFilter filter;
+  final ContactStatusBucket? statusBucket;
+
+  String get label => switch (filter) {
+    ContactStandardFilter.status =>
+      statusBucket == null ? 'Status' : contactStatusBucketLabel(statusBucket!),
+    ContactStandardFilter.recentlyViewed => 'Recently Viewed',
+    ContactStandardFilter.recentlyContacted => 'Recently Contacted',
+    ContactStandardFilter.noRecentContact => 'No Recent Contact',
+    ContactStandardFilter.recentlyCreated => 'Recently Created',
+  };
+}
+
+String contactStatusBucketLabel(ContactStatusBucket bucket) => switch (bucket) {
+  ContactStatusBucket.notInteractedYet => 'Not Interacted Yet',
+  ContactStatusBucket.interactedToday => 'Interacted Today',
+  ContactStatusBucket.interactedThisWeek => 'Interacted This Week',
+  ContactStatusBucket.interactedThisMonth => 'Interacted This Month',
+  ContactStatusBucket.oneToThreeMonthsAgo => '1–3 Months Ago',
+  ContactStatusBucket.threeToSixMonthsAgo => '3–6 Months Ago',
+  ContactStatusBucket.sixToTwelveMonthsAgo => '6–12 Months Ago',
+  ContactStatusBucket.onePlusYearAgo => '1+ Year Ago',
+};
+
 /// Row fields that can be selected for a saved Contacts view. Every field is
 /// already present in [ContactSummary], so Displayed Fields never introduces
 /// an N+1 query or a fabricated tracking primitive.
@@ -155,6 +202,7 @@ final class Contact {
     required this.createdAtUtc,
     required this.updatedAtUtc,
     this.addressText,
+    this.lastViewedAtUtc,
     this.archivedAtUtc,
     this.mergedIntoContactId,
   });
@@ -171,6 +219,7 @@ final class Contact {
   final String? addressText;
   final DateTime createdAtUtc;
   final DateTime updatedAtUtc;
+  final DateTime? lastViewedAtUtc;
   final DateTime? archivedAtUtc;
   final String? mergedIntoContactId;
 
@@ -206,6 +255,7 @@ final class Contact {
     ContactLifecycleState? lifecycleState,
     String? addressText,
     DateTime? updatedAtUtc,
+    DateTime? lastViewedAtUtc,
   }) {
     return Contact(
       id: id,
@@ -221,6 +271,7 @@ final class Contact {
       addressText: addressText ?? this.addressText,
       createdAtUtc: createdAtUtc,
       updatedAtUtc: updatedAtUtc ?? this.updatedAtUtc,
+      lastViewedAtUtc: lastViewedAtUtc ?? this.lastViewedAtUtc,
       archivedAtUtc: archivedAtUtc,
       mergedIntoContactId: mergedIntoContactId,
     );
@@ -654,6 +705,7 @@ final class ContactSummary {
   const ContactSummary({
     required this.contact,
     this.primaryGroup,
+    this.statusBucket,
     this.groupNames = const <String>[],
     this.tagNames = const <String>[],
     this.context = const ContactListContext(),
@@ -661,6 +713,10 @@ final class ContactSummary {
 
   final Contact contact;
   final ContactGroup? primaryGroup;
+
+  /// Canonical repository-calculated Status category for a Status system view.
+  /// It remains null for all non-Status reads.
+  final ContactStatusBucket? statusBucket;
   final List<String> groupNames;
   final List<String> tagNames;
   final ContactListContext context;

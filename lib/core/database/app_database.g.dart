@@ -20024,6 +20024,18 @@ class $ContactsTable extends Contacts
     type: DriftSqlType.dateTime,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _lastViewedAtUtcMeta = const VerificationMeta(
+    'lastViewedAtUtc',
+  );
+  @override
+  late final GeneratedColumn<DateTime> lastViewedAtUtc =
+      GeneratedColumn<DateTime>(
+        'last_viewed_at_utc',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _archivedAtUtcMeta = const VerificationMeta(
     'archivedAtUtc',
   );
@@ -20054,6 +20066,7 @@ class $ContactsTable extends Contacts
     mergedIntoContactId,
     createdAtUtc,
     updatedAtUtc,
+    lastViewedAtUtc,
     archivedAtUtc,
   ];
   @override
@@ -20195,6 +20208,15 @@ class $ContactsTable extends Contacts
     } else if (isInserting) {
       context.missing(_updatedAtUtcMeta);
     }
+    if (data.containsKey('last_viewed_at_utc')) {
+      context.handle(
+        _lastViewedAtUtcMeta,
+        lastViewedAtUtc.isAcceptableOrUnknown(
+          data['last_viewed_at_utc']!,
+          _lastViewedAtUtcMeta,
+        ),
+      );
+    }
     if (data.containsKey('archived_at_utc')) {
       context.handle(
         _archivedAtUtcMeta,
@@ -20277,6 +20299,10 @@ class $ContactsTable extends Contacts
         DriftSqlType.dateTime,
         data['${effectivePrefix}updated_at_utc'],
       )!,
+      lastViewedAtUtc: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}last_viewed_at_utc'],
+      ),
       archivedAtUtc: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}archived_at_utc'],
@@ -20311,6 +20337,7 @@ class ContactRow extends DataClass implements Insertable<ContactRow> {
   final String? mergedIntoContactId;
   final DateTime createdAtUtc;
   final DateTime updatedAtUtc;
+  final DateTime? lastViewedAtUtc;
   final DateTime? archivedAtUtc;
   const ContactRow({
     required this.id,
@@ -20329,6 +20356,7 @@ class ContactRow extends DataClass implements Insertable<ContactRow> {
     this.mergedIntoContactId,
     required this.createdAtUtc,
     required this.updatedAtUtc,
+    this.lastViewedAtUtc,
     this.archivedAtUtc,
   });
   @override
@@ -20364,6 +20392,9 @@ class ContactRow extends DataClass implements Insertable<ContactRow> {
     }
     map['created_at_utc'] = Variable<DateTime>(createdAtUtc);
     map['updated_at_utc'] = Variable<DateTime>(updatedAtUtc);
+    if (!nullToAbsent || lastViewedAtUtc != null) {
+      map['last_viewed_at_utc'] = Variable<DateTime>(lastViewedAtUtc);
+    }
     if (!nullToAbsent || archivedAtUtc != null) {
       map['archived_at_utc'] = Variable<DateTime>(archivedAtUtc);
     }
@@ -20402,6 +20433,9 @@ class ContactRow extends DataClass implements Insertable<ContactRow> {
           : Value(mergedIntoContactId),
       createdAtUtc: Value(createdAtUtc),
       updatedAtUtc: Value(updatedAtUtc),
+      lastViewedAtUtc: lastViewedAtUtc == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastViewedAtUtc),
       archivedAtUtc: archivedAtUtc == null && nullToAbsent
           ? const Value.absent()
           : Value(archivedAtUtc),
@@ -20434,6 +20468,7 @@ class ContactRow extends DataClass implements Insertable<ContactRow> {
       ),
       createdAtUtc: serializer.fromJson<DateTime>(json['createdAtUtc']),
       updatedAtUtc: serializer.fromJson<DateTime>(json['updatedAtUtc']),
+      lastViewedAtUtc: serializer.fromJson<DateTime?>(json['lastViewedAtUtc']),
       archivedAtUtc: serializer.fromJson<DateTime?>(json['archivedAtUtc']),
     );
   }
@@ -20459,6 +20494,7 @@ class ContactRow extends DataClass implements Insertable<ContactRow> {
       'mergedIntoContactId': serializer.toJson<String?>(mergedIntoContactId),
       'createdAtUtc': serializer.toJson<DateTime>(createdAtUtc),
       'updatedAtUtc': serializer.toJson<DateTime>(updatedAtUtc),
+      'lastViewedAtUtc': serializer.toJson<DateTime?>(lastViewedAtUtc),
       'archivedAtUtc': serializer.toJson<DateTime?>(archivedAtUtc),
     };
   }
@@ -20480,6 +20516,7 @@ class ContactRow extends DataClass implements Insertable<ContactRow> {
     Value<String?> mergedIntoContactId = const Value.absent(),
     DateTime? createdAtUtc,
     DateTime? updatedAtUtc,
+    Value<DateTime?> lastViewedAtUtc = const Value.absent(),
     Value<DateTime?> archivedAtUtc = const Value.absent(),
   }) => ContactRow(
     id: id ?? this.id,
@@ -20503,6 +20540,9 @@ class ContactRow extends DataClass implements Insertable<ContactRow> {
         : this.mergedIntoContactId,
     createdAtUtc: createdAtUtc ?? this.createdAtUtc,
     updatedAtUtc: updatedAtUtc ?? this.updatedAtUtc,
+    lastViewedAtUtc: lastViewedAtUtc.present
+        ? lastViewedAtUtc.value
+        : this.lastViewedAtUtc,
     archivedAtUtc: archivedAtUtc.present
         ? archivedAtUtc.value
         : this.archivedAtUtc,
@@ -20543,6 +20583,9 @@ class ContactRow extends DataClass implements Insertable<ContactRow> {
       updatedAtUtc: data.updatedAtUtc.present
           ? data.updatedAtUtc.value
           : this.updatedAtUtc,
+      lastViewedAtUtc: data.lastViewedAtUtc.present
+          ? data.lastViewedAtUtc.value
+          : this.lastViewedAtUtc,
       archivedAtUtc: data.archivedAtUtc.present
           ? data.archivedAtUtc.value
           : this.archivedAtUtc,
@@ -20568,6 +20611,7 @@ class ContactRow extends DataClass implements Insertable<ContactRow> {
           ..write('mergedIntoContactId: $mergedIntoContactId, ')
           ..write('createdAtUtc: $createdAtUtc, ')
           ..write('updatedAtUtc: $updatedAtUtc, ')
+          ..write('lastViewedAtUtc: $lastViewedAtUtc, ')
           ..write('archivedAtUtc: $archivedAtUtc')
           ..write(')'))
         .toString();
@@ -20591,6 +20635,7 @@ class ContactRow extends DataClass implements Insertable<ContactRow> {
     mergedIntoContactId,
     createdAtUtc,
     updatedAtUtc,
+    lastViewedAtUtc,
     archivedAtUtc,
   );
   @override
@@ -20613,6 +20658,7 @@ class ContactRow extends DataClass implements Insertable<ContactRow> {
           other.mergedIntoContactId == this.mergedIntoContactId &&
           other.createdAtUtc == this.createdAtUtc &&
           other.updatedAtUtc == this.updatedAtUtc &&
+          other.lastViewedAtUtc == this.lastViewedAtUtc &&
           other.archivedAtUtc == this.archivedAtUtc);
 }
 
@@ -20633,6 +20679,7 @@ class ContactsCompanion extends UpdateCompanion<ContactRow> {
   final Value<String?> mergedIntoContactId;
   final Value<DateTime> createdAtUtc;
   final Value<DateTime> updatedAtUtc;
+  final Value<DateTime?> lastViewedAtUtc;
   final Value<DateTime?> archivedAtUtc;
   final Value<int> rowid;
   const ContactsCompanion({
@@ -20652,6 +20699,7 @@ class ContactsCompanion extends UpdateCompanion<ContactRow> {
     this.mergedIntoContactId = const Value.absent(),
     this.createdAtUtc = const Value.absent(),
     this.updatedAtUtc = const Value.absent(),
+    this.lastViewedAtUtc = const Value.absent(),
     this.archivedAtUtc = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -20672,6 +20720,7 @@ class ContactsCompanion extends UpdateCompanion<ContactRow> {
     this.mergedIntoContactId = const Value.absent(),
     required DateTime createdAtUtc,
     required DateTime updatedAtUtc,
+    this.lastViewedAtUtc = const Value.absent(),
     this.archivedAtUtc = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
@@ -20696,6 +20745,7 @@ class ContactsCompanion extends UpdateCompanion<ContactRow> {
     Expression<String>? mergedIntoContactId,
     Expression<DateTime>? createdAtUtc,
     Expression<DateTime>? updatedAtUtc,
+    Expression<DateTime>? lastViewedAtUtc,
     Expression<DateTime>? archivedAtUtc,
     Expression<int>? rowid,
   }) {
@@ -20718,6 +20768,7 @@ class ContactsCompanion extends UpdateCompanion<ContactRow> {
         'merged_into_contact_id': mergedIntoContactId,
       if (createdAtUtc != null) 'created_at_utc': createdAtUtc,
       if (updatedAtUtc != null) 'updated_at_utc': updatedAtUtc,
+      if (lastViewedAtUtc != null) 'last_viewed_at_utc': lastViewedAtUtc,
       if (archivedAtUtc != null) 'archived_at_utc': archivedAtUtc,
       if (rowid != null) 'rowid': rowid,
     });
@@ -20740,6 +20791,7 @@ class ContactsCompanion extends UpdateCompanion<ContactRow> {
     Value<String?>? mergedIntoContactId,
     Value<DateTime>? createdAtUtc,
     Value<DateTime>? updatedAtUtc,
+    Value<DateTime?>? lastViewedAtUtc,
     Value<DateTime?>? archivedAtUtc,
     Value<int>? rowid,
   }) {
@@ -20761,6 +20813,7 @@ class ContactsCompanion extends UpdateCompanion<ContactRow> {
       mergedIntoContactId: mergedIntoContactId ?? this.mergedIntoContactId,
       createdAtUtc: createdAtUtc ?? this.createdAtUtc,
       updatedAtUtc: updatedAtUtc ?? this.updatedAtUtc,
+      lastViewedAtUtc: lastViewedAtUtc ?? this.lastViewedAtUtc,
       archivedAtUtc: archivedAtUtc ?? this.archivedAtUtc,
       rowid: rowid ?? this.rowid,
     );
@@ -20821,6 +20874,9 @@ class ContactsCompanion extends UpdateCompanion<ContactRow> {
     if (updatedAtUtc.present) {
       map['updated_at_utc'] = Variable<DateTime>(updatedAtUtc.value);
     }
+    if (lastViewedAtUtc.present) {
+      map['last_viewed_at_utc'] = Variable<DateTime>(lastViewedAtUtc.value);
+    }
     if (archivedAtUtc.present) {
       map['archived_at_utc'] = Variable<DateTime>(archivedAtUtc.value);
     }
@@ -20849,6 +20905,7 @@ class ContactsCompanion extends UpdateCompanion<ContactRow> {
           ..write('mergedIntoContactId: $mergedIntoContactId, ')
           ..write('createdAtUtc: $createdAtUtc, ')
           ..write('updatedAtUtc: $updatedAtUtc, ')
+          ..write('lastViewedAtUtc: $lastViewedAtUtc, ')
           ..write('archivedAtUtc: $archivedAtUtc, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -42143,6 +42200,7 @@ typedef $$ContactsTableCreateCompanionBuilder =
       Value<String?> mergedIntoContactId,
       required DateTime createdAtUtc,
       required DateTime updatedAtUtc,
+      Value<DateTime?> lastViewedAtUtc,
       Value<DateTime?> archivedAtUtc,
       Value<int> rowid,
     });
@@ -42164,6 +42222,7 @@ typedef $$ContactsTableUpdateCompanionBuilder =
       Value<String?> mergedIntoContactId,
       Value<DateTime> createdAtUtc,
       Value<DateTime> updatedAtUtc,
+      Value<DateTime?> lastViewedAtUtc,
       Value<DateTime?> archivedAtUtc,
       Value<int> rowid,
     });
@@ -42448,6 +42507,11 @@ class $$ContactsTableFilterComposer
 
   ColumnFilters<DateTime> get updatedAtUtc => $composableBuilder(
     column: $table.updatedAtUtc,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get lastViewedAtUtc => $composableBuilder(
+    column: $table.lastViewedAtUtc,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -42771,6 +42835,11 @@ class $$ContactsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<DateTime> get lastViewedAtUtc => $composableBuilder(
+    column: $table.lastViewedAtUtc,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get archivedAtUtc => $composableBuilder(
     column: $table.archivedAtUtc,
     builder: (column) => ColumnOrderings(column),
@@ -42869,6 +42938,11 @@ class $$ContactsTableAnnotationComposer
 
   GeneratedColumn<DateTime> get updatedAtUtc => $composableBuilder(
     column: $table.updatedAtUtc,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get lastViewedAtUtc => $composableBuilder(
+    column: $table.lastViewedAtUtc,
     builder: (column) => column,
   );
 
@@ -43164,6 +43238,7 @@ class $$ContactsTableTableManager
                 Value<String?> mergedIntoContactId = const Value.absent(),
                 Value<DateTime> createdAtUtc = const Value.absent(),
                 Value<DateTime> updatedAtUtc = const Value.absent(),
+                Value<DateTime?> lastViewedAtUtc = const Value.absent(),
                 Value<DateTime?> archivedAtUtc = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ContactsCompanion(
@@ -43183,6 +43258,7 @@ class $$ContactsTableTableManager
                 mergedIntoContactId: mergedIntoContactId,
                 createdAtUtc: createdAtUtc,
                 updatedAtUtc: updatedAtUtc,
+                lastViewedAtUtc: lastViewedAtUtc,
                 archivedAtUtc: archivedAtUtc,
                 rowid: rowid,
               ),
@@ -43204,6 +43280,7 @@ class $$ContactsTableTableManager
                 Value<String?> mergedIntoContactId = const Value.absent(),
                 required DateTime createdAtUtc,
                 required DateTime updatedAtUtc,
+                Value<DateTime?> lastViewedAtUtc = const Value.absent(),
                 Value<DateTime?> archivedAtUtc = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ContactsCompanion.insert(
@@ -43223,6 +43300,7 @@ class $$ContactsTableTableManager
                 mergedIntoContactId: mergedIntoContactId,
                 createdAtUtc: createdAtUtc,
                 updatedAtUtc: updatedAtUtc,
+                lastViewedAtUtc: lastViewedAtUtc,
                 archivedAtUtc: archivedAtUtc,
                 rowid: rowid,
               ),

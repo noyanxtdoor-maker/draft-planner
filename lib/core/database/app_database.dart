@@ -755,6 +755,7 @@ class Contacts extends Table {
   TextColumn get mergedIntoContactId => text().nullable()();
   DateTimeColumn get createdAtUtc => dateTime()();
   DateTimeColumn get updatedAtUtc => dateTime()();
+  DateTimeColumn get lastViewedAtUtc => dateTime().nullable()();
   DateTimeColumn get archivedAtUtc => dateTime().nullable()();
 
   @override
@@ -1139,7 +1140,7 @@ final class AppDatabase extends _$AppDatabase {
   final bool _injectContactsMigrationFailure;
 
   @override
-  int get schemaVersion => _schemaVersionOverride ?? 30;
+  int get schemaVersion => _schemaVersionOverride ?? 31;
 
   @override
   MigrationStrategy get migration {
@@ -1950,6 +1951,20 @@ final class AppDatabase extends _$AppDatabase {
             // opt-in per-Task flag controlled by the Backups Planner filter.
             if (!await _columnExists('planner_tasks', 'is_backup')) {
               await migrator.addColumn(plannerTasks, plannerTasks.isBackup);
+            }
+          }
+          if (from < 31 && to >= 31) {
+            // Contacts selector V1: one nullable, additive view timestamp.
+            // Legacy Contacts remain unviewed (NULL); edit/update timestamps
+            // and every other Contact fact are left untouched.
+            if (!await _columnExists('contacts', 'last_viewed_at_utc')) {
+              // Drift's DateTime columns are stored as nullable INTEGER values
+              // in this SQLite database. Keep the change explicitly additive
+              // because the local generated table is already newer than the
+              // accepted checkpoint.
+              await customStatement(
+                'ALTER TABLE contacts ADD COLUMN last_viewed_at_utc INTEGER',
+              );
             }
           }
         });

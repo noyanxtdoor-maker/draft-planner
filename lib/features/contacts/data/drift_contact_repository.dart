@@ -291,6 +291,20 @@ final class DriftContactRepository implements ContactRepository {
   }
 
   @override
+  Future<void> markContactViewed({
+    required String profileId,
+    required String contactId,
+  }) async {
+    await (database.update(database.contacts)..where(
+          (table) =>
+              table.profileId.equals(profileId) & table.id.equals(contactId),
+        ))
+        .write(
+          ContactsCompanion(lastViewedAtUtc: Value<DateTime?>(clock.nowUtc())),
+        );
+  }
+
+  @override
   Future<Contact> setFavorite({
     required String profileId,
     required String contactId,
@@ -370,6 +384,7 @@ final class DriftContactRepository implements ContactRepository {
     required ContactFilterCriteria criteria,
     required ContactSortBy sortBy,
     required PlannerDate today,
+    ContactStandardView? standardView,
     String? query,
   }) async {
     final baseQuery = database.select(database.contacts);
@@ -458,11 +473,246 @@ final class DriftContactRepository implements ContactRepository {
       ids: ids,
       criteria: criteria,
       today: today,
+      standardView: standardView,
     );
     if (sortBy == ContactSortBy.nextEvent || sortBy == ContactSortBy.lastEvent) {
       return _sortSummariesByEventDates(summaries, sortBy);
     }
     return summaries;
+  }
+
+  @override
+  Future<List<ContactStatusBucket>> readAvailableStatusBuckets({
+    required String profileId,
+  }) async {
+    final rows =
+        await (database.select(database.contacts)..where(
+              (table) =>
+                  table.profileId.equals(profileId) &
+                  table.lifecycleState.equals(
+                    ContactLifecycleState.active.name,
+                  ),
+            ))
+            .get();
+    if (rows.isEmpty) {
+      return const <ContactStatusBucket>[];
+    }
+    final dates = await _historicalInteractionDatesForContacts(
+      profileId: profileId,
+      contactIds: rows.map((row) => row.id).toList(growable: false),
+      today: PlannerDate.fromDateTime(clock.nowUtc().toLocal()),
+    );
+    final startOfWeek = await _readStartOfWeekDay(profileId);
+    final available = <ContactStatusBucket>{};
+    for (final row in rows) {
+      available.add(
+        _statusBucketFor(
+          dates[row.id],
+          nowLocal: clock.nowUtc().toLocal(),
+          startOfWeek: startOfWeek,
+        ),
+      );
+    }
+    return ContactStatusBucket.values
+        .where(available.contains)
+        .toList(growable: false);
+  }
+
+  bool _matchesStandardView({
+    required ContactRow row,
+    required ContactStandardView standardView,
+    required DateTime? historicalInteractionDate,
+    required ContactStatusBucket? canonicalStatusBucket,
+  }) {
+    final nowUtc = clock.nowUtc();
+    final nowLocal = nowUtc.toLocal();
+    final recentUtcCutoff = nowUtc.subtract(const Duration(days: 30));
+    final todayLocal = DateTime(nowLocal.year, nowLocal.month, nowLocal.day);
+    final recentDateCutoff = todayLocal.subtract(const Duration(days: 30));
+    return switch (standardView.filter) {
+      ContactStandardFilter.status =>
+        standardView.statusBucket == null ||
+            canonicalStatusBucket == standardView.statusBucket,
+      ContactStandardFilter.recentlyViewed =>
+        row.lastViewedAtUtc != null &&
+            !row.lastViewedAtUtc!.isBefore(recentUtcCutoff),
+      ContactStandardFilter.recentlyContacted =>
+        historicalInteractionDate != null &&
+            !historicalInteractionDate.isBefore(recentDateCutoff),
+      ContactStandardFilter.noRecentContact =>
+        historicalInteractionDate == null ||
+            historicalInteractionDate.isBefore(recentDateCutoff),
+      ContactStandardFilter.recentlyCreated => !row.createdAtUtc.isBefore(
+        recentUtcCutoff,
+      ),
+    };
+  }
+
+  Future<int> _readStartOfWeekDay(String profileId) async {
+    final row = await (database.select(
+      database.plannerPreferences,
+    )..where((table) => table.profileId.equals(profileId))).getSingleOrNull();
+    return row?.weekStartDay ?? DateTime.monday;
+  }
+
+  ContactStatusBucket _statusBucketFor(
+    DateTime? interactionDate, {
+    required DateTime nowLocal,
+    required int startOfWeek,
+  }) {
+    if (interactionDate == null) {
+      return ContactStatusBucket.notInteractedYet;
+    }
+    final today = DateTime(nowLocal.year, nowLocal.month, nowLocal.day);
+    final date = DateTime(
+      interactionDate.toLocal().year,
+      interactionDate.toLocal().month,
+      interactionDate.toLocal().day,
+    );
+    if (date == today) {
+      return ContactStatusBucket.interactedToday;
+    }
+    final weekStart = today.subtract(
+      Duration(days: (today.weekday - startOfWeek + 7) % 7),
+    );
+    if (!date.isBefore(weekStart)) {
+      return ContactStatusBucket.interactedThisWeek;
+    }
+    final monthStart = DateTime(today.year, today.month);
+    if (!date.isBefore(monthStart)) {
+      return ContactStatusBucket.interactedThisMonth;
+    }
+    final oneToThreeCutoff = DateTime(today.year, today.month - 3, today.day);
+    final threeToSixCutoff = DateTime(today.year, today.month - 6, today.day);
+    final sixToTwelveCutoff = DateTime(today.year, today.month - 12, today.day);
+    if (!date.isBefore(oneToThreeCutoff)) {
+      return ContactStatusBucket.oneToThreeMonthsAgo;
+    }
+    if (!date.isBefore(threeToSixCutoff)) {
+      return ContactStatusBucket.threeToSixMonthsAgo;
+    }
+    if (!date.isBefore(sixToTwelveCutoff)) {
+      return ContactStatusBucket.sixToTwelveMonthsAgo;
+    }
+    return ContactStatusBucket.onePlusYearAgo;
+  }
+
+  /// Computes the latest non-cancelled historical Event occurrence for every
+  /// requested Contact in one bounded query set. Active links cover retained
+  /// participation; immutable occurrence snapshots preserve history after a
+  /// repeating-event People edit removes a Contact.
+  Future<Map<String, DateTime?>> _historicalInteractionDatesForContacts({
+    required String profileId,
+    required List<String> contactIds,
+    required PlannerDate today,
+  }) async {
+    final result = <String, DateTime?>{for (final id in contactIds) id: null};
+    if (contactIds.isEmpty) {
+      return result;
+    }
+    final links =
+        await (database.select(database.eventContactLinks)..where(
+              (table) =>
+                  table.profileId.equals(profileId) &
+                  table.contactId.isIn(contactIds) &
+                  table.status.equals('active'),
+            ))
+            .get();
+    final snapshots =
+        await (database.select(database.eventOccurrenceParticipants)..where(
+              (table) =>
+                  table.profileId.equals(profileId) &
+                  table.contactId.isIn(contactIds),
+            ))
+            .get();
+    final eventIds = <String>{
+      for (final link in links) link.eventId,
+      for (final snapshot in snapshots) snapshot.eventId,
+    };
+    if (eventIds.isEmpty) {
+      return result;
+    }
+    final events =
+        await (database.select(database.calendarEvents)..where(
+              (table) =>
+                  table.profileId.equals(profileId) & table.id.isIn(eventIds),
+            ))
+            .get();
+    final eventsById = <String, CalendarEventRow>{
+      for (final event in events) event.id: event,
+    };
+    final exceptions =
+        await (database.select(database.calendarEventExceptions)..where(
+              (table) =>
+                  table.profileId.equals(profileId) &
+                  table.eventId.isIn(eventIds),
+            ))
+            .get();
+    final exceptionsByKey = <String, CalendarEventExceptionRow>{
+      for (final exception in exceptions)
+        '${exception.eventId}:${exception.occurrenceId}': exception,
+    };
+    final todayLocal = today.asLocalDate;
+
+    void consider(
+      String contactId,
+      CalendarEventRow event,
+      PlannerDate date,
+      String occurrenceId,
+    ) {
+      if (!date.asLocalDate.isBefore(todayLocal)) {
+        return;
+      }
+      if (event.status == CalendarEventStatus.cancelled.name) {
+        return;
+      }
+      final exception = exceptionsByKey['${event.id}:$occurrenceId'];
+      if (exception?.status == CalendarEventStatus.cancelled.name) {
+        return;
+      }
+      final localDate = date.asLocalDate;
+      final current = result[contactId];
+      if (current == null || localDate.isAfter(current)) {
+        result[contactId] = localDate;
+      }
+    }
+
+    for (final link in links) {
+      final event = eventsById[link.eventId];
+      if (event == null) {
+        continue;
+      }
+      final dates = link.occurrenceId == seriesOccurrenceId
+          ? _seriesDates(event, today, nextLimit: 0, pastLimit: 2000)
+          : <PlannerDate>[
+              if (link.originalDate != null)
+                PlannerDate.parse(link.originalDate!),
+            ];
+      for (final date in dates) {
+        consider(
+          link.contactId,
+          event,
+          date,
+          CalendarEventOccurrenceIdentity.forDate(
+            eventId: event.id,
+            originalDate: date,
+          ),
+        );
+      }
+    }
+    for (final snapshot in snapshots) {
+      final event = eventsById[snapshot.eventId];
+      if (event == null) {
+        continue;
+      }
+      consider(
+        snapshot.contactId,
+        event,
+        PlannerDate.parse(snapshot.originalDate),
+        snapshot.occurrenceId,
+      );
+    }
+    return result;
   }
 
   /// Deterministic ordering for the event-derived sorts, applied ONLY after
@@ -518,6 +768,7 @@ final class DriftContactRepository implements ContactRepository {
     required List<String> ids,
     required ContactFilterCriteria criteria,
     required PlannerDate today,
+    ContactStandardView? standardView,
   }) async {
     final methods = await (database.select(
       database.contactMethods,
@@ -582,7 +833,21 @@ final class DriftContactRepository implements ContactRepository {
     }
 
     final eventContext = await _eventContextForContacts(ids, today);
+    final startOfWeek = standardView?.filter == ContactStandardFilter.status
+        ? await _readStartOfWeekDay(profileId)
+        : DateTime.monday;
+    final historicalInteractionDates =
+        standardView == null ||
+            standardView.filter == ContactStandardFilter.recentlyViewed ||
+            standardView.filter == ContactStandardFilter.recentlyCreated
+        ? const <String, DateTime?>{}
+        : await _historicalInteractionDatesForContacts(
+            profileId: profileId,
+            contactIds: ids,
+            today: today,
+          );
     final filtered = <ContactRow>[];
+    final statusBucketsByContact = <String, ContactStatusBucket>{};
     for (final row in contactRows) {
       final contactId = row.id;
       if (criteria.hasPhone &&
@@ -645,6 +910,26 @@ final class DriftContactRepository implements ContactRepository {
         continue;
       }
       final context = eventContext[contactId] ?? const ContactListContext();
+      final canonicalStatusBucket =
+          standardView?.filter == ContactStandardFilter.status
+          ? _statusBucketFor(
+              historicalInteractionDates[contactId],
+              nowLocal: clock.nowUtc().toLocal(),
+              startOfWeek: startOfWeek,
+            )
+          : null;
+      if (standardView != null &&
+          !_matchesStandardView(
+            row: row,
+            standardView: standardView,
+            historicalInteractionDate: historicalInteractionDates[contactId],
+            canonicalStatusBucket: canonicalStatusBucket,
+          )) {
+        continue;
+      }
+      if (canonicalStatusBucket != null) {
+        statusBucketsByContact[contactId] = canonicalStatusBucket;
+      }
       if (criteria.withEventsToday &&
           !(context.nextEventDate == today || context.lastEventDate == today)) {
         continue;
@@ -671,6 +956,7 @@ final class DriftContactRepository implements ContactRepository {
           return ContactSummary(
             contact: _contactFromRow(row),
             primaryGroup: primary == null ? null : _groupFromRow(primary),
+            statusBucket: statusBucketsByContact[row.id],
             groupNames: List<String>.unmodifiable(
               groupNamesByContact[row.id] ?? const <String>[],
             ),
@@ -2851,8 +3137,9 @@ final class DriftContactRepository implements ContactRepository {
     if (selection.contains(ContactPhoneFilterKeys.noPhone) && phones.isEmpty) {
       return true;
     }
-    final typed =
-        selection.where((k) => k != ContactPhoneFilterKeys.noPhone).toSet();
+    final typed = selection
+        .where((k) => k != ContactPhoneFilterKeys.noPhone)
+        .toSet();
     if (typed.isEmpty) {
       return false;
     }
@@ -2880,15 +3167,17 @@ final class DriftContactRepository implements ContactRepository {
     if (selection.contains(ContactEmailFilterKeys.noEmail) && emails.isEmpty) {
       return true;
     }
-    final typed =
-        selection.where((k) => k != ContactEmailFilterKeys.noEmail).toSet();
+    final typed = selection
+        .where((k) => k != ContactEmailFilterKeys.noEmail)
+        .toSet();
     if (typed.isEmpty) {
       return false;
     }
     if (typed.contains(ContactEmailFilterKeys.other)) {
       return emails.any((m) {
         final label = normalizedMethodLabel(m.label);
-        return label == null || !{'personal', 'home', 'work', 'family'}.contains(label);
+        return label == null ||
+            !{'personal', 'home', 'work', 'family'}.contains(label);
       });
     }
     return emails.any((m) {
@@ -2934,18 +3223,21 @@ final class DriftContactRepository implements ContactRepository {
     final socials = methods
         .where((m) => m.type == ContactMethodType.social.name)
         .toList(growable: false);
-    if (selection.contains(ContactSocialFilterKeys.noSocial) && socials.isEmpty) {
+    if (selection.contains(ContactSocialFilterKeys.noSocial) &&
+        socials.isEmpty) {
       return true;
     }
-    final typed =
-        selection.where((k) => k != ContactSocialFilterKeys.noSocial).toSet();
+    final typed = selection
+        .where((k) => k != ContactSocialFilterKeys.noSocial)
+        .toSet();
     if (typed.isEmpty) {
       return false;
     }
     if (typed.contains(ContactSocialFilterKeys.other)) {
       return socials.any((m) {
         final label = normalizedMethodLabel(m.label);
-        return label == null || !ContactSocialFilterKeys.canonical.contains(label);
+        return label == null ||
+            !ContactSocialFilterKeys.canonical.contains(label);
       });
     }
     return socials.any((m) {
@@ -2970,6 +3262,7 @@ final class DriftContactRepository implements ContactRepository {
       addressText: row.addressText,
       createdAtUtc: row.createdAtUtc,
       updatedAtUtc: row.updatedAtUtc,
+      lastViewedAtUtc: row.lastViewedAtUtc,
       archivedAtUtc: row.archivedAtUtc,
       mergedIntoContactId: row.mergedIntoContactId,
     );

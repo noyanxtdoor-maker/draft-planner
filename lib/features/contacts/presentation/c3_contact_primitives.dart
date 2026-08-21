@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:rmplanner/app/theme/app_theme.dart';
 import 'package:rmplanner/features/contacts/domain/contact.dart';
 
@@ -78,75 +79,23 @@ final class QuickFilterChip extends StatelessWidget {
   }
 }
 
-/// PMG-style top Filter icon: an OUTLINED funnel with an integrated plus at
-/// the upper-right, traced as a single theme-aware vector (no Material
-/// filter_alt/filter_list glyph, no raster crop, no background plate).
+/// Contacts Filter action glyph supplied by the owner as an SVG asset.
+/// The existing 32x32 wrapper and surrounding button remain unchanged.
 final class FilterPlusIcon extends StatelessWidget {
   const FilterPlusIcon({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final color =
-        IconTheme.of(context).color ?? Theme.of(context).colorScheme.onSurface;
     return SizedBox(
       width: 32,
       height: 32,
-      child: CustomPaint(
+      child: SvgPicture.asset(
+        'assets/icons/filter-svgrepo-com.svg',
         key: const Key('filter-plus-glyph'),
-        painter: _FilterPlusGlyphPainter(color: color),
+        fit: BoxFit.contain,
       ),
     );
   }
-}
-
-/// Stroke geometry retraced from the supplied PMG funnel-plus crop:
-/// an open, asymmetric funnel with a short top-right turn, a left diagonal
-/// descending into a vertical stem, and an angled open stem base. The plus is
-/// a separate rounded stroke optically integrated at the upper-right. The
-/// glyph is drawn in a 32x32 logical box and scales with the widget.
-final class _FilterPlusGlyphPainter extends CustomPainter {
-  const _FilterPlusGlyphPainter({required this.color});
-
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.8
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-    canvas.save();
-    canvas.scale(size.width / 32, size.height / 32);
-
-    // PMG funnel: the right side stays open rather than closing into a
-    // symmetric Material funnel. The short turn at the mouth and the angled
-    // stem base are both intentional parts of the reference silhouette.
-    final funnel = Path()
-      ..moveTo(5.5, 10.8)
-      ..lineTo(27.1, 10.8)
-      ..quadraticBezierTo(28.0, 10.8, 27.6, 11.7)
-      ..lineTo(26.1, 15.4)
-      ..moveTo(5.5, 10.8)
-      ..lineTo(14.8, 22.1)
-      ..lineTo(14.8, 27.3)
-      ..lineTo(19.2, 24.6);
-    canvas.drawPath(funnel, paint);
-
-    // Rounded plus, separate from the funnel stroke but in the same family.
-    final plus = Path()
-      ..moveTo(18.2, 19.2)
-      ..lineTo(27.1, 19.2)
-      ..moveTo(22.65, 14.8)
-      ..lineTo(22.65, 23.6);
-    canvas.drawPath(plus, paint);
-    canvas.restore();
-  }
-
-  @override
-  bool shouldRepaint(covariant _FilterPlusGlyphPainter oldDelegate) =>
-      oldDelegate.color != color;
 }
 
 final class TriStateMasterCheckbox extends StatelessWidget {

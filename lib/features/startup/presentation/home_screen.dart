@@ -89,8 +89,12 @@ final class _HomeScreenState extends ConsumerState<HomeScreen> {
     // merely unresolved or refreshing.
     final nextTempleVisit = ref.watch(nextTempleVisitControllerProvider);
     return Scaffold(
+      backgroundColor: AppTheme.surfaceOf(context),
       appBar: AppBar(
         key: const Key('home-app-bar'),
+        backgroundColor: AppTheme.surfaceOf(context),
+        surfaceTintColor: Colors.transparent,
+        scrolledUnderElevation: 0,
         toolbarHeight: 66,
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),

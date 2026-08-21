@@ -30,6 +30,7 @@ final class ContactDetailScreen extends ConsumerStatefulWidget {
 final class _ContactDetailScreenState
     extends ConsumerState<ContactDetailScreen> {
   int _tab = 0;
+  bool _viewRecorded = false;
 
   @override
   Widget build(BuildContext context) {
@@ -53,7 +54,22 @@ final class _ContactDetailScreenState
               body: const Center(child: CircularProgressIndicator()),
             );
     }
+    if (!_viewRecorded) {
+      _viewRecorded = true;
+      // The provider has delivered a real Contact, so the detail route opened
+      // successfully. The route-local guard prevents rebuild/write loops.
+      unawaited(_recordContactView(detail.contact.id));
+    }
     return _build(detail);
+  }
+
+  Future<void> _recordContactView(String contactId) {
+    return ref
+        .read(contactRepositoryProvider)
+        .markContactViewed(
+          profileId: ref.read(contactProfileIdProvider),
+          contactId: contactId,
+        );
   }
 
   Widget _build(ContactDetail detail) {
