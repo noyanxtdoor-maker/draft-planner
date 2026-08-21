@@ -37,6 +37,7 @@ final class ContactsState {
   const ContactsState({
     required this.status,
     required this.criteria,
+    required this.viewCriteria,
     required this.sortBy,
     required this.contacts,
     this.appliedFilter,
@@ -45,6 +46,7 @@ final class ContactsState {
 
   final ContactsLoadStatus status;
   final ContactFilterCriteria criteria;
+  final ContactFilterCriteria viewCriteria;
   final ContactSortBy sortBy;
   final List<ContactSummary> contacts;
   final SavedContactFilter? appliedFilter;
@@ -53,18 +55,26 @@ final class ContactsState {
   ContactsState copyWith({
     ContactsLoadStatus? status,
     ContactFilterCriteria? criteria,
+    ContactFilterCriteria? viewCriteria,
     ContactSortBy? sortBy,
     List<ContactSummary>? contacts,
     SavedContactFilter? appliedFilter,
     String? message,
     bool clearMessage = false,
+    bool clearAppliedFilter = false,
+    bool replaceViewCriteria = false,
   }) {
     return ContactsState(
       status: status ?? this.status,
       criteria: criteria ?? this.criteria,
+      viewCriteria: replaceViewCriteria
+          ? viewCriteria ?? this.viewCriteria
+          : this.viewCriteria,
       sortBy: sortBy ?? this.sortBy,
       contacts: contacts ?? this.contacts,
-      appliedFilter: appliedFilter ?? this.appliedFilter,
+      appliedFilter: clearAppliedFilter
+          ? null
+          : appliedFilter ?? this.appliedFilter,
       message: clearMessage ? null : message ?? this.message,
     );
   }
@@ -97,6 +107,7 @@ final class ContactsController extends Notifier<ContactsState> {
     return const ContactsState(
       status: ContactsLoadStatus.loading,
       criteria: ContactFilterCriteria(),
+      viewCriteria: ContactFilterCriteria(),
       sortBy: ContactSortBy.name,
       contacts: <ContactSummary>[],
     );
@@ -139,13 +150,29 @@ final class ContactsController extends Notifier<ContactsState> {
   void applyFilter(
     ContactFilterCriteria criteria, {
     SavedContactFilter? appliedFilter,
+    bool clearAppliedFilter = false,
+    bool updateCurrentView = true,
   }) {
-    state = state.copyWith(criteria: criteria, appliedFilter: appliedFilter);
+    state = state.copyWith(
+      criteria: criteria,
+      appliedFilter: appliedFilter,
+      clearAppliedFilter: clearAppliedFilter,
+      viewCriteria: criteria,
+      replaceViewCriteria: updateCurrentView,
+    );
     unawaited(_load());
   }
 
   void setSort(ContactSortBy sortBy) {
     state = state.copyWith(sortBy: sortBy);
+    unawaited(_load());
+  }
+
+  /// Removes temporary quick-filter changes while retaining the selected
+  /// current view and its saved-filter identity.
+  void clearAdHocFilters() {
+    final baseline = state.viewCriteria;
+    state = state.copyWith(criteria: baseline);
     unawaited(_load());
   }
 
@@ -158,14 +185,18 @@ final class ContactsController extends Notifier<ContactsState> {
 // Read-only data providers
 // ---------------------------------------------------------------------------
 
-final contactGroupsProvider = FutureProvider<List<ContactGroup>>((ref) {
+final contactGroupsProvider = FutureProvider<List<ContactGroup>>((ref) async {
   final profileId = ref.read(contactProfileIdProvider);
   ref.watch(contactChangesProvider(profileId));
+  // C2 canonicalization gate: ensure the four built-in default ContactGroup
+  // rows exist with deterministic identity (idempotent and collision-safe)
+  // before any consumer reads the group list. This is the single canonical
+  // source-of-truth gate shared by Contacts and Settings -> Colors.
+  final repository = ref.read(contactRepositoryProvider);
+  await repository.ensureBuiltInGroups(profileId);
   // Includes archived groups so the manager can show and restore them;
   // filters hide archived groups everywhere else.
-  return ref
-      .read(contactRepositoryProvider)
-      .readGroups(profileId, includeArchived: true);
+  return repository.readGroups(profileId, includeArchived: true);
 });
 
 final contactTagsProvider = FutureProvider<List<ContactTag>>((ref) {

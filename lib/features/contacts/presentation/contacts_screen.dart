@@ -4,9 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rmplanner/app/router/route_names.dart';
+import 'package:rmplanner/app/shell/global_drawer_controller.dart';
 import 'package:rmplanner/app/theme/app_theme.dart';
 import 'package:rmplanner/features/contacts/application/contact_providers.dart';
 import 'package:rmplanner/features/contacts/domain/contact.dart';
+import 'package:rmplanner/features/contacts/presentation/c3_contact_primitives.dart';
+import 'package:rmplanner/features/contacts/presentation/contact_filter_controls.dart';
+import 'package:rmplanner/features/contacts/presentation/filter_builder_screen.dart';
 import 'package:rmplanner/features/contacts/presentation/saved_filters_screen.dart';
 import 'package:rmplanner/features/contacts/presentation/widgets/contact_widgets.dart';
 
@@ -31,7 +35,15 @@ final class _ContactsScreenState extends ConsumerState<ContactsScreen> {
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        titleSpacing: 16,
+        toolbarHeight: 72,
+        leadingWidth: 64,
+        leading: IconButton(
+          key: const Key('contacts-menu-button'),
+          tooltip: 'Open navigation',
+          onPressed: () => GlobalDrawerScope.of(context).open(),
+          icon: const Icon(Icons.menu, size: 24),
+        ),
+        titleSpacing: 0,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
@@ -40,10 +52,9 @@ final class _ContactsScreenState extends ConsumerState<ContactsScreen> {
             const SizedBox(height: 2),
             _CurrentFilterRow(
               appliedFilter: state.appliedFilter,
+              isFiltered: !state.criteria.isEmpty,
               onTap: () async {
-                final result = await context.push<SavedFilterSelection>(
-                  RoutePaths.savedFilters,
-                );
+                final result = await _openCurrentViewOverlay();
                 if (result != null && mounted) {
                   ref
                       .read(contactsControllerProvider.notifier)
@@ -57,6 +68,13 @@ final class _ContactsScreenState extends ConsumerState<ContactsScreen> {
           ],
         ),
         actions: <Widget>[
+          IconButton(
+            key: const Key('contacts-filter-button'),
+            tooltip: 'Filter',
+            iconSize: 28,
+            onPressed: () => unawaited(_openFilterBuilder()),
+            icon: const FilterPlusIcon(),
+          ),
           IconButton(
             key: const Key('contacts-search-button'),
             tooltip: 'Search',
@@ -107,7 +125,7 @@ final class _ContactsScreenState extends ConsumerState<ContactsScreen> {
         onPressed: () => context.push(RoutePaths.contactCreate),
         backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Theme.of(context).colorScheme.onPrimary,
-        child: const Icon(Icons.add, size: 28),
+        child: const Icon(Icons.person_add_alt, size: 28),
       ),
     );
   }
@@ -123,6 +141,40 @@ final class _ContactsScreenState extends ConsumerState<ContactsScreen> {
       case 'sort':
         _showSortSheet();
     }
+  }
+
+  /// C3: the filter/funnel action opens the canonical filter builder directly
+  /// and applies its criteria to the current view (same engine as saved
+  /// filters; never a second filter model).
+  Future<void> _openFilterBuilder() async {
+    final result = await context.push<FilterBuilderResult>(
+      RoutePaths.filterBuilder,
+      extra: const FilterBuilderArgs(),
+    );
+    if (result != null && mounted) {
+      final controller = ref.read(contactsControllerProvider.notifier);
+      if (result.savedFilter != null) {
+        controller.applyFilter(
+          result.criteria,
+          appliedFilter: result.savedFilter,
+        );
+      } else {
+        controller.applyFilter(result.criteria, updateCurrentView: false);
+      }
+    }
+  }
+
+  Future<SavedFilterSelection?> _openCurrentViewOverlay() {
+    return showModalBottomSheet<SavedFilterSelection>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => FractionallySizedBox(
+        heightFactor: .70,
+        child: SavedFiltersScreen(asOverlay: true),
+      ),
+    );
   }
 
   void _showSortSheet() {
@@ -142,36 +194,28 @@ final class _ContactsScreenState extends ConsumerState<ContactsScreen> {
                   style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
                 ),
               ),
-              ListTile(
-                key: const Key('sort-by-name'),
-                leading: const Icon(Icons.sort_by_alpha),
-                title: const Text('Name (A–Z)'),
-                trailing: current == ContactSortBy.name
-                    ? Icon(
-                        Icons.check,
-                        color: Theme.of(sheetContext).colorScheme.primary,
-                      )
-                    : null,
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  controller.setSort(ContactSortBy.name);
-                },
-              ),
-              ListTile(
-                key: const Key('sort-by-recent'),
-                leading: const Icon(Icons.schedule),
-                title: const Text('Recently added'),
-                trailing: current == ContactSortBy.recentlyAdded
-                    ? Icon(
-                        Icons.check,
-                        color: Theme.of(sheetContext).colorScheme.primary,
-                      )
-                    : null,
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  controller.setSort(ContactSortBy.recentlyAdded);
-                },
-              ),
+              for (final value in ContactSortBy.values)
+                ListTile(
+                  key: Key('sort-option-${value.name}'),
+                  leading: Icon(
+                    switch (value) {
+                      ContactSortBy.name || ContactSortBy.nameDesc =>
+                        Icons.sort_by_alpha,
+                      _ => Icons.schedule,
+                    },
+                  ),
+                  title: Text(_sortOptionLabel(value)),
+                  trailing: current == value
+                      ? Icon(
+                          Icons.check,
+                          color: Theme.of(sheetContext).colorScheme.primary,
+                        )
+                      : null,
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    controller.setSort(value);
+                  },
+                ),
               const SizedBox(height: 8),
             ],
           ),
@@ -180,108 +224,82 @@ final class _ContactsScreenState extends ConsumerState<ContactsScreen> {
     );
   }
 
+  static String _sortOptionLabel(ContactSortBy value) {
+    return switch (value) {
+      ContactSortBy.name => 'Name (A–Z)',
+      ContactSortBy.nameDesc => 'Name (Z–A)',
+      ContactSortBy.recentlyAdded => 'Recently added',
+      ContactSortBy.oldestAdded => 'Oldest added',
+      ContactSortBy.nextEvent => 'Next Event',
+      ContactSortBy.lastEvent => 'Last Event',
+    };
+  }
+
   Widget _buildBody(
     ContactsState state,
     List<ContactGroup> groups,
     List<ContactTag> tags,
   ) {
     final contacts = state.contacts;
-    if (contacts.isEmpty) {
-      final anyFilter = !state.criteria.isEmpty;
-      return _EmptyState(anyFilter: anyFilter);
-    }
-    final sections = _sectionsFor(
-      contacts,
-      criteria: state.criteria,
-      sortBy: state.sortBy,
-    );
+    final sections = contacts.isEmpty
+        ? const <Widget>[]
+        : _sectionsFor(
+            contacts,
+            criteria: state.criteria,
+            sortBy: state.sortBy,
+            displayedFields:
+                state.appliedFilter?.displayedFields ??
+                ContactDisplayedFieldCodec.defaults,
+          );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
+        if (state.appliedFilter != null &&
+            state.appliedFilter!.description.trim().isNotEmpty)
+          _SavedFilterBanner(filter: state.appliedFilter!),
+        _QuickFilterStrip(
+          criteria: state.criteria,
+          groups: groups,
+          tags: tags,
+          onChanged: (criteria) => ref
+              .read(contactsControllerProvider.notifier)
+              .applyFilter(criteria, updateCurrentView: false),
+        ),
         _ActiveFilterChips(
           criteria: state.criteria,
           groups: groups,
           tags: tags,
-          onRemove: (key) => _removeCriterion(key, groups, tags),
+          onRemove: (category) {
+            final current = ref.read(contactsControllerProvider).criteria;
+            ref
+                .read(contactsControllerProvider.notifier)
+                .applyFilter(
+                  clearContactFilterCategory(current, category),
+                  updateCurrentView: false,
+                );
+          },
+          onClearAll: () =>
+              ref.read(contactsControllerProvider.notifier).clearAdHocFilters(),
         ),
         Expanded(
-          child: ListView.builder(
-            key: const Key('contacts-list'),
-            padding: const EdgeInsets.only(bottom: 96),
-            itemCount: sections.length,
-            itemBuilder: (context, index) => sections[index],
-          ),
+          child: contacts.isEmpty
+              ? _EmptyState(anyFilter: !state.criteria.isEmpty)
+              : ListView.builder(
+                  key: const Key('contacts-list'),
+                  padding: const EdgeInsets.only(bottom: 96),
+                  itemCount: sections.length,
+                  itemBuilder: (context, index) => sections[index],
+                ),
         ),
       ],
     );
-  }
-
-  void _removeCriterion(
-    String key,
-    List<ContactGroup> groups,
-    List<ContactTag> tags,
-  ) {
-    final criteria = ref.read(contactsControllerProvider).criteria;
-    final updated = switch (key) {
-      'favorites' => criteria.copyWithJson(favoritesOnly: false),
-      'eventsToday' => criteria.copyWithJson(withEventsToday: false),
-      'futureEvents' => criteria.copyWithJson(withFutureEvents: false),
-      'withoutFuture' => criteria.copyWithJson(withoutFutureEvents: false),
-      'noInteraction' => criteria.copyWithJson(noInteractionYet: false),
-      'hasPhone' => criteria.copyWithJson(hasPhone: false),
-      'hasEmail' => criteria.copyWithJson(hasEmail: false),
-      'hasAddress' => criteria.copyWithJson(hasAddress: false),
-      'archived' => criteria.copyWithJson(includeArchived: false),
-      _ => criteria,
-    };
-    // Group/tag chips remove a single id from the list.
-    final groupId = key.startsWith('group:') ? key.substring(6) : null;
-    final tagId = key.startsWith('tag:') ? key.substring(4) : null;
-    var finalCriteria = updated;
-    if (groupId != null) {
-      finalCriteria = ContactFilterCriteria(
-        groupIds: criteria.groupIds.where((id) => id != groupId).toList(),
-        tagIds: criteria.tagIds,
-        favoritesOnly: criteria.favoritesOnly,
-        availabilityWeekdays: criteria.availabilityWeekdays,
-        hasPhone: criteria.hasPhone,
-        hasEmail: criteria.hasEmail,
-        hasAddress: criteria.hasAddress,
-        withEventsToday: criteria.withEventsToday,
-        withFutureEvents: criteria.withFutureEvents,
-        withoutFutureEvents: criteria.withoutFutureEvents,
-        noInteractionYet: criteria.noInteractionYet,
-        source: criteria.source,
-        includeArchived: criteria.includeArchived,
-        eventHistoryAny: criteria.eventHistoryAny,
-      );
-    } else if (tagId != null) {
-      finalCriteria = ContactFilterCriteria(
-        groupIds: criteria.groupIds,
-        tagIds: criteria.tagIds.where((id) => id != tagId).toList(),
-        favoritesOnly: criteria.favoritesOnly,
-        availabilityWeekdays: criteria.availabilityWeekdays,
-        hasPhone: criteria.hasPhone,
-        hasEmail: criteria.hasEmail,
-        hasAddress: criteria.hasAddress,
-        withEventsToday: criteria.withEventsToday,
-        withFutureEvents: criteria.withFutureEvents,
-        withoutFutureEvents: criteria.withoutFutureEvents,
-        noInteractionYet: criteria.noInteractionYet,
-        source: criteria.source,
-        includeArchived: criteria.includeArchived,
-        eventHistoryAny: criteria.eventHistoryAny,
-      );
-    }
-    ref
-        .read(contactsControllerProvider.notifier)
-        .applyFilter(finalCriteria, appliedFilter: null);
   }
 
   List<Widget> _sectionsFor(
     List<ContactSummary> contacts, {
     required ContactFilterCriteria criteria,
     required ContactSortBy sortBy,
+    required List<ContactDisplayedField> displayedFields,
   }) {
     final widgets = <Widget>[];
     if (criteria.isEmpty && sortBy == ContactSortBy.name) {
@@ -300,7 +318,7 @@ final class _ContactsScreenState extends ConsumerState<ContactsScreen> {
           ),
         );
         for (final summary in favorites) {
-          widgets.add(_row(summary));
+          widgets.add(_row(summary, displayedFields: displayedFields));
         }
       }
       final grouped = <String?, List<ContactSummary>>{};
@@ -339,29 +357,38 @@ final class _ContactsScreenState extends ConsumerState<ContactsScreen> {
           );
         }
         for (final summary in members) {
-          widgets.add(_row(summary));
+          widgets.add(_row(summary, displayedFields: displayedFields));
         }
       }
       return widgets;
     }
     for (final summary in contacts) {
-      widgets.add(_row(summary));
+      widgets.add(_row(summary, displayedFields: displayedFields));
     }
     return widgets;
   }
 
-  Widget _row(ContactSummary summary) {
+  Widget _row(
+    ContactSummary summary, {
+    required List<ContactDisplayedField> displayedFields,
+  }) {
     return ContactListRow(
       summary: summary,
+      displayedFields: displayedFields,
       onTap: () => context.push(RoutePaths.contactDetail(summary.contact.id)),
     );
   }
 }
 
 final class _CurrentFilterRow extends StatelessWidget {
-  const _CurrentFilterRow({required this.onTap, this.appliedFilter});
+  const _CurrentFilterRow({
+    required this.onTap,
+    required this.isFiltered,
+    this.appliedFilter,
+  });
 
   final VoidCallback onTap;
+  final bool isFiltered;
   final SavedContactFilter? appliedFilter;
 
   @override
@@ -371,23 +398,41 @@ final class _CurrentFilterRow extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 2),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
+        padding: const EdgeInsets.only(top: 1, bottom: 2),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             Text(
-              appliedFilter?.name ?? 'All Contacts',
+              'Current View',
               style: TextStyle(
                 color: AppTheme.secondaryTextOf(context),
-                fontSize: 15,
-                fontWeight: FontWeight.w400,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(width: 4),
-            Icon(
-              Icons.arrow_drop_down,
-              size: 20,
-              color: AppTheme.secondaryTextOf(context),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Flexible(
+                  child: Text(
+                    appliedFilter?.name ??
+                        (isFiltered ? 'Filtered Contacts' : 'All Contacts'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: AppTheme.secondaryTextOf(context),
+                      fontSize: 15,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Icon(
+                  Icons.arrow_drop_down,
+                  size: 20,
+                  color: AppTheme.secondaryTextOf(context),
+                ),
+              ],
             ),
           ],
         ),
@@ -404,30 +449,73 @@ final class _SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 6),
-      child: Row(
-        children: <Widget>[
-          if (dotColor != null) ...<Widget>[
-            Container(
-              width: 10,
-              height: 10,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: dotColor,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        const FullWidthSectionDivider(),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 7),
+          child: Row(
+            children: <Widget>[
+              if (dotColor != null) ...<Widget>[
+                Container(
+                  width: 10,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: dotColor,
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
+              Text(
+                title,
+                style: const TextStyle(
+                  fontFamily: 'Roboto',
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+final class _SavedFilterBanner extends StatelessWidget {
+  const _SavedFilterBanner({required this.filter});
+
+  final SavedContactFilter filter;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Theme.of(context).colorScheme.primary.withValues(alpha: .10),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Row(
+          children: <Widget>[
+            Icon(
+              Icons.filter_alt_outlined,
+              size: 18,
+              color: Theme.of(context).colorScheme.primary,
             ),
             const SizedBox(width: 8),
-          ],
-          Text(
-            title,
-            style: const TextStyle(
-              fontFamily: 'Roboto',
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
+            Expanded(
+              child: Text(
+                filter.description,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.primary,
+                  fontSize: 13,
+                ),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -439,80 +527,57 @@ final class _ActiveFilterChips extends StatelessWidget {
     required this.groups,
     required this.tags,
     required this.onRemove,
+    required this.onClearAll,
   });
 
   final ContactFilterCriteria criteria;
   final List<ContactGroup> groups;
   final List<ContactTag> tags;
-  final ValueChanged<String> onRemove;
+  final ValueChanged<ContactFilterCategory> onRemove;
+  final VoidCallback onClearAll;
 
   @override
   Widget build(BuildContext context) {
     if (criteria.isEmpty) {
       return const SizedBox.shrink();
     }
-    final labels = <(String, String)>[];
-    void add(String key, String label) => labels.add((key, label));
-    for (final id in criteria.groupIds) {
-      final group = groups.where((g) => g.id == id).firstOrNull;
-      if (group != null) {
-        add('group:$id', group.name);
-      }
-    }
-    for (final id in criteria.tagIds) {
-      final tag = tags.where((t) => t.id == id).firstOrNull;
-      if (tag != null) {
-        add('tag:$id', tag.name);
-      }
-    }
-    if (criteria.favoritesOnly) {
-      add('favorites', 'Favorites');
-    }
-    if (criteria.withEventsToday) {
-      add('eventsToday', 'Events Today');
-    }
-    if (criteria.withFutureEvents) {
-      add('futureEvents', 'Future Events');
-    }
-    if (criteria.withoutFutureEvents) {
-      add('withoutFuture', 'No Future Events');
-    }
-    if (criteria.noInteractionYet) {
-      add('noInteraction', 'No Interaction Yet');
-    }
-    if (criteria.hasPhone) {
-      add('hasPhone', 'Has Phone');
-    }
-    if (criteria.hasEmail) {
-      add('hasEmail', 'Has Email');
-    }
-    if (criteria.hasAddress) {
-      add('hasAddress', 'Has Address');
-    }
-    if (criteria.includeArchived) {
-      add('archived', 'Archived');
-    }
+    final categories = ContactFilterCategory.values
+        .where((category) => contactFilterCategoryIsActive(criteria, category))
+        .toList(growable: false);
     return SizedBox(
       height: 44,
       child: ListView.separated(
         key: const Key('active-filter-chips'),
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-        itemCount: labels.length,
+        itemCount: categories.length + 1,
         separatorBuilder: (context, index) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
-          final entry = labels[index];
+          if (index == 0) {
+            return TextButton(
+              key: const Key('active-filter-clear-all'),
+              onPressed: onClearAll,
+              style: TextButton.styleFrom(
+                minimumSize: const Size(0, 32),
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+              ),
+              child: const Text('Clear All'),
+            );
+          }
+          final category = categories[index - 1];
           return InputChip(
-            key: Key('active-filter-chip-${entry.$2}'),
-            label: Text(entry.$2, style: const TextStyle(fontSize: 13)),
+            key: Key('active-filter-chip-${category.name}'),
+            label: Text(
+              '${contactFilterCategoryLabel(category)}: '
+              '${contactFilterCategorySummary(criteria, category, groups: groups, tags: tags)}',
+              style: const TextStyle(fontSize: 13),
+            ),
             visualDensity: VisualDensity.compact,
             deleteIcon: const Icon(Icons.close, size: 16),
-            onDeleted: () => onRemove(entry.$1),
+            onDeleted: () => onRemove(category),
             side: BorderSide(color: AppTheme.surfaceVariantOf(context)),
             backgroundColor: AppTheme.surfaceOf(context),
-            labelStyle: TextStyle(
-              color: AppTheme.onFillTextOf(context, 1.0),
-            ),
+            labelStyle: TextStyle(color: AppTheme.onFillTextOf(context, 1.0)),
             deleteIconColor: AppTheme.secondaryTextOf(context),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
@@ -521,6 +586,68 @@ final class _ActiveFilterChips extends StatelessWidget {
         },
       ),
     );
+  }
+}
+
+final class _QuickFilterStrip extends StatelessWidget {
+  const _QuickFilterStrip({
+    required this.criteria,
+    required this.groups,
+    required this.tags,
+    required this.onChanged,
+  });
+
+  final ContactFilterCriteria criteria;
+  final List<ContactGroup> groups;
+  final List<ContactTag> tags;
+  final ValueChanged<ContactFilterCriteria> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 60,
+      child: ListView.separated(
+        key: const Key('contacts-quick-filter-strip'),
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+        itemCount: quickFilterCategories.length,
+        separatorBuilder: (context, index) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final category = quickFilterCategories[index];
+          final active = contactFilterCategoryIsActive(criteria, category);
+          final label = contactFilterCategoryLabel(category);
+          final summary = contactFilterCategorySummary(
+            criteria,
+            category,
+            groups: groups,
+            tags: tags,
+          );
+          return QuickFilterChip(
+            key: Key('contacts-quick-filter-${category.name}'),
+            label: label,
+            summary: summary,
+            active: active,
+            onPressed: () => _open(context, category),
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _open(
+    BuildContext context,
+    ContactFilterCategory category,
+  ) async {
+    final result = await showContactFilterCategorySheet(
+      context: context,
+      category: category,
+      criteria: criteria,
+      groups: groups,
+      tags: tags,
+    );
+    if (result != null) {
+      onChanged(result);
+    }
   }
 }
 
@@ -623,37 +750,6 @@ final class _FailureState extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-extension on ContactFilterCriteria {
-  ContactFilterCriteria copyWithJson({
-    bool? favoritesOnly,
-    bool? withEventsToday,
-    bool? withFutureEvents,
-    bool? withoutFutureEvents,
-    bool? noInteractionYet,
-    bool? hasPhone,
-    bool? hasEmail,
-    bool? hasAddress,
-    bool? includeArchived,
-  }) {
-    return ContactFilterCriteria(
-      groupIds: groupIds,
-      tagIds: tagIds,
-      favoritesOnly: favoritesOnly ?? this.favoritesOnly,
-      availabilityWeekdays: availabilityWeekdays,
-      hasPhone: hasPhone ?? this.hasPhone,
-      hasEmail: hasEmail ?? this.hasEmail,
-      hasAddress: hasAddress ?? this.hasAddress,
-      withEventsToday: withEventsToday ?? this.withEventsToday,
-      withFutureEvents: withFutureEvents ?? this.withFutureEvents,
-      withoutFutureEvents: withoutFutureEvents ?? this.withoutFutureEvents,
-      noInteractionYet: noInteractionYet ?? this.noInteractionYet,
-      source: source,
-      includeArchived: includeArchived ?? this.includeArchived,
-      eventHistoryAny: eventHistoryAny,
     );
   }
 }

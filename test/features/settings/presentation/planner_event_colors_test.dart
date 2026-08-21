@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rmplanner/core/diagnostics/sanitized_diagnostics.dart';
 import 'package:rmplanner/core/platform/app_environment.dart';
+import 'package:rmplanner/features/contacts/domain/contact.dart';
 import 'package:rmplanner/features/planner/domain/event_color_preferences.dart';
 import 'package:rmplanner/features/planner/presentation/widgets/planner_event_color_preview.dart';
 
@@ -160,6 +161,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('Contact Group Colors'), findsOneWidget);
+    expect(find.text('Default Groups'), findsOneWidget);
     expect(find.text('Groups'), findsNothing);
     expect(
       find.descendant(
@@ -175,15 +177,57 @@ void main() {
       ),
       findsOneWidget,
     );
+    // C2: the four built-in default groups are seeded as real ContactGroup
+    // rows and rendered under Default Groups.
+    for (final key in <String>['family', 'friends', 'avoid', 'other']) {
+      expect(
+        find.byKey(Key('planner-group-color-row-$key')),
+        findsOneWidget,
+        reason: 'built-in $key row rendered',
+      );
+    }
     await tester.tap(find.byKey(const Key('group-color-swatch-family')));
     await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('group-recommended-colors-title')),
+      findsOneWidget,
+    );
+    await tester.tap(
+      find.byKey(const Key('group-recommended-color-Dusty Rose')),
+    );
+    await tester.tap(find.byKey(const Key('group-color-editor-save')));
+    await tester.pumpAndSettle();
+
+    // Custom Color remains backed by the existing arbitrary picker.
+    await tester.tap(find.byKey(const Key('group-color-swatch-family')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('group-custom-color')));
+    await tester.pumpAndSettle();
+    await tester.drag(
+      find.byKey(const Key('planner-event-color-sv-gesture')),
+      const Offset(24, -18),
+    );
+    await tester.pump();
     await tester.tap(find.byKey(const Key('planner-event-color-save')));
     await tester.pumpAndSettle();
-    final savedWithGroup =
+    await tester.tap(find.byKey(const Key('group-color-editor-save')));
+    await tester.pumpAndSettle();
+    // C2: the edit persists to the REAL ContactGroup row, not Store A.
+    final familyRow = await (database.select(
+      database.contactGroups,
+    )..where((table) => table.name.equals('Family'))).getSingle();
+    expect(
+      familyRow.colorValue,
+      isNot(ContactBuiltInGroupDefaults.family.colorArgb),
+    );
+    final savedPrefs =
         (await database.select(database.plannerPreferences).getSingle())
             .eventColorPreferencesJson;
-    expect(savedWithGroup, contains('groups'));
-    expect(savedWithGroup, contains('family'));
+    expect(
+      savedPrefs,
+      isNot(contains('"groups"')),
+      reason: 'Store A group map stays dormant',
+    );
 
     await tester.tap(
       find.byKey(const Key('planner-event-colors-restore-defaults')),
@@ -215,8 +259,23 @@ void main() {
         (await database.select(database.plannerPreferences).getSingle())
             .eventColorPreferencesJson;
     expect(afterEventRestore, isNot(contains('job_application')));
-    expect(afterEventRestore, contains('family'));
+    // Event restore does not touch the real group rows.
+    final familyAfterEventRestore = await (database.select(
+      database.contactGroups,
+    )..where((table) => table.name.equals('Family'))).getSingle();
+    expect(
+      familyAfterEventRestore.colorValue,
+      isNot(ContactBuiltInGroupDefaults.family.colorArgb),
+      reason: 'Event restore leaves group colors alone',
+    );
 
+    // The group section grows after the built-in rows are seeded
+    // asynchronously; re-scroll so the restore button is built and hittable.
+    await tester.drag(
+      find.byKey(const Key('planner-event-colors-list')),
+      const Offset(0, -1000),
+    );
+    await tester.pumpAndSettle();
     await tester.tap(
       find.byKey(const Key('planner-group-colors-restore-defaults')),
     );
@@ -229,10 +288,14 @@ void main() {
       find.byKey(const Key('planner-group-colors-restore-confirm')),
     );
     await tester.pumpAndSettle();
+    // Restore Group Defaults resets ONLY the real built-in rows.
+    final familyAfterGroupRestore = await (database.select(
+      database.contactGroups,
+    )..where((table) => table.name.equals('Family'))).getSingle();
     expect(
-      (await database.select(database.plannerPreferences).getSingle())
-          .eventColorPreferencesJson,
-      '{}',
+      familyAfterGroupRestore.colorValue,
+      ContactBuiltInGroupDefaults.family.colorArgb,
+      reason: 'Restore Group Defaults resets the built-in row',
     );
 
     tester.view.physicalSize = const Size(360, 844);
@@ -304,8 +367,7 @@ void main() {
     await tester.tap(find.byKey(const Key('recommended-event-colors-apply')));
     await tester.pumpAndSettle();
 
-    final row =
-        await database.select(database.plannerPreferences).getSingle();
+    final row = await database.select(database.plannerPreferences).getSingle();
     final saved = EventColorPreferenceCodec.decode(
       row.eventColorPreferencesJson,
     )['job_application'];

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:rmplanner/app/theme/app_theme.dart';
 import 'package:rmplanner/features/contacts/domain/contact.dart';
+import 'package:rmplanner/features/contacts/presentation/c3_contact_primitives.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 
 Color colorFromValue(ColorValue value) {
@@ -56,14 +57,7 @@ final class ContactGroupDot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 10,
-      height: 10,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: colorFromValue(summary.colorValue),
-      ),
-    );
+    return ContactGroupIdentityDot(colorValue: summary.colorValue);
   }
 }
 
@@ -73,6 +67,7 @@ final class ContactListRow extends StatelessWidget {
   const ContactListRow({
     required this.summary,
     this.onTap,
+    this.displayedFields = ContactDisplayedFieldCodec.defaults,
     this.trailing,
     this.leading,
     this.showContextLine = true,
@@ -82,6 +77,7 @@ final class ContactListRow extends StatelessWidget {
 
   final ContactSummary summary;
   final VoidCallback? onTap;
+  final List<ContactDisplayedField> displayedFields;
   final Widget? leading;
   final Widget? trailing;
   final bool showContextLine;
@@ -89,14 +85,25 @@ final class ContactListRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final subtitle = summary.subtitle;
-    final contextLine = _contextLine(summary);
+    final subtitle =
+        displayedFields.contains(ContactDisplayedField.currentGroup)
+        ? summary.subtitle
+        : '';
+    final contextLines = _contextLines(summary, displayedFields);
     final hasSubtitle = subtitle.isNotEmpty;
-    final hasContext = showContextLine && (contextLine?.isNotEmpty ?? false);
+    final hasContext = showContextLine && contextLines.isNotEmpty;
     return Material(
       color: Colors.transparent,
       child: InkWell(
+        key: Key('contact-row-${summary.contact.id}'),
         onTap: onTap,
+        onLongPress: onTap == null
+            ? null
+            : () => showContactLongPressPreview(
+                context: context,
+                summary: summary,
+                onView: onTap!,
+              ),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
@@ -111,11 +118,11 @@ final class ContactListRow extends StatelessWidget {
                   padding: EdgeInsets.only(top: 2),
                   child: Icon(
                     Icons.star_rounded,
-                    size: 18,
+                    size: 24,
                     color: AppTheme.rose,
                   ),
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: 4),
               ],
               Padding(
                 padding: const EdgeInsets.only(top: 4),
@@ -150,20 +157,21 @@ final class ContactListRow extends StatelessWidget {
                         ),
                       ),
                     ],
-                    if (hasContext) ...<Widget>[
-                      const SizedBox(height: 4),
-                      Text(
-                        contextLine ?? '',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AppTheme.rose,
-                          fontSize: 13,
-                          height: 17 / 13,
-                          fontWeight: FontWeight.w400,
+                    if (hasContext)
+                      for (final line in contextLines) ...<Widget>[
+                        const SizedBox(height: 4),
+                        Text(
+                          line,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: AppTheme.secondaryTextOf(context),
+                            fontSize: 14,
+                            height: 18 / 14,
+                            fontWeight: FontWeight.w400,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
                   ],
                 ),
               ),
@@ -178,17 +186,45 @@ final class ContactListRow extends StatelessWidget {
     );
   }
 
-  static String? _contextLine(ContactSummary summary) {
+  static List<String> _contextLines(
+    ContactSummary summary,
+    List<ContactDisplayedField> displayedFields,
+  ) {
+    final lines = <String>[];
     final context = summary.context;
     final next = context.nextEventDate;
-    if (context.nextEventTitle != null && next != null) {
-      return 'Next Event: ${friendlyContactDate(next)}';
+    if (displayedFields.contains(ContactDisplayedField.tags) &&
+        summary.tagNames.isNotEmpty) {
+      lines.add('Tags: ${summary.tagNames.join(', ')}');
+    }
+    if (displayedFields.contains(ContactDisplayedField.nextEvent) &&
+        context.nextEventTitle != null &&
+        next != null) {
+      lines.add('Next Event: ${friendlyContactDate(next)}');
     }
     final last = context.lastEventDate;
-    if (last != null) {
-      return 'Last Event: ${friendlyContactDate(last)}';
+    if (displayedFields.contains(ContactDisplayedField.lastEvent) &&
+        last != null) {
+      lines.add('Last Event: ${friendlyContactDate(last)}');
     }
-    return null;
+    if (displayedFields.contains(ContactDisplayedField.contactMethod)) {
+      lines.add(
+        'Contact Method: ${_preferredMethodLabel(summary.contact.preferredContactMethod)}',
+      );
+    }
+    if (displayedFields.contains(ContactDisplayedField.address) &&
+        summary.contact.addressText?.trim().isNotEmpty == true) {
+      lines.add('Address: ${summary.contact.addressText!.trim()}');
+    }
+    return lines;
+  }
+
+  static String _preferredMethodLabel(ContactPreferredMethod method) {
+    return switch (method) {
+      ContactPreferredMethod.message => 'Message',
+      ContactPreferredMethod.call => 'Call',
+      ContactPreferredMethod.email => 'Email',
+    };
   }
 }
 

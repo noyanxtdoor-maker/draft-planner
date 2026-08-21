@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:rmplanner/features/planner/domain/calendar_event.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
+import 'package:uuid/uuid.dart';
 
 /// Lifecycle of a Contact.  Archived keeps the same ID and every historical
 /// link; merged keeps the row so historical participation stays traceable to
@@ -14,7 +15,109 @@ enum ContactMethodType { phone, email, social }
 
 enum ContactPreferredMethod { message, call, email }
 
-enum ContactSortBy { name, recentlyAdded }
+enum ContactSortBy {
+  name,
+  recentlyAdded,
+  nameDesc,
+  oldestAdded,
+  nextEvent,
+  lastEvent,
+}
+
+/// Row fields that can be selected for a saved Contacts view. Every field is
+/// already present in [ContactSummary], so Displayed Fields never introduces
+/// an N+1 query or a fabricated tracking primitive.
+enum ContactDisplayedField {
+  currentGroup,
+  tags,
+  nextEvent,
+  lastEvent,
+  contactMethod,
+  address,
+}
+
+abstract final class ContactDisplayedFieldCodec {
+  static String encode(ContactDisplayedField value) => value.name;
+
+  static ContactDisplayedField? decode(String value) =>
+      ContactDisplayedField.values.asNameMap()[value];
+
+  static const List<ContactDisplayedField> defaults = <ContactDisplayedField>[
+    ContactDisplayedField.currentGroup,
+    ContactDisplayedField.tags,
+    ContactDisplayedField.nextEvent,
+    ContactDisplayedField.lastEvent,
+    ContactDisplayedField.contactMethod,
+    ContactDisplayedField.address,
+  ];
+}
+
+/// Canonical label keys for the Phone filter category.  These are the only
+/// label keys the Filter screen understands; anything else is "Other".
+abstract final class ContactPhoneFilterKeys {
+  static const String noPhone = 'noPhone';
+  static const String mobile = 'mobile';
+  static const String home = 'home';
+  static const String work = 'work';
+  static const String other = 'other';
+
+  /// Typed labels that are NOT "Other".  A phone with any other/null/blank
+  /// label falls back to Other for Filter matching.
+  static const Set<String> typed = <String>{mobile, home, work};
+}
+
+/// Canonical label keys for the Email filter category.  Device ecosystems
+/// commonly label personal email as "home"; "Personal" accepts both.
+abstract final class ContactEmailFilterKeys {
+  static const String noEmail = 'noEmail';
+  static const String personal = 'personal';
+  static const String work = 'work';
+  static const String family = 'family';
+  static const String other = 'other';
+
+  /// Labels that map to the Personal type (personal or device-home).
+  static const Set<String> personalLabels = <String>{personal, 'home'};
+
+  /// Typed labels that are NOT "Other".
+  static const Set<String> typed = <String>{personal, work, family};
+}
+
+/// Canonical label keys for the Address filter category.
+abstract final class ContactAddressFilterKeys {
+  static const String notRecorded = 'notRecorded';
+  static const String recorded = 'recorded';
+}
+
+/// Canonical label keys for the Social Profile filter category.
+abstract final class ContactSocialFilterKeys {
+  static const String noSocial = 'noSocial';
+  static const String facebook = 'facebook';
+  static const String messenger = 'messenger';
+  static const String whatsapp = 'whatsapp';
+  static const String line = 'line';
+  static const String skype = 'skype';
+  static const String instagram = 'instagram';
+  static const String x = 'x';
+  static const String other = 'other';
+
+  /// Canonical platforms that are NOT "Other".
+  static const Set<String> canonical = <String>{
+    facebook,
+    messenger,
+    whatsapp,
+    line,
+    skype,
+    instagram,
+    x,
+  };
+}
+
+/// Lowercases and trims a stored method label for filter matching.
+/// null / blank labels normalize to null so they always fall into "Other".
+String? normalizedMethodLabel(String? label) {
+  final t = label?.trim().toLowerCase();
+  return t == null || t.isEmpty ? null : t;
+}
 
 enum ContactFilterSection { none, favorites, groups }
 
@@ -253,7 +356,12 @@ final class ContactFilterCriteria {
     this.noInteractionYet = false,
     this.source,
     this.includeArchived = false,
+    this.archivedOnly = false,
     this.eventHistoryAny = false,
+    this.phoneLabels = const <String>[],
+    this.emailLabels = const <String>[],
+    this.addressLabels = const <String>[],
+    this.socialLabels = const <String>[],
   });
 
   final List<String> groupIds;
@@ -269,7 +377,24 @@ final class ContactFilterCriteria {
   final bool noInteractionYet;
   final ContactSource? source;
   final bool includeArchived;
+  final bool archivedOnly;
   final bool eventHistoryAny;
+
+  /// Selected Phone category keys.  Empty means the Phone category imposes no
+  /// restriction ("All").  Keys come from [ContactPhoneFilterKeys].
+  final List<String> phoneLabels;
+
+  /// Selected Email category keys.  Empty means "All".
+  /// Keys come from [ContactEmailFilterKeys].
+  final List<String> emailLabels;
+
+  /// Selected Address category keys.  Empty means "All".
+  /// Keys come from [ContactAddressFilterKeys].
+  final List<String> addressLabels;
+
+  /// Selected Social Profile category keys.  Empty means "All".
+  /// Keys come from [ContactSocialFilterKeys].
+  final List<String> socialLabels;
 
   bool get isEmpty =>
       groupIds.isEmpty &&
@@ -285,7 +410,12 @@ final class ContactFilterCriteria {
       !noInteractionYet &&
       source == null &&
       !includeArchived &&
-      !eventHistoryAny;
+      !archivedOnly &&
+      !eventHistoryAny &&
+      phoneLabels.isEmpty &&
+      emailLabels.isEmpty &&
+      addressLabels.isEmpty &&
+      socialLabels.isEmpty;
 
   Map<String, Object?> toJson() {
     return <String, Object?>{
@@ -302,11 +432,20 @@ final class ContactFilterCriteria {
       'noInteractionYet': noInteractionYet,
       'source': source?.name,
       'includeArchived': includeArchived,
+      'archivedOnly': archivedOnly,
       'eventHistoryAny': eventHistoryAny,
+      'phoneLabels': phoneLabels,
+      'emailLabels': emailLabels,
+      'addressLabels': addressLabels,
+      'socialLabels': socialLabels,
     };
   }
 
   factory ContactFilterCriteria.fromJson(Map<String, Object?> json) {
+    final nested = json['criteria'];
+    if (nested is Map<Object?, Object?>) {
+      return ContactFilterCriteria.fromJson(nested.cast<String, Object?>());
+    }
     final rawSource = json['source'] as String?;
     return ContactFilterCriteria(
       groupIds: _stringList(json['groupIds']),
@@ -327,7 +466,59 @@ final class ContactFilterCriteria {
           ? null
           : ContactSource.values.asNameMap()[rawSource],
       includeArchived: json['includeArchived'] == true,
+      archivedOnly: json['archivedOnly'] == true,
       eventHistoryAny: json['eventHistoryAny'] == true,
+      phoneLabels: _stringList(json['phoneLabels']),
+      emailLabels: _stringList(json['emailLabels']),
+      addressLabels: _stringList(json['addressLabels']),
+      socialLabels: _stringList(json['socialLabels']),
+    );
+  }
+
+  /// Returns a copy with the given fields replaced.  Absent (null) parameters
+  /// keep the current value; [replaceSource] lets callers clear [source].
+  ContactFilterCriteria copyWith({
+    List<String>? groupIds,
+    List<String>? tagIds,
+    bool? favoritesOnly,
+    List<int>? availabilityWeekdays,
+    bool? hasPhone,
+    bool? hasEmail,
+    bool? hasAddress,
+    bool? withEventsToday,
+    bool? withFutureEvents,
+    bool? withoutFutureEvents,
+    bool? noInteractionYet,
+    ContactSource? source,
+    bool replaceSource = false,
+    bool? includeArchived,
+    bool? archivedOnly,
+    bool? eventHistoryAny,
+    List<String>? phoneLabels,
+    List<String>? emailLabels,
+    List<String>? addressLabels,
+    List<String>? socialLabels,
+  }) {
+    return ContactFilterCriteria(
+      groupIds: groupIds ?? this.groupIds,
+      tagIds: tagIds ?? this.tagIds,
+      favoritesOnly: favoritesOnly ?? this.favoritesOnly,
+      availabilityWeekdays: availabilityWeekdays ?? this.availabilityWeekdays,
+      hasPhone: hasPhone ?? this.hasPhone,
+      hasEmail: hasEmail ?? this.hasEmail,
+      hasAddress: hasAddress ?? this.hasAddress,
+      withEventsToday: withEventsToday ?? this.withEventsToday,
+      withFutureEvents: withFutureEvents ?? this.withFutureEvents,
+      withoutFutureEvents: withoutFutureEvents ?? this.withoutFutureEvents,
+      noInteractionYet: noInteractionYet ?? this.noInteractionYet,
+      source: replaceSource ? source : this.source,
+      includeArchived: includeArchived ?? this.includeArchived,
+      archivedOnly: archivedOnly ?? this.archivedOnly,
+      eventHistoryAny: eventHistoryAny ?? this.eventHistoryAny,
+      phoneLabels: phoneLabels ?? this.phoneLabels,
+      emailLabels: emailLabels ?? this.emailLabels,
+      addressLabels: addressLabels ?? this.addressLabels,
+      socialLabels: socialLabels ?? this.socialLabels,
     );
   }
 
@@ -360,6 +551,8 @@ final class SavedContactFilter {
     required this.sortBy,
     required this.createdAtUtc,
     required this.updatedAtUtc,
+    this.description = '',
+    this.displayedFields = ContactDisplayedFieldCodec.defaults,
   });
 
   final String id;
@@ -370,6 +563,8 @@ final class SavedContactFilter {
   final ContactSortBy sortBy;
   final DateTime createdAtUtc;
   final DateTime updatedAtUtc;
+  final String description;
+  final List<ContactDisplayedField> displayedFields;
 }
 
 final class SavedContactFilterDraft {
@@ -378,12 +573,63 @@ final class SavedContactFilterDraft {
     required this.criteria,
     this.sortBy = ContactSortBy.name,
     this.isSystem = false,
+    this.description = '',
+    this.displayedFields = ContactDisplayedFieldCodec.defaults,
   });
 
   final String name;
   final ContactFilterCriteria criteria;
   final ContactSortBy sortBy;
   final bool isSystem;
+  final String description;
+  final List<ContactDisplayedField> displayedFields;
+}
+
+/// Backward-compatible document stored in the existing criteria_json column.
+/// Older rows contain the criteria object directly; new rows use this envelope
+/// so description and displayed fields persist without a schema migration.
+final class SavedContactFilterDocument {
+  const SavedContactFilterDocument({
+    required this.criteria,
+    this.description = '',
+    this.displayedFields = ContactDisplayedFieldCodec.defaults,
+  });
+
+  final ContactFilterCriteria criteria;
+  final String description;
+  final List<ContactDisplayedField> displayedFields;
+
+  String encode() => jsonEncode(<String, Object?>{
+    'criteria': criteria.toJson(),
+    'description': description.trim(),
+    'displayedFields': displayedFields
+        .map(ContactDisplayedFieldCodec.encode)
+        .toList(growable: false),
+  });
+
+  factory SavedContactFilterDocument.decode(String value) {
+    try {
+      final decoded = (jsonDecode(value) as Map<Object?, Object?>)
+          .cast<String, Object?>();
+      final rawFields = decoded['displayedFields'];
+      final fields = rawFields is List<Object?>
+          ? rawFields
+                .whereType<String>()
+                .map(ContactDisplayedFieldCodec.decode)
+                .whereType<ContactDisplayedField>()
+                .toList(growable: false)
+          : ContactDisplayedFieldCodec.defaults;
+      return SavedContactFilterDocument(
+        criteria: ContactFilterCriteria.fromJson(decoded),
+        description: decoded['description'] as String? ?? '',
+        displayedFields: fields,
+      );
+    } on Object {
+      return const SavedContactFilterDocument(
+        criteria: ContactFilterCriteria(),
+      );
+    }
+  }
 }
 
 /// The two contextual lines available on list/search rows without N+1 reads:
@@ -427,12 +673,10 @@ final class ContactSummary {
   }
 
   String get subtitle {
-    final labels = <String>[
-      if (primaryGroup != null) primaryGroup!.name,
-      ...groupNames,
-      ...tagNames,
-    ];
-    return labels.join(' • ');
+    // C2/C3 one-group V1: the row subtitle shows the single current/primary
+    // group only. Dormant legacy secondary memberships and tag names are not
+    // shown in list/profile/search/Add People rows for this V1.
+    return primaryGroup?.name ?? '';
   }
 }
 
@@ -446,6 +690,77 @@ final class ColorValue {
 
   final int value;
   final bool isNeutral;
+}
+
+/// Canonical built-in default group definitions (C2 owner lock).
+///
+/// The built-in identity is a deterministic UUIDv5 derived from a fixed
+/// namespace plus the owning profile id, so the globally-unique
+/// `contact_groups.id` primary key can never collide across profiles or sync,
+/// and the same built-in group always maps to the same real row for a profile.
+final class ContactBuiltInGroupDefaults {
+  const ContactBuiltInGroupDefaults({
+    required this.key,
+    required this.name,
+    required this.colorArgb,
+  });
+
+  final String key;
+  final String name;
+  final int colorArgb;
+
+  static const ContactBuiltInGroupDefaults family = ContactBuiltInGroupDefaults(
+    key: 'family',
+    name: 'Family',
+    colorArgb: 0xFFEBC766,
+  );
+  static const ContactBuiltInGroupDefaults friends =
+      ContactBuiltInGroupDefaults(
+        key: 'friends',
+        name: 'Friends',
+        colorArgb: 0xFF7FB7D1,
+      );
+  static const ContactBuiltInGroupDefaults avoid = ContactBuiltInGroupDefaults(
+    key: 'avoid',
+    name: 'Avoid',
+    colorArgb: 0xFFD35A70,
+  );
+  static const ContactBuiltInGroupDefaults other = ContactBuiltInGroupDefaults(
+    key: 'other',
+    name: 'Other',
+    colorArgb: 0xFF969B9E,
+  );
+
+  static const List<ContactBuiltInGroupDefaults> ordered =
+      <ContactBuiltInGroupDefaults>[family, friends, avoid, other];
+
+  static ContactBuiltInGroupDefaults byKey(String key) {
+    return ordered.firstWhere((group) => group.key == key, orElse: () => other);
+  }
+}
+
+/// Deterministic UUIDv5 identity for built-in Contact Group rows.
+///
+/// Identity incorporates enough stable context (fixed namespace + profile id +
+/// built-in key) so no unsafe duplication can occur across profiles or sync.
+/// Uses the project's existing `uuid` dependency (no new package).
+abstract final class ContactBuiltInGroupIdentity {
+  /// Fixed project namespace for built-in contact group identities.
+  static const String namespace = '6a1f8e5b-7c2d-4a3f-9b8e-0d1c2e3f4a5b';
+
+  static String idForProfile(String profileId, String builtInKey) {
+    return const Uuid().v5(
+      namespace,
+      'nexttransfer.builtin-contact-group:$profileId:$builtInKey',
+    );
+  }
+
+  static bool isBuiltInId(String groupId, String profileId) {
+    return ContactBuiltInGroupDefaults.ordered.any(
+      (group) =>
+          groupId == idForProfile(profileId, group.key) && groupId.isNotEmpty,
+    );
+  }
 }
 
 final class ContactDetail {

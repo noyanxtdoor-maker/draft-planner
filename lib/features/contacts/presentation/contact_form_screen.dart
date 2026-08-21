@@ -178,7 +178,6 @@ final class _ContactFormScreenState extends ConsumerState<ContactFormScreen> {
                     const SizedBox(height: 28),
                     _GroupsField(
                       groups: groups,
-                      selectedIds: _groupIds,
                       primaryGroupId: _primaryGroupId,
                       onChanged: (ids, primaryId) => setState(() {
                         _groupIds = ids;
@@ -505,13 +504,11 @@ final class _ProgressiveRow extends StatelessWidget {
 final class _GroupsField extends StatelessWidget {
   const _GroupsField({
     required this.groups,
-    required this.selectedIds,
     required this.primaryGroupId,
     required this.onChanged,
   });
 
   final List<ContactGroup> groups;
-  final List<String> selectedIds;
   final String? primaryGroupId;
   final void Function(List<String> ids, String? primaryId) onChanged;
 
@@ -533,7 +530,6 @@ final class _GroupsField extends StatelessWidget {
               useSafeArea: true,
               builder: (sheetContext) => _GroupPicker(
                 groups: activeGroups,
-                selectedIds: selectedIds,
                 primaryGroupId: primaryGroupId,
               ),
             );
@@ -546,7 +542,7 @@ final class _GroupsField extends StatelessWidget {
               context,
               'Groups',
             ).copyWith(suffixIcon: const Icon(Icons.arrow_drop_down, size: 24)),
-            child: selectedIds.isEmpty
+            child: primaryGroupId == null
                 ? Text(
                     'No groups',
                     style: TextStyle(
@@ -558,46 +554,37 @@ final class _GroupsField extends StatelessWidget {
                     spacing: 8,
                     runSpacing: 6,
                     children: <Widget>[
-                      for (final id in selectedIds)
-                        Builder(
-                          builder: (context) {
-                            final group = groups
-                                .where((g) => g.id == id)
-                                .firstOrNull;
-                            return Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 4,
+                      Builder(
+                        builder: (context) {
+                          final group = groups
+                              .where((g) => g.id == primaryGroupId)
+                              .firstOrNull;
+                          return Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppTheme.surfaceRaisedOf(context),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: group == null
+                                    ? AppTheme.surfaceVariantOf(context)
+                                    : Color(group.colorValue),
                               ),
-                              decoration: BoxDecoration(
-                                color: AppTheme.surfaceRaisedOf(context),
-                                borderRadius: BorderRadius.circular(14),
-                                border: Border.all(
-                                  color: group == null
-                                      ? AppTheme.surfaceVariantOf(context)
-                                      : Color(group.colorValue),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: <Widget>[
+                                Text(
+                                  group?.name ?? 'Group',
+                                  style: const TextStyle(fontSize: 13),
                                 ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: <Widget>[
-                                  if (id == primaryGroupId) ...<Widget>[
-                                    const Icon(
-                                      Icons.star,
-                                      size: 12,
-                                      color: AppTheme.rose,
-                                    ),
-                                    const SizedBox(width: 4),
-                                  ],
-                                  Text(
-                                    group?.name ?? 'Group',
-                                    style: const TextStyle(fontSize: 13),
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                        ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
                     ],
                   ),
           ),
@@ -610,12 +597,10 @@ final class _GroupsField extends StatelessWidget {
 final class _GroupPicker extends StatefulWidget {
   const _GroupPicker({
     required this.groups,
-    required this.selectedIds,
     required this.primaryGroupId,
   });
 
   final List<ContactGroup> groups;
-  final List<String> selectedIds;
   final String? primaryGroupId;
 
   @override
@@ -623,13 +608,12 @@ final class _GroupPicker extends StatefulWidget {
 }
 
 final class _GroupPickerState extends State<_GroupPicker> {
-  late final Set<String> _selected;
+  // C2 one-group V1: zero or one current/primary group only.
   String? _primary;
 
   @override
   void initState() {
     super.initState();
-    _selected = <String>{...widget.selectedIds};
     _primary = widget.primaryGroupId;
   }
 
@@ -652,7 +636,7 @@ final class _GroupPickerState extends State<_GroupPicker> {
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
               child: Text(
-                'A group can be primary for its color accent.',
+                'Choose zero or one current group.',
                 style: TextStyle(
                   color: AppTheme.secondaryTextOf(context),
                   fontSize: 13,
@@ -663,11 +647,30 @@ final class _GroupPickerState extends State<_GroupPicker> {
               child: ListView(
                 shrinkWrap: true,
                 children: <Widget>[
+                  ListTile(
+                    key: const Key('group-option-none'),
+                    leading: Icon(
+                      _primary == null
+                          ? Icons.radio_button_checked
+                          : Icons.radio_button_unchecked,
+                      color: _primary == null
+                          ? Theme.of(context).colorScheme.primary
+                          : AppTheme.secondaryTextOf(context),
+                    ),
+                    title: const Text('No group'),
+                    onTap: () => setState(() => _primary = null),
+                  ),
                   for (final group in widget.groups)
-                    CheckboxListTile(
+                    ListTile(
                       key: Key('group-option-${group.id}'),
-                      value: _selected.contains(group.id),
-                      activeColor: Color(group.colorValue),
+                      leading: Icon(
+                        _primary == group.id
+                            ? Icons.radio_button_checked
+                            : Icons.radio_button_unchecked,
+                        color: _primary == group.id
+                            ? Color(group.colorValue)
+                            : AppTheme.secondaryTextOf(context),
+                      ),
                       title: Row(
                         children: <Widget>[
                           Container(
@@ -682,28 +685,7 @@ final class _GroupPickerState extends State<_GroupPicker> {
                           Text(group.name),
                         ],
                       ),
-                      secondary: group.id == _primary
-                          ? const Icon(
-                              Icons.star,
-                              color: AppTheme.rose,
-                              size: 20,
-                            )
-                          : null,
-                      onChanged: (checked) {
-                        setState(() {
-                          if (checked == true) {
-                            _selected.add(group.id);
-                            _primary ??= group.id;
-                          } else {
-                            _selected.remove(group.id);
-                            if (_primary == group.id) {
-                              _primary = _selected.isEmpty
-                                  ? null
-                                  : _selected.first;
-                            }
-                          }
-                        });
-                      },
+                      onTap: () => setState(() => _primary = group.id),
                     ),
                   if (widget.groups.isEmpty)
                     Padding(
@@ -722,8 +704,10 @@ final class _GroupPickerState extends State<_GroupPicker> {
               padding: const EdgeInsets.all(12),
               child: FilledButton(
                 key: const Key('groups-picker-done'),
-                onPressed: () =>
-                    Navigator.of(context).pop((_selected.toList(), _primary)),
+                onPressed: () => Navigator.of(context).pop((
+                  _primary == null ? const <String>[] : <String>[_primary!],
+                  _primary,
+                )),
                 child: const Text('Done'),
               ),
             ),

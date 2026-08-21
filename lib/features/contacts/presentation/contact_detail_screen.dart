@@ -969,29 +969,28 @@ final class _GroupsTagsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // C2 one-group V1: show the single current/primary group only. Dormant
+    // legacy secondary memberships are preserved but never rendered here.
+    final currentGroup = groups
+        .where((group) => group.id == primaryGroupId)
+        .firstOrNull;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Wrap(
         spacing: 8,
         runSpacing: 8,
         children: <Widget>[
-          for (final group in groups)
+          if (currentGroup != null)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
                 color: AppTheme.surfaceRaisedOf(context),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Color(group.colorValue)),
+                border: Border.all(color: Color(currentGroup.colorValue)),
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  if (group.id == primaryGroupId) ...<Widget>[
-                    const Icon(Icons.star, size: 14, color: AppTheme.rose),
-                    const SizedBox(width: 4),
-                  ],
-                  Text(group.name, style: const TextStyle(fontSize: 14)),
-                ],
+              child: Text(
+                currentGroup.name,
+                style: const TextStyle(fontSize: 14),
               ),
             ),
           for (final tag in tags)
@@ -1004,7 +1003,7 @@ final class _GroupsTagsSection extends StatelessWidget {
               ),
               child: Text(tag.name, style: const TextStyle(fontSize: 14)),
             ),
-          if (groups.isEmpty && tags.isEmpty)
+          if (currentGroup == null && tags.isEmpty)
             Text(
               'No groups or tags.',
               style: TextStyle(color: AppTheme.secondaryTextOf(context)),

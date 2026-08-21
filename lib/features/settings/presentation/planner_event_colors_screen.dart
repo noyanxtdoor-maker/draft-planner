@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:rmplanner/app/router/route_names.dart';
+import 'package:rmplanner/app/theme/app_theme.dart';
 import 'package:rmplanner/app/theme/internal_screen.dart';
+import 'package:rmplanner/features/contacts/application/contact_providers.dart';
+import 'package:rmplanner/features/contacts/domain/contact.dart' as contacts;
 import 'package:rmplanner/features/planner/application/event_type_providers.dart';
 import 'package:rmplanner/features/planner/domain/event_color_preferences.dart';
 import 'package:rmplanner/features/planner/domain/event_type.dart';
+import 'package:rmplanner/features/planner/domain/recommended_event_colors.dart';
 import 'package:rmplanner/features/planner/presentation/widgets/event_color_picker_components.dart';
 import 'package:rmplanner/features/planner/presentation/widgets/planner_event_block_layout_policy.dart';
 import 'package:rmplanner/features/planner/presentation/widgets/planner_event_color_preview.dart';
@@ -27,7 +33,6 @@ final class _PlannerEventColorsScreenState
     extends ConsumerState<PlannerEventColorsScreen> {
   final Map<String, EventColorPreference> _liveEventColors =
       <String, EventColorPreference>{};
-  final Map<String, int> _liveGroupColors = <String, int>{};
 
   @override
   Widget build(BuildContext context) {
@@ -84,6 +89,34 @@ final class _PlannerEventColorsScreenState
                     ),
                     const SizedBox(height: 10),
                   ],
+                  _EventColorRow(
+                    key: const Key('event-color-row-planner_task'),
+                    type: _taskColorType,
+                    preference:
+                        _liveEventColors[PlannerEventColorResolver
+                            .taskStableKey] ??
+                        state.eventColors[PlannerEventColorResolver
+                            .taskStableKey] ??
+                        PlannerEventColorDefaults.task,
+                    onAccent: () => _editEventColor(
+                      context,
+                      controller,
+                      _taskColorType,
+                      EventColorRole.accent,
+                    ),
+                    onSurface: () => _editEventColor(
+                      context,
+                      controller,
+                      _taskColorType,
+                      EventColorRole.surface,
+                    ),
+                    onRecommendedAccent: () => _editRecommendedAccent(
+                      context,
+                      controller,
+                      _taskColorType,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
                   SizedBox(
                     height: 48,
                     child: OutlinedButton(
@@ -100,27 +133,23 @@ final class _PlannerEventColorsScreenState
                     label: 'Contact Group Colors',
                   ),
                   const SizedBox(height: 8),
-                  for (final group in ContactGroupDefaults.ordered) ...<Widget>[
-                    _GroupColorRow(
-                      group: group,
-                      color: Color(
-                        _liveGroupColors[group.id] ??
-                            state.groupColors[group.id] ??
-                            group.defaultColorArgb,
-                      ),
-                      onPressed: () =>
-                          _editGroupColor(context, controller, group),
-                    ),
-                    const SizedBox(height: 2),
-                  ],
+                  const _ContactGroupColorsSection(),
                   const SizedBox(height: 8),
                   SizedBox(
                     height: 48,
                     child: OutlinedButton(
                       key: const Key('planner-group-colors-restore-defaults'),
-                      onPressed: () =>
-                          _confirmRestoreGroups(context, controller),
+                      onPressed: () => _confirmRestoreGroups(context),
                       child: const Text('Restore Group Defaults'),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    height: 48,
+                    child: OutlinedButton(
+                      key: const Key('planner-group-colors-manage'),
+                      onPressed: () => context.push(RoutePaths.contactGroups),
+                      child: const Text('Manage Groups'),
                     ),
                   ),
                 ],
@@ -271,99 +300,15 @@ final class _PlannerEventColorsScreenState
     }
   }
 
-  Future<void> _editGroupColor(
-    BuildContext context,
-    EventTypeController controller,
-    ContactGroup group,
-  ) async {
-    final state = ref.read(eventTypeControllerProvider);
-    final current = Color(
-      _liveGroupColors[group.id] ??
-          state.groupColors[group.id] ??
-          group.defaultColorArgb,
-    );
-    final chosen = await showPlannerEventColorPicker(
-      context: context,
-      eventTypeLabel: group.label,
-      role: EventColorRole.accent,
-      initialColor: current,
-      otherColor: Theme.of(context).scaffoldBackgroundColor,
-      onChanged: (color) {
-        if (!mounted) {
-          return;
-        }
-        setState(() {
-          _liveGroupColors[group.id] = color.toARGB32();
-        });
-      },
-    );
-    if (!mounted) {
-      return;
-    }
-    if (chosen == null) {
-      setState(() {
-        _liveGroupColors.remove(group.id);
-      });
-      return;
-    }
-    await controller.saveContactGroupColor(
-      groupId: group.id,
-      colorArgb: chosen.toARGB32(),
-    );
-    if (mounted) {
-      setState(() {
-        _liveGroupColors.remove(group.id);
-      });
-    }
-  }
-
-  Future<void> _confirmRestoreEvents(
-    BuildContext context,
-    EventTypeController controller,
-  ) async {
-    final restore = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        key: const Key('planner-event-colors-restore-dialog'),
-        title: const Text('Restore Event color defaults?'),
-        content: const Text(
-          'Your custom Event colors will be replaced with the approved '
-          'defaults. Group colors will not change.',
-        ),
-        actions: <Widget>[
-          TextButton(
-            key: const Key('planner-event-colors-restore-cancel'),
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            key: const Key('planner-event-colors-restore-confirm'),
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Restore'),
-          ),
-        ],
-      ),
-    );
-    if (restore == true && context.mounted) {
-      await controller.restoreEventColorDefaults();
-      if (mounted) {
-        setState(_liveEventColors.clear);
-      }
-    }
-  }
-
-  Future<void> _confirmRestoreGroups(
-    BuildContext context,
-    EventTypeController controller,
-  ) async {
+  Future<void> _confirmRestoreGroups(BuildContext context) async {
     final restore = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         key: const Key('planner-group-colors-restore-dialog'),
         title: const Text('Restore Group color defaults?'),
         content: const Text(
-          'Your custom Contact Group colors will be replaced with the '
-          'approved defaults. Event colors will not change.',
+          'The four built-in default group colors will be restored. '
+          'Custom group colors and Event colors will not change.',
         ),
         actions: <Widget>[
           TextButton(
@@ -380,9 +325,54 @@ final class _PlannerEventColorsScreenState
       ),
     );
     if (restore == true && context.mounted) {
-      await controller.restoreContactGroupColorDefaults();
+      final profileId = ref.read(contactProfileIdProvider);
+      await ref
+          .read(contactRepositoryProvider)
+          .restoreBuiltInGroupColorDefaults(profileId);
+    }
+  }
+
+  Future<void> _confirmRestoreEvents(
+    BuildContext context,
+    EventTypeController controller,
+  ) async {
+    final colorScheme = Theme.of(context).colorScheme;
+    final restore = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        key: const Key('planner-event-colors-restore-dialog'),
+        title: Text(
+          'Restore Event color defaults?',
+          style: TextStyle(color: colorScheme.onSurface),
+        ),
+        content: Text(
+          'Your custom Event colors will be replaced with the approved '
+          'defaults. Group colors will not change.',
+          style: TextStyle(color: colorScheme.onSurfaceVariant),
+        ),
+        actions: <Widget>[
+          TextButton(
+            key: const Key('planner-event-colors-restore-cancel'),
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            style: TextButton.styleFrom(foregroundColor: colorScheme.primary),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            key: const Key('planner-event-colors-restore-confirm'),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: colorScheme.primary,
+              foregroundColor: colorScheme.onPrimary,
+            ),
+            child: const Text('Restore'),
+          ),
+        ],
+      ),
+    );
+    if (restore == true && context.mounted) {
+      await controller.restoreEventColorDefaults();
       if (mounted) {
-        setState(_liveGroupColors.clear);
+        setState(_liveEventColors.clear);
       }
     }
   }
@@ -513,6 +503,7 @@ final class _EventColorControls extends StatelessWidget {
           ),
           RecommendedEventColorsAction(
             key: Key('event-color-recommended-${type.stableKey}'),
+            color: Theme.of(context).colorScheme.primary,
             onPressed: onRecommendedAccent,
           ),
         ],
@@ -520,6 +511,21 @@ final class _EventColorControls extends StatelessWidget {
     );
   }
 }
+
+const EventType _taskColorType = EventType(
+  id: 'planner_task',
+  stableKey: PlannerEventColorResolver.taskStableKey,
+  label: 'Task',
+  icon: EventTypeIcon.calendar,
+  colorValue: 0xFFF2E9E0,
+  isSystem: true,
+  isArchived: false,
+  reportRequiredDefault: true,
+  defaultDurationMinutes: 15,
+  position: 999,
+  mappingVersion: 1,
+  indicatorKeys: <String>{},
+);
 
 final class _ColorControl extends StatelessWidget {
   const _ColorControl({
@@ -603,14 +609,336 @@ final class _ColorControl extends StatelessWidget {
   }
 }
 
+/// Contact Group Colors section backed by the canonical real ContactGroup
+/// rows (C2). Default (built-in) groups render first in the approved order,
+/// then custom groups. Editing writes the real row's colorValue; Restore
+/// Group Defaults is handled by the parent via the repository.
+final class _ContactGroupColorsSection extends ConsumerStatefulWidget {
+  const _ContactGroupColorsSection();
+
+  @override
+  ConsumerState<_ContactGroupColorsSection> createState() =>
+      _ContactGroupColorsSectionState();
+}
+
+final class _ContactGroupColorsSectionState
+    extends ConsumerState<_ContactGroupColorsSection> {
+  // Live preview colors during a picker drag; cleared once a save lands.
+  final Map<String, int> _liveColors = <String, int>{};
+
+  Future<void> _editGroupColor(
+    BuildContext context,
+    contacts.ContactGroup group,
+  ) async {
+    final chosen = await showModalBottomSheet<Color>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (sheetContext) => _GroupColorEditorSheet(
+        groupName: group.name,
+        initialColor: Color(_liveColors[group.id] ?? group.colorValue),
+      ),
+    );
+    if (!mounted) {
+      return;
+    }
+    if (chosen == null) {
+      return;
+    }
+    final profileId = ref.read(contactProfileIdProvider);
+    try {
+      await ref
+          .read(contactRepositoryProvider)
+          .updateGroup(
+            profileId: profileId,
+            groupId: group.id,
+            name: group.name,
+            colorValue: chosen.toARGB32(),
+          );
+    } on contacts.ContactValidationException catch (error) {
+      if (!context.mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    }
+    if (mounted) {
+      setState(() {
+        _liveColors.remove(group.id);
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final groupsAsync = ref.watch(contactGroupsProvider);
+    final profileId = ref.read(contactProfileIdProvider);
+    return groupsAsync.when(
+      loading: () => const Padding(
+        padding: EdgeInsets.all(16),
+        child: Center(child: CircularProgressIndicator()),
+      ),
+      error: (error, _) => Padding(
+        padding: const EdgeInsets.all(12),
+        child: Text(
+          'Contact groups could not be opened: $error',
+          style: TextStyle(color: Theme.of(context).colorScheme.error),
+        ),
+      ),
+      data: (groups) {
+        final byId = <String, contacts.ContactGroup>{
+          for (final group in groups) group.id: group,
+        };
+        // Built-ins keyed by their stable built-in key so tests and UI can
+        // reference Family/Friends/Avoid/Other deterministically.
+        final builtIns = <({String key, contacts.ContactGroup group})>[];
+        for (final definition in contacts.ContactBuiltInGroupDefaults.ordered) {
+          final row =
+              byId[contacts.ContactBuiltInGroupIdentity.idForProfile(
+                profileId,
+                definition.key,
+              )];
+          if (row != null) {
+            builtIns.add((key: definition.key, group: row));
+          }
+        }
+        final custom = groups
+            .where(
+              (group) => !contacts.ContactBuiltInGroupIdentity.isBuiltInId(
+                group.id,
+                profileId,
+              ),
+            )
+            .toList(growable: false);
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            const _GroupSectionSubHeader('Default Groups'),
+            for (final entry in builtIns)
+              _GroupColorRow(
+                rowKey: entry.key,
+                name: entry.group.name,
+                color: Color(
+                  _liveColors[entry.group.id] ?? entry.group.colorValue,
+                ),
+                onPressed: () => _editGroupColor(context, entry.group),
+              ),
+            if (custom.isNotEmpty) ...<Widget>[
+              const SizedBox(height: 10),
+              const _GroupSectionSubHeader('Custom Groups'),
+              for (final group in custom)
+                _GroupColorRow(
+                  rowKey: group.id,
+                  name: group.name,
+                  color: Color(_liveColors[group.id] ?? group.colorValue),
+                  onPressed: () => _editGroupColor(context, group),
+                ),
+            ],
+            if (groups.isEmpty)
+              const Padding(
+                padding: EdgeInsets.all(12),
+                child: Text(
+                  'No groups yet. Create one from the Contacts menu.',
+                  style: TextStyle(fontSize: 14),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+final class _GroupColorEditorSheet extends StatefulWidget {
+  const _GroupColorEditorSheet({
+    required this.groupName,
+    required this.initialColor,
+  });
+
+  final String groupName;
+  final Color initialColor;
+
+  @override
+  State<_GroupColorEditorSheet> createState() => _GroupColorEditorSheetState();
+}
+
+final class _GroupColorEditorSheetState extends State<_GroupColorEditorSheet> {
+  late Color _draft = widget.initialColor;
+
+  Future<void> _openCustomColor() async {
+    final chosen = await showPlannerEventColorPicker(
+      context: context,
+      eventTypeLabel: widget.groupName,
+      role: EventColorRole.accent,
+      initialColor: _draft,
+      otherColor: Theme.of(context).scaffoldBackgroundColor,
+      onChanged: (color) {
+        if (mounted) {
+          setState(() => _draft = color);
+        }
+      },
+    );
+    if (chosen != null && mounted) {
+      setState(() => _draft = chosen);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              Center(
+                child: Container(
+                  width: 38,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppTheme.outlineOf(context),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                'Edit Group Color',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 14),
+              Row(
+                children: <Widget>[
+                  Container(
+                    key: const Key('group-color-current-swatch'),
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: _draft,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Theme.of(context).colorScheme.outline,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Text(
+                    widget.groupName,
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'Recommended Colors',
+                key: Key('group-recommended-colors-title'),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: <Widget>[
+                  for (final color in RecommendedEventColorPalette.colors)
+                    InkWell(
+                      key: Key('group-recommended-color-${color.name}'),
+                      customBorder: const CircleBorder(),
+                      onTap: () => setState(() => _draft = Color(color.argb)),
+                      child: Semantics(
+                        label: color.name,
+                        selected: _draft.toARGB32() == color.argb,
+                        child: Container(
+                          width: 42,
+                          height: 42,
+                          decoration: BoxDecoration(
+                            color: Color(color.argb),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: _draft.toARGB32() == color.argb
+                                  ? Theme.of(context).colorScheme.onSurface
+                                  : Theme.of(context).colorScheme.outline,
+                              width: _draft.toARGB32() == color.argb ? 3 : 1,
+                            ),
+                          ),
+                          child: _draft.toARGB32() == color.argb
+                              ? const Icon(Icons.check, size: 20)
+                              : null,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  key: const Key('group-custom-color'),
+                  onPressed: _openCustomColor,
+                  icon: const Icon(Icons.palette_outlined, size: 20),
+                  label: const Text('Custom Color'),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: <Widget>[
+                  TextButton(
+                    key: const Key('group-color-editor-cancel'),
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Cancel'),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton(
+                    key: const Key('group-color-editor-save'),
+                    onPressed: () => Navigator.of(context).pop(_draft),
+                    child: const Text('Save'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+final class _GroupSectionSubHeader extends StatelessWidget {
+  const _GroupSectionSubHeader(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(0, 10, 0, 6),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
+      ),
+    );
+  }
+}
+
 final class _GroupColorRow extends StatelessWidget {
   const _GroupColorRow({
-    required this.group,
+    required this.rowKey,
+    required this.name,
     required this.color,
     required this.onPressed,
   });
 
-  final ContactGroup group;
+  final String rowKey;
+  final String name;
   final Color color;
   final VoidCallback onPressed;
 
@@ -618,22 +946,22 @@ final class _GroupColorRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       container: true,
-      label: '${group.label} group color, current value ${colorHex(color)}',
+      label: '$name group color, current value ${colorHex(color)}',
       child: SizedBox(
-        key: Key('planner-group-color-row-${group.id}'),
+        key: Key('planner-group-color-row-$rowKey'),
         height: 52,
         child: Row(
           children: <Widget>[
             Expanded(
               child: Text(
-                group.label,
+                name,
                 style: Theme.of(
                   context,
                 ).textTheme.bodyLarge?.copyWith(fontSize: 16),
               ),
             ),
             InkWell(
-              key: Key('group-color-swatch-${group.id}'),
+              key: Key('group-color-swatch-$rowKey'),
               onTap: onPressed,
               borderRadius: BorderRadius.circular(22),
               child: SizedBox(
@@ -657,8 +985,8 @@ final class _GroupColorRow extends StatelessWidget {
               width: 40,
               height: 40,
               child: IconButton(
-                key: Key('group-color-edit-${group.id}'),
-                tooltip: 'Edit ${group.label} group color',
+                key: Key('group-color-edit-$rowKey'),
+                tooltip: 'Edit $name group color',
                 onPressed: onPressed,
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints.tightFor(

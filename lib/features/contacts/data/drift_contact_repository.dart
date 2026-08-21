@@ -7,6 +7,8 @@ import 'package:rmplanner/core/time/app_clock.dart';
 import 'package:rmplanner/features/contacts/application/contact_repository.dart';
 import 'package:rmplanner/features/contacts/domain/contact.dart';
 import 'package:rmplanner/features/planner/domain/calendar_event.dart';
+import 'package:rmplanner/features/planner/domain/event_color_preferences.dart'
+    hide ContactGroup, ContactGroupDefaults;
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 import 'package:rmplanner/features/planner/domain/planner_task.dart';
 
@@ -376,7 +378,14 @@ final class DriftContactRepository implements ContactRepository {
         database.contacts.lifecycleState.isNotValue(
           ContactLifecycleState.merged.name,
         );
-    if (!criteria.includeArchived) {
+    if (criteria.archivedOnly) {
+      // C3 truthful Archived view: archived contacts only.
+      where =
+          where &
+          database.contacts.lifecycleState.equals(
+            ContactLifecycleState.archived.name,
+          );
+    } else if (!criteria.includeArchived) {
       where =
           where &
           database.contacts.lifecycleState.equals(
@@ -406,22 +415,98 @@ final class DriftContactRepository implements ContactRepository {
     }
     baseQuery.where((table) => where);
     if (sortBy == ContactSortBy.name) {
-      baseQuery.orderBy([(table) => OrderingTerm.asc(table.displayName)]);
+      baseQuery.orderBy([
+        (table) => OrderingTerm.asc(table.displayName),
+        (table) => OrderingTerm.asc(table.id),
+      ]);
+    } else if (sortBy == ContactSortBy.nameDesc) {
+      baseQuery.orderBy([
+        (table) => OrderingTerm.desc(table.displayName),
+        (table) => OrderingTerm.asc(table.id),
+      ]);
+    } else if (sortBy == ContactSortBy.oldestAdded) {
+      baseQuery.orderBy([
+        (table) => OrderingTerm.asc(table.createdAtUtc),
+        (table) => OrderingTerm.asc(table.displayName),
+        (table) => OrderingTerm.asc(table.id),
+      ]);
+    } else if (sortBy == ContactSortBy.nextEvent ||
+        sortBy == ContactSortBy.lastEvent) {
+      // Event-derived sorts cannot be expressed without the batched event
+      // context, which this repository loads after the base Contact query.
+      // Keep a deterministic base order here and re-sort the final summaries
+      // below once the canonical nextEventDate/lastEventDate facts are known.
+      baseQuery.orderBy([
+        (table) => OrderingTerm.asc(table.displayName),
+        (table) => OrderingTerm.asc(table.id),
+      ]);
     } else {
-      baseQuery.orderBy([(table) => OrderingTerm.desc(table.createdAtUtc)]);
+      baseQuery.orderBy([
+        (table) => OrderingTerm.desc(table.createdAtUtc),
+        (table) => OrderingTerm.asc(table.displayName),
+        (table) => OrderingTerm.asc(table.id),
+      ]);
     }
     final rows = await baseQuery.get();
     if (rows.isEmpty) {
       return const <ContactSummary>[];
     }
     final ids = rows.map((row) => row.id).toList(growable: false);
-    return _buildSummaries(
+    final summaries = await _buildSummaries(
       profileId: profileId,
       contactRows: rows,
       ids: ids,
       criteria: criteria,
       today: today,
     );
+    if (sortBy == ContactSortBy.nextEvent || sortBy == ContactSortBy.lastEvent) {
+      return _sortSummariesByEventDates(summaries, sortBy);
+    }
+    return summaries;
+  }
+
+  /// Deterministic ordering for the event-derived sorts, applied ONLY after
+  /// the batched event context is loaded (no N+1, no fake SQL column).
+  ///
+  /// NEXT EVENT: contacts with a nextEventDate first, earliest date first,
+  /// contacts without one LAST.
+  /// LAST EVENT: contacts with a lastEventDate first, most recent date first,
+  /// contacts without one LAST.
+  /// Ties fall back to displayName ascending, then stable contact id.
+  List<ContactSummary> _sortSummariesByEventDates(
+    List<ContactSummary> summaries,
+    ContactSortBy sortBy,
+  ) {
+    final sorted = List<ContactSummary>.of(summaries);
+    sorted.sort((a, b) {
+      final aDate = sortBy == ContactSortBy.nextEvent
+          ? a.context.nextEventDate
+          : a.context.lastEventDate;
+      final bDate = sortBy == ContactSortBy.nextEvent
+          ? b.context.nextEventDate
+          : b.context.lastEventDate;
+      final int byDate;
+      if (aDate == null && bDate == null) {
+        byDate = 0;
+      } else if (aDate == null) {
+        byDate = 1;
+      } else if (bDate == null) {
+        byDate = -1;
+      } else {
+        byDate = sortBy == ContactSortBy.nextEvent
+            ? aDate.compareTo(bDate)
+            : bDate.compareTo(aDate);
+      }
+      if (byDate != 0) {
+        return byDate;
+      }
+      final byName = a.contact.displayName.compareTo(b.contact.displayName);
+      if (byName != 0) {
+        return byName;
+      }
+      return a.contact.id.compareTo(b.contact.id);
+    });
+    return List<ContactSummary>.unmodifiable(sorted);
   }
 
   /// Batches methods, memberships, tags, and event context for [ids] and
@@ -454,16 +539,12 @@ final class DriftContactRepository implements ContactRepository {
         ])..where(database.contactGroupMemberships.contactId.isIn(ids))).get();
     final primaryGroupByContact = <String, ContactGroupRow>{};
     final groupNamesByContact = <String, List<String>>{};
-    final groupIdsByContact = <String, Set<String>>{};
     for (final row in membershipRows) {
       final membership = row.readTable(database.contactGroupMemberships);
       final group = row.readTable(database.contactGroups);
       if (group.isArchived) {
         continue;
       }
-      groupIdsByContact
-          .putIfAbsent(membership.contactId, () => <String>{})
-          .add(group.id);
       if (membership.isPrimary) {
         primaryGroupByContact[membership.contactId] = group;
       } else {
@@ -514,9 +595,44 @@ final class DriftContactRepository implements ContactRepository {
               false)) {
         continue;
       }
-      final groupIds = groupIdsByContact[contactId] ?? const <String>{};
+      // Address presence is truthful: a stored address must be non-empty.
+      if (criteria.hasAddress && !_hasRecordedAddress(row)) {
+        continue;
+      }
+      // Phone / Email / Address / Social Profile category selections.  Empty
+      // lists are neutral ("All"); a non-empty list ORs its keys within the
+      // category, including the absence keys (No Phone / No Email / etc.).
+      if (criteria.phoneLabels.isNotEmpty &&
+          !_matchesPhoneFilter(
+            criteria.phoneLabels,
+            methodsByContact[contactId] ?? const <ContactMethodRow>[],
+          )) {
+        continue;
+      }
+      if (criteria.emailLabels.isNotEmpty &&
+          !_matchesEmailFilter(
+            criteria.emailLabels,
+            methodsByContact[contactId] ?? const <ContactMethodRow>[],
+          )) {
+        continue;
+      }
+      if (criteria.addressLabels.isNotEmpty &&
+          !_matchesAddressFilter(criteria.addressLabels, row)) {
+        continue;
+      }
+      if (criteria.socialLabels.isNotEmpty &&
+          !_matchesSocialFilter(
+            criteria.socialLabels,
+            methodsByContact[contactId] ?? const <ContactMethodRow>[],
+          )) {
+        continue;
+      }
+      // C2 one-group V1: group filters match the PRIMARY membership only, so a
+      // dormant legacy secondary membership can never surface a Contact in a
+      // group view that contradicts its one visible/current group.
+      final primaryGroupId = primaryGroupByContact[contactId]?.id;
       if (criteria.groupIds.isNotEmpty &&
-          !criteria.groupIds.any(groupIds.contains)) {
+          !criteria.groupIds.contains(primaryGroupId)) {
         continue;
       }
       final tagIds = tagIdsByContact[contactId] ?? const <String>{};
@@ -851,11 +967,18 @@ final class DriftContactRepository implements ContactRepository {
         ? primaryGroupId
         : null;
     await database.transaction(() async {
-      await (database.delete(
+      // C2 one-group V1: preserve dormant legacy secondary membership rows.
+      // Only add the newly selected group(s) and promote exactly one primary;
+      // never bulk-delete the existing memberships.
+      final existing = await (database.select(
         database.contactGroupMemberships,
-      )..where((table) => table.contactId.equals(contactId))).go();
+      )..where((table) => table.contactId.equals(contactId))).get();
+      final existingIds = existing.map((row) => row.groupId).toSet();
+      final toAdd = normalizedIds
+          .where((id) => !existingIds.contains(id))
+          .toList(growable: false);
       await database.batch((batch) {
-        for (final groupId in normalizedIds) {
+        for (final groupId in toAdd) {
           batch.insert(
             database.contactGroupMemberships,
             ContactGroupMembershipsCompanion.insert(
@@ -867,6 +990,21 @@ final class DriftContactRepository implements ContactRepository {
           );
         }
       });
+      // Demote any current primary that is not the chosen one (or all when
+      // clearing). Preserve every dormant row.
+      await (database.update(database.contactGroupMemberships)..where(
+            (table) =>
+                table.contactId.equals(contactId) &
+                table.isPrimary.equals(true) &
+                (primary == null
+                    ? const Constant(true)
+                    : table.groupId.isNotValue(primary)),
+          ))
+          .write(
+            const ContactGroupMembershipsCompanion(
+              isPrimary: Value<bool>(false),
+            ),
+          );
       if (primary != null) {
         await (database.update(database.contactGroupMemberships)..where(
               (table) =>
@@ -878,19 +1016,101 @@ final class DriftContactRepository implements ContactRepository {
                 isPrimary: Value<bool>(true),
               ),
             );
-        await (database.update(database.contactGroupMemberships)..where(
-              (table) =>
-                  table.contactId.equals(contactId) &
-                  table.groupId.isNotValue(primary) &
-                  table.isPrimary.equals(true),
-            ))
-            .write(
-              const ContactGroupMembershipsCompanion(
-                isPrimary: Value<bool>(false),
-              ),
-            );
       }
     });
+  }
+
+  @override
+  Future<void> ensureBuiltInGroups(String profileId) async {
+    // Read-only collision gate BEFORE any mutation (C2 privacy-safe gate).
+    final existing = await (database.select(
+      database.contactGroups,
+    )..where((table) => table.profileId.equals(profileId))).get();
+    final existingByName = <String, ContactGroupRow>{};
+    for (final row in existing) {
+      existingByName.putIfAbsent(row.name, () => row);
+    }
+    // Legacy Store A override read (dormant after canonicalization): a saved
+    // override for a built-in stable key is imported ONLY when creating a
+    // missing built-in row.
+    final legacyGroups = await _readLegacyStoreAGroupColors(profileId);
+    final now = clock.nowUtc();
+    for (final builtIn in ContactBuiltInGroupDefaults.ordered) {
+      final expectedId = ContactBuiltInGroupIdentity.idForProfile(
+        profileId,
+        builtIn.key,
+      );
+      final rowById = existing.where((row) => row.id == expectedId).firstOrNull;
+      if (rowById != null) {
+        // Real built-in row already exists: canonical, never overwrite from
+        // Store A.
+        continue;
+      }
+      final nameCollision = existingByName[builtIn.name];
+      if (nameCollision != null) {
+        // STOP C2: a real row uses the built-in name but NOT the expected
+        // built-in identity. Never auto-merge or overwrite by name.
+        throw ContactValidationException(
+          'Built-in group "${builtIn.name}" collides with an existing custom '
+          'group (id ${nameCollision.id}). C2 built-in reconciliation stopped '
+          'to preserve your data.',
+        );
+      }
+      final override = legacyGroups[builtIn.key];
+      await database
+          .into(database.contactGroups)
+          .insert(
+            ContactGroupsCompanion.insert(
+              id: expectedId,
+              profileId: profileId,
+              name: builtIn.name,
+              colorValue: override ?? builtIn.colorArgb,
+              isArchived: const Value<bool>(false),
+              sortOrder: const Value<int>(0),
+              createdAtUtc: now,
+              updatedAtUtc: now,
+            ),
+            mode: InsertMode.insertOrIgnore,
+          );
+    }
+  }
+
+  @override
+  Future<void> restoreBuiltInGroupColorDefaults(String profileId) async {
+    await ensureBuiltInGroups(profileId);
+    final now = clock.nowUtc();
+    for (final builtIn in ContactBuiltInGroupDefaults.ordered) {
+      final expectedId = ContactBuiltInGroupIdentity.idForProfile(
+        profileId,
+        builtIn.key,
+      );
+      await (database.update(database.contactGroups)..where(
+            (table) =>
+                table.profileId.equals(profileId) & table.id.equals(expectedId),
+          ))
+          .write(
+            ContactGroupsCompanion(
+              colorValue: Value<int>(builtIn.colorArgb),
+              updatedAtUtc: Value<DateTime>(now),
+            ),
+          );
+    }
+  }
+
+  /// Reads ONLY the legacy Settings group-color map (Store A) without
+  /// mutating it. Returns an empty map when absent or malformed.
+  Future<Map<String, int>> _readLegacyStoreAGroupColors(
+    String profileId,
+  ) async {
+    final row = await (database.select(
+      database.plannerPreferences,
+    )..where((table) => table.profileId.equals(profileId))).getSingleOrNull();
+    if (row == null) {
+      return const <String, int>{};
+    }
+    return EventColorPreferenceCodec.decodeDocument(
+      row.eventColorPreferencesJson,
+    ).groups;
   }
 
   // -- Tags -----------------------------------------------------------------
@@ -1134,7 +1354,11 @@ final class DriftContactRepository implements ContactRepository {
             profileId: profileId,
             name: name,
             isSystem: Value<bool>(draft.isSystem),
-            criteriaJson: draft.criteria.encode(),
+            criteriaJson: SavedContactFilterDocument(
+              criteria: draft.criteria,
+              description: draft.description,
+              displayedFields: draft.displayedFields,
+            ).encode(),
             sortBy: Value<String>(draft.sortBy.name),
             createdAtUtc: now,
             updatedAtUtc: now,
@@ -1145,6 +1369,64 @@ final class DriftContactRepository implements ContactRepository {
               ..where(
                 (table) =>
                     table.profileId.equals(profileId) & table.id.equals(id),
+              )
+              ..limit(1))
+            .getSingle();
+    return _filterFromRow(row);
+  }
+
+  @override
+  Future<SavedContactFilter> updateSavedFilter({
+    required String profileId,
+    required String filterId,
+    required SavedContactFilterDraft draft,
+  }) async {
+    final name = draft.name.trim();
+    if (name.isEmpty) {
+      throw const ContactValidationException('Filter name cannot be blank.');
+    }
+    final existing =
+        await (database.select(database.savedContactFilters)
+              ..where(
+                (table) =>
+                    table.profileId.equals(profileId) &
+                    table.id.equals(filterId),
+              )
+              ..limit(1))
+            .getSingleOrNull();
+    if (existing == null) {
+      throw const ContactValidationException('Saved filter was not found.');
+    }
+    if (existing.isSystem) {
+      throw const ContactValidationException(
+        'System filters cannot be edited.',
+      );
+    }
+    final now = clock.nowUtc();
+    await (database.update(database.savedContactFilters)..where(
+          (table) =>
+              table.profileId.equals(profileId) & table.id.equals(filterId),
+        ))
+        .write(
+          SavedContactFiltersCompanion(
+            name: Value<String>(name),
+            criteriaJson: Value<String>(
+              SavedContactFilterDocument(
+                criteria: draft.criteria,
+                description: draft.description,
+                displayedFields: draft.displayedFields,
+              ).encode(),
+            ),
+            sortBy: Value<String>(draft.sortBy.name),
+            updatedAtUtc: Value<DateTime>(now),
+          ),
+        );
+    final row =
+        await (database.select(database.savedContactFilters)
+              ..where(
+                (table) =>
+                    table.profileId.equals(profileId) &
+                    table.id.equals(filterId),
               )
               ..limit(1))
             .getSingle();
@@ -2551,6 +2833,127 @@ final class DriftContactRepository implements ContactRepository {
 
   // -- Row mapping ----------------------------------------------------------
 
+  static bool _hasRecordedAddress(ContactRow row) {
+    final text = row.addressText?.trim() ?? '';
+    return text.isNotEmpty;
+  }
+
+  /// Phone category filter.  Keys come from [ContactPhoneFilterKeys].
+  /// Selections OR together within the category; absence (No Phone) matches
+  /// contacts with zero phone methods.
+  static bool _matchesPhoneFilter(
+    List<String> selection,
+    List<ContactMethodRow> methods,
+  ) {
+    final phones = methods
+        .where((m) => m.type == ContactMethodType.phone.name)
+        .toList(growable: false);
+    if (selection.contains(ContactPhoneFilterKeys.noPhone) && phones.isEmpty) {
+      return true;
+    }
+    final typed =
+        selection.where((k) => k != ContactPhoneFilterKeys.noPhone).toSet();
+    if (typed.isEmpty) {
+      return false;
+    }
+    if (typed.contains(ContactPhoneFilterKeys.other)) {
+      return phones.any((m) {
+        final label = normalizedMethodLabel(m.label);
+        return label == null || !ContactPhoneFilterKeys.typed.contains(label);
+      });
+    }
+    return phones.any((m) {
+      final label = normalizedMethodLabel(m.label);
+      return label != null && typed.contains(label);
+    });
+  }
+
+  /// Email category filter.  Keys come from [ContactEmailFilterKeys].
+  /// "Personal" accepts both "personal" and device-style "home" labels.
+  static bool _matchesEmailFilter(
+    List<String> selection,
+    List<ContactMethodRow> methods,
+  ) {
+    final emails = methods
+        .where((m) => m.type == ContactMethodType.email.name)
+        .toList(growable: false);
+    if (selection.contains(ContactEmailFilterKeys.noEmail) && emails.isEmpty) {
+      return true;
+    }
+    final typed =
+        selection.where((k) => k != ContactEmailFilterKeys.noEmail).toSet();
+    if (typed.isEmpty) {
+      return false;
+    }
+    if (typed.contains(ContactEmailFilterKeys.other)) {
+      return emails.any((m) {
+        final label = normalizedMethodLabel(m.label);
+        return label == null || !{'personal', 'home', 'work', 'family'}.contains(label);
+      });
+    }
+    return emails.any((m) {
+      final label = normalizedMethodLabel(m.label);
+      if (label == null) {
+        return false;
+      }
+      if (typed.contains(ContactEmailFilterKeys.personal) &&
+          ContactEmailFilterKeys.personalLabels.contains(label)) {
+        return true;
+      }
+      if (typed.contains(ContactEmailFilterKeys.work) &&
+          label == ContactEmailFilterKeys.work) {
+        return true;
+      }
+      if (typed.contains(ContactEmailFilterKeys.family) &&
+          label == ContactEmailFilterKeys.family) {
+        return true;
+      }
+      return false;
+    });
+  }
+
+  /// Address category filter.  Keys come from [ContactAddressFilterKeys].
+  /// A map pin alone does not count as recorded; only stored addressText does.
+  static bool _matchesAddressFilter(List<String> selection, ContactRow row) {
+    final recorded = _hasRecordedAddress(row);
+    var match = false;
+    if (selection.contains(ContactAddressFilterKeys.notRecorded) && !recorded) {
+      match = true;
+    }
+    if (selection.contains(ContactAddressFilterKeys.recorded) && recorded) {
+      match = true;
+    }
+    return match;
+  }
+
+  /// Social Profile category filter.  Keys come from [ContactSocialFilterKeys].
+  static bool _matchesSocialFilter(
+    List<String> selection,
+    List<ContactMethodRow> methods,
+  ) {
+    final socials = methods
+        .where((m) => m.type == ContactMethodType.social.name)
+        .toList(growable: false);
+    if (selection.contains(ContactSocialFilterKeys.noSocial) && socials.isEmpty) {
+      return true;
+    }
+    final typed =
+        selection.where((k) => k != ContactSocialFilterKeys.noSocial).toSet();
+    if (typed.isEmpty) {
+      return false;
+    }
+    if (typed.contains(ContactSocialFilterKeys.other)) {
+      return socials.any((m) {
+        final label = normalizedMethodLabel(m.label);
+        return label == null || !ContactSocialFilterKeys.canonical.contains(label);
+      });
+    }
+    return socials.any((m) {
+      final label = normalizedMethodLabel(m.label);
+      return label != null && typed.contains(label);
+    });
+  }
+
   Contact _contactFromRow(ContactRow row) {
     return Contact(
       id: row.id,
@@ -2622,16 +3025,19 @@ final class DriftContactRepository implements ContactRepository {
   }
 
   SavedContactFilter _filterFromRow(SavedContactFilterRow row) {
+    final document = SavedContactFilterDocument.decode(row.criteriaJson);
     return SavedContactFilter(
       id: row.id,
       profileId: row.profileId,
       name: row.name,
       isSystem: row.isSystem,
-      criteria: ContactFilterCriteria.decode(row.criteriaJson),
+      criteria: document.criteria,
       sortBy:
           ContactSortBy.values.asNameMap()[row.sortBy] ?? ContactSortBy.name,
       createdAtUtc: row.createdAtUtc,
       updatedAtUtc: row.updatedAtUtc,
+      description: document.description,
+      displayedFields: document.displayedFields,
     );
   }
 

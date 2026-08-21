@@ -95,13 +95,25 @@ abstract interface class ContactRepository {
   });
 
   /// Replaces a Contact's group memberships and enforces a single primary
-  /// group within the same transaction.
+  /// group within the same transaction. Dormant legacy secondary memberships
+  /// are preserved (never bulk-deleted) per the C2 one-group V1 law.
   Future<void> setContactGroups({
     required String profileId,
     required String contactId,
     required List<String> groupIds,
     String? primaryGroupId,
   });
+
+  /// Idempotently ensures the four built-in default ContactGroup rows exist
+  /// for [profileId] with deterministic UUIDv5 identity. Collision-safe: if a
+  /// real row already uses one of the built-in names but NOT the expected
+  /// built-in identity, no mutation is performed for that group and a
+  /// [ContactValidationException] is thrown (the caller must STOP C2).
+  Future<void> ensureBuiltInGroups(String profileId);
+
+  /// Restores the four real built-in default group colors to their approved
+  /// defaults. Custom (non-built-in) groups are never touched.
+  Future<void> restoreBuiltInGroupColorDefaults(String profileId);
 
   // -- Tags -----------------------------------------------------------------
   Future<List<ContactTag>> readTags(String profileId);
@@ -133,6 +145,12 @@ abstract interface class ContactRepository {
 
   Future<SavedContactFilter> saveSavedFilter({
     required String profileId,
+    required SavedContactFilterDraft draft,
+  });
+
+  Future<SavedContactFilter> updateSavedFilter({
+    required String profileId,
+    required String filterId,
     required SavedContactFilterDraft draft,
   });
 
