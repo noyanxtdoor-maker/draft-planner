@@ -112,7 +112,9 @@ void main() {
     expect(find.byType(Checkbox), findsWidgets);
   });
 
-  testWidgets('C3-RF All/Some/None states control completion', (tester) async {
+  testWidgets(
+    'C3-R4 R2 neutral filter states keep completion available',
+    (tester) async {
     await pumpFilter(tester);
 
     await reveal(
@@ -123,17 +125,19 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('filter-master-favorites')));
     await tester.pumpAndSettle();
-    expect(
-      find.byKey(const Key('filter-validation-favorites')),
-      findsOneWidget,
-    );
+    expect(find.byKey(const Key('filter-validation-favorites')), findsNothing);
     expect(find.byKey(const Key('filter-state-favorites')), findsOneWidget);
-    expect(find.text('None'), findsOneWidget);
+    expect(
+      tester
+          .widget<Text>(find.byKey(const Key('filter-state-favorites')))
+          .data,
+      'All',
+    );
     expect(
       tester
           .widget<IconButton>(find.byKey(const Key('filter-builder-check')))
           .onPressed,
-      isNull,
+      isNotNull,
     );
 
     await tester.tap(find.byKey(const Key('filter-master-favorites')));
@@ -152,7 +156,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('filter-state-phone')), findsOneWidget);
     expect(find.text('Some'), findsOneWidget);
-  });
+    },
+  );
 
   testWidgets('C3-RF Restore Defaults is draft-only and resets filter state', (
     tester,

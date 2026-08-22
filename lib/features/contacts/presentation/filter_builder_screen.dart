@@ -231,6 +231,7 @@ final class _FilterBuilderScreenState
       ],
       selectedKeys: _displayedFields.map((field) => field.name).toSet(),
       validationLabel: 'displayed field',
+      allowNone: true,
       onToggle: () => setState(() {
         if (!_expanded.add('displayedFields')) {
           _expanded.remove('displayedFields');
@@ -278,10 +279,22 @@ final class _FilterBuilderScreenState
   ) {
     if (options.isEmpty) return ContactFilterSelectionState.all;
     final selection = _categorySelections[category];
+    if (contactFilterCategoryIsBoolean(category) &&
+        (selection == null || selection.isEmpty)) {
+      return ContactFilterSelectionState.all;
+    }
+    if (category == ContactFilterCategory.source &&
+        selection?.contains('all') == true) {
+      return ContactFilterSelectionState.all;
+    }
+    if (category == ContactFilterCategory.archived &&
+        selection?.contains('active') == true) {
+      return ContactFilterSelectionState.all;
+    }
     if (selection == null || selection.length == options.length) {
       return ContactFilterSelectionState.all;
     }
-    if (selection.isEmpty) return ContactFilterSelectionState.none;
+    if (selection.isEmpty) return ContactFilterSelectionState.all;
     return ContactFilterSelectionState.some;
   }
 
@@ -344,9 +357,15 @@ final class _FilterBuilderScreenState
     }
     setState(() {
       _categorySelections[category] = normalized;
-      if (normalized == null || normalized.isEmpty) {
+      if (normalized == null ||
+          (normalized.isEmpty &&
+              (contactFilterCategoryUsesNeutralAll(category) ||
+                  category == ContactFilterCategory.source ||
+                  category == ContactFilterCategory.archived)) ||
+          normalized.length == options.length) {
+        _categorySelections[category] = null;
         _criteria = clearContactFilterCategory(_criteria, category);
-      } else if (normalized.length == options.length) {
+      } else if (normalized.isEmpty) {
         _criteria = clearContactFilterCategory(_criteria, category);
       } else {
         _criteria = contactFilterCriteriaForSelection(
@@ -379,22 +398,6 @@ final class _FilterBuilderScreenState
   }
 
   bool get _hasInvalidNone {
-    if (_displayedFieldState == ContactFilterSelectionState.none) return true;
-    final groups =
-        ref.read(contactGroupsProvider).value ?? const <ContactGroup>[];
-    final tags = ref.read(contactTagsProvider).value ?? const <ContactTag>[];
-    for (final category in ContactFilterCategory.values) {
-      final options = contactFilterOptions(
-        category: category,
-        groups: groups,
-        tags: tags,
-      );
-      if (options.isNotEmpty &&
-          _categoryState(category, options) ==
-              ContactFilterSelectionState.none) {
-        return true;
-      }
-    }
     return false;
   }
 
@@ -701,8 +704,14 @@ final class _FilterBuilderScreenState
       ContactSortBy.nameDesc => 'Name (Z–A)',
       ContactSortBy.recentlyAdded => 'Recently added',
       ContactSortBy.oldestAdded => 'Oldest added',
+      ContactSortBy.status => 'Status',
+      ContactSortBy.lastViewed => 'Last Viewed',
       ContactSortBy.nextEvent => 'Next Event',
       ContactSortBy.lastEvent => 'Last Event',
+      ContactSortBy.lastHappenedEvent => 'Last Happened Event',
+      ContactSortBy.leastRecentEvent => 'Least Recent Event',
+      ContactSortBy.leastRecentHappenedEvent =>
+        'Least Recent Happened Event',
     };
   }
 
@@ -710,10 +719,14 @@ final class _FilterBuilderScreenState
     return switch (value) {
       ContactDisplayedField.currentGroup => 'Current Group',
       ContactDisplayedField.tags => 'Tags',
-      ContactDisplayedField.nextEvent => 'Next Event',
-      ContactDisplayedField.lastEvent => 'Last Event',
+      ContactDisplayedField.nextEvent => 'Next Event Date',
+      ContactDisplayedField.lastEvent => 'Last Event Date',
+      ContactDisplayedField.lastHappenedEvent => 'Last Happened Event Date',
       ContactDisplayedField.contactMethod => 'Contact Method',
       ContactDisplayedField.address => 'Address',
+      ContactDisplayedField.lastInteraction => 'Last Interaction',
+      ContactDisplayedField.lastViewed => 'Last Viewed',
+      ContactDisplayedField.createdDate => 'Created Date',
     };
   }
 }
@@ -731,6 +744,7 @@ final class _InlineFilterSection extends StatelessWidget {
     required this.onToggle,
     required this.onMasterChanged,
     required this.onOptionChanged,
+    this.allowNone = false,
   });
 
   final Key sectionKey;
@@ -744,10 +758,12 @@ final class _InlineFilterSection extends StatelessWidget {
   final VoidCallback onToggle;
   final ValueChanged<bool?> onMasterChanged;
   final void Function(String key, bool checked) onOptionChanged;
+  final bool allowNone;
 
   @override
   Widget build(BuildContext context) {
     final isNone = state == ContactFilterSelectionState.none;
+    final isInvalidNone = isNone && !allowNone;
     final outline = Theme.of(
       context,
     ).colorScheme.outlineVariant.withValues(alpha: .7);
@@ -804,7 +820,7 @@ final class _InlineFilterSection extends StatelessWidget {
                       _stateLabel(state),
                       key: Key('filter-state-${label.toLowerCase()}'),
                       style: TextStyle(
-                        color: isNone
+                        color: isInvalidNone
                             ? Theme.of(context).colorScheme.error
                             : Theme.of(context).colorScheme.primary,
                         fontSize: 14,
@@ -825,7 +841,7 @@ final class _InlineFilterSection extends StatelessWidget {
               ),
             ),
           ),
-          if (isNone)
+          if (isInvalidNone)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
               child: Text(

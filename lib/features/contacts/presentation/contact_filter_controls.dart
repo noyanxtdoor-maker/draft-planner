@@ -16,17 +16,26 @@ enum ContactFilterCategory {
   email,
   address,
   socialProfile,
+  withEventsToday,
+  withFutureEvents,
+  withoutFutureEvents,
 }
 
-/// Categories exposed as quick chips on Contacts Home.  Kept frozen from the
-/// pre-Filter-Final-Polish layout so Home does not gain or lose chips.
+/// Contacts Home is a compact, horizontal fast-access projection of the same
+/// canonical Filter Builder criteria. Sorting deliberately remains elsewhere.
 const List<ContactFilterCategory> quickFilterCategories = <ContactFilterCategory>[
   ContactFilterCategory.groups,
   ContactFilterCategory.tags,
   ContactFilterCategory.favorites,
   ContactFilterCategory.availability,
-  ContactFilterCategory.contactMethods,
+  ContactFilterCategory.phone,
+  ContactFilterCategory.email,
+  ContactFilterCategory.address,
+  ContactFilterCategory.socialProfile,
   ContactFilterCategory.eventHistory,
+  ContactFilterCategory.withEventsToday,
+  ContactFilterCategory.withFutureEvents,
+  ContactFilterCategory.withoutFutureEvents,
   ContactFilterCategory.source,
   ContactFilterCategory.archived,
 ];
@@ -50,6 +59,28 @@ const List<ContactFilterCategory> filterBuilderCategories = <ContactFilterCatego
 
 enum ContactFilterSelectionState { all, some, none }
 
+bool contactFilterCategoryUsesNeutralAll(ContactFilterCategory category) =>
+    switch (category) {
+      ContactFilterCategory.groups ||
+      ContactFilterCategory.tags ||
+      ContactFilterCategory.availability ||
+      ContactFilterCategory.phone ||
+      ContactFilterCategory.email ||
+      ContactFilterCategory.address ||
+      ContactFilterCategory.socialProfile ||
+      ContactFilterCategory.eventHistory => true,
+      _ => false,
+    };
+
+bool contactFilterCategoryIsBoolean(ContactFilterCategory category) =>
+    switch (category) {
+      ContactFilterCategory.favorites ||
+      ContactFilterCategory.withEventsToday ||
+      ContactFilterCategory.withFutureEvents ||
+      ContactFilterCategory.withoutFutureEvents => true,
+      _ => false,
+    };
+
 String contactFilterCategoryLabel(ContactFilterCategory category) {
   return switch (category) {
     ContactFilterCategory.groups => 'Groups',
@@ -64,6 +95,9 @@ String contactFilterCategoryLabel(ContactFilterCategory category) {
     ContactFilterCategory.email => 'Email',
     ContactFilterCategory.address => 'Address',
     ContactFilterCategory.socialProfile => 'Social Profile',
+    ContactFilterCategory.withEventsToday => 'With Events Today',
+    ContactFilterCategory.withFutureEvents => 'With Future Events',
+    ContactFilterCategory.withoutFutureEvents => 'Without Future Events',
   };
 }
 
@@ -88,6 +122,9 @@ bool contactFilterCategoryIsActive(
     ContactFilterCategory.email => criteria.emailLabels.isNotEmpty,
     ContactFilterCategory.address => criteria.addressLabels.isNotEmpty,
     ContactFilterCategory.socialProfile => criteria.socialLabels.isNotEmpty,
+    ContactFilterCategory.withEventsToday => criteria.withEventsToday,
+    ContactFilterCategory.withFutureEvents => criteria.withFutureEvents,
+    ContactFilterCategory.withoutFutureEvents => criteria.withoutFutureEvents,
   };
 }
 
@@ -110,6 +147,9 @@ ContactFilterSelectionState contactFilterCategoryState(
     ContactFilterCategory.email => 5,
     ContactFilterCategory.address => 2,
     ContactFilterCategory.socialProfile => 9,
+    ContactFilterCategory.withEventsToday => 1,
+    ContactFilterCategory.withFutureEvents => 1,
+    ContactFilterCategory.withoutFutureEvents => 1,
   };
   if (optionCount == 0 || !contactFilterCategoryIsActive(criteria, category)) {
     return ContactFilterSelectionState.all;
@@ -137,6 +177,10 @@ ContactFilterSelectionState contactFilterCategoryState(
     ContactFilterCategory.email => criteria.emailLabels.length,
     ContactFilterCategory.address => criteria.addressLabels.length,
     ContactFilterCategory.socialProfile => criteria.socialLabels.length,
+    ContactFilterCategory.withEventsToday => criteria.withEventsToday ? 1 : 0,
+    ContactFilterCategory.withFutureEvents => criteria.withFutureEvents ? 1 : 0,
+    ContactFilterCategory.withoutFutureEvents =>
+      criteria.withoutFutureEvents ? 1 : 0,
   };
   if (selectedCount == 0) {
     return ContactFilterSelectionState.all;
@@ -197,6 +241,9 @@ String contactFilterCategorySummary(
     ContactFilterCategory.socialProfile => _joinLabels(
       criteria.socialLabels.map(_socialLabelName).toList(growable: false),
     ),
+    ContactFilterCategory.withEventsToday => 'On',
+    ContactFilterCategory.withFutureEvents => 'On',
+    ContactFilterCategory.withoutFutureEvents => 'On',
   };
 }
 
@@ -246,6 +293,18 @@ ContactFilterCriteria clearContactFilterCategory(
       criteria,
       socialLabels: const [],
     ),
+    ContactFilterCategory.withEventsToday => _copyCriteria(
+      criteria,
+      withEventsToday: false,
+    ),
+    ContactFilterCategory.withFutureEvents => _copyCriteria(
+      criteria,
+      withFutureEvents: false,
+    ),
+    ContactFilterCategory.withoutFutureEvents => _copyCriteria(
+      criteria,
+      withoutFutureEvents: false,
+    ),
   };
 }
 
@@ -255,6 +314,7 @@ Future<ContactFilterCriteria?> showContactFilterCategorySheet({
   required ContactFilterCriteria criteria,
   List<ContactGroup> groups = const <ContactGroup>[],
   List<ContactTag> tags = const <ContactTag>[],
+  ValueChanged<ContactFilterCriteria>? onValidChanged,
 }) {
   return showModalBottomSheet<ContactFilterCriteria>(
     context: context,
@@ -269,6 +329,7 @@ Future<ContactFilterCriteria?> showContactFilterCategorySheet({
       criteria: criteria,
       groups: groups,
       tags: tags,
+      onValidChanged: onValidChanged,
     ),
   );
 }
@@ -311,11 +372,13 @@ List<ContactFilterOption> contactFilterOptions({
       ContactFilterOption('history', 'Has Event History'),
     ],
     ContactFilterCategory.source => const <ContactFilterOption>[
+      ContactFilterOption('all', 'All'),
       ContactFilterOption('manual', 'Manual'),
       ContactFilterOption('device-import', 'Device Import'),
       ContactFilterOption('better-calendar-import', 'BetterCalendar Import'),
     ],
     ContactFilterCategory.archived => const <ContactFilterOption>[
+      ContactFilterOption('active', 'Active'),
       ContactFilterOption('included', 'Include archived'),
       ContactFilterOption('only', 'Archived only'),
     ],
@@ -348,6 +411,15 @@ List<ContactFilterOption> contactFilterOptions({
       ContactFilterOption(ContactSocialFilterKeys.x, 'X'),
       ContactFilterOption(ContactSocialFilterKeys.other, 'Other'),
     ],
+    ContactFilterCategory.withEventsToday => const <ContactFilterOption>[
+      ContactFilterOption('today', 'With Events Today'),
+    ],
+    ContactFilterCategory.withFutureEvents => const <ContactFilterOption>[
+      ContactFilterOption('future', 'With Future Events'),
+    ],
+    ContactFilterCategory.withoutFutureEvents => const <ContactFilterOption>[
+      ContactFilterOption('without-future', 'Without Future Events'),
+    ],
   };
 }
 
@@ -372,12 +444,14 @@ Set<String> contactFilterActiveKeys(
       if (criteria.eventHistoryAny) 'history',
     },
     ContactFilterCategory.source => <String>{
+      if (criteria.source == null) 'all',
       if (criteria.source == ContactSource.manual) 'manual',
       if (criteria.source == ContactSource.deviceImport) 'device-import',
       if (criteria.source == ContactSource.betterCalendarImport)
         'better-calendar-import',
     },
     ContactFilterCategory.archived => <String>{
+      if (!criteria.includeArchived && !criteria.archivedOnly) 'active',
       if (criteria.includeArchived && !criteria.archivedOnly) 'included',
       if (criteria.archivedOnly) 'only',
     },
@@ -385,6 +459,13 @@ Set<String> contactFilterActiveKeys(
     ContactFilterCategory.email => criteria.emailLabels.toSet(),
     ContactFilterCategory.address => criteria.addressLabels.toSet(),
     ContactFilterCategory.socialProfile => criteria.socialLabels.toSet(),
+    ContactFilterCategory.withEventsToday =>
+      criteria.withEventsToday ? <String>{'today'} : <String>{},
+    ContactFilterCategory.withFutureEvents =>
+      criteria.withFutureEvents ? <String>{'future'} : <String>{},
+    ContactFilterCategory.withoutFutureEvents => criteria.withoutFutureEvents
+      ? <String>{'without-future'}
+      : <String>{},
   };
 }
 
@@ -424,6 +505,7 @@ ContactFilterCriteria contactFilterCriteriaForSelection(
     ContactFilterCategory.source => _copyCriteria(
       criteria,
       source: switch (selected.single) {
+        'all' => null,
         'manual' => ContactSource.manual,
         'device-import' => ContactSource.deviceImport,
         _ => ContactSource.betterCalendarImport,
@@ -451,6 +533,24 @@ ContactFilterCriteria contactFilterCriteriaForSelection(
       criteria,
       socialLabels: selected.toList()..sort(),
     ),
+    ContactFilterCategory.withEventsToday => _copyCriteria(
+      criteria,
+      withEventsToday: selected.contains('today'),
+    ),
+    ContactFilterCategory.withFutureEvents => _copyCriteria(
+      criteria,
+      withFutureEvents: selected.contains('future'),
+      withoutFutureEvents: selected.contains('future')
+          ? false
+          : criteria.withoutFutureEvents,
+    ),
+    ContactFilterCategory.withoutFutureEvents => _copyCriteria(
+      criteria,
+      withoutFutureEvents: selected.contains('without-future'),
+      withFutureEvents: selected.contains('without-future')
+          ? false
+          : criteria.withFutureEvents,
+    ),
   };
 }
 
@@ -468,6 +568,9 @@ String contactFilterValidationLabel(ContactFilterCategory category) {
     ContactFilterCategory.email => 'email option',
     ContactFilterCategory.address => 'address option',
     ContactFilterCategory.socialProfile => 'social profile',
+    ContactFilterCategory.withEventsToday => 'events today',
+    ContactFilterCategory.withFutureEvents => 'future events',
+    ContactFilterCategory.withoutFutureEvents => 'without future events',
   };
 }
 
@@ -477,12 +580,14 @@ final class _ContactFilterCategorySheet extends StatefulWidget {
     required this.criteria,
     required this.groups,
     required this.tags,
+    this.onValidChanged,
   });
 
   final ContactFilterCategory category;
   final ContactFilterCriteria criteria;
   final List<ContactGroup> groups;
   final List<ContactTag> tags;
+  final ValueChanged<ContactFilterCriteria>? onValidChanged;
 
   @override
   State<_ContactFilterCategorySheet> createState() =>
@@ -499,8 +604,21 @@ final class _ContactFilterCategorySheetState
     if (_options.isEmpty) {
       return ContactFilterSelectionState.all;
     }
+    if (contactFilterCategoryIsBoolean(widget.category)) {
+      return _selected.isEmpty
+          ? ContactFilterSelectionState.all
+          : ContactFilterSelectionState.some;
+    }
+    if (widget.category == ContactFilterCategory.source &&
+        _selected.contains('all')) {
+      return ContactFilterSelectionState.all;
+    }
+    if (widget.category == ContactFilterCategory.archived &&
+        _selected.contains('active')) {
+      return ContactFilterSelectionState.all;
+    }
     if (_selected.isEmpty) {
-      return ContactFilterSelectionState.none;
+      return ContactFilterSelectionState.all;
     }
     if (_selected.length == _options.length) {
       return ContactFilterSelectionState.all;
@@ -571,7 +689,7 @@ final class _ContactFilterCategorySheetState
                       ContactFilterSelectionState.some => null,
                       ContactFilterSelectionState.none => false,
                     },
-                    onChanged: (_) => _selectAll(),
+                    onChanged: (_) => _toggleAll(),
                   ),
                 ],
               ),
@@ -601,33 +719,12 @@ final class _ContactFilterCategorySheetState
                     ),
                     minTileHeight: 52,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                    controlAffinity: ListTileControlAffinity.leading,
+                    controlAffinity: ListTileControlAffinity.trailing,
                     title: Text(option.label),
                     value: _selected.contains(option.key),
                     onChanged: (value) => _toggle(option.key, value == true),
                   );
                 },
-              ),
-            ),
-            const Divider(height: 1),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-              child: Row(
-                children: <Widget>[
-                  OutlinedButton(
-                    key: const Key('filter-sheet-clear'),
-                    onPressed: _clear,
-                    child: const Text('Clear'),
-                  ),
-                  const Spacer(),
-                  FilledButton(
-                    key: const Key('filter-sheet-apply'),
-                    onPressed: state == ContactFilterSelectionState.none
-                        ? null
-                        : _apply,
-                    child: const Text('Apply'),
-                  ),
-                ],
               ),
             ),
           ],
@@ -645,6 +742,11 @@ final class _ContactFilterCategorySheetState
   }
 
   Set<String> _initialSelection() {
+    if (contactFilterCategoryIsBoolean(widget.category) ||
+        widget.category == ContactFilterCategory.source ||
+        widget.category == ContactFilterCategory.archived) {
+      return _activeKeys(widget.criteria);
+    }
     final state = contactFilterCategoryState(
       widget.criteria,
       widget.category,
@@ -661,11 +763,22 @@ final class _ContactFilterCategorySheetState
     return contactFilterActiveKeys(criteria, widget.category);
   }
 
-  void _selectAll() {
+  void _toggleAll() {
     setState(() {
-      _selected = _options.map((option) => option.key).toSet();
+      if (widget.category == ContactFilterCategory.source) {
+        _selected = <String>{'all'};
+      } else if (widget.category == ContactFilterCategory.archived) {
+        _selected = <String>{'active'};
+      } else if (contactFilterCategoryIsBoolean(widget.category)) {
+        _selected = _selected.isEmpty
+            ? <String>{_options.single.key}
+            : <String>{};
+      } else {
+        _selected = _options.map((option) => option.key).toSet();
+      }
       _showValidation = false;
     });
+    _notifyValid();
   }
 
   void _toggle(String key, bool checked) {
@@ -680,35 +793,21 @@ final class _ContactFilterCategorySheetState
         }
       } else {
         _selected.remove(key);
+        if (contactFilterCategoryUsesNeutralAll(widget.category) &&
+            _selected.isEmpty) {
+          _selected = _options.map((option) => option.key).toSet();
+        }
       }
-      _showValidation = _selected.isEmpty;
+      _showValidation = false;
     });
+    _notifyValid();
   }
 
-  void _clear() {
-    setState(() {
-      _selected = <String>{};
-      _showValidation = _options.isNotEmpty;
-    });
-  }
-
-  void _apply() {
-    if (_options.isEmpty) {
-      Navigator.of(
-        context,
-      ).pop(clearContactFilterCategory(widget.criteria, widget.category));
-      return;
-    }
-    if (_selected.isEmpty) {
-      setState(() => _showValidation = true);
-      return;
-    }
-    final allSelected = _selected.length == _options.length;
-    Navigator.of(context).pop(
-      allSelected
-          ? clearContactFilterCategory(widget.criteria, widget.category)
-          : _criteriaForSelection(),
-    );
+  void _notifyValid() {
+    final criteria = _options.isEmpty || _selected.length == _options.length
+        ? clearContactFilterCategory(widget.criteria, widget.category)
+        : _criteriaForSelection();
+    widget.onValidChanged?.call(criteria);
   }
 
   ContactFilterCriteria _criteriaForSelection() {

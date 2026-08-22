@@ -117,34 +117,32 @@ final class _ContactSearchScreenState
                           },
                         ),
                   filled: true,
-                  fillColor: AppTheme.surfaceOf(context),
+                  fillColor: AppTheme.surfaceVariantOf(context).withValues(alpha: .45),
                   contentPadding: const EdgeInsets.symmetric(vertical: 14),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(28),
-                    borderSide: BorderSide(
-                      color: AppTheme.surfaceVariantOf(context),
-                    ),
+                    borderSide: BorderSide.none,
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(28),
-                    borderSide: BorderSide(
-                      color: AppTheme.surfaceVariantOf(context),
-                    ),
+                    borderSide: BorderSide.none,
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(28),
                     borderSide: BorderSide(
-                      color: AppTheme.secondaryTextOf(context),
+                      color: Theme.of(context).colorScheme.primary,
                     ),
                   ),
                 ),
               ),
             ),
-            const Padding(
-              padding: EdgeInsets.fromLTRB(16, 8, 16, 4),
-              child: Text('Matches', style: InternalScreen.sectionHeading),
-            ),
-            const Divider(height: 1, thickness: 1),
+            if (_controller.text.trim().isNotEmpty) ...<Widget>[
+              const Padding(
+                padding: EdgeInsets.fromLTRB(16, 8, 16, 4),
+                child: Text('Matches', style: InternalScreen.sectionHeading),
+              ),
+              const Divider(height: 1, thickness: 1),
+            ],
             Expanded(child: _buildResults()),
           ],
         ),
@@ -157,7 +155,21 @@ final class _ContactSearchScreenState
       return const Center(child: CircularProgressIndicator());
     }
     if (_controller.text.trim().isEmpty) {
-      return const SizedBox.shrink();
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Icon(Icons.manage_search, size: 52, color: AppTheme.outlineOf(context)),
+              const SizedBox(height: 14),
+              const Text('Find the people you’re looking for', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 6),
+              Text('Search by name, phone, email, groups, or tags.', textAlign: TextAlign.center, style: TextStyle(color: AppTheme.secondaryTextOf(context), fontSize: 14)),
+            ],
+          ),
+        ),
+      );
     }
     if (_results.isEmpty && _searched) {
       return Center(

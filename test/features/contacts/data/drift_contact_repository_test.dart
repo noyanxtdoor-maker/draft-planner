@@ -1,4 +1,4 @@
-﻿import 'package:drift/drift.dart' show Value;
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rmplanner/core/database/app_database.dart';
 import 'package:rmplanner/core/ids/identifier_source.dart';
@@ -891,337 +891,609 @@ void main() {
     }
 
     expect(await idsFor(const <String>[]), isNotEmpty);
-    expect(
-      await idsFor(const <String>[ContactAddressFilterKeys.recorded]),
-      {'a-recorded'},
-    );
-    expect(
-      await idsFor(const <String>[ContactAddressFilterKeys.notRecorded]),
-      {'a-space', 'a-none'},
-    );
+    expect(await idsFor(const <String>[ContactAddressFilterKeys.recorded]), {
+      'a-recorded',
+    });
+    expect(await idsFor(const <String>[ContactAddressFilterKeys.notRecorded]), {
+      'a-space',
+      'a-none',
+    });
   });
 
-  test('social filter matches canonical platforms and Other fallback', () async {
-    final (database, contacts, _, profileId) = await arrange();
-    addTearDown(database.close);
+  test(
+    'social filter matches canonical platforms and Other fallback',
+    () async {
+      final (database, contacts, _, profileId) = await arrange();
+      addTearDown(database.close);
 
-    Future<void> addSocial(String id, String value, {String? label}) async {
-      await contacts.createContact(
-        profileId: profileId,
-        draft: ContactDraft(
-          id: id,
-          firstName: id,
-          lastName: '',
-          displayName: id,
-          preferredContactMethod: ContactPreferredMethod.message,
-          isFavorite: false,
-          methods: <ContactMethodDraft>[
-            ContactMethodDraft(
-              type: ContactMethodType.social,
-              value: value,
-            ),
-          ],
-        ),
-      );
-      await (database.update(database.contactMethods)
-            ..where((t) => t.contactId.equals(id)))
-          .write(ContactMethodsCompanion(label: Value<String?>(label)));
-    }
-
-    await addSocial('s-wa', 'wa_user', label: 'whatsapp');
-    await addSocial('s-fb', 'fb_user', label: 'facebook');
-    await addSocial('s-x', 'x_user', label: 'x');
-    await addSocial('s-custom', 'custom_user', label: 'custom');
-    await addSocial('s-null', 'null_user');
-
-    Future<Set<String>> idsFor(List<String> socialLabels) async {
-      final rows = await contacts.readContacts(
-        profileId: profileId,
-        criteria: ContactFilterCriteria(socialLabels: socialLabels),
-        sortBy: ContactSortBy.name,
-        today: today,
-      );
-      return rows.map((s) => s.contact.id).toSet();
-    }
-
-    expect(await idsFor(const <String>[]), isNotEmpty);
-    expect(await idsFor(const <String>[ContactSocialFilterKeys.whatsapp]), {'s-wa'});
-    expect(await idsFor(const <String>[ContactSocialFilterKeys.facebook]), {'s-fb'});
-    expect(await idsFor(const <String>[ContactSocialFilterKeys.x]), {'s-x'});
-    expect(await idsFor(const <String>[ContactSocialFilterKeys.other]), {'s-custom', 's-null'});
-    expect(await idsFor(const <String>[ContactSocialFilterKeys.noSocial]), isEmpty);
-  });
-
-  test('new sort options order deterministically with stable tie-breakers', () async {
-    final (database, contacts, _, profileId) = await arrange();
-    addTearDown(database.close);
-
-    final base = DateTime.utc(2026, 8, 3, 12);
-    Future<void> addContact(String id, String name, Duration offset) async {
-      await contacts.createContact(
-        profileId: profileId,
-        draft: draftFor(id: id, first: name, last: ''),
-      );
-      await (database.update(database.contacts)..where((t) => t.id.equals(id)))
-          .write(ContactsCompanion(createdAtUtc: Value<DateTime>(base.add(offset))));
-    }
-
-    await addContact('c-b', 'Beta', const Duration(minutes: 10));
-    await addContact('c-a', 'Alpha', Duration.zero);
-    await addContact('c-c', 'Charlie', const Duration(minutes: 5));
-
-    Future<List<String>> sorted(ContactSortBy sortBy) async {
-      final rows = await contacts.readContacts(
-        profileId: profileId,
-        criteria: const ContactFilterCriteria(),
-        sortBy: sortBy,
-        today: today,
-      );
-      return rows.map((s) => s.contact.displayName).toList();
-    }
-
-    expect(await sorted(ContactSortBy.name), <String>['Alpha', 'Beta', 'Charlie']);
-    expect(await sorted(ContactSortBy.nameDesc), <String>['Charlie', 'Beta', 'Alpha']);
-    expect(await sorted(ContactSortBy.oldestAdded), <String>['Alpha', 'Charlie', 'Beta']);
-    expect(await sorted(ContactSortBy.recentlyAdded), <String>['Beta', 'Charlie', 'Alpha']);
-  });
-
-  test('Next Event / Last Event sorts use canonical event context with nulls last', () async {
-    final (database, contacts, _, profileId) = await arrange();
-    addTearDown(database.close);
-
-    Future<void> addContact(String id, String name) async {
-      await contacts.createContact(
-        profileId: profileId,
-        draft: draftFor(id: id, first: name, last: ''),
-      );
-    }
-
-    Future<void> addEventLink({
-      required String linkId,
-      required String eventId,
-      required String contactId,
-      required String date,
-    }) async {
-      await database.into(database.calendarEvents).insert(
-        CalendarEventsCompanion.insert(
-          id: eventId,
+      Future<void> addSocial(String id, String value, {String? label}) async {
+        await contacts.createContact(
           profileId: profileId,
-          title: 'Event $eventId',
-          timing: 'morning',
-          startDate: date,
-          createdAtUtc: DateTime.utc(2026, 7, 1, 12),
-          updatedAtUtc: DateTime.utc(2026, 7, 1, 12),
-        ),
-      );
-      await database.into(database.eventContactLinks).insert(
-        EventContactLinksCompanion.insert(
-          id: linkId,
+          draft: ContactDraft(
+            id: id,
+            firstName: id,
+            lastName: '',
+            displayName: id,
+            preferredContactMethod: ContactPreferredMethod.message,
+            isFavorite: false,
+            methods: <ContactMethodDraft>[
+              ContactMethodDraft(type: ContactMethodType.social, value: value),
+            ],
+          ),
+        );
+        await (database.update(database.contactMethods)
+              ..where((t) => t.contactId.equals(id)))
+            .write(ContactMethodsCompanion(label: Value<String?>(label)));
+      }
+
+      await addSocial('s-wa', 'wa_user', label: 'whatsapp');
+      await addSocial('s-fb', 'fb_user', label: 'facebook');
+      await addSocial('s-x', 'x_user', label: 'x');
+      await addSocial('s-custom', 'custom_user', label: 'custom');
+      await addSocial('s-null', 'null_user');
+
+      Future<Set<String>> idsFor(List<String> socialLabels) async {
+        final rows = await contacts.readContacts(
           profileId: profileId,
-          eventId: eventId,
-          occurrenceId: Value(linkId),
-          originalDate: Value(date),
-          contactId: contactId,
-          status: const Value('active'),
-          createdAtUtc: DateTime.utc(2026, 7, 1, 12),
-          updatedAtUtc: DateTime.utc(2026, 7, 1, 12),
-        ),
+          criteria: ContactFilterCriteria(socialLabels: socialLabels),
+          sortBy: ContactSortBy.name,
+          today: today,
+        );
+        return rows.map((s) => s.contact.id).toSet();
+      }
+
+      expect(await idsFor(const <String>[]), isNotEmpty);
+      expect(await idsFor(const <String>[ContactSocialFilterKeys.whatsapp]), {
+        's-wa',
+      });
+      expect(await idsFor(const <String>[ContactSocialFilterKeys.facebook]), {
+        's-fb',
+      });
+      expect(await idsFor(const <String>[ContactSocialFilterKeys.x]), {'s-x'});
+      expect(await idsFor(const <String>[ContactSocialFilterKeys.other]), {
+        's-custom',
+        's-null',
+      });
+      expect(
+        await idsFor(const <String>[ContactSocialFilterKeys.noSocial]),
+        isEmpty,
       );
-    }
+    },
+  );
 
-    await addContact('c-alpha', 'Alpha');
-    await addContact('c-beta', 'Beta');
-    await addContact('c-charlie', 'Charlie');
-    await addContact('c-delta', 'Delta');
+  test(
+    'new sort options order deterministically with stable tie-breakers',
+    () async {
+      final (database, contacts, _, profileId) = await arrange();
+      addTearDown(database.close);
 
-    // Alpha: next 2026-08-20, last 2026-07-01.
-    await addEventLink(
-      linkId: 'l-a1',
-      eventId: 'e-a-next',
-      contactId: 'c-alpha',
-      date: '2026-08-20',
-    );
-    await addEventLink(
-      linkId: 'l-a2',
-      eventId: 'e-a-past',
-      contactId: 'c-alpha',
-      date: '2026-07-01',
-    );
-    // Beta: next 2026-08-15 (earliest upcoming).
-    await addEventLink(
-      linkId: 'l-b1',
-      eventId: 'e-b-next',
-      contactId: 'c-beta',
-      date: '2026-08-15',
-    );
-    // Charlie: last 2026-06-01 only.
-    await addEventLink(
-      linkId: 'l-c1',
-      eventId: 'e-c-past',
-      contactId: 'c-charlie',
-      date: '2026-06-01',
-    );
-    // Delta: no event context at all.
-
-    Future<List<String>> sorted(ContactSortBy sortBy) async {
-      final rows = await contacts.readContacts(
-        profileId: profileId,
-        criteria: const ContactFilterCriteria(),
-        sortBy: sortBy,
-        today: today,
-      );
-      return rows.map((s) => s.contact.displayName).toList();
-    }
-
-    // Next Event: earliest upcoming first, missing-next contacts last by name.
-    expect(
-      await sorted(ContactSortBy.nextEvent),
-      <String>['Beta', 'Alpha', 'Charlie', 'Delta'],
-    );
-    // Last Event: most recent historical first, missing-last contacts last by name.
-    expect(
-      await sorted(ContactSortBy.lastEvent),
-      <String>['Alpha', 'Charlie', 'Beta', 'Delta'],
-    );
-  });
-
-  test('event-derived sorts tie-break by displayName then stable contact id', () async {
-    final (database, contacts, _, profileId) = await arrange();
-    addTearDown(database.close);
-
-    Future<void> addContact(String id, String first, String last) async {
-      await contacts.createContact(
-        profileId: profileId,
-        draft: draftFor(id: id, first: first, last: last),
-      );
-    }
-
-    Future<void> addSameDateEventLink(
-      String linkId,
-      String eventId,
-      String contactId,
-    ) async {
-      await database.into(database.calendarEvents).insert(
-        CalendarEventsCompanion.insert(
-          id: eventId,
+      final base = DateTime.utc(2026, 8, 3, 12);
+      Future<void> addContact(String id, String name, Duration offset) async {
+        await contacts.createContact(
           profileId: profileId,
-          title: 'Event $eventId',
-          timing: 'morning',
-          startDate: '2026-08-15',
-          createdAtUtc: DateTime.utc(2026, 7, 1, 12),
-          updatedAtUtc: DateTime.utc(2026, 7, 1, 12),
-        ),
-      );
-      await database.into(database.eventContactLinks).insert(
-        EventContactLinksCompanion.insert(
-          id: linkId,
+          draft: draftFor(id: id, first: name, last: ''),
+        );
+        await (database.update(
+          database.contacts,
+        )..where((t) => t.id.equals(id))).write(
+          ContactsCompanion(createdAtUtc: Value<DateTime>(base.add(offset))),
+        );
+      }
+
+      await addContact('c-b', 'Beta', const Duration(minutes: 10));
+      await addContact('c-a', 'Alpha', Duration.zero);
+      await addContact('c-c', 'Charlie', const Duration(minutes: 5));
+
+      Future<List<String>> sorted(ContactSortBy sortBy) async {
+        final rows = await contacts.readContacts(
           profileId: profileId,
-          eventId: eventId,
-          occurrenceId: Value(linkId),
-          originalDate: const Value('2026-08-15'),
-          contactId: contactId,
-          status: const Value('active'),
-          createdAtUtc: DateTime.utc(2026, 7, 1, 12),
-          updatedAtUtc: DateTime.utc(2026, 7, 1, 12),
-        ),
-      );
-    }
-
-    // Same next date: displayName ascending decides.
-    await addContact('id-zzz', 'Zulu', '');
-    await addContact('id-aaa', 'Alpha', '');
-    await addSameDateEventLink('l-z', 'e-z', 'id-zzz');
-    await addSameDateEventLink('l-a', 'e-a', 'id-aaa');
-
-    Future<List<String>> sorted(ContactSortBy sortBy) async {
-      final rows = await contacts.readContacts(
-        profileId: profileId,
-        criteria: const ContactFilterCriteria(),
-        sortBy: sortBy,
-        today: today,
-      );
-      return rows.map((s) => s.contact.displayName).toList();
-    }
-
-    expect(await sorted(ContactSortBy.nextEvent), <String>['Alpha', 'Zulu']);
-
-    // Equal display names: stable contact id ascending decides.
-    await addContact('id-b', 'Same', 'Name');
-    await addContact('id-a', 'Same', 'Name');
-    await addSameDateEventLink('l-b', 'e-b', 'id-b');
-    await addSameDateEventLink('l-a2', 'e-a2', 'id-a');
-
-    final byId = await contacts.readContacts(
-      profileId: profileId,
-      criteria: const ContactFilterCriteria(),
-      sortBy: ContactSortBy.nextEvent,
-      today: today,
-    );
-    final sameNameIds = byId
-        .where((s) => s.contact.displayName == 'Same Name')
-        .map((s) => s.contact.id)
-        .toList();
-    expect(sameNameIds, <String>['id-a', 'id-b']);
-  });
-
-  test('saved filter codec round-trips the new event-derived sort values', () async {
-    final (database, contacts, _, profileId) = await arrange();
-    addTearDown(database.close);
-
-    for (final sortBy in <ContactSortBy>[
-      ContactSortBy.nextEvent,
-      ContactSortBy.lastEvent,
-    ]) {
-      final saved = await contacts.saveSavedFilter(
-        profileId: profileId,
-        draft: SavedContactFilterDraft(
-          name: 'sort ${sortBy.name}',
           criteria: const ContactFilterCriteria(),
           sortBy: sortBy,
-        ),
-      );
-      expect(saved.sortBy, sortBy);
-      final loaded = await contacts.readSavedFilters(profileId);
-      expect(
-        loaded.map((f) => f.sortBy).toList(),
-        contains(sortBy),
+          today: today,
+        );
+        return rows.map((s) => s.contact.displayName).toList();
+      }
+
+      expect(await sorted(ContactSortBy.name), <String>[
+        'Alpha',
+        'Beta',
+        'Charlie',
+      ]);
+      expect(await sorted(ContactSortBy.nameDesc), <String>[
+        'Charlie',
+        'Beta',
+        'Alpha',
+      ]);
+      expect(await sorted(ContactSortBy.oldestAdded), <String>[
+        'Alpha',
+        'Charlie',
+        'Beta',
+      ]);
+      expect(await sorted(ContactSortBy.recentlyAdded), <String>[
+        'Beta',
+        'Charlie',
+        'Alpha',
+      ]);
+    },
+  );
+
+  test('R2 final sort and Displayed Fields contracts are durable', () {
+    expect(ContactSortBy.values, <ContactSortBy>[
+      ContactSortBy.name,
+      ContactSortBy.nameDesc,
+      ContactSortBy.recentlyAdded,
+      ContactSortBy.oldestAdded,
+      ContactSortBy.status,
+      ContactSortBy.lastViewed,
+      ContactSortBy.nextEvent,
+      ContactSortBy.lastEvent,
+      ContactSortBy.lastHappenedEvent,
+      ContactSortBy.leastRecentEvent,
+      ContactSortBy.leastRecentHappenedEvent,
+    ]);
+    expect(ContactDisplayedField.values, containsAll(<ContactDisplayedField>[
+      ContactDisplayedField.currentGroup,
+      ContactDisplayedField.tags,
+      ContactDisplayedField.nextEvent,
+      ContactDisplayedField.lastEvent,
+      ContactDisplayedField.lastHappenedEvent,
+      ContactDisplayedField.contactMethod,
+      ContactDisplayedField.address,
+      ContactDisplayedField.lastInteraction,
+      ContactDisplayedField.lastViewed,
+      ContactDisplayedField.createdDate,
+    ]));
+    expect(ContactDisplayedFieldCodec.defaults, ContactDisplayedField.values);
+  });
+
+  test('Last Viewed puts recorded Contacts newest-first and nulls last', () async {
+    final (database, contacts, _, profileId) = await arrange();
+    addTearDown(database.close);
+    for (final entry in <(String, String)>[
+      ('a', 'Alpha'),
+      ('b', 'Beta'),
+      ('c', 'Charlie'),
+    ]) {
+      await contacts.createContact(
+        profileId: profileId,
+        draft: draftFor(id: entry.$1, first: entry.$2, last: ''),
       );
     }
+    await (database.update(database.contacts)..where((t) => t.id.equals('a')))
+        .write(ContactsCompanion(lastViewedAtUtc: Value(DateTime.utc(2026, 8, 1))));
+    await (database.update(database.contacts)..where((t) => t.id.equals('b')))
+        .write(ContactsCompanion(lastViewedAtUtc: Value(DateTime.utc(2026, 8, 2))));
+    final rows = await contacts.readContacts(
+      profileId: profileId,
+      criteria: const ContactFilterCriteria(),
+      sortBy: ContactSortBy.lastViewed,
+      today: today,
+    );
+    expect(rows.map((row) => row.contact.displayName), <String>[
+      'Beta',
+      'Alpha',
+      'Charlie',
+    ]);
   });
 
-  test('saved filter codec round-trips the new presence/type criteria and decodes legacy JSON', () {
-    const criteria = ContactFilterCriteria(
-      phoneLabels: <String>[ContactPhoneFilterKeys.noPhone, ContactPhoneFilterKeys.mobile],
-      emailLabels: <String>[ContactEmailFilterKeys.personal],
-      addressLabels: <String>[ContactAddressFilterKeys.recorded],
-      socialLabels: <String>[ContactSocialFilterKeys.whatsapp],
-      withFutureEvents: true,
-    );
-    final encoded = criteria.encode();
-    final decoded = ContactFilterCriteria.decode(encoded);
-    expect(decoded.phoneLabels, <String>['noPhone', 'mobile']);
-    expect(decoded.emailLabels, <String>['personal']);
-    expect(decoded.addressLabels, <String>['recorded']);
-    expect(decoded.socialLabels, <String>['whatsapp']);
-    expect(decoded.withFutureEvents, isTrue);
+  test(
+    'Next Event / Last Event sorts use canonical event context with nulls last',
+    () async {
+      final (database, contacts, _, profileId) = await arrange();
+      addTearDown(database.close);
 
-    // Legacy JSON without the new keys decodes to neutral (empty) lists.
-    final legacy = ContactFilterCriteria.decode('{"groupIds":[],"favoritesOnly":true}');
-    expect(legacy.phoneLabels, isEmpty);
-    expect(legacy.emailLabels, isEmpty);
-    expect(legacy.addressLabels, isEmpty);
-    expect(legacy.socialLabels, isEmpty);
-    expect(legacy.favoritesOnly, isTrue);
+      Future<void> addContact(String id, String name) async {
+        await contacts.createContact(
+          profileId: profileId,
+          draft: draftFor(id: id, first: name, last: ''),
+        );
+      }
 
-    // Saved filter document envelope round-trips the new criteria.
-    const document = SavedContactFilterDocument(
-      criteria: criteria,
-      description: 'filter with phone + email + address + social',
-      displayedFields: <ContactDisplayedField>[ContactDisplayedField.tags],
-    );
-    final docDecoded = SavedContactFilterDocument.decode(document.encode());
-    expect(docDecoded.criteria.phoneLabels, <String>['noPhone', 'mobile']);
-    expect(docDecoded.criteria.socialLabels, <String>['whatsapp']);
-    expect(docDecoded.description, 'filter with phone + email + address + social');
-  });
+      Future<void> addEventLink({
+        required String linkId,
+        required String eventId,
+        required String contactId,
+        required String date,
+      }) async {
+        await database
+            .into(database.calendarEvents)
+            .insert(
+              CalendarEventsCompanion.insert(
+                id: eventId,
+                profileId: profileId,
+                title: 'Event $eventId',
+                timing: 'morning',
+                startDate: date,
+                createdAtUtc: DateTime.utc(2026, 7, 1, 12),
+                updatedAtUtc: DateTime.utc(2026, 7, 1, 12),
+              ),
+            );
+        await database
+            .into(database.eventContactLinks)
+            .insert(
+              EventContactLinksCompanion.insert(
+                id: linkId,
+                profileId: profileId,
+                eventId: eventId,
+                occurrenceId: Value(linkId),
+                originalDate: Value(date),
+                contactId: contactId,
+                status: const Value('active'),
+                createdAtUtc: DateTime.utc(2026, 7, 1, 12),
+                updatedAtUtc: DateTime.utc(2026, 7, 1, 12),
+              ),
+            );
+      }
+
+      await addContact('c-alpha', 'Alpha');
+      await addContact('c-beta', 'Beta');
+      await addContact('c-charlie', 'Charlie');
+      await addContact('c-delta', 'Delta');
+
+      // Alpha: next 2026-08-20, last 2026-07-01.
+      await addEventLink(
+        linkId: 'l-a1',
+        eventId: 'e-a-next',
+        contactId: 'c-alpha',
+        date: '2026-08-20',
+      );
+      await addEventLink(
+        linkId: 'l-a2',
+        eventId: 'e-a-past',
+        contactId: 'c-alpha',
+        date: '2026-07-01',
+      );
+      // Beta: next 2026-08-15 (earliest upcoming).
+      await addEventLink(
+        linkId: 'l-b1',
+        eventId: 'e-b-next',
+        contactId: 'c-beta',
+        date: '2026-08-15',
+      );
+      // Charlie: last 2026-06-01 only.
+      await addEventLink(
+        linkId: 'l-c1',
+        eventId: 'e-c-past',
+        contactId: 'c-charlie',
+        date: '2026-06-01',
+      );
+      // Delta: no event context at all.
+
+      Future<List<String>> sorted(ContactSortBy sortBy) async {
+        final rows = await contacts.readContacts(
+          profileId: profileId,
+          criteria: const ContactFilterCriteria(),
+          sortBy: sortBy,
+          today: today,
+        );
+        return rows.map((s) => s.contact.displayName).toList();
+      }
+
+      // Next Event: earliest upcoming first, missing-next contacts last by name.
+      expect(await sorted(ContactSortBy.nextEvent), <String>[
+        'Beta',
+        'Alpha',
+        'Charlie',
+        'Delta',
+      ]);
+      // Last Event: most recent historical first, missing-last contacts last by name.
+      expect(await sorted(ContactSortBy.lastEvent), <String>[
+        'Alpha',
+        'Charlie',
+        'Beta',
+        'Delta',
+      ]);
+      expect(await sorted(ContactSortBy.leastRecentEvent), <String>[
+        'Charlie',
+        'Alpha',
+        'Beta',
+        'Delta',
+      ]);
+    },
+  );
+
+  test(
+    'event-derived sorts tie-break by displayName then stable contact id',
+    () async {
+      final (database, contacts, _, profileId) = await arrange();
+      addTearDown(database.close);
+
+      Future<void> addContact(String id, String first, String last) async {
+        await contacts.createContact(
+          profileId: profileId,
+          draft: draftFor(id: id, first: first, last: last),
+        );
+      }
+
+      Future<void> addSameDateEventLink(
+        String linkId,
+        String eventId,
+        String contactId,
+      ) async {
+        await database
+            .into(database.calendarEvents)
+            .insert(
+              CalendarEventsCompanion.insert(
+                id: eventId,
+                profileId: profileId,
+                title: 'Event $eventId',
+                timing: 'morning',
+                startDate: '2026-08-15',
+                createdAtUtc: DateTime.utc(2026, 7, 1, 12),
+                updatedAtUtc: DateTime.utc(2026, 7, 1, 12),
+              ),
+            );
+        await database
+            .into(database.eventContactLinks)
+            .insert(
+              EventContactLinksCompanion.insert(
+                id: linkId,
+                profileId: profileId,
+                eventId: eventId,
+                occurrenceId: Value(linkId),
+                originalDate: const Value('2026-08-15'),
+                contactId: contactId,
+                status: const Value('active'),
+                createdAtUtc: DateTime.utc(2026, 7, 1, 12),
+                updatedAtUtc: DateTime.utc(2026, 7, 1, 12),
+              ),
+            );
+      }
+
+      // Same next date: displayName ascending decides.
+      await addContact('id-zzz', 'Zulu', '');
+      await addContact('id-aaa', 'Alpha', '');
+      await addSameDateEventLink('l-z', 'e-z', 'id-zzz');
+      await addSameDateEventLink('l-a', 'e-a', 'id-aaa');
+
+      Future<List<String>> sorted(ContactSortBy sortBy) async {
+        final rows = await contacts.readContacts(
+          profileId: profileId,
+          criteria: const ContactFilterCriteria(),
+          sortBy: sortBy,
+          today: today,
+        );
+        return rows.map((s) => s.contact.displayName).toList();
+      }
+
+      expect(await sorted(ContactSortBy.nextEvent), <String>['Alpha', 'Zulu']);
+
+      // Equal display names: stable contact id ascending decides.
+      await addContact('id-b', 'Same', 'Name');
+      await addContact('id-a', 'Same', 'Name');
+      await addSameDateEventLink('l-b', 'e-b', 'id-b');
+      await addSameDateEventLink('l-a2', 'e-a2', 'id-a');
+
+      final byId = await contacts.readContacts(
+        profileId: profileId,
+        criteria: const ContactFilterCriteria(),
+        sortBy: ContactSortBy.nextEvent,
+        today: today,
+      );
+      final sameNameIds = byId
+          .where((s) => s.contact.displayName == 'Same Name')
+          .map((s) => s.contact.id)
+          .toList();
+      expect(sameNameIds, <String>['id-a', 'id-b']);
+    },
+  );
+
+  test(
+    'Last Happened and least-event sorts use effective occurrence status in one batched context read',
+    () async {
+      final (database, contacts, _, profileId) = await arrange();
+      addTearDown(database.close);
+
+      Future<void> addHistoricalEvent({
+        required String contactId,
+        required String name,
+        required String eventId,
+        required PlannerDate date,
+        required CalendarEventStatus status,
+        CalendarEventStatus? exceptionStatus,
+      }) async {
+        await contacts.createContact(
+          profileId: profileId,
+          draft: draftFor(id: contactId, first: name, last: ''),
+        );
+        await database.into(database.calendarEvents).insert(
+          CalendarEventsCompanion.insert(
+            id: eventId,
+            profileId: profileId,
+            title: 'Event $eventId',
+            timing: CalendarEventTiming.timed.name,
+            startDate: date.toString(),
+            status: Value(status.name),
+            createdAtUtc: DateTime.utc(2026, 7, 1, 12),
+            updatedAtUtc: DateTime.utc(2026, 7, 1, 12),
+          ),
+        );
+        await database.into(database.eventContactLinks).insert(
+          EventContactLinksCompanion.insert(
+            id: 'link-$contactId',
+            profileId: profileId,
+            eventId: eventId,
+            occurrenceId: Value('single-$contactId'),
+            originalDate: Value(date.toString()),
+            contactId: contactId,
+            status: const Value('active'),
+            createdAtUtc: DateTime.utc(2026, 7, 1, 12),
+            updatedAtUtc: DateTime.utc(2026, 7, 1, 12),
+          ),
+        );
+        if (exceptionStatus != null) {
+          await database.into(database.calendarEventExceptions).insert(
+            CalendarEventExceptionsCompanion.insert(
+              id: 'exception-$contactId',
+              profileId: profileId,
+              eventId: eventId,
+              occurrenceId: CalendarEventOccurrenceIdentity.forDate(
+                eventId: eventId,
+                originalDate: date,
+              ),
+              originalDate: date.toString(),
+              effectiveDate: date.toString(),
+              title: 'Event $eventId',
+              timing: CalendarEventTiming.timed.name,
+              status: exceptionStatus.name,
+              createdAtUtc: DateTime.utc(2026, 7, 1, 12),
+            ),
+          );
+        }
+      }
+
+      await addHistoricalEvent(
+        contactId: 'alpha',
+        name: 'Alpha',
+        eventId: 'happened-alpha',
+        date: const PlannerDate(year: 2026, month: 6, day: 1),
+        status: CalendarEventStatus.completedHappened,
+      );
+      await addHistoricalEvent(
+        contactId: 'beta',
+        name: 'Beta',
+        eventId: 'happened-beta',
+        date: const PlannerDate(year: 2026, month: 7, day: 1),
+        status: CalendarEventStatus.partiallyCompleted,
+      );
+      await addHistoricalEvent(
+        contactId: 'charlie',
+        name: 'Charlie',
+        eventId: 'scheduled-charlie',
+        date: const PlannerDate(year: 2026, month: 7, day: 15),
+        status: CalendarEventStatus.scheduled,
+      );
+      await addHistoricalEvent(
+        contactId: 'delta',
+        name: 'Delta',
+        eventId: 'overridden-delta',
+        date: const PlannerDate(year: 2026, month: 7, day: 20),
+        status: CalendarEventStatus.completedHappened,
+        exceptionStatus: CalendarEventStatus.didNotHappen,
+      );
+
+      Future<List<ContactSummary>> sorted(ContactSortBy sortBy) {
+        return contacts.readContacts(
+          profileId: profileId,
+          criteria: const ContactFilterCriteria(),
+          sortBy: sortBy,
+          today: today,
+        );
+      }
+
+      expect(
+        (await sorted(ContactSortBy.lastHappenedEvent))
+            .map((summary) => summary.contact.displayName),
+        <String>['Beta', 'Alpha', 'Charlie', 'Delta'],
+      );
+      expect(
+        (await sorted(ContactSortBy.leastRecentEvent))
+            .map((summary) => summary.contact.displayName),
+        <String>['Alpha', 'Beta', 'Charlie', 'Delta'],
+      );
+      expect(
+        (await sorted(ContactSortBy.leastRecentHappenedEvent))
+            .map((summary) => summary.contact.displayName),
+        <String>['Alpha', 'Beta', 'Charlie', 'Delta'],
+      );
+      final delta = (await sorted(ContactSortBy.name)).singleWhere(
+        (summary) => summary.contact.id == 'delta',
+      );
+      expect(delta.context.lastHappenedEventDate, isNull);
+      expect(
+        delta.context.leastRecentEventDate,
+        const PlannerDate(year: 2026, month: 7, day: 20),
+      );
+    },
+  );
+
+  test(
+    'saved filter codec round-trips the new event-derived sort values',
+    () async {
+      final (database, contacts, _, profileId) = await arrange();
+      addTearDown(database.close);
+
+      for (final sortBy in <ContactSortBy>[
+        ContactSortBy.status,
+        ContactSortBy.lastViewed,
+        ContactSortBy.nextEvent,
+        ContactSortBy.lastEvent,
+        ContactSortBy.lastHappenedEvent,
+        ContactSortBy.leastRecentEvent,
+        ContactSortBy.leastRecentHappenedEvent,
+      ]) {
+        final saved = await contacts.saveSavedFilter(
+          profileId: profileId,
+          draft: SavedContactFilterDraft(
+            name: 'sort ${sortBy.name}',
+            criteria: const ContactFilterCriteria(),
+            sortBy: sortBy,
+          ),
+        );
+        expect(saved.sortBy, sortBy);
+        final loaded = await contacts.readSavedFilters(profileId);
+        expect(loaded.map((f) => f.sortBy).toList(), contains(sortBy));
+      }
+    },
+  );
+
+  test(
+    'saved filter codec round-trips the new presence/type criteria and decodes legacy JSON',
+    () {
+      const criteria = ContactFilterCriteria(
+        phoneLabels: <String>[
+          ContactPhoneFilterKeys.noPhone,
+          ContactPhoneFilterKeys.mobile,
+        ],
+        emailLabels: <String>[ContactEmailFilterKeys.personal],
+        addressLabels: <String>[ContactAddressFilterKeys.recorded],
+        socialLabels: <String>[ContactSocialFilterKeys.whatsapp],
+        withFutureEvents: true,
+      );
+      final encoded = criteria.encode();
+      final decoded = ContactFilterCriteria.decode(encoded);
+      expect(decoded.phoneLabels, <String>['noPhone', 'mobile']);
+      expect(decoded.emailLabels, <String>['personal']);
+      expect(decoded.addressLabels, <String>['recorded']);
+      expect(decoded.socialLabels, <String>['whatsapp']);
+      expect(decoded.withFutureEvents, isTrue);
+
+      // Legacy JSON without the new keys decodes to neutral (empty) lists.
+      final legacy = ContactFilterCriteria.decode(
+        '{"groupIds":[],"favoritesOnly":true}',
+      );
+      expect(legacy.phoneLabels, isEmpty);
+      expect(legacy.emailLabels, isEmpty);
+      expect(legacy.addressLabels, isEmpty);
+      expect(legacy.socialLabels, isEmpty);
+      expect(legacy.favoritesOnly, isTrue);
+
+      // Saved filter document envelope round-trips the new criteria.
+      const document = SavedContactFilterDocument(
+        criteria: criteria,
+        description: 'filter with phone + email + address + social',
+        displayedFields: <ContactDisplayedField>[
+          ContactDisplayedField.tags,
+          ContactDisplayedField.lastInteraction,
+          ContactDisplayedField.lastViewed,
+          ContactDisplayedField.createdDate,
+          ContactDisplayedField.lastHappenedEvent,
+        ],
+      );
+      final docDecoded = SavedContactFilterDocument.decode(document.encode());
+      expect(docDecoded.criteria.phoneLabels, <String>['noPhone', 'mobile']);
+      expect(docDecoded.criteria.socialLabels, <String>['whatsapp']);
+      expect(docDecoded.displayedFields, <ContactDisplayedField>[
+        ContactDisplayedField.tags,
+        ContactDisplayedField.lastInteraction,
+        ContactDisplayedField.lastViewed,
+        ContactDisplayedField.createdDate,
+        ContactDisplayedField.lastHappenedEvent,
+      ]);
+      expect(
+        docDecoded.description,
+        'filter with phone + email + address + social',
+      );
+    },
+  );
 }

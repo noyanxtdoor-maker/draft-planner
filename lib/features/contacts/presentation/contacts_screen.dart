@@ -33,12 +33,14 @@ final class _ContactsScreenState extends ConsumerState<ContactsScreen> {
     final groups =
         ref.watch(contactGroupsProvider).value ?? const <ContactGroup>[];
     final tags = ref.watch(contactTagsProvider).value ?? const <ContactTag>[];
+    final topBarForeground = Theme.of(context).colorScheme.onSurface;
 
     return Scaffold(
       backgroundColor: AppTheme.surfaceOf(context),
       appBar: AppBar(
         automaticallyImplyLeading: false,
         backgroundColor: AppTheme.surfaceOf(context),
+        foregroundColor: topBarForeground,
         surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 0,
         toolbarHeight: 72,
@@ -60,7 +62,7 @@ final class _ContactsScreenState extends ConsumerState<ContactsScreen> {
                 fontFamily: 'Roboto',
                 fontSize: 20,
                 height: 24 / 20,
-                fontWeight: FontWeight.w500,
+                fontWeight: FontWeight.w400,
               ),
             ),
             const SizedBox(height: 2),
@@ -80,19 +82,20 @@ final class _ContactsScreenState extends ConsumerState<ContactsScreen> {
             tooltip: 'Filter',
             iconSize: 28,
             onPressed: () => unawaited(_openFilterBuilder()),
-            icon: const FilterPlusIcon(),
+            icon: FilterPlusIcon(color: topBarForeground),
           ),
           IconButton(
             key: const Key('contacts-search-button'),
             tooltip: 'Search',
             iconSize: 24,
             onPressed: () => context.push(RoutePaths.contactSearch),
-            icon: const Icon(Icons.search),
+            icon: Icon(Icons.search, color: topBarForeground),
           ),
           PopupMenuButton<String>(
             key: const Key('contacts-overflow-menu'),
             tooltip: 'More options',
             iconSize: 24,
+            icon: Icon(Icons.more_vert, color: topBarForeground),
             onSelected: (value) => _handleOverflow(value),
             itemBuilder: (context) => const <PopupMenuEntry<String>>[
               PopupMenuItem<String>(
@@ -242,8 +245,14 @@ final class _ContactsScreenState extends ConsumerState<ContactsScreen> {
       ContactSortBy.nameDesc => 'Name (Z–A)',
       ContactSortBy.recentlyAdded => 'Recently added',
       ContactSortBy.oldestAdded => 'Oldest added',
+      ContactSortBy.status => 'Status',
+      ContactSortBy.lastViewed => 'Last Viewed',
       ContactSortBy.nextEvent => 'Next Event',
       ContactSortBy.lastEvent => 'Last Event',
+      ContactSortBy.lastHappenedEvent => 'Last Happened Event',
+      ContactSortBy.leastRecentEvent => 'Least Recent Event',
+      ContactSortBy.leastRecentHappenedEvent =>
+        'Least Recent Happened Event',
     };
   }
 
@@ -260,7 +269,7 @@ final class _ContactsScreenState extends ConsumerState<ContactsScreen> {
             criteria: state.criteria,
             sortBy: state.sortBy,
             standardView: state.standardView,
-            displayedFields:
+            displayedFields: state.displayedFieldsOverride ??
                 state.appliedFilter?.displayedFields ??
                 ContactDisplayedFieldCodec.defaults,
           );
@@ -274,9 +283,19 @@ final class _ContactsScreenState extends ConsumerState<ContactsScreen> {
           criteria: state.criteria,
           groups: groups,
           tags: tags,
+          displayedFields: state.displayedFieldsOverride ??
+              state.appliedFilter?.displayedFields ??
+              ContactDisplayedFieldCodec.defaults,
+          displayedFieldsOverridden: state.displayedFieldsOverride != null,
           onChanged: (criteria) => ref
               .read(contactsControllerProvider.notifier)
-              .applyFilter(criteria, updateCurrentView: false),
+              .applyQuickFilter(criteria),
+          onDisplayedFieldsChanged: (fields) => ref
+              .read(contactsControllerProvider.notifier)
+              .setDisplayedFieldsOverride(fields),
+          onReset: () => ref
+              .read(contactsControllerProvider.notifier)
+              .clearAdHocFilters(),
         ),
         _ActiveFilterChips(
           criteria: state.criteria,
@@ -286,9 +305,8 @@ final class _ContactsScreenState extends ConsumerState<ContactsScreen> {
             final current = ref.read(contactsControllerProvider).criteria;
             ref
                 .read(contactsControllerProvider.notifier)
-                .applyFilter(
+                .applyQuickFilter(
                   clearContactFilterCategory(current, category),
-                  updateCurrentView: false,
                 );
           },
           onClearAll: () =>
@@ -483,9 +501,11 @@ final class _CurrentFilterRow extends StatelessWidget {
               children: <Widget>[
                 Flexible(
                   child: Text(
-                    standardView?.label ??
-                        appliedFilter?.name ??
-                        (isFiltered ? 'Filtered Contacts' : 'All Contacts'),
+                    isFiltered
+                        ? 'Filtered'
+                        : standardView?.label ??
+                              appliedFilter?.name ??
+                              'All Contacts',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -660,25 +680,51 @@ final class _QuickFilterStrip extends StatelessWidget {
     required this.groups,
     required this.tags,
     required this.onChanged,
+    required this.displayedFields,
+    required this.displayedFieldsOverridden,
+    required this.onDisplayedFieldsChanged,
+    required this.onReset,
   });
 
   final ContactFilterCriteria criteria;
   final List<ContactGroup> groups;
   final List<ContactTag> tags;
   final ValueChanged<ContactFilterCriteria> onChanged;
+  final List<ContactDisplayedField> displayedFields;
+  final bool displayedFieldsOverridden;
+  final ValueChanged<List<ContactDisplayedField>> onDisplayedFieldsChanged;
+  final VoidCallback onReset;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 60,
+      height: 48,
       child: ListView.separated(
         key: const Key('contacts-quick-filter-strip'),
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-        itemCount: quickFilterCategories.length,
-        separatorBuilder: (context, index) => const SizedBox(width: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        itemCount: quickFilterCategories.length + 2,
+        separatorBuilder: (context, index) => const SizedBox(width: 4),
         itemBuilder: (context, index) {
-          final category = quickFilterCategories[index];
+          if (index == 0) {
+            return QuickFilterResetButton(
+              active: !criteria.isEmpty || displayedFieldsOverridden,
+              onPressed: onReset,
+            );
+          }
+          if (index == 1) {
+            return QuickFilterChip(
+              key: const Key('contacts-quick-filter-displayedFields'),
+              label: 'Displayed Fields',
+              summary: displayedFields.length ==
+                      ContactDisplayedFieldCodec.defaults.length
+                  ? 'All'
+                  : '${displayedFields.length} selected',
+              active: displayedFieldsOverridden,
+              onPressed: () => _openDisplayedFields(context),
+            );
+          }
+          final category = quickFilterCategories[index - 2];
           final active = contactFilterCategoryIsActive(criteria, category);
           final label = contactFilterCategoryLabel(category);
           final summary = contactFilterCategorySummary(
@@ -709,11 +755,112 @@ final class _QuickFilterStrip extends StatelessWidget {
       criteria: criteria,
       groups: groups,
       tags: tags,
+      onValidChanged: onChanged,
     );
-    if (result != null) {
-      onChanged(result);
-    }
+    if (result != null) onChanged(result);
   }
+
+  Future<void> _openDisplayedFields(BuildContext context) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => _DisplayedFieldsSheet(
+        initial: displayedFields,
+        onChanged: onDisplayedFieldsChanged,
+      ),
+    );
+  }
+}
+
+final class _DisplayedFieldsSheet extends StatefulWidget {
+  const _DisplayedFieldsSheet({required this.initial, required this.onChanged});
+
+  final List<ContactDisplayedField> initial;
+  final ValueChanged<List<ContactDisplayedField>> onChanged;
+
+  @override
+  State<_DisplayedFieldsSheet> createState() => _DisplayedFieldsSheetState();
+}
+
+final class _DisplayedFieldsSheetState extends State<_DisplayedFieldsSheet> {
+  late Set<ContactDisplayedField> _selected = widget.initial.toSet();
+
+  @override
+  Widget build(BuildContext context) {
+    final all = _selected.length == ContactDisplayedField.values.length;
+    final none = _selected.isEmpty;
+    return Material(
+      key: const Key('displayed-fields-sheet'),
+      color: AppTheme.surfaceOf(context),
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            const SizedBox(height: 12),
+            Container(width: 36, height: 4, color: AppTheme.outlineOf(context)),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 14, 12, 8),
+              child: Row(children: <Widget>[
+                const Expanded(child: Text('Displayed Fields', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700))),
+                Text(all ? 'All' : none ? 'None' : 'Some'),
+                TriStateMasterCheckbox(
+                  value: all ? true : none ? false : null,
+                  onChanged: (_) => _setAll(!all),
+                ),
+              ]),
+            ),
+            const Divider(height: 1),
+            Flexible(
+              child: ListView(
+                shrinkWrap: true,
+                children: <Widget>[
+                  for (final field in ContactDisplayedField.values)
+                    CheckboxListTile(
+                      key: Key('displayed-fields-option-${field.name}'),
+                      controlAffinity: ListTileControlAffinity.trailing,
+                      title: Text(_label(field)),
+                      value: _selected.contains(field),
+                      onChanged: (value) => _toggle(field, value == true),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _setAll(bool value) {
+    setState(() => _selected = value ? ContactDisplayedField.values.toSet() : <ContactDisplayedField>{});
+    _notifyValid();
+  }
+
+  void _toggle(ContactDisplayedField field, bool value) {
+    setState(() { if (value) { _selected.add(field); } else { _selected.remove(field); } });
+    _notifyValid();
+  }
+
+  void _notifyValid() {
+    widget.onChanged(ContactDisplayedField.values.where(_selected.contains).toList(growable: false));
+  }
+
+  static String _label(ContactDisplayedField field) => switch (field) {
+    ContactDisplayedField.currentGroup => 'Current Group',
+    ContactDisplayedField.tags => 'Tags',
+    ContactDisplayedField.nextEvent => 'Next Event Date',
+    ContactDisplayedField.lastEvent => 'Last Event Date',
+    ContactDisplayedField.lastHappenedEvent => 'Last Happened Event Date',
+    ContactDisplayedField.contactMethod => 'Contact Method',
+    ContactDisplayedField.address => 'Address',
+    ContactDisplayedField.lastInteraction => 'Last Interaction',
+    ContactDisplayedField.lastViewed => 'Last Viewed',
+    ContactDisplayedField.createdDate => 'Created Date',
+  };
 }
 
 final class _EmptyState extends StatelessWidget {

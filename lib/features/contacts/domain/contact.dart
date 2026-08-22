@@ -17,11 +17,16 @@ enum ContactPreferredMethod { message, call, email }
 
 enum ContactSortBy {
   name,
-  recentlyAdded,
   nameDesc,
+  recentlyAdded,
   oldestAdded,
+  status,
+  lastViewed,
   nextEvent,
   lastEvent,
+  lastHappenedEvent,
+  leastRecentEvent,
+  leastRecentHappenedEvent,
 }
 
 enum ContactStandardFilter {
@@ -94,8 +99,12 @@ enum ContactDisplayedField {
   tags,
   nextEvent,
   lastEvent,
+  lastHappenedEvent,
   contactMethod,
   address,
+  lastInteraction,
+  lastViewed,
+  createdDate,
 }
 
 abstract final class ContactDisplayedFieldCodec {
@@ -109,8 +118,12 @@ abstract final class ContactDisplayedFieldCodec {
     ContactDisplayedField.tags,
     ContactDisplayedField.nextEvent,
     ContactDisplayedField.lastEvent,
+    ContactDisplayedField.lastHappenedEvent,
     ContactDisplayedField.contactMethod,
     ContactDisplayedField.address,
+    ContactDisplayedField.lastInteraction,
+    ContactDisplayedField.lastViewed,
+    ContactDisplayedField.createdDate,
   ];
 }
 
@@ -706,14 +719,25 @@ final class ContactListContext {
     this.nextEventTitle,
     this.nextEventDate,
     this.lastEventDate,
+    this.lastHappenedEventDate,
+    this.leastRecentEventDate,
+    this.leastRecentHappenedEventDate,
   });
 
   final String? nextEventTitle;
   final PlannerDate? nextEventDate;
   final PlannerDate? lastEventDate;
+  final PlannerDate? lastHappenedEventDate;
+  final PlannerDate? leastRecentEventDate;
+  final PlannerDate? leastRecentHappenedEventDate;
 
   bool get isEmpty =>
-      nextEventTitle == null && nextEventDate == null && lastEventDate == null;
+      nextEventTitle == null &&
+      nextEventDate == null &&
+      lastEventDate == null &&
+      lastHappenedEventDate == null &&
+      leastRecentEventDate == null &&
+      leastRecentHappenedEventDate == null;
 }
 
 final class ContactSummary {

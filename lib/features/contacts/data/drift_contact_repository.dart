@@ -445,8 +445,7 @@ final class DriftContactRepository implements ContactRepository {
         (table) => OrderingTerm.asc(table.displayName),
         (table) => OrderingTerm.asc(table.id),
       ]);
-    } else if (sortBy == ContactSortBy.nextEvent ||
-        sortBy == ContactSortBy.lastEvent) {
+    } else if (_isSummarySort(sortBy)) {
       // Event-derived sorts cannot be expressed without the batched event
       // context, which this repository loads after the base Contact query.
       // Keep a deterministic base order here and re-sort the final summaries
@@ -474,9 +473,10 @@ final class DriftContactRepository implements ContactRepository {
       criteria: criteria,
       today: today,
       standardView: standardView,
+      includeStatusData: sortBy == ContactSortBy.status,
     );
-    if (sortBy == ContactSortBy.nextEvent || sortBy == ContactSortBy.lastEvent) {
-      return _sortSummariesByEventDates(summaries, sortBy);
+    if (_isSummarySort(sortBy)) {
+      return _sortSummaries(summaries, sortBy);
     }
     return summaries;
   }
@@ -753,26 +753,61 @@ final class DriftContactRepository implements ContactRepository {
     };
   }
 
-  /// Deterministic ordering for the event-derived sorts, applied ONLY after
-  /// the batched event context is loaded (no N+1, no fake SQL column).
-  ///
-  /// NEXT EVENT: contacts with a nextEventDate first, earliest date first,
-  /// contacts without one LAST.
-  /// LAST EVENT: contacts with a lastEventDate first, most recent date first,
-  /// contacts without one LAST.
-  /// Ties fall back to displayName ascending, then stable contact id.
-  List<ContactSummary> _sortSummariesByEventDates(
+  bool _isSummarySort(ContactSortBy sortBy) => switch (sortBy) {
+    ContactSortBy.status ||
+    ContactSortBy.lastViewed ||
+    ContactSortBy.nextEvent ||
+    ContactSortBy.lastEvent ||
+    ContactSortBy.lastHappenedEvent ||
+    ContactSortBy.leastRecentEvent ||
+    ContactSortBy.leastRecentHappenedEvent => true,
+    _ => false,
+  };
+
+  /// Deterministic repository-owned ordering for facts loaded in the batched
+  /// Contact summary context. Every null fact sorts LAST, followed by name and
+  /// stable Contact id, so the presentation layer never reconstructs history.
+  List<ContactSummary> _sortSummaries(
     List<ContactSummary> summaries,
     ContactSortBy sortBy,
   ) {
     final sorted = List<ContactSummary>.of(summaries);
     sorted.sort((a, b) {
-      final aDate = sortBy == ContactSortBy.nextEvent
-          ? a.context.nextEventDate
-          : a.context.lastEventDate;
-      final bDate = sortBy == ContactSortBy.nextEvent
-          ? b.context.nextEventDate
-          : b.context.lastEventDate;
+      if (sortBy == ContactSortBy.status) {
+        final byStatus = _statusSortRank(a).compareTo(_statusSortRank(b));
+        if (byStatus != 0) return byStatus;
+        return _summaryNameThenId(a, b);
+      }
+      if (sortBy == ContactSortBy.lastViewed) {
+        final aViewed = a.contact.lastViewedAtUtc;
+        final bViewed = b.contact.lastViewedAtUtc;
+        final byViewed = _compareDatesNullLast(
+          aViewed,
+          bViewed,
+          newestFirst: true,
+        );
+        return byViewed != 0 ? byViewed : _summaryNameThenId(a, b);
+      }
+      final aDate = switch (sortBy) {
+        ContactSortBy.nextEvent => a.context.nextEventDate,
+        ContactSortBy.lastEvent => a.context.lastEventDate,
+        ContactSortBy.lastHappenedEvent => a.context.lastHappenedEventDate,
+        ContactSortBy.leastRecentEvent => a.context.leastRecentEventDate,
+        ContactSortBy.leastRecentHappenedEvent =>
+          a.context.leastRecentHappenedEventDate,
+        _ => null,
+      };
+      final bDate = switch (sortBy) {
+        ContactSortBy.nextEvent => b.context.nextEventDate,
+        ContactSortBy.lastEvent => b.context.lastEventDate,
+        ContactSortBy.lastHappenedEvent => b.context.lastHappenedEventDate,
+        ContactSortBy.leastRecentEvent => b.context.leastRecentEventDate,
+        ContactSortBy.leastRecentHappenedEvent =>
+          b.context.leastRecentHappenedEventDate,
+        _ => null,
+      };
+      final newestFirst = sortBy == ContactSortBy.lastEvent ||
+          sortBy == ContactSortBy.lastHappenedEvent;
       final int byDate;
       if (aDate == null && bDate == null) {
         byDate = 0;
@@ -781,20 +816,39 @@ final class DriftContactRepository implements ContactRepository {
       } else if (bDate == null) {
         byDate = -1;
       } else {
-        byDate = sortBy == ContactSortBy.nextEvent
-            ? aDate.compareTo(bDate)
-            : bDate.compareTo(aDate);
+        byDate = newestFirst
+            ? bDate.compareTo(aDate)
+            : aDate.compareTo(bDate);
       }
       if (byDate != 0) {
         return byDate;
       }
-      final byName = a.contact.displayName.compareTo(b.contact.displayName);
-      if (byName != 0) {
-        return byName;
-      }
-      return a.contact.id.compareTo(b.contact.id);
+      return _summaryNameThenId(a, b);
     });
     return List<ContactSummary>.unmodifiable(sorted);
+  }
+
+  int _summaryNameThenId(ContactSummary a, ContactSummary b) {
+    final byName = a.contact.displayName.compareTo(b.contact.displayName);
+    return byName != 0 ? byName : a.contact.id.compareTo(b.contact.id);
+  }
+
+  int _compareDatesNullLast(
+    DateTime? a,
+    DateTime? b, {
+    required bool newestFirst,
+  }) {
+    if (a == null && b == null) return 0;
+    if (a == null) return 1;
+    if (b == null) return -1;
+    return newestFirst ? b.compareTo(a) : a.compareTo(b);
+  }
+
+  int _statusSortRank(ContactSummary summary) {
+    final smart = summary.smartStatus;
+    if (smart != null) return smart.index;
+    final bucket = summary.statusBucket;
+    return bucket == null ? 99 : 4 + bucket.index;
   }
 
   /// Batches methods, memberships, tags, and event context for [ids] and
@@ -807,6 +861,7 @@ final class DriftContactRepository implements ContactRepository {
     required ContactFilterCriteria criteria,
     required PlannerDate today,
     ContactStandardView? standardView,
+    bool includeStatusData = false,
   }) async {
     final methods = await (database.select(
       database.contactMethods,
@@ -871,25 +926,26 @@ final class DriftContactRepository implements ContactRepository {
     }
 
     final eventContext = await _eventContextForContacts(ids, today);
-    final startOfWeek = standardView?.filter == ContactStandardFilter.status
+    final statusRead = includeStatusData ||
+        standardView?.filter == ContactStandardFilter.status;
+    final startOfWeek = statusRead
         ? await _readStartOfWeekDay(profileId)
         : DateTime.monday;
-    final historicalInteractionDates =
-        standardView == null ||
-            standardView.filter == ContactStandardFilter.recentlyViewed ||
-            standardView.filter == ContactStandardFilter.recentlyCreated
-        ? const <String, List<DateTime>>{}
-        : await _historicalInteractionDatesForContacts(
-            profileId: profileId,
-            contactIds: ids,
-            today: today,
-          );
+    // A single bounded canonical history read powers Status sorting and the
+    // optional Last Interaction field. It avoids a UI-side reconstruction and
+    // avoids N+1 reads.
+    final historicalInteractionDates = await _historicalInteractionDatesForContacts(
+      profileId: profileId,
+      contactIds: ids,
+      today: today,
+    );
     final filtered = <ContactRow>[];
     final statusBucketsByContact = <String, ContactStatusBucket>{};
     final smartStatusesByContact = <String, ContactSmartStatus?>{};
     final aggregateStatus = standardView?.filter == ContactStandardFilter.status &&
         standardView?.statusBucket == null;
-    final smartEligible = aggregateStatus && contactRows.length >= 4;
+    final smartEligible = (aggregateStatus || includeStatusData) &&
+        contactRows.length >= 4;
     for (final row in contactRows) {
       final contactId = row.id;
       if (criteria.hasPhone &&
@@ -953,7 +1009,7 @@ final class DriftContactRepository implements ContactRepository {
       }
       final context = eventContext[contactId] ?? const ContactListContext();
       final canonicalStatusBucket =
-          standardView?.filter == ContactStandardFilter.status
+          statusRead
           ? _statusBucketFor(
               _latestInteractionDate(historicalInteractionDates[contactId]),
               nowLocal: clock.nowUtc().toLocal(),
@@ -2910,10 +2966,18 @@ final class DriftContactRepository implements ContactRepository {
                   table.status.equals('active'),
             ))
             .get();
-    if (links.isEmpty) {
+    final snapshots =
+        await (database.select(database.eventOccurrenceParticipants)..where(
+              (table) => table.contactId.isIn(contactIds),
+            ))
+            .get();
+    if (links.isEmpty && snapshots.isEmpty) {
       return const <String, ContactListContext>{};
     }
-    final eventIds = links.map((link) => link.eventId).toSet();
+    final eventIds = <String>{
+      ...links.map((link) => link.eventId),
+      ...snapshots.map((snapshot) => snapshot.eventId),
+    };
     final events = await (database.select(
       database.calendarEvents,
     )..where((table) => table.id.isIn(eventIds))).get();
@@ -2930,11 +2994,42 @@ final class DriftContactRepository implements ContactRepository {
           .putIfAbsent(link.contactId, () => <EventContactLinkRow>[])
           .add(link);
     }
+    for (final snapshot in snapshots) {
+      byContact.putIfAbsent(snapshot.contactId, () => <EventContactLinkRow>[]);
+    }
     final result = <String, ContactListContext>{};
     for (final entry in byContact.entries) {
       PlannerDate? nextDate;
       String? nextTitle;
       PlannerDate? lastDate;
+      PlannerDate? lastHappenedDate;
+      PlannerDate? leastRecentDate;
+      PlannerDate? leastRecentHappenedDate;
+
+      void considerHistoricalFact(
+        CalendarEventRow event,
+        PlannerDate date,
+        String occurrenceId,
+      ) {
+        if (date.compareTo(today) >= 0) return;
+        final exception = exceptionsByKey['${event.id}:$occurrenceId'];
+        final effectiveStatus = _statusFromRow(exception?.status ?? event.status);
+        if (effectiveStatus == CalendarEventStatus.cancelled) return;
+        if (leastRecentDate == null || date.compareTo(leastRecentDate!) < 0) {
+          leastRecentDate = date;
+        }
+        final happened = effectiveStatus == CalendarEventStatus.completedHappened ||
+            effectiveStatus == CalendarEventStatus.partiallyCompleted;
+        if (!happened) return;
+        if (lastHappenedDate == null || date.compareTo(lastHappenedDate!) > 0) {
+          lastHappenedDate = date;
+        }
+        if (leastRecentHappenedDate == null ||
+            date.compareTo(leastRecentHappenedDate!) < 0) {
+          leastRecentHappenedDate = date;
+        }
+      }
+
       for (final link in entry.value) {
         final event = eventsById[link.eventId];
         if (event == null) {
@@ -2964,11 +3059,38 @@ final class DriftContactRepository implements ContactRepository {
             lastDate = date;
           }
         }
+        final historicalDates = link.occurrenceId == seriesOccurrenceId
+            ? _seriesDates(event, today, nextLimit: 0, pastLimit: 2000)
+            : dates;
+        for (final date in historicalDates) {
+          considerHistoricalFact(
+            event,
+            date,
+            CalendarEventOccurrenceIdentity.forDate(
+              eventId: event.id,
+              originalDate: date,
+            ),
+          );
+        }
+      }
+      for (final snapshot in snapshots.where(
+        (snapshot) => snapshot.contactId == entry.key,
+      )) {
+        final event = eventsById[snapshot.eventId];
+        if (event == null) continue;
+        considerHistoricalFact(
+          event,
+          PlannerDate.parse(snapshot.originalDate),
+          snapshot.occurrenceId,
+        );
       }
       result[entry.key] = ContactListContext(
         nextEventTitle: nextTitle,
         nextEventDate: nextDate,
         lastEventDate: lastDate,
+        lastHappenedEventDate: lastHappenedDate,
+        leastRecentEventDate: leastRecentDate,
+        leastRecentHappenedEventDate: leastRecentHappenedDate,
       );
     }
     return result;

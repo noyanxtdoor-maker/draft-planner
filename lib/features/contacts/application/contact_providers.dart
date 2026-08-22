@@ -42,6 +42,7 @@ final class ContactsState {
     required this.contacts,
     this.standardView,
     this.appliedFilter,
+    this.displayedFieldsOverride,
     this.message,
   });
 
@@ -52,6 +53,9 @@ final class ContactsState {
   final List<ContactSummary> contacts;
   final ContactStandardView? standardView;
   final SavedContactFilter? appliedFilter;
+  /// Transient Contacts-home presentation choice. It is deliberately not
+  /// persisted and never changes filter/base-view truth.
+  final List<ContactDisplayedField>? displayedFieldsOverride;
   final String? message;
 
   ContactsState copyWith({
@@ -61,11 +65,13 @@ final class ContactsState {
     ContactSortBy? sortBy,
     List<ContactSummary>? contacts,
     SavedContactFilter? appliedFilter,
+    List<ContactDisplayedField>? displayedFieldsOverride,
     String? message,
     bool clearMessage = false,
     bool clearAppliedFilter = false,
     ContactStandardView? standardView,
     bool clearStandardView = false,
+    bool clearDisplayedFieldsOverride = false,
     bool replaceViewCriteria = false,
   }) {
     return ContactsState(
@@ -82,6 +88,9 @@ final class ContactsState {
       appliedFilter: clearAppliedFilter
           ? null
           : appliedFilter ?? this.appliedFilter,
+      displayedFieldsOverride: clearDisplayedFieldsOverride
+          ? null
+          : displayedFieldsOverride ?? this.displayedFieldsOverride,
       message: clearMessage ? null : message ?? this.message,
     );
   }
@@ -117,6 +126,9 @@ final class ContactsController extends Notifier<ContactsState> {
       viewCriteria: ContactFilterCriteria(),
       sortBy: ContactSortBy.name,
       contacts: <ContactSummary>[],
+      standardView: ContactStandardView(
+        filter: ContactStandardFilter.status,
+      ),
     );
   }
 
@@ -166,6 +178,7 @@ final class ContactsController extends Notifier<ContactsState> {
       appliedFilter: appliedFilter,
       clearAppliedFilter: clearAppliedFilter,
       clearStandardView: true,
+      clearDisplayedFieldsOverride: true,
       viewCriteria: criteria,
       replaceViewCriteria: updateCurrentView,
     );
@@ -179,8 +192,20 @@ final class ContactsController extends Notifier<ContactsState> {
       replaceViewCriteria: true,
       standardView: standardView,
       clearAppliedFilter: true,
+      clearDisplayedFieldsOverride: true,
     );
     unawaited(_load());
+  }
+
+  /// Applies a compact-rail data criterion without replacing the current
+  /// Status/All/saved base view. The baseline is retained for funnel reset.
+  void applyQuickFilter(ContactFilterCriteria criteria) {
+    state = state.copyWith(criteria: criteria);
+    unawaited(_load());
+  }
+
+  void setDisplayedFieldsOverride(List<ContactDisplayedField>? fields) {
+    state = state.copyWith(displayedFieldsOverride: fields);
   }
 
   void setSort(ContactSortBy sortBy) {
@@ -192,7 +217,10 @@ final class ContactsController extends Notifier<ContactsState> {
   /// current view and its saved-filter identity.
   void clearAdHocFilters() {
     final baseline = state.viewCriteria;
-    state = state.copyWith(criteria: baseline);
+    state = state.copyWith(
+      criteria: baseline,
+      clearDisplayedFieldsOverride: true,
+    );
     unawaited(_load());
   }
 

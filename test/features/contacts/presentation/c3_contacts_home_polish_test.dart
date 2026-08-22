@@ -7,11 +7,13 @@ import 'package:rmplanner/core/platform/app_environment.dart';
 import 'package:rmplanner/features/contacts/data/drift_contact_repository.dart';
 import 'package:rmplanner/features/contacts/domain/contact.dart';
 import 'package:rmplanner/features/contacts/presentation/c3_contact_primitives.dart';
+import 'package:rmplanner/features/contacts/presentation/contact_filter_controls.dart';
 import 'package:rmplanner/features/contacts/presentation/widgets/contact_widgets.dart';
 import 'package:rmplanner/features/planner/data/calendar_event_time_zones.dart';
 import 'package:rmplanner/features/planner/data/drift_calendar_event_repository.dart';
 import 'package:rmplanner/features/planner/domain/calendar_event.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
+import 'package:rmplanner/features/planner/presentation/widgets/planner_top_bar_icons.dart';
 
 import '../../../support/test_dependencies.dart';
 
@@ -159,7 +161,7 @@ void main() {
     expect(find.byKey(const Key('filter-sort-by')), findsOneWidget);
   });
 
-  testWidgets('C3: quick filters use shared checkbox sheets and Clear All', (
+  testWidgets('C3-R4: quick filters live-apply and funnel resets state', (
     tester,
   ) async {
     await pumpApp(tester, seedContacts: true);
@@ -167,33 +169,183 @@ void main() {
       find.byKey(const Key('contacts-quick-filter-strip')),
       findsOneWidget,
     );
+    final rail = find.byKey(const Key('contacts-quick-filter-strip'));
+    expect(rail, findsOneWidget);
+    expect(find.byKey(const Key('contacts-quick-filter-reset')), findsOneWidget);
     expect(
-      find.byKey(const Key('contacts-quick-filter-groups')),
+      find.byKey(const Key('contacts-quick-filter-displayedFields')),
       findsOneWidget,
     );
+    expect(
+      find.byKey(const Key('quick-filter-chip-body-Displayed Fields')),
+      findsOneWidget,
+    );
+    expect(
+      tester.getSize(
+        find.byKey(const Key('quick-filter-chip-body-Displayed Fields')),
+      ).height,
+      34,
+    );
+    expect(
+      tester.getSize(
+        find.byKey(const Key('contacts-quick-filter-displayedFields')),
+      ).height,
+      48,
+      reason: 'The compact body remains inside a 48dp effective tap target.',
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('contacts-quick-filter-reset')),
+        matching: find.byType(PlannerFilterIcon),
+      ),
+      findsOneWidget,
+      reason: 'Contacts reuses the Planner filter icon visual source of truth.',
+    );
+    final topBarForeground = Theme.of(
+      tester.element(find.byKey(const Key('contacts-filter-button'))),
+    ).colorScheme.onSurface;
+    expect(
+      tester.widget<PlannerFilterIcon>(
+        find.descendant(
+          of: find.byKey(const Key('contacts-quick-filter-reset')),
+          matching: find.byType(PlannerFilterIcon),
+        ),
+      ).color,
+      topBarForeground,
+    );
+    expect(
+      tester.widget<SvgPicture>(
+        find.byKey(const Key('filter-plus-glyph')),
+      ).colorFilter,
+      ColorFilter.mode(topBarForeground, BlendMode.srcIn),
+    );
+    expect(
+      tester.widget<Icon>(find.byIcon(Icons.search)).color,
+      topBarForeground,
+    );
+    expect(
+      tester.widget<Icon>(find.byIcon(Icons.more_vert)).color,
+      topBarForeground,
+    );
+    expect(find.text('Displayed Fields'), findsOneWidget);
+    expect(find.text('Groups: All'), findsNothing);
+    await tester.dragUntilVisible(
+      find.byKey(const Key('contacts-quick-filter-groups')),
+      rail,
+      const Offset(-180, 0),
+    );
+    await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const Key('contacts-quick-filter-groups')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('filter-sheet-groups')), findsOneWidget);
     expect(find.byKey(const Key('filter-sheet-master-state')), findsOneWidget);
     expect(find.text('All'), findsOneWidget);
+    expect(find.byKey(const Key('filter-sheet-apply')), findsNothing);
+    expect(find.byKey(const Key('filter-sheet-clear')), findsNothing);
 
     await tester.tap(find.text('Family').last);
-    await tester.tap(find.byKey(const Key('filter-sheet-apply')));
     await tester.pumpAndSettle();
-    expect(find.text('Filtered Contacts'), findsOneWidget);
-    expect(find.byKey(const Key('active-filter-chip-groups')), findsOneWidget);
-    expect(
-      (tester.widget<InputChip>(
-        find.byKey(const Key('active-filter-chip-groups')),
-      )).label,
-      isA<Text>(),
+    expect(find.text('Filtered'), findsOneWidget);
+    await tester.tapAt(const Offset(8, 100));
+    await tester.pumpAndSettle();
+    await tester.dragUntilVisible(
+      find.byKey(const Key('contacts-quick-filter-reset')),
+      rail,
+      const Offset(180, 0),
     );
-
-    await tester.tap(find.byKey(const Key('active-filter-clear-all')));
     await tester.pumpAndSettle();
-    expect(find.byKey(const Key('active-filter-chip-groups')), findsNothing);
-    expect(find.byKey(const Key('active-filter-clear-all')), findsNothing);
+    expect(find.byKey(const Key('contacts-quick-filter-reset')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('contacts-quick-filter-reset')));
+    await tester.pumpAndSettle();
+    expect(find.text('Status'), findsOneWidget);
+  });
+
+  testWidgets('C3-R4: Displayed Fields is transient and does not relabel the base view', (
+    tester,
+  ) async {
+    await pumpApp(tester, seedContacts: true);
+    await tester.tap(
+      find.byKey(const Key('contacts-quick-filter-displayedFields')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('displayed-fields-sheet')), findsOneWidget);
+    expect(find.text('All'), findsOneWidget);
+    expect(find.byKey(const Key('filter-sheet-apply')), findsNothing);
+    await tester.tap(
+      find.byKey(const Key('displayed-fields-option-contactMethod')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Some'), findsOneWidget);
+    await tester.tapAt(const Offset(8, 100));
+    await tester.pumpAndSettle();
+    expect(find.text('Status'), findsOneWidget);
+    expect(find.text('Filtered'), findsNothing);
+  });
+
+  testWidgets('C3-R4 R2: rail exposes the complete canonical order with trailing controls', (
+    tester,
+  ) async {
+    await pumpApp(tester, seedContacts: true);
+    final rail = find.byKey(const Key('contacts-quick-filter-strip'));
+    final expected = <ContactFilterCategory>[
+      ContactFilterCategory.groups,
+      ContactFilterCategory.tags,
+      ContactFilterCategory.favorites,
+      ContactFilterCategory.availability,
+      ContactFilterCategory.phone,
+      ContactFilterCategory.email,
+      ContactFilterCategory.address,
+      ContactFilterCategory.socialProfile,
+      ContactFilterCategory.eventHistory,
+      ContactFilterCategory.withEventsToday,
+      ContactFilterCategory.withFutureEvents,
+      ContactFilterCategory.withoutFutureEvents,
+      ContactFilterCategory.source,
+      ContactFilterCategory.archived,
+    ];
+    expect(quickFilterCategories, expected);
+    for (final category in expected) {
+      final chip = find.byKey(Key('contacts-quick-filter-${category.name}'));
+      await tester.dragUntilVisible(chip, rail, const Offset(-180, 0));
+      expect(chip, findsOneWidget);
+    }
+
+    final groups = find.byKey(const Key('contacts-quick-filter-groups'));
+    await tester.dragUntilVisible(groups, rail, const Offset(180, 0));
+    await tester.tap(groups);
+    await tester.pumpAndSettle();
+    final tile = tester.widget<CheckboxListTile>(
+      find.widgetWithText(CheckboxListTile, 'Family'),
+    );
+    expect(tile.controlAffinity, ListTileControlAffinity.trailing);
+    await tester.tap(find.text('Family').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Filtered'), findsOneWidget);
+  });
+
+  testWidgets('C3-R4 R2: zero Displayed Fields is valid structural Contacts content', (
+    tester,
+  ) async {
+    await pumpApp(tester, seedContacts: true);
+    await tester.tap(
+      find.byKey(const Key('contacts-quick-filter-displayedFields')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.descendant(
+        of: find.byKey(const Key('displayed-fields-sheet')),
+        matching: find.byType(TriStateMasterCheckbox),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('None'), findsOneWidget);
+    expect(find.text('Select at least one displayed field.'), findsNothing);
+    await tester.tapAt(const Offset(8, 100));
+    await tester.pumpAndSettle();
+    expect(find.text('Marilyn Gomez'), findsOneWidget);
+    expect(find.byType(ContactGroupIdentityDot), findsWidgets);
   });
 
   testWidgets('C3: full Filter category rows expand inline', (tester) async {
@@ -225,7 +377,13 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Area Filters'), findsOneWidget);
     expect(find.text('Standard Filters'), findsOneWidget);
-    expect(find.text('Status'), findsOneWidget);
+    expect(
+      find.text('Status'),
+      findsNWidgets(2),
+      reason:
+          'R4 defaults Contacts to Status while retaining Status as a direct '
+          'Standard Filter action.',
+    );
     expect(find.text('Recently Viewed'), findsOneWidget);
     expect(find.text('Recently Contacted'), findsOneWidget);
     expect(find.text('No Recent Contact'), findsOneWidget);
@@ -257,43 +415,34 @@ void main() {
     }
   });
 
-  testWidgets('C3: row subtitle shows one primary group only and favorite is '
-      'separate', (tester) async {
+  testWidgets('C3-R4: default Status rows suppress ordinary favorite chrome', (
+    tester,
+  ) async {
     await pumpApp(tester, seedContacts: true);
     expect(find.text('Marilyn Gomez'), findsOneWidget);
-    // Subtitle shows the single current group.
-    expect(find.text('Family'), findsOneWidget);
-    // Favorite star stays separate from the group dot.
-    expect(find.byIcon(Icons.star_rounded), findsOneWidget);
+    expect(find.text('Family'), findsNothing);
+    expect(find.byIcon(Icons.star_rounded), findsNothing);
     expect(find.byIcon(Icons.star_border), findsNothing);
   });
 
-  testWidgets('Terra R2: only the first visible category omits its major '
-      'divider', (tester) async {
+  testWidgets('Terra R2: the first visible Status category omits its major '
+      'divider but keeps its thin title rule', (tester) async {
     await pumpApp(tester, seedContacts: true);
-    final favorites = find.byKey(const Key('contacts-favorites-section'));
-    final other = find.byKey(const Key('contacts-other-section'));
-    expect(favorites, findsOneWidget);
-    expect(other, findsOneWidget);
+    final firstStatus = find.byKey(
+      const Key('contacts-status-section-notInteractedYet'),
+    );
+    expect(firstStatus, findsOneWidget);
     expect(
       find.descendant(
-        of: favorites,
+        of: firstStatus,
         matching: find.byType(FullWidthSectionDivider),
       ),
       findsNothing,
     );
     expect(
-      find.descendant(of: favorites, matching: find.byType(Divider)),
+      find.descendant(of: firstStatus, matching: find.byType(Divider)),
       findsOneWidget,
       reason: 'The thin rule remains directly below the first category title.',
-    );
-    expect(
-      find.descendant(
-        of: other,
-        matching: find.byType(FullWidthSectionDivider),
-      ),
-      findsOneWidget,
-      reason: 'The existing major divider remains before every later category.',
     );
   });
 
@@ -525,12 +674,16 @@ void main() {
     await tester.tap(find.byKey(const Key('contacts-search-button')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('contact-search-field')), findsOneWidget);
+    expect(find.text('Find the people you’re looking for'), findsOneWidget);
+    expect(find.text('Matches'), findsNothing);
+    expect(find.textContaining('recent history'), findsNothing);
     await tester.enterText(
       find.byKey(const Key('contact-search-field')),
       'Marilyn',
     );
     await tester.pump(const Duration(milliseconds: 300));
     await tester.pumpAndSettle();
+    expect(find.text('Matches'), findsOneWidget);
     expect(find.text('Marilyn Gomez'), findsOneWidget);
     expect(find.text('Ashley Cruz'), findsNothing);
   });

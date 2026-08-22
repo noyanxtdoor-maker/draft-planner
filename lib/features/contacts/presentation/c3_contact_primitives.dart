@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:rmplanner/app/theme/app_theme.dart';
 import 'package:rmplanner/features/contacts/domain/contact.dart';
+import 'package:rmplanner/features/planner/presentation/widgets/planner_top_bar_icons.dart';
 
 final class ContactGroupIdentityDot extends StatelessWidget {
   const ContactGroupIdentityDot({required this.colorValue, super.key});
@@ -44,37 +45,82 @@ final class QuickFilterChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return OutlinedButton(
-      onPressed: onPressed,
-      style: OutlinedButton.styleFrom(
-        minimumSize: const Size(0, 44),
-        maximumSize: const Size(double.infinity, 44),
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        side: BorderSide(
-          color: active ? scheme.primary : AppTheme.outlineOf(context),
-        ),
-        backgroundColor: active
-            ? scheme.primary.withValues(alpha: .12)
-            : Colors.transparent,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          Text(
-            '$label: $summary',
-            style: TextStyle(
-              color: active
-                  ? scheme.primary
-                  : AppTheme.onFillTextOf(context, 1),
-              fontSize: 14,
-              fontWeight: active ? FontWeight.w600 : FontWeight.w500,
+    final radius = BorderRadius.circular(7);
+    return SizedBox(
+      height: 48,
+      child: IntrinsicWidth(
+        child: Material(
+          color: Colors.transparent,
+          shape: RoundedRectangleBorder(borderRadius: radius),
+          child: InkWell(
+            onTap: onPressed,
+            borderRadius: radius,
+            child: Center(
+              child: Container(
+                key: Key('quick-filter-chip-body-$label'),
+                height: 34,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                decoration: BoxDecoration(
+                  color: active
+                      ? scheme.primary.withValues(alpha: .12)
+                      : Colors.transparent,
+                  border: Border.all(
+                    color: active ? scheme.primary : AppTheme.outlineOf(context),
+                  ),
+                  borderRadius: radius,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Text(
+                      active ? '$label: $summary' : label,
+                      style: TextStyle(
+                        color: active
+                            ? scheme.primary
+                            : AppTheme.onFillTextOf(context, 1),
+                        fontSize: 13,
+                        fontWeight: active ? FontWeight.w500 : FontWeight.w400,
+                      ),
+                    ),
+                    const SizedBox(width: 3),
+                    Icon(
+                      Icons.keyboard_arrow_down,
+                      size: 16,
+                      color: active
+                          ? scheme.primary
+                          : AppTheme.secondaryTextOf(context),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
-          const SizedBox(width: 6),
-          Icon(Icons.keyboard_arrow_down, size: 20, color: scheme.primary),
-        ],
+        ),
       ),
+    );
+  }
+}
+
+/// Compact quick-state reset affordance. It is intentionally distinct from
+/// FilterPlusIcon, whose only job remains opening the full Filter Builder.
+final class QuickFilterResetButton extends StatelessWidget {
+  const QuickFilterResetButton({required this.active, required this.onPressed, super.key});
+
+  final bool active;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = active
+        ? Theme.of(context).colorScheme.primary
+        : Theme.of(context).colorScheme.onSurface;
+    return IconButton(
+      key: const Key('contacts-quick-filter-reset'),
+      tooltip: 'Reset quick filters',
+      onPressed: onPressed,
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+      icon: PlannerFilterIcon(color: color),
     );
   }
 }
@@ -82,7 +128,9 @@ final class QuickFilterChip extends StatelessWidget {
 /// Contacts Filter action glyph supplied by the owner as an SVG asset.
 /// The existing 32x32 wrapper and surrounding button remain unchanged.
 final class FilterPlusIcon extends StatelessWidget {
-  const FilterPlusIcon({super.key});
+  const FilterPlusIcon({required this.color, super.key});
+
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
@@ -93,6 +141,7 @@ final class FilterPlusIcon extends StatelessWidget {
         'assets/icons/filter-svgrepo-com.svg',
         key: const Key('filter-plus-glyph'),
         fit: BoxFit.contain,
+        colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
       ),
     );
   }

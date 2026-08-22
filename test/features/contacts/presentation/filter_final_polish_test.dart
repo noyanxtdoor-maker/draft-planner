@@ -104,7 +104,7 @@ void main() {
   }
 
   testWidgets(
-    'sort opens an anchored dropdown with six options and no New badges',
+    'sort opens an anchored dropdown with the final eleven options and no New badges',
     (tester) async {
       await pumpFilter(tester);
 
@@ -115,7 +115,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // The menu is anchored to the field (same mechanism as the Event Type
-      // dropdown): it is not a modal bottom sheet and has exactly six options.
+      // dropdown): it is not a modal bottom sheet and has the final eleven options.
       expect(find.byType(BottomSheet), findsNothing);
       expect(
         find.byKey(const Key('filter-sort-dropdown-scroll')),
@@ -134,6 +134,11 @@ void main() {
         find.byKey(const Key('filter-sort-option-oldestAdded')),
         findsOneWidget,
       );
+      expect(find.byKey(const Key('filter-sort-option-status')), findsOneWidget);
+      expect(
+        find.byKey(const Key('filter-sort-option-lastViewed')),
+        findsOneWidget,
+      );
       expect(
         find.byKey(const Key('filter-sort-option-nextEvent')),
         findsOneWidget,
@@ -142,12 +147,29 @@ void main() {
         find.byKey(const Key('filter-sort-option-lastEvent')),
         findsOneWidget,
       );
+      expect(
+        find.byKey(const Key('filter-sort-option-lastHappenedEvent')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('filter-sort-option-leastRecentEvent')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('filter-sort-option-leastRecentHappenedEvent')),
+        findsOneWidget,
+      );
       expect(find.text('Name (A–Z)'), findsWidgets);
       expect(find.text('Name (Z–A)'), findsOneWidget);
       expect(find.text('Recently added'), findsOneWidget);
       expect(find.text('Oldest added'), findsOneWidget);
+      expect(find.text('Status'), findsOneWidget);
+      expect(find.text('Last Viewed'), findsOneWidget);
       expect(find.text('Next Event'), findsOneWidget);
       expect(find.text('Last Event'), findsOneWidget);
+      expect(find.text('Last Happened Event'), findsOneWidget);
+      expect(find.text('Least Recent Event'), findsOneWidget);
+      expect(find.text('Least Recent Happened Event'), findsOneWidget);
       // No "New" badge/text for the added sort entries.
       expect(
         find.textContaining('New'),
@@ -362,7 +384,7 @@ void main() {
   );
 
   testWidgets(
-    'new category selections produce a valid Some state and None is invalid',
+    'new category selections normalize final deselection to valid All',
     (tester) async {
       await pumpFilter(tester);
 
@@ -373,16 +395,22 @@ void main() {
       await tester.tap(find.byKey(const Key('filter-category-main-phone')));
       await tester.pumpAndSettle();
 
-      // Master checkbox from All -> None (temporary invalid draft).
+      // Master checkbox on a neutral multi-value category keeps the canonical
+      // neutral All state; R2 does not leave an invalid temporary None draft.
       await tester.tap(find.byKey(const Key('filter-master-phone')));
       await tester.pumpAndSettle();
-      expect(find.byKey(const Key('filter-validation-phone')), findsOneWidget);
-      expect(find.text('None'), findsOneWidget);
+      expect(find.byKey(const Key('filter-validation-phone')), findsNothing);
+      expect(
+        tester
+            .widget<Text>(find.byKey(const Key('filter-state-phone')))
+            .data,
+        'All',
+      );
       expect(
         tester
             .widget<IconButton>(find.byKey(const Key('filter-builder-check')))
             .onPressed,
-        isNull,
+        isNotNull,
       );
 
       // Select only Mobile -> Some and valid.
@@ -394,21 +422,26 @@ void main() {
       expect(find.byKey(const Key('filter-state-phone')), findsOneWidget);
       expect(find.text('Some'), findsOneWidget);
 
-      // Uncheck Mobile -> None invalid again.
+      // Uncheck Mobile -> canonical All again, rather than an invalid draft.
       await tester.tap(
         find.byKey(const Key('filter-inline-option-phone-mobile')),
       );
       await tester.pumpAndSettle();
-      expect(find.byKey(const Key('filter-validation-phone')), findsOneWidget);
-      expect(find.text('None'), findsOneWidget);
+      expect(find.byKey(const Key('filter-validation-phone')), findsNothing);
+      expect(
+        tester
+            .widget<Text>(find.byKey(const Key('filter-state-phone')))
+            .data,
+        'All',
+      );
       expect(
         tester
             .widget<IconButton>(find.byKey(const Key('filter-builder-check')))
             .onPressed,
-        isNull,
+        isNotNull,
       );
 
-      // Master checkbox from None -> All (valid again).
+      // Master remains a valid canonical All control.
       await tester.tap(find.byKey(const Key('filter-master-phone')));
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('filter-validation-phone')), findsNothing);

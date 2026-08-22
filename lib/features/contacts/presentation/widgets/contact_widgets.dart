@@ -206,12 +206,19 @@ final class ContactListRow extends StatelessWidget {
     if (displayedFields.contains(ContactDisplayedField.nextEvent) &&
         context.nextEventTitle != null &&
         next != null) {
-      lines.add('Next Event: ${friendlyContactDate(next)}');
+      lines.add('Next Event Date: ${friendlyContactDate(next)}');
     }
     final last = context.lastEventDate;
     if (displayedFields.contains(ContactDisplayedField.lastEvent) &&
         last != null) {
-      lines.add('Last Event: ${friendlyContactDate(last)}');
+      lines.add('Last Event Date: ${friendlyContactDate(last)}');
+    }
+    final lastHappened = context.lastHappenedEventDate;
+    if (displayedFields.contains(ContactDisplayedField.lastHappenedEvent) &&
+        lastHappened != null) {
+      lines.add(
+        'Last Happened Event Date: ${friendlyContactDate(lastHappened)}',
+      );
     }
     if (displayedFields.contains(ContactDisplayedField.contactMethod)) {
       lines.add(
@@ -222,7 +229,29 @@ final class ContactListRow extends StatelessWidget {
         summary.contact.addressText?.trim().isNotEmpty == true) {
       lines.add('Address: ${summary.contact.addressText!.trim()}');
     }
+    final interaction = summary.latestQualifyingInteractionDate;
+    if (displayedFields.contains(ContactDisplayedField.lastInteraction) &&
+        interaction != null) {
+      lines.add('Last Interaction: ${_relativeDate(interaction)}');
+    }
+    final lastViewed = summary.contact.lastViewedAtUtc;
+    if (displayedFields.contains(ContactDisplayedField.lastViewed) &&
+        lastViewed != null) {
+      lines.add(
+        'Last Viewed: ${friendlyContactDate(PlannerDate.fromDateTime(lastViewed.toLocal()))}',
+      );
+    }
+    if (displayedFields.contains(ContactDisplayedField.createdDate)) {
+      lines.add(
+        'Created Date: ${friendlyContactDate(PlannerDate.fromDateTime(summary.contact.createdAtUtc.toLocal()))}',
+      );
+    }
     return lines;
+  }
+
+  static String _relativeDate(DateTime value) {
+    final days = DateTime.now().toLocal().difference(value.toLocal()).inDays;
+    return days <= 0 ? 'today' : days == 1 ? '1 day ago' : '$days days ago';
   }
 
   static String _preferredMethodLabel(ContactPreferredMethod method) {

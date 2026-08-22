@@ -128,6 +128,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             name: RouteNames.contacts,
             path: RoutePaths.contacts,
             builder: (context, state) => const ContactsScreen(),
+            routes: <RouteBase>[
+              GoRoute(
+                name: RouteNames.contactSearch,
+                path: 'search',
+                builder: (context, state) => const ContactSearchScreen(),
+              ),
+            ],
           ),
           GoRoute(
             name: RouteNames.maps,
@@ -505,11 +512,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: RouteNames.diagnosticPreview,
         path: RoutePaths.diagnosticPreview,
         builder: (context, state) => const DiagnosticPreviewScreen(),
-      ),
-      GoRoute(
-        name: RouteNames.contactSearch,
-        path: RoutePaths.contactSearch,
-        builder: (context, state) => const ContactSearchScreen(),
       ),
       GoRoute(
         name: RouteNames.mapPicker,
