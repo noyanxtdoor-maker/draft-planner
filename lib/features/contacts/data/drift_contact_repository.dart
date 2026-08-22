@@ -507,7 +507,7 @@ final class DriftContactRepository implements ContactRepository {
     for (final row in rows) {
       available.add(
         _statusBucketFor(
-          dates[row.id],
+          _latestInteractionDate(dates[row.id]),
           nowLocal: clock.nowUtc().toLocal(),
           startOfWeek: startOfWeek,
         ),
@@ -517,6 +517,9 @@ final class DriftContactRepository implements ContactRepository {
         .where(available.contains)
         .toList(growable: false);
   }
+
+  DateTime? _latestInteractionDate(List<DateTime>? dates) =>
+      dates == null || dates.isEmpty ? null : dates.last;
 
   bool _matchesStandardView({
     required ContactRow row,
@@ -597,18 +600,51 @@ final class DriftContactRepository implements ContactRepository {
     return ContactStatusBucket.onePlusYearAgo;
   }
 
+  ContactSmartStatus? _smartStatusFor(List<DateTime> dates) {
+    if (dates.isEmpty) return null;
+    final now = clock.nowUtc().toLocal();
+    final today = DateTime(now.year, now.month, now.day);
+    final last = dates.last;
+    final daysSinceLast = today.difference(last).inDays;
+    DateTime? reconnectReturn;
+    for (var i = 1; i < dates.length; i++) {
+      if (dates[i].difference(dates[i - 1]).inDays >= 90) {
+        reconnectReturn = dates[i];
+      }
+    }
+    if (reconnectReturn != null &&
+        today.difference(reconnectReturn).inDays <= 30) {
+      return ContactSmartStatus.recentlyReconnected;
+    }
+    final in30 = dates.where((date) => today.difference(date).inDays <= 30);
+    if (in30.length >= 4) return ContactSmartStatus.frequentConnection;
+    final in90 = dates.where((date) => today.difference(date).inDays <= 90).toList();
+    if (in90.length >= 3 &&
+        in90.last.difference(in90.first).inDays >= 30 &&
+        daysSinceLast <= 30) {
+      return ContactSmartStatus.regularConnection;
+    }
+    final in180 = dates.where((date) => today.difference(date).inDays <= 180);
+    if (daysSinceLast >= 31 && daysSinceLast <= 90 && in180.length >= 3) {
+      return ContactSmartStatus.reconnectSoon;
+    }
+    return null;
+  }
+
   /// Computes the latest non-cancelled historical Event occurrence for every
   /// requested Contact in one bounded query set. Active links cover retained
   /// participation; immutable occurrence snapshots preserve history after a
   /// repeating-event People edit removes a Contact.
-  Future<Map<String, DateTime?>> _historicalInteractionDatesForContacts({
+  Future<Map<String, List<DateTime>>> _historicalInteractionDatesForContacts({
     required String profileId,
     required List<String> contactIds,
     required PlannerDate today,
   }) async {
-    final result = <String, DateTime?>{for (final id in contactIds) id: null};
+    final result = <String, Set<DateTime>>{
+      for (final id in contactIds) id: <DateTime>{},
+    };
     if (contactIds.isEmpty) {
-      return result;
+      return const <String, List<DateTime>>{};
     }
     final links =
         await (database.select(database.eventContactLinks)..where(
@@ -630,7 +666,9 @@ final class DriftContactRepository implements ContactRepository {
       for (final snapshot in snapshots) snapshot.eventId,
     };
     if (eventIds.isEmpty) {
-      return result;
+      return <String, List<DateTime>>{
+        for (final entry in result.entries) entry.key: const <DateTime>[],
+      };
     }
     final events =
         await (database.select(database.calendarEvents)..where(
@@ -663,18 +701,15 @@ final class DriftContactRepository implements ContactRepository {
       if (!date.asLocalDate.isBefore(todayLocal)) {
         return;
       }
-      if (event.status == CalendarEventStatus.cancelled.name) {
-        return;
-      }
       final exception = exceptionsByKey['${event.id}:$occurrenceId'];
-      if (exception?.status == CalendarEventStatus.cancelled.name) {
+      final effectiveStatus = _statusFromRow(exception?.status ?? event.status);
+      if (effectiveStatus != CalendarEventStatus.scheduled &&
+          effectiveStatus != CalendarEventStatus.completedHappened &&
+          effectiveStatus != CalendarEventStatus.partiallyCompleted) {
         return;
       }
       final localDate = date.asLocalDate;
-      final current = result[contactId];
-      if (current == null || localDate.isAfter(current)) {
-        result[contactId] = localDate;
-      }
+      result[contactId]!.add(localDate);
     }
 
     for (final link in links) {
@@ -712,7 +747,10 @@ final class DriftContactRepository implements ContactRepository {
         snapshot.occurrenceId,
       );
     }
-    return result;
+    return <String, List<DateTime>>{
+      for (final entry in result.entries)
+        entry.key: (entry.value.toList()..sort()),
+    };
   }
 
   /// Deterministic ordering for the event-derived sorts, applied ONLY after
@@ -840,7 +878,7 @@ final class DriftContactRepository implements ContactRepository {
         standardView == null ||
             standardView.filter == ContactStandardFilter.recentlyViewed ||
             standardView.filter == ContactStandardFilter.recentlyCreated
-        ? const <String, DateTime?>{}
+        ? const <String, List<DateTime>>{}
         : await _historicalInteractionDatesForContacts(
             profileId: profileId,
             contactIds: ids,
@@ -848,6 +886,10 @@ final class DriftContactRepository implements ContactRepository {
           );
     final filtered = <ContactRow>[];
     final statusBucketsByContact = <String, ContactStatusBucket>{};
+    final smartStatusesByContact = <String, ContactSmartStatus?>{};
+    final aggregateStatus = standardView?.filter == ContactStandardFilter.status &&
+        standardView?.statusBucket == null;
+    final smartEligible = aggregateStatus && contactRows.length >= 4;
     for (final row in contactRows) {
       final contactId = row.id;
       if (criteria.hasPhone &&
@@ -913,7 +955,7 @@ final class DriftContactRepository implements ContactRepository {
       final canonicalStatusBucket =
           standardView?.filter == ContactStandardFilter.status
           ? _statusBucketFor(
-              historicalInteractionDates[contactId],
+              _latestInteractionDate(historicalInteractionDates[contactId]),
               nowLocal: clock.nowUtc().toLocal(),
               startOfWeek: startOfWeek,
             )
@@ -922,13 +964,17 @@ final class DriftContactRepository implements ContactRepository {
           !_matchesStandardView(
             row: row,
             standardView: standardView,
-            historicalInteractionDate: historicalInteractionDates[contactId],
+            historicalInteractionDate:
+                _latestInteractionDate(historicalInteractionDates[contactId]),
             canonicalStatusBucket: canonicalStatusBucket,
           )) {
         continue;
       }
       if (canonicalStatusBucket != null) {
         statusBucketsByContact[contactId] = canonicalStatusBucket;
+        smartStatusesByContact[contactId] = smartEligible
+            ? _smartStatusFor(historicalInteractionDates[contactId] ?? const <DateTime>[])
+            : null;
       }
       if (criteria.withEventsToday &&
           !(context.nextEventDate == today || context.lastEventDate == today)) {
@@ -957,6 +1003,9 @@ final class DriftContactRepository implements ContactRepository {
             contact: _contactFromRow(row),
             primaryGroup: primary == null ? null : _groupFromRow(primary),
             statusBucket: statusBucketsByContact[row.id],
+            smartStatus: smartStatusesByContact[row.id],
+            latestQualifyingInteractionDate:
+                _latestInteractionDate(historicalInteractionDates[row.id]),
             groupNames: List<String>.unmodifiable(
               groupNamesByContact[row.id] ?? const <String>[],
             ),

@@ -7,6 +7,10 @@ import 'package:rmplanner/core/platform/app_environment.dart';
 import 'package:rmplanner/features/contacts/data/drift_contact_repository.dart';
 import 'package:rmplanner/features/contacts/domain/contact.dart';
 import 'package:rmplanner/features/contacts/presentation/c3_contact_primitives.dart';
+import 'package:rmplanner/features/contacts/presentation/widgets/contact_widgets.dart';
+import 'package:rmplanner/features/planner/data/calendar_event_time_zones.dart';
+import 'package:rmplanner/features/planner/data/drift_calendar_event_repository.dart';
+import 'package:rmplanner/features/planner/domain/calendar_event.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 
 import '../../../support/test_dependencies.dart';
@@ -327,6 +331,191 @@ void main() {
     );
     expect(find.text('Marilyn Gomez'), findsOneWidget);
     expect(find.text('Archived Person'), findsNothing);
+  });
+
+  testWidgets('Pass B2: aggregate Status renders ordered flat Smart sections and Status rows', (tester) async {
+    final app = await pumpApp(tester, seedContacts: true);
+    final calendar = DriftCalendarEventRepository(
+      database: app.database,
+      clock: FixedClock(DateTime.utc(2026, 7, 27, 12)),
+      timeZones: IanaCalendarEventTimeZones(displayTimeZoneId: 'Asia/Manila'),
+    );
+    final groups = await app.contacts.readGroups(app.profileId);
+    final family = groups.singleWhere((group) => group.name == 'Family');
+    const ids = <String>[
+      '44444444-4444-4444-8444-444444444444',
+      '55555555-5555-4555-8555-555555555555',
+      '66666666-6666-4666-8666-666666666666',
+    ];
+    for (final id in ids) {
+      await app.contacts.createContact(profileId: app.profileId, draft: ContactDraft(id: id, firstName: id.substring(0, 1), lastName: 'Status', displayName: 'Status $id', preferredContactMethod: ContactPreferredMethod.message, isFavorite: false));
+      await app.contacts.setContactGroups(profileId: app.profileId, contactId: id, groupIds: <String>[family.id], primaryGroupId: family.id);
+    }
+    var serial = 700;
+    Future<void> interaction(String contactId, int daysAgo) async {
+      final value = DateTime.utc(2026, 7, 27).subtract(Duration(days: daysAgo));
+      final eventId = '00000000-0000-4000-8000-${serial.toString().padLeft(12, '0')}';
+      serial++;
+      await calendar.saveEvent(profileId: app.profileId, draft: CalendarEventDraft(id: eventId, title: 'Status interaction', timing: CalendarEventTiming.timed, startDate: PlannerDate(year: value.year, month: value.month, day: value.day), startMinute: 600, endMinute: 660, timeZoneId: 'Asia/Manila', requiresReport: false, recurrence: const CalendarRecurrenceRule(frequency: CalendarRecurrenceFrequency.none)));
+      final originalDate = PlannerDate(year: value.year, month: value.month, day: value.day);
+      await app.database.into(app.database.eventOccurrenceParticipants).insert(
+        EventOccurrenceParticipantsCompanion.insert(
+          id: 'snapshot-$serial', profileId: app.profileId, eventId: eventId,
+          occurrenceId: CalendarEventOccurrenceIdentity.forDate(eventId: eventId, originalDate: originalDate),
+          originalDate: originalDate.toString(), contactId: contactId,
+          displayNameSnapshot: contactId, createdAtUtc: DateTime.utc(2026, 7, 27),
+        ),
+      );
+    }
+    const marilyn = '11111111-1111-4111-8111-111111111111';
+    await interaction(marilyn, 120); await interaction(marilyn, 20);
+    await interaction(ids[0], 25); await interaction(ids[0], 18); await interaction(ids[0], 10); await interaction(ids[0], 2);
+    await interaction(ids[1], 70); await interaction(ids[1], 40); await interaction(ids[1], 20);
+    await interaction(ids[2], 150); await interaction(ids[2], 100); await interaction(ids[2], 60);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('current-filter-row')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('standard-filter-status')));
+    await tester.pumpAndSettle();
+
+    final labels = <String>['Recently Reconnected', 'Frequent Connection', 'Regular Connection', 'Reconnect Soon'];
+    for (final label in labels) { expect(find.text(label), findsOneWidget); }
+    final positions = labels.map((label) => tester.getTopLeft(find.text(label)).dy).toList();
+    for (var index = 1; index < positions.length; index++) { expect(positions[index], greaterThan(positions[index - 1])); }
+    expect(find.text('Interacted Today'), findsNothing);
+    final first = find.byKey(const Key('contacts-status-section-recentlyReconnected'));
+    final second = find.byKey(const Key('contacts-status-section-frequentConnection'));
+    expect(find.descendant(of: first, matching: find.byType(FullWidthSectionDivider)), findsNothing);
+    expect(find.descendant(of: first, matching: find.byType(Divider)), findsOneWidget);
+    expect(find.descendant(of: second, matching: find.byType(FullWidthSectionDivider)), findsOneWidget);
+    expect(find.descendant(of: second, matching: find.byType(Divider)), findsOneWidget);
+    final marilynRow = find.byKey(const Key('contact-row-$marilyn'));
+    expect(find.descendant(of: marilynRow, matching: find.byType(ContactGroupDot)), findsOneWidget);
+    expect(find.descendant(of: marilynRow, matching: find.byIcon(Icons.star_rounded)), findsNothing);
+    expect(find.descendant(of: marilynRow, matching: find.byType(ContactAvatar)), findsNothing);
+    expect(find.descendant(of: marilynRow, matching: find.textContaining('Last interaction:')), findsOneWidget);
+    final contactsList = find.byKey(const Key('contacts-list'));
+    expect(
+      contactsList,
+      findsOneWidget,
+      reason: 'Aggregate Status must render inside the canonical Contacts list.',
+    );
+    final contactsScrollable = find.descendant(
+      of: contactsList,
+      matching: find.byType(Scrollable),
+    );
+    expect(
+      contactsScrollable,
+      findsOneWidget,
+      reason: 'The canonical Contacts list must own exactly one Scrollable.',
+    );
+    await tester.scrollUntilVisible(
+      find.text('Not Interacted Yet'),
+      280,
+      scrollable: contactsScrollable,
+    );
+    expect(find.text('Not Interacted Yet'), findsOneWidget);
+    expect(find.text('No recorded interaction yet'), findsOneWidget);
+    for (var index = 0; index < 6; index++) {
+      await tester.drag(contactsScrollable, const Offset(0, 360));
+      await tester.pump();
+    }
+    expect(marilynRow, findsOneWidget);
+    await tester.tap(marilynRow);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('contact-detail-fab')), findsOneWidget);
+  });
+
+  testWidgets('Pass B2: aggregate Status hides zero-match Smart sections', (tester) async {
+    final app = await pumpApp(tester, seedContacts: true);
+    final calendar = DriftCalendarEventRepository(
+      database: app.database,
+      clock: FixedClock(DateTime.utc(2026, 7, 27, 12)),
+      timeZones: IanaCalendarEventTimeZones(displayTimeZoneId: 'Asia/Manila'),
+    );
+    const ids = <String>[
+      '77777777-7777-4777-8777-777777777777',
+      '88888888-8888-4888-8888-888888888888',
+      '99999999-9999-4999-8999-999999999999',
+      'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    ];
+    for (final id in ids) {
+      await app.contacts.createContact(
+        profileId: app.profileId,
+        draft: ContactDraft(
+          id: id,
+          firstName: id.substring(0, 1),
+          lastName: 'Status',
+          displayName: 'Zero match $id',
+          preferredContactMethod: ContactPreferredMethod.message,
+          isFavorite: false,
+        ),
+      );
+    }
+    var serial = 800;
+    Future<void> interaction(int daysAgo) async {
+      final value = DateTime.utc(2026, 7, 27).subtract(Duration(days: daysAgo));
+      final eventId =
+          '00000000-0000-4000-8000-${serial.toString().padLeft(12, '0')}';
+      serial++;
+      final date = PlannerDate(
+        year: value.year,
+        month: value.month,
+        day: value.day,
+      );
+      await calendar.saveEvent(
+        profileId: app.profileId,
+        draft: CalendarEventDraft(
+          id: eventId,
+          title: 'Frequent Status interaction',
+          timing: CalendarEventTiming.timed,
+          startDate: date,
+          startMinute: 600,
+          endMinute: 660,
+          timeZoneId: 'Asia/Manila',
+          requiresReport: false,
+          recurrence: const CalendarRecurrenceRule(
+            frequency: CalendarRecurrenceFrequency.none,
+          ),
+        ),
+      );
+      await app.database.into(app.database.eventOccurrenceParticipants).insert(
+        EventOccurrenceParticipantsCompanion.insert(
+          id: 'zero-match-snapshot-$serial',
+          profileId: app.profileId,
+          eventId: eventId,
+          occurrenceId: CalendarEventOccurrenceIdentity.forDate(
+            eventId: eventId,
+            originalDate: date,
+          ),
+          originalDate: date.toString(),
+          contactId: ids.first,
+          displayNameSnapshot: 'Zero match frequent',
+          createdAtUtc: DateTime.utc(2026, 7, 27),
+        ),
+      );
+    }
+
+    for (final daysAgo in <int>[25, 18, 10, 2]) {
+      await interaction(daysAgo);
+    }
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('current-filter-row')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('standard-filter-status')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('contacts-status-section-frequentConnection')),
+      findsOneWidget,
+    );
+    for (final status in <String>[
+      'recentlyReconnected',
+      'regularConnection',
+      'reconnectSoon',
+    ]) {
+      expect(find.byKey(Key('contacts-status-section-$status')), findsNothing);
+    }
   });
 
   testWidgets('C3: Search route matches name and does not expose Notes', (

@@ -322,9 +322,25 @@ final class _ContactsScreenState extends ConsumerState<ContactsScreen> {
         contacts.every((summary) => summary.statusBucket != null),
         'Aggregate Status summaries must carry canonical repository buckets.',
       );
+      final smartOrder = ContactSmartStatus.values;
+      for (final smart in smartOrder) {
+        final members = contacts
+            .where((summary) => summary.smartStatus == smart)
+            .toList(growable: false);
+        if (members.isEmpty) continue;
+        widgets.add(_SectionHeader(
+          title: contactSmartStatusLabel(smart),
+          showMajorDivider: widgets.isNotEmpty,
+          key: Key('contacts-status-section-${smart.name}'),
+        ));
+        for (final summary in members) {
+          widgets.add(_row(summary, displayedFields: displayedFields, statusMode: true));
+        }
+      }
       for (final bucket in ContactStatusBucket.values) {
         final members = contacts
-            .where((summary) => summary.statusBucket == bucket)
+            .where((summary) =>
+                summary.smartStatus == null && summary.statusBucket == bucket)
             .toList(growable: false);
         if (members.isEmpty) {
           continue;
@@ -337,7 +353,7 @@ final class _ContactsScreenState extends ConsumerState<ContactsScreen> {
           ),
         );
         for (final summary in members) {
-          widgets.add(_row(summary, displayedFields: displayedFields));
+          widgets.add(_row(summary, displayedFields: displayedFields, statusMode: true));
         }
       }
       return widgets;
@@ -412,12 +428,27 @@ final class _ContactsScreenState extends ConsumerState<ContactsScreen> {
   Widget _row(
     ContactSummary summary, {
     required List<ContactDisplayedField> displayedFields,
+    bool statusMode = false,
   }) {
     return ContactListRow(
       summary: summary,
-      displayedFields: displayedFields,
+      displayedFields: statusMode
+          ? const <ContactDisplayedField>[]
+          : displayedFields,
+      showFavorite: !statusMode,
+      statusContextLine: statusMode
+          ? _statusContextLine(summary)
+          : null,
       onTap: () => context.push(RoutePaths.contactDetail(summary.contact.id)),
     );
+  }
+
+  String _statusContextLine(ContactSummary summary) {
+    final date = summary.latestQualifyingInteractionDate;
+    if (date == null) return 'No recorded interaction yet';
+    final days = DateTime.now().toLocal().difference(date).inDays;
+    final label = days <= 0 ? 'today' : days == 1 ? '1 day ago' : '$days days ago';
+    return 'Last interaction: $label';
   }
 }
 

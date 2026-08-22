@@ -72,6 +72,8 @@ final class ContactListRow extends StatelessWidget {
     this.leading,
     this.showContextLine = true,
     this.showTrailing = true,
+    this.showFavorite = true,
+    this.statusContextLine,
     super.key,
   });
 
@@ -82,6 +84,8 @@ final class ContactListRow extends StatelessWidget {
   final Widget? trailing;
   final bool showContextLine;
   final bool showTrailing;
+  final bool showFavorite;
+  final String? statusContextLine;
 
   @override
   Widget build(BuildContext context) {
@@ -89,7 +93,9 @@ final class ContactListRow extends StatelessWidget {
         displayedFields.contains(ContactDisplayedField.currentGroup)
         ? summary.subtitle
         : '';
-    final contextLines = _contextLines(summary, displayedFields);
+    final contextLines = statusContextLine == null
+        ? _contextLines(summary, displayedFields)
+        : <String>[statusContextLine!];
     final hasSubtitle = subtitle.isNotEmpty;
     final hasContext = showContextLine && contextLines.isNotEmpty;
     return Material(
@@ -113,7 +119,7 @@ final class ContactListRow extends StatelessWidget {
                 leading!,
                 const SizedBox(width: 12),
               ],
-              if (summary.contact.isFavorite) ...<Widget>[
+              if (showFavorite && summary.contact.isFavorite) ...<Widget>[
                 const Padding(
                   padding: EdgeInsets.only(top: 2),
                   child: Icon(

@@ -43,6 +43,21 @@ enum ContactStatusBucket {
   onePlusYearAgo,
 }
 
+/// Computed relationship-history signal used only by aggregate Status.
+enum ContactSmartStatus {
+  recentlyReconnected,
+  frequentConnection,
+  regularConnection,
+  reconnectSoon,
+}
+
+String contactSmartStatusLabel(ContactSmartStatus status) => switch (status) {
+  ContactSmartStatus.recentlyReconnected => 'Recently Reconnected',
+  ContactSmartStatus.frequentConnection => 'Frequent Connection',
+  ContactSmartStatus.regularConnection => 'Regular Connection',
+  ContactSmartStatus.reconnectSoon => 'Reconnect Soon',
+};
+
 final class ContactStandardView {
   const ContactStandardView({required this.filter, this.statusBucket})
     : assert(filter == ContactStandardFilter.status || statusBucket == null);
@@ -706,6 +721,8 @@ final class ContactSummary {
     required this.contact,
     this.primaryGroup,
     this.statusBucket,
+    this.smartStatus,
+    this.latestQualifyingInteractionDate,
     this.groupNames = const <String>[],
     this.tagNames = const <String>[],
     this.context = const ContactListContext(),
@@ -717,6 +734,8 @@ final class ContactSummary {
   /// Canonical repository-calculated Status category for a Status system view.
   /// It remains null for all non-Status reads.
   final ContactStatusBucket? statusBucket;
+  final ContactSmartStatus? smartStatus;
+  final DateTime? latestQualifyingInteractionDate;
   final List<String> groupNames;
   final List<String> tagNames;
   final ContactListContext context;
