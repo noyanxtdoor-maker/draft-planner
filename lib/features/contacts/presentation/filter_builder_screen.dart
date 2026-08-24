@@ -262,6 +262,7 @@ final class _FilterBuilderScreenState
       options: options,
       selectedKeys: selection ?? options.map((option) => option.key).toSet(),
       validationLabel: contactFilterValidationLabel(category),
+      allowNone: true,
       onToggle: () => setState(() {
         if (!_expanded.add(category.name)) {
           _expanded.remove(category.name);
@@ -277,11 +278,11 @@ final class _FilterBuilderScreenState
     ContactFilterCategory category,
     List<ContactFilterOption> options,
   ) {
-    if (options.isEmpty) return ContactFilterSelectionState.all;
+    if (options.isEmpty) return ContactFilterSelectionState.none;
     final selection = _categorySelections[category];
     if (contactFilterCategoryIsBoolean(category) &&
         (selection == null || selection.isEmpty)) {
-      return ContactFilterSelectionState.all;
+      return ContactFilterSelectionState.none;
     }
     if (category == ContactFilterCategory.source &&
         selection?.contains('all') == true) {
@@ -294,7 +295,7 @@ final class _FilterBuilderScreenState
     if (selection == null || selection.length == options.length) {
       return ContactFilterSelectionState.all;
     }
-    if (selection.isEmpty) return ContactFilterSelectionState.all;
+    if (selection.isEmpty) return ContactFilterSelectionState.none;
     return ContactFilterSelectionState.some;
   }
 
@@ -312,6 +313,16 @@ final class _FilterBuilderScreenState
   ) {
     if (options.isEmpty) return;
     final state = _categoryState(category, options);
+    if (contactFilterCategoryIsBoolean(category)) {
+      _setCategorySelection(
+        category,
+        state == ContactFilterSelectionState.all
+            ? <String>{}
+            : options.map((option) => option.key).toSet(),
+        options,
+      );
+      return;
+    }
     _setCategorySelection(
       category,
       state == ContactFilterSelectionState.all ? <String>{} : null,
@@ -357,15 +368,8 @@ final class _FilterBuilderScreenState
     }
     setState(() {
       _categorySelections[category] = normalized;
-      if (normalized == null ||
-          (normalized.isEmpty &&
-              (contactFilterCategoryUsesNeutralAll(category) ||
-                  category == ContactFilterCategory.source ||
-                  category == ContactFilterCategory.archived)) ||
-          normalized.length == options.length) {
+      if (normalized == null || normalized.length == options.length) {
         _categorySelections[category] = null;
-        _criteria = clearContactFilterCategory(_criteria, category);
-      } else if (normalized.isEmpty) {
         _criteria = clearContactFilterCategory(_criteria, category);
       } else {
         _criteria = contactFilterCriteriaForSelection(
@@ -421,8 +425,11 @@ final class _FilterBuilderScreenState
         groups: groups,
         tags: tags,
       );
+      final state = _categoryState(category, options);
       return options.isNotEmpty &&
-          _categoryState(category, options) != ContactFilterSelectionState.all;
+          state != ContactFilterSelectionState.all &&
+          !(contactFilterCategoryIsBoolean(category) &&
+              state == ContactFilterSelectionState.none);
     });
   }
 
@@ -710,8 +717,7 @@ final class _FilterBuilderScreenState
       ContactSortBy.lastEvent => 'Last Event',
       ContactSortBy.lastHappenedEvent => 'Last Happened Event',
       ContactSortBy.leastRecentEvent => 'Least Recent Event',
-      ContactSortBy.leastRecentHappenedEvent =>
-        'Least Recent Happened Event',
+      ContactSortBy.leastRecentHappenedEvent => 'Least Recent Happened Event',
     };
   }
 
@@ -827,14 +833,20 @@ final class _InlineFilterSection extends StatelessWidget {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    TriStateMasterCheckbox(
-                      key: Key('filter-master-${label.toLowerCase()}'),
-                      value: switch (state) {
-                        ContactFilterSelectionState.all => true,
-                        ContactFilterSelectionState.some => null,
-                        ContactFilterSelectionState.none => false,
-                      },
-                      onChanged: onMasterChanged,
+                    Opacity(
+                      opacity: options.isEmpty ? 0.38 : 1,
+                      child: IgnorePointer(
+                        ignoring: options.isEmpty,
+                        child: TriStateMasterCheckbox(
+                          key: Key('filter-master-${label.toLowerCase()}'),
+                          value: switch (state) {
+                            ContactFilterSelectionState.all => true,
+                            ContactFilterSelectionState.some => null,
+                            ContactFilterSelectionState.none => false,
+                          },
+                          onChanged: onMasterChanged,
+                        ),
+                      ),
                     ),
                   ],
                 ),

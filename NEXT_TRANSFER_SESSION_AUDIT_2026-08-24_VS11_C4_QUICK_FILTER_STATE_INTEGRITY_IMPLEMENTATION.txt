@@ -1,0 +1,162 @@
+NEXT TRANSFER — VS-11 C4 QUICK FILTER STATE INTEGRITY IMPLEMENTATION
+SESSION AUDIT — PARTIAL / VERIFICATION BLOCKED
+Date: 2026-08-24 PHT
+
+OWNER AUTHORITY
+- Owner confirmed the preceding C4 physical review and explicitly overrode any
+  residual sequencing ambiguity before this task began.
+- The supplied Quick Filter State Integrity Surgical Implementation Pack was
+  used as the scoped authority.
+
+BASELINE AND ROLLBACK
+- Branch: autonomous/stability-ux-pack-a-20260814
+- HEAD: 1a58af0d31edf91363e243e902afa57ac25cf5a1
+- Inherited dirty status: 232 porcelain entries; nothing staged.
+- Fresh external rollback snapshot:
+  C:\Users\sherl\Documents\Next Transfer-Temp-Rollback\VS11_C4_QUICK_FILTER_STATE_INTEGRITY_20260824-103741
+- Snapshot file count: 10,856.
+- Snapshot tree manifest SHA-256:
+  7BE7422E39785AF2D6C8C39E70AF69E7DAAFFAAEBC9E4F38171E3A2040F9915E
+- Rollback manifest SHA-256:
+  958D8CBFDF711DC1E47E75B05783923E1D370453E1C4EDDEB573277588E5EA90
+
+IMPLEMENTATION IN PROGRESS
+- Scoped production files changed only:
+  lib/features/contacts/domain/contact.dart
+  lib/features/contacts/presentation/contact_filter_controls.dart
+  lib/features/contacts/presentation/filter_builder_screen.dart
+  lib/features/contacts/data/drift_contact_repository.dart
+- The partial correction adds persisted all/some/none selection truth for
+  genuine multi-select categories, legacy empty-list decode fallback, explicit
+  None query behavior, final-uncheck preservation, zero-option None display,
+  and the owner-locked Favorites All/None presentation.
+- No group persistence, contact-form, profile, map, planner, event, task,
+  navigation, theme, staging, commit, push, schema migration, generated file,
+  uninstall, clear-data, or device mutation was performed.
+
+TOOLCHAIN RESTORATION AND VERIFIED GATES
+- Owner supplied the exact restored toolchain path. It was verified without a
+  substitute: Flutter 3.44.7 stable; framework 84fc5cbb22; engine revision
+  69c8c61792; bundled Dart 3.12.2.
+- Dart formatting ran only on the four scoped production files.
+- Targeted dart analyze --fatal-infos over the four scoped production files:
+  PASS, No issues found.
+- After the owner-authorized handle forensics, Restart Manager identified only
+  stale flutter_tester.exe children from the prior focused test invocation.
+  Their exact orphaned Dart test tree was terminated without touching Codex,
+  source, user data, or a broader cache. Only the generated sqlite3.dll was
+  removed and Flutter regenerated it normally.
+- Focused regressions after the latest builder correction:
+  c3rf_filter_visual_correction_test.dart PASS 5/5;
+  filter_final_polish_test.dart PASS 12/12;
+  drift_contact_repository_test.dart PASS 22/22.
+- Deliberately superseded obsolete assertions that final deselection restores
+  All, that zero-option Groups/Tags display All, and that Favorites None is
+  invalid. They now assert the C4 owner-locked None behavior.
+
+CURRENT BLOCKER
+- Dependency resolution completed through the exact SDK against the existing
+  lockfile. The focused Flutter test runner then stopped before test execution
+  because it cannot delete/replace the stale generated cache file:
+  build\native_assets\windows\sqlite3.dll.
+- No active Flutter/Dart/ADB/Java process was visible at the time. A normal and
+  an approved elevated removal attempt against that one generated DLL both
+  returned Windows Access Denied. No ACL change, broader cache deletion,
+  source/test deletion, reset, or workaround was attempted.
+- Therefore no focused test count is claimed after the latest builder change.
+- Contacts suite, full Contacts suite, fresh APK build, ADB install -r,
+  installed-artifact proof, and launch remain NOT RUN / NOT CLAIMED.
+- git diff --check for the four scoped production files passed before stop.
+
+STOP CONDITION
+- This is not an engineering PASS and not owner physical acceptance.
+- Resume after dependency resolution completes, then complete the required
+  focused/full Contacts regression gates and only then build/install the fresh
+  APK.
+
+TEST-PROVEN PRODUCTION-SCOPE EXPANSION — 2026-08-24 PHT
+- The new C4 UI regression reached a real failure: Phone displayed explicit
+  None immediately before Apply, but reopening the normal Contacts Filter
+  displayed All.
+- Root cause evidence: ContactsScreen._openFilterBuilder constructed
+  const FilterBuilderArgs(), so it threw away the current Contacts criteria
+  before FilterBuilderScreen initialized. This is outside the original four
+  files but is the sole route-state owner required to preserve the authorized
+  state across normal Contacts view reopening.
+- Authorized retained expansion: only
+  lib/features/contacts/presentation/contacts_screen.dart, limited to passing
+  the current criteria and sort into the existing FilterBuilderArgs call.
+- No navigation redesign, provider behavior, repository logic, model/schema,
+  dependency, or unrelated Contacts code is authorized by this expansion.
+
+FINAL ENGINEERING GATES — 2026-08-24 PHT
+- Added focused C4 state-integrity regression coverage in:
+  test/features/contacts/presentation/c4_quick_filter_state_integrity_test.dart
+  (5/5 PASS): genuine multi-select All/None/Some/All, final-uncheck None for
+  Groups/Tags/Availability/Contact Methods/Event History/Phone/Email/Address/
+  Social Profile, zero-option Tags, Favorites, Source/Archived counts,
+  persisted explicit None, legacy saved-filter compatibility, and isEmpty/
+  active state.
+- C3-RF Filter UI regression: PASS 7/7. It now exercises normal Contacts
+  builder reopening after Apply, master All->None->Some->All, final individual
+  uncheck to None, and a visibly disabled/unchecked zero-option Tags master.
+- Filter Builder regression: PASS 12/12.
+- Contact repository regression: PASS 23/23. The added case proves All is
+  unrestricted, Some matches the selected mobile contact, explicit None is
+  empty, all Contacts standard views preserve that empty result, and a saved
+  filter persists/reopens explicit None.
+- Full test/features/contacts suite: PASS 96/96.
+- Targeted dart analyze --fatal-infos over the five production owners and the
+  directly affected regression files: PASS, No issues found.
+- Scoped git diff --check: PASS. Scoped trailing-whitespace check: PASS.
+- Raw provenance review used the fresh rollback snapshot rather than the dirty
+  Git baseline. It found only the five documented production owners, the
+  targeted regression updates/new C4 regression file, and this session audit.
+  Git's larger worktree diff includes inherited dirty content and is not being
+  claimed as task-owned.
+- Source/test state is now frozen for the authorized APK build. No staging,
+  commit, push, reset, clean, stash, dependency change, or C5 work occurred.
+
+APK / DEVICE STATUS
+- NOT STARTED at the time of this audit update. The next authorized action is
+  a fresh debug APK build, then fresh Infinix discovery and data-preserving
+  install -r with installed-artifact hash evidence. Owner physical review
+  remains a required stop condition after launch.
+
+FRESH APK / INFINIX UPDATE EVIDENCE — 2026-08-24 PHT
+- Fresh frozen-source debug build: PASS. Exact Flutter 3.44.7 stable toolchain,
+  local Android SDK, and JDK 21 were used. The build completed as:
+  build/app/outputs/flutter-apk/app-debug.apk
+- Artifact timestamp: 2026-08-24T12:16:30.9972351+08:00
+- Artifact size: 234,713,734 bytes
+- Artifact SHA-256:
+  55E58C7BA3B3C117CA96C4D1E0BE9438983C4D11040E8F6BD146D38AEC9FE05F
+- Build emitted only a non-fatal future-compatibility warning for the existing
+  flutter_timezone and maplibre_gl Kotlin Gradle plugins. No dependency update
+  or project configuration change was made.
+- Fresh ADB discovery identified Infinix X6731, model Infinix_X6731. The
+  initially discovered mDNS transport dropped before preflight, so discovery
+  was refreshed and the current transport 192.168.1.50:44065 was used.
+- Pre-install package evidence for com.nexttransfer.rmplanner:
+  dataDir=/data/user/0/com.nexttransfer.rmplanner
+  firstInstallTime=2026-07-27 15:42:22
+  lastUpdateTime=2026-08-24 09:39:30
+- Data-preserving update command: adb -s 192.168.1.50:44065 install -r
+  <fresh app-debug.apk>. Result: Success. No uninstall, clear-data, or package
+  replacement by a different identifier occurred.
+- Post-install evidence:
+  dataDir unchanged: /data/user/0/com.nexttransfer.rmplanner
+  firstInstallTime unchanged: 2026-07-27 15:42:22
+  lastUpdateTime advanced: 2026-08-24 12:17:38
+  installed base path was pulled to:
+  build/device-evidence/c4-quick-filter-20260824/infinix-base.apk
+- Local and pulled installed base.apk sizes are both 234,713,734 bytes.
+  Both SHA-256 values are exactly:
+  55E58C7BA3B3C117CA96C4D1E0BE9438983C4D11040E8F6BD146D38AEC9FE05F
+- Launch smoke: adb am start -n com.nexttransfer.rmplanner/.MainActivity
+  returned a MainActivity launch intent successfully.
+
+STOP FOR OWNER PHYSICAL REVIEW
+- Engineering gates, fresh build, data-preserving install evidence, byte
+  equality, and launch are complete. Physical UI/behavior acceptance remains
+  owner-only and has not been inferred. No further work was performed.

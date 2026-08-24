@@ -122,15 +122,20 @@ void main() {
   });
 
   test(
-    'groups carry the identity color and membership survives renames',
+    'hard deleting a group removes every membership while retaining Contacts',
     () async {
       final (database, contacts, _, profileId) = await arrange();
       addTearDown(database.close);
 
-      final group = await contacts.createGroup(
+      final deletedGroup = await contacts.createGroup(
         profileId: profileId,
         name: 'Family',
         colorValue: 0xFFE91E63,
+      );
+      final retainedGroup = await contacts.createGroup(
+        profileId: profileId,
+        name: 'Friends',
+        colorValue: 0xFF4CAF50,
       );
       await contacts.createContact(
         profileId: profileId,
@@ -139,8 +144,8 @@ void main() {
       await contacts.setContactGroups(
         profileId: profileId,
         contactId: 'contact-ashley',
-        groupIds: <String>[group.id],
-        primaryGroupId: group.id,
+        groupIds: <String>[deletedGroup.id, retainedGroup.id],
+        primaryGroupId: deletedGroup.id,
       );
       final summary = await contacts.readContacts(
         profileId: profileId,
@@ -151,38 +156,57 @@ void main() {
       final ashley = summary.singleWhere(
         (s) => s.contact.id == 'contact-ashley',
       );
-      expect(ashley.primaryGroup?.id, group.id);
+      expect(ashley.primaryGroup?.id, deletedGroup.id);
       expect(ashley.colorValue.value, 0xFFE91E63);
 
-      await contacts.updateGroup(
+      await contacts.hardDeleteGroup(
         profileId: profileId,
-        groupId: group.id,
-        name: 'Extended Family',
-        colorValue: 0xFF4CAF50,
+        groupId: deletedGroup.id,
       );
-      final renamed = await contacts.readContactDetail(
+      final afterDelete = await contacts.readContactDetail(
         profileId: profileId,
         contactId: 'contact-ashley',
       );
-      expect(renamed.groups.single.name, 'Extended Family');
-      expect(renamed.primaryGroupId, group.id);
-
-      // Archiving a group keeps it on existing Contacts (contact history is
-      // untouched) but it can no longer be anyone's primary group.
-      await contacts.archiveGroup(profileId: profileId, groupId: group.id);
-      final afterArchive = await contacts.readContactDetail(
-        profileId: profileId,
-        contactId: 'contact-ashley',
-      );
-      expect(afterArchive.groups.single.id, group.id);
-      expect(afterArchive.primaryGroupId, isNull);
+      expect(afterDelete.contact.id, 'contact-ashley');
+      expect(afterDelete.primaryGroupId, isNull);
+      expect(afterDelete.groups.map((group) => group.id), <String>[
+        retainedGroup.id,
+      ]);
       final allGroups = await contacts.readGroups(
         profileId,
         includeArchived: true,
       );
-      expect(allGroups.singleWhere((g) => g.id == group.id).isArchived, isTrue);
+      expect(
+        allGroups.map((group) => group.id),
+        isNot(contains(deletedGroup.id)),
+      );
+      final deletedMemberships = await (database.select(
+        database.contactGroupMemberships,
+      )..where((table) => table.groupId.equals(deletedGroup.id))).get();
+      expect(deletedMemberships, isEmpty);
     },
   );
+
+  test('hard deleting a group is profile scoped', () async {
+    final (database, contacts, _, profileId) = await arrange();
+    addTearDown(database.close);
+
+    final group = await contacts.createGroup(
+      profileId: profileId,
+      name: 'Work',
+      colorValue: 0xFF1E88E5,
+    );
+
+    await expectLater(
+      contacts.hardDeleteGroup(profileId: 'another-profile', groupId: group.id),
+      throwsA(isA<ContactValidationException>()),
+    );
+    final remaining = await contacts.readGroups(
+      profileId,
+      includeArchived: true,
+    );
+    expect(remaining.single.id, group.id);
+  });
 
   test(
     'RELEASE-BLOCKING: removing a Contact from a future series keeps their '
@@ -569,7 +593,7 @@ void main() {
       await calendar.saveEvent(
         profileId: profileId,
         draft: CalendarEventDraft(
-        id: '44444444-4444-4444-8444-444444444444',
+          id: '44444444-4444-4444-8444-444444444444',
           title: 'Planning conversation',
           timing: CalendarEventTiming.timed,
           startDate: const PlannerDate(year: 2026, month: 7, day: 25),
@@ -584,7 +608,7 @@ void main() {
       );
       await contacts.setEventPeople(
         profileId: profileId,
-      eventId: '44444444-4444-4444-8444-444444444444',
+        eventId: '44444444-4444-4444-8444-444444444444',
         occurrenceId: 'series',
         contactIds: const <String>['contact-interacted'],
       );
@@ -929,6 +953,8 @@ void main() {
       await addSocial('s-wa', 'wa_user', label: 'whatsapp');
       await addSocial('s-fb', 'fb_user', label: 'facebook');
       await addSocial('s-x', 'x_user', label: 'x');
+      await addSocial('s-kakao', 'kakao_user', label: 'kakaotalk');
+      await addSocial('s-hello', 'hello_user', label: 'hellotalk');
       await addSocial('s-custom', 'custom_user', label: 'custom');
       await addSocial('s-null', 'null_user');
 
@@ -950,6 +976,12 @@ void main() {
         's-fb',
       });
       expect(await idsFor(const <String>[ContactSocialFilterKeys.x]), {'s-x'});
+      expect(await idsFor(const <String>[ContactSocialFilterKeys.kakaoTalk]), {
+        's-kakao',
+      });
+      expect(await idsFor(const <String>[ContactSocialFilterKeys.helloTalk]), {
+        's-hello',
+      });
       expect(await idsFor(const <String>[ContactSocialFilterKeys.other]), {
         's-custom',
         's-null',
@@ -1031,50 +1063,62 @@ void main() {
       ContactSortBy.leastRecentEvent,
       ContactSortBy.leastRecentHappenedEvent,
     ]);
-    expect(ContactDisplayedField.values, containsAll(<ContactDisplayedField>[
-      ContactDisplayedField.currentGroup,
-      ContactDisplayedField.tags,
-      ContactDisplayedField.nextEvent,
-      ContactDisplayedField.lastEvent,
-      ContactDisplayedField.lastHappenedEvent,
-      ContactDisplayedField.contactMethod,
-      ContactDisplayedField.address,
-      ContactDisplayedField.lastInteraction,
-      ContactDisplayedField.lastViewed,
-      ContactDisplayedField.createdDate,
-    ]));
+    expect(
+      ContactDisplayedField.values,
+      containsAll(<ContactDisplayedField>[
+        ContactDisplayedField.currentGroup,
+        ContactDisplayedField.tags,
+        ContactDisplayedField.nextEvent,
+        ContactDisplayedField.lastEvent,
+        ContactDisplayedField.lastHappenedEvent,
+        ContactDisplayedField.contactMethod,
+        ContactDisplayedField.address,
+        ContactDisplayedField.lastInteraction,
+        ContactDisplayedField.lastViewed,
+        ContactDisplayedField.createdDate,
+      ]),
+    );
     expect(ContactDisplayedFieldCodec.defaults, ContactDisplayedField.values);
   });
 
-  test('Last Viewed puts recorded Contacts newest-first and nulls last', () async {
-    final (database, contacts, _, profileId) = await arrange();
-    addTearDown(database.close);
-    for (final entry in <(String, String)>[
-      ('a', 'Alpha'),
-      ('b', 'Beta'),
-      ('c', 'Charlie'),
-    ]) {
-      await contacts.createContact(
-        profileId: profileId,
-        draft: draftFor(id: entry.$1, first: entry.$2, last: ''),
+  test(
+    'Last Viewed puts recorded Contacts newest-first and nulls last',
+    () async {
+      final (database, contacts, _, profileId) = await arrange();
+      addTearDown(database.close);
+      for (final entry in <(String, String)>[
+        ('a', 'Alpha'),
+        ('b', 'Beta'),
+        ('c', 'Charlie'),
+      ]) {
+        await contacts.createContact(
+          profileId: profileId,
+          draft: draftFor(id: entry.$1, first: entry.$2, last: ''),
+        );
+      }
+      await (database.update(
+        database.contacts,
+      )..where((t) => t.id.equals('a'))).write(
+        ContactsCompanion(lastViewedAtUtc: Value(DateTime.utc(2026, 8, 1))),
       );
-    }
-    await (database.update(database.contacts)..where((t) => t.id.equals('a')))
-        .write(ContactsCompanion(lastViewedAtUtc: Value(DateTime.utc(2026, 8, 1))));
-    await (database.update(database.contacts)..where((t) => t.id.equals('b')))
-        .write(ContactsCompanion(lastViewedAtUtc: Value(DateTime.utc(2026, 8, 2))));
-    final rows = await contacts.readContacts(
-      profileId: profileId,
-      criteria: const ContactFilterCriteria(),
-      sortBy: ContactSortBy.lastViewed,
-      today: today,
-    );
-    expect(rows.map((row) => row.contact.displayName), <String>[
-      'Beta',
-      'Alpha',
-      'Charlie',
-    ]);
-  });
+      await (database.update(
+        database.contacts,
+      )..where((t) => t.id.equals('b'))).write(
+        ContactsCompanion(lastViewedAtUtc: Value(DateTime.utc(2026, 8, 2))),
+      );
+      final rows = await contacts.readContacts(
+        profileId: profileId,
+        criteria: const ContactFilterCriteria(),
+        sortBy: ContactSortBy.lastViewed,
+        today: today,
+      );
+      expect(rows.map((row) => row.contact.displayName), <String>[
+        'Beta',
+        'Alpha',
+        'Charlie',
+      ]);
+    },
+  );
 
   test(
     'Next Event / Last Event sorts use canonical event context with nulls last',
@@ -1296,49 +1340,55 @@ void main() {
           profileId: profileId,
           draft: draftFor(id: contactId, first: name, last: ''),
         );
-        await database.into(database.calendarEvents).insert(
-          CalendarEventsCompanion.insert(
-            id: eventId,
-            profileId: profileId,
-            title: 'Event $eventId',
-            timing: CalendarEventTiming.timed.name,
-            startDate: date.toString(),
-            status: Value(status.name),
-            createdAtUtc: DateTime.utc(2026, 7, 1, 12),
-            updatedAtUtc: DateTime.utc(2026, 7, 1, 12),
-          ),
-        );
-        await database.into(database.eventContactLinks).insert(
-          EventContactLinksCompanion.insert(
-            id: 'link-$contactId',
-            profileId: profileId,
-            eventId: eventId,
-            occurrenceId: Value('single-$contactId'),
-            originalDate: Value(date.toString()),
-            contactId: contactId,
-            status: const Value('active'),
-            createdAtUtc: DateTime.utc(2026, 7, 1, 12),
-            updatedAtUtc: DateTime.utc(2026, 7, 1, 12),
-          ),
-        );
-        if (exceptionStatus != null) {
-          await database.into(database.calendarEventExceptions).insert(
-            CalendarEventExceptionsCompanion.insert(
-              id: 'exception-$contactId',
-              profileId: profileId,
-              eventId: eventId,
-              occurrenceId: CalendarEventOccurrenceIdentity.forDate(
-                eventId: eventId,
-                originalDate: date,
+        await database
+            .into(database.calendarEvents)
+            .insert(
+              CalendarEventsCompanion.insert(
+                id: eventId,
+                profileId: profileId,
+                title: 'Event $eventId',
+                timing: CalendarEventTiming.timed.name,
+                startDate: date.toString(),
+                status: Value(status.name),
+                createdAtUtc: DateTime.utc(2026, 7, 1, 12),
+                updatedAtUtc: DateTime.utc(2026, 7, 1, 12),
               ),
-              originalDate: date.toString(),
-              effectiveDate: date.toString(),
-              title: 'Event $eventId',
-              timing: CalendarEventTiming.timed.name,
-              status: exceptionStatus.name,
-              createdAtUtc: DateTime.utc(2026, 7, 1, 12),
-            ),
-          );
+            );
+        await database
+            .into(database.eventContactLinks)
+            .insert(
+              EventContactLinksCompanion.insert(
+                id: 'link-$contactId',
+                profileId: profileId,
+                eventId: eventId,
+                occurrenceId: Value('single-$contactId'),
+                originalDate: Value(date.toString()),
+                contactId: contactId,
+                status: const Value('active'),
+                createdAtUtc: DateTime.utc(2026, 7, 1, 12),
+                updatedAtUtc: DateTime.utc(2026, 7, 1, 12),
+              ),
+            );
+        if (exceptionStatus != null) {
+          await database
+              .into(database.calendarEventExceptions)
+              .insert(
+                CalendarEventExceptionsCompanion.insert(
+                  id: 'exception-$contactId',
+                  profileId: profileId,
+                  eventId: eventId,
+                  occurrenceId: CalendarEventOccurrenceIdentity.forDate(
+                    eventId: eventId,
+                    originalDate: date,
+                  ),
+                  originalDate: date.toString(),
+                  effectiveDate: date.toString(),
+                  title: 'Event $eventId',
+                  timing: CalendarEventTiming.timed.name,
+                  status: exceptionStatus.name,
+                  createdAtUtc: DateTime.utc(2026, 7, 1, 12),
+                ),
+              );
         }
       }
 
@@ -1382,23 +1432,26 @@ void main() {
       }
 
       expect(
-        (await sorted(ContactSortBy.lastHappenedEvent))
-            .map((summary) => summary.contact.displayName),
+        (await sorted(
+          ContactSortBy.lastHappenedEvent,
+        )).map((summary) => summary.contact.displayName),
         <String>['Beta', 'Alpha', 'Charlie', 'Delta'],
       );
       expect(
-        (await sorted(ContactSortBy.leastRecentEvent))
-            .map((summary) => summary.contact.displayName),
+        (await sorted(
+          ContactSortBy.leastRecentEvent,
+        )).map((summary) => summary.contact.displayName),
         <String>['Alpha', 'Beta', 'Charlie', 'Delta'],
       );
       expect(
-        (await sorted(ContactSortBy.leastRecentHappenedEvent))
-            .map((summary) => summary.contact.displayName),
+        (await sorted(
+          ContactSortBy.leastRecentHappenedEvent,
+        )).map((summary) => summary.contact.displayName),
         <String>['Alpha', 'Beta', 'Charlie', 'Delta'],
       );
-      final delta = (await sorted(ContactSortBy.name)).singleWhere(
-        (summary) => summary.contact.id == 'delta',
-      );
+      final delta = (await sorted(
+        ContactSortBy.name,
+      )).singleWhere((summary) => summary.contact.id == 'delta');
       expect(delta.context.lastHappenedEventDate, isNull);
       expect(
         delta.context.leastRecentEventDate,
@@ -1494,6 +1547,95 @@ void main() {
         docDecoded.description,
         'filter with phone + email + address + social',
       );
+    },
+  );
+
+  test(
+    'C4 explicit None is empty across repository views while All and Some retain their query meanings',
+    () async {
+      final (database, contacts, _, profileId) = await arrange();
+      addTearDown(database.close);
+      await contacts.createContact(
+        profileId: profileId,
+        draft: ContactDraft(
+          id: 'mobile-contact',
+          firstName: 'Mobile',
+          lastName: 'Contact',
+          displayName: 'Mobile Contact',
+          preferredContactMethod: ContactPreferredMethod.message,
+          isFavorite: true,
+          methods: const <ContactMethodDraft>[
+            ContactMethodDraft(
+              type: ContactMethodType.phone,
+              value: '+1 555 0100',
+              label: ContactPhoneFilterKeys.mobile,
+            ),
+          ],
+        ),
+      );
+      await contacts.createContact(
+        profileId: profileId,
+        draft: draftFor(id: 'no-phone-contact', first: 'No', last: 'Phone'),
+      );
+
+      Future<List<ContactSummary>> read(
+        ContactFilterCriteria criteria, {
+        ContactStandardView? standardView,
+      }) {
+        return contacts.readContacts(
+          profileId: profileId,
+          criteria: criteria,
+          sortBy: ContactSortBy.name,
+          today: today,
+          standardView: standardView,
+        );
+      }
+
+      expect(
+        (await read(
+          const ContactFilterCriteria(),
+        )).map((item) => item.contact.id),
+        <String>['mobile-contact', 'no-phone-contact'],
+      );
+      expect(
+        (await read(
+          const ContactFilterCriteria(
+            phoneLabels: <String>[ContactPhoneFilterKeys.mobile],
+            phoneSelectionMode: ContactFilterSelectionMode.some,
+          ),
+        )).map((item) => item.contact.id),
+        <String>['mobile-contact'],
+      );
+
+      const explicitNone = ContactFilterCriteria(
+        phoneSelectionMode: ContactFilterSelectionMode.none,
+      );
+      expect(await read(explicitNone), isEmpty);
+      for (final standard in ContactStandardFilter.values) {
+        expect(
+          await read(
+            explicitNone,
+            standardView: ContactStandardView(filter: standard),
+          ),
+          isEmpty,
+          reason: 'explicit None must remain empty in ${standard.name}',
+        );
+      }
+
+      final saved = await contacts.saveSavedFilter(
+        profileId: profileId,
+        draft: const SavedContactFilterDraft(
+          name: 'Explicit phone none',
+          criteria: explicitNone,
+        ),
+      );
+      final reopened = (await contacts.readSavedFilters(profileId)).single;
+      expect(reopened.id, saved.id);
+      expect(
+        reopened.criteria.phoneSelectionMode,
+        ContactFilterSelectionMode.none,
+      );
+      expect(await read(reopened.criteria), isEmpty);
     },
   );
 }

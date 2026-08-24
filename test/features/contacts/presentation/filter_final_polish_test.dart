@@ -75,12 +75,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(
-      find.descendant(
-        of: find.byType(NavigationBar),
-        matching: find.text('Contacts'),
-      ),
-    );
+    await tester.tap(find.byKey(const Key('nav-contacts')));
     await tester.pumpAndSettle();
     return database;
   }
@@ -134,7 +129,10 @@ void main() {
         find.byKey(const Key('filter-sort-option-oldestAdded')),
         findsOneWidget,
       );
-      expect(find.byKey(const Key('filter-sort-option-status')), findsOneWidget);
+      expect(
+        find.byKey(const Key('filter-sort-option-status')),
+        findsOneWidget,
+      );
       expect(
         find.byKey(const Key('filter-sort-option-lastViewed')),
         findsOneWidget,
@@ -235,7 +233,9 @@ void main() {
         'whatsapp',
         'line',
         'skype',
+        'kakaotalk',
         'instagram',
+        'hellotalk',
         'x',
         'other',
       ]);
@@ -384,7 +384,7 @@ void main() {
   );
 
   testWidgets(
-    'new category selections normalize final deselection to valid All',
+    'C4 category selections preserve explicit None through final deselection',
     (tester) async {
       await pumpFilter(tester);
 
@@ -395,16 +395,13 @@ void main() {
       await tester.tap(find.byKey(const Key('filter-category-main-phone')));
       await tester.pumpAndSettle();
 
-      // Master checkbox on a neutral multi-value category keeps the canonical
-      // neutral All state; R2 does not leave an invalid temporary None draft.
+      // C4: master All -> explicit None; None remains a valid filter state.
       await tester.tap(find.byKey(const Key('filter-master-phone')));
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('filter-validation-phone')), findsNothing);
       expect(
-        tester
-            .widget<Text>(find.byKey(const Key('filter-state-phone')))
-            .data,
-        'All',
+        tester.widget<Text>(find.byKey(const Key('filter-state-phone'))).data,
+        'None',
       );
       expect(
         tester
@@ -422,17 +419,15 @@ void main() {
       expect(find.byKey(const Key('filter-state-phone')), findsOneWidget);
       expect(find.text('Some'), findsOneWidget);
 
-      // Uncheck Mobile -> canonical All again, rather than an invalid draft.
+      // Uncheck Mobile -> explicit None; never normalize back to All.
       await tester.tap(
         find.byKey(const Key('filter-inline-option-phone-mobile')),
       );
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('filter-validation-phone')), findsNothing);
       expect(
-        tester
-            .widget<Text>(find.byKey(const Key('filter-state-phone')))
-            .data,
-        'All',
+        tester.widget<Text>(find.byKey(const Key('filter-state-phone'))).data,
+        'None',
       );
       expect(
         tester
@@ -441,7 +436,7 @@ void main() {
         isNotNull,
       );
 
-      // Master remains a valid canonical All control.
+      // Master None -> All.
       await tester.tap(find.byKey(const Key('filter-master-phone')));
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('filter-validation-phone')), findsNothing);

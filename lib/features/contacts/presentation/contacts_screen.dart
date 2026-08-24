@@ -60,8 +60,8 @@ final class _ContactsScreenState extends ConsumerState<ContactsScreen> {
               'Contacts',
               style: TextStyle(
                 fontFamily: 'Roboto',
-                fontSize: 20,
-                height: 24 / 20,
+                fontSize: 18,
+                height: 24 / 18,
                 fontWeight: FontWeight.w400,
               ),
             ),
@@ -177,9 +177,13 @@ final class _ContactsScreenState extends ConsumerState<ContactsScreen> {
   /// and applies its criteria to the current view (same engine as saved
   /// filters; never a second filter model).
   Future<void> _openFilterBuilder() async {
+    final state = ref.read(contactsControllerProvider);
     final result = await context.push<FilterBuilderResult>(
       RoutePaths.filterBuilder,
-      extra: const FilterBuilderArgs(),
+      extra: FilterBuilderArgs(
+        initialCriteria: state.criteria,
+        initialSortBy: state.sortBy,
+      ),
     );
     if (result != null && mounted) {
       final controller = ref.read(contactsControllerProvider.notifier);
@@ -251,8 +255,7 @@ final class _ContactsScreenState extends ConsumerState<ContactsScreen> {
       ContactSortBy.lastEvent => 'Last Event',
       ContactSortBy.lastHappenedEvent => 'Last Happened Event',
       ContactSortBy.leastRecentEvent => 'Least Recent Event',
-      ContactSortBy.leastRecentHappenedEvent =>
-        'Least Recent Happened Event',
+      ContactSortBy.leastRecentHappenedEvent => 'Least Recent Happened Event',
     };
   }
 
@@ -269,7 +272,8 @@ final class _ContactsScreenState extends ConsumerState<ContactsScreen> {
             criteria: state.criteria,
             sortBy: state.sortBy,
             standardView: state.standardView,
-            displayedFields: state.displayedFieldsOverride ??
+            displayedFields:
+                state.displayedFieldsOverride ??
                 state.appliedFilter?.displayedFields ??
                 ContactDisplayedFieldCodec.defaults,
           );
@@ -283,7 +287,8 @@ final class _ContactsScreenState extends ConsumerState<ContactsScreen> {
           criteria: state.criteria,
           groups: groups,
           tags: tags,
-          displayedFields: state.displayedFieldsOverride ??
+          displayedFields:
+              state.displayedFieldsOverride ??
               state.appliedFilter?.displayedFields ??
               ContactDisplayedFieldCodec.defaults,
           displayedFieldsOverridden: state.displayedFieldsOverride != null,
@@ -293,9 +298,8 @@ final class _ContactsScreenState extends ConsumerState<ContactsScreen> {
           onDisplayedFieldsChanged: (fields) => ref
               .read(contactsControllerProvider.notifier)
               .setDisplayedFieldsOverride(fields),
-          onReset: () => ref
-              .read(contactsControllerProvider.notifier)
-              .clearAdHocFilters(),
+          onReset: () =>
+              ref.read(contactsControllerProvider.notifier).clearAdHocFilters(),
         ),
         _ActiveFilterChips(
           criteria: state.criteria,
@@ -346,19 +350,25 @@ final class _ContactsScreenState extends ConsumerState<ContactsScreen> {
             .where((summary) => summary.smartStatus == smart)
             .toList(growable: false);
         if (members.isEmpty) continue;
-        widgets.add(_SectionHeader(
-          title: contactSmartStatusLabel(smart),
-          showMajorDivider: widgets.isNotEmpty,
-          key: Key('contacts-status-section-${smart.name}'),
-        ));
+        widgets.add(
+          _SectionHeader(
+            title: contactSmartStatusLabel(smart),
+            showMajorDivider: widgets.isNotEmpty,
+            key: Key('contacts-status-section-${smart.name}'),
+          ),
+        );
         for (final summary in members) {
-          widgets.add(_row(summary, displayedFields: displayedFields, statusMode: true));
+          widgets.add(
+            _row(summary, displayedFields: displayedFields, statusMode: true),
+          );
         }
       }
       for (final bucket in ContactStatusBucket.values) {
         final members = contacts
-            .where((summary) =>
-                summary.smartStatus == null && summary.statusBucket == bucket)
+            .where(
+              (summary) =>
+                  summary.smartStatus == null && summary.statusBucket == bucket,
+            )
             .toList(growable: false);
         if (members.isEmpty) {
           continue;
@@ -371,7 +381,9 @@ final class _ContactsScreenState extends ConsumerState<ContactsScreen> {
           ),
         );
         for (final summary in members) {
-          widgets.add(_row(summary, displayedFields: displayedFields, statusMode: true));
+          widgets.add(
+            _row(summary, displayedFields: displayedFields, statusMode: true),
+          );
         }
       }
       return widgets;
@@ -453,10 +465,7 @@ final class _ContactsScreenState extends ConsumerState<ContactsScreen> {
       displayedFields: statusMode
           ? const <ContactDisplayedField>[]
           : displayedFields,
-      showFavorite: !statusMode,
-      statusContextLine: statusMode
-          ? _statusContextLine(summary)
-          : null,
+      statusContextLine: statusMode ? _statusContextLine(summary) : null,
       onTap: () => context.push(RoutePaths.contactDetail(summary.contact.id)),
     );
   }
@@ -465,7 +474,11 @@ final class _ContactsScreenState extends ConsumerState<ContactsScreen> {
     final date = summary.latestQualifyingInteractionDate;
     if (date == null) return 'No recorded interaction yet';
     final days = DateTime.now().toLocal().difference(date).inDays;
-    final label = days <= 0 ? 'today' : days == 1 ? '1 day ago' : '$days days ago';
+    final label = days <= 0
+        ? 'today'
+        : days == 1
+        ? '1 day ago'
+        : '$days days ago';
     return 'Last interaction: $label';
   }
 }
@@ -716,7 +729,8 @@ final class _QuickFilterStrip extends StatelessWidget {
             return QuickFilterChip(
               key: const Key('contacts-quick-filter-displayedFields'),
               label: 'Displayed Fields',
-              summary: displayedFields.length ==
+              summary:
+                  displayedFields.length ==
                       ContactDisplayedFieldCodec.defaults.length
                   ? 'All'
                   : '${displayedFields.length} selected',
@@ -804,14 +818,34 @@ final class _DisplayedFieldsSheetState extends State<_DisplayedFieldsSheet> {
             Container(width: 36, height: 4, color: AppTheme.outlineOf(context)),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 14, 12, 8),
-              child: Row(children: <Widget>[
-                const Expanded(child: Text('Displayed Fields', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700))),
-                Text(all ? 'All' : none ? 'None' : 'Some'),
-                TriStateMasterCheckbox(
-                  value: all ? true : none ? false : null,
-                  onChanged: (_) => _setAll(!all),
-                ),
-              ]),
+              child: Row(
+                children: <Widget>[
+                  const Expanded(
+                    child: Text(
+                      'Displayed Fields',
+                      style: TextStyle(
+                        fontSize: 19,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    all
+                        ? 'All'
+                        : none
+                        ? 'None'
+                        : 'Some',
+                  ),
+                  TriStateMasterCheckbox(
+                    value: all
+                        ? true
+                        : none
+                        ? false
+                        : null,
+                    onChanged: (_) => _setAll(!all),
+                  ),
+                ],
+              ),
             ),
             const Divider(height: 1),
             Flexible(
@@ -836,17 +870,31 @@ final class _DisplayedFieldsSheetState extends State<_DisplayedFieldsSheet> {
   }
 
   void _setAll(bool value) {
-    setState(() => _selected = value ? ContactDisplayedField.values.toSet() : <ContactDisplayedField>{});
+    setState(
+      () => _selected = value
+          ? ContactDisplayedField.values.toSet()
+          : <ContactDisplayedField>{},
+    );
     _notifyValid();
   }
 
   void _toggle(ContactDisplayedField field, bool value) {
-    setState(() { if (value) { _selected.add(field); } else { _selected.remove(field); } });
+    setState(() {
+      if (value) {
+        _selected.add(field);
+      } else {
+        _selected.remove(field);
+      }
+    });
     _notifyValid();
   }
 
   void _notifyValid() {
-    widget.onChanged(ContactDisplayedField.values.where(_selected.contains).toList(growable: false));
+    widget.onChanged(
+      ContactDisplayedField.values
+          .where(_selected.contains)
+          .toList(growable: false),
+    );
   }
 
   static String _label(ContactDisplayedField field) => switch (field) {

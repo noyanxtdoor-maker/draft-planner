@@ -2,22 +2,43 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:rmplanner/app/router/route_names.dart';
 import 'package:rmplanner/app/theme/app_theme.dart';
+import 'package:rmplanner/app/theme/contact_reference_style.dart';
 import 'package:rmplanner/app/theme/internal_screen.dart';
 import 'package:rmplanner/features/contacts/application/contact_providers.dart';
 import 'package:rmplanner/features/contacts/domain/contact.dart';
 import 'package:rmplanner/features/maps/application/map_coordinate_repository.dart';
 import 'package:rmplanner/features/maps/application/map_providers.dart';
 import 'package:rmplanner/features/maps/domain/map_coordinate.dart';
+import 'package:rmplanner/features/maps/presentation/map_location_picker_screen.dart';
 import 'package:rmplanner/features/maps/presentation/map_pin_section.dart';
 import 'package:rmplanner/features/planner/application/planner_providers.dart';
 
 enum ContactFormMode { create, edit }
 
-/// Progressive Add/Edit Contact form.  Only name + groups are visible by
-/// default; Phone, Email, Social, Address, Availability, and Notes expand on
-/// demand.  A usable display name is required; no phone or email is ever
-/// required.
+const Map<ContactMethodType, List<String>> _contactMethodLabels =
+    <ContactMethodType, List<String>>{
+      ContactMethodType.phone: <String>['Mobile', 'Home', 'Work', 'Other'],
+      ContactMethodType.email: <String>['Personal', 'Work', 'Family', 'Other'],
+      ContactMethodType.social: <String>[
+        'Facebook',
+        'Messenger',
+        'WhatsApp',
+        'LINE',
+        'Skype',
+        'KakaoTalk',
+        'Instagram',
+        'HelloTalk',
+        'X',
+        'Other',
+      ],
+    };
+
+/// Progressive C4 Add/Edit Contact form. Name, one current Group, and
+/// method/address/map entry points are visible first; Favorite, preferred
+/// method, Tags, Availability, and additive Notes stay under Expand Options.
 final class ContactFormScreen extends ConsumerStatefulWidget {
   const ContactFormScreen.create({super.key})
     : mode = ContactFormMode.create,
@@ -34,10 +55,19 @@ final class ContactFormScreen extends ConsumerStatefulWidget {
 }
 
 final class _MethodRow {
-  _MethodRow({required this.type, required this.controller});
+  _MethodRow({
+    required this.type,
+    required this.controller,
+    this.id,
+    this.label,
+    this.isPrimary = false,
+  });
 
+  final String? id;
   final ContactMethodType type;
   final TextEditingController controller;
+  String? label;
+  final bool isPrimary;
 }
 
 final class _ContactFormScreenState extends ConsumerState<ContactFormScreen> {
@@ -53,6 +83,12 @@ final class _ContactFormScreenState extends ConsumerState<ContactFormScreen> {
   List<String> _groupIds = <String>[];
   String? _primaryGroupId;
   ContactPreferredMethod _preferredMethod = ContactPreferredMethod.message;
+  ContactSource _source = ContactSource.manual;
+  String? _initialDisplayName;
+  List<String> _tagNames = <String>[];
+  bool _isFavorite = false;
+  bool _optionsExpanded = false;
+  bool _mapExpanded = false;
   bool _loading = false;
   bool _saving = false;
 
@@ -107,16 +143,25 @@ final class _ContactFormScreenState extends ConsumerState<ContactFormScreen> {
         _lastNameController.text = detail.contact.lastName ?? '';
         _addressController.text = detail.contact.addressText ?? '';
         _preferredMethod = detail.contact.preferredContactMethod;
+        _source = detail.contact.source;
+        _initialDisplayName = detail.contact.displayName;
+        _isFavorite = detail.contact.isFavorite;
+        _tagNames = detail.tags.map((tag) => tag.name).toList();
         _groupIds = detail.groups.map((group) => group.id).toList();
         _primaryGroupId = detail.primaryGroupId;
         _availability.addAll(detail.availability);
         _mapCoordinate = loadedCoordinate;
         _initialMapCoordinate = loadedCoordinate;
+        _addressExpanded = _addressController.text.isNotEmpty;
+        _mapExpanded = loadedCoordinate != null;
         for (final method in detail.methods) {
           _methodRows.add(
             _MethodRow(
+              id: method.id,
               type: method.type,
               controller: TextEditingController(text: method.rawValue),
+              label: method.label,
+              isPrimary: method.isPrimary,
             ),
           );
         }
@@ -129,25 +174,41 @@ final class _ContactFormScreenState extends ConsumerState<ContactFormScreen> {
     }
   }
 
-  String get _displayName =>
-      '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}'
-          .trim();
+  String get _displayName {
+    final entered =
+        '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}'
+            .trim();
+    // Imported/display-name-only contacts remain editable.  A user can still
+    // add structured names later, but opening and saving an unrelated fact
+    // must never replace the canonical existing display identity with blank.
+    return entered.isEmpty ? _initialDisplayName ?? '' : entered;
+  }
 
   @override
   Widget build(BuildContext context) {
     final groups =
         ref.watch(contactGroupsProvider).value ?? const <ContactGroup>[];
+    final tags = ref.watch(contactTagsProvider).value ?? const <ContactTag>[];
     return Scaffold(
+      backgroundColor: ContactReferenceStyle.canvasOf(context),
       appBar: InternalAppBar(
+        backgroundColor: ContactReferenceStyle.canvasOf(context),
+        surfaceTintColor: Colors.transparent,
+        scrolledUnderElevation: 0,
         title: Text(
           widget.mode == ContactFormMode.create
               ? 'Add Contact'
               : 'Edit Contact',
+          style: TextStyle(
+            color: ContactReferenceStyle.onCanvasOf(context),
+            fontSize: 26,
+            fontWeight: FontWeight.w400,
+          ),
         ),
         leading: IconButton(
           key: const Key('contact-form-close'),
           tooltip: 'Close',
-          iconSize: 28,
+          iconSize: 26,
           onPressed: () => Navigator.of(context).maybePop(),
           icon: const Icon(Icons.close),
         ),
@@ -160,117 +221,131 @@ final class _ContactFormScreenState extends ConsumerState<ContactFormScreen> {
                 key: _formKey,
                 child: ListView(
                   key: const Key('contact-form-scroll'),
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 48),
+                  padding: const EdgeInsets.only(top: 16, bottom: 48),
                   children: <Widget>[
-                    _field(
-                      key: const Key('contact-first-name'),
-                      controller: _firstNameController,
-                      label: 'First Name',
-                      onChanged: (_) => setState(() {}),
-                    ),
-                    const SizedBox(height: 24),
-                    _field(
-                      key: const Key('contact-last-name'),
-                      controller: _lastNameController,
-                      label: 'Last Name',
-                      onChanged: (_) => setState(() {}),
-                    ),
-                    const SizedBox(height: 28),
-                    _GroupsField(
-                      groups: groups,
-                      primaryGroupId: _primaryGroupId,
-                      onChanged: (ids, primaryId) => setState(() {
-                        _groupIds = ids;
-                        _primaryGroupId = primaryId;
-                      }),
-                    ),
-                    const SizedBox(height: 16),
-                    _PreferredMethodField(
-                      value: _preferredMethod,
-                      onChanged: (value) =>
-                          setState(() => _preferredMethod = value),
-                    ),
-                    const Divider(height: 32),
-                    for (final row in _methodRows) ...<Widget>[
-                      _MethodRowTile(
-                        row: row,
-                        onRemove: () => setState(() => _methodRows.remove(row)),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: <Widget>[
+                          _field(
+                            key: const Key('contact-first-name'),
+                            controller: _firstNameController,
+                            label: widget.mode == ContactFormMode.create
+                                ? 'First Name *'
+                                : 'First Name',
+                            onChanged: (_) => setState(() {}),
+                            required: widget.mode == ContactFormMode.create,
+                          ),
+                          const SizedBox(height: 16),
+                          _field(
+                            key: const Key('contact-last-name'),
+                            controller: _lastNameController,
+                            label: widget.mode == ContactFormMode.create
+                                ? 'Last Name *'
+                                : 'Last Name',
+                            onChanged: (_) => setState(() {}),
+                            required: widget.mode == ContactFormMode.create,
+                          ),
+                          const SizedBox(height: 16),
+                          _GroupsField(
+                            groups: groups,
+                            primaryGroupId: _primaryGroupId,
+                            onManage: _openGroupManager,
+                            onChanged: (ids, primaryId) => setState(() {
+                              _groupIds = ids;
+                              _primaryGroupId = primaryId;
+                            }),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 16),
-                    ],
-                    if (_addressController.text.isEmpty &&
-                        !_addressExpanded) ...<Widget>[
-                      _ProgressiveRow(
-                        key: const Key('add-address-row'),
-                        icon: Icons.place_outlined,
-                        label: 'Address',
-                        onTap: () => setState(() => _addressExpanded = true),
-                      ),
-                      const SizedBox(height: 4),
-                    ],
-                    if (_addressExpanded) ...<Widget>[
-                      _field(
-                        key: const Key('contact-address'),
-                        controller: _addressController,
-                        label: 'Address',
-                        onChanged: (_) => setState(() {}),
-                      ),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: TextButton(
-                          key: const Key('remove-address'),
-                          onPressed: () {
-                            _addressController.clear();
-                            setState(() => _addressExpanded = false);
-                          },
-                          child: const Text('Remove'),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                    ],
-                    MapPinSection(
-                      displayName: _displayName.isEmpty ? 'Contact' : _displayName,
-                      coordinate: _mapCoordinate,
-                      onChanged: (value) => setState(() => _mapCoordinate = value),
+                    ),
+                    const SizedBox(height: 20),
+                    const _ContactFormSectionDivider(
+                      key: Key('contact-form-divider-after-basics'),
                     ),
                     const SizedBox(height: 12),
-                    if (_availability.isEmpty) ...<Widget>[
-                      _ProgressiveRow(
-                        key: const Key('add-availability-row'),
-                        icon: Icons.schedule_outlined,
-                        label: 'Availability',
-                        onTap: _editAvailability,
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: <Widget>[
+                          _buildMethodSection(ContactMethodType.phone),
+                          _buildMethodSection(ContactMethodType.email),
+                          _buildMethodSection(ContactMethodType.social),
+                          if (_addressController.text.isEmpty &&
+                              !_addressExpanded) ...<Widget>[
+                            _ProgressiveRow(
+                              key: const Key('add-address-row'),
+                              icon: Icons.place_outlined,
+                              label: '+ Address',
+                              onTap: () =>
+                                  setState(() => _addressExpanded = true),
+                            ),
+                            const SizedBox(height: 4),
+                          ],
+                          if (_addressExpanded) ...<Widget>[
+                            _field(
+                              key: const Key('contact-address'),
+                              controller: _addressController,
+                              label: 'Address',
+                              onChanged: (_) => setState(() {}),
+                              fontSize: 15,
+                            ),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: TextButton(
+                                key: const Key('remove-address'),
+                                onPressed: () {
+                                  _addressController.clear();
+                                  setState(() => _addressExpanded = false);
+                                },
+                                child: const Text('Remove'),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                          ],
+                          if (!_mapExpanded) ...<Widget>[
+                            _ProgressiveRow(
+                              key: const Key('add-map-row'),
+                              icon: Icons.map_outlined,
+                              label: '+ Map',
+                              onTap: _openMapPicker,
+                            ),
+                            const SizedBox(height: 4),
+                          ],
+                          if (_mapExpanded) ...<Widget>[
+                            MapPinSection(
+                              displayName: _displayName.isEmpty
+                                  ? 'Contact'
+                                  : _displayName,
+                              coordinate: _mapCoordinate,
+                              onChanged: (value) => setState(() {
+                                _mapCoordinate = value;
+                                _mapExpanded = value != null;
+                              }),
+                              contactFormStyle: true,
+                            ),
+                            const SizedBox(height: 12),
+                          ],
+                        ],
                       ),
-                      const SizedBox(height: 4),
-                    ],
-                    if (_availability.isNotEmpty) ...<Widget>[
-                      _AvailabilityTile(
-                        windows: _availability,
-                        onEdit: _editAvailability,
-                        onRemove: (window) =>
-                            setState(() => _availability.remove(window)),
-                      ),
-                      const SizedBox(height: 12),
-                    ],
-                    if (_noteController.text.isEmpty &&
-                        !_notesExpanded) ...<Widget>[
-                      _ProgressiveRow(
-                        key: const Key('add-notes-row'),
-                        icon: Icons.notes_outlined,
-                        label: 'Notes',
-                        onTap: () => setState(() => _notesExpanded = true),
-                      ),
-                      const SizedBox(height: 4),
-                    ],
-                    if (_notesExpanded) ...<Widget>[
-                      TextFormField(
-                        key: const Key('contact-notes'),
-                        controller: _noteController,
-                        maxLines: 4,
-                        decoration: _decoration(context, 'Notes'),
-                      ),
-                      const SizedBox(height: 12),
-                    ],
+                    ),
+                    const SizedBox(height: 16),
+                    const _ContactFormSectionDivider(
+                      key: Key('contact-form-divider-before-options'),
+                    ),
+                    const SizedBox(height: 20),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: _optionsExpanded
+                          ? _buildExpandedOptions(tags)
+                          : _ExpandOptionsButton(
+                              key: const Key('expand-contact-options'),
+                              onTap: () =>
+                                  setState(() => _optionsExpanded = true),
+                            ),
+                    ),
                     const SizedBox(height: 16),
                   ],
                 ),
@@ -279,8 +354,170 @@ final class _ContactFormScreenState extends ConsumerState<ContactFormScreen> {
     );
   }
 
+  Future<void> _openMapPicker() async {
+    final result = await context.push<MapCoordinate>(
+      RoutePaths.mapPicker,
+      extra: MapPickerArgs(
+        displayName: _displayName.isEmpty ? 'Contact' : _displayName,
+        initialCoordinate: _mapCoordinate,
+      ),
+    );
+    if (result != null && mounted) {
+      setState(() {
+        _mapCoordinate = result;
+        _mapExpanded = true;
+      });
+    }
+  }
+
+  Future<void> _openGroupManager() async {
+    await context.push<void>(RoutePaths.contactGroups);
+    if (!mounted) {
+      return;
+    }
+    // A group can be permanently deleted while this Contact form stays in the
+    // navigation stack. Refresh before saving so its deleted ID cannot be
+    // written back into this Contact draft.
+    ref.invalidate(contactGroupsProvider);
+    final groups = await ref.read(contactGroupsProvider.future);
+    if (!mounted) {
+      return;
+    }
+    final hasCurrentPrimary =
+        _primaryGroupId == null ||
+        groups.any((group) => group.id == _primaryGroupId && !group.isArchived);
+    if (!hasCurrentPrimary) {
+      setState(() {
+        _groupIds = <String>[];
+        _primaryGroupId = null;
+      });
+    }
+  }
+
   bool _addressExpanded = false;
   bool _notesExpanded = false;
+
+  List<_MethodRow> _rowsFor(ContactMethodType type) =>
+      _methodRows.where((row) => row.type == type).toList(growable: false);
+
+  String _sectionLabel(ContactMethodType type) => switch (type) {
+    ContactMethodType.phone => 'Phone',
+    ContactMethodType.email => 'Email',
+    ContactMethodType.social => 'Social Profile',
+  };
+
+  String _nextMethodLabel(ContactMethodType type) {
+    final labels = _contactMethodLabels[type]!;
+    final usedLabels = _rowsFor(
+      type,
+    ).map((row) => row.label).whereType<String>().toSet();
+    return labels.firstWhere(
+      (label) => !usedLabels.contains(label),
+      orElse: () => labels.last,
+    );
+  }
+
+  Widget _buildMethodSection(ContactMethodType type) {
+    final rows = _rowsFor(type);
+    final label = _sectionLabel(type);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        if (rows.isNotEmpty) ...<Widget>[
+          const SizedBox(height: 6),
+          for (final row in rows) ...<Widget>[
+            _MethodRowTile(
+              row: row,
+              onLabelChanged: (label) => setState(() => row.label = label),
+              onRemove: () {
+                setState(() => _methodRows.remove(row));
+                row.controller.dispose();
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ],
+        _ProgressiveRow(
+          key: Key('add-${type.name}-row'),
+          icon: switch (type) {
+            ContactMethodType.phone => Icons.phone_outlined,
+            ContactMethodType.email => Icons.mail_outline,
+            ContactMethodType.social => Icons.alternate_email,
+          },
+          label: rows.isEmpty ? '+ $label' : '+ Add $label',
+          onTap: () => setState(
+            () => _methodRows.add(
+              _MethodRow(
+                type: type,
+                label: _nextMethodLabel(type),
+                controller: TextEditingController(),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 2),
+      ],
+    );
+  }
+
+  Widget _buildExpandedOptions(List<ContactTag> availableTags) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        const SizedBox(height: 4),
+        SwitchListTile.adaptive(
+          key: const Key('contact-favorite-toggle'),
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Favorite', style: TextStyle(fontSize: 14)),
+          value: _isFavorite,
+          onChanged: (value) => setState(() => _isFavorite = value),
+        ),
+        const SizedBox(height: 8),
+        _PreferredMethodField(
+          value: _preferredMethod,
+          onChanged: (value) => setState(() => _preferredMethod = value),
+        ),
+        const SizedBox(height: 16),
+        _TagsField(
+          availableTags: availableTags,
+          selectedNames: _tagNames,
+          onChanged: (names) => setState(() => _tagNames = names),
+        ),
+        const SizedBox(height: 16),
+        if (_availability.isEmpty)
+          _ProgressiveRow(
+            key: const Key('add-availability-row'),
+            icon: Icons.schedule_outlined,
+            label: 'Availability',
+            onTap: _editAvailability,
+          )
+        else
+          _AvailabilityTile(
+            windows: _availability,
+            onEdit: _editAvailability,
+            onRemove: (window) => setState(() => _availability.remove(window)),
+          ),
+        const SizedBox(height: 8),
+        if (!_notesExpanded)
+          _ProgressiveRow(
+            key: const Key('add-notes-row'),
+            icon: Icons.notes_outlined,
+            label: '+ Add Note',
+            onTap: () => setState(() => _notesExpanded = true),
+          )
+        else ...<Widget>[
+          TextFormField(
+            key: const Key('contact-notes'),
+            controller: _noteController,
+            maxLines: 4,
+            style: const TextStyle(fontSize: 14),
+            decoration: _decoration(context, 'Add Note'),
+          ),
+          const SizedBox(height: 8),
+        ],
+      ],
+    );
+  }
 
   Widget _field({
     required Key key,
@@ -288,12 +525,13 @@ final class _ContactFormScreenState extends ConsumerState<ContactFormScreen> {
     required String label,
     required ValueChanged<String> onChanged,
     bool required = false,
+    double fontSize = 17,
   }) {
     return TextFormField(
       key: key,
       controller: controller,
       onChanged: onChanged,
-      style: const TextStyle(fontSize: 17),
+      style: TextStyle(fontSize: fontSize),
       decoration: _decoration(context, label),
       validator: required
           ? (value) => (value ?? '').trim().isEmpty ? 'Required' : null
@@ -305,24 +543,24 @@ final class _ContactFormScreenState extends ConsumerState<ContactFormScreen> {
     return Semantics(
       button: true,
       label: 'Save',
-      child: FilledButton(
-        key: const Key('save-contact-button'),
-        onPressed: _saving ? null : _save,
-        style: FilledButton.styleFrom(
-          minimumSize: const Size(64, 44),
-          padding: const EdgeInsets.symmetric(horizontal: 18),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(22),
+      child: SizedBox.square(
+        dimension: 40,
+        child: FilledButton(
+          key: const Key('save-contact-button'),
+          onPressed: _saving ? null : _save,
+          style: FilledButton.styleFrom(
+            padding: EdgeInsets.zero,
+            shape: const CircleBorder(),
+            backgroundColor: _contactFormActionColor(context),
+            foregroundColor: Colors.white,
           ),
-          backgroundColor: Theme.of(context).colorScheme.primary,
-          foregroundColor: Theme.of(context).colorScheme.onPrimary,
+          child: _saving
+              ? const SizedBox.square(
+                  dimension: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.check, size: 20),
         ),
-        child: _saving
-            ? const SizedBox.square(
-                dimension: 18,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            : const Text('Save'),
       ),
     );
   }
@@ -368,20 +606,30 @@ final class _ContactFormScreenState extends ConsumerState<ContactFormScreen> {
       lastName: _lastNameController.text,
       displayName: displayName,
       preferredContactMethod: _preferredMethod,
-      isFavorite: false,
+      isFavorite: _isFavorite,
       addressText: _addressController.text,
-      source: ContactSource.manual,
+      source: _source,
       methods: <ContactMethodDraft>[
         for (final row in _methodRows)
           if (row.controller.text.trim().isNotEmpty)
-            ContactMethodDraft(type: row.type, value: row.controller.text),
+            ContactMethodDraft(
+              id: row.id,
+              type: row.type,
+              value: row.controller.text,
+              label: row.label,
+              isPrimary: row.isPrimary,
+            ),
       ],
       groupIds: _groupIds,
       primaryGroupId: _primaryGroupId,
+      tagNames: _tagNames,
       availability: List<ContactAvailability>.from(_availability),
       initialNoteText: widget.mode == ContactFormMode.create
           ? _noteController.text
           : null,
+      requiresNewManualContactValidation:
+          widget.mode == ContactFormMode.create &&
+          _source == ContactSource.manual,
     );
     final profileId = ref.read(contactProfileIdProvider);
     try {
@@ -457,18 +705,52 @@ final class _ContactFormScreenState extends ConsumerState<ContactFormScreen> {
 
 InputDecoration _decoration(BuildContext context, String label) {
   final border = OutlineInputBorder(
-    borderRadius: BorderRadius.circular(6),
-    borderSide: BorderSide(color: AppTheme.outlineOf(context), width: 1),
+    borderRadius: BorderRadius.circular(8),
+    borderSide: BorderSide(color: ContactReferenceStyle.lineOf(context)),
   );
   return InputDecoration(
     labelText: label,
-    labelStyle: InternalScreen.fieldLabel,
+    labelStyle: InternalScreen.fieldLabel.copyWith(
+      color: ContactReferenceStyle.onCanvasOf(context),
+    ),
     filled: true,
-    fillColor: AppTheme.surfaceOf(context),
+    fillColor: ContactReferenceStyle.canvasOf(context),
     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
     border: border,
     enabledBorder: border,
-    focusedBorder: border,
+    focusedBorder: border.copyWith(
+      borderSide: BorderSide(
+        color: ContactReferenceStyle.actionOf(context),
+        width: 2,
+      ),
+    ),
+  );
+}
+
+/// Form-only action color. This deliberately bypasses the PMG-derived
+/// ContactReferenceStyle.actionOf token, which is shared by accepted Contact
+/// Detail and Timeline surfaces. Add/Edit Contact actions follow the active
+/// Next Transfer ColorScheme instead.
+Color _contactFormActionColor(BuildContext context) =>
+    Theme.of(context).colorScheme.primary;
+
+InputDecoration _methodDecoration(BuildContext context, String hint) {
+  final line = BorderSide(color: ContactReferenceStyle.lineOf(context));
+  return InputDecoration(
+    hintText: hint,
+    hintStyle: TextStyle(
+      color: AppTheme.secondaryTextOf(context),
+      fontSize: 14,
+    ),
+    isDense: true,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+    enabledBorder: UnderlineInputBorder(borderSide: line),
+    focusedBorder: UnderlineInputBorder(
+      borderSide: BorderSide(
+        color: ContactReferenceStyle.actionOf(context),
+        width: 2,
+      ),
+    ),
   );
 }
 
@@ -489,14 +771,52 @@ final class _ProgressiveRow extends StatelessWidget {
     return TextButton.icon(
       onPressed: onTap,
       style: TextButton.styleFrom(
-        minimumSize: const Size(0, 48),
-        padding: EdgeInsets.zero,
+        minimumSize: const Size(0, 44),
+        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
         alignment: Alignment.centerLeft,
-        foregroundColor: Theme.of(context).colorScheme.primary,
-        textStyle: AppTypography.button,
+        foregroundColor: _contactFormActionColor(context),
+        textStyle: AppTypography.button.copyWith(fontSize: 15),
       ),
-      icon: Icon(icon, size: 22),
+      icon: Icon(icon, size: 20, color: _contactFormActionColor(context)),
       label: Text(label),
+    );
+  }
+}
+
+final class _ContactFormSectionDivider extends StatelessWidget {
+  const _ContactFormSectionDivider({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(height: 10, color: ContactReferenceStyle.lineOf(context));
+  }
+}
+
+final class _ExpandOptionsButton extends StatelessWidget {
+  const _ExpandOptionsButton({required this.onTap, super.key});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.center,
+      child: SizedBox(
+        width: 184,
+        height: 44,
+        child: FilledButton(
+          onPressed: onTap,
+          style: FilledButton.styleFrom(
+            minimumSize: Size.zero,
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            backgroundColor: _contactFormActionColor(context),
+            foregroundColor: Colors.white,
+            shape: const StadiumBorder(),
+            textStyle: AppTypography.button.copyWith(fontSize: 15),
+          ),
+          child: const Text('Expand Options'),
+        ),
+      ),
     );
   }
 }
@@ -505,11 +825,13 @@ final class _GroupsField extends StatelessWidget {
   const _GroupsField({
     required this.groups,
     required this.primaryGroupId,
+    required this.onManage,
     required this.onChanged,
   });
 
   final List<ContactGroup> groups;
   final String? primaryGroupId;
+  final Future<void> Function() onManage;
   final void Function(List<String> ids, String? primaryId) onChanged;
 
   @override
@@ -524,7 +846,7 @@ final class _GroupsField extends StatelessWidget {
           key: const Key('contact-groups-field'),
           borderRadius: BorderRadius.circular(6),
           onTap: () async {
-            final result = await showModalBottomSheet<(List<String>, String?)>(
+            final result = await showModalBottomSheet<_GroupPickerResult>(
               context: context,
               isScrollControlled: true,
               useSafeArea: true,
@@ -533,8 +855,17 @@ final class _GroupsField extends StatelessWidget {
                 primaryGroupId: primaryGroupId,
               ),
             );
-            if (result != null) {
-              onChanged(result.$1, result.$2);
+            if (!context.mounted || result == null) {
+              return;
+            }
+            switch (result) {
+              case _GroupPickerSelection(
+                :final groupIds,
+                :final primaryGroupId,
+              ):
+                onChanged(groupIds, primaryGroupId);
+              case _GroupPickerManage():
+                await onManage();
             }
           },
           child: InputDecorator(
@@ -594,11 +925,26 @@ final class _GroupsField extends StatelessWidget {
   }
 }
 
-final class _GroupPicker extends StatefulWidget {
-  const _GroupPicker({
-    required this.groups,
+sealed class _GroupPickerResult {
+  const _GroupPickerResult();
+}
+
+final class _GroupPickerSelection extends _GroupPickerResult {
+  const _GroupPickerSelection({
+    required this.groupIds,
     required this.primaryGroupId,
   });
+
+  final List<String> groupIds;
+  final String? primaryGroupId;
+}
+
+final class _GroupPickerManage extends _GroupPickerResult {
+  const _GroupPickerManage();
+}
+
+final class _GroupPicker extends StatefulWidget {
+  const _GroupPicker({required this.groups, required this.primaryGroupId});
 
   final List<ContactGroup> groups;
   final String? primaryGroupId;
@@ -626,11 +972,26 @@ final class _GroupPickerState extends State<_GroupPicker> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
-            const Padding(
+            Padding(
               padding: EdgeInsets.fromLTRB(20, 18, 20, 4),
-              child: Text(
-                'Groups',
-                style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
+              child: Row(
+                children: <Widget>[
+                  const Expanded(
+                    child: Text(
+                      'Groups',
+                      style: TextStyle(
+                        fontSize: 19,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    key: const Key('group-picker-manage'),
+                    onPressed: () =>
+                        Navigator.of(context).pop(const _GroupPickerManage()),
+                    child: const Text('Manage'),
+                  ),
+                ],
               ),
             ),
             Padding(
@@ -691,7 +1052,7 @@ final class _GroupPickerState extends State<_GroupPicker> {
                     Padding(
                       padding: const EdgeInsets.all(20),
                       child: Text(
-                        'Create a group from the Contacts menu first.',
+                        'Use Manage to create or edit groups.',
                         style: TextStyle(
                           color: AppTheme.secondaryTextOf(context),
                         ),
@@ -704,10 +1065,14 @@ final class _GroupPickerState extends State<_GroupPicker> {
               padding: const EdgeInsets.all(12),
               child: FilledButton(
                 key: const Key('groups-picker-done'),
-                onPressed: () => Navigator.of(context).pop((
-                  _primary == null ? const <String>[] : <String>[_primary!],
-                  _primary,
-                )),
+                onPressed: () => Navigator.of(context).pop(
+                  _GroupPickerSelection(
+                    groupIds: _primary == null
+                        ? const <String>[]
+                        : <String>[_primary!],
+                    primaryGroupId: _primary,
+                  ),
+                ),
                 child: const Text('Done'),
               ),
             ),
@@ -731,25 +1096,25 @@ final class _PreferredMethodField extends StatelessWidget {
       children: <Widget>[
         const Text(
           'Preferred contact method',
-          style: InternalScreen.fieldLabel,
+          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 8),
         SegmentedButton<ContactPreferredMethod>(
           segments: const <ButtonSegment<ContactPreferredMethod>>[
             ButtonSegment<ContactPreferredMethod>(
               value: ContactPreferredMethod.message,
-              icon: Icon(Icons.chat_outlined, size: 18),
-              label: Text('Message'),
+              icon: Icon(Icons.chat_outlined, size: 16),
+              label: Text('Message', style: TextStyle(fontSize: 13)),
             ),
             ButtonSegment<ContactPreferredMethod>(
               value: ContactPreferredMethod.call,
-              icon: Icon(Icons.call_outlined, size: 18),
-              label: Text('Call'),
+              icon: Icon(Icons.call_outlined, size: 16),
+              label: Text('Call', style: TextStyle(fontSize: 13)),
             ),
             ButtonSegment<ContactPreferredMethod>(
               value: ContactPreferredMethod.email,
-              icon: Icon(Icons.mail_outline, size: 18),
-              label: Text('Email'),
+              icon: Icon(Icons.mail_outline, size: 16),
+              label: Text('Email', style: TextStyle(fontSize: 13)),
             ),
           ],
           selected: <ContactPreferredMethod>{value},
@@ -760,46 +1125,302 @@ final class _PreferredMethodField extends StatelessWidget {
   }
 }
 
-final class _MethodRowTile extends StatelessWidget {
-  const _MethodRowTile({required this.row, required this.onRemove});
+final class _TagsField extends StatelessWidget {
+  const _TagsField({
+    required this.availableTags,
+    required this.selectedNames,
+    required this.onChanged,
+  });
 
-  final _MethodRow row;
-  final VoidCallback onRemove;
-
-  static const Map<ContactMethodType, String> _typeLabel =
-      <ContactMethodType, String>{
-        ContactMethodType.phone: 'Phone',
-        ContactMethodType.email: 'Email',
-        ContactMethodType.social: 'Social Profile',
-      };
+  final List<ContactTag> availableTags;
+  final List<String> selectedNames;
+  final ValueChanged<List<String>> onChanged;
 
   @override
   Widget build(BuildContext context) {
+    return InkWell(
+      key: const Key('contact-tags-field'),
+      borderRadius: BorderRadius.circular(6),
+      onTap: () async {
+        final result = await showModalBottomSheet<List<String>>(
+          context: context,
+          isScrollControlled: true,
+          useSafeArea: true,
+          builder: (sheetContext) => _TagPicker(
+            availableTags: availableTags,
+            selectedNames: selectedNames,
+          ),
+        );
+        if (result != null) {
+          onChanged(result);
+        }
+      },
+      child: InputDecorator(
+        decoration: _decoration(
+          context,
+          'Tags',
+        ).copyWith(suffixIcon: const Icon(Icons.arrow_drop_down, size: 24)),
+        child: selectedNames.isEmpty
+            ? Text(
+                'No tags',
+                style: TextStyle(
+                  color: AppTheme.secondaryTextOf(context),
+                  fontSize: 14,
+                ),
+              )
+            : Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                children: <Widget>[
+                  for (final name in selectedNames)
+                    Chip(
+                      label: Text(name),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                ],
+              ),
+      ),
+    );
+  }
+}
+
+final class _TagPicker extends StatefulWidget {
+  const _TagPicker({required this.availableTags, required this.selectedNames});
+
+  final List<ContactTag> availableTags;
+  final List<String> selectedNames;
+
+  @override
+  State<_TagPicker> createState() => _TagPickerState();
+}
+
+final class _TagPickerState extends State<_TagPicker> {
+  late final Set<String> _selected = <String>{...widget.selectedNames};
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: SizedBox(
+        height: 420,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 20, 20, 8),
+              child: Text('Tags', style: InternalScreen.sectionHeading),
+            ),
+            Expanded(
+              child: widget.availableTags.isEmpty
+                  ? const Center(child: Text('No tags created yet.'))
+                  : ListView(
+                      children: <Widget>[
+                        for (final tag in widget.availableTags)
+                          CheckboxListTile(
+                            value: _selected.contains(tag.name),
+                            title: Text(tag.name),
+                            onChanged: (selected) => setState(() {
+                              if (selected ?? false) {
+                                _selected.add(tag.name);
+                              } else {
+                                _selected.remove(tag.name);
+                              }
+                            }),
+                          ),
+                      ],
+                    ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: FilledButton(
+                key: const Key('contact-tags-done'),
+                onPressed: () => Navigator.of(context).pop(
+                  widget.availableTags
+                      .map((tag) => tag.name)
+                      .where(_selected.contains)
+                      .toList(growable: false),
+                ),
+                child: const Text('Done'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+final class _MethodRowTile extends StatelessWidget {
+  const _MethodRowTile({
+    required this.row,
+    required this.onLabelChanged,
+    required this.onRemove,
+  });
+
+  final _MethodRow row;
+  final ValueChanged<String> onLabelChanged;
+  final VoidCallback onRemove;
+
+  String get _rowKey => row.id ?? '${row.controller.hashCode}';
+
+  String get _typeLabel => switch (row.type) {
+    ContactMethodType.phone => 'Phone',
+    ContactMethodType.email => 'Email',
+    ContactMethodType.social => 'Social Profile',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final approved = _contactMethodLabels[row.type]!;
+    final selected = row.label ?? approved.last;
+    final labels = <String>[
+      ...approved,
+      if (!approved.contains(selected)) selected,
+    ];
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: <Widget>[
+        _MethodTypeIconPicker(
+          key: Key('contact-method-label-$_rowKey'),
+          type: row.type,
+          selected: selected,
+          labels: labels,
+          onSelected: onLabelChanged,
+        ),
+        const SizedBox(width: 4),
         Expanded(
           child: TextFormField(
-            key: Key('contact-method-${row.type.name}'),
+            key: Key('contact-method-${row.type.name}-$_rowKey'),
             controller: row.controller,
             keyboardType: row.type == ContactMethodType.phone
                 ? TextInputType.phone
                 : row.type == ContactMethodType.email
                 ? TextInputType.emailAddress
                 : TextInputType.text,
-            decoration: _decoration(context, _typeLabel[row.type]!),
+            decoration: _methodDecoration(context, _typeLabel),
+            style: const TextStyle(fontSize: 14),
             onChanged: (_) {},
           ),
         ),
-        const SizedBox(width: 4),
         IconButton(
           key: Key('remove-method-${row.type.name}'),
           tooltip: 'Remove',
+          color: ContactReferenceStyle.destructiveOf(context),
           onPressed: onRemove,
-          icon: const Icon(Icons.close, size: 22),
+          icon: const Icon(Icons.delete_outline, size: 22),
         ),
       ],
     );
+  }
+}
+
+final class _MethodTypeIconPicker extends StatelessWidget {
+  const _MethodTypeIconPicker({
+    required this.type,
+    required this.selected,
+    required this.labels,
+    required this.onSelected,
+    super.key,
+  });
+
+  final ContactMethodType type;
+  final String selected;
+  final List<String> labels;
+  final ValueChanged<String> onSelected;
+
+  String get _typeLabel => switch (type) {
+    ContactMethodType.phone => 'Phone',
+    ContactMethodType.email => 'Email',
+    ContactMethodType.social => 'Social Profile',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: '$_typeLabel type: $selected',
+      button: true,
+      child: PopupMenuButton<String>(
+        tooltip: '$_typeLabel type: $selected',
+        initialValue: selected,
+        onSelected: onSelected,
+        itemBuilder: (context) => <PopupMenuEntry<String>>[
+          for (final label in labels)
+            PopupMenuItem<String>(
+              value: label,
+              child: Row(
+                children: <Widget>[
+                  if (type == ContactMethodType.social && label == 'X')
+                    const Text('𝕏', style: TextStyle(fontSize: 18, height: 1))
+                  else
+                    Icon(_iconFor(type, label), size: 18),
+                  const SizedBox(width: 12),
+                  Text(label),
+                ],
+              ),
+            ),
+        ],
+        child: SizedBox(
+          width: 46,
+          height: 46,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[
+              if (type == ContactMethodType.social && selected == 'X')
+                ExcludeSemantics(
+                  child: Text(
+                    '𝕏',
+                    style: TextStyle(
+                      color: _contactFormActionColor(context),
+                      fontSize: 23,
+                      fontWeight: FontWeight.w700,
+                      height: 1,
+                    ),
+                  ),
+                )
+              else
+                Icon(
+                  _iconFor(type, selected),
+                  color: _contactFormActionColor(context),
+                  size: 24,
+                ),
+              Icon(
+                Icons.arrow_drop_down,
+                color: _contactFormActionColor(context),
+                size: 18,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  static IconData _iconFor(ContactMethodType type, String label) {
+    return switch (type) {
+      ContactMethodType.phone => switch (label) {
+        'Mobile' => Icons.smartphone,
+        'Home' => Icons.home_outlined,
+        'Work' => Icons.business_center_outlined,
+        _ => Icons.more_horiz,
+      },
+      ContactMethodType.email => switch (label) {
+        'Personal' => Icons.person_outline,
+        'Work' => Icons.business_center_outlined,
+        'Family' => Icons.group_outlined,
+        _ => Icons.more_horiz,
+      },
+      ContactMethodType.social => switch (label) {
+        'Facebook' => Icons.facebook,
+        'Messenger' => Icons.chat_bubble_outline,
+        'WhatsApp' => Icons.chat_outlined,
+        'LINE' => Icons.forum_outlined,
+        'Skype' => Icons.call_outlined,
+        'KakaoTalk' => Icons.chat,
+        'Instagram' => Icons.photo_camera_outlined,
+        'HelloTalk' => Icons.translate_outlined,
+        'X' => Icons.close,
+        _ => Icons.more_horiz,
+      },
+    };
   }
 }
 
@@ -821,20 +1442,29 @@ final class _AvailabilityTile extends StatelessWidget {
       children: <Widget>[
         Row(
           children: <Widget>[
+            const Icon(Icons.schedule_outlined, size: 18),
+            const SizedBox(width: 8),
             const Expanded(
-              child: Text('Availability', style: InternalScreen.sectionHeading),
+              child: Text(
+                'Availability',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+              ),
             ),
-            TextButton(onPressed: onEdit, child: const Text('Edit')),
+            TextButton(
+              onPressed: onEdit,
+              child: const Text('Edit', style: TextStyle(fontSize: 13)),
+            ),
           ],
         ),
         for (final window in windows)
           ListTile(
             dense: true,
             contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.schedule, size: 20),
+            leading: const Icon(Icons.schedule, size: 18),
             title: Text(
               '${_weekdayName(window.weekday)}  '
               '${_formatMinute(window.startMinute)} – ${_formatMinute(window.endMinute)}',
+              style: const TextStyle(fontSize: 14),
             ),
             trailing: IconButton(
               icon: const Icon(Icons.close, size: 18),

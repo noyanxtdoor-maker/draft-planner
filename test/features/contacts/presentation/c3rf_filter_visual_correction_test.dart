@@ -42,12 +42,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(
-      find.descendant(
-        of: find.byType(NavigationBar),
-        matching: find.text('Contacts'),
-      ),
-    );
+    await tester.tap(find.byKey(const Key('nav-contacts')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('contacts-filter-button')));
     await tester.pumpAndSettle();
@@ -113,51 +108,143 @@ void main() {
   });
 
   testWidgets(
-    'C3-R4 R2 neutral filter states keep completion available',
+    'C4 Favorites None remains valid and completion stays available',
     (tester) async {
-    await pumpFilter(tester);
+      await pumpFilter(tester);
 
-    await reveal(
-      tester,
-      find.byKey(const Key('filter-category-main-favorites')),
-    );
-    await tester.tap(find.byKey(const Key('filter-category-main-favorites')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('filter-master-favorites')));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const Key('filter-validation-favorites')), findsNothing);
-    expect(find.byKey(const Key('filter-state-favorites')), findsOneWidget);
-    expect(
-      tester
-          .widget<Text>(find.byKey(const Key('filter-state-favorites')))
-          .data,
-      'All',
-    );
-    expect(
-      tester
-          .widget<IconButton>(find.byKey(const Key('filter-builder-check')))
-          .onPressed,
-      isNotNull,
-    );
+      await reveal(
+        tester,
+        find.byKey(const Key('filter-category-main-favorites')),
+      );
+      await tester.tap(find.byKey(const Key('filter-category-main-favorites')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('filter-master-favorites')));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('filter-validation-favorites')),
+        findsNothing,
+      );
+      expect(find.byKey(const Key('filter-state-favorites')), findsOneWidget);
+      expect(
+        tester
+            .widget<Text>(find.byKey(const Key('filter-state-favorites')))
+            .data,
+        'None',
+      );
+      expect(
+        tester
+            .widget<IconButton>(find.byKey(const Key('filter-builder-check')))
+            .onPressed,
+        isNotNull,
+      );
 
-    await tester.tap(find.byKey(const Key('filter-master-favorites')));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const Key('filter-validation-favorites')), findsNothing);
+      await tester.tap(find.byKey(const Key('filter-master-favorites')));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('filter-validation-favorites')),
+        findsNothing,
+      );
 
-    await reveal(
-      tester,
-      find.byKey(const Key('filter-category-main-phone')),
-    );
-    await tester.tap(find.byKey(const Key('filter-category-main-phone')));
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.byKey(const Key('filter-inline-option-phone-mobile')),
-    );
-    await tester.pumpAndSettle();
-    expect(find.byKey(const Key('filter-state-phone')), findsOneWidget);
-    expect(find.text('Some'), findsOneWidget);
+      await reveal(tester, find.byKey(const Key('filter-category-main-phone')));
+      await tester.tap(find.byKey(const Key('filter-category-main-phone')));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('filter-inline-option-phone-mobile')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('filter-state-phone')), findsOneWidget);
+      expect(find.text('Some'), findsOneWidget);
     },
   );
+
+  testWidgets(
+    'C4 Phone preserves All to None to Some to All and final None on reopen',
+    (tester) async {
+      await pumpFilter(tester);
+
+      await reveal(tester, find.byKey(const Key('filter-category-main-phone')));
+      await tester.tap(find.byKey(const Key('filter-category-main-phone')));
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<Text>(find.byKey(const Key('filter-state-phone'))).data,
+        'All',
+      );
+
+      await tester.tap(find.byKey(const Key('filter-master-phone')));
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<Text>(find.byKey(const Key('filter-state-phone'))).data,
+        'None',
+      );
+
+      await tester.tap(
+        find.byKey(const Key('filter-inline-option-phone-mobile')),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<Text>(find.byKey(const Key('filter-state-phone'))).data,
+        'Some',
+      );
+
+      await tester.tap(find.byKey(const Key('filter-master-phone')));
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<Text>(find.byKey(const Key('filter-state-phone'))).data,
+        'All',
+      );
+
+      await tester.tap(find.byKey(const Key('filter-master-phone')));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('filter-inline-option-phone-mobile')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('filter-inline-option-phone-mobile')),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<Text>(find.byKey(const Key('filter-state-phone'))).data,
+        'None',
+      );
+
+      await tester.tap(find.byKey(const Key('filter-builder-check')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('contacts-filter-button')));
+      await tester.pumpAndSettle();
+      await reveal(tester, find.byKey(const Key('filter-category-main-phone')));
+      expect(
+        tester.widget<Text>(find.byKey(const Key('filter-state-phone'))).data,
+        'None',
+      );
+    },
+  );
+
+  testWidgets('C4 zero-option Tags master is visibly disabled and unchecked', (
+    tester,
+  ) async {
+    await pumpFilter(tester);
+
+    await reveal(tester, find.byKey(const Key('filter-category-main-tags')));
+    await tester.tap(find.byKey(const Key('filter-category-main-tags')));
+    await tester.pumpAndSettle();
+
+    final master = find.byKey(const Key('filter-master-tags'));
+    expect(master, findsOneWidget);
+    expect(
+      tester
+          .widgetList<IgnorePointer>(
+            find.ancestor(of: master, matching: find.byType(IgnorePointer)),
+          )
+          .any((pointer) => pointer.ignoring),
+      isTrue,
+    );
+    final checkbox = tester.widget<Checkbox>(
+      find.descendant(of: master, matching: find.byType(Checkbox)),
+    );
+    expect(checkbox.value, isFalse);
+    expect(find.text('No tags available.'), findsOneWidget);
+  });
 
   testWidgets('C3-RF Restore Defaults is draft-only and resets filter state', (
     tester,
@@ -168,10 +255,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Recently added'));
     await tester.pumpAndSettle();
-    await reveal(
-      tester,
-      find.byKey(const Key('filter-restore-defaults')),
-    );
+    await reveal(tester, find.byKey(const Key('filter-restore-defaults')));
     expect(find.byKey(const Key('filter-restore-defaults')), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('filter-restore-defaults')));
@@ -194,7 +278,7 @@ void main() {
     );
   });
 
-  test('C3-RF empty Groups/Tags are neutral rather than invalid', () {
+  test('C4 zero-option Groups/Tags display None without a fake selection', () {
     const criteria = ContactFilterCriteria();
     expect(
       contactFilterCategoryState(
@@ -202,7 +286,7 @@ void main() {
         ContactFilterCategory.groups,
         groups: <ContactGroup>[],
       ),
-      ContactFilterSelectionState.all,
+      ContactFilterSelectionState.none,
     );
     expect(
       contactFilterCategoryState(
@@ -210,7 +294,7 @@ void main() {
         ContactFilterCategory.tags,
         tags: <ContactTag>[],
       ),
-      ContactFilterSelectionState.all,
+      ContactFilterSelectionState.none,
     );
   });
 }

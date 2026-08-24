@@ -67,6 +67,9 @@ final class DriftContactRepository implements ContactRepository {
     required String profileId,
     required ContactDraft draft,
   }) async {
+    if (draft.requiresNewManualContactValidation) {
+      draft.validateNewManualContact();
+    }
     final normalized = draft.normalized();
     final now = clock.nowUtc();
     return database.transaction(() async {
@@ -152,6 +155,46 @@ final class DriftContactRepository implements ContactRepository {
     final normalized = draft.normalized();
     final now = clock.nowUtc();
     return database.transaction(() async {
+      final existing =
+          await (database.select(database.contacts)..where(
+                (table) =>
+                    table.profileId.equals(profileId) &
+                    table.id.equals(contactId),
+              ))
+              .getSingleOrNull();
+      if (existing == null) {
+        throw const ContactValidationException('Contact not found.');
+      }
+      final existingMethods = await (database.select(
+        database.contactMethods,
+      )..where((table) => table.contactId.equals(contactId))).get();
+      final existingWasComplete =
+          (existing.firstName?.trim().isNotEmpty ?? false) &&
+          (existing.lastName?.trim().isNotEmpty ?? false) &&
+          existingMethods.any(
+            (method) => isValidNewManualContactMethod(
+              ContactMethodDraft(
+                id: method.id,
+                type:
+                    ContactMethodType.values.asNameMap()[method.type] ??
+                    ContactMethodType.phone,
+                value: method.rawValue,
+                label: method.label,
+                isPrimary: method.isPrimary,
+              ),
+            ),
+          );
+      if (existingWasComplete) {
+        final candidateIsComplete =
+            normalized.firstName.isNotEmpty &&
+            normalized.lastName.isNotEmpty &&
+            normalized.methods.any(isValidNewManualContactMethod);
+        if (!candidateIsComplete) {
+          throw const ContactValidationException(
+            'A complete Contact cannot be saved without First Name, Last Name, and a valid contact method.',
+          );
+        }
+      }
       final updated =
           await (database.update(database.contacts)..where(
                 (table) =>
@@ -177,9 +220,7 @@ final class DriftContactRepository implements ContactRepository {
                   updatedAtUtc: Value<DateTime>(now),
                 ),
               );
-      if (updated == 0) {
-        throw const ContactValidationException('Contact not found.');
-      }
+      assert(updated == 1);
       await _replaceMethods(
         profileId,
         contactId: contactId,
@@ -387,6 +428,22 @@ final class DriftContactRepository implements ContactRepository {
     ContactStandardView? standardView,
     String? query,
   }) async {
+    // An explicit None is an active user constraint, unlike legacy empty lists
+    // which mean unrestricted All.  Returning before any base-view projection
+    // keeps the result truthfully empty for every standard/saved view.
+    if (<ContactFilterSelectionMode>[
+      criteria.groupSelectionMode,
+      criteria.tagSelectionMode,
+      criteria.availabilitySelectionMode,
+      criteria.contactMethodsSelectionMode,
+      criteria.eventHistorySelectionMode,
+      criteria.phoneSelectionMode,
+      criteria.emailSelectionMode,
+      criteria.addressSelectionMode,
+      criteria.socialSelectionMode,
+    ].contains(ContactFilterSelectionMode.none)) {
+      return const <ContactSummary>[];
+    }
     final baseQuery = database.select(database.contacts);
     var where =
         database.contacts.profileId.equals(profileId) &
@@ -618,7 +675,9 @@ final class DriftContactRepository implements ContactRepository {
     }
     final in30 = dates.where((date) => today.difference(date).inDays <= 30);
     if (in30.length >= 4) return ContactSmartStatus.frequentConnection;
-    final in90 = dates.where((date) => today.difference(date).inDays <= 90).toList();
+    final in90 = dates
+        .where((date) => today.difference(date).inDays <= 90)
+        .toList();
     if (in90.length >= 3 &&
         in90.last.difference(in90.first).inDays >= 30 &&
         daysSinceLast <= 30) {
@@ -806,7 +865,8 @@ final class DriftContactRepository implements ContactRepository {
           b.context.leastRecentHappenedEventDate,
         _ => null,
       };
-      final newestFirst = sortBy == ContactSortBy.lastEvent ||
+      final newestFirst =
+          sortBy == ContactSortBy.lastEvent ||
           sortBy == ContactSortBy.lastHappenedEvent;
       final int byDate;
       if (aDate == null && bDate == null) {
@@ -816,9 +876,7 @@ final class DriftContactRepository implements ContactRepository {
       } else if (bDate == null) {
         byDate = -1;
       } else {
-        byDate = newestFirst
-            ? bDate.compareTo(aDate)
-            : aDate.compareTo(bDate);
+        byDate = newestFirst ? bDate.compareTo(aDate) : aDate.compareTo(bDate);
       }
       if (byDate != 0) {
         return byDate;
@@ -926,7 +984,8 @@ final class DriftContactRepository implements ContactRepository {
     }
 
     final eventContext = await _eventContextForContacts(ids, today);
-    final statusRead = includeStatusData ||
+    final statusRead =
+        includeStatusData ||
         standardView?.filter == ContactStandardFilter.status;
     final startOfWeek = statusRead
         ? await _readStartOfWeekDay(profileId)
@@ -934,18 +993,20 @@ final class DriftContactRepository implements ContactRepository {
     // A single bounded canonical history read powers Status sorting and the
     // optional Last Interaction field. It avoids a UI-side reconstruction and
     // avoids N+1 reads.
-    final historicalInteractionDates = await _historicalInteractionDatesForContacts(
-      profileId: profileId,
-      contactIds: ids,
-      today: today,
-    );
+    final historicalInteractionDates =
+        await _historicalInteractionDatesForContacts(
+          profileId: profileId,
+          contactIds: ids,
+          today: today,
+        );
     final filtered = <ContactRow>[];
     final statusBucketsByContact = <String, ContactStatusBucket>{};
     final smartStatusesByContact = <String, ContactSmartStatus?>{};
-    final aggregateStatus = standardView?.filter == ContactStandardFilter.status &&
+    final aggregateStatus =
+        standardView?.filter == ContactStandardFilter.status &&
         standardView?.statusBucket == null;
-    final smartEligible = (aggregateStatus || includeStatusData) &&
-        contactRows.length >= 4;
+    final smartEligible =
+        (aggregateStatus || includeStatusData) && contactRows.length >= 4;
     for (final row in contactRows) {
       final contactId = row.id;
       if (criteria.hasPhone &&
@@ -1008,8 +1069,7 @@ final class DriftContactRepository implements ContactRepository {
         continue;
       }
       final context = eventContext[contactId] ?? const ContactListContext();
-      final canonicalStatusBucket =
-          statusRead
+      final canonicalStatusBucket = statusRead
           ? _statusBucketFor(
               _latestInteractionDate(historicalInteractionDates[contactId]),
               nowLocal: clock.nowUtc().toLocal(),
@@ -1020,8 +1080,9 @@ final class DriftContactRepository implements ContactRepository {
           !_matchesStandardView(
             row: row,
             standardView: standardView,
-            historicalInteractionDate:
-                _latestInteractionDate(historicalInteractionDates[contactId]),
+            historicalInteractionDate: _latestInteractionDate(
+              historicalInteractionDates[contactId],
+            ),
             canonicalStatusBucket: canonicalStatusBucket,
           )) {
         continue;
@@ -1029,7 +1090,9 @@ final class DriftContactRepository implements ContactRepository {
       if (canonicalStatusBucket != null) {
         statusBucketsByContact[contactId] = canonicalStatusBucket;
         smartStatusesByContact[contactId] = smartEligible
-            ? _smartStatusFor(historicalInteractionDates[contactId] ?? const <DateTime>[])
+            ? _smartStatusFor(
+                historicalInteractionDates[contactId] ?? const <DateTime>[],
+              )
             : null;
       }
       if (criteria.withEventsToday &&
@@ -1060,8 +1123,9 @@ final class DriftContactRepository implements ContactRepository {
             primaryGroup: primary == null ? null : _groupFromRow(primary),
             statusBucket: statusBucketsByContact[row.id],
             smartStatus: smartStatusesByContact[row.id],
-            latestQualifyingInteractionDate:
-                _latestInteractionDate(historicalInteractionDates[row.id]),
+            latestQualifyingInteractionDate: _latestInteractionDate(
+              historicalInteractionDates[row.id],
+            ),
             groupNames: List<String>.unmodifiable(
               groupNamesByContact[row.id] ?? const <String>[],
             ),
@@ -1322,28 +1386,42 @@ final class DriftContactRepository implements ContactRepository {
   }
 
   @override
-  Future<void> archiveGroup({
+  Future<void> hardDeleteGroup({
     required String profileId,
     required String groupId,
   }) async {
-    await (database.update(database.contactGroups)..where(
-          (table) =>
-              table.profileId.equals(profileId) & table.id.equals(groupId),
-        ))
-        .write(
-          ContactGroupsCompanion(
-            isArchived: const Value<bool>(true),
-            updatedAtUtc: Value<DateTime>(clock.nowUtc()),
-          ),
-        );
-    // An archived group can no longer be anyone's primary group.
-    await (database.update(database.contactGroupMemberships)..where(
-          (table) =>
-              table.groupId.equals(groupId) & table.isPrimary.equals(true),
-        ))
-        .write(
-          const ContactGroupMembershipsCompanion(isPrimary: Value<bool>(false)),
-        );
+    await database.transaction(() async {
+      final group =
+          await (database.select(database.contactGroups)
+                ..where(
+                  (table) =>
+                      table.profileId.equals(profileId) &
+                      table.id.equals(groupId),
+                )
+                ..limit(1))
+              .getSingleOrNull();
+      if (group == null) {
+        throw const ContactValidationException('Group not found.');
+      }
+
+      // Remove every association for this exact group, including dormant
+      // legacy memberships. The enclosing transaction ensures a failed group
+      // delete rolls these membership removals back rather than leaving a
+      // Contact in a partially updated state.
+      await (database.delete(
+        database.contactGroupMemberships,
+      )..where((table) => table.groupId.equals(groupId))).go();
+      final deleted =
+          await (database.delete(database.contactGroups)..where(
+                (table) =>
+                    table.profileId.equals(profileId) &
+                    table.id.equals(groupId),
+              ))
+              .go();
+      if (deleted != 1) {
+        throw const ContactValidationException('Group could not be deleted.');
+      }
+    });
   }
 
   @override
@@ -2966,11 +3044,9 @@ final class DriftContactRepository implements ContactRepository {
                   table.status.equals('active'),
             ))
             .get();
-    final snapshots =
-        await (database.select(database.eventOccurrenceParticipants)..where(
-              (table) => table.contactId.isIn(contactIds),
-            ))
-            .get();
+    final snapshots = await (database.select(
+      database.eventOccurrenceParticipants,
+    )..where((table) => table.contactId.isIn(contactIds))).get();
     if (links.isEmpty && snapshots.isEmpty) {
       return const <String, ContactListContext>{};
     }
@@ -3013,12 +3089,15 @@ final class DriftContactRepository implements ContactRepository {
       ) {
         if (date.compareTo(today) >= 0) return;
         final exception = exceptionsByKey['${event.id}:$occurrenceId'];
-        final effectiveStatus = _statusFromRow(exception?.status ?? event.status);
+        final effectiveStatus = _statusFromRow(
+          exception?.status ?? event.status,
+        );
         if (effectiveStatus == CalendarEventStatus.cancelled) return;
         if (leastRecentDate == null || date.compareTo(leastRecentDate!) < 0) {
           leastRecentDate = date;
         }
-        final happened = effectiveStatus == CalendarEventStatus.completedHappened ||
+        final happened =
+            effectiveStatus == CalendarEventStatus.completedHappened ||
             effectiveStatus == CalendarEventStatus.partiallyCompleted;
         if (!happened) return;
         if (lastHappenedDate == null || date.compareTo(lastHappenedDate!) > 0) {
@@ -3168,43 +3247,116 @@ final class DriftContactRepository implements ContactRepository {
     required String contactId,
     required List<ContactMethodDraft> methods,
   }) async {
-    await database.transaction(() async {
-      await (database.delete(
-        database.contactMethods,
-      )..where((table) => table.contactId.equals(contactId))).go();
-      if (methods.isEmpty) {
-        return;
+    final existing = await (database.select(
+      database.contactMethods,
+    )..where((table) => table.contactId.equals(contactId))).get();
+    final existingById = <String, ContactMethodRow>{
+      for (final row in existing) row.id: row,
+    };
+    final existingIds = existingById.keys.toSet();
+    final retainedIds = <String>{};
+    final methodKeys = <String>{};
+    final normalizedValues = <ContactMethodDraft, String>{};
+
+    for (final method in methods) {
+      final normalized = switch (method.type) {
+        ContactMethodType.phone => normalizePhone(method.value),
+        ContactMethodType.email => method.value.toLowerCase().trim(),
+        ContactMethodType.social => method.value.trim(),
+      };
+      if (normalized.isEmpty) {
+        continue;
       }
-      await database.batch((batch) {
-        for (final method in methods) {
-          final normalized = switch (method.type) {
-            ContactMethodType.phone => normalizePhone(method.value),
-            ContactMethodType.email => method.value.toLowerCase().trim(),
-            ContactMethodType.social => method.value.trim(),
-          };
-          if (normalized.isEmpty) {
-            continue;
-          }
-          batch.insert(
-            database.contactMethods,
-            ContactMethodsCompanion.insert(
-              id: identifiers.nextUuid(),
-              contactId: contactId,
-              type: method.type.name,
-              label: Value<String?>(
-                method.label?.trim().isEmpty ?? true
-                    ? null
-                    : method.label!.trim(),
-              ),
-              rawValue: method.value.trim(),
-              normalizedValue: normalized,
-              isPrimary: Value<bool>(method.isPrimary),
-            ),
-            mode: InsertMode.insertOrIgnore,
+      final methodId = method.id;
+      if (methodId != null) {
+        if (!existingIds.contains(methodId)) {
+          throw const ContactValidationException('Contact method not found.');
+        }
+        if (!retainedIds.add(methodId)) {
+          throw const ContactValidationException(
+            'A contact method was submitted twice.',
           );
         }
-      });
-    });
+      }
+      if (!methodKeys.add('${method.type.name}\u0000$normalized')) {
+        throw const ContactValidationException(
+          'Duplicate Phone, Email, or Social Profile values are not allowed.',
+        );
+      }
+      normalizedValues[method] = normalized;
+    }
+
+    final idsToDelete = existingIds.difference(retainedIds);
+    if (idsToDelete.isNotEmpty) {
+      await (database.delete(
+        database.contactMethods,
+      )..where((table) => table.id.isIn(idsToDelete.toList()))).go();
+    }
+
+    // Keep every retained existing ID while making value swaps safe under the
+    // contact/type/normalized-value uniqueness constraint.  The temporary
+    // values live only within the enclosing Contact transaction.
+    final occupied = <String>{
+      for (final row in existing) '${row.type}\u0000${row.normalizedValue}',
+      for (final entry in normalizedValues.entries)
+        '${entry.key.type.name}\u0000${entry.value}',
+    };
+    for (final method in methods) {
+      final methodId = method.id;
+      if (methodId == null || !normalizedValues.containsKey(method)) {
+        continue;
+      }
+      final row = existingById[methodId]!;
+      var temporary = '__next_transfer_c4_pending_$methodId';
+      var suffix = 1;
+      while (occupied.contains('${row.type}\u0000$temporary')) {
+        temporary = '__next_transfer_c4_pending_${methodId}_$suffix';
+        suffix++;
+      }
+      occupied.add('${row.type}\u0000$temporary');
+      await (database.update(
+        database.contactMethods,
+      )..where((table) => table.id.equals(methodId))).write(
+        ContactMethodsCompanion(normalizedValue: Value<String>(temporary)),
+      );
+    }
+
+    for (final method in methods) {
+      final normalized = normalizedValues[method];
+      if (normalized == null) {
+        continue;
+      }
+      final label = method.label;
+      final savedLabel = label == null || label.trim().isEmpty ? null : label;
+      final methodId = method.id;
+      if (methodId == null) {
+        await database
+            .into(database.contactMethods)
+            .insert(
+              ContactMethodsCompanion.insert(
+                id: identifiers.nextUuid(),
+                contactId: contactId,
+                type: method.type.name,
+                label: Value<String?>(savedLabel),
+                rawValue: method.value.trim(),
+                normalizedValue: normalized,
+                isPrimary: Value<bool>(method.isPrimary),
+              ),
+            );
+      } else {
+        await (database.update(
+          database.contactMethods,
+        )..where((table) => table.id.equals(methodId))).write(
+          ContactMethodsCompanion(
+            type: Value<String>(method.type.name),
+            label: Value<String?>(savedLabel),
+            rawValue: Value<String>(method.value.trim()),
+            normalizedValue: Value<String>(normalized),
+            isPrimary: Value<bool>(method.isPrimary),
+          ),
+        );
+      }
+    }
   }
 
   // -- Occurrence math ------------------------------------------------------

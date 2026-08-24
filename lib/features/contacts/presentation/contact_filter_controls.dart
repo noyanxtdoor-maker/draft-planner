@@ -23,39 +23,41 @@ enum ContactFilterCategory {
 
 /// Contacts Home is a compact, horizontal fast-access projection of the same
 /// canonical Filter Builder criteria. Sorting deliberately remains elsewhere.
-const List<ContactFilterCategory> quickFilterCategories = <ContactFilterCategory>[
-  ContactFilterCategory.groups,
-  ContactFilterCategory.tags,
-  ContactFilterCategory.favorites,
-  ContactFilterCategory.availability,
-  ContactFilterCategory.phone,
-  ContactFilterCategory.email,
-  ContactFilterCategory.address,
-  ContactFilterCategory.socialProfile,
-  ContactFilterCategory.eventHistory,
-  ContactFilterCategory.withEventsToday,
-  ContactFilterCategory.withFutureEvents,
-  ContactFilterCategory.withoutFutureEvents,
-  ContactFilterCategory.source,
-  ContactFilterCategory.archived,
-];
+const List<ContactFilterCategory> quickFilterCategories =
+    <ContactFilterCategory>[
+      ContactFilterCategory.groups,
+      ContactFilterCategory.tags,
+      ContactFilterCategory.favorites,
+      ContactFilterCategory.availability,
+      ContactFilterCategory.phone,
+      ContactFilterCategory.email,
+      ContactFilterCategory.address,
+      ContactFilterCategory.socialProfile,
+      ContactFilterCategory.eventHistory,
+      ContactFilterCategory.withEventsToday,
+      ContactFilterCategory.withFutureEvents,
+      ContactFilterCategory.withoutFutureEvents,
+      ContactFilterCategory.source,
+      ContactFilterCategory.archived,
+    ];
 
 /// Categories rendered inside the Filter builder.  The old combined
 /// "Contact Methods" row is replaced by the dedicated Phone / Email / Address /
 /// Social Profile categories.
-const List<ContactFilterCategory> filterBuilderCategories = <ContactFilterCategory>[
-  ContactFilterCategory.groups,
-  ContactFilterCategory.tags,
-  ContactFilterCategory.favorites,
-  ContactFilterCategory.availability,
-  ContactFilterCategory.phone,
-  ContactFilterCategory.email,
-  ContactFilterCategory.address,
-  ContactFilterCategory.socialProfile,
-  ContactFilterCategory.eventHistory,
-  ContactFilterCategory.source,
-  ContactFilterCategory.archived,
-];
+const List<ContactFilterCategory> filterBuilderCategories =
+    <ContactFilterCategory>[
+      ContactFilterCategory.groups,
+      ContactFilterCategory.tags,
+      ContactFilterCategory.favorites,
+      ContactFilterCategory.availability,
+      ContactFilterCategory.phone,
+      ContactFilterCategory.email,
+      ContactFilterCategory.address,
+      ContactFilterCategory.socialProfile,
+      ContactFilterCategory.eventHistory,
+      ContactFilterCategory.source,
+      ContactFilterCategory.archived,
+    ];
 
 enum ContactFilterSelectionState { all, some, none }
 
@@ -80,6 +82,58 @@ bool contactFilterCategoryIsBoolean(ContactFilterCategory category) =>
       ContactFilterCategory.withoutFutureEvents => true,
       _ => false,
     };
+
+bool contactFilterCategoryUsesSelectionMode(ContactFilterCategory category) =>
+    switch (category) {
+      ContactFilterCategory.groups ||
+      ContactFilterCategory.tags ||
+      ContactFilterCategory.availability ||
+      ContactFilterCategory.contactMethods ||
+      ContactFilterCategory.eventHistory ||
+      ContactFilterCategory.phone ||
+      ContactFilterCategory.email ||
+      ContactFilterCategory.address ||
+      ContactFilterCategory.socialProfile => true,
+      _ => false,
+    };
+
+ContactFilterSelectionMode contactFilterSelectionModeForCategory(
+  ContactFilterCriteria criteria,
+  ContactFilterCategory category,
+) {
+  final stored = switch (category) {
+    ContactFilterCategory.groups => criteria.groupSelectionMode,
+    ContactFilterCategory.tags => criteria.tagSelectionMode,
+    ContactFilterCategory.availability => criteria.availabilitySelectionMode,
+    ContactFilterCategory.contactMethods =>
+      criteria.contactMethodsSelectionMode,
+    ContactFilterCategory.eventHistory => criteria.eventHistorySelectionMode,
+    ContactFilterCategory.phone => criteria.phoneSelectionMode,
+    ContactFilterCategory.email => criteria.emailSelectionMode,
+    ContactFilterCategory.address => criteria.addressSelectionMode,
+    ContactFilterCategory.socialProfile => criteria.socialSelectionMode,
+    _ => ContactFilterSelectionMode.all,
+  };
+  if (stored != ContactFilterSelectionMode.all) return stored;
+  final legacyHasSelection = switch (category) {
+    ContactFilterCategory.groups => criteria.groupIds.isNotEmpty,
+    ContactFilterCategory.tags => criteria.tagIds.isNotEmpty,
+    ContactFilterCategory.availability =>
+      criteria.availabilityWeekdays.isNotEmpty,
+    ContactFilterCategory.contactMethods =>
+      criteria.hasPhone || criteria.hasEmail || criteria.hasAddress,
+    ContactFilterCategory.eventHistory =>
+      criteria.noInteractionYet || criteria.eventHistoryAny,
+    ContactFilterCategory.phone => criteria.phoneLabels.isNotEmpty,
+    ContactFilterCategory.email => criteria.emailLabels.isNotEmpty,
+    ContactFilterCategory.address => criteria.addressLabels.isNotEmpty,
+    ContactFilterCategory.socialProfile => criteria.socialLabels.isNotEmpty,
+    _ => false,
+  };
+  return legacyHasSelection
+      ? ContactFilterSelectionMode.some
+      : ContactFilterSelectionMode.all;
+}
 
 String contactFilterCategoryLabel(ContactFilterCategory category) {
   return switch (category) {
@@ -106,22 +160,37 @@ bool contactFilterCategoryIsActive(
   ContactFilterCategory category,
 ) {
   return switch (category) {
-    ContactFilterCategory.groups => criteria.groupIds.isNotEmpty,
-    ContactFilterCategory.tags => criteria.tagIds.isNotEmpty,
+    ContactFilterCategory.groups =>
+      contactFilterSelectionModeForCategory(criteria, category) !=
+          ContactFilterSelectionMode.all,
+    ContactFilterCategory.tags =>
+      contactFilterSelectionModeForCategory(criteria, category) !=
+          ContactFilterSelectionMode.all,
     ContactFilterCategory.favorites => criteria.favoritesOnly,
     ContactFilterCategory.availability =>
-      criteria.availabilityWeekdays.isNotEmpty,
+      contactFilterSelectionModeForCategory(criteria, category) !=
+          ContactFilterSelectionMode.all,
     ContactFilterCategory.contactMethods =>
-      criteria.hasPhone || criteria.hasEmail || criteria.hasAddress,
+      contactFilterSelectionModeForCategory(criteria, category) !=
+          ContactFilterSelectionMode.all,
     ContactFilterCategory.eventHistory =>
-      criteria.noInteractionYet || criteria.eventHistoryAny,
+      contactFilterSelectionModeForCategory(criteria, category) !=
+          ContactFilterSelectionMode.all,
     ContactFilterCategory.source => criteria.source != null,
     ContactFilterCategory.archived =>
       criteria.includeArchived || criteria.archivedOnly,
-    ContactFilterCategory.phone => criteria.phoneLabels.isNotEmpty,
-    ContactFilterCategory.email => criteria.emailLabels.isNotEmpty,
-    ContactFilterCategory.address => criteria.addressLabels.isNotEmpty,
-    ContactFilterCategory.socialProfile => criteria.socialLabels.isNotEmpty,
+    ContactFilterCategory.phone =>
+      contactFilterSelectionModeForCategory(criteria, category) !=
+          ContactFilterSelectionMode.all,
+    ContactFilterCategory.email =>
+      contactFilterSelectionModeForCategory(criteria, category) !=
+          ContactFilterSelectionMode.all,
+    ContactFilterCategory.address =>
+      contactFilterSelectionModeForCategory(criteria, category) !=
+          ContactFilterSelectionMode.all,
+    ContactFilterCategory.socialProfile =>
+      contactFilterSelectionModeForCategory(criteria, category) !=
+          ContactFilterSelectionMode.all,
     ContactFilterCategory.withEventsToday => criteria.withEventsToday,
     ContactFilterCategory.withFutureEvents => criteria.withFutureEvents,
     ContactFilterCategory.withoutFutureEvents => criteria.withoutFutureEvents,
@@ -134,24 +203,27 @@ ContactFilterSelectionState contactFilterCategoryState(
   List<ContactGroup> groups = const <ContactGroup>[],
   List<ContactTag> tags = const <ContactTag>[],
 }) {
-  final optionCount = switch (category) {
-    ContactFilterCategory.groups => groups.length,
-    ContactFilterCategory.tags => tags.length,
-    ContactFilterCategory.favorites => 1,
-    ContactFilterCategory.availability => 7,
-    ContactFilterCategory.contactMethods => 3,
-    ContactFilterCategory.eventHistory => 2,
-    ContactFilterCategory.source => 3,
-    ContactFilterCategory.archived => 2,
-    ContactFilterCategory.phone => 5,
-    ContactFilterCategory.email => 5,
-    ContactFilterCategory.address => 2,
-    ContactFilterCategory.socialProfile => 9,
-    ContactFilterCategory.withEventsToday => 1,
-    ContactFilterCategory.withFutureEvents => 1,
-    ContactFilterCategory.withoutFutureEvents => 1,
-  };
-  if (optionCount == 0 || !contactFilterCategoryIsActive(criteria, category)) {
+  final optionCount = contactFilterOptions(
+    category: category,
+    groups: groups,
+    tags: tags,
+  ).length;
+  if (contactFilterCategoryUsesSelectionMode(category)) {
+    if (optionCount == 0) return ContactFilterSelectionState.none;
+    final mode = contactFilterSelectionModeForCategory(criteria, category);
+    if (mode == ContactFilterSelectionMode.none) {
+      return ContactFilterSelectionState.none;
+    }
+    if (mode == ContactFilterSelectionMode.all) {
+      return ContactFilterSelectionState.all;
+    }
+  }
+  if (category == ContactFilterCategory.favorites) {
+    return criteria.favoritesOnly
+        ? ContactFilterSelectionState.all
+        : ContactFilterSelectionState.none;
+  }
+  if (!contactFilterCategoryIsActive(criteria, category)) {
     return ContactFilterSelectionState.all;
   }
   final selectedCount = switch (category) {
@@ -182,9 +254,7 @@ ContactFilterSelectionState contactFilterCategoryState(
     ContactFilterCategory.withoutFutureEvents =>
       criteria.withoutFutureEvents ? 1 : 0,
   };
-  if (selectedCount == 0) {
-    return ContactFilterSelectionState.all;
-  }
+  if (selectedCount == 0) return ContactFilterSelectionState.none;
   return selectedCount == optionCount
       ? ContactFilterSelectionState.all
       : ContactFilterSelectionState.some;
@@ -196,9 +266,26 @@ String contactFilterCategorySummary(
   List<ContactGroup> groups = const <ContactGroup>[],
   List<ContactTag> tags = const <ContactTag>[],
 }) {
-  if (!contactFilterCategoryIsActive(criteria, category)) {
-    return 'All';
+  if (category == ContactFilterCategory.favorites) {
+    return criteria.favoritesOnly ? 'All' : 'None';
   }
+  if (contactFilterCategoryUsesSelectionMode(category)) {
+    final options = contactFilterOptions(
+      category: category,
+      groups: groups,
+      tags: tags,
+    );
+    if (options.isEmpty ||
+        contactFilterSelectionModeForCategory(criteria, category) ==
+            ContactFilterSelectionMode.none) {
+      return 'None';
+    }
+    if (contactFilterSelectionModeForCategory(criteria, category) ==
+        ContactFilterSelectionMode.all) {
+      return 'All';
+    }
+  }
+  if (!contactFilterCategoryIsActive(criteria, category)) return 'All';
   return switch (category) {
     ContactFilterCategory.groups => _selectedNames(
       criteria.groupIds,
@@ -208,7 +295,7 @@ String contactFilterCategorySummary(
       criteria.tagIds,
       tags.map((tag) => (tag.id, tag.name)),
     ),
-    ContactFilterCategory.favorites => 'Favorites',
+    ContactFilterCategory.favorites => criteria.favoritesOnly ? 'All' : 'None',
     ContactFilterCategory.availability => _weekdaySummary(
       criteria.availabilityWeekdays,
     ),
@@ -252,8 +339,16 @@ ContactFilterCriteria clearContactFilterCategory(
   ContactFilterCategory category,
 ) {
   return switch (category) {
-    ContactFilterCategory.groups => _copyCriteria(criteria, groupIds: const []),
-    ContactFilterCategory.tags => _copyCriteria(criteria, tagIds: const []),
+    ContactFilterCategory.groups => _copyCriteria(
+      criteria,
+      groupIds: const [],
+      groupSelectionMode: ContactFilterSelectionMode.all,
+    ),
+    ContactFilterCategory.tags => _copyCriteria(
+      criteria,
+      tagIds: const [],
+      tagSelectionMode: ContactFilterSelectionMode.all,
+    ),
     ContactFilterCategory.favorites => _copyCriteria(
       criteria,
       favoritesOnly: false,
@@ -261,17 +356,20 @@ ContactFilterCriteria clearContactFilterCategory(
     ContactFilterCategory.availability => _copyCriteria(
       criteria,
       availabilityWeekdays: const [],
+      availabilitySelectionMode: ContactFilterSelectionMode.all,
     ),
     ContactFilterCategory.contactMethods => _copyCriteria(
       criteria,
       hasPhone: false,
       hasEmail: false,
       hasAddress: false,
+      contactMethodsSelectionMode: ContactFilterSelectionMode.all,
     ),
     ContactFilterCategory.eventHistory => _copyCriteria(
       criteria,
       noInteractionYet: false,
       eventHistoryAny: false,
+      eventHistorySelectionMode: ContactFilterSelectionMode.all,
     ),
     ContactFilterCategory.source => _copyCriteria(
       criteria,
@@ -283,15 +381,25 @@ ContactFilterCriteria clearContactFilterCategory(
       includeArchived: false,
       archivedOnly: false,
     ),
-    ContactFilterCategory.phone => _copyCriteria(criteria, phoneLabels: const []),
-    ContactFilterCategory.email => _copyCriteria(criteria, emailLabels: const []),
+    ContactFilterCategory.phone => _copyCriteria(
+      criteria,
+      phoneLabels: const [],
+      phoneSelectionMode: ContactFilterSelectionMode.all,
+    ),
+    ContactFilterCategory.email => _copyCriteria(
+      criteria,
+      emailLabels: const [],
+      emailSelectionMode: ContactFilterSelectionMode.all,
+    ),
     ContactFilterCategory.address => _copyCriteria(
       criteria,
       addressLabels: const [],
+      addressSelectionMode: ContactFilterSelectionMode.all,
     ),
     ContactFilterCategory.socialProfile => _copyCriteria(
       criteria,
       socialLabels: const [],
+      socialSelectionMode: ContactFilterSelectionMode.all,
     ),
     ContactFilterCategory.withEventsToday => _copyCriteria(
       criteria,
@@ -398,7 +506,10 @@ List<ContactFilterOption> contactFilterOptions({
     ],
     ContactFilterCategory.address => const <ContactFilterOption>[
       ContactFilterOption(ContactAddressFilterKeys.notRecorded, 'Not Recorded'),
-      ContactFilterOption(ContactAddressFilterKeys.recorded, 'Address Recorded'),
+      ContactFilterOption(
+        ContactAddressFilterKeys.recorded,
+        'Address Recorded',
+      ),
     ],
     ContactFilterCategory.socialProfile => const <ContactFilterOption>[
       ContactFilterOption(ContactSocialFilterKeys.noSocial, 'No Social'),
@@ -407,7 +518,9 @@ List<ContactFilterOption> contactFilterOptions({
       ContactFilterOption(ContactSocialFilterKeys.whatsapp, 'WhatsApp'),
       ContactFilterOption(ContactSocialFilterKeys.line, 'LINE'),
       ContactFilterOption(ContactSocialFilterKeys.skype, 'Skype'),
+      ContactFilterOption(ContactSocialFilterKeys.kakaoTalk, 'KakaoTalk'),
       ContactFilterOption(ContactSocialFilterKeys.instagram, 'Instagram'),
+      ContactFilterOption(ContactSocialFilterKeys.helloTalk, 'HelloTalk'),
       ContactFilterOption(ContactSocialFilterKeys.x, 'X'),
       ContactFilterOption(ContactSocialFilterKeys.other, 'Other'),
     ],
@@ -463,9 +576,8 @@ Set<String> contactFilterActiveKeys(
       criteria.withEventsToday ? <String>{'today'} : <String>{},
     ContactFilterCategory.withFutureEvents =>
       criteria.withFutureEvents ? <String>{'future'} : <String>{},
-    ContactFilterCategory.withoutFutureEvents => criteria.withoutFutureEvents
-      ? <String>{'without-future'}
-      : <String>{},
+    ContactFilterCategory.withoutFutureEvents =>
+      criteria.withoutFutureEvents ? <String>{'without-future'} : <String>{},
   };
 }
 
@@ -478,10 +590,16 @@ ContactFilterCriteria contactFilterCriteriaForSelection(
     ContactFilterCategory.groups => _copyCriteria(
       criteria,
       groupIds: selected.toList()..sort(),
+      groupSelectionMode: selected.isEmpty
+          ? ContactFilterSelectionMode.none
+          : ContactFilterSelectionMode.some,
     ),
     ContactFilterCategory.tags => _copyCriteria(
       criteria,
       tagIds: selected.toList()..sort(),
+      tagSelectionMode: selected.isEmpty
+          ? ContactFilterSelectionMode.none
+          : ContactFilterSelectionMode.some,
     ),
     ContactFilterCategory.favorites => _copyCriteria(
       criteria,
@@ -490,17 +608,26 @@ ContactFilterCriteria contactFilterCriteriaForSelection(
     ContactFilterCategory.availability => _copyCriteria(
       criteria,
       availabilityWeekdays: selected.map(int.parse).toList()..sort(),
+      availabilitySelectionMode: selected.isEmpty
+          ? ContactFilterSelectionMode.none
+          : ContactFilterSelectionMode.some,
     ),
     ContactFilterCategory.contactMethods => _copyCriteria(
       criteria,
       hasPhone: selected.contains('phone'),
       hasEmail: selected.contains('email'),
       hasAddress: selected.contains('address'),
+      contactMethodsSelectionMode: selected.isEmpty
+          ? ContactFilterSelectionMode.none
+          : ContactFilterSelectionMode.some,
     ),
     ContactFilterCategory.eventHistory => _copyCriteria(
       criteria,
       noInteractionYet: selected.contains('no-interaction'),
       eventHistoryAny: selected.contains('history'),
+      eventHistorySelectionMode: selected.isEmpty
+          ? ContactFilterSelectionMode.none
+          : ContactFilterSelectionMode.some,
     ),
     ContactFilterCategory.source => _copyCriteria(
       criteria,
@@ -520,18 +647,30 @@ ContactFilterCriteria contactFilterCriteriaForSelection(
     ContactFilterCategory.phone => _copyCriteria(
       criteria,
       phoneLabels: selected.toList()..sort(),
+      phoneSelectionMode: selected.isEmpty
+          ? ContactFilterSelectionMode.none
+          : ContactFilterSelectionMode.some,
     ),
     ContactFilterCategory.email => _copyCriteria(
       criteria,
       emailLabels: selected.toList()..sort(),
+      emailSelectionMode: selected.isEmpty
+          ? ContactFilterSelectionMode.none
+          : ContactFilterSelectionMode.some,
     ),
     ContactFilterCategory.address => _copyCriteria(
       criteria,
       addressLabels: selected.toList()..sort(),
+      addressSelectionMode: selected.isEmpty
+          ? ContactFilterSelectionMode.none
+          : ContactFilterSelectionMode.some,
     ),
     ContactFilterCategory.socialProfile => _copyCriteria(
       criteria,
       socialLabels: selected.toList()..sort(),
+      socialSelectionMode: selected.isEmpty
+          ? ContactFilterSelectionMode.none
+          : ContactFilterSelectionMode.some,
     ),
     ContactFilterCategory.withEventsToday => _copyCriteria(
       criteria,
@@ -601,13 +740,11 @@ final class _ContactFilterCategorySheetState
   bool _showValidation = false;
 
   ContactFilterSelectionState get _state {
-    if (_options.isEmpty) {
-      return ContactFilterSelectionState.all;
-    }
+    if (_options.isEmpty) return ContactFilterSelectionState.none;
     if (contactFilterCategoryIsBoolean(widget.category)) {
       return _selected.isEmpty
-          ? ContactFilterSelectionState.all
-          : ContactFilterSelectionState.some;
+          ? ContactFilterSelectionState.none
+          : ContactFilterSelectionState.all;
     }
     if (widget.category == ContactFilterCategory.source &&
         _selected.contains('all')) {
@@ -617,9 +754,7 @@ final class _ContactFilterCategorySheetState
         _selected.contains('active')) {
       return ContactFilterSelectionState.all;
     }
-    if (_selected.isEmpty) {
-      return ContactFilterSelectionState.all;
-    }
+    if (_selected.isEmpty) return ContactFilterSelectionState.none;
     if (_selected.length == _options.length) {
       return ContactFilterSelectionState.all;
     }
@@ -682,14 +817,20 @@ final class _ContactFilterCategorySheetState
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  TriStateMasterCheckbox(
-                    key: const Key('filter-sheet-master-checkbox'),
-                    value: switch (state) {
-                      ContactFilterSelectionState.all => true,
-                      ContactFilterSelectionState.some => null,
-                      ContactFilterSelectionState.none => false,
-                    },
-                    onChanged: (_) => _toggleAll(),
+                  IgnorePointer(
+                    ignoring: _options.isEmpty,
+                    child: Opacity(
+                      opacity: _options.isEmpty ? .38 : 1,
+                      child: TriStateMasterCheckbox(
+                        key: const Key('filter-sheet-master-checkbox'),
+                        value: switch (state) {
+                          ContactFilterSelectionState.all => true,
+                          ContactFilterSelectionState.some => null,
+                          ContactFilterSelectionState.none => false,
+                        },
+                        onChanged: (_) => _toggleAll(),
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -774,7 +915,10 @@ final class _ContactFilterCategorySheetState
             ? <String>{_options.single.key}
             : <String>{};
       } else {
-        _selected = _options.map((option) => option.key).toSet();
+        final state = _state;
+        _selected = state == ContactFilterSelectionState.all
+            ? <String>{}
+            : _options.map((option) => option.key).toSet();
       }
       _showValidation = false;
     });
@@ -793,10 +937,6 @@ final class _ContactFilterCategorySheetState
         }
       } else {
         _selected.remove(key);
-        if (contactFilterCategoryUsesNeutralAll(widget.category) &&
-            _selected.isEmpty) {
-          _selected = _options.map((option) => option.key).toSet();
-        }
       }
       _showValidation = false;
     });
@@ -804,7 +944,10 @@ final class _ContactFilterCategorySheetState
   }
 
   void _notifyValid() {
-    final criteria = _options.isEmpty || _selected.length == _options.length
+    final criteria = _options.isEmpty
+        ? clearContactFilterCategory(widget.criteria, widget.category)
+        : widget.category != ContactFilterCategory.favorites &&
+              _selected.length == _options.length
         ? clearContactFilterCategory(widget.criteria, widget.category)
         : _criteriaForSelection();
     widget.onValidChanged?.call(criteria);
@@ -841,6 +984,15 @@ ContactFilterCriteria _copyCriteria(
   List<String>? emailLabels,
   List<String>? addressLabels,
   List<String>? socialLabels,
+  ContactFilterSelectionMode? groupSelectionMode,
+  ContactFilterSelectionMode? tagSelectionMode,
+  ContactFilterSelectionMode? availabilitySelectionMode,
+  ContactFilterSelectionMode? contactMethodsSelectionMode,
+  ContactFilterSelectionMode? eventHistorySelectionMode,
+  ContactFilterSelectionMode? phoneSelectionMode,
+  ContactFilterSelectionMode? emailSelectionMode,
+  ContactFilterSelectionMode? addressSelectionMode,
+  ContactFilterSelectionMode? socialSelectionMode,
 }) {
   return ContactFilterCriteria(
     groupIds: groupIds ?? value.groupIds,
@@ -862,6 +1014,18 @@ ContactFilterCriteria _copyCriteria(
     emailLabels: emailLabels ?? value.emailLabels,
     addressLabels: addressLabels ?? value.addressLabels,
     socialLabels: socialLabels ?? value.socialLabels,
+    groupSelectionMode: groupSelectionMode ?? value.groupSelectionMode,
+    tagSelectionMode: tagSelectionMode ?? value.tagSelectionMode,
+    availabilitySelectionMode:
+        availabilitySelectionMode ?? value.availabilitySelectionMode,
+    contactMethodsSelectionMode:
+        contactMethodsSelectionMode ?? value.contactMethodsSelectionMode,
+    eventHistorySelectionMode:
+        eventHistorySelectionMode ?? value.eventHistorySelectionMode,
+    phoneSelectionMode: phoneSelectionMode ?? value.phoneSelectionMode,
+    emailSelectionMode: emailSelectionMode ?? value.emailSelectionMode,
+    addressSelectionMode: addressSelectionMode ?? value.addressSelectionMode,
+    socialSelectionMode: socialSelectionMode ?? value.socialSelectionMode,
   );
 }
 
@@ -903,7 +1067,9 @@ String _socialLabelName(String key) {
     ContactSocialFilterKeys.whatsapp => 'WhatsApp',
     ContactSocialFilterKeys.line => 'LINE',
     ContactSocialFilterKeys.skype => 'Skype',
+    ContactSocialFilterKeys.kakaoTalk => 'KakaoTalk',
     ContactSocialFilterKeys.instagram => 'Instagram',
+    ContactSocialFilterKeys.helloTalk => 'HelloTalk',
     ContactSocialFilterKeys.x => 'X',
     ContactSocialFilterKeys.other => 'Other',
     _ => key,

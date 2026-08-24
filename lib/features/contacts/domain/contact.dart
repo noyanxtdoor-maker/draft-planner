@@ -37,6 +37,11 @@ enum ContactStandardFilter {
   recentlyCreated,
 }
 
+/// Truth of a selectable Contact-filter category.  This is deliberately
+/// independent of its selected-key list: an empty list alone cannot tell
+/// unrestricted All from an owner-selected None.
+enum ContactFilterSelectionMode { all, some, none }
+
 enum ContactStatusBucket {
   notInteractedYet,
   interactedToday,
@@ -171,7 +176,9 @@ abstract final class ContactSocialFilterKeys {
   static const String whatsapp = 'whatsapp';
   static const String line = 'line';
   static const String skype = 'skype';
+  static const String kakaoTalk = 'kakaotalk';
   static const String instagram = 'instagram';
+  static const String helloTalk = 'hellotalk';
   static const String x = 'x';
   static const String other = 'other';
 
@@ -182,7 +189,9 @@ abstract final class ContactSocialFilterKeys {
     whatsapp,
     line,
     skype,
+    kakaoTalk,
     instagram,
+    helloTalk,
     x,
   };
 }
@@ -330,10 +339,14 @@ final class ContactMethodDraft {
   const ContactMethodDraft({
     required this.type,
     required this.value,
+    this.id,
     this.label,
     this.isPrimary = false,
   });
 
+  /// The stable ContactMethods row ID when editing an existing method.  A
+  /// null ID deliberately means a newly added row.
+  final String? id;
   final ContactMethodType type;
   final String value;
   final String? label;
@@ -441,6 +454,15 @@ final class ContactFilterCriteria {
     this.emailLabels = const <String>[],
     this.addressLabels = const <String>[],
     this.socialLabels = const <String>[],
+    this.groupSelectionMode = ContactFilterSelectionMode.all,
+    this.tagSelectionMode = ContactFilterSelectionMode.all,
+    this.availabilitySelectionMode = ContactFilterSelectionMode.all,
+    this.contactMethodsSelectionMode = ContactFilterSelectionMode.all,
+    this.eventHistorySelectionMode = ContactFilterSelectionMode.all,
+    this.phoneSelectionMode = ContactFilterSelectionMode.all,
+    this.emailSelectionMode = ContactFilterSelectionMode.all,
+    this.addressSelectionMode = ContactFilterSelectionMode.all,
+    this.socialSelectionMode = ContactFilterSelectionMode.all,
   });
 
   final List<String> groupIds;
@@ -474,6 +496,15 @@ final class ContactFilterCriteria {
   /// Selected Social Profile category keys.  Empty means "All".
   /// Keys come from [ContactSocialFilterKeys].
   final List<String> socialLabels;
+  final ContactFilterSelectionMode groupSelectionMode;
+  final ContactFilterSelectionMode tagSelectionMode;
+  final ContactFilterSelectionMode availabilitySelectionMode;
+  final ContactFilterSelectionMode contactMethodsSelectionMode;
+  final ContactFilterSelectionMode eventHistorySelectionMode;
+  final ContactFilterSelectionMode phoneSelectionMode;
+  final ContactFilterSelectionMode emailSelectionMode;
+  final ContactFilterSelectionMode addressSelectionMode;
+  final ContactFilterSelectionMode socialSelectionMode;
 
   bool get isEmpty =>
       groupIds.isEmpty &&
@@ -494,7 +525,16 @@ final class ContactFilterCriteria {
       phoneLabels.isEmpty &&
       emailLabels.isEmpty &&
       addressLabels.isEmpty &&
-      socialLabels.isEmpty;
+      socialLabels.isEmpty &&
+      groupSelectionMode == ContactFilterSelectionMode.all &&
+      tagSelectionMode == ContactFilterSelectionMode.all &&
+      availabilitySelectionMode == ContactFilterSelectionMode.all &&
+      contactMethodsSelectionMode == ContactFilterSelectionMode.all &&
+      eventHistorySelectionMode == ContactFilterSelectionMode.all &&
+      phoneSelectionMode == ContactFilterSelectionMode.all &&
+      emailSelectionMode == ContactFilterSelectionMode.all &&
+      addressSelectionMode == ContactFilterSelectionMode.all &&
+      socialSelectionMode == ContactFilterSelectionMode.all;
 
   Map<String, Object?> toJson() {
     return <String, Object?>{
@@ -517,6 +557,15 @@ final class ContactFilterCriteria {
       'emailLabels': emailLabels,
       'addressLabels': addressLabels,
       'socialLabels': socialLabels,
+      'groupSelectionMode': groupSelectionMode.name,
+      'tagSelectionMode': tagSelectionMode.name,
+      'availabilitySelectionMode': availabilitySelectionMode.name,
+      'contactMethodsSelectionMode': contactMethodsSelectionMode.name,
+      'eventHistorySelectionMode': eventHistorySelectionMode.name,
+      'phoneSelectionMode': phoneSelectionMode.name,
+      'emailSelectionMode': emailSelectionMode.name,
+      'addressSelectionMode': addressSelectionMode.name,
+      'socialSelectionMode': socialSelectionMode.name,
     };
   }
 
@@ -551,6 +600,45 @@ final class ContactFilterCriteria {
       emailLabels: _stringList(json['emailLabels']),
       addressLabels: _stringList(json['addressLabels']),
       socialLabels: _stringList(json['socialLabels']),
+      groupSelectionMode: _selectionMode(
+        json['groupSelectionMode'],
+        _stringList(json['groupIds']).isNotEmpty,
+      ),
+      tagSelectionMode: _selectionMode(
+        json['tagSelectionMode'],
+        _stringList(json['tagIds']).isNotEmpty,
+      ),
+      availabilitySelectionMode: _selectionMode(
+        json['availabilitySelectionMode'],
+        (json['availabilityWeekdays'] as List<Object?>? ?? const <Object?>[])
+            .isNotEmpty,
+      ),
+      contactMethodsSelectionMode: _selectionMode(
+        json['contactMethodsSelectionMode'],
+        json['hasPhone'] == true ||
+            json['hasEmail'] == true ||
+            json['hasAddress'] == true,
+      ),
+      eventHistorySelectionMode: _selectionMode(
+        json['eventHistorySelectionMode'],
+        json['noInteractionYet'] == true || json['eventHistoryAny'] == true,
+      ),
+      phoneSelectionMode: _selectionMode(
+        json['phoneSelectionMode'],
+        _stringList(json['phoneLabels']).isNotEmpty,
+      ),
+      emailSelectionMode: _selectionMode(
+        json['emailSelectionMode'],
+        _stringList(json['emailLabels']).isNotEmpty,
+      ),
+      addressSelectionMode: _selectionMode(
+        json['addressSelectionMode'],
+        _stringList(json['addressLabels']).isNotEmpty,
+      ),
+      socialSelectionMode: _selectionMode(
+        json['socialSelectionMode'],
+        _stringList(json['socialLabels']).isNotEmpty,
+      ),
     );
   }
 
@@ -577,6 +665,15 @@ final class ContactFilterCriteria {
     List<String>? emailLabels,
     List<String>? addressLabels,
     List<String>? socialLabels,
+    ContactFilterSelectionMode? groupSelectionMode,
+    ContactFilterSelectionMode? tagSelectionMode,
+    ContactFilterSelectionMode? availabilitySelectionMode,
+    ContactFilterSelectionMode? contactMethodsSelectionMode,
+    ContactFilterSelectionMode? eventHistorySelectionMode,
+    ContactFilterSelectionMode? phoneSelectionMode,
+    ContactFilterSelectionMode? emailSelectionMode,
+    ContactFilterSelectionMode? addressSelectionMode,
+    ContactFilterSelectionMode? socialSelectionMode,
   }) {
     return ContactFilterCriteria(
       groupIds: groupIds ?? this.groupIds,
@@ -598,6 +695,18 @@ final class ContactFilterCriteria {
       emailLabels: emailLabels ?? this.emailLabels,
       addressLabels: addressLabels ?? this.addressLabels,
       socialLabels: socialLabels ?? this.socialLabels,
+      groupSelectionMode: groupSelectionMode ?? this.groupSelectionMode,
+      tagSelectionMode: tagSelectionMode ?? this.tagSelectionMode,
+      availabilitySelectionMode:
+          availabilitySelectionMode ?? this.availabilitySelectionMode,
+      contactMethodsSelectionMode:
+          contactMethodsSelectionMode ?? this.contactMethodsSelectionMode,
+      eventHistorySelectionMode:
+          eventHistorySelectionMode ?? this.eventHistorySelectionMode,
+      phoneSelectionMode: phoneSelectionMode ?? this.phoneSelectionMode,
+      emailSelectionMode: emailSelectionMode ?? this.emailSelectionMode,
+      addressSelectionMode: addressSelectionMode ?? this.addressSelectionMode,
+      socialSelectionMode: socialSelectionMode ?? this.socialSelectionMode,
     );
   }
 
@@ -605,6 +714,21 @@ final class ContactFilterCriteria {
     return (value as List<Object?>? ?? const <Object?>[])
         .whereType<String>()
         .toList(growable: false);
+  }
+
+  static ContactFilterSelectionMode _selectionMode(
+    Object? raw,
+    bool legacyHasSelection,
+  ) {
+    final decoded = raw is String
+        ? ContactFilterSelectionMode.values.asNameMap()[raw]
+        : null;
+    // Old saved filters had no mode. Their established meaning was empty = All
+    // and non-empty = Some; retain that behavior exactly on decode.
+    return decoded ??
+        (legacyHasSelection
+            ? ContactFilterSelectionMode.some
+            : ContactFilterSelectionMode.all);
   }
 
   String encode() => jsonEncode(toJson());
@@ -891,9 +1015,9 @@ final class ContactDetail {
   }
 }
 
-/// Draft used for both create and update.  [id] is a fresh UUID on create and
-/// the stable Contact ID on update; normalization guarantees a usable display
-/// name so no phone or email is ever required.
+/// Draft used for both create and update. [id] is a fresh UUID on create and
+/// the stable Contact ID on update. Legacy drafts retain their historical
+/// shape; C4 manual creates opt into stricter validation explicitly.
 final class ContactDraft {
   const ContactDraft({
     required this.id,
@@ -910,6 +1034,7 @@ final class ContactDraft {
     this.tagNames = const <String>[],
     this.availability = const <ContactAvailability>[],
     this.initialNoteText,
+    this.requiresNewManualContactValidation = false,
   });
 
   final String id;
@@ -927,6 +1052,36 @@ final class ContactDraft {
   final List<ContactAvailability> availability;
   final String? initialNoteText;
 
+  /// The Contact form sets this for a user-created manual Contact.  Imports
+  /// and historical seed/import paths remain free to preserve the legacy
+  /// shapes they already own.  The repository enforces this below the form.
+  final bool requiresNewManualContactValidation;
+
+  /// Enforces the new-manual-contact law before normalization, rather than
+  /// relying on the presentation layer's Save affordance. A contact method is
+  /// optional, but any nonblank method supplied by the user must be valid so
+  /// it cannot be silently discarded during normalization.
+  void validateNewManualContact() {
+    if (firstName.trim().isEmpty) {
+      throw const ContactValidationException(
+        'First Name is required for a new Contact.',
+      );
+    }
+    if (lastName.trim().isEmpty) {
+      throw const ContactValidationException(
+        'Last Name is required for a new Contact.',
+      );
+    }
+    for (final method in methods) {
+      if (method.value.trim().isNotEmpty &&
+          !isValidNewManualContactMethod(method)) {
+        throw const ContactValidationException(
+          'Use a valid Phone, Email, or Social Profile when a contact method is entered.',
+        );
+      }
+    }
+  }
+
   ContactDraft normalized() {
     final trimmedDisplay = displayName.trim();
     if (trimmedDisplay.isEmpty) {
@@ -940,19 +1095,10 @@ final class ContactDraft {
       if (value.isEmpty) {
         continue;
       }
-      final normalizedMethod = _normalizeMethod(method.type, value);
+      final normalizedMethod = _normalizeMethod(method);
       if (normalizedMethod != null) {
         methods.add(normalizedMethod);
       }
-    }
-    final hasPrimary = methods.any((method) => method.isPrimary);
-    if (!hasPrimary && methods.isNotEmpty) {
-      methods[0] = ContactMethodDraft(
-        type: methods.first.type,
-        value: methods.first.value,
-        label: methods.first.label,
-        isPrimary: true,
-      );
     }
     final availability = <ContactAvailability>[];
     for (final window in this.availability) {
@@ -993,27 +1139,47 @@ final class ContactDraft {
       tagNames: List<String>.unmodifiable(tagNames),
       availability: List<ContactAvailability>.unmodifiable(availability),
       initialNoteText: _normalizeOptional(initialNoteText),
+      requiresNewManualContactValidation: requiresNewManualContactValidation,
     );
   }
 
-  static ContactMethodDraft? _normalizeMethod(
-    ContactMethodType type,
-    String value,
-  ) {
-    final normalized = switch (type) {
-      ContactMethodType.phone => normalizePhone(value),
-      ContactMethodType.email => value.toLowerCase().trim(),
-      ContactMethodType.social => value.trim(),
+  static ContactMethodDraft? _normalizeMethod(ContactMethodDraft method) {
+    final normalized = switch (method.type) {
+      ContactMethodType.phone => normalizePhone(method.value),
+      ContactMethodType.email => method.value.toLowerCase().trim(),
+      ContactMethodType.social => method.value.trim(),
     };
     return normalized.isEmpty
         ? null
-        : ContactMethodDraft(type: type, value: value.trim(), isPrimary: false);
+        : ContactMethodDraft(
+            id: method.id,
+            type: method.type,
+            value: method.value.trim(),
+            // Keep a legacy/custom label byte-for-byte through an unrelated
+            // edit. New labels are chosen from the C4 presentation list.
+            label: method.label,
+            isPrimary: method.isPrimary,
+          );
   }
 
   static String? _normalizeOptional(String? value) {
     final trimmed = value?.trim();
     return trimmed == null || trimmed.isEmpty ? null : trimmed;
   }
+}
+
+/// C4's manual-create test is intentionally stricter than legacy edit data:
+/// phones need digits, emails need a basic address shape, and social values
+/// remain raw identifiers/URLs with no URL-format requirement.
+bool isValidNewManualContactMethod(ContactMethodDraft method) {
+  final value = method.value.trim();
+  return switch (method.type) {
+    ContactMethodType.phone => normalizePhone(value).isNotEmpty,
+    ContactMethodType.email => RegExp(
+      r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
+    ).hasMatch(value),
+    ContactMethodType.social => value.isNotEmpty,
+  };
 }
 
 /// Best-effort phone normalization used for duplicate detection only.
