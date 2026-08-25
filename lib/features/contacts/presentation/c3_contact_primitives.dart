@@ -128,7 +128,9 @@ final class QuickFilterResetButton extends StatelessWidget {
 }
 
 /// Contacts Filter action glyph supplied by the owner as an SVG asset.
-/// The existing 32x32 wrapper and surrounding button remain unchanged.
+/// The AppBar keeps its existing 48 dp action cell; this subtle optical scale
+/// counteracts the asset's generous view-box so it carries the same confidence
+/// as the quick-filter funnel without crowding Search or overflow.
 final class FilterPlusIcon extends StatelessWidget {
   const FilterPlusIcon({required this.color, super.key});
 
@@ -136,14 +138,17 @@ final class FilterPlusIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 32,
-      height: 32,
-      child: SvgPicture.asset(
-        'assets/icons/filter-svgrepo-com.svg',
-        key: const Key('filter-plus-glyph'),
-        fit: BoxFit.contain,
-        colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
+    return Transform.scale(
+      scale: 1.12,
+      child: SizedBox(
+        width: 32,
+        height: 32,
+        child: SvgPicture.asset(
+          'assets/icons/filter-svgrepo-com.svg',
+          key: const Key('filter-plus-glyph'),
+          fit: BoxFit.contain,
+          colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
+        ),
       ),
     );
   }

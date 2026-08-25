@@ -6,6 +6,7 @@ import 'package:rmplanner/core/ids/identifier_source.dart';
 import 'package:rmplanner/core/time/app_clock.dart';
 import 'package:rmplanner/features/contacts/application/contact_repository.dart';
 import 'package:rmplanner/features/contacts/domain/contact.dart';
+import 'package:rmplanner/features/planner/data/calendar_event_time_zones.dart';
 import 'package:rmplanner/features/planner/domain/calendar_event.dart';
 import 'package:rmplanner/features/planner/domain/event_color_preferences.dart'
     hide ContactGroup, ContactGroupDefaults;
@@ -29,6 +30,12 @@ final class DriftContactRepository implements ContactRepository {
   final IdentifierSource identifiers;
 
   static const String seriesOccurrenceId = 'series';
+
+  /// The Contact Timeline reads the same stored Event wall-time fields as
+  /// Planner.  This converter is deliberately used only to classify the
+  /// read-model; it does not create a second Event store or alter an Event.
+  static final IanaCalendarEventTimeZones _timelineTimeZones =
+      IanaCalendarEventTimeZones(displayTimeZoneId: 'Etc/UTC');
 
   // -- Change stream --------------------------------------------------------
 
@@ -54,6 +61,7 @@ final class DriftContactRepository implements ContactRepository {
             database.eventContactLinks,
             database.eventOccurrenceParticipants,
             database.taskContactLinks,
+            database.outcomeReports,
             database.savedContactFilters,
           ]),
         )
@@ -2334,6 +2342,7 @@ final class DriftContactRepository implements ContactRepository {
     required String contactId,
     required PlannerDate today,
   }) async {
+    final nowUtc = clock.nowUtc();
     final detail = await readContactDetail(
       profileId: profileId,
       contactId: contactId,
@@ -2374,6 +2383,25 @@ final class DriftContactRepository implements ContactRepository {
     final exceptionsByKey = <String, CalendarEventExceptionRow>{
       for (final row in exceptions) '${row.eventId}:${row.occurrenceId}': row,
     };
+    // Planner's submitted, effective outcome report is the canonical source
+    // for an occurrence outcome.  Contact Timeline consumes that same source
+    // rather than inferring an outcome because time elapsed.
+    final reports = eventIds.isEmpty
+        ? const <OutcomeReportRow>[]
+        : await (database.select(database.outcomeReports)..where(
+                (table) =>
+                    table.profileId.equals(profileId) &
+                    table.eventId.isIn(eventIds) &
+                    table.status.equals('submitted') &
+                    table.effectiveSlotKey.isNotNull() &
+                    table.occurrenceId.isNotNull() &
+                    table.outcome.isNotNull(),
+              ))
+              .get();
+    final reportStatusByOccurrenceId = <String, CalendarEventStatus>{
+      for (final report in reports)
+        report.occurrenceId!: _statusFromRow(report.outcome!),
+    };
 
     final upcoming = <ContactTimelineEntry>[];
     final history = <ContactTimelineEntry>[];
@@ -2399,25 +2427,42 @@ final class DriftContactRepository implements ContactRepository {
         final effectiveDate = exception == null
             ? date
             : PlannerDate.parse(exception.effectiveDate);
-        final status = exception == null
+        final startMinute = exception?.startMinute ?? event.startMinute ?? 0;
+        final storedStatus = exception == null
             ? _statusFromRow(event.status)
             : _statusFromRow(exception.status);
+        final status =
+            reportStatusByOccurrenceId[occurrenceIdForDate] ?? storedStatus;
         final isCancelled = status == CalendarEventStatus.cancelled;
-        final isUpcoming = effectiveDate.compareTo(today) >= 0 && !isCancelled;
+        final isUpcoming =
+            !isCancelled &&
+            _isUpcomingOccurrence(
+              date: effectiveDate,
+              timing: exception?.timing ?? event.timing,
+              endMinute: exception?.endMinute ?? event.endMinute,
+              timeZoneId: exception?.timeZoneId ?? event.timeZoneId,
+              today: today,
+              nowUtc: nowUtc,
+            );
         final entry = ContactTimelineEntry(
           kind: ContactTimelineKind.eventOccurrence,
           date: effectiveDate,
+          chronology: _timelineChronology(effectiveDate, startMinute),
           title: _eventDisplayTitle(event, exception),
-          subtitle: _occurrenceTimeLabel(event, exception),
+          subtitle: isUpcoming ? _occurrenceTimeLabel(event, exception) : null,
           status: status,
           statusLabel: _timelineStatusLabel(
             status,
-            isPast: effectiveDate.compareTo(today) < 0,
+            isPast: !isUpcoming,
             requiresReport: exception?.requiresReport ?? event.requiresReport,
           ),
           eventId: event.id,
           originalDate: date,
           occurrenceId: occurrenceIdForDate,
+          activityTypeId: exception?.activityTypeId ?? event.activityTypeId,
+          activityTypeColorValue:
+              exception?.activityTypeColorValueSnapshot ??
+              event.activityTypeColorValueSnapshot,
           isUpcoming: isUpcoming,
         );
         if (isUpcoming) {
@@ -2471,15 +2516,19 @@ final class DriftContactRepository implements ContactRepository {
       final effectiveDate = exception == null
           ? date
           : PlannerDate.parse(exception.effectiveDate);
-      final status = exception == null
+      final startMinute = exception?.startMinute ?? event.startMinute ?? 0;
+      final storedStatus = exception == null
           ? _statusFromRow(event.status)
           : _statusFromRow(exception.status);
+      final status =
+          reportStatusByOccurrenceId[snapshot.occurrenceId] ?? storedStatus;
       history.add(
         ContactTimelineEntry(
           kind: ContactTimelineKind.eventOccurrence,
           date: effectiveDate,
+          chronology: _timelineChronology(effectiveDate, startMinute),
           title: _eventDisplayTitle(event, exception),
-          subtitle: _occurrenceTimeLabel(event, exception),
+          subtitle: null,
           status: status,
           statusLabel: _timelineStatusLabel(
             status,
@@ -2489,6 +2538,10 @@ final class DriftContactRepository implements ContactRepository {
           eventId: event.id,
           originalDate: date,
           occurrenceId: snapshot.occurrenceId,
+          activityTypeId: exception?.activityTypeId ?? event.activityTypeId,
+          activityTypeColorValue:
+              exception?.activityTypeColorValueSnapshot ??
+              event.activityTypeColorValueSnapshot,
           isUpcoming: false,
         ),
       );
@@ -2499,13 +2552,14 @@ final class DriftContactRepository implements ContactRepository {
       ContactTimelineEntry(
         kind: ContactTimelineKind.recordCreated,
         date: PlannerDate.fromDateTime(createdLocal),
+        chronology: createdLocal,
         title: 'Record Created',
         subtitle: 'Contact was added',
       ),
     );
 
-    upcoming.sort((a, b) => a.date.compareTo(b.date));
-    history.sort((a, b) => b.date.compareTo(a.date));
+    upcoming.sort(_compareTimelineChronology);
+    history.sort((a, b) => _compareTimelineChronology(b, a));
     return ContactTimeline(upcoming: upcoming, history: history);
   }
 
@@ -2560,7 +2614,7 @@ final class DriftContactRepository implements ContactRepository {
     final patterns = <CommonEventPattern>[];
     for (final entry in counts.entries) {
       final count = entry.value;
-      if (count < 2) {
+      if (count < 3) {
         continue;
       }
       final parts = entry.key.split(':');
@@ -3813,6 +3867,36 @@ final class DriftContactRepository implements ContactRepository {
         CalendarEventStatus.scheduled;
   }
 
+  /// Keeps Timeline ordering on the canonical Planner calendar date and
+  /// occurrence start. All-day Events have no start minute and therefore sort
+  /// at the start of their own Planner day, matching Planner's day model.
+  static DateTime _timelineChronology(PlannerDate date, int startMinute) {
+    return DateTime(
+      date.year,
+      date.month,
+      date.day,
+      startMinute ~/ 60,
+      startMinute % 60,
+    );
+  }
+
+  /// Occurrences at the same factual minute retain a deterministic canonical
+  /// identity order instead of falling back to database/insertion order.
+  static int _compareTimelineChronology(
+    ContactTimelineEntry left,
+    ContactTimelineEntry right,
+  ) {
+    final chronology = left.chronology.compareTo(right.chronology);
+    if (chronology != 0) {
+      return chronology;
+    }
+    final event = (left.eventId ?? '').compareTo(right.eventId ?? '');
+    if (event != 0) {
+      return event;
+    }
+    return (left.occurrenceId ?? '').compareTo(right.occurrenceId ?? '');
+  }
+
   static String _eventDisplayTitle(
     CalendarEventRow event,
     CalendarEventExceptionRow? exception,
@@ -3846,18 +3930,59 @@ final class DriftContactRepository implements ContactRepository {
         : '${_formatMinute(start)} – ${_formatMinute(end)}';
   }
 
-  static String _timelineStatusLabel(
+  static String? _timelineStatusLabel(
     CalendarEventStatus status, {
     required bool isPast,
     required bool requiresReport,
   }) {
-    if (status == CalendarEventStatus.scheduled) {
-      if (isPast && requiresReport) {
-        return 'Report Required';
-      }
+    if (!isPast) {
+      // Timeline Future deliberately keeps the factual scheduled lifecycle
+      // label beneath its time. Profile Upcoming consumes the same entries but
+      // never renders [statusLabel], so this remains Timeline-only.
       return 'Scheduled';
     }
+    if (!requiresReport) {
+      // A normal passed Event is clean History: title only.  Do not create an
+      // outcome or retain the original scheduled status merely because it is
+      // now in History.
+      return null;
+    }
+    // Report-required History uses Planner's canonical vocabulary.  Its
+    // scheduled state means an actual required report is still unreported.
     return calendarEventStatusLabel(status);
+  }
+
+  /// The Timeline's single future predicate mirrors Planner's Event time law:
+  /// all-day Events remain current through their Planner day; timed Events
+  /// remain current through (but not after) their effective wall-clock end in
+  /// their persisted IANA zone.  A malformed legacy timed row falls back to
+  /// the prior date-only law rather than hiding a persisted Event.
+  static bool _isUpcomingOccurrence({
+    required PlannerDate date,
+    required String timing,
+    required int? endMinute,
+    required String? timeZoneId,
+    required PlannerDate today,
+    required DateTime nowUtc,
+  }) {
+    if (timing == CalendarEventTiming.allDay.name) {
+      return date.compareTo(today) >= 0;
+    }
+    if (endMinute == null || timeZoneId == null || timeZoneId.isEmpty) {
+      return date.compareTo(today) >= 0;
+    }
+    try {
+      final endUtc = _timelineTimeZones.wallTimeToUtc(
+        date: date,
+        minuteOfDay: endMinute,
+        timeZoneId: timeZoneId,
+      );
+      // At the exact end boundary the occurrence has ended.  An in-progress
+      // occurrence remains in Future/Profile Upcoming until that point.
+      return endUtc.isAfter(nowUtc);
+    } on ArgumentError {
+      return date.compareTo(today) >= 0;
+    }
   }
 
   static String _formatMinute(int minute) {

@@ -280,12 +280,40 @@ final contactDetailProvider = FutureProvider.family<ContactDetail, String>((
       .readContactDetail(profileId: profileId, contactId: contactId);
 });
 
+/// A route-scoped Timeline refresh pulse.  Contacts remain stream-driven for
+/// persisted writes; this tiny visible-read invalidation handles the one fact
+/// that changes without a write: a timed Event crossing its end boundary.
+///
+/// It deliberately has no background service or Event store.  Nothing watches
+/// it except [contactTimelineProvider] while a Contact Detail Timeline exists.
+final contactTimelineClockProvider = StreamProvider.autoDispose<DateTime>((
+  ref,
+) {
+  late final StreamController<DateTime> controller;
+  Timer? timer;
+  controller = StreamController<DateTime>(
+    onListen: () {
+      controller.add(DateTime.now().toUtc());
+      timer = Timer.periodic(const Duration(seconds: 15), (_) {
+        controller.add(DateTime.now().toUtc());
+      });
+    },
+    onCancel: () => timer?.cancel(),
+  );
+  ref.onDispose(() {
+    timer?.cancel();
+    unawaited(controller.close());
+  });
+  return controller.stream;
+});
+
 final contactTimelineProvider = FutureProvider.family<ContactTimeline, String>((
   ref,
   contactId,
 ) {
   final profileId = ref.read(contactProfileIdProvider);
   ref.watch(contactChangesProvider(profileId));
+  ref.watch(contactTimelineClockProvider);
   return ref
       .read(contactRepositoryProvider)
       .readTimeline(

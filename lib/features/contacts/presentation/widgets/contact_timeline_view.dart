@@ -5,15 +5,22 @@ import 'package:rmplanner/app/theme/app_theme.dart';
 import 'package:rmplanner/app/theme/contact_reference_style.dart';
 import 'package:rmplanner/features/contacts/domain/contact.dart';
 import 'package:rmplanner/features/planner/domain/calendar_event.dart';
+import 'package:rmplanner/features/planner/domain/event_color_preferences.dart';
+import 'package:rmplanner/features/planner/presentation/widgets/planner_event_color_resolver.dart';
 
 /// Vertical-axis Timeline: 66 dp date/axis zone, 2 dp axis, 8-9 dp dots,
 /// cards with 16 dp inner padding and 12 dp gaps.  Upcoming is future-facing;
 /// only past/reportable records belong to History.  Cards open the exact
 /// Event/occurrence detail.
 final class ContactTimelineView extends StatelessWidget {
-  const ContactTimelineView({required this.timeline, super.key});
+  const ContactTimelineView({
+    required this.timeline,
+    required this.eventColorsByTypeId,
+    super.key,
+  });
 
   final ContactTimeline timeline;
+  final Map<String, EventColorPreference> eventColorsByTypeId;
 
   @override
   Widget build(BuildContext context) {
@@ -44,82 +51,281 @@ final class ContactTimelineView extends StatelessWidget {
         ),
       );
     }
-    final children = <Widget>[];
+    final flow = <_TimelineFlowNode>[];
     if (timeline.upcoming.isNotEmpty) {
-      children.add(const _SectionLabel('Future'));
-      for (final entry in timeline.upcoming) {
-        children.add(_TimelineCard(entry: entry, isUpcoming: true));
-      }
+      _appendSection(
+        flow,
+        label: 'Future',
+        keyPrefix: 'future',
+        entries: timeline.timelineFuture,
+        isUpcoming: true,
+      );
     }
     if (timeline.history.isNotEmpty) {
-      children.add(const _SectionLabel('History'));
-      int? currentYear;
-      for (final entry in timeline.history) {
-        if (currentYear != entry.date.year) {
-          currentYear = entry.date.year;
-          children.add(
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 18, 16, 10),
-              child: Text(
-                '${entry.date.year}',
-                style: TextStyle(
-                  fontFamily: 'Roboto',
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-              ),
-            ),
-          );
-        }
-        children.add(_TimelineCard(entry: entry, isUpcoming: false));
-      }
+      _appendSection(
+        flow,
+        label: 'History',
+        keyPrefix: 'history',
+        entries: timeline.history,
+        isUpcoming: false,
+      );
     }
     return ListView(
       key: const Key('contact-timeline-list'),
       padding: const EdgeInsets.only(bottom: 96),
-      children: children,
+      children: <Widget>[
+        for (var index = 0; index < flow.length; index++)
+          flow[index].build(
+            context,
+            hasPrevious: index > 0,
+            hasNext: index < flow.length - 1,
+            eventColorsByTypeId: eventColorsByTypeId,
+          ),
+      ],
     );
+  }
+
+  static void _appendSection(
+    List<_TimelineFlowNode> flow, {
+    required String label,
+    required String keyPrefix,
+    required List<ContactTimelineEntry> entries,
+    required bool isUpcoming,
+  }) {
+    flow.add(_TimelineSectionNode(label: label, keyPrefix: keyPrefix));
+    int? currentYear;
+    for (final entry in entries) {
+      if (currentYear != entry.date.year) {
+        currentYear = entry.date.year;
+        flow.add(_TimelineYearNode(year: currentYear, keyPrefix: keyPrefix));
+      }
+      flow.add(_TimelineEntryNode(entry: entry, isUpcoming: isUpcoming));
+    }
   }
 }
 
-final class _SectionLabel extends StatelessWidget {
-  const _SectionLabel(this.label);
+abstract interface class _TimelineFlowNode {
+  Widget build(
+    BuildContext context, {
+    required bool hasPrevious,
+    required bool hasNext,
+    required Map<String, EventColorPreference> eventColorsByTypeId,
+  });
+}
+
+final class _TimelineSectionNode implements _TimelineFlowNode {
+  const _TimelineSectionNode({required this.label, required this.keyPrefix});
 
   final String label;
+  final String keyPrefix;
 
   @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 22, 16, 4),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontFamily: 'Roboto',
-          fontSize: 14,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 1.2,
-          color: AppTheme.secondaryTextOf(context),
-        ),
-      ),
-    );
-  }
+  Widget build(
+    BuildContext context, {
+    required bool hasPrevious,
+    required bool hasNext,
+    required Map<String, EventColorPreference> eventColorsByTypeId,
+  }) => _SectionLabel(
+    label,
+    key: Key('timeline-section-$keyPrefix'),
+    continuesFromPrevious: hasPrevious,
+    continuesToNext: hasNext,
+  );
 }
 
-final class _TimelineCard extends StatelessWidget {
-  const _TimelineCard({required this.entry, required this.isUpcoming});
+final class _TimelineYearNode implements _TimelineFlowNode {
+  const _TimelineYearNode({required this.year, required this.keyPrefix});
+
+  final int year;
+  final String keyPrefix;
+
+  @override
+  Widget build(
+    BuildContext context, {
+    required bool hasPrevious,
+    required bool hasNext,
+    required Map<String, EventColorPreference> eventColorsByTypeId,
+  }) => _TimelineYearHeading(
+    year: year,
+    key: Key('timeline-$keyPrefix-year-$year'),
+    continuesFromPrevious: hasPrevious,
+    continuesToNext: hasNext,
+  );
+}
+
+final class _TimelineEntryNode implements _TimelineFlowNode {
+  const _TimelineEntryNode({required this.entry, required this.isUpcoming});
 
   final ContactTimelineEntry entry;
   final bool isUpcoming;
 
   @override
+  Widget build(
+    BuildContext context, {
+    required bool hasPrevious,
+    required bool hasNext,
+    required Map<String, EventColorPreference> eventColorsByTypeId,
+  }) {
+    return Column(
+      children: <Widget>[
+        _TimelineCard(
+          entry: entry,
+          isUpcoming: isUpcoming,
+          continuesFromPrevious: hasPrevious,
+          continuesToNext: hasNext,
+          eventColorsByTypeId: eventColorsByTypeId,
+        ),
+        if (hasNext)
+          _TimelineSpineGap(
+            key: Key(
+              'timeline-spine-gap-${entry.occurrenceId ?? entry.chronology.microsecondsSinceEpoch}',
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+final class _SectionLabel extends StatelessWidget {
+  const _SectionLabel(
+    this.label, {
+    required this.continuesFromPrevious,
+    required this.continuesToNext,
+    super.key,
+  });
+
+  final String label;
+  final bool continuesFromPrevious;
+  final bool continuesToNext;
+
+  @override
+  Widget build(BuildContext context) {
+    final continues = continuesFromPrevious || continuesToNext;
+    return Stack(
+      children: <Widget>[
+        if (continues)
+          Positioned(
+            // Axis center: 16 dp outer inset + 50 dp date block +
+            // (16 dp axis column - 2 dp line) / 2.
+            left: 73,
+            top: 0,
+            bottom: 0,
+            child: Container(
+              key: label == 'History'
+                  ? const Key('timeline-history-spine-connector')
+                  : null,
+              width: 2,
+              color: ContactReferenceStyle.lineOf(context),
+            ),
+          ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 22, 16, 16),
+          child: Center(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontFamily: 'Roboto',
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.2,
+                color: AppTheme.secondaryTextOf(context),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+final class _TimelineYearHeading extends StatelessWidget {
+  const _TimelineYearHeading({
+    required this.year,
+    required this.continuesFromPrevious,
+    required this.continuesToNext,
+    super.key,
+  });
+
+  final int year;
+  final bool continuesFromPrevious;
+  final bool continuesToNext;
+
+  @override
+  Widget build(BuildContext context) {
+    final continues = continuesFromPrevious || continuesToNext;
+    return Stack(
+      children: <Widget>[
+        if (continues)
+          Positioned(
+            left: 73,
+            top: 0,
+            bottom: 0,
+            child: Container(
+              width: 2,
+              color: ContactReferenceStyle.lineOf(context),
+            ),
+          ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 18, 16, 10),
+          child: Text(
+            '$year',
+            style: TextStyle(
+              fontFamily: 'Roboto',
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+final class _TimelineSpineGap extends StatelessWidget {
+  const _TimelineSpineGap({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: <Widget>[
+        const SizedBox(width: 73),
+        Container(
+          width: 2,
+          height: 14,
+          color: ContactReferenceStyle.lineOf(context),
+        ),
+      ],
+    );
+  }
+}
+
+final class _TimelineCard extends StatelessWidget {
+  const _TimelineCard({
+    required this.entry,
+    required this.isUpcoming,
+    required this.continuesFromPrevious,
+    required this.continuesToNext,
+    required this.eventColorsByTypeId,
+  });
+
+  final ContactTimelineEntry entry;
+  final bool isUpcoming;
+  final bool continuesFromPrevious;
+  final bool continuesToNext;
+  final Map<String, EventColorPreference> eventColorsByTypeId;
+
+  @override
   Widget build(BuildContext context) {
     final isRecordCreated = entry.kind == ContactTimelineKind.recordCreated;
-    final dotColor = isUpcoming
-        ? ContactReferenceStyle.actionOf(context)
-        : isRecordCreated
+    final dotColor = isRecordCreated
         ? ContactReferenceStyle.lineOf(context)
-        : ContactReferenceStyle.successOf(context);
+        : PlannerEventColorResolver.accentColorForIdentity(
+            context,
+            activityTypeId: entry.activityTypeId,
+            activityTypeColorValue: entry.activityTypeColorValue,
+            preferencesByTypeId: eventColorsByTypeId,
+          );
 
     final card = Container(
       padding: const EdgeInsets.all(16),
@@ -202,55 +408,65 @@ final class _TimelineCard extends StatelessWidget {
       ],
     );
 
-    final row = Padding(
-      padding: const EdgeInsets.only(bottom: 14),
-      // IntrinsicHeight bounds the axis column so its connector line can
-      // flex to the card's height instead of hitting unbounded constraints
-      // inside a scrolling view.
-      child: IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            const SizedBox(width: 16),
-            SizedBox(
-              width: 50,
-              child: Padding(
-                padding: const EdgeInsets.only(top: 16),
-                child: dateBlock,
-              ),
+    final row = IntrinsicHeight(
+      // IntrinsicHeight bounds the axis column so its connector line can flex
+      // to the card's height instead of hitting unbounded constraints inside a
+      // scrolling view.
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          const SizedBox(width: 16),
+          SizedBox(
+            width: 50,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 16),
+              child: dateBlock,
             ),
-            SizedBox(
-              width: 16,
-              child: Column(
-                children: <Widget>[
-                  Padding(
-                    padding: const EdgeInsets.only(top: 19),
-                    child: Container(
-                      width: 9,
-                      height: 9,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: dotColor,
-                      ),
-                    ),
+          ),
+          SizedBox(
+            width: 16,
+            child: Column(
+              children: <Widget>[
+                SizedBox(
+                  height: 19,
+                  child: continuesFromPrevious
+                      ? Align(
+                          alignment: Alignment.bottomCenter,
+                          child: Container(
+                            width: 2,
+                            height: 19,
+                            color: ContactReferenceStyle.lineOf(context),
+                          ),
+                        )
+                      : null,
+                ),
+                Container(
+                  width: 9,
+                  height: 9,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: dotColor,
                   ),
+                ),
+                if (continuesToNext)
                   Expanded(
                     child: Container(
                       width: 2,
                       color: ContactReferenceStyle.lineOf(context),
                     ),
-                  ),
-                ],
-              ),
+                  )
+                else
+                  const Spacer(),
+              ],
             ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.only(right: 16),
-                child: card,
-              ),
+          ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(right: 16),
+              child: card,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
 
@@ -328,6 +544,9 @@ final class _CommonEventsPanelState extends State<CommonEventsPanel> {
   @override
   Widget build(BuildContext context) {
     final patterns = widget.patterns;
+    if (patterns.isEmpty) {
+      return const SizedBox.shrink();
+    }
     return Container(
       key: const Key('common-events-panel'),
       margin: const EdgeInsets.fromLTRB(16, 8, 16, 4),
@@ -339,9 +558,7 @@ final class _CommonEventsPanelState extends State<CommonEventsPanel> {
       child: Column(
         children: <Widget>[
           InkWell(
-            onTap: patterns.isEmpty
-                ? null
-                : () => setState(() => _expanded = !_expanded),
+            onTap: () => setState(() => _expanded = !_expanded),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
               child: Row(

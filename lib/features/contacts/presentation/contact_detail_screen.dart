@@ -15,6 +15,7 @@ import 'package:rmplanner/features/contacts/presentation/address_map_editor.dart
 import 'package:rmplanner/features/contacts/presentation/availability_editor.dart';
 import 'package:rmplanner/features/contacts/presentation/contact_groups_editor.dart';
 import 'package:rmplanner/features/contacts/presentation/contact_information_editor.dart';
+import 'package:rmplanner/features/contacts/presentation/contact_method_visuals.dart';
 import 'package:rmplanner/features/contacts/presentation/external_handoff.dart';
 import 'package:rmplanner/features/contacts/presentation/notes_editor.dart';
 import 'package:rmplanner/features/contacts/presentation/widgets/contact_timeline_view.dart';
@@ -22,6 +23,7 @@ import 'package:rmplanner/features/contacts/presentation/widgets/contact_widgets
 import 'package:rmplanner/features/maps/application/map_coordinate_repository.dart';
 import 'package:rmplanner/features/maps/application/map_providers.dart';
 import 'package:rmplanner/features/maps/domain/map_coordinate.dart';
+import 'package:rmplanner/features/planner/application/event_type_providers.dart';
 import 'package:rmplanner/features/planner/domain/planner_task.dart';
 
 final contactProfileMapCoordinateProvider =
@@ -167,6 +169,7 @@ final class _ContactDetailScreenState
                     onEditGroups: () => _editGroups(detail),
                     onEditAvailability: () => _editAvailability(detail),
                     onEditNotes: () => _editNotes(detail),
+                    onSeeMoreUpcoming: () => setState(() => _tab = 1),
                   )
                 : _TimelineTab(contactId: contact.id),
           ),
@@ -502,6 +505,7 @@ final class _ProfileTab extends ConsumerWidget {
     required this.onEditGroups,
     required this.onEditAvailability,
     required this.onEditNotes,
+    required this.onSeeMoreUpcoming,
   });
 
   final ContactDetail detail;
@@ -511,6 +515,7 @@ final class _ProfileTab extends ConsumerWidget {
   final VoidCallback onEditGroups;
   final VoidCallback onEditAvailability;
   final VoidCallback onEditNotes;
+  final VoidCallback onSeeMoreUpcoming;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -525,9 +530,8 @@ final class _ProfileTab extends ConsumerWidget {
     final coordinate = ref
         .watch(contactProfileMapCoordinateProvider(contact.id))
         .value;
-    final nextEvent = timeline?.upcoming.isEmpty ?? true
-        ? null
-        : timeline!.upcoming.first;
+    final upcomingEvents =
+        timeline?.profileUpcoming ?? const <ContactTimelineEntry>[];
 
     return ListView(
       key: const Key('contact-profile-tab'),
@@ -570,9 +574,9 @@ final class _ProfileTab extends ConsumerWidget {
           ),
         ),
         _UpcomingSection(
-          nextEventTitle: nextEvent?.title,
-          nextEventSubtitle: nextEvent?.subtitle,
+          upcomingEvents: upcomingEvents,
           upcomingTasks: upcomingTasks,
+          onSeeMore: onSeeMoreUpcoming,
         ),
         _SectionHeader(
           title: 'Availability',
@@ -744,6 +748,7 @@ final class _ContactInformation extends StatelessWidget {
         _InfoRow(
           primary: method.rawValue,
           secondary: _methodLabel(method.label ?? 'Phone', method.isPrimary),
+          showBottomDivider: false,
           trailing: _HandoffButtons(
             onCall: _isValidPhone(method.rawValue)
                 ? () => _handoff(context, 'call', method.rawValue)
@@ -764,6 +769,7 @@ final class _ContactInformation extends StatelessWidget {
         _InfoRow(
           primary: method.rawValue,
           secondary: _methodLabel(method.label ?? 'Email', method.isPrimary),
+          showBottomDivider: false,
           trailing: _HandoffButtons(
             onEmail: _isValidEmail(method.rawValue)
                 ? () => _handoff(context, 'email', method.rawValue)
@@ -774,10 +780,32 @@ final class _ContactInformation extends StatelessWidget {
         _InfoRow(
           primary: method.rawValue,
           secondary: _methodLabel(
-            method.label ?? 'Social Profile',
+            socialProfileDisplayLabel(method.label),
             method.isPrimary,
           ),
-          trailing: _SocialIcon(label: method.label),
+          showBottomDivider: false,
+          onTap: ExternalHandoff.isSupportedSocialPlatform(method.label)
+              ? () => _handoff(
+                  context,
+                  'social',
+                  method.rawValue,
+                  platform: method.label,
+                )
+              : null,
+          trailing: SizedBox(
+            key: Key('social-trailing-action-${method.label ?? 'Other'}'),
+            width: 48,
+            height: 48,
+            child: Center(
+              child: _SocialIcon(
+                label: method.label,
+                // A recognised Social platform keeps its theme-primary icon
+                // even if the native app is absent. The factual availability
+                // prompt is shown only after the user taps it.
+                active: ExternalHandoff.isSupportedSocialPlatform(method.label),
+              ),
+            ),
+          ),
         ),
     ];
     if (rows.isEmpty) {
@@ -795,8 +823,9 @@ final class _ContactInformation extends StatelessWidget {
   Future<void> _handoff(
     BuildContext context,
     String kind,
-    String rawValue,
-  ) async {
+    String rawValue, {
+    String? platform,
+  }) async {
     bool launched;
     if (kind == 'whatsapp') {
       final localDigits = ExternalHandoff.philippineLocalWhatsAppDigits(
@@ -841,6 +870,43 @@ final class _ContactInformation extends StatelessWidget {
           );
           return;
         }
+      }
+    } else if (kind == 'social') {
+      final result = await ExternalHandoff.launchSocialProfile(
+        platform: platform,
+        rawValue: rawValue,
+      );
+      if (!context.mounted) {
+        return;
+      }
+      switch (result) {
+        case SocialNativeAppLaunchResult.launched:
+          launched = true;
+        case SocialNativeAppLaunchResult.appRequired:
+          await showDialog<void>(
+            context: context,
+            builder: (dialogContext) => AlertDialog(
+              title: Text(ExternalHandoff.appRequiredTitle(platform)),
+              content: Text(ExternalHandoff.appRequiredMessage(platform)),
+              actions: <Widget>[
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('OK'),
+                ),
+              ],
+            ),
+          );
+          return;
+        case SocialNativeAppLaunchResult.unsupportedProfile:
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                '${ExternalHandoff.socialPlatformName(platform)} is not an '
+                'active supported Social app.',
+              ),
+            ),
+          );
+          return;
       }
     } else {
       launched = switch (kind) {
@@ -953,22 +1019,28 @@ final class _InfoRow extends StatelessWidget {
     required this.primary,
     required this.secondary,
     this.trailing,
+    this.onTap,
+    this.showBottomDivider = true,
   });
 
   final String primary;
   final String secondary;
   final Widget? trailing;
+  final VoidCallback? onTap;
+  final bool showBottomDivider;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final row = Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.symmetric(vertical: 9),
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: ContactReferenceStyle.lineOf(context)),
-        ),
-      ),
+      decoration: showBottomDivider
+          ? BoxDecoration(
+              border: Border(
+                bottom: BorderSide(color: ContactReferenceStyle.lineOf(context)),
+              ),
+            )
+          : null,
       child: Row(
         children: <Widget>[
           Expanded(
@@ -998,50 +1070,51 @@ final class _InfoRow extends StatelessWidget {
         ],
       ),
     );
+    if (onTap == null) {
+      return row;
+    }
+    return Semantics(
+      button: true,
+      label: 'Open $secondary',
+      child: InkWell(onTap: onTap, child: row),
+    );
   }
 }
 
 final class _SocialIcon extends StatelessWidget {
-  const _SocialIcon({required this.label});
+  const _SocialIcon({required this.label, required this.active});
 
   final String? label;
+  final bool active;
 
   @override
   Widget build(BuildContext context) {
-    final normalized = label?.trim().toLowerCase();
-    final asset = switch (normalized) {
-      'facebook' => 'assets/icons/contacts/social/facebook.svg',
-      'messenger' => 'assets/icons/contacts/social/messenger.svg',
-      'whatsapp' => 'assets/icons/contacts/social/whatsapp.svg',
-      'line' => 'assets/icons/contacts/social/line.svg',
-      'skype' => 'assets/icons/contacts/social/skype.svg',
-      'kakaotalk' => 'assets/icons/contacts/social/kakaotalk.svg',
-      'instagram' => 'assets/icons/contacts/social/instagram.svg',
-      _ => null,
-    };
-    if (normalized == 'x') {
-      return const Text('𝕏', style: TextStyle(fontSize: 22));
-    }
-    return asset == null
-        ? const Icon(Icons.alternate_email, size: 22)
-        : SvgPicture.asset(asset, width: 22, height: 22);
+    return contactMethodVisual(
+      type: ContactMethodType.social,
+      label: label ?? 'Other',
+      color: active
+          ? ContactReferenceStyle.actionOf(context)
+          : AppTheme.secondaryTextOf(context),
+      size: 22,
+      normalizeSocialOptics: true,
+    );
   }
 }
 
 final class _UpcomingSection extends StatelessWidget {
   const _UpcomingSection({
-    required this.nextEventTitle,
-    required this.nextEventSubtitle,
+    required this.upcomingEvents,
     required this.upcomingTasks,
+    required this.onSeeMore,
   });
 
-  final String? nextEventTitle;
-  final String? nextEventSubtitle;
+  final List<ContactTimelineEntry> upcomingEvents;
   final List<PlannerTask> upcomingTasks;
+  final VoidCallback onSeeMore;
 
   @override
   Widget build(BuildContext context) {
-    if (nextEventTitle == null && upcomingTasks.isEmpty) {
+    if (upcomingEvents.isEmpty && upcomingTasks.isEmpty) {
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         child: Column(
@@ -1059,16 +1132,43 @@ final class _UpcomingSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        if (nextEventTitle != null)
+        for (var index = 0; index < upcomingEvents.length && index < 3; index++)
           ListTile(
-            key: const Key('profile-next-event'),
+            key: index == 0
+                ? const Key('profile-next-event')
+                : Key(
+                    'profile-upcoming-event-${upcomingEvents[index].occurrenceId}',
+                  ),
             contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-            leading: const Icon(Icons.event, color: AppTheme.rose),
+            minTileHeight: 56,
+            leading: Icon(
+              Icons.event,
+              color: Theme.of(context).colorScheme.primary,
+            ),
             title: Text(
-              nextEventTitle!,
+              upcomingEvents[index].title,
               style: const TextStyle(fontWeight: FontWeight.w500),
             ),
-            subtitle: Text(nextEventSubtitle ?? ''),
+            subtitle: Text(upcomingEvents[index].subtitle ?? ''),
+            onTap: upcomingEvents[index].isTappable
+                ? () => context.push(
+                    RoutePaths.calendarEventDetail(
+                      upcomingEvents[index].eventId!,
+                      upcomingEvents[index].originalDate!,
+                    ),
+                  )
+                : null,
+          ),
+        if (upcomingEvents.length > 3)
+          SizedBox(
+            height: 44,
+            child: Center(
+              child: TextButton(
+                key: const Key('profile-upcoming-see-more'),
+                onPressed: onSeeMore,
+                child: const Text('See more →'),
+              ),
+            ),
           ),
         for (final task in upcomingTasks)
           ListTile(
@@ -1515,6 +1615,9 @@ final class _TimelineTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final timelineAsync = ref.watch(contactTimelineProvider(contactId));
+    final eventColorsByTypeId = ref
+        .watch(eventTypeControllerProvider)
+        .resolvedEventColorsByTypeId;
     final patterns =
         ref.watch(commonEventPatternsProvider(contactId)).value ??
         const <CommonEventPattern>[];
@@ -1526,7 +1629,12 @@ final class _TimelineTab extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
           CommonEventsPanel(patterns: patterns),
-          Expanded(child: ContactTimelineView(timeline: timeline)),
+          Expanded(
+            child: ContactTimelineView(
+              timeline: timeline,
+              eventColorsByTypeId: eventColorsByTypeId,
+            ),
+          ),
         ],
       ),
     );

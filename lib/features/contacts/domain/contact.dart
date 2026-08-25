@@ -1282,6 +1282,7 @@ final class ContactTimelineEntry {
   const ContactTimelineEntry({
     required this.kind,
     required this.date,
+    required this.chronology,
     required this.title,
     this.subtitle,
     this.status,
@@ -1289,11 +1290,19 @@ final class ContactTimelineEntry {
     this.eventId,
     this.originalDate,
     this.occurrenceId,
+    this.activityTypeId,
+    this.activityTypeColorValue,
     this.isUpcoming = false,
   });
 
   final ContactTimelineKind kind;
   final PlannerDate date;
+
+  /// A derived, local calendar-time ordering key. Event occurrences use their
+  /// effective Planner date and start minute (all-day is midnight); Record
+  /// Created uses the factual local [Contact.createdAtUtc] timestamp. It is a
+  /// read-model value only -- no second Timeline store is introduced.
+  final DateTime chronology;
   final String title;
   final String? subtitle;
   final CalendarEventStatus? status;
@@ -1301,6 +1310,8 @@ final class ContactTimelineEntry {
   final String? eventId;
   final PlannerDate? originalDate;
   final String? occurrenceId;
+  final String? activityTypeId;
+  final int? activityTypeColorValue;
   final bool isUpcoming;
 
   bool get isTappable => eventId != null && originalDate != null;
@@ -1309,8 +1320,17 @@ final class ContactTimelineEntry {
 final class ContactTimeline {
   const ContactTimeline({required this.upcoming, required this.history});
 
+  /// Canonical future occurrence set, ordered nearest-first for the compact
+  /// Profile Upcoming projection.
   final List<ContactTimelineEntry> upcoming;
   final List<ContactTimelineEntry> history;
+
+  List<ContactTimelineEntry> get profileUpcoming => upcoming;
+
+  /// Timeline deliberately presents the same future facts in the opposite
+  /// direction: farthest first and the next Event immediately above History.
+  List<ContactTimelineEntry> get timelineFuture =>
+      List<ContactTimelineEntry>.unmodifiable(upcoming.reversed);
 
   bool get isEmpty => upcoming.isEmpty && history.isEmpty;
 }

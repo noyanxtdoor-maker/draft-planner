@@ -836,7 +836,7 @@ final class _ContactFormSectionDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(height: 10, color: ContactReferenceStyle.lineOf(context));
+    return Container(height: 1, color: ContactReferenceStyle.lineOf(context));
   }
 }
 
@@ -1322,10 +1322,15 @@ final class _MethodRowTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final approved = _contactMethodLabels[row.type]!;
-    final selected = row.label ?? approved.last;
+    final selected =
+        row.label ??
+        (row.type == ContactMethodType.social ? approved.first : approved.last);
     final labels = <String>[
       ...approved,
-      if (!approved.contains(selected)) selected,
+      if (!approved.contains(selected) &&
+          (row.type != ContactMethodType.social ||
+              canonicalSocialProfileKey(selected) == null))
+        selected,
     ];
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -1387,10 +1392,12 @@ final class _MethodTypeIconPicker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Semantics(
-      label: '$_typeLabel type: $selected',
+      label:
+          '$_typeLabel type: ${type == ContactMethodType.social ? socialProfileDisplayLabel(selected) : selected}',
       button: true,
       child: PopupMenuButton<String>(
-        tooltip: '$_typeLabel type: $selected',
+        tooltip:
+            '$_typeLabel type: ${type == ContactMethodType.social ? socialProfileDisplayLabel(selected) : selected}',
         initialValue: selected,
         onSelected: onSelected,
         itemBuilder: (context) => <PopupMenuEntry<String>>[
@@ -1409,7 +1416,11 @@ final class _MethodTypeIconPicker extends StatelessWidget {
                       size: 18,
                     ),
                   const SizedBox(width: 12),
-                  Text(label),
+                  Text(
+                    type == ContactMethodType.social
+                        ? socialProfileDisplayLabel(label)
+                        : label,
+                  ),
                 ],
               ),
             ),

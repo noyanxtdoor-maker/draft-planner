@@ -138,4 +138,28 @@ void main() {
       expect(detail, contains('profile-map-preview'));
     },
   );
+
+  test('Pass C: Contact Information method rows use the header rule only', () {
+    final detail = source(
+      'lib/features/contacts/presentation/contact_detail_screen.dart',
+    );
+    final information = detail.substring(
+      detail.indexOf('final class _ContactInformation'),
+      detail.indexOf('final class _HandoffButtons'),
+    );
+    expect(
+      RegExp('showBottomDivider: false').allMatches(information),
+      hasLength(3),
+      reason:
+          'Phone, Email, and Social method rows use whitespace rather than '
+          'individual bottom rules.',
+    );
+    expect(
+      detail,
+      contains(
+        'Container(height: 1, color: ContactReferenceStyle.lineOf(context))',
+      ),
+      reason: 'The Contact Information section-header rule remains intact.',
+    );
+  });
 }

@@ -560,7 +560,9 @@ final class _SectionHeader extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        if (showMajorDivider) const FullWidthSectionDivider(),
+        // Preserve the prior 20 dp section rhythm without an edge-to-edge
+        // gray band; the title's inset 1 dp rule carries the hierarchy.
+        if (showMajorDivider) const SizedBox(height: 20),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 7),
           child: Text(

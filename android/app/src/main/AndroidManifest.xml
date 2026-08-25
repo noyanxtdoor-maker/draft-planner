@@ -51,5 +51,16 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+        <!-- C6 Social Profile handoff opens one explicit installed app home.
+             These declarations permit a narrow Android package-visibility
+             check; no profile URI or browser route is queried. -->
+        <package android:name="com.facebook.katana"/>
+        <package android:name="com.facebook.orca"/>
+        <package android:name="com.whatsapp"/>
+        <package android:name="jp.naver.line.android"/>
+        <package android:name="com.skype.raider"/>
+        <package android:name="com.kakao.talk"/>
+        <package android:name="com.instagram.android"/>
+        <package android:name="com.twitter.android"/>
     </queries>
 </manifest>

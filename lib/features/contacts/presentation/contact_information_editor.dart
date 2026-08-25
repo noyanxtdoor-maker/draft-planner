@@ -451,10 +451,15 @@ final class _SavedMethodRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final selected = row.label ?? _labels.last;
+    final selected =
+        row.label ??
+        (row.type == ContactMethodType.social ? _labels.first : _labels.last);
     final labels = <String>[
       ..._labels,
-      if (!_labels.contains(selected)) selected,
+      if (!_labels.contains(selected) &&
+          (row.type != ContactMethodType.social ||
+              canonicalSocialProfileKey(selected) == null))
+        selected,
     ];
     final action = ContactReferenceStyle.actionOf(context);
     return Padding(
@@ -465,7 +470,8 @@ final class _SavedMethodRow extends StatelessWidget {
           Row(
             children: <Widget>[
               Semantics(
-                label: '${_typeLabel(row.type)} type: $selected',
+                label:
+                    '${_typeLabel(row.type)} type: ${row.type == ContactMethodType.social ? socialProfileDisplayLabel(selected) : selected}',
                 button: true,
                 child: PopupMenuButton<String>(
                   tooltip: 'Select ${row.type.name} label',
@@ -476,7 +482,14 @@ final class _SavedMethodRow extends StatelessWidget {
                   },
                   itemBuilder: (_) => <PopupMenuEntry<String>>[
                     for (final label in labels)
-                      PopupMenuItem<String>(value: label, child: Text(label)),
+                      PopupMenuItem<String>(
+                        value: label,
+                        child: Text(
+                          row.type == ContactMethodType.social
+                              ? socialProfileDisplayLabel(label)
+                              : label,
+                        ),
+                      ),
                   ],
                   child: SizedBox(
                     width: 46,
@@ -597,7 +610,7 @@ final class _ContactInformationSectionDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) =>
-      Container(height: 10, color: ContactReferenceStyle.lineOf(context));
+      Container(height: 1, color: ContactReferenceStyle.lineOf(context));
 }
 
 String _typeLabel(ContactMethodType type) => switch (type) {

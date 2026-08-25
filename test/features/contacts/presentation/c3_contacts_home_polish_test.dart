@@ -224,6 +224,19 @@ void main() {
           .colorFilter,
       ColorFilter.mode(topBarForeground, BlendMode.srcIn),
     );
+    final filterGlyphScale = tester.widget<Transform>(
+      find.ancestor(
+        of: find.byKey(const Key('filter-plus-glyph')),
+        matching: find.byType(Transform),
+      ).first,
+    );
+    expect(
+      filterGlyphScale.transform.getMaxScaleOnAxis(),
+      1.12,
+      reason:
+          'The top AppBar keeps its 48dp action cell while its owner-supplied '
+          'Filter-plus glyph receives only the approved optical strengthening.',
+    );
     expect(
       tester.widget<Icon>(find.byIcon(Icons.search)).color,
       topBarForeground,
@@ -655,9 +668,12 @@ void main() {
       expect(
         find.descendant(
           of: second,
-          matching: find.byType(FullWidthSectionDivider),
+          matching: find.byWidgetPredicate(
+            (widget) => widget is SizedBox && widget.height == 20,
+            description: 'the light 20 dp section gap',
+          ),
         ),
-        findsOneWidget,
+        findsAtLeastNWidgets(1),
       );
       expect(
         find.descendant(of: second, matching: find.byType(Divider)),

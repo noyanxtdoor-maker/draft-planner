@@ -117,6 +117,28 @@ void main() {
       await tester.ensureVisible(backupSwitch);
       await tester.pumpAndSettle();
       await tester.tap(backupSwitch);
+      expect(find.text('Backup Event'), findsOneWidget);
+      expect(find.text('Backup Appointment'), findsNothing);
+      final peopleSection = find.byKey(const Key('event-people-section'));
+      await reveal(peopleSection);
+      await tester.ensureVisible(peopleSection);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('people-section-header')), findsOneWidget);
+      expect(
+        find.descendant(
+          of: peopleSection,
+          matching: find.text('Contacts'),
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('No contacts linked yet.'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('add-people-button')),
+          matching: find.text('Contact'),
+        ),
+        findsOneWidget,
+      );
       formState.position.jumpTo(formState.position.maxScrollExtent);
       await tester.pumpAndSettle();
       final reportSwitch = find.byKey(

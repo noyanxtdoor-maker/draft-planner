@@ -1,8 +1,22 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:rmplanner/app/theme/app_theme.dart';
+import 'package:rmplanner/features/contacts/presentation/contact_method_visuals.dart';
 import 'package:url_launcher/url_launcher.dart';
+
+enum SocialNativeAppLaunchResult { launched, appRequired, unsupportedProfile }
+
+final class SocialNativeAppDestination {
+  const SocialNativeAppDestination({
+    required this.platform,
+    required this.packageName,
+  });
+
+  final String platform;
+  final String packageName;
+}
 
 /// Launch helpers for external communication handoff.
 ///
@@ -10,6 +24,10 @@ import 'package:url_launcher/url_launcher.dart';
 /// from returning to the app.  The only user-triggered action offered after
 /// return is an explicit note the user types themselves.
 abstract final class ExternalHandoff {
+  static const MethodChannel _socialAppHomeChannel = MethodChannel(
+    'com.nexttransfer.rmplanner/social_app_home',
+  );
+
   /// True when a usable phone or email method exists for a handoff action.
   static bool canLaunch({required String rawValue}) {
     return rawValue.trim().isNotEmpty;
@@ -92,6 +110,105 @@ abstract final class ExternalHandoff {
     Uri.parse('https://wa.me/$digits'),
     mode: LaunchMode.externalApplication,
   );
+
+  /// Whether [platform] is one of the actively supported native social apps.
+  /// Legacy/custom rows stay readable but receive no invented app route.
+  static bool isSupportedSocialPlatform(String? platform) =>
+      canonicalSocialProfileKey(platform) != null;
+
+  static String socialPlatformName(String? platform) =>
+      socialProfileDisplayLabel(platform);
+
+  static String appRequiredTitle(String? platform) =>
+      '${socialPlatformName(platform)} app required';
+
+  static String appRequiredMessage(String? platform) =>
+      'Install the ${socialPlatformName(platform)} app first to open it from '
+      'Next Transfer.';
+
+  /// Maps a recognized active Social platform to its Android application
+  /// package. The stored Social value deliberately remains display information
+  /// only: this Profile action opens the installed app home and never guesses
+  /// a profile URI from arbitrary Contact data.
+  static SocialNativeAppDestination? socialNativeAppDestination({
+    required String? platform,
+    required String rawValue,
+  }) {
+    final platformKey = canonicalSocialProfileKey(platform);
+    if (platformKey == null) {
+      return null;
+    }
+    final packageName = switch (platformKey) {
+      'facebook' => SocialNativeAppDestination(
+        platform: socialPlatformName(platform),
+        packageName: 'com.facebook.katana',
+      ),
+      'facebook-messenger' => SocialNativeAppDestination(
+        platform: socialPlatformName(platform),
+        packageName: 'com.facebook.orca',
+      ),
+      'whatsapp' => SocialNativeAppDestination(
+        platform: socialPlatformName(platform),
+        packageName: 'com.whatsapp',
+      ),
+      'line' => SocialNativeAppDestination(
+        platform: socialPlatformName(platform),
+        packageName: 'jp.naver.line.android',
+      ),
+      'skype' => SocialNativeAppDestination(
+        platform: socialPlatformName(platform),
+        packageName: 'com.skype.raider',
+      ),
+      'kakaotalk' => SocialNativeAppDestination(
+        platform: socialPlatformName(platform),
+        packageName: 'com.kakao.talk',
+      ),
+      'instagram' => SocialNativeAppDestination(
+        platform: socialPlatformName(platform),
+        packageName: 'com.instagram.android',
+      ),
+      'x' => SocialNativeAppDestination(
+        platform: socialPlatformName(platform),
+        packageName: 'com.twitter.android',
+      ),
+      _ => null,
+    };
+    return packageName;
+  }
+
+  static Future<bool> _launchSocialAppHome(String packageName) async {
+    try {
+      return await _socialAppHomeChannel.invokeMethod<bool>(
+            'launchAppHome',
+            <String, Object>{'packageName': packageName},
+          ) ??
+          false;
+    } on PlatformException {
+      return false;
+    } on MissingPluginException {
+      return false;
+    }
+  }
+
+  static Future<SocialNativeAppLaunchResult> launchSocialProfile({
+    required String? platform,
+    required String rawValue,
+    Future<bool> Function(String packageName)? launchAppHome,
+  }) async {
+    final destination = socialNativeAppDestination(
+      platform: platform,
+      rawValue: rawValue,
+    );
+    if (destination == null) {
+      return SocialNativeAppLaunchResult.unsupportedProfile;
+    }
+    final launched = await (launchAppHome ?? _launchSocialAppHome)(
+      destination.packageName,
+    );
+    return launched
+        ? SocialNativeAppLaunchResult.launched
+        : SocialNativeAppLaunchResult.appRequired;
+  }
 
   /// Mass SMS: one message per selected recipient.
   static Future<bool> launchMassSms(List<String> rawValues) async {

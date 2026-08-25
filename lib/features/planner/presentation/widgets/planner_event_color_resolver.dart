@@ -68,9 +68,28 @@ abstract final class PlannerEventColorResolver {
     PlannerCalendarItem event,
     Map<String, EventColorPreference> preferencesByTypeId,
   ) {
+    return accentColorForIdentity(
+      context,
+      activityTypeId: event.activityTypeId,
+      activityTypeColorValue: event.activityTypeColorValue,
+      preferencesByTypeId: preferencesByTypeId,
+    );
+  }
+
+  /// Resolves the same canonical Event identity color for projections which
+  /// hold factual Event type fields but are not Planner calendar blocks.
+  /// Contact Timeline uses this path; it does not own or copy a second color.
+  static Color accentColorForIdentity(
+    BuildContext context, {
+    required String? activityTypeId,
+    required int? activityTypeColorValue,
+    required Map<String, EventColorPreference> preferencesByTypeId,
+  }) {
     final seed = Color(
-      preferenceFor(event, preferencesByTypeId)?.accentArgb ??
-          event.activityTypeColorValue ??
+      (activityTypeId == null
+              ? null
+              : preferencesByTypeId[activityTypeId]?.accentArgb) ??
+          activityTypeColorValue ??
           0xFFE91E63,
     );
     if (Theme.of(context).brightness == Brightness.dark) {

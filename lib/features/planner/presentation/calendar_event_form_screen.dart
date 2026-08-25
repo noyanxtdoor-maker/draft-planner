@@ -943,11 +943,11 @@ final class _CalendarEventFormScreenState
                     minLines: _notesFocusNode.hasFocus ? 4 : 1,
                     maxLines: _notesFocusNode.hasFocus ? 6 : 1,
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 12),
                   const _MeasuredFormSeparator(
                     key: Key('event-form-scheduling-separator'),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 12),
                   const _MeasuredFormSectionHeader(label: 'Scheduling Details'),
                   const SizedBox(height: 20),
                   _DateTile(
@@ -1088,7 +1088,7 @@ final class _CalendarEventFormScreenState
                   SwitchListTile(
                     key: const Key('event-backup-appointment-switch'),
                     contentPadding: EdgeInsets.zero,
-                    title: const Text('Backup Appointment'),
+                    title: const Text('Backup Event'),
                     value: _isBackupAppointment,
                     onChanged: (value) {
                       FocusScope.of(context).unfocus();
@@ -1097,17 +1097,17 @@ final class _CalendarEventFormScreenState
                   ),
                   const SizedBox(height: 16),
                   _buildAddressLocationSection(),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 12),
                   const _MeasuredFormSeparator(
                     key: Key('event-form-people-separator'),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 12),
                   _buildPeopleSection(),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 12),
                   const _MeasuredFormSeparator(
                     key: Key('event-form-indicator-separator'),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 12),
                   _buildLifeIndicatorSection(),
                   const SizedBox(height: 24),
                   _FormSectionLabel(
@@ -1388,14 +1388,14 @@ final class _CalendarEventFormScreenState
       children: <Widget>[
         const _MeasuredFormSectionHeader(
           key: Key('people-section-header'),
-          label: 'People',
+          label: 'Contacts',
         ),
         const SizedBox(height: 12),
         if (_peopleContactIds.isEmpty)
           const Padding(
             padding: EdgeInsets.only(bottom: 4),
             child: Text(
-              'No people linked yet.',
+              'No contacts linked yet.',
               style: TextStyle(color: Color(0xFF9CA0A6), fontSize: 14),
             ),
           )
@@ -1440,7 +1440,7 @@ final class _CalendarEventFormScreenState
             onPressed: () => unawaited(_openAddPeople()),
             style: _rightAlignedFormActionStyle(),
             icon: const Icon(Icons.add, size: 24),
-            label: const Text('People'),
+            label: const Text('Contact'),
           ),
         ),
       ],
@@ -2383,20 +2383,7 @@ final class _MeasuredFormSeparator extends StatelessWidget {
   const _MeasuredFormSeparator({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return Transform.translate(
-      offset: const Offset(-18, 0),
-      child: SizedBox(
-        width: MediaQuery.sizeOf(context).width,
-        height: 8,
-        child: ColoredBox(
-          color: Theme.of(context).brightness == Brightness.dark
-              ? const Color(0xFF45484A)
-              : Theme.of(context).colorScheme.outlineVariant,
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => const SizedBox.shrink();
 }
 
 final class _MeasuredFormSectionHeader extends StatelessWidget {
