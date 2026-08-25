@@ -134,6 +134,22 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 path: 'search',
                 builder: (context, state) => const ContactSearchScreen(),
               ),
+              GoRoute(
+                name: RouteNames.contactDetail,
+                path: 'contact/:contactId',
+                builder: (context, state) => ContactDetailScreen(
+                  contactId: state.pathParameters['contactId']!,
+                ),
+                routes: <RouteBase>[
+                  GoRoute(
+                    name: RouteNames.contactEdit,
+                    path: 'edit',
+                    builder: (context, state) => ContactFormScreen.edit(
+                      contactId: state.pathParameters['contactId']!,
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
           GoRoute(
@@ -527,19 +543,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: RouteNames.contactCreate,
         path: RoutePaths.contactCreate,
         builder: (context, state) => ContactFormScreen.create(),
-      ),
-      GoRoute(
-        name: RouteNames.contactDetail,
-        path: '${RoutePaths.contactDetailPath}/:contactId',
-        builder: (context, state) =>
-            ContactDetailScreen(contactId: state.pathParameters['contactId']!),
-      ),
-      GoRoute(
-        name: RouteNames.contactEdit,
-        path: '${RoutePaths.contactDetailPath}/:contactId/edit',
-        builder: (context, state) => ContactFormScreen.edit(
-          contactId: state.pathParameters['contactId']!,
-        ),
       ),
       GoRoute(
         name: RouteNames.contactGroups,

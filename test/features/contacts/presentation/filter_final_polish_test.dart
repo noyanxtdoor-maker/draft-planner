@@ -511,7 +511,9 @@ void main() {
     (tester) async {
       await pumpFilter(tester);
 
-      for (final label in <String>['Groups', 'Tags', 'Favorites']) {
+      // Leading, middle, and trailing visible categories retain the regular
+      // category typography after Tags retirement.
+      for (final label in <String>['Groups', 'Favorites', 'Archived']) {
         await scrollTo(tester, find.text(label));
         final text = tester.widget<Text>(find.text(label));
         expect(

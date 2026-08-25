@@ -52,12 +52,7 @@ void main() {
     );
     await settle(tester);
 
-    await tester.tap(
-      find.descendant(
-        of: find.byType(NavigationBar),
-        matching: find.text('Contacts'),
-      ),
-    );
+    await tester.tap(find.byKey(const Key('nav-contacts')));
     await settle(tester);
     await tester.tap(find.byKey(const Key('contacts-filter-button')));
     await settle(tester);

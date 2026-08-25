@@ -70,7 +70,9 @@ void main() {
     test('Rose Light contrast contract', () {
       final scheme = AppTheme.light(ThemeColorMode.rose).colorScheme;
       final card = scheme.surface;
-      final canvas = AppTheme.light(ThemeColorMode.rose).scaffoldBackgroundColor;
+      final canvas = AppTheme.light(
+        ThemeColorMode.rose,
+      ).scaffoldBackgroundColor;
 
       // primary/on card >= 4.5
       expect(_contrast(scheme.primary, card), greaterThanOrEqualTo(4.5));
@@ -81,17 +83,17 @@ void main() {
       // secondary >= 4.5
       expect(_contrast(scheme.secondary, card), greaterThanOrEqualTo(4.5));
       // onPrimary >= 4.5
-      expect(_contrast(scheme.onPrimary, scheme.primary), greaterThanOrEqualTo(4.5));
+      expect(
+        _contrast(scheme.onPrimary, scheme.primary),
+        greaterThanOrEqualTo(4.5),
+      );
       // selected-nav indicator/icon: onPrimary against primary fill >= 4.5
       expect(
         _contrast(scheme.onPrimary, scheme.primary),
         greaterThanOrEqualTo(4.5),
       );
       // card outline stays subtle (below text-level 3:1)
-      expect(
-        _contrast(scheme.outlineVariant, card),
-        lessThan(3.0),
-      );
+      expect(_contrast(scheme.outlineVariant, card), lessThan(3.0));
     });
   });
 
@@ -122,13 +124,18 @@ void main() {
     test('Blue Light contrast contract', () {
       final scheme = AppTheme.light(ThemeColorMode.blue).colorScheme;
       final card = scheme.surface;
-      final canvas = AppTheme.light(ThemeColorMode.blue).scaffoldBackgroundColor;
+      final canvas = AppTheme.light(
+        ThemeColorMode.blue,
+      ).scaffoldBackgroundColor;
 
       expect(_contrast(scheme.primary, card), greaterThanOrEqualTo(4.5));
       expect(_contrast(scheme.primary, canvas), greaterThanOrEqualTo(4.5));
       expect(_contrast(scheme.onSurface, card), greaterThanOrEqualTo(7.0));
       expect(_contrast(scheme.secondary, card), greaterThanOrEqualTo(4.5));
-      expect(_contrast(scheme.onPrimary, scheme.primary), greaterThanOrEqualTo(4.5));
+      expect(
+        _contrast(scheme.onPrimary, scheme.primary),
+        greaterThanOrEqualTo(4.5),
+      );
       expect(
         _contrast(scheme.onPrimary, scheme.primary),
         greaterThanOrEqualTo(4.5),
@@ -176,6 +183,64 @@ void main() {
     });
   });
 
+  group('Light dialog readability', () {
+    for (final mode in ThemeColorMode.values) {
+      test('${mode.name} Light dialog text resolves to active onSurface', () {
+        final theme = AppTheme.light(mode);
+        final scheme = theme.colorScheme;
+        final dialog = theme.dialogTheme;
+
+        expect(dialog.backgroundColor, scheme.surfaceContainerHigh);
+        expect(dialog.titleTextStyle?.color, scheme.onSurface);
+        expect(dialog.contentTextStyle?.color, scheme.onSurface);
+        expect(
+          _contrast(scheme.onSurface, scheme.surfaceContainerHigh),
+          greaterThanOrEqualTo(7.0),
+        );
+      });
+
+      testWidgets(
+        '${mode.name} Light AlertDialog inherits readable title and body text',
+        (tester) async {
+          final theme = AppTheme.light(mode);
+          final scheme = theme.colorScheme;
+
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: theme,
+              home: const Scaffold(
+                body: AlertDialog(
+                  title: Text('Delete this item?'),
+                  content: Text('This action cannot be undone.'),
+                ),
+              ),
+            ),
+          );
+
+          final titleStyle = tester.widget<DefaultTextStyle>(
+            find
+                .ancestor(
+                  of: find.text('Delete this item?'),
+                  matching: find.byType(DefaultTextStyle),
+                )
+                .first,
+          );
+          final contentStyle = tester.widget<DefaultTextStyle>(
+            find
+                .ancestor(
+                  of: find.text('This action cannot be undone.'),
+                  matching: find.byType(DefaultTextStyle),
+                )
+                .first,
+          );
+
+          expect(titleStyle.style.color, scheme.onSurface);
+          expect(contentStyle.style.color, scheme.onSurface);
+        },
+      );
+    }
+  });
+
   group('B2-CORRECTION default + accessor contract', () {
     test('default theme color is Rose for backward compatibility', () {
       expect(
@@ -207,10 +272,7 @@ void main() {
       expect(AppTheme.raisedOf(probeContext), const Color(0xFF343638));
       expect(AppTheme.navBarOf(probeContext), const Color(0xFF101113));
       expect(AppTheme.surfaceOf(probeContext), const Color(0xFF181A1E));
-      expect(
-        AppTheme.secondaryTextOf(probeContext),
-        const Color(0xFF9CA0A6),
-      );
+      expect(AppTheme.secondaryTextOf(probeContext), const Color(0xFF9CA0A6));
     });
   });
 }

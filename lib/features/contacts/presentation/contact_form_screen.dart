@@ -9,6 +9,9 @@ import 'package:rmplanner/app/theme/contact_reference_style.dart';
 import 'package:rmplanner/app/theme/internal_screen.dart';
 import 'package:rmplanner/features/contacts/application/contact_providers.dart';
 import 'package:rmplanner/features/contacts/domain/contact.dart';
+import 'package:rmplanner/features/contacts/presentation/contact_method_entry_row.dart';
+import 'package:rmplanner/features/contacts/presentation/contact_method_visuals.dart';
+import 'package:rmplanner/features/contacts/presentation/unsaved_changes_guard.dart';
 import 'package:rmplanner/features/maps/application/map_coordinate_repository.dart';
 import 'package:rmplanner/features/maps/application/map_providers.dart';
 import 'package:rmplanner/features/maps/domain/map_coordinate.dart';
@@ -22,18 +25,7 @@ const Map<ContactMethodType, List<String>> _contactMethodLabels =
     <ContactMethodType, List<String>>{
       ContactMethodType.phone: <String>['Mobile', 'Home', 'Work', 'Other'],
       ContactMethodType.email: <String>['Personal', 'Work', 'Family', 'Other'],
-      ContactMethodType.social: <String>[
-        'Facebook',
-        'Messenger',
-        'WhatsApp',
-        'LINE',
-        'Skype',
-        'KakaoTalk',
-        'Instagram',
-        'HelloTalk',
-        'X',
-        'Other',
-      ],
+      ContactMethodType.social: activeSocialProfileLabels,
     };
 
 /// Progressive C4 Add/Edit Contact form. Name, one current Group, and
@@ -91,14 +83,33 @@ final class _ContactFormScreenState extends ConsumerState<ContactFormScreen> {
   bool _mapExpanded = false;
   bool _loading = false;
   bool _saving = false;
+  bool _hasUnsavedChanges = false;
 
   @override
   void initState() {
     super.initState();
+    for (final controller in <TextEditingController>[
+      _firstNameController,
+      _lastNameController,
+      _addressController,
+      _noteController,
+    ]) {
+      controller.addListener(_markDirty);
+    }
     if (widget.mode == ContactFormMode.edit) {
       _loading = true;
       unawaited(Future<void>.microtask(_loadExisting));
     }
+  }
+
+  void _markDirty() {
+    if (!_loading && !_hasUnsavedChanges && mounted) {
+      setState(() => _hasUnsavedChanges = true);
+    }
+  }
+
+  void _trackMethodRow(_MethodRow row) {
+    row.controller.addListener(_markDirty);
   }
 
   @override
@@ -155,15 +166,15 @@ final class _ContactFormScreenState extends ConsumerState<ContactFormScreen> {
         _addressExpanded = _addressController.text.isNotEmpty;
         _mapExpanded = loadedCoordinate != null;
         for (final method in detail.methods) {
-          _methodRows.add(
-            _MethodRow(
-              id: method.id,
-              type: method.type,
-              controller: TextEditingController(text: method.rawValue),
-              label: method.label,
-              isPrimary: method.isPrimary,
-            ),
+          final row = _MethodRow(
+            id: method.id,
+            type: method.type,
+            controller: TextEditingController(text: method.rawValue),
+            label: method.label,
+            isPrimary: method.isPrimary,
           );
+          _trackMethodRow(row);
+          _methodRows.add(row);
         }
         _loading = false;
       });
@@ -188,169 +199,182 @@ final class _ContactFormScreenState extends ConsumerState<ContactFormScreen> {
   Widget build(BuildContext context) {
     final groups =
         ref.watch(contactGroupsProvider).value ?? const <ContactGroup>[];
-    final tags = ref.watch(contactTagsProvider).value ?? const <ContactTag>[];
-    return Scaffold(
-      backgroundColor: ContactReferenceStyle.canvasOf(context),
-      appBar: InternalAppBar(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) {
+          unawaited(_requestClose());
+        }
+      },
+      child: Scaffold(
         backgroundColor: ContactReferenceStyle.canvasOf(context),
-        surfaceTintColor: Colors.transparent,
-        scrolledUnderElevation: 0,
-        title: Text(
-          widget.mode == ContactFormMode.create
-              ? 'Add Contact'
-              : 'Edit Contact',
-          style: TextStyle(
-            color: ContactReferenceStyle.onCanvasOf(context),
-            fontSize: 26,
-            fontWeight: FontWeight.w400,
+        appBar: InternalAppBar(
+          backgroundColor: ContactReferenceStyle.canvasOf(context),
+          surfaceTintColor: Colors.transparent,
+          scrolledUnderElevation: 0,
+          title: Text(
+            widget.mode == ContactFormMode.create
+                ? 'Add Contact'
+                : 'Edit Contact',
+            style: TextStyle(
+              color: ContactReferenceStyle.onCanvasOf(context),
+              fontSize: 26,
+              fontWeight: FontWeight.w400,
+            ),
           ),
+          leading: IconButton(
+            key: const Key('contact-form-close'),
+            tooltip: 'Close',
+            iconSize: 26,
+            onPressed: _requestClose,
+            icon: const Icon(Icons.close),
+          ),
+          actions: <Widget>[_buildSaveButton()],
         ),
-        leading: IconButton(
-          key: const Key('contact-form-close'),
-          tooltip: 'Close',
-          iconSize: 26,
-          onPressed: () => Navigator.of(context).maybePop(),
-          icon: const Icon(Icons.close),
-        ),
-        actions: <Widget>[_buildSaveButton()],
-      ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : SafeArea(
-              child: Form(
-                key: _formKey,
-                child: ListView(
-                  key: const Key('contact-form-scroll'),
-                  padding: const EdgeInsets.only(top: 16, bottom: 48),
-                  children: <Widget>[
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: <Widget>[
-                          _field(
-                            key: const Key('contact-first-name'),
-                            controller: _firstNameController,
-                            label: widget.mode == ContactFormMode.create
-                                ? 'First Name *'
-                                : 'First Name',
-                            onChanged: (_) => setState(() {}),
-                            required: widget.mode == ContactFormMode.create,
-                          ),
-                          const SizedBox(height: 16),
-                          _field(
-                            key: const Key('contact-last-name'),
-                            controller: _lastNameController,
-                            label: widget.mode == ContactFormMode.create
-                                ? 'Last Name *'
-                                : 'Last Name',
-                            onChanged: (_) => setState(() {}),
-                            required: widget.mode == ContactFormMode.create,
-                          ),
-                          const SizedBox(height: 16),
-                          _GroupsField(
-                            groups: groups,
-                            primaryGroupId: _primaryGroupId,
-                            onManage: _openGroupManager,
-                            onChanged: (ids, primaryId) => setState(() {
-                              _groupIds = ids;
-                              _primaryGroupId = primaryId;
-                            }),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    const _ContactFormSectionDivider(
-                      key: Key('contact-form-divider-after-basics'),
-                    ),
-                    const SizedBox(height: 12),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: <Widget>[
-                          _buildMethodSection(ContactMethodType.phone),
-                          _buildMethodSection(ContactMethodType.email),
-                          _buildMethodSection(ContactMethodType.social),
-                          if (_addressController.text.isEmpty &&
-                              !_addressExpanded) ...<Widget>[
-                            _ProgressiveRow(
-                              key: const Key('add-address-row'),
-                              icon: Icons.place_outlined,
-                              label: '+ Address',
-                              onTap: () =>
-                                  setState(() => _addressExpanded = true),
-                            ),
-                            const SizedBox(height: 4),
-                          ],
-                          if (_addressExpanded) ...<Widget>[
-                            _field(
-                              key: const Key('contact-address'),
-                              controller: _addressController,
-                              label: 'Address',
-                              onChanged: (_) => setState(() {}),
-                              fontSize: 15,
-                            ),
-                            Align(
-                              alignment: Alignment.centerRight,
-                              child: TextButton(
-                                key: const Key('remove-address'),
-                                onPressed: () {
-                                  _addressController.clear();
-                                  setState(() => _addressExpanded = false);
-                                },
-                                child: const Text('Remove'),
+        body: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+                child: SafeArea(
+                  child: Form(
+                    key: _formKey,
+                    child: ListView(
+                      key: const Key('contact-form-scroll'),
+                      padding: const EdgeInsets.only(top: 16, bottom: 48),
+                      children: <Widget>[
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: <Widget>[
+                              _field(
+                                key: const Key('contact-first-name'),
+                                controller: _firstNameController,
+                                label: widget.mode == ContactFormMode.create
+                                    ? 'First Name *'
+                                    : 'First Name',
+                                onChanged: (_) => setState(() {}),
+                                required: widget.mode == ContactFormMode.create,
                               ),
-                            ),
-                            const SizedBox(height: 8),
-                          ],
-                          if (!_mapExpanded) ...<Widget>[
-                            _ProgressiveRow(
-                              key: const Key('add-map-row'),
-                              icon: Icons.map_outlined,
-                              label: '+ Map',
-                              onTap: _openMapPicker,
-                            ),
-                            const SizedBox(height: 4),
-                          ],
-                          if (_mapExpanded) ...<Widget>[
-                            MapPinSection(
-                              displayName: _displayName.isEmpty
-                                  ? 'Contact'
-                                  : _displayName,
-                              coordinate: _mapCoordinate,
-                              onChanged: (value) => setState(() {
-                                _mapCoordinate = value;
-                                _mapExpanded = value != null;
-                              }),
-                              contactFormStyle: true,
-                            ),
-                            const SizedBox(height: 12),
-                          ],
-                        ],
-                      ),
+                              const SizedBox(height: 16),
+                              _field(
+                                key: const Key('contact-last-name'),
+                                controller: _lastNameController,
+                                label: widget.mode == ContactFormMode.create
+                                    ? 'Last Name *'
+                                    : 'Last Name',
+                                onChanged: (_) => setState(() {}),
+                                required: widget.mode == ContactFormMode.create,
+                              ),
+                              const SizedBox(height: 16),
+                              _GroupsField(
+                                groups: groups,
+                                primaryGroupId: _primaryGroupId,
+                                onManage: _openGroupManager,
+                                onChanged: (ids, primaryId) => setState(() {
+                                  _groupIds = ids;
+                                  _primaryGroupId = primaryId;
+                                  _hasUnsavedChanges = true;
+                                }),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        const _ContactFormSectionDivider(
+                          key: Key('contact-form-divider-after-basics'),
+                        ),
+                        const SizedBox(height: 12),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: <Widget>[
+                              _buildMethodSection(ContactMethodType.phone),
+                              _buildMethodSection(ContactMethodType.email),
+                              _buildMethodSection(ContactMethodType.social),
+                              if (_addressController.text.isEmpty &&
+                                  !_addressExpanded) ...<Widget>[
+                                _ProgressiveRow(
+                                  key: const Key('add-address-row'),
+                                  icon: Icons.place_outlined,
+                                  label: '+ Address',
+                                  onTap: () =>
+                                      setState(() => _addressExpanded = true),
+                                ),
+                                const SizedBox(height: 4),
+                              ],
+                              if (_addressExpanded) ...<Widget>[
+                                _field(
+                                  key: const Key('contact-address'),
+                                  controller: _addressController,
+                                  label: 'Address',
+                                  onChanged: (_) => setState(() {}),
+                                  fontSize: 15,
+                                ),
+                                Align(
+                                  alignment: Alignment.centerRight,
+                                  child: TextButton(
+                                    key: const Key('remove-address'),
+                                    onPressed: () {
+                                      _addressController.clear();
+                                      setState(() => _addressExpanded = false);
+                                    },
+                                    child: const Text('Remove'),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                              ],
+                              if (!_mapExpanded) ...<Widget>[
+                                _ProgressiveRow(
+                                  key: const Key('add-map-row'),
+                                  icon: Icons.map_outlined,
+                                  label: '+ Map',
+                                  onTap: _openMapPicker,
+                                ),
+                                const SizedBox(height: 4),
+                              ],
+                              if (_mapExpanded) ...<Widget>[
+                                MapPinSection(
+                                  displayName: _displayName.isEmpty
+                                      ? 'Contact'
+                                      : _displayName,
+                                  coordinate: _mapCoordinate,
+                                  onChanged: (value) => setState(() {
+                                    _mapCoordinate = value;
+                                    _mapExpanded = value != null;
+                                    _hasUnsavedChanges = true;
+                                  }),
+                                  contactFormStyle: true,
+                                ),
+                                const SizedBox(height: 12),
+                              ],
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        const _ContactFormSectionDivider(
+                          key: Key('contact-form-divider-before-options'),
+                        ),
+                        const SizedBox(height: 20),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: _optionsExpanded
+                              ? _buildExpandedOptions()
+                              : _ExpandOptionsButton(
+                                  key: const Key('expand-contact-options'),
+                                  onTap: () =>
+                                      setState(() => _optionsExpanded = true),
+                                ),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
                     ),
-                    const SizedBox(height: 16),
-                    const _ContactFormSectionDivider(
-                      key: Key('contact-form-divider-before-options'),
-                    ),
-                    const SizedBox(height: 20),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: _optionsExpanded
-                          ? _buildExpandedOptions(tags)
-                          : _ExpandOptionsButton(
-                              key: const Key('expand-contact-options'),
-                              onTap: () =>
-                                  setState(() => _optionsExpanded = true),
-                            ),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
+                  ),
                 ),
               ),
-            ),
+      ),
     );
   }
 
@@ -366,6 +390,7 @@ final class _ContactFormScreenState extends ConsumerState<ContactFormScreen> {
       setState(() {
         _mapCoordinate = result;
         _mapExpanded = true;
+        _hasUnsavedChanges = true;
       });
     }
   }
@@ -400,13 +425,10 @@ final class _ContactFormScreenState extends ConsumerState<ContactFormScreen> {
   List<_MethodRow> _rowsFor(ContactMethodType type) =>
       _methodRows.where((row) => row.type == type).toList(growable: false);
 
-  String _sectionLabel(ContactMethodType type) => switch (type) {
-    ContactMethodType.phone => 'Phone',
-    ContactMethodType.email => 'Email',
-    ContactMethodType.social => 'Social Profile',
-  };
-
   String _nextMethodLabel(ContactMethodType type) {
+    if (type == ContactMethodType.social) {
+      return nextSocialProfileLabel(_rowsFor(type).map((row) => row.label));
+    }
     final labels = _contactMethodLabels[type]!;
     final usedLabels = _rowsFor(
       type,
@@ -419,7 +441,6 @@ final class _ContactFormScreenState extends ConsumerState<ContactFormScreen> {
 
   Widget _buildMethodSection(ContactMethodType type) {
     final rows = _rowsFor(type);
-    final label = _sectionLabel(type);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
@@ -428,39 +449,43 @@ final class _ContactFormScreenState extends ConsumerState<ContactFormScreen> {
           for (final row in rows) ...<Widget>[
             _MethodRowTile(
               row: row,
-              onLabelChanged: (label) => setState(() => row.label = label),
+              onLabelChanged: (label) => setState(() {
+                row.label = label;
+                _hasUnsavedChanges = true;
+              }),
               onRemove: () {
-                setState(() => _methodRows.remove(row));
+                setState(() {
+                  _methodRows.remove(row);
+                  _hasUnsavedChanges = true;
+                });
                 row.controller.dispose();
               },
             ),
             const SizedBox(height: 8),
           ],
         ],
-        _ProgressiveRow(
+        ContactMethodEntryRow(
           key: Key('add-${type.name}-row'),
-          icon: switch (type) {
-            ContactMethodType.phone => Icons.phone_outlined,
-            ContactMethodType.email => Icons.mail_outline,
-            ContactMethodType.social => Icons.alternate_email,
-          },
-          label: rows.isEmpty ? '+ $label' : '+ Add $label',
-          onTap: () => setState(
-            () => _methodRows.add(
-              _MethodRow(
-                type: type,
-                label: _nextMethodLabel(type),
-                controller: TextEditingController(),
-              ),
-            ),
-          ),
+          type: type,
+          hasExistingRows: rows.isNotEmpty,
+          includeAddQualifier: true,
+          onTap: () => setState(() {
+            final row = _MethodRow(
+              type: type,
+              label: _nextMethodLabel(type),
+              controller: TextEditingController(),
+            );
+            _trackMethodRow(row);
+            _methodRows.add(row);
+            _hasUnsavedChanges = true;
+          }),
         ),
         const SizedBox(height: 2),
       ],
     );
   }
 
-  Widget _buildExpandedOptions(List<ContactTag> availableTags) {
+  Widget _buildExpandedOptions() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
@@ -470,18 +495,18 @@ final class _ContactFormScreenState extends ConsumerState<ContactFormScreen> {
           contentPadding: EdgeInsets.zero,
           title: const Text('Favorite', style: TextStyle(fontSize: 14)),
           value: _isFavorite,
-          onChanged: (value) => setState(() => _isFavorite = value),
+          onChanged: (value) => setState(() {
+            _isFavorite = value;
+            _hasUnsavedChanges = true;
+          }),
         ),
         const SizedBox(height: 8),
         _PreferredMethodField(
           value: _preferredMethod,
-          onChanged: (value) => setState(() => _preferredMethod = value),
-        ),
-        const SizedBox(height: 16),
-        _TagsField(
-          availableTags: availableTags,
-          selectedNames: _tagNames,
-          onChanged: (names) => setState(() => _tagNames = names),
+          onChanged: (value) => setState(() {
+            _preferredMethod = value;
+            _hasUnsavedChanges = true;
+          }),
         ),
         const SizedBox(height: 16),
         if (_availability.isEmpty)
@@ -575,11 +600,34 @@ final class _ContactFormScreenState extends ConsumerState<ContactFormScreen> {
       ),
     );
     if (result != null && mounted) {
-      setState(
-        () => _availability
+      setState(() {
+        _availability
           ..clear()
-          ..addAll(result),
-      );
+          ..addAll(result);
+        _hasUnsavedChanges = true;
+      });
+    }
+  }
+
+  Future<void> _requestClose() async {
+    if (!_hasUnsavedChanges) {
+      Navigator.of(context).pop();
+      return;
+    }
+    final decision = await showUnsavedChangesGuard(context);
+    if (!mounted) {
+      return;
+    }
+    switch (decision) {
+      case UnsavedChangesDecision.saveAndLeave:
+        await _save();
+        return;
+      case UnsavedChangesDecision.discardAndLeave:
+        Navigator.of(context).pop();
+        return;
+      case UnsavedChangesDecision.keepEditing:
+      case null:
+        return;
     }
   }
 
@@ -1125,6 +1173,9 @@ final class _PreferredMethodField extends StatelessWidget {
   }
 }
 
+// Dormant compatibility helper retained temporarily with Tag persistence; no
+// active Contact form path constructs it after the C5 UX retirement.
+// ignore: unused_element
 final class _TagsField extends StatelessWidget {
   const _TagsField({
     required this.availableTags,
@@ -1351,7 +1402,12 @@ final class _MethodTypeIconPicker extends StatelessWidget {
                   if (type == ContactMethodType.social && label == 'X')
                     const Text('𝕏', style: TextStyle(fontSize: 18, height: 1))
                   else
-                    Icon(_iconFor(type, label), size: 18),
+                    contactMethodVisual(
+                      type: type,
+                      label: label,
+                      color: _contactFormActionColor(context),
+                      size: 18,
+                    ),
                   const SizedBox(width: 12),
                   Text(label),
                 ],
@@ -1377,8 +1433,9 @@ final class _MethodTypeIconPicker extends StatelessWidget {
                   ),
                 )
               else
-                Icon(
-                  _iconFor(type, selected),
+                contactMethodVisual(
+                  type: type,
+                  label: selected,
                   color: _contactFormActionColor(context),
                   size: 24,
                 ),
@@ -1392,35 +1449,6 @@ final class _MethodTypeIconPicker extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  static IconData _iconFor(ContactMethodType type, String label) {
-    return switch (type) {
-      ContactMethodType.phone => switch (label) {
-        'Mobile' => Icons.smartphone,
-        'Home' => Icons.home_outlined,
-        'Work' => Icons.business_center_outlined,
-        _ => Icons.more_horiz,
-      },
-      ContactMethodType.email => switch (label) {
-        'Personal' => Icons.person_outline,
-        'Work' => Icons.business_center_outlined,
-        'Family' => Icons.group_outlined,
-        _ => Icons.more_horiz,
-      },
-      ContactMethodType.social => switch (label) {
-        'Facebook' => Icons.facebook,
-        'Messenger' => Icons.chat_bubble_outline,
-        'WhatsApp' => Icons.chat_outlined,
-        'LINE' => Icons.forum_outlined,
-        'Skype' => Icons.call_outlined,
-        'KakaoTalk' => Icons.chat,
-        'Instagram' => Icons.photo_camera_outlined,
-        'HelloTalk' => Icons.translate_outlined,
-        'X' => Icons.close,
-        _ => Icons.more_horiz,
-      },
-    };
   }
 }
 

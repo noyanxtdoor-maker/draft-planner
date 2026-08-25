@@ -54,30 +54,34 @@ void main() {
     );
     // A PAST linked event: readTimeline() freezes it, which is the write
     // that used to re-trigger the watched read loop.
-    await database.into(database.calendarEvents).insert(
-      CalendarEventsCompanion.insert(
-        id: 'evt-past-1',
-        profileId: profile.id,
-        title: 'Past Visit',
-        timing: 'morning',
-        startDate: '2026-07-01',
-        createdAtUtc: DateTime.utc(2026, 7, 1, 12),
-        updatedAtUtc: DateTime.utc(2026, 7, 1, 12),
-      ),
-    );
-    await database.into(database.eventContactLinks).insert(
-      EventContactLinksCompanion.insert(
-        id: 'link-past-1',
-        profileId: profile.id,
-        eventId: 'evt-past-1',
-        occurrenceId: const Value('occ-custom-1'),
-        originalDate: const Value('2026-07-01'),
-        contactId: contactId,
-        status: const Value('active'),
-        createdAtUtc: DateTime.utc(2026, 7, 1, 12),
-        updatedAtUtc: DateTime.utc(2026, 7, 1, 12),
-      ),
-    );
+    await database
+        .into(database.calendarEvents)
+        .insert(
+          CalendarEventsCompanion.insert(
+            id: 'evt-past-1',
+            profileId: profile.id,
+            title: 'Past Visit',
+            timing: 'morning',
+            startDate: '2026-07-01',
+            createdAtUtc: DateTime.utc(2026, 7, 1, 12),
+            updatedAtUtc: DateTime.utc(2026, 7, 1, 12),
+          ),
+        );
+    await database
+        .into(database.eventContactLinks)
+        .insert(
+          EventContactLinksCompanion.insert(
+            id: 'link-past-1',
+            profileId: profile.id,
+            eventId: 'evt-past-1',
+            occurrenceId: const Value('occ-custom-1'),
+            originalDate: const Value('2026-07-01'),
+            contactId: contactId,
+            status: const Value('active'),
+            createdAtUtc: DateTime.utc(2026, 7, 1, 12),
+            updatedAtUtc: DateTime.utc(2026, 7, 1, 12),
+          ),
+        );
 
     await tester.pumpWidget(
       privacy.buildApp(
@@ -94,11 +98,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // Open the Contact detail (Profile tab by default).
-    final contactsTab = find.descendant(
-      of: find.byType(NavigationBar),
-      matching: find.text('Contacts'),
-    );
-    await tester.tap(contactsTab);
+    await tester.tap(find.byKey(const Key('nav-contacts')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Test Contact'));
     await tester.pumpAndSettle();
@@ -107,12 +107,21 @@ void main() {
     // blank 'Contact' app-bar-only frame remains.
     expect(find.text('Test Contact'), findsWidgets);
     expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(
+      find.byKey(const Key('contact-detail-fab')),
+      findsNothing,
+      reason: 'the approved C5 Profile has no global create FAB',
+    );
+    expect(
+      find.byKey(const Key('main-bottom-navigation')),
+      findsOneWidget,
+      reason: 'Contact Detail remains inside the existing MainShell',
+    );
 
     // The freeze wrote exactly one immutable snapshot (idempotent at rest).
     final snapshotCount = await (database.select(
       database.eventOccurrenceParticipants,
-    )..where((table) => table.contactId.equals(contactId)))
-        .get();
+    )..where((table) => table.contactId.equals(contactId))).get();
     expect(snapshotCount, hasLength(1));
 
     // A refresh emission (any contacts-table write) must NOT blank the page:
@@ -132,7 +141,8 @@ void main() {
     expect(
       find.text('Test Contact'),
       findsWidgets,
-      reason: 'POLISH-07: previous Contact content must stay visible during '
+      reason:
+          'POLISH-07: previous Contact content must stay visible during '
           'a refresh',
     );
     expect(tester.takeException(), isNull);
@@ -140,8 +150,7 @@ void main() {
     // The freeze must still be exactly one row after the refresh cycle.
     final afterRefresh = await (database.select(
       database.eventOccurrenceParticipants,
-    )..where((table) => table.contactId.equals(contactId)))
-        .get();
+    )..where((table) => table.contactId.equals(contactId))).get();
     expect(afterRefresh, hasLength(1));
   });
 }

@@ -35,9 +35,11 @@ final class _MapsScreenState extends ConsumerState<MapsScreen> {
       appBar: AppBar(title: const Text('Maps')),
       body: markersAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => _ErrorState(onRetry: () {
-          ref.invalidate(mapMarkersProvider);
-        }),
+        error: (error, _) => _ErrorState(
+          onRetry: () {
+            ref.invalidate(mapMarkersProvider);
+          },
+        ),
         data: (markers) {
           if (markers.isEmpty) {
             return const _EmptyState();
@@ -61,9 +63,7 @@ final class _MapsScreenState extends ConsumerState<MapsScreen> {
         if (startDate == null) {
           return;
         }
-        context.go(
-          RoutePaths.calendarEventDetail(marker.recordId, startDate),
-        );
+        context.go(RoutePaths.calendarEventDetail(marker.recordId, startDate));
     }
   }
 }
@@ -178,8 +178,13 @@ final class _MapSurfaceState extends ConsumerState<_MapSurface> {
   @override
   void initState() {
     super.initState();
-    ref.listen(mapMarkersProvider, (_, _) {
+    ref.listenManual(mapMarkersProvider, (_, _) {
       unawaited(_syncMarkers());
+    });
+    ref.listenManual(mapTransientFocusProvider, (_, requestedFocus) {
+      if (requestedFocus != null) {
+        unawaited(_syncMarkers());
+      }
     });
   }
 
@@ -211,8 +216,7 @@ final class _MapSurfaceState extends ConsumerState<_MapSurface> {
     if (controller == null || !_styleLoaded) {
       return;
     }
-    final markers =
-        ref.read(mapMarkersProvider).value ?? const <MapMarker>[];
+    final markers = ref.read(mapMarkersProvider).value ?? const <MapMarker>[];
     final hadSymbols = _symbols.isNotEmpty;
     for (final symbol in List<Symbol>.of(_symbols)) {
       await controller.removeSymbol(symbol);
@@ -240,7 +244,16 @@ final class _MapSurfaceState extends ConsumerState<_MapSurface> {
       _symbols.add(symbol);
       _bySymbolId[symbol.id] = marker;
     }
-    if (!hadSymbols && markers.isNotEmpty) {
+    final requestedFocus = ref.read(mapTransientFocusProvider);
+    if (requestedFocus != null) {
+      await controller.moveCamera(
+        CameraUpdate.newLatLngZoom(
+          LatLng(requestedFocus.latitude, requestedFocus.longitude),
+          14,
+        ),
+      );
+      ref.read(mapTransientFocusProvider.notifier).clear();
+    } else if (!hadSymbols && markers.isNotEmpty) {
       // First appearance: frame the first saved pin instead of the world view.
       final first = markers.first;
       await controller.moveCamera(
@@ -254,8 +267,7 @@ final class _MapSurfaceState extends ConsumerState<_MapSurface> {
 
   @override
   Widget build(BuildContext context) {
-    final markers =
-        ref.watch(mapMarkersProvider).value ?? const <MapMarker>[];
+    final markers = ref.watch(mapMarkersProvider).value ?? const <MapMarker>[];
     final first = markers.isEmpty ? null : markers.first.coordinate;
     return Column(
       children: <Widget>[

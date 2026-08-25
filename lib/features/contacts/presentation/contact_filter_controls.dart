@@ -26,7 +26,6 @@ enum ContactFilterCategory {
 const List<ContactFilterCategory> quickFilterCategories =
     <ContactFilterCategory>[
       ContactFilterCategory.groups,
-      ContactFilterCategory.tags,
       ContactFilterCategory.favorites,
       ContactFilterCategory.availability,
       ContactFilterCategory.phone,
@@ -47,7 +46,6 @@ const List<ContactFilterCategory> quickFilterCategories =
 const List<ContactFilterCategory> filterBuilderCategories =
     <ContactFilterCategory>[
       ContactFilterCategory.groups,
-      ContactFilterCategory.tags,
       ContactFilterCategory.favorites,
       ContactFilterCategory.availability,
       ContactFilterCategory.phone,

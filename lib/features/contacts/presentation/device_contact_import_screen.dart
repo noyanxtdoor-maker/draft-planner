@@ -11,6 +11,10 @@ import 'package:rmplanner/features/contacts/domain/contact.dart';
 /// Reads device contacts as lightweight drafts.  Injectable so tests can
 /// drive the whole import flow without a real address book.
 typedef DeviceContactsReader = Future<List<DeviceContactDraft>> Function();
+typedef DeviceContactsPermissionRequester = Future<PermissionStatus> Function();
+
+Future<PermissionStatus> _requestDeviceContactsPermission() =>
+    FlutterContacts.permissions.request(PermissionType.read);
 
 /// Default reader backed by flutter_contacts.  Reads only display names and
 /// phone/email values; nothing is uploaded, and the caller (the screen) only
@@ -52,10 +56,12 @@ Future<List<DeviceContactDraft>> _readDeviceContacts() async {
 final class DeviceContactImportScreen extends ConsumerStatefulWidget {
   const DeviceContactImportScreen({
     this.deviceReader = _readDeviceContacts,
+    this.permissionRequester = _requestDeviceContactsPermission,
     super.key,
   });
 
   final DeviceContactsReader deviceReader;
+  final DeviceContactsPermissionRequester permissionRequester;
 
   @override
   ConsumerState<DeviceContactImportScreen> createState() =>
@@ -77,8 +83,48 @@ final class _DeviceContactImportScreenState
   _ImportPhase _phase = _ImportPhase.explain;
   List<DeviceContactDraft> _deviceContacts = <DeviceContactDraft>[];
   final Set<int> _selectedIndexes = <int>{};
+  final TextEditingController _searchController = TextEditingController();
+  String _query = '';
   String? _error;
   ContactImportResult? _result;
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  List<int> get _visibleIndexes {
+    final query = _query.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+    if (query.isEmpty) {
+      return List<int>.generate(_deviceContacts.length, (i) => i);
+    }
+    final queryDigits = query.replaceAll(RegExp(r'[^0-9]'), '');
+    return <int>[
+      for (var i = 0; i < _deviceContacts.length; i++)
+        if (_matches(_deviceContacts[i], query, queryDigits)) i,
+    ];
+  }
+
+  bool _matches(DeviceContactDraft draft, String query, String queryDigits) {
+    final name = draft.displayName.toLowerCase().replaceAll(
+      RegExp(r'\s+'),
+      ' ',
+    );
+    if (name.contains(query)) {
+      return true;
+    }
+    if (draft.emails.any(
+      (email) => email.trim().toLowerCase().contains(query),
+    )) {
+      return true;
+    }
+    return queryDigits.isNotEmpty &&
+        draft.phones.any(
+          (phone) =>
+              phone.replaceAll(RegExp(r'[^0-9]'), '').contains(queryDigits),
+        );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -162,10 +208,7 @@ final class _DeviceContactImportScreenState
           const SizedBox(height: 8),
           Text(
             _error!,
-            style: TextStyle(
-              color: AppTheme.warningOf(context),
-              fontSize: 14,
-            ),
+            style: TextStyle(color: AppTheme.warningOf(context), fontSize: 14),
           ),
         ],
         const SizedBox(height: 12),
@@ -235,6 +278,11 @@ final class _DeviceContactImportScreenState
 
   Widget _buildSelect() {
     final selectedCount = _selectedIndexes.length;
+    final visibleIndexes = _visibleIndexes;
+    final hasQuery = _query.trim().isNotEmpty;
+    final allVisibleSelected =
+        visibleIndexes.isNotEmpty &&
+        visibleIndexes.every(_selectedIndexes.contains);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
@@ -254,24 +302,33 @@ final class _DeviceContactImportScreenState
               TextButton(
                 key: const Key('device-import-select-all'),
                 onPressed: () => setState(() {
-                  if (selectedCount == _deviceContacts.length) {
-                    _selectedIndexes.clear();
+                  if (allVisibleSelected) {
+                    _selectedIndexes.removeAll(visibleIndexes);
                   } else {
-                    _selectedIndexes.addAll(
-                      List<int>.generate(
-                        _deviceContacts.length,
-                        (index) => index,
-                      ),
-                    );
+                    _selectedIndexes.addAll(visibleIndexes);
                   }
                 }),
                 child: Text(
-                  selectedCount == _deviceContacts.length
+                  allVisibleSelected
                       ? 'Select None'
+                      : hasQuery
+                      ? 'Select visible'
                       : 'Select All',
                 ),
               ),
             ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+          child: TextField(
+            key: const Key('device-import-search'),
+            controller: _searchController,
+            onChanged: (value) => setState(() => _query = value),
+            decoration: const InputDecoration(
+              prefixIcon: Icon(Icons.search),
+              labelText: 'Search contacts',
+            ),
           ),
         ),
         const Divider(height: 1, thickness: 1),
@@ -280,15 +337,16 @@ final class _DeviceContactImportScreenState
               ? Center(
                   child: Text(
                     'No contacts found on this device.',
-                    style: TextStyle(
-                      color: AppTheme.secondaryTextOf(context),
-                    ),
+                    style: TextStyle(color: AppTheme.secondaryTextOf(context)),
                   ),
                 )
+              : visibleIndexes.isEmpty
+              ? const Center(child: Text('No matching contacts.'))
               : ListView.builder(
                   key: const Key('device-import-list'),
-                  itemCount: _deviceContacts.length,
-                  itemBuilder: (context, index) {
+                  itemCount: visibleIndexes.length,
+                  itemBuilder: (context, visibleIndex) {
+                    final index = visibleIndexes[visibleIndex];
                     final draft = _deviceContacts[index];
                     final methodText = <String>[
                       ...draft.phones.take(2),
@@ -339,12 +397,8 @@ final class _DeviceContactImportScreenState
                 minimumSize: const Size.fromHeight(50),
                 backgroundColor: Theme.of(context).colorScheme.primary,
                 foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                disabledBackgroundColor: AppTheme.surfaceVariantOf(
-                  context,
-                ),
-                disabledForegroundColor: AppTheme.disabledForegroundOf(
-                  context,
-                ),
+                disabledBackgroundColor: AppTheme.surfaceVariantOf(context),
+                disabledForegroundColor: AppTheme.disabledForegroundOf(context),
               ),
               child: Text(
                 selectedCount == 0
@@ -430,9 +484,7 @@ final class _DeviceContactImportScreenState
   Future<void> _startImport() async {
     setState(() => _phase = _ImportPhase.loading);
     try {
-      final status = await FlutterContacts.permissions.request(
-        PermissionType.read,
-      );
+      final status = await widget.permissionRequester();
       final granted =
           status == PermissionStatus.granted ||
           status == PermissionStatus.limited;

@@ -220,30 +220,15 @@ void main() {
     },
   );
 
-  testWidgets('C4 zero-option Tags master is visibly disabled and unchecked', (
+  testWidgets('C5 Tags is absent from the active Filter Builder', (
     tester,
   ) async {
     await pumpFilter(tester);
 
-    await reveal(tester, find.byKey(const Key('filter-category-main-tags')));
-    await tester.tap(find.byKey(const Key('filter-category-main-tags')));
-    await tester.pumpAndSettle();
-
-    final master = find.byKey(const Key('filter-master-tags'));
-    expect(master, findsOneWidget);
-    expect(
-      tester
-          .widgetList<IgnorePointer>(
-            find.ancestor(of: master, matching: find.byType(IgnorePointer)),
-          )
-          .any((pointer) => pointer.ignoring),
-      isTrue,
-    );
-    final checkbox = tester.widget<Checkbox>(
-      find.descendant(of: master, matching: find.byType(Checkbox)),
-    );
-    expect(checkbox.value, isFalse);
-    expect(find.text('No tags available.'), findsOneWidget);
+    expect(find.byKey(const Key('filter-category-main-tags')), findsNothing);
+    expect(find.byKey(const Key('filter-master-tags')), findsNothing);
+    expect(find.text('Tags'), findsNothing);
+    expect(find.text('No tags available.'), findsNothing);
   });
 
   testWidgets('C3-RF Restore Defaults is draft-only and resets filter state', (

@@ -14124,17 +14124,6 @@ class $ActivityLedgerEntriesTable extends ActivityLedgerEntries
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
-  static const VerificationMeta _contactIdMeta = const VerificationMeta(
-    'contactId',
-  );
-  @override
-  late final GeneratedColumn<String> contactId = GeneratedColumn<String>(
-    'contact_id',
-    aliasedName,
-    true,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-  );
   static const VerificationMeta _recordedAtUtcMeta = const VerificationMeta(
     'recordedAtUtc',
   );
@@ -14147,6 +14136,17 @@ class $ActivityLedgerEntriesTable extends ActivityLedgerEntries
         type: DriftSqlType.dateTime,
         requiredDuringInsert: true,
       );
+  static const VerificationMeta _contactIdMeta = const VerificationMeta(
+    'contactId',
+  );
+  @override
+  late final GeneratedColumn<String> contactId = GeneratedColumn<String>(
+    'contact_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -14162,8 +14162,8 @@ class $ActivityLedgerEntriesTable extends ActivityLedgerEntries
     idempotencyKey,
     reversalOfEntryId,
     replacesEntryId,
-    contactId,
     recordedAtUtc,
+    contactId,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -14295,12 +14295,6 @@ class $ActivityLedgerEntriesTable extends ActivityLedgerEntries
         ),
       );
     }
-    if (data.containsKey('contact_id')) {
-      context.handle(
-        _contactIdMeta,
-        contactId.isAcceptableOrUnknown(data['contact_id']!, _contactIdMeta),
-      );
-    }
     if (data.containsKey('recorded_at_utc')) {
       context.handle(
         _recordedAtUtcMeta,
@@ -14311,6 +14305,12 @@ class $ActivityLedgerEntriesTable extends ActivityLedgerEntries
       );
     } else if (isInserting) {
       context.missing(_recordedAtUtcMeta);
+    }
+    if (data.containsKey('contact_id')) {
+      context.handle(
+        _contactIdMeta,
+        contactId.isAcceptableOrUnknown(data['contact_id']!, _contactIdMeta),
+      );
     }
     return context;
   }
@@ -14373,14 +14373,14 @@ class $ActivityLedgerEntriesTable extends ActivityLedgerEntries
         DriftSqlType.string,
         data['${effectivePrefix}replaces_entry_id'],
       ),
-      contactId: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}contact_id'],
-      ),
       recordedAtUtc: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}recorded_at_utc'],
       )!,
+      contactId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}contact_id'],
+      ),
     );
   }
 
@@ -14405,8 +14405,14 @@ class ActivityLedgerEntryRow extends DataClass
   final String idempotencyKey;
   final String? reversalOfEntryId;
   final String? replacesEntryId;
-  final String? contactId;
   final DateTime recordedAtUtc;
+
+  /// OPD-3-004 (v29): the explicitly confirmed meaningful Contact this
+  /// contribution is attributed to. NULL keeps the classic non-Contact
+  /// contribution. Never inferred from event links; set only by explicit user
+  /// confirmation. Archived/merged Contacts keep this stable id so historical
+  /// truth is preserved without rewriting.
+  final String? contactId;
   const ActivityLedgerEntryRow({
     required this.id,
     required this.profileId,
@@ -14421,8 +14427,8 @@ class ActivityLedgerEntryRow extends DataClass
     required this.idempotencyKey,
     this.reversalOfEntryId,
     this.replacesEntryId,
-    this.contactId,
     required this.recordedAtUtc,
+    this.contactId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -14444,10 +14450,10 @@ class ActivityLedgerEntryRow extends DataClass
     if (!nullToAbsent || replacesEntryId != null) {
       map['replaces_entry_id'] = Variable<String>(replacesEntryId);
     }
+    map['recorded_at_utc'] = Variable<DateTime>(recordedAtUtc);
     if (!nullToAbsent || contactId != null) {
       map['contact_id'] = Variable<String>(contactId);
     }
-    map['recorded_at_utc'] = Variable<DateTime>(recordedAtUtc);
     return map;
   }
 
@@ -14470,10 +14476,10 @@ class ActivityLedgerEntryRow extends DataClass
       replacesEntryId: replacesEntryId == null && nullToAbsent
           ? const Value.absent()
           : Value(replacesEntryId),
+      recordedAtUtc: Value(recordedAtUtc),
       contactId: contactId == null && nullToAbsent
           ? const Value.absent()
           : Value(contactId),
-      recordedAtUtc: Value(recordedAtUtc),
     );
   }
 
@@ -14498,8 +14504,8 @@ class ActivityLedgerEntryRow extends DataClass
         json['reversalOfEntryId'],
       ),
       replacesEntryId: serializer.fromJson<String?>(json['replacesEntryId']),
-      contactId: serializer.fromJson<String?>(json['contactId']),
       recordedAtUtc: serializer.fromJson<DateTime>(json['recordedAtUtc']),
+      contactId: serializer.fromJson<String?>(json['contactId']),
     );
   }
   @override
@@ -14519,8 +14525,8 @@ class ActivityLedgerEntryRow extends DataClass
       'idempotencyKey': serializer.toJson<String>(idempotencyKey),
       'reversalOfEntryId': serializer.toJson<String?>(reversalOfEntryId),
       'replacesEntryId': serializer.toJson<String?>(replacesEntryId),
-      'contactId': serializer.toJson<String?>(contactId),
       'recordedAtUtc': serializer.toJson<DateTime>(recordedAtUtc),
+      'contactId': serializer.toJson<String?>(contactId),
     };
   }
 
@@ -14538,8 +14544,8 @@ class ActivityLedgerEntryRow extends DataClass
     String? idempotencyKey,
     Value<String?> reversalOfEntryId = const Value.absent(),
     Value<String?> replacesEntryId = const Value.absent(),
-    Value<String?> contactId = const Value.absent(),
     DateTime? recordedAtUtc,
+    Value<String?> contactId = const Value.absent(),
   }) => ActivityLedgerEntryRow(
     id: id ?? this.id,
     profileId: profileId ?? this.profileId,
@@ -14558,8 +14564,8 @@ class ActivityLedgerEntryRow extends DataClass
     replacesEntryId: replacesEntryId.present
         ? replacesEntryId.value
         : this.replacesEntryId,
-    contactId: contactId.present ? contactId.value : this.contactId,
     recordedAtUtc: recordedAtUtc ?? this.recordedAtUtc,
+    contactId: contactId.present ? contactId.value : this.contactId,
   );
   ActivityLedgerEntryRow copyWithCompanion(
     ActivityLedgerEntriesCompanion data,
@@ -14594,10 +14600,10 @@ class ActivityLedgerEntryRow extends DataClass
       replacesEntryId: data.replacesEntryId.present
           ? data.replacesEntryId.value
           : this.replacesEntryId,
-      contactId: data.contactId.present ? data.contactId.value : this.contactId,
       recordedAtUtc: data.recordedAtUtc.present
           ? data.recordedAtUtc.value
           : this.recordedAtUtc,
+      contactId: data.contactId.present ? data.contactId.value : this.contactId,
     );
   }
 
@@ -14617,8 +14623,8 @@ class ActivityLedgerEntryRow extends DataClass
           ..write('idempotencyKey: $idempotencyKey, ')
           ..write('reversalOfEntryId: $reversalOfEntryId, ')
           ..write('replacesEntryId: $replacesEntryId, ')
-          ..write('contactId: $contactId, ')
-          ..write('recordedAtUtc: $recordedAtUtc')
+          ..write('recordedAtUtc: $recordedAtUtc, ')
+          ..write('contactId: $contactId')
           ..write(')'))
         .toString();
   }
@@ -14638,8 +14644,8 @@ class ActivityLedgerEntryRow extends DataClass
     idempotencyKey,
     reversalOfEntryId,
     replacesEntryId,
-    contactId,
     recordedAtUtc,
+    contactId,
   );
   @override
   bool operator ==(Object other) =>
@@ -14658,8 +14664,8 @@ class ActivityLedgerEntryRow extends DataClass
           other.idempotencyKey == this.idempotencyKey &&
           other.reversalOfEntryId == this.reversalOfEntryId &&
           other.replacesEntryId == this.replacesEntryId &&
-          other.contactId == this.contactId &&
-          other.recordedAtUtc == this.recordedAtUtc);
+          other.recordedAtUtc == this.recordedAtUtc &&
+          other.contactId == this.contactId);
 }
 
 class ActivityLedgerEntriesCompanion
@@ -14677,8 +14683,8 @@ class ActivityLedgerEntriesCompanion
   final Value<String> idempotencyKey;
   final Value<String?> reversalOfEntryId;
   final Value<String?> replacesEntryId;
-  final Value<String?> contactId;
   final Value<DateTime> recordedAtUtc;
+  final Value<String?> contactId;
   final Value<int> rowid;
   const ActivityLedgerEntriesCompanion({
     this.id = const Value.absent(),
@@ -14694,8 +14700,8 @@ class ActivityLedgerEntriesCompanion
     this.idempotencyKey = const Value.absent(),
     this.reversalOfEntryId = const Value.absent(),
     this.replacesEntryId = const Value.absent(),
-    this.contactId = const Value.absent(),
     this.recordedAtUtc = const Value.absent(),
+    this.contactId = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   ActivityLedgerEntriesCompanion.insert({
@@ -14712,8 +14718,8 @@ class ActivityLedgerEntriesCompanion
     required String idempotencyKey,
     this.reversalOfEntryId = const Value.absent(),
     this.replacesEntryId = const Value.absent(),
-    this.contactId = const Value.absent(),
     required DateTime recordedAtUtc,
+    this.contactId = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        profileId = Value(profileId),
@@ -14741,8 +14747,8 @@ class ActivityLedgerEntriesCompanion
     Expression<String>? idempotencyKey,
     Expression<String>? reversalOfEntryId,
     Expression<String>? replacesEntryId,
-    Expression<String>? contactId,
     Expression<DateTime>? recordedAtUtc,
+    Expression<String>? contactId,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -14759,8 +14765,8 @@ class ActivityLedgerEntriesCompanion
       if (idempotencyKey != null) 'idempotency_key': idempotencyKey,
       if (reversalOfEntryId != null) 'reversal_of_entry_id': reversalOfEntryId,
       if (replacesEntryId != null) 'replaces_entry_id': replacesEntryId,
-      if (contactId != null) 'contact_id': contactId,
       if (recordedAtUtc != null) 'recorded_at_utc': recordedAtUtc,
+      if (contactId != null) 'contact_id': contactId,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -14779,8 +14785,8 @@ class ActivityLedgerEntriesCompanion
     Value<String>? idempotencyKey,
     Value<String?>? reversalOfEntryId,
     Value<String?>? replacesEntryId,
-    Value<String?>? contactId,
     Value<DateTime>? recordedAtUtc,
+    Value<String?>? contactId,
     Value<int>? rowid,
   }) {
     return ActivityLedgerEntriesCompanion(
@@ -14797,8 +14803,8 @@ class ActivityLedgerEntriesCompanion
       idempotencyKey: idempotencyKey ?? this.idempotencyKey,
       reversalOfEntryId: reversalOfEntryId ?? this.reversalOfEntryId,
       replacesEntryId: replacesEntryId ?? this.replacesEntryId,
-      contactId: contactId ?? this.contactId,
       recordedAtUtc: recordedAtUtc ?? this.recordedAtUtc,
+      contactId: contactId ?? this.contactId,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -14845,11 +14851,11 @@ class ActivityLedgerEntriesCompanion
     if (replacesEntryId.present) {
       map['replaces_entry_id'] = Variable<String>(replacesEntryId.value);
     }
-    if (contactId.present) {
-      map['contact_id'] = Variable<String>(contactId.value);
-    }
     if (recordedAtUtc.present) {
       map['recorded_at_utc'] = Variable<DateTime>(recordedAtUtc.value);
+    }
+    if (contactId.present) {
+      map['contact_id'] = Variable<String>(contactId.value);
     }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
@@ -14873,8 +14879,8 @@ class ActivityLedgerEntriesCompanion
           ..write('idempotencyKey: $idempotencyKey, ')
           ..write('reversalOfEntryId: $reversalOfEntryId, ')
           ..write('replacesEntryId: $replacesEntryId, ')
-          ..write('contactId: $contactId, ')
           ..write('recordedAtUtc: $recordedAtUtc, ')
+          ..write('contactId: $contactId, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -20997,6 +21003,34 @@ class $ContactMethodsTable extends ContactMethods
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _receivesTextsMeta = const VerificationMeta(
+    'receivesTexts',
+  );
+  @override
+  late final GeneratedColumn<bool> receivesTexts = GeneratedColumn<bool>(
+    'receives_texts',
+    aliasedName,
+    true,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("receives_texts" IN (0, 1))',
+    ),
+  );
+  static const VerificationMeta _hasWhatsAppMeta = const VerificationMeta(
+    'hasWhatsApp',
+  );
+  @override
+  late final GeneratedColumn<bool> hasWhatsApp = GeneratedColumn<bool>(
+    'has_whats_app',
+    aliasedName,
+    true,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("has_whats_app" IN (0, 1))',
+    ),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -21006,6 +21040,8 @@ class $ContactMethodsTable extends ContactMethods
     rawValue,
     normalizedValue,
     isPrimary,
+    receivesTexts,
+    hasWhatsApp,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -21071,6 +21107,24 @@ class $ContactMethodsTable extends ContactMethods
         isPrimary.isAcceptableOrUnknown(data['is_primary']!, _isPrimaryMeta),
       );
     }
+    if (data.containsKey('receives_texts')) {
+      context.handle(
+        _receivesTextsMeta,
+        receivesTexts.isAcceptableOrUnknown(
+          data['receives_texts']!,
+          _receivesTextsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('has_whats_app')) {
+      context.handle(
+        _hasWhatsAppMeta,
+        hasWhatsApp.isAcceptableOrUnknown(
+          data['has_whats_app']!,
+          _hasWhatsAppMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -21108,6 +21162,14 @@ class $ContactMethodsTable extends ContactMethods
         DriftSqlType.bool,
         data['${effectivePrefix}is_primary'],
       )!,
+      receivesTexts: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}receives_texts'],
+      ),
+      hasWhatsApp: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}has_whats_app'],
+      ),
     );
   }
 
@@ -21126,6 +21188,11 @@ class ContactMethodRow extends DataClass
   final String rawValue;
   final String normalizedValue;
   final bool isPrimary;
+
+  /// Nullable capability facts preserve legacy rows as unknown rather than
+  /// inventing a communication permission during migration.
+  final bool? receivesTexts;
+  final bool? hasWhatsApp;
   const ContactMethodRow({
     required this.id,
     required this.contactId,
@@ -21134,6 +21201,8 @@ class ContactMethodRow extends DataClass
     required this.rawValue,
     required this.normalizedValue,
     required this.isPrimary,
+    this.receivesTexts,
+    this.hasWhatsApp,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -21147,6 +21216,12 @@ class ContactMethodRow extends DataClass
     map['raw_value'] = Variable<String>(rawValue);
     map['normalized_value'] = Variable<String>(normalizedValue);
     map['is_primary'] = Variable<bool>(isPrimary);
+    if (!nullToAbsent || receivesTexts != null) {
+      map['receives_texts'] = Variable<bool>(receivesTexts);
+    }
+    if (!nullToAbsent || hasWhatsApp != null) {
+      map['has_whats_app'] = Variable<bool>(hasWhatsApp);
+    }
     return map;
   }
 
@@ -21161,6 +21236,12 @@ class ContactMethodRow extends DataClass
       rawValue: Value(rawValue),
       normalizedValue: Value(normalizedValue),
       isPrimary: Value(isPrimary),
+      receivesTexts: receivesTexts == null && nullToAbsent
+          ? const Value.absent()
+          : Value(receivesTexts),
+      hasWhatsApp: hasWhatsApp == null && nullToAbsent
+          ? const Value.absent()
+          : Value(hasWhatsApp),
     );
   }
 
@@ -21177,6 +21258,8 @@ class ContactMethodRow extends DataClass
       rawValue: serializer.fromJson<String>(json['rawValue']),
       normalizedValue: serializer.fromJson<String>(json['normalizedValue']),
       isPrimary: serializer.fromJson<bool>(json['isPrimary']),
+      receivesTexts: serializer.fromJson<bool?>(json['receivesTexts']),
+      hasWhatsApp: serializer.fromJson<bool?>(json['hasWhatsApp']),
     );
   }
   @override
@@ -21190,6 +21273,8 @@ class ContactMethodRow extends DataClass
       'rawValue': serializer.toJson<String>(rawValue),
       'normalizedValue': serializer.toJson<String>(normalizedValue),
       'isPrimary': serializer.toJson<bool>(isPrimary),
+      'receivesTexts': serializer.toJson<bool?>(receivesTexts),
+      'hasWhatsApp': serializer.toJson<bool?>(hasWhatsApp),
     };
   }
 
@@ -21201,6 +21286,8 @@ class ContactMethodRow extends DataClass
     String? rawValue,
     String? normalizedValue,
     bool? isPrimary,
+    Value<bool?> receivesTexts = const Value.absent(),
+    Value<bool?> hasWhatsApp = const Value.absent(),
   }) => ContactMethodRow(
     id: id ?? this.id,
     contactId: contactId ?? this.contactId,
@@ -21209,6 +21296,10 @@ class ContactMethodRow extends DataClass
     rawValue: rawValue ?? this.rawValue,
     normalizedValue: normalizedValue ?? this.normalizedValue,
     isPrimary: isPrimary ?? this.isPrimary,
+    receivesTexts: receivesTexts.present
+        ? receivesTexts.value
+        : this.receivesTexts,
+    hasWhatsApp: hasWhatsApp.present ? hasWhatsApp.value : this.hasWhatsApp,
   );
   ContactMethodRow copyWithCompanion(ContactMethodsCompanion data) {
     return ContactMethodRow(
@@ -21221,6 +21312,12 @@ class ContactMethodRow extends DataClass
           ? data.normalizedValue.value
           : this.normalizedValue,
       isPrimary: data.isPrimary.present ? data.isPrimary.value : this.isPrimary,
+      receivesTexts: data.receivesTexts.present
+          ? data.receivesTexts.value
+          : this.receivesTexts,
+      hasWhatsApp: data.hasWhatsApp.present
+          ? data.hasWhatsApp.value
+          : this.hasWhatsApp,
     );
   }
 
@@ -21233,7 +21330,9 @@ class ContactMethodRow extends DataClass
           ..write('label: $label, ')
           ..write('rawValue: $rawValue, ')
           ..write('normalizedValue: $normalizedValue, ')
-          ..write('isPrimary: $isPrimary')
+          ..write('isPrimary: $isPrimary, ')
+          ..write('receivesTexts: $receivesTexts, ')
+          ..write('hasWhatsApp: $hasWhatsApp')
           ..write(')'))
         .toString();
   }
@@ -21247,6 +21346,8 @@ class ContactMethodRow extends DataClass
     rawValue,
     normalizedValue,
     isPrimary,
+    receivesTexts,
+    hasWhatsApp,
   );
   @override
   bool operator ==(Object other) =>
@@ -21258,7 +21359,9 @@ class ContactMethodRow extends DataClass
           other.label == this.label &&
           other.rawValue == this.rawValue &&
           other.normalizedValue == this.normalizedValue &&
-          other.isPrimary == this.isPrimary);
+          other.isPrimary == this.isPrimary &&
+          other.receivesTexts == this.receivesTexts &&
+          other.hasWhatsApp == this.hasWhatsApp);
 }
 
 class ContactMethodsCompanion extends UpdateCompanion<ContactMethodRow> {
@@ -21269,6 +21372,8 @@ class ContactMethodsCompanion extends UpdateCompanion<ContactMethodRow> {
   final Value<String> rawValue;
   final Value<String> normalizedValue;
   final Value<bool> isPrimary;
+  final Value<bool?> receivesTexts;
+  final Value<bool?> hasWhatsApp;
   final Value<int> rowid;
   const ContactMethodsCompanion({
     this.id = const Value.absent(),
@@ -21278,6 +21383,8 @@ class ContactMethodsCompanion extends UpdateCompanion<ContactMethodRow> {
     this.rawValue = const Value.absent(),
     this.normalizedValue = const Value.absent(),
     this.isPrimary = const Value.absent(),
+    this.receivesTexts = const Value.absent(),
+    this.hasWhatsApp = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   ContactMethodsCompanion.insert({
@@ -21288,6 +21395,8 @@ class ContactMethodsCompanion extends UpdateCompanion<ContactMethodRow> {
     required String rawValue,
     required String normalizedValue,
     this.isPrimary = const Value.absent(),
+    this.receivesTexts = const Value.absent(),
+    this.hasWhatsApp = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        contactId = Value(contactId),
@@ -21302,6 +21411,8 @@ class ContactMethodsCompanion extends UpdateCompanion<ContactMethodRow> {
     Expression<String>? rawValue,
     Expression<String>? normalizedValue,
     Expression<bool>? isPrimary,
+    Expression<bool>? receivesTexts,
+    Expression<bool>? hasWhatsApp,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -21312,6 +21423,8 @@ class ContactMethodsCompanion extends UpdateCompanion<ContactMethodRow> {
       if (rawValue != null) 'raw_value': rawValue,
       if (normalizedValue != null) 'normalized_value': normalizedValue,
       if (isPrimary != null) 'is_primary': isPrimary,
+      if (receivesTexts != null) 'receives_texts': receivesTexts,
+      if (hasWhatsApp != null) 'has_whats_app': hasWhatsApp,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -21324,6 +21437,8 @@ class ContactMethodsCompanion extends UpdateCompanion<ContactMethodRow> {
     Value<String>? rawValue,
     Value<String>? normalizedValue,
     Value<bool>? isPrimary,
+    Value<bool?>? receivesTexts,
+    Value<bool?>? hasWhatsApp,
     Value<int>? rowid,
   }) {
     return ContactMethodsCompanion(
@@ -21334,6 +21449,8 @@ class ContactMethodsCompanion extends UpdateCompanion<ContactMethodRow> {
       rawValue: rawValue ?? this.rawValue,
       normalizedValue: normalizedValue ?? this.normalizedValue,
       isPrimary: isPrimary ?? this.isPrimary,
+      receivesTexts: receivesTexts ?? this.receivesTexts,
+      hasWhatsApp: hasWhatsApp ?? this.hasWhatsApp,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -21362,6 +21479,12 @@ class ContactMethodsCompanion extends UpdateCompanion<ContactMethodRow> {
     if (isPrimary.present) {
       map['is_primary'] = Variable<bool>(isPrimary.value);
     }
+    if (receivesTexts.present) {
+      map['receives_texts'] = Variable<bool>(receivesTexts.value);
+    }
+    if (hasWhatsApp.present) {
+      map['has_whats_app'] = Variable<bool>(hasWhatsApp.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -21378,6 +21501,8 @@ class ContactMethodsCompanion extends UpdateCompanion<ContactMethodRow> {
           ..write('rawValue: $rawValue, ')
           ..write('normalizedValue: $normalizedValue, ')
           ..write('isPrimary: $isPrimary, ')
+          ..write('receivesTexts: $receivesTexts, ')
+          ..write('hasWhatsApp: $hasWhatsApp, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -38303,8 +38428,8 @@ typedef $$ActivityLedgerEntriesTableCreateCompanionBuilder =
       required String idempotencyKey,
       Value<String?> reversalOfEntryId,
       Value<String?> replacesEntryId,
-      Value<String?> contactId,
       required DateTime recordedAtUtc,
+      Value<String?> contactId,
       Value<int> rowid,
     });
 typedef $$ActivityLedgerEntriesTableUpdateCompanionBuilder =
@@ -38322,8 +38447,8 @@ typedef $$ActivityLedgerEntriesTableUpdateCompanionBuilder =
       Value<String> idempotencyKey,
       Value<String?> reversalOfEntryId,
       Value<String?> replacesEntryId,
-      Value<String?> contactId,
       Value<DateTime> recordedAtUtc,
+      Value<String?> contactId,
       Value<int> rowid,
     });
 
@@ -38442,13 +38567,13 @@ class $$ActivityLedgerEntriesTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<String> get contactId => $composableBuilder(
-    column: $table.contactId,
+  ColumnFilters<DateTime> get recordedAtUtc => $composableBuilder(
+    column: $table.recordedAtUtc,
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<DateTime> get recordedAtUtc => $composableBuilder(
-    column: $table.recordedAtUtc,
+  ColumnFilters<String> get contactId => $composableBuilder(
+    column: $table.contactId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -38563,13 +38688,13 @@ class $$ActivityLedgerEntriesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<String> get contactId => $composableBuilder(
-    column: $table.contactId,
+  ColumnOrderings<DateTime> get recordedAtUtc => $composableBuilder(
+    column: $table.recordedAtUtc,
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<DateTime> get recordedAtUtc => $composableBuilder(
-    column: $table.recordedAtUtc,
+  ColumnOrderings<String> get contactId => $composableBuilder(
+    column: $table.contactId,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -38676,13 +38801,13 @@ class $$ActivityLedgerEntriesTableAnnotationComposer
     builder: (column) => column,
   );
 
-  GeneratedColumn<String> get contactId =>
-      $composableBuilder(column: $table.contactId, builder: (column) => column);
-
   GeneratedColumn<DateTime> get recordedAtUtc => $composableBuilder(
     column: $table.recordedAtUtc,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get contactId =>
+      $composableBuilder(column: $table.contactId, builder: (column) => column);
 
   $$LocalProfilesTableAnnotationComposer get profileId {
     final $$LocalProfilesTableAnnotationComposer composer = $composerBuilder(
@@ -38783,8 +38908,8 @@ class $$ActivityLedgerEntriesTableTableManager
                 Value<String> idempotencyKey = const Value.absent(),
                 Value<String?> reversalOfEntryId = const Value.absent(),
                 Value<String?> replacesEntryId = const Value.absent(),
-                Value<String?> contactId = const Value.absent(),
                 Value<DateTime> recordedAtUtc = const Value.absent(),
+                Value<String?> contactId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ActivityLedgerEntriesCompanion(
                 id: id,
@@ -38800,8 +38925,8 @@ class $$ActivityLedgerEntriesTableTableManager
                 idempotencyKey: idempotencyKey,
                 reversalOfEntryId: reversalOfEntryId,
                 replacesEntryId: replacesEntryId,
-                contactId: contactId,
                 recordedAtUtc: recordedAtUtc,
+                contactId: contactId,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -38819,8 +38944,8 @@ class $$ActivityLedgerEntriesTableTableManager
                 required String idempotencyKey,
                 Value<String?> reversalOfEntryId = const Value.absent(),
                 Value<String?> replacesEntryId = const Value.absent(),
-                Value<String?> contactId = const Value.absent(),
                 required DateTime recordedAtUtc,
+                Value<String?> contactId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ActivityLedgerEntriesCompanion.insert(
                 id: id,
@@ -38836,8 +38961,8 @@ class $$ActivityLedgerEntriesTableTableManager
                 idempotencyKey: idempotencyKey,
                 reversalOfEntryId: reversalOfEntryId,
                 replacesEntryId: replacesEntryId,
-                contactId: contactId,
                 recordedAtUtc: recordedAtUtc,
+                contactId: contactId,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -43580,6 +43705,8 @@ typedef $$ContactMethodsTableCreateCompanionBuilder =
       required String rawValue,
       required String normalizedValue,
       Value<bool> isPrimary,
+      Value<bool?> receivesTexts,
+      Value<bool?> hasWhatsApp,
       Value<int> rowid,
     });
 typedef $$ContactMethodsTableUpdateCompanionBuilder =
@@ -43591,6 +43718,8 @@ typedef $$ContactMethodsTableUpdateCompanionBuilder =
       Value<String> rawValue,
       Value<String> normalizedValue,
       Value<bool> isPrimary,
+      Value<bool?> receivesTexts,
+      Value<bool?> hasWhatsApp,
       Value<int> rowid,
     });
 
@@ -43660,6 +43789,16 @@ class $$ContactMethodsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<bool> get receivesTexts => $composableBuilder(
+    column: $table.receivesTexts,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get hasWhatsApp => $composableBuilder(
+    column: $table.hasWhatsApp,
+    builder: (column) => ColumnFilters(column),
+  );
+
   $$ContactsTableFilterComposer get contactId {
     final $$ContactsTableFilterComposer composer = $composerBuilder(
       composer: this,
@@ -43723,6 +43862,16 @@ class $$ContactMethodsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get receivesTexts => $composableBuilder(
+    column: $table.receivesTexts,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get hasWhatsApp => $composableBuilder(
+    column: $table.hasWhatsApp,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$ContactsTableOrderingComposer get contactId {
     final $$ContactsTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -43775,6 +43924,16 @@ class $$ContactMethodsTableAnnotationComposer
 
   GeneratedColumn<bool> get isPrimary =>
       $composableBuilder(column: $table.isPrimary, builder: (column) => column);
+
+  GeneratedColumn<bool> get receivesTexts => $composableBuilder(
+    column: $table.receivesTexts,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get hasWhatsApp => $composableBuilder(
+    column: $table.hasWhatsApp,
+    builder: (column) => column,
+  );
 
   $$ContactsTableAnnotationComposer get contactId {
     final $$ContactsTableAnnotationComposer composer = $composerBuilder(
@@ -43837,6 +43996,8 @@ class $$ContactMethodsTableTableManager
                 Value<String> rawValue = const Value.absent(),
                 Value<String> normalizedValue = const Value.absent(),
                 Value<bool> isPrimary = const Value.absent(),
+                Value<bool?> receivesTexts = const Value.absent(),
+                Value<bool?> hasWhatsApp = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ContactMethodsCompanion(
                 id: id,
@@ -43846,6 +44007,8 @@ class $$ContactMethodsTableTableManager
                 rawValue: rawValue,
                 normalizedValue: normalizedValue,
                 isPrimary: isPrimary,
+                receivesTexts: receivesTexts,
+                hasWhatsApp: hasWhatsApp,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -43857,6 +44020,8 @@ class $$ContactMethodsTableTableManager
                 required String rawValue,
                 required String normalizedValue,
                 Value<bool> isPrimary = const Value.absent(),
+                Value<bool?> receivesTexts = const Value.absent(),
+                Value<bool?> hasWhatsApp = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ContactMethodsCompanion.insert(
                 id: id,
@@ -43866,6 +44031,8 @@ class $$ContactMethodsTableTableManager
                 rawValue: rawValue,
                 normalizedValue: normalizedValue,
                 isPrimary: isPrimary,
+                receivesTexts: receivesTexts,
+                hasWhatsApp: hasWhatsApp,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

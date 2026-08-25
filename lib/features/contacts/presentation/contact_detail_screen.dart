@@ -2,21 +2,42 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
+import 'package:maplibre_gl/maplibre_gl.dart';
 import 'package:rmplanner/app/router/route_names.dart';
 import 'package:rmplanner/app/theme/app_theme.dart';
+import 'package:rmplanner/app/theme/contact_reference_style.dart';
 import 'package:rmplanner/app/theme/internal_screen.dart';
 import 'package:rmplanner/features/contacts/application/contact_providers.dart';
 import 'package:rmplanner/features/contacts/domain/contact.dart';
+import 'package:rmplanner/features/contacts/presentation/address_map_editor.dart';
+import 'package:rmplanner/features/contacts/presentation/availability_editor.dart';
+import 'package:rmplanner/features/contacts/presentation/contact_groups_editor.dart';
+import 'package:rmplanner/features/contacts/presentation/contact_information_editor.dart';
 import 'package:rmplanner/features/contacts/presentation/external_handoff.dart';
+import 'package:rmplanner/features/contacts/presentation/notes_editor.dart';
 import 'package:rmplanner/features/contacts/presentation/widgets/contact_timeline_view.dart';
 import 'package:rmplanner/features/contacts/presentation/widgets/contact_widgets.dart';
+import 'package:rmplanner/features/maps/application/map_coordinate_repository.dart';
+import 'package:rmplanner/features/maps/application/map_providers.dart';
+import 'package:rmplanner/features/maps/domain/map_coordinate.dart';
 import 'package:rmplanner/features/planner/domain/planner_task.dart';
 
-/// Contact Profile + Timeline (two tabs only, no Progress).  Profile holds
-/// Contact Information, Upcoming/Follow-Up, Availability, Groups & Tags,
-/// Notes, and Record Details.  The FAB offers New Event / New Task / Add
-/// Note; follow-up stays a Task or Calendar Event, never a third entity.
+final contactProfileMapCoordinateProvider =
+    FutureProvider.family<MapCoordinate?, String>((ref, contactId) {
+      return ref
+          .read(mapCoordinateRepositoryProvider)
+          .readCoordinate(
+            profileId: ref.read(contactProfileIdProvider),
+            owner: MapCoordinateOwner.contact,
+            recordId: contactId,
+          );
+    });
+
+/// Contact Profile + Timeline (two tabs only, no Progress). Profile holds
+/// factual Contact information; follow-up stays a Task or Calendar Event,
+/// never a third entity.
 final class ContactDetailScreen extends ConsumerStatefulWidget {
   const ContactDetailScreen({required this.contactId, super.key});
 
@@ -45,9 +66,7 @@ final class _ContactDetailScreenState
       return detailAsync.hasError
           ? Scaffold(
               appBar: InternalAppBar(title: const Text('Contact')),
-              body: const Center(
-                child: Text('Contact could not be opened.'),
-              ),
+              body: const Center(child: Text('Contact could not be opened.')),
             )
           : Scaffold(
               appBar: InternalAppBar(title: const Text('Contact')),
@@ -74,31 +93,42 @@ final class _ContactDetailScreenState
 
   Widget _build(ContactDetail detail) {
     final contact = detail.contact;
+    final primaryGroup = detail.groups.cast<ContactGroup?>().firstWhere(
+      (group) => group?.id == detail.primaryGroupId,
+      orElse: () => null,
+    );
+    final favoriteColor = contact.isFavorite
+        ? primaryGroup == null
+              ? AppTheme.secondaryTextOf(context)
+              : Color(primaryGroup.colorValue)
+        : AppTheme.secondaryTextOf(context);
     return Scaffold(
+      backgroundColor: ContactReferenceStyle.canvasOf(context),
       appBar: AppBar(
+        toolbarHeight: 56,
+        backgroundColor: ContactReferenceStyle.canvasOf(context),
+        surfaceTintColor: Colors.transparent,
+        scrolledUnderElevation: 0,
         title: Text(
           contact.displayName,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: AppTypography.appBarTitle,
+          style: TextStyle(
+            color: ContactReferenceStyle.onCanvasOf(context),
+            fontSize: 22,
+            fontWeight: FontWeight.w600,
+          ),
         ),
         actions: <Widget>[
           IconButton(
-            key: const Key('contact-favorite-toggle'),
+            key: const Key('contact-detail-favorite'),
             tooltip: contact.isFavorite ? 'Remove favorite' : 'Add favorite',
+            onPressed: () => _setFavorite(contact),
             icon: Icon(
               contact.isFavorite ? Icons.star : Icons.star_border,
-              color: contact.isFavorite ? AppTheme.rose : null,
+              size: 24,
+              color: favoriteColor,
             ),
-            onPressed: () async {
-              final repository = ref.read(contactRepositoryProvider);
-              final profileId = ref.read(contactProfileIdProvider);
-              await repository.setFavorite(
-                profileId: profileId,
-                contactId: contact.id,
-                favorite: !contact.isFavorite,
-              );
-            },
           ),
           PopupMenuButton<String>(
             key: const Key('contact-detail-overflow'),
@@ -129,22 +159,180 @@ final class _ContactDetailScreenState
             child: _tab == 0
                 ? _ProfileTab(
                     detail: detail,
-                    onEdit: () =>
+                    onFullEdit: () =>
                         context.push(RoutePaths.contactEdit(contact.id)),
+                    onEditContactInformation: () =>
+                        _editContactInformation(detail),
+                    onEditAddressAndMap: () => _editAddressAndMap(detail),
+                    onEditGroups: () => _editGroups(detail),
+                    onEditAvailability: () => _editAvailability(detail),
+                    onEditNotes: () => _editNotes(detail),
                   )
                 : _TimelineTab(contactId: contact.id),
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        key: const Key('contact-detail-fab'),
-        tooltip: 'Create',
-        onPressed: () => _showFabActions(detail),
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        foregroundColor: Theme.of(context).colorScheme.onPrimary,
-        child: const Icon(Icons.add, size: 28),
+    );
+  }
+
+  void _setFavorite(Contact contact) {
+    unawaited(
+      ref
+          .read(contactRepositoryProvider)
+          .setFavorite(
+            profileId: ref.read(contactProfileIdProvider),
+            contactId: contact.id,
+            favorite: !contact.isFavorite,
+          ),
+    );
+  }
+
+  Future<void> _editContactInformation(ContactDetail detail) async {
+    final profileId = ref.read(contactProfileIdProvider);
+    final result = await Navigator.of(context)
+        .push<ContactInformationEditResult>(
+          MaterialPageRoute<ContactInformationEditResult>(
+            builder: (_) => ContactInformationEditor(detail: detail),
+          ),
+        );
+    if (result == null || !mounted) {
+      return;
+    }
+    await ref
+        .read(contactRepositoryProvider)
+        .updateContactIdentityAndMethods(
+          profileId: profileId,
+          contactId: detail.contact.id,
+          firstName: result.firstName,
+          lastName: result.lastName,
+          displayName: result.displayName,
+          preferredContactMethod: result.preferredContactMethod,
+          methods: result.methods,
+        );
+  }
+
+  Future<void> _editAddressAndMap(ContactDetail detail) async {
+    final profileId = ref.read(contactProfileIdProvider);
+    final initialCoordinate = await ref.read(
+      contactProfileMapCoordinateProvider(detail.contact.id).future,
+    );
+    if (!mounted) {
+      return;
+    }
+    final result = await Navigator.of(context).push<AddressMapEditResult>(
+      MaterialPageRoute<AddressMapEditResult>(
+        builder: (_) => AddressMapEditor(
+          displayName: detail.contact.displayName,
+          initialAddress: detail.contact.addressText,
+          initialCoordinate: initialCoordinate,
+        ),
       ),
     );
+    if (result == null || !mounted) {
+      return;
+    }
+    await ref
+        .read(contactRepositoryProvider)
+        .updateContactAddress(
+          profileId: profileId,
+          contactId: detail.contact.id,
+          addressText: result.address,
+        );
+    if (result.coordinateChanged) {
+      final maps = ref.read(mapCoordinateRepositoryProvider);
+      if (result.coordinate == null) {
+        await maps.clearCoordinate(
+          profileId: profileId,
+          owner: MapCoordinateOwner.contact,
+          recordId: detail.contact.id,
+        );
+      } else {
+        await maps.setCoordinate(
+          profileId: profileId,
+          owner: MapCoordinateOwner.contact,
+          recordId: detail.contact.id,
+          coordinate: result.coordinate!,
+        );
+      }
+      ref.invalidate(contactProfileMapCoordinateProvider(detail.contact.id));
+    }
+  }
+
+  Future<void> _editGroups(ContactDetail detail) async {
+    final profileId = ref.read(contactProfileIdProvider);
+    final groups = await ref
+        .read(contactRepositoryProvider)
+        .readGroups(profileId);
+    if (!mounted) {
+      return;
+    }
+    final result = await Navigator.of(context).push<ContactGroupsEditResult>(
+      MaterialPageRoute<ContactGroupsEditResult>(
+        builder: (_) => ContactGroupsEditor(
+          groups: groups,
+          initialPrimaryGroupId: detail.primaryGroupId,
+        ),
+      ),
+    );
+    if (result == null || !mounted) {
+      return;
+    }
+    await ref
+        .read(contactRepositoryProvider)
+        .setContactGroups(
+          profileId: profileId,
+          contactId: detail.contact.id,
+          groupIds: result.primaryGroupId == null
+              ? const <String>[]
+              : <String>[result.primaryGroupId!],
+          primaryGroupId: result.primaryGroupId,
+        );
+  }
+
+  Future<void> _editAvailability(ContactDetail detail) async {
+    final result = await Navigator.of(context).push<AvailabilityEditResult>(
+      MaterialPageRoute<AvailabilityEditResult>(
+        builder: (_) => AvailabilityEditor(initialWindows: detail.availability),
+      ),
+    );
+    if (result == null || !mounted) return;
+    await ref
+        .read(contactRepositoryProvider)
+        .setAvailability(
+          profileId: ref.read(contactProfileIdProvider),
+          contactId: detail.contact.id,
+          windows: result.windows,
+        );
+  }
+
+  Future<void> _editNotes(ContactDetail detail) async {
+    final result = await Navigator.of(context).push<NotesEditResult>(
+      MaterialPageRoute<NotesEditResult>(
+        builder: (_) => NotesEditor(initialNotes: detail.notes),
+      ),
+    );
+    if (result == null || !mounted) {
+      return;
+    }
+    final repository = ref.read(contactRepositoryProvider);
+    final profileId = ref.read(contactProfileIdProvider);
+    for (final noteId in result.deletions) {
+      await repository.deleteNote(profileId: profileId, noteId: noteId);
+    }
+    for (final entry in result.updates.entries) {
+      await repository.updateNote(
+        profileId: profileId,
+        noteId: entry.key,
+        text: entry.value,
+      );
+    }
+    for (final text in result.additions) {
+      await repository.addNote(
+        profileId: profileId,
+        contactId: detail.contact.id,
+        text: text,
+      );
+    }
   }
 
   void _handleOverflow(String value, ContactDetail detail) {
@@ -213,107 +401,6 @@ final class _ContactDetailScreenState
       );
     }
   }
-
-  Future<void> _showFabActions(ContactDetail detail) async {
-    final action = await showModalBottomSheet<String>(
-      context: context,
-      builder: (sheetContext) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text(
-                'Create with ${detail.contact.displayName}',
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-            ListTile(
-              key: const Key('fab-new-event'),
-              leading: const Icon(Icons.event_outlined),
-              title: const Text('New Event'),
-              subtitle: const Text(
-                'Opens the Event form with this Contact pre-selected in People.',
-              ),
-              onTap: () => Navigator.of(sheetContext).pop('event'),
-            ),
-            ListTile(
-              key: const Key('fab-new-task'),
-              leading: const Icon(Icons.task_alt),
-              title: const Text('New Task / Follow-Up'),
-              subtitle: const Text('A separate Task, linked to this Contact.'),
-              onTap: () => Navigator.of(sheetContext).pop('task'),
-            ),
-            ListTile(
-              key: const Key('fab-add-note'),
-              leading: const Icon(Icons.notes_outlined),
-              title: const Text('Add Note'),
-              onTap: () => Navigator.of(sheetContext).pop('note'),
-            ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
-    );
-    if (!mounted || action == null) {
-      return;
-    }
-    switch (action) {
-      case 'event':
-        await context.push(
-          '${RoutePaths.calendarEventCreate}?contacts=${detail.contact.id}',
-        );
-      case 'task':
-        await context.push(
-          '${RoutePaths.taskCreate}?contacts=${detail.contact.id}',
-        );
-      case 'note':
-        await _addNote(detail);
-    }
-  }
-
-  Future<void> _addNote(ContactDetail detail) async {
-    final controller = TextEditingController();
-    final text = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Add Note'),
-        content: TextField(
-          key: const Key('add-note-field'),
-          controller: controller,
-          autofocus: true,
-          maxLines: 4,
-          decoration: const InputDecoration(hintText: 'Write a note...'),
-        ),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            key: const Key('save-note-button'),
-            onPressed: () =>
-                Navigator.of(dialogContext).pop(controller.text.trim()),
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-    controller.dispose();
-    if (text != null && text.isNotEmpty && mounted) {
-      final repository = ref.read(contactRepositoryProvider);
-      final profileId = ref.read(contactProfileIdProvider);
-      await repository.addNote(
-        profileId: profileId,
-        contactId: detail.contact.id,
-        text: text,
-      );
-    }
-  }
 }
 
 final class _TabBar extends StatelessWidget {
@@ -329,7 +416,7 @@ final class _TabBar extends StatelessWidget {
       decoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(
-            color: AppTheme.surfaceVariantOf(context),
+            color: ContactReferenceStyle.lineOf(context),
             width: 1,
           ),
         ),
@@ -380,17 +467,17 @@ final class _TabItem extends StatelessWidget {
                 fontSize: 16,
                 fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
                 color: selected
-                    ? Theme.of(context).colorScheme.primary
-                    : AppTheme.secondaryTextOf(context),
+                    ? ContactReferenceStyle.actionOf(context)
+                    : ContactReferenceStyle.onCanvasOf(context),
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 2),
             Container(
-              width: 36,
-              height: 3,
+              width: 56,
+              height: 2,
               decoration: BoxDecoration(
                 color: selected
-                    ? Theme.of(context).colorScheme.primary
+                    ? ContactReferenceStyle.actionOf(context)
                     : Colors.transparent,
                 borderRadius: BorderRadius.circular(1.5),
               ),
@@ -407,10 +494,23 @@ final class _TabItem extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 final class _ProfileTab extends ConsumerWidget {
-  const _ProfileTab({required this.detail, required this.onEdit});
+  const _ProfileTab({
+    required this.detail,
+    required this.onFullEdit,
+    required this.onEditContactInformation,
+    required this.onEditAddressAndMap,
+    required this.onEditGroups,
+    required this.onEditAvailability,
+    required this.onEditNotes,
+  });
 
   final ContactDetail detail;
-  final VoidCallback onEdit;
+  final VoidCallback onFullEdit;
+  final VoidCallback onEditContactInformation;
+  final VoidCallback onEditAddressAndMap;
+  final VoidCallback onEditGroups;
+  final VoidCallback onEditAvailability;
+  final VoidCallback onEditNotes;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -422,32 +522,50 @@ final class _ProfileTab extends ConsumerWidget {
         ref.watch(commonEventPatternsProvider(contact.id)).value ??
         const <CommonEventPattern>[];
     final timeline = ref.watch(contactTimelineProvider(contact.id)).value;
+    final coordinate = ref
+        .watch(contactProfileMapCoordinateProvider(contact.id))
+        .value;
     final nextEvent = timeline?.upcoming.isEmpty ?? true
         ? null
         : timeline!.upcoming.first;
 
     return ListView(
       key: const Key('contact-profile-tab'),
-      padding: const EdgeInsets.only(bottom: 96),
+      padding: const EdgeInsets.only(bottom: 24),
       children: <Widget>[
         _SectionHeader(
           title: 'Contact Information',
-          action: _EditAction(label: 'Edit', onTap: onEdit),
+          action: _EditAction(label: 'Edit', onTap: onEditContactInformation),
         ),
-        _ContactInformation(
-          detail: detail,
-          onAddNote: (text) => ref
-              .read(contactRepositoryProvider)
-              .addNote(
-                profileId: ref.read(contactProfileIdProvider),
-                contactId: detail.contact.id,
-                text: text,
-              ),
+        _ContactInformation(detail: detail),
+        _SectionHeader(
+          title: 'Address & Map',
+          action: _EditAction(label: 'Edit', onTap: onEditAddressAndMap),
+        ),
+        _AddressMapSection(
+          address: contact.addressText,
+          coordinate: coordinate,
+          onMapPreviewTap: coordinate == null
+              ? null
+              : () {
+                  ref
+                      .read(mapTransientFocusProvider.notifier)
+                      .focus(coordinate);
+                  context.go(RoutePaths.maps);
+                },
+        ),
+        _SectionHeader(
+          title: 'Groups',
+          action: _EditAction(label: 'Edit', onTap: onEditGroups),
+        ),
+        _GroupsSection(
+          groups: detail.groups,
+          primaryGroupId: detail.primaryGroupId,
         ),
         _SectionHeader(
           title: 'Upcoming / Follow-Up',
-          action: _EditAction(
-            label: 'Create',
+          action: _SectionIconAction(
+            tooltip: 'Create follow-up',
             onTap: () => _createFollowUp(context),
           ),
         ),
@@ -455,21 +573,22 @@ final class _ProfileTab extends ConsumerWidget {
           nextEventTitle: nextEvent?.title,
           nextEventSubtitle: nextEvent?.subtitle,
           upcomingTasks: upcomingTasks,
-          onCreateFollowUp: () => _createFollowUp(context),
         ),
-        _SectionHeader(title: 'Availability'),
+        _SectionHeader(
+          title: 'Availability',
+          action: _EditAction(
+            actionKey: const Key('profile-availability-edit'),
+            label: 'Edit',
+            onTap: onEditAvailability,
+          ),
+        ),
         _AvailabilitySection(windows: detail.availability, patterns: patterns),
-        _SectionHeader(title: 'Groups & Tags'),
-        _GroupsTagsSection(
-          groups: detail.groups,
-          primaryGroupId: detail.primaryGroupId,
-          tags: detail.tags,
-        ),
         _SectionHeader(
           title: 'Notes',
           action: _EditAction(
-            label: 'Add',
-            onTap: () => _addNoteFromProfile(context, ref),
+            actionKey: const Key('profile-notes-edit'),
+            label: 'Edit',
+            onTap: onEditNotes,
           ),
         ),
         _NotesSection(notes: detail.notes),
@@ -524,43 +643,6 @@ final class _ProfileTab extends ConsumerWidget {
       }),
     );
   }
-
-  Future<void> _addNoteFromProfile(BuildContext context, WidgetRef ref) async {
-    final controller = TextEditingController();
-    final text = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Add Note'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          maxLines: 4,
-        ),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () =>
-                Navigator.of(dialogContext).pop(controller.text.trim()),
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-    controller.dispose();
-    if (text != null && text.isNotEmpty && context.mounted) {
-      final profileId = ref.read(contactProfileIdProvider);
-      await ref
-          .read(contactRepositoryProvider)
-          .addNote(
-            profileId: profileId,
-            contactId: detail.contact.id,
-            text: text,
-          );
-    }
-  }
 }
 
 final class _SectionHeader extends StatelessWidget {
@@ -572,20 +654,27 @@ final class _SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
-      child: Row(
+      padding: const EdgeInsets.fromLTRB(16, 18, 16, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          Expanded(
-            child: Text(
-              title,
-              style: const TextStyle(
-                fontFamily: 'Roboto',
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: Text(
+                  title.toUpperCase(),
+                  style: TextStyle(
+                    color: ContactReferenceStyle.onCanvasOf(context),
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
-            ),
+              ?action,
+            ],
           ),
-          ?action,
+          const SizedBox(height: 8),
+          Container(height: 1, color: ContactReferenceStyle.lineOf(context)),
         ],
       ),
     );
@@ -593,19 +682,21 @@ final class _SectionHeader extends StatelessWidget {
 }
 
 final class _EditAction extends StatelessWidget {
-  const _EditAction({required this.label, required this.onTap});
+  const _EditAction({required this.label, required this.onTap, this.actionKey});
 
   final String label;
   final VoidCallback onTap;
+  final Key? actionKey;
 
   @override
   Widget build(BuildContext context) {
     return TextButton(
+      key: actionKey,
       onPressed: onTap,
       style: TextButton.styleFrom(
-        minimumSize: const Size(48, 36),
+        minimumSize: const Size(48, 40),
         padding: const EdgeInsets.symmetric(horizontal: 8),
-        foregroundColor: Theme.of(context).colorScheme.primary,
+        foregroundColor: ContactReferenceStyle.actionOf(context),
         textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
       ),
       child: Text(label),
@@ -613,11 +704,28 @@ final class _EditAction extends StatelessWidget {
   }
 }
 
+final class _SectionIconAction extends StatelessWidget {
+  const _SectionIconAction({required this.tooltip, required this.onTap});
+
+  final String tooltip;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      key: const Key('create-follow-up'),
+      tooltip: tooltip,
+      onPressed: onTap,
+      color: ContactReferenceStyle.actionOf(context),
+      icon: const Icon(Icons.add, size: 24),
+    );
+  }
+}
+
 final class _ContactInformation extends StatelessWidget {
-  const _ContactInformation({required this.detail, required this.onAddNote});
+  const _ContactInformation({required this.detail});
 
   final ContactDetail detail;
-  final Future<void> Function(String note) onAddNote;
 
   @override
   Widget build(BuildContext context) {
@@ -631,66 +739,116 @@ final class _ContactInformation extends StatelessWidget {
     final social = methods
         .where((m) => m.type == ContactMethodType.social)
         .toList();
-    final address = detail.contact.addressText;
     final rows = <Widget>[
       for (final method in phone)
         _InfoRow(
-          icon: Icons.phone_outlined,
           primary: method.rawValue,
-          secondary: method.label ?? 'Phone',
+          secondary: _methodLabel(method.label ?? 'Phone', method.isPrimary),
           trailing: _HandoffButtons(
-            onCall: () => _handoff(context, 'call', method.rawValue),
-            onMessage: () => _handoff(context, 'message', method.rawValue),
+            onCall: _isValidPhone(method.rawValue)
+                ? () => _handoff(context, 'call', method.rawValue)
+                : null,
+            onMessage:
+                method.receivesTexts == true && _isValidPhone(method.rawValue)
+                ? () => _handoff(context, 'message', method.rawValue)
+                : null,
+            showWhatsApp:
+                method.hasWhatsApp == true && _isValidPhone(method.rawValue),
+            onWhatsApp:
+                method.hasWhatsApp == true && _isValidPhone(method.rawValue)
+                ? () => _handoff(context, 'whatsapp', method.rawValue)
+                : null,
           ),
         ),
       for (final method in email)
         _InfoRow(
-          icon: Icons.mail_outline,
           primary: method.rawValue,
-          secondary: method.label ?? 'Email',
+          secondary: _methodLabel(method.label ?? 'Email', method.isPrimary),
           trailing: _HandoffButtons(
-            onEmail: () => _handoff(context, 'email', method.rawValue),
+            onEmail: _isValidEmail(method.rawValue)
+                ? () => _handoff(context, 'email', method.rawValue)
+                : null,
           ),
         ),
       for (final method in social)
         _InfoRow(
-          icon: Icons.alternate_email,
           primary: method.rawValue,
-          secondary: method.label ?? 'Social Profile',
+          secondary: _methodLabel(
+            method.label ?? 'Social Profile',
+            method.isPrimary,
+          ),
+          trailing: _SocialIcon(label: method.label),
         ),
-      if (address != null && address.isNotEmpty)
-        _InfoRow(
-          icon: Icons.place_outlined,
-          primary: address,
-          secondary: 'Address',
-        ),
-      _InfoRow(
-        icon: Icons.touch_app_outlined,
-        primary: _preferredLabel(detail.contact.preferredContactMethod),
-        secondary: 'Preferred contact method',
-      ),
     ];
+    if (rows.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        child: Text('No contact methods added.'),
+      );
+    }
     return Column(children: rows);
   }
 
-  static String _preferredLabel(ContactPreferredMethod method) {
-    return switch (method) {
-      ContactPreferredMethod.message => 'Message',
-      ContactPreferredMethod.call => 'Call',
-      ContactPreferredMethod.email => 'Email',
-    };
-  }
+  static String _methodLabel(String label, bool preferred) =>
+      preferred ? '$label · Preferred' : label;
 
   Future<void> _handoff(
     BuildContext context,
     String kind,
     String rawValue,
   ) async {
-    final launched = switch (kind) {
-      'call' => await ExternalHandoff.launchCall(rawValue),
-      'message' => await ExternalHandoff.launchSms(rawValue),
-      _ => await ExternalHandoff.launchEmail(rawValue),
-    };
+    bool launched;
+    if (kind == 'whatsapp') {
+      final localDigits = ExternalHandoff.philippineLocalWhatsAppDigits(
+        rawValue,
+      );
+      if (localDigits != null) {
+        final continueHandoff = await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('Open in WhatsApp?'),
+            content: Text(
+              '${rawValue.trim()} will be used as:\n'
+              '${ExternalHandoff.displayInternationalDigits(localDigits)}',
+            ),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                key: const Key('whatsapp-local-continue'),
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: const Text('Continue'),
+              ),
+            ],
+          ),
+        );
+        if (continueHandoff != true || !context.mounted) {
+          return;
+        }
+        launched = await ExternalHandoff.launchWhatsAppDigits(localDigits);
+      } else {
+        launched = await ExternalHandoff.launchWhatsApp(rawValue);
+        if (!launched && context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Use an international number for WhatsApp, or a Philippine '
+                '09XXXXXXXXX mobile number.',
+              ),
+            ),
+          );
+          return;
+        }
+      }
+    } else {
+      launched = switch (kind) {
+        'call' => await ExternalHandoff.launchCall(rawValue),
+        'message' => await ExternalHandoff.launchSms(rawValue),
+        _ => await ExternalHandoff.launchEmail(rawValue),
+      };
+    }
     if (!launched) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -709,43 +867,81 @@ final class _ContactInformation extends StatelessWidget {
     await ExternalHandoff.showReturnSheet(
       context,
       contactDisplayName: detail.contact.displayName,
-      onAddNote: onAddNote,
     );
   }
+
+  static bool _isValidPhone(String value) =>
+      value.replaceAll(RegExp(r'[^0-9]'), '').isNotEmpty;
+
+  static bool _isValidEmail(String value) =>
+      RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(value.trim());
 }
 
 final class _HandoffButtons extends StatelessWidget {
-  const _HandoffButtons({this.onCall, this.onMessage, this.onEmail});
+  const _HandoffButtons({
+    this.onCall,
+    this.onMessage,
+    this.onWhatsApp,
+    this.onEmail,
+    this.showWhatsApp = false,
+  });
 
   final VoidCallback? onCall;
   final VoidCallback? onMessage;
+  final VoidCallback? onWhatsApp;
   final VoidCallback? onEmail;
+  final bool showWhatsApp;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
-        if (onCall != null)
+        if (showWhatsApp)
           IconButton(
-            key: const Key('handoff-call'),
-            tooltip: 'Call',
-            onPressed: onCall,
-            icon: const Icon(Icons.call_outlined, size: 20),
+            key: const Key('handoff-whatsapp'),
+            tooltip: 'WhatsApp enabled',
+            onPressed: onWhatsApp,
+            icon: SvgPicture.asset(
+              'assets/icons/contacts/social/whatsapp-action.svg',
+              width: 22,
+              height: 22,
+              colorFilter: ColorFilter.mode(
+                ContactReferenceStyle.actionOf(context),
+                BlendMode.srcIn,
+              ),
+            ),
           ),
         if (onMessage != null)
           IconButton(
             key: const Key('handoff-message'),
             tooltip: 'Message',
             onPressed: onMessage,
-            icon: const Icon(Icons.chat_outlined, size: 20),
+            color: ContactReferenceStyle.actionOf(context),
+            icon: const Icon(Icons.chat_bubble_outline, size: 22),
+          ),
+        if (onCall != null)
+          IconButton(
+            key: const Key('handoff-call'),
+            tooltip: 'Call',
+            onPressed: onCall,
+            icon: SvgPicture.asset(
+              'assets/icons/contacts/social/phone-action.svg',
+              width: 22,
+              height: 22,
+              colorFilter: ColorFilter.mode(
+                ContactReferenceStyle.actionOf(context),
+                BlendMode.srcIn,
+              ),
+            ),
           ),
         if (onEmail != null)
           IconButton(
             key: const Key('handoff-email'),
             tooltip: 'Email',
             onPressed: onEmail,
-            icon: const Icon(Icons.mail_outline, size: 20),
+            color: ContactReferenceStyle.actionOf(context),
+            icon: const Icon(Icons.mail_outline, size: 22),
           ),
       ],
     );
@@ -754,41 +950,45 @@ final class _HandoffButtons extends StatelessWidget {
 
 final class _InfoRow extends StatelessWidget {
   const _InfoRow({
-    required this.icon,
     required this.primary,
     required this.secondary,
     this.trailing,
   });
 
-  final IconData icon;
   final String primary;
   final String secondary;
   final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(vertical: 9),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: ContactReferenceStyle.lineOf(context)),
+        ),
+      ),
       child: Row(
         children: <Widget>[
-          Icon(icon, size: 22, color: AppTheme.secondaryTextOf(context)),
-          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Text(
                   primary.isEmpty ? '—' : primary,
-                  style: const TextStyle(
+                  style: TextStyle(
+                    color: ContactReferenceStyle.onCanvasOf(context),
                     fontSize: 17,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w400,
                   ),
                 ),
+                const SizedBox(height: 2),
                 Text(
                   secondary,
                   style: TextStyle(
-                    color: AppTheme.secondaryTextOf(context),
-                    fontSize: 13,
+                    color: ContactReferenceStyle.onCanvasOf(context),
+                    fontSize: 14,
                   ),
                 ),
               ],
@@ -801,18 +1001,43 @@ final class _InfoRow extends StatelessWidget {
   }
 }
 
+final class _SocialIcon extends StatelessWidget {
+  const _SocialIcon({required this.label});
+
+  final String? label;
+
+  @override
+  Widget build(BuildContext context) {
+    final normalized = label?.trim().toLowerCase();
+    final asset = switch (normalized) {
+      'facebook' => 'assets/icons/contacts/social/facebook.svg',
+      'messenger' => 'assets/icons/contacts/social/messenger.svg',
+      'whatsapp' => 'assets/icons/contacts/social/whatsapp.svg',
+      'line' => 'assets/icons/contacts/social/line.svg',
+      'skype' => 'assets/icons/contacts/social/skype.svg',
+      'kakaotalk' => 'assets/icons/contacts/social/kakaotalk.svg',
+      'instagram' => 'assets/icons/contacts/social/instagram.svg',
+      _ => null,
+    };
+    if (normalized == 'x') {
+      return const Text('𝕏', style: TextStyle(fontSize: 22));
+    }
+    return asset == null
+        ? const Icon(Icons.alternate_email, size: 22)
+        : SvgPicture.asset(asset, width: 22, height: 22);
+  }
+}
+
 final class _UpcomingSection extends StatelessWidget {
   const _UpcomingSection({
     required this.nextEventTitle,
     required this.nextEventSubtitle,
     required this.upcomingTasks,
-    required this.onCreateFollowUp,
   });
 
   final String? nextEventTitle;
   final String? nextEventSubtitle;
   final List<PlannerTask> upcomingTasks;
-  final VoidCallback onCreateFollowUp;
 
   @override
   Widget build(BuildContext context) {
@@ -827,12 +1052,6 @@ final class _UpcomingSection extends StatelessWidget {
               style: TextStyle(color: AppTheme.secondaryTextOf(context)),
             ),
             const SizedBox(height: 8),
-            TextButton.icon(
-              key: const Key('create-follow-up-empty'),
-              onPressed: onCreateFollowUp,
-              icon: const Icon(Icons.add, size: 20),
-              label: const Text('Create follow-up'),
-            ),
           ],
         ),
       );
@@ -855,10 +1074,7 @@ final class _UpcomingSection extends StatelessWidget {
           ListTile(
             key: Key('profile-upcoming-task-${task.id}'),
             contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-            leading: Icon(
-              Icons.task_alt,
-              color: AppTheme.warningOf(context),
-            ),
+            leading: Icon(Icons.task_alt, color: AppTheme.warningOf(context)),
             title: Text(
               task.title,
               style: const TextStyle(fontWeight: FontWeight.w500),
@@ -972,59 +1188,160 @@ final class _AvailabilitySection extends StatelessWidget {
   }
 }
 
-final class _GroupsTagsSection extends StatelessWidget {
-  const _GroupsTagsSection({
-    required this.groups,
-    required this.primaryGroupId,
-    required this.tags,
-  });
+final class _GroupsSection extends StatelessWidget {
+  const _GroupsSection({required this.groups, required this.primaryGroupId});
 
   final List<ContactGroup> groups;
   final String? primaryGroupId;
-  final List<ContactTag> tags;
 
   @override
   Widget build(BuildContext context) {
-    // C2 one-group V1: show the single current/primary group only. Dormant
-    // legacy secondary memberships are preserved but never rendered here.
-    final currentGroup = groups
-        .where((group) => group.id == primaryGroupId)
-        .firstOrNull;
+    final primary = groups.cast<ContactGroup?>().firstWhere(
+      (group) => group?.id == primaryGroupId,
+      orElse: () => null,
+    );
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 8,
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          if (currentGroup != null)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: AppTheme.surfaceRaisedOf(context),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Color(currentGroup.colorValue)),
-              ),
-              child: Text(
-                currentGroup.name,
-                style: const TextStyle(fontSize: 14),
+          if (primary != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                children: <Widget>[
+                  Container(
+                    width: 18,
+                    height: 18,
+                    decoration: BoxDecoration(
+                      color: Color(primary.colorValue),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Text(
+                      primary.name,
+                      style: const TextStyle(fontSize: 16),
+                    ),
+                  ),
+                ],
               ),
             ),
-          for (final tag in tags)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: AppTheme.surfaceRaisedOf(context),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppTheme.surfaceVariantOf(context)),
-              ),
-              child: Text(tag.name, style: const TextStyle(fontSize: 14)),
-            ),
-          if (currentGroup == null && tags.isEmpty)
+          if (primary == null)
             Text(
-              'No groups or tags.',
+              'No group',
               style: TextStyle(color: AppTheme.secondaryTextOf(context)),
             ),
         ],
+      ),
+    );
+  }
+}
+
+final class _AddressMapSection extends StatelessWidget {
+  const _AddressMapSection({
+    required this.address,
+    required this.coordinate,
+    required this.onMapPreviewTap,
+  });
+
+  final String? address;
+  final MapCoordinate? coordinate;
+  final VoidCallback? onMapPreviewTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasAddress = address?.trim().isNotEmpty ?? false;
+    if (!hasAddress && coordinate == null) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Text(
+          'No address or map pin saved.',
+          style: TextStyle(color: AppTheme.secondaryTextOf(context)),
+        ),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          if (hasAddress)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                Text(address!, style: const TextStyle(fontSize: 16)),
+                if (coordinate != null) ...<Widget>[
+                  const SizedBox(height: 12),
+                  _ProfileMapPreview(
+                    coordinate: coordinate!,
+                    onTap: onMapPreviewTap,
+                  ),
+                ],
+              ],
+            )
+          else if (coordinate != null)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                const Text('Saved map pin', style: TextStyle(fontSize: 16)),
+                const SizedBox(height: 12),
+                _ProfileMapPreview(
+                  coordinate: coordinate!,
+                  onTap: onMapPreviewTap,
+                ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+final class _ProfileMapPreview extends StatelessWidget {
+  const _ProfileMapPreview({required this.coordinate, required this.onTap});
+
+  final MapCoordinate coordinate;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      key: const Key('profile-map-pin'),
+      label: 'Saved map pin preview',
+      button: true,
+      child: InkWell(
+        key: const Key('profile-map-preview'),
+        onTap: onTap,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: SizedBox(
+            width: double.infinity,
+            height: 190,
+            child: Stack(
+              fit: StackFit.expand,
+              children: <Widget>[
+                IgnorePointer(
+                  child: MapLibreMap(
+                    initialCameraPosition: CameraPosition(
+                      target: LatLng(coordinate.latitude, coordinate.longitude),
+                      zoom: 14,
+                    ),
+                    styleString: MapLibreStyles.openfreemapLiberty,
+                  ),
+                ),
+                Center(
+                  child: Icon(
+                    Icons.location_on,
+                    color: ContactReferenceStyle.actionOf(context),
+                    size: 32,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -1046,24 +1363,67 @@ final class _NotesSection extends StatelessWidget {
         ),
       );
     }
-    return Column(
-      children: <Widget>[
-        for (final note in notes)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppTheme.surfaceOf(context),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppTheme.surfaceVariantOf(context)),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      child: Column(
+        children: <Widget>[
+          for (final note in notes)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Icon(
+                    Icons.note_alt_outlined,
+                    size: 24,
+                    color: ContactReferenceStyle.actionOf(context),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          note.noteText,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 16),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Updated ${_shortDate(note.updatedAtUtc.toLocal())}',
+                          style: TextStyle(
+                            color: AppTheme.secondaryTextOf(context),
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              child: Text(note.noteText, style: const TextStyle(fontSize: 14)),
             ),
-          ),
-      ],
+        ],
+      ),
     );
+  }
+
+  static String _shortDate(DateTime value) {
+    const months = <String>[
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    return '${months[value.month - 1]} ${value.day}, ${value.year}';
   }
 }
 
@@ -1075,6 +1435,7 @@ final class _RecordDetails extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final created = contact.createdAtUtc.toLocal();
+    final updated = contact.updatedAtUtc.toLocal();
     const months = <String>[
       'Jan',
       'Feb',
@@ -1091,17 +1452,20 @@ final class _RecordDetails extends StatelessWidget {
     ];
     final createdLabel =
         '${months[created.month - 1]} ${created.day}, ${created.year}';
+    final updatedLabel =
+        '${months[updated.month - 1]} ${updated.day}, ${updated.year}';
     final origin = switch (contact.source) {
       ContactSource.manual => 'Manual',
       ContactSource.deviceImport => 'Device Import',
       ContactSource.betterCalendarImport => 'BetterCalendar Import',
     };
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           _detailRow(context, 'Created', createdLabel),
+          _detailRow(context, 'Updated', updatedLabel),
           _detailRow(context, 'Origin', origin),
         ],
       ),
@@ -1113,8 +1477,17 @@ final class _RecordDetails extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: <Widget>[
-          SizedBox(
-            width: 90,
+          Icon(
+            label == 'Created'
+                ? Icons.calendar_today_outlined
+                : label == 'Updated'
+                ? Icons.edit_outlined
+                : Icons.download_outlined,
+            size: 20,
+            color: AppTheme.secondaryTextOf(context),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
             child: Text(
               label,
               style: TextStyle(
@@ -1123,7 +1496,7 @@ final class _RecordDetails extends StatelessWidget {
               ),
             ),
           ),
-          Expanded(child: Text(value, style: const TextStyle(fontSize: 15))),
+          Text(value, style: const TextStyle(fontSize: 15)),
         ],
       ),
     );

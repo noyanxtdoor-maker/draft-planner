@@ -181,6 +181,8 @@ final class DriftContactRepository implements ContactRepository {
                 value: method.rawValue,
                 label: method.label,
                 isPrimary: method.isPrimary,
+                receivesTexts: method.receivesTexts,
+                hasWhatsApp: method.hasWhatsApp,
               ),
             ),
           );
@@ -248,6 +250,110 @@ final class DriftContactRepository implements ContactRepository {
       );
       return detail.contact;
     });
+  }
+
+  @override
+  Future<Contact> updateContactIdentityAndMethods({
+    required String profileId,
+    required String contactId,
+    required String firstName,
+    required String lastName,
+    required String displayName,
+    required ContactPreferredMethod preferredContactMethod,
+    required List<ContactMethodDraft> methods,
+  }) async {
+    final chosenPrimaryTypes = <ContactMethodType>{};
+    final scopedMethods = methods
+        .map((method) {
+          final isPrimary =
+              method.isPrimary && chosenPrimaryTypes.add(method.type);
+          return ContactMethodDraft(
+            id: method.id,
+            type: method.type,
+            value: method.value,
+            label: method.label,
+            isPrimary: isPrimary,
+            receivesTexts: method.receivesTexts,
+            hasWhatsApp: method.hasWhatsApp,
+          );
+        })
+        .toList(growable: false);
+    final normalized = ContactDraft(
+      id: contactId,
+      firstName: firstName,
+      lastName: lastName,
+      displayName: displayName,
+      preferredContactMethod: preferredContactMethod,
+      isFavorite: false,
+      methods: scopedMethods,
+    ).normalized();
+    return database.transaction(() async {
+      final updated =
+          await (database.update(database.contacts)..where(
+                (table) =>
+                    table.profileId.equals(profileId) &
+                    table.id.equals(contactId),
+              ))
+              .write(
+                ContactsCompanion(
+                  firstName: Value<String?>(
+                    normalized.firstName.isEmpty ? null : normalized.firstName,
+                  ),
+                  lastName: Value<String?>(
+                    normalized.lastName.isEmpty ? null : normalized.lastName,
+                  ),
+                  displayName: Value<String>(normalized.displayName),
+                  preferredContactMethod: Value<String>(
+                    ContactPreferredMethodCodec.encode(
+                      normalized.preferredContactMethod,
+                    ),
+                  ),
+                  updatedAtUtc: Value<DateTime>(clock.nowUtc()),
+                ),
+              );
+      if (updated != 1) {
+        throw const ContactValidationException('Contact not found.');
+      }
+      await _replaceMethods(
+        profileId,
+        contactId: contactId,
+        methods: normalized.methods,
+      );
+      return (await readContactDetail(
+        profileId: profileId,
+        contactId: contactId,
+      )).contact;
+    });
+  }
+
+  @override
+  Future<Contact> updateContactAddress({
+    required String profileId,
+    required String contactId,
+    String? addressText,
+  }) async {
+    final normalized = addressText?.trim();
+    final updated =
+        await (database.update(database.contacts)..where(
+              (table) =>
+                  table.profileId.equals(profileId) &
+                  table.id.equals(contactId),
+            ))
+            .write(
+              ContactsCompanion(
+                addressText: Value<String?>(
+                  normalized == null || normalized.isEmpty ? null : normalized,
+                ),
+                updatedAtUtc: Value<DateTime>(clock.nowUtc()),
+              ),
+            );
+    if (updated != 1) {
+      throw const ContactValidationException('Contact not found.');
+    }
+    return (await readContactDetail(
+      profileId: profileId,
+      contactId: contactId,
+    )).contact;
   }
 
   @override
@@ -1059,10 +1165,8 @@ final class DriftContactRepository implements ContactRepository {
           !criteria.groupIds.contains(primaryGroupId)) {
         continue;
       }
-      final tagIds = tagIdsByContact[contactId] ?? const <String>{};
-      if (criteria.tagIds.isNotEmpty && !criteria.tagIds.any(tagIds.contains)) {
-        continue;
-      }
+      // Tag membership remains loaded for dormant data compatibility, but Tags
+      // no longer restrict active Contacts results after the C5 UX retirement.
       final weekdays = weekdaysByContact[contactId] ?? const <int>{};
       if (criteria.availabilityWeekdays.isNotEmpty &&
           !criteria.availabilityWeekdays.any(weekdays.contains)) {
@@ -1189,24 +1293,13 @@ final class DriftContactRepository implements ContactRepository {
       }
       if (membership.isPrimary) {
         primaryGroupByContact[membership.contactId] = group;
+        // Active Contacts search intentionally sees only the one visible
+        // primary Group. Dormant historical memberships remain persisted but
+        // must not make a Contact match hidden Group names.
+        groupNamesByContact
+            .putIfAbsent(membership.contactId, () => <String>[])
+            .add(group.name);
       }
-      // Search covers every group name — primary or secondary.
-      groupNamesByContact
-          .putIfAbsent(membership.contactId, () => <String>[])
-          .add(group.name);
-    }
-    final tagRows = await (database.select(database.contactTags).join([
-      innerJoin(
-        database.contactTagMemberships,
-        database.contactTagMemberships.tagId.equalsExp(database.contactTags.id),
-      ),
-    ])..where(database.contactTagMemberships.contactId.isIn(ids))).get();
-    final tagNamesByContact = <String, List<String>>{};
-    for (final row in tagRows) {
-      final membership = row.readTable(database.contactTagMemberships);
-      tagNamesByContact
-          .putIfAbsent(membership.contactId, () => <String>[])
-          .add(row.readTable(database.contactTags).name);
     }
     final matches = <ContactRow>[];
     for (final row in rows) {
@@ -1232,11 +1325,6 @@ final class DriftContactRepository implements ContactRepository {
         matches.add(row);
         continue;
       }
-      if ((tagNamesByContact[row.id] ?? const <String>[]).any(
-        (name) => name.toLowerCase().contains(needle),
-      )) {
-        matches.add(row);
-      }
     }
     if (matches.isEmpty) {
       return const <ContactSummary>[];
@@ -1252,9 +1340,7 @@ final class DriftContactRepository implements ContactRepository {
             groupNames: List<String>.unmodifiable(
               groupNamesByContact[row.id] ?? const <String>[],
             ),
-            tagNames: List<String>.unmodifiable(
-              tagNamesByContact[row.id] ?? const <String>[],
-            ),
+            tagNames: const <String>[],
             context: eventContext[row.id] ?? const ContactListContext(),
           );
         })
@@ -2537,6 +2623,41 @@ final class DriftContactRepository implements ContactRepository {
           .putIfAbsent(normalized, () => <String>{})
           .add(method.contactId);
     }
+    String normalizedName(String value) => value
+        .toLowerCase()
+        .replaceAll(RegExp(r"[^a-z0-9]+"), ' ')
+        .trim()
+        .replaceAll(RegExp(r'\s+'), ' ');
+
+    final names = <String, String>{
+      for (final contact in contacts)
+        contact.id: normalizedName(contact.displayName),
+    };
+    for (final entry in names.entries) {
+      if (entry.value.isNotEmpty) {
+        byNormalized
+            .putIfAbsent('name:${entry.value}', () => <String>{})
+            .add(entry.key);
+      }
+    }
+    for (var i = 0; i < contacts.length; i++) {
+      final left = names[contacts[i].id]!
+          .split(' ')
+          .where((token) => token.isNotEmpty)
+          .toSet();
+      for (var j = i + 1; j < contacts.length; j++) {
+        final right = names[contacts[j].id]!
+            .split(' ')
+            .where((token) => token.isNotEmpty)
+            .toSet();
+        final shorter = left.length <= right.length ? left : right;
+        final longer = left.length <= right.length ? right : left;
+        if (shorter.length >= 2 && longer.containsAll(shorter)) {
+          byNormalized['name-contained:${contacts[i].id}|${contacts[j].id}'] =
+              <String>{contacts[i].id, contacts[j].id};
+        }
+      }
+    }
     final groups = <List<Contact>>[];
     final seen = <String>{};
     for (final ids in byNormalized.values) {
@@ -3247,6 +3368,14 @@ final class DriftContactRepository implements ContactRepository {
     required String contactId,
     required List<ContactMethodDraft> methods,
   }) async {
+    final primaryTypes = <ContactMethodType>{};
+    for (final method in methods) {
+      if (method.isPrimary && !primaryTypes.add(method.type)) {
+        throw const ContactValidationException(
+          'Choose at most one preferred Phone, Email, and Social Profile.',
+        );
+      }
+    }
     final existing = await (database.select(
       database.contactMethods,
     )..where((table) => table.contactId.equals(contactId))).get();
@@ -3341,6 +3470,16 @@ final class DriftContactRepository implements ContactRepository {
                 rawValue: method.value.trim(),
                 normalizedValue: normalized,
                 isPrimary: Value<bool>(method.isPrimary),
+                receivesTexts: Value<bool?>(
+                  method.type == ContactMethodType.phone
+                      ? method.receivesTexts
+                      : null,
+                ),
+                hasWhatsApp: Value<bool?>(
+                  method.type == ContactMethodType.phone
+                      ? method.hasWhatsApp
+                      : null,
+                ),
               ),
             );
       } else {
@@ -3353,6 +3492,16 @@ final class DriftContactRepository implements ContactRepository {
             rawValue: Value<String>(method.value.trim()),
             normalizedValue: Value<String>(normalized),
             isPrimary: Value<bool>(method.isPrimary),
+            receivesTexts: Value<bool?>(
+              method.type == ContactMethodType.phone
+                  ? method.receivesTexts
+                  : null,
+            ),
+            hasWhatsApp: Value<bool?>(
+              method.type == ContactMethodType.phone
+                  ? method.hasWhatsApp
+                  : null,
+            ),
           ),
         );
       }
@@ -3602,6 +3751,8 @@ final class DriftContactRepository implements ContactRepository {
       rawValue: row.rawValue,
       normalizedValue: row.normalizedValue,
       isPrimary: row.isPrimary,
+      receivesTexts: row.receivesTexts,
+      hasWhatsApp: row.hasWhatsApp,
     );
   }
 

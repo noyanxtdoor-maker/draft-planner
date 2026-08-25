@@ -53,6 +53,7 @@ final class ContactsState {
   final List<ContactSummary> contacts;
   final ContactStandardView? standardView;
   final SavedContactFilter? appliedFilter;
+
   /// Transient Contacts-home presentation choice. It is deliberately not
   /// persisted and never changes filter/base-view truth.
   final List<ContactDisplayedField>? displayedFieldsOverride;
@@ -126,9 +127,7 @@ final class ContactsController extends Notifier<ContactsState> {
       viewCriteria: ContactFilterCriteria(),
       sortBy: ContactSortBy.name,
       contacts: <ContactSummary>[],
-      standardView: ContactStandardView(
-        filter: ContactStandardFilter.status,
-      ),
+      standardView: ContactStandardView(filter: ContactStandardFilter.status),
     );
   }
 
@@ -236,15 +235,14 @@ final class ContactsController extends Notifier<ContactsState> {
 final contactGroupsProvider = FutureProvider<List<ContactGroup>>((ref) async {
   final profileId = ref.read(contactProfileIdProvider);
   ref.watch(contactChangesProvider(profileId));
-  // C2 canonicalization gate: ensure the four built-in default ContactGroup
-  // rows exist with deterministic identity (idempotent and collision-safe)
-  // before any consumer reads the group list. This is the single canonical
-  // source-of-truth gate shared by Contacts and Settings -> Colors.
-  final repository = ref.read(contactRepositoryProvider);
-  await repository.ensureBuiltInGroups(profileId);
-  // Includes archived groups so the manager can show and restore them;
-  // filters hide archived groups everywhere else.
-  return repository.readGroups(profileId, includeArchived: true);
+  // Groups are user-owned records. Never seed or recreate an arbitrary
+  // catalog while reading: a group the user permanently deletes must remain
+  // deleted across Contacts and Settings. Legacy archived rows are included
+  // so the manager can expose them for manual deletion; assignment surfaces
+  // filter them out.
+  return ref
+      .read(contactRepositoryProvider)
+      .readGroups(profileId, includeArchived: true);
 });
 
 final contactTagsProvider = FutureProvider<List<ContactTag>>((ref) {

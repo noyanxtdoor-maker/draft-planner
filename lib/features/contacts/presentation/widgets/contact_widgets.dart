@@ -49,20 +49,40 @@ final class ContactAvatar extends StatelessWidget {
   }
 }
 
-/// 20 dp primary-group color indicator (neutral gray when no group).
+/// Contact-list identity marker. A favorite replaces its group-color dot with
+/// the existing star marker. An ungrouped non-favorite uses the canonical
+/// neutral-gray identity dot in the same slot.
 final class ContactGroupDot extends StatelessWidget {
-  const ContactGroupDot({required this.summary, super.key});
+  const ContactGroupDot({
+    required this.summary,
+    this.showFavorite = true,
+    super.key,
+  });
 
   final ContactSummary summary;
+  final bool showFavorite;
 
   @override
   Widget build(BuildContext context) {
+    if (showFavorite && summary.contact.isFavorite) {
+      return SizedBox(
+        width: kContactGroupIdentitySlotSize,
+        height: kContactGroupIdentitySlotSize,
+        child: Center(
+          child: Icon(
+            Icons.star_rounded,
+            size: 24,
+            color: colorFromValue(summary.colorValue),
+          ),
+        ),
+      );
+    }
     return ContactGroupIdentityDot(colorValue: summary.colorValue);
   }
 }
 
-/// Standard list row: favorite star + group dot + name + subtitle + one
-/// contextual line (Next Event / Last Event).  Minimum 72 dp, up to 3 lines.
+/// Standard list row: favorite star or group dot + name + subtitle + one
+/// contextual line (Next Event / Last Event). Minimum 72 dp, up to 3 lines.
 final class ContactListRow extends StatelessWidget {
   const ContactListRow({
     required this.summary,
@@ -119,20 +139,12 @@ final class ContactListRow extends StatelessWidget {
                 leading!,
                 const SizedBox(width: 12),
               ],
-              if (showFavorite && summary.contact.isFavorite) ...<Widget>[
-                const Padding(
-                  padding: EdgeInsets.only(top: 2),
-                  child: Icon(
-                    Icons.star_rounded,
-                    size: 24,
-                    color: AppTheme.rose,
-                  ),
-                ),
-                const SizedBox(width: 4),
-              ],
               Padding(
                 padding: const EdgeInsets.only(top: 4),
-                child: ContactGroupDot(summary: summary),
+                child: ContactGroupDot(
+                  summary: summary,
+                  showFavorite: showFavorite,
+                ),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -199,10 +211,6 @@ final class ContactListRow extends StatelessWidget {
     final lines = <String>[];
     final context = summary.context;
     final next = context.nextEventDate;
-    if (displayedFields.contains(ContactDisplayedField.tags) &&
-        summary.tagNames.isNotEmpty) {
-      lines.add('Tags: ${summary.tagNames.join(', ')}');
-    }
     if (displayedFields.contains(ContactDisplayedField.nextEvent) &&
         context.nextEventTitle != null &&
         next != null) {
@@ -251,7 +259,11 @@ final class ContactListRow extends StatelessWidget {
 
   static String _relativeDate(DateTime value) {
     final days = DateTime.now().toLocal().difference(value.toLocal()).inDays;
-    return days <= 0 ? 'today' : days == 1 ? '1 day ago' : '$days days ago';
+    return days <= 0
+        ? 'today'
+        : days == 1
+        ? '1 day ago'
+        : '$days days ago';
   }
 
   static String _preferredMethodLabel(ContactPreferredMethod method) {

@@ -85,6 +85,43 @@ void main() {
     expect(find.text('Goal Planning'), findsOneWidget);
   }
 
+  testWidgets(
+    'primary navigation restores labels and the themed selected indicator',
+    (tester) async {
+      await pumpApp(tester);
+
+      final navigation = tester.widget<NavigationBar>(bottomNav());
+      final navigationTheme = NavigationBarTheme.of(
+        tester.element(bottomNav()),
+      );
+      final colorScheme = Theme.of(tester.element(bottomNav())).colorScheme;
+
+      expect(navigation.labelBehavior, isNull);
+      expect(navigation.indicatorColor, isNull);
+      expect(
+        navigationTheme.labelBehavior,
+        NavigationDestinationLabelBehavior.alwaysShow,
+      );
+      expect(
+        navigationTheme.indicatorColor,
+        colorScheme.brightness == Brightness.light
+            ? colorScheme.primary
+            : Colors.transparent,
+      );
+      expect(navigationTheme.height, 72);
+      final selectedLabelColor = navigationTheme.labelTextStyle?.resolve(
+        <WidgetState>{WidgetState.selected},
+      )?.color;
+      final unselectedLabelColor = navigationTheme.labelTextStyle
+          ?.resolve(<WidgetState>{})
+          ?.color;
+      expect(selectedLabelColor, isNotNull);
+      expect(selectedLabelColor, isNot(Colors.transparent));
+      expect(unselectedLabelColor, isNotNull);
+      expect(unselectedLabelColor, isNot(Colors.transparent));
+    },
+  );
+
   testWidgets('Planner tab + Android Back reveals the existing Home root', (
     tester,
   ) async {

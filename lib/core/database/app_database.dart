@@ -557,8 +557,14 @@ class ActivityLedgerEntries extends Table {
   TextColumn get idempotencyKey => text()();
   TextColumn get reversalOfEntryId => text().nullable()();
   TextColumn get replacesEntryId => text().nullable()();
-  TextColumn get contactId => text().nullable()();
   DateTimeColumn get recordedAtUtc => dateTime()();
+
+  /// OPD-3-004 (v29): the explicitly confirmed meaningful Contact this
+  /// contribution is attributed to. NULL keeps the classic non-Contact
+  /// contribution. Never inferred from event links; set only by explicit user
+  /// confirmation. Archived/merged Contacts keep this stable id so historical
+  /// truth is preserved without rewriting.
+  TextColumn get contactId => text().nullable()();
 
   @override
   Set<Column<Object>> get primaryKey => <Column<Object>>{id};
@@ -777,6 +783,10 @@ class ContactMethods extends Table {
   TextColumn get rawValue => text()();
   TextColumn get normalizedValue => text()();
   BoolColumn get isPrimary => boolean().withDefault(const Constant(false))();
+  /// Nullable capability facts preserve legacy rows as unknown rather than
+  /// inventing a communication permission during migration.
+  BoolColumn get receivesTexts => boolean().nullable()();
+  BoolColumn get hasWhatsApp => boolean().nullable()();
 
   @override
   Set<Column<Object>> get primaryKey => <Column<Object>>{id};
@@ -934,10 +944,7 @@ class EventOccurrenceParticipants extends Table {
   columns: <Symbol>{#taskId, #contactId},
   unique: true,
 )
-@TableIndex(
-  name: 'task_contact_link_contact',
-  columns: <Symbol>{#contactId},
-)
+@TableIndex(name: 'task_contact_link_contact', columns: <Symbol>{#contactId})
 @DataClassName('TaskContactLinkRow')
 class TaskContactLinks extends Table {
   TextColumn get id => text()();
@@ -1030,8 +1037,7 @@ class PlannerPreferences extends Table {
 /// 'blue'.
 class AppearancePreferences extends Table {
   TextColumn get key => text().withDefault(const Constant('primary'))();
-  TextColumn get appearanceMode =>
-      text().withDefault(const Constant('dark'))();
+  TextColumn get appearanceMode => text().withDefault(const Constant('dark'))();
   TextColumn get themeColor => text().withDefault(const Constant('blue'))();
   DateTimeColumn get updatedAtUtc => dateTime()();
 
@@ -1140,7 +1146,7 @@ final class AppDatabase extends _$AppDatabase {
   final bool _injectContactsMigrationFailure;
 
   @override
-  int get schemaVersion => _schemaVersionOverride ?? 31;
+  int get schemaVersion => _schemaVersionOverride ?? 32;
 
   @override
   MigrationStrategy get migration {
@@ -1854,10 +1860,7 @@ final class AppDatabase extends _$AppDatabase {
             // 'blue'; no data rewrite, no history touch.  The column-exists
             // guard keeps the step idempotent for databases whose v25 table
             // was created from a later generated schema.
-            if (!await _columnExists(
-              'appearance_preferences',
-              'theme_color',
-            )) {
+            if (!await _columnExists('appearance_preferences', 'theme_color')) {
               await customStatement(
                 "ALTER TABLE appearance_preferences "
                 "ADD COLUMN theme_color TEXT NOT NULL DEFAULT 'blue'",
@@ -1875,10 +1878,7 @@ final class AppDatabase extends _$AppDatabase {
             if (!await _columnExists('planner_tasks', 'goal_id')) {
               await migrator.addColumn(plannerTasks, plannerTasks.goalId);
             }
-            if (!await _columnExists(
-              'task_goal_contributions',
-              'goal_id',
-            )) {
+            if (!await _columnExists('task_goal_contributions', 'goal_id')) {
               await migrator.addColumn(
                 taskGoalContributions,
                 taskGoalContributions.goalId,
@@ -1902,10 +1902,7 @@ final class AppDatabase extends _$AppDatabase {
             // validated by the domain value type (both-or-null); the schema
             // itself is purely additive and idempotent-guarded.
             if (!await _columnExists('calendar_events', 'latitude')) {
-              await migrator.addColumn(
-                calendarEvents,
-                calendarEvents.latitude,
-              );
+              await migrator.addColumn(calendarEvents, calendarEvents.latitude);
             }
             if (!await _columnExists('calendar_events', 'longitude')) {
               await migrator.addColumn(
@@ -1926,10 +1923,7 @@ final class AppDatabase extends _$AppDatabase {
               await migrator.addColumn(contacts, contacts.longitude);
             }
             if (!await _columnExists('contacts', 'coordinate_source')) {
-              await migrator.addColumn(
-                contacts,
-                contacts.coordinateSource,
-              );
+              await migrator.addColumn(contacts, contacts.coordinateSource);
             }
           }
           if (from < 29 && to >= 29) {
@@ -1967,6 +1961,17 @@ final class AppDatabase extends _$AppDatabase {
               );
             }
           }
+          if (from < 32 && to >= 32) {
+            // C5 deep behavior: nullable per-phone capabilities. Existing
+            // rows intentionally remain NULL (unknown/off in active UI); no
+            // value is inferred from a social label or historical content.
+            if (!await _columnExists('contact_methods', 'receives_texts')) {
+              await migrator.addColumn(contactMethods, contactMethods.receivesTexts);
+            }
+            if (!await _columnExists('contact_methods', 'has_whats_app')) {
+              await migrator.addColumn(contactMethods, contactMethods.hasWhatsApp);
+            }
+          }
         });
       },
       beforeOpen: (details) async {
@@ -1979,5 +1984,4 @@ final class AppDatabase extends _$AppDatabase {
     final rows = await customSelect('PRAGMA table_info($tableName)').get();
     return rows.any((row) => row.read<String>('name') == columnName);
   }
-
 }

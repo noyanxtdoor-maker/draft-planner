@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rmplanner/app/router/route_names.dart';
 import 'package:rmplanner/app/theme/app_theme.dart';
+import 'package:rmplanner/app/theme/contact_reference_style.dart';
 import 'package:rmplanner/features/contacts/domain/contact.dart';
 import 'package:rmplanner/features/planner/domain/calendar_event.dart';
 
@@ -23,11 +24,7 @@ final class ContactTimelineView extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
-              Icon(
-                Icons.history,
-                size: 48,
-                color: AppTheme.outlineOf(context),
-              ),
+              Icon(Icons.history, size: 48, color: AppTheme.outlineOf(context)),
               const SizedBox(height: 12),
               const Text(
                 'No event history yet',
@@ -49,13 +46,13 @@ final class ContactTimelineView extends StatelessWidget {
     }
     final children = <Widget>[];
     if (timeline.upcoming.isNotEmpty) {
-      children.add(const _SectionLabel('UPCOMING'));
+      children.add(const _SectionLabel('Future'));
       for (final entry in timeline.upcoming) {
         children.add(_TimelineCard(entry: entry, isUpcoming: true));
       }
     }
     if (timeline.history.isNotEmpty) {
-      children.add(const _SectionLabel('HISTORY'));
+      children.add(const _SectionLabel('History'));
       int? currentYear;
       for (final entry in timeline.history) {
         if (currentYear != entry.date.year) {
@@ -119,17 +116,17 @@ final class _TimelineCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isRecordCreated = entry.kind == ContactTimelineKind.recordCreated;
     final dotColor = isUpcoming
-        ? AppTheme.rose
+        ? ContactReferenceStyle.actionOf(context)
         : isRecordCreated
-        ? AppTheme.secondaryTextOf(context)
-        : AppTheme.eventAccent;
+        ? ContactReferenceStyle.lineOf(context)
+        : ContactReferenceStyle.successOf(context);
 
     final card = Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppTheme.surfaceOf(context),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.surfaceVariantOf(context)),
+        color: ContactReferenceStyle.surfaceOf(context),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: ContactReferenceStyle.surfaceOf(context)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -240,7 +237,7 @@ final class _TimelineCard extends StatelessWidget {
                   Expanded(
                     child: Container(
                       width: 2,
-                      color: AppTheme.surfaceVariantOf(context),
+                      color: ContactReferenceStyle.lineOf(context),
                     ),
                   ),
                 ],
@@ -283,15 +280,15 @@ final class _TimelineCard extends StatelessWidget {
   static Color _statusColor(BuildContext context, ContactTimelineEntry entry) {
     final status = entry.status;
     if (status == CalendarEventStatus.completedHappened) {
-      return AppTheme.eventAccent;
+      return ContactReferenceStyle.successOf(context);
     }
     if (status == CalendarEventStatus.cancelled) {
       return AppTheme.secondaryTextOf(context);
     }
     if (entry.isUpcoming) {
-      return AppTheme.rose;
+      return ContactReferenceStyle.actionOf(context);
     }
-    return AppTheme.warningOf(context);
+    return ContactReferenceStyle.warningOf(context);
   }
 
   static String _monthLabel(int month) {

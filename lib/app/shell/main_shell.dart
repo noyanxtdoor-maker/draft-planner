@@ -126,21 +126,25 @@ final class _MainShellState extends State<MainShell> {
                 },
                 destinations: const <NavigationDestination>[
                   NavigationDestination(
+                    key: Key('nav-home'),
                     icon: Icon(Icons.home_outlined),
                     selectedIcon: Icon(Icons.home),
                     label: 'Home',
                   ),
                   NavigationDestination(
+                    key: Key('nav-planner'),
                     icon: Icon(Icons.calendar_month_outlined),
                     selectedIcon: Icon(Icons.calendar_month),
                     label: 'Planner',
                   ),
                   NavigationDestination(
+                    key: Key('nav-contacts'),
                     icon: Icon(Icons.people_outline),
                     selectedIcon: Icon(Icons.people),
                     label: 'Contacts',
                   ),
                   NavigationDestination(
+                    key: Key('nav-maps'),
                     icon: Icon(Icons.map_outlined),
                     selectedIcon: Icon(Icons.map),
                     label: 'Maps',

@@ -8,9 +8,27 @@ import 'package:rmplanner/features/startup/domain/startup_state.dart';
 /// configure Maps keep working.  Production (`main.dart`) overrides this
 /// with the real Drift-backed repository; the Maps screen itself always runs
 /// inside the full app where that override exists.
-final mapCoordinateRepositoryProvider = Provider<MapCoordinateRepository>((ref) {
+final mapCoordinateRepositoryProvider = Provider<MapCoordinateRepository>((
+  ref,
+) {
   return const NoopMapCoordinateRepository();
 });
+
+/// One-shot, in-memory map focus requested by another Next Transfer surface.
+/// It is never persisted and therefore cannot become a second coordinate store.
+final mapTransientFocusProvider =
+    NotifierProvider<MapTransientFocusController, MapCoordinate?>(
+      MapTransientFocusController.new,
+    );
+
+final class MapTransientFocusController extends Notifier<MapCoordinate?> {
+  @override
+  MapCoordinate? build() => null;
+
+  void focus(MapCoordinate coordinate) => state = coordinate;
+
+  void clear() => state = null;
+}
 
 /// Repository that stores nothing.  Used only as the un-overridden default;
 /// it lets Contact/Event forms open and save normally without a Maps layer.

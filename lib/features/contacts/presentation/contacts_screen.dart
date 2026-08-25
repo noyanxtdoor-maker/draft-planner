@@ -640,6 +640,7 @@ final class _ActiveFilterChips extends StatelessWidget {
       return const SizedBox.shrink();
     }
     final categories = ContactFilterCategory.values
+        .where((category) => category != ContactFilterCategory.tags)
         .where((category) => contactFilterCategoryIsActive(criteria, category))
         .toList(growable: false);
     return SizedBox(
@@ -803,7 +804,10 @@ final class _DisplayedFieldsSheetState extends State<_DisplayedFieldsSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final all = _selected.length == ContactDisplayedField.values.length;
+    final available = ContactDisplayedField.values
+        .where((field) => field != ContactDisplayedField.tags)
+        .toList(growable: false);
+    final all = _selected.length == available.length;
     final none = _selected.isEmpty;
     return Material(
       key: const Key('displayed-fields-sheet'),
@@ -852,7 +856,9 @@ final class _DisplayedFieldsSheetState extends State<_DisplayedFieldsSheet> {
               child: ListView(
                 shrinkWrap: true,
                 children: <Widget>[
-                  for (final field in ContactDisplayedField.values)
+                  for (final field in ContactDisplayedField.values.where(
+                    (field) => field != ContactDisplayedField.tags,
+                  ))
                     CheckboxListTile(
                       key: Key('displayed-fields-option-${field.name}'),
                       controlAffinity: ListTileControlAffinity.trailing,
@@ -872,7 +878,9 @@ final class _DisplayedFieldsSheetState extends State<_DisplayedFieldsSheet> {
   void _setAll(bool value) {
     setState(
       () => _selected = value
-          ? ContactDisplayedField.values.toSet()
+          ? ContactDisplayedField.values
+                .where((field) => field != ContactDisplayedField.tags)
+                .toSet()
           : <ContactDisplayedField>{},
     );
     _notifyValid();

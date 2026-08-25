@@ -12,7 +12,7 @@ import 'package:rmplanner/features/contacts/presentation/widgets/contact_widgets
 import 'package:rmplanner/features/planner/application/planner_providers.dart';
 
 /// Dedicated search route: 56 dp rounded field, results over name, phone,
-/// email, social, group, tag, and address text.  No FTS on Notes.
+/// email, social, group, and address text.  No FTS on Notes.
 final class ContactSearchScreen extends ConsumerStatefulWidget {
   const ContactSearchScreen({super.key});
 
@@ -117,7 +117,9 @@ final class _ContactSearchScreenState
                           },
                         ),
                   filled: true,
-                  fillColor: AppTheme.surfaceVariantOf(context).withValues(alpha: .45),
+                  fillColor: AppTheme.surfaceVariantOf(
+                    context,
+                  ).withValues(alpha: .45),
                   contentPadding: const EdgeInsets.symmetric(vertical: 14),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(28),
@@ -161,11 +163,25 @@ final class _ContactSearchScreenState
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
-              Icon(Icons.manage_search, size: 52, color: AppTheme.outlineOf(context)),
+              Icon(
+                Icons.manage_search,
+                size: 52,
+                color: AppTheme.outlineOf(context),
+              ),
               const SizedBox(height: 14),
-              const Text('Find the people you’re looking for', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+              const Text(
+                'Find the people you’re looking for',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+              ),
               const SizedBox(height: 6),
-              Text('Search by name, phone, email, groups, or tags.', textAlign: TextAlign.center, style: TextStyle(color: AppTheme.secondaryTextOf(context), fontSize: 14)),
+              Text(
+                'Search by name, phone, email, groups, or address.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: AppTheme.secondaryTextOf(context),
+                  fontSize: 14,
+                ),
+              ),
             ],
           ),
         ),
@@ -190,7 +206,7 @@ final class _ContactSearchScreenState
               ),
               const SizedBox(height: 6),
               Text(
-                'Try another name, phone, email, group, or tag.',
+                'Try another name, phone, email, group, or address.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: AppTheme.secondaryTextOf(context),

@@ -55,13 +55,16 @@ final class FilterBuilderScreen extends ConsumerStatefulWidget {
 
 final class _FilterBuilderScreenState
     extends ConsumerState<FilterBuilderScreen> {
-  late final ContactFilterCriteria _initialCriteria =
-      widget.args.initialCriteria;
+  late final ContactFilterCriteria _initialCriteria = widget
+      .args
+      .initialCriteria
+      .withoutRetiredTags();
   late final Set<ContactDisplayedField> _initialDisplayedFields = widget
       .args
       .initialDisplayedFields
       .toSet();
-  late ContactFilterCriteria _criteria = widget.args.initialCriteria;
+  late ContactFilterCriteria _criteria = widget.args.initialCriteria
+      .withoutRetiredTags();
   late ContactSortBy _sortBy = widget.args.initialSortBy;
   final GlobalKey _sortAnchorKey = GlobalKey();
   late Set<ContactDisplayedField> _displayedFields = widget
@@ -85,7 +88,7 @@ final class _FilterBuilderScreenState
     super.initState();
     _saveAsFilter = widget.args.saveAsFilter;
     _categorySelections = <ContactFilterCategory, Set<String>?>{
-      for (final category in ContactFilterCategory.values)
+      for (final category in filterBuilderCategories)
         category: contactFilterCategoryIsActive(_initialCriteria, category)
             ? contactFilterActiveKeys(_initialCriteria, category)
             : null,
@@ -419,7 +422,7 @@ final class _FilterBuilderScreenState
     final groups =
         ref.read(contactGroupsProvider).value ?? const <ContactGroup>[];
     final tags = ref.read(contactTagsProvider).value ?? const <ContactTag>[];
-    return ContactFilterCategory.values.any((category) {
+    return filterBuilderCategories.any((category) {
       final options = contactFilterOptions(
         category: category,
         groups: groups,
@@ -541,7 +544,7 @@ final class _FilterBuilderScreenState
       _categorySelections
         ..clear()
         ..addEntries(
-          ContactFilterCategory.values.map(
+          filterBuilderCategories.map(
             (category) =>
                 MapEntry<ContactFilterCategory, Set<String>?>(category, null),
           ),

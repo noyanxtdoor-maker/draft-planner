@@ -120,11 +120,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final contactsTab = find.descendant(
-      of: find.byType(NavigationBar),
-      matching: find.text('Contacts'),
-    );
-    await tester.tap(contactsTab);
+    await tester.tap(find.byKey(const Key('nav-contacts')));
     await tester.pumpAndSettle();
 
     return (
@@ -171,7 +167,10 @@ void main() {
     );
     final rail = find.byKey(const Key('contacts-quick-filter-strip'));
     expect(rail, findsOneWidget);
-    expect(find.byKey(const Key('contacts-quick-filter-reset')), findsOneWidget);
+    expect(
+      find.byKey(const Key('contacts-quick-filter-reset')),
+      findsOneWidget,
+    );
     expect(
       find.byKey(const Key('contacts-quick-filter-displayedFields')),
       findsOneWidget,
@@ -181,15 +180,19 @@ void main() {
       findsOneWidget,
     );
     expect(
-      tester.getSize(
-        find.byKey(const Key('quick-filter-chip-body-Displayed Fields')),
-      ).height,
+      tester
+          .getSize(
+            find.byKey(const Key('quick-filter-chip-body-Displayed Fields')),
+          )
+          .height,
       34,
     );
     expect(
-      tester.getSize(
-        find.byKey(const Key('contacts-quick-filter-displayedFields')),
-      ).height,
+      tester
+          .getSize(
+            find.byKey(const Key('contacts-quick-filter-displayedFields')),
+          )
+          .height,
       48,
       reason: 'The compact body remains inside a 48dp effective tap target.',
     );
@@ -205,18 +208,20 @@ void main() {
       tester.element(find.byKey(const Key('contacts-filter-button'))),
     ).colorScheme.onSurface;
     expect(
-      tester.widget<PlannerFilterIcon>(
-        find.descendant(
-          of: find.byKey(const Key('contacts-quick-filter-reset')),
-          matching: find.byType(PlannerFilterIcon),
-        ),
-      ).color,
+      tester
+          .widget<PlannerFilterIcon>(
+            find.descendant(
+              of: find.byKey(const Key('contacts-quick-filter-reset')),
+              matching: find.byType(PlannerFilterIcon),
+            ),
+          )
+          .color,
       topBarForeground,
     );
     expect(
-      tester.widget<SvgPicture>(
-        find.byKey(const Key('filter-plus-glyph')),
-      ).colorFilter,
+      tester
+          .widget<SvgPicture>(find.byKey(const Key('filter-plus-glyph')))
+          .colorFilter,
       ColorFilter.mode(topBarForeground, BlendMode.srcIn),
     );
     expect(
@@ -255,98 +260,106 @@ void main() {
       const Offset(180, 0),
     );
     await tester.pumpAndSettle();
-    expect(find.byKey(const Key('contacts-quick-filter-reset')), findsOneWidget);
+    expect(
+      find.byKey(const Key('contacts-quick-filter-reset')),
+      findsOneWidget,
+    );
 
     await tester.tap(find.byKey(const Key('contacts-quick-filter-reset')));
     await tester.pumpAndSettle();
     expect(find.text('Status'), findsOneWidget);
   });
 
-  testWidgets('C3-R4: Displayed Fields is transient and does not relabel the base view', (
-    tester,
-  ) async {
-    await pumpApp(tester, seedContacts: true);
-    await tester.tap(
-      find.byKey(const Key('contacts-quick-filter-displayedFields')),
-    );
-    await tester.pumpAndSettle();
-    expect(find.byKey(const Key('displayed-fields-sheet')), findsOneWidget);
-    expect(find.text('All'), findsOneWidget);
-    expect(find.byKey(const Key('filter-sheet-apply')), findsNothing);
-    await tester.tap(
-      find.byKey(const Key('displayed-fields-option-contactMethod')),
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('Some'), findsOneWidget);
-    await tester.tapAt(const Offset(8, 100));
-    await tester.pumpAndSettle();
-    expect(find.text('Status'), findsOneWidget);
-    expect(find.text('Filtered'), findsNothing);
-  });
+  testWidgets(
+    'C3-R4: Displayed Fields is transient and does not relabel the base view',
+    (tester) async {
+      await pumpApp(tester, seedContacts: true);
+      await tester.tap(
+        find.byKey(const Key('contacts-quick-filter-displayedFields')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('displayed-fields-sheet')), findsOneWidget);
+      expect(find.text('All'), findsOneWidget);
+      expect(find.byKey(const Key('filter-sheet-apply')), findsNothing);
+      await tester.tap(
+        find.byKey(const Key('displayed-fields-option-contactMethod')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Some'), findsOneWidget);
+      await tester.tapAt(const Offset(8, 100));
+      await tester.pumpAndSettle();
+      expect(find.text('Status'), findsOneWidget);
+      expect(find.text('Filtered'), findsNothing);
+    },
+  );
 
-  testWidgets('C3-R4 R2: rail exposes the complete canonical order with trailing controls', (
-    tester,
-  ) async {
-    await pumpApp(tester, seedContacts: true);
-    final rail = find.byKey(const Key('contacts-quick-filter-strip'));
-    final expected = <ContactFilterCategory>[
-      ContactFilterCategory.groups,
-      ContactFilterCategory.tags,
-      ContactFilterCategory.favorites,
-      ContactFilterCategory.availability,
-      ContactFilterCategory.phone,
-      ContactFilterCategory.email,
-      ContactFilterCategory.address,
-      ContactFilterCategory.socialProfile,
-      ContactFilterCategory.eventHistory,
-      ContactFilterCategory.withEventsToday,
-      ContactFilterCategory.withFutureEvents,
-      ContactFilterCategory.withoutFutureEvents,
-      ContactFilterCategory.source,
-      ContactFilterCategory.archived,
-    ];
-    expect(quickFilterCategories, expected);
-    for (final category in expected) {
-      final chip = find.byKey(Key('contacts-quick-filter-${category.name}'));
-      await tester.dragUntilVisible(chip, rail, const Offset(-180, 0));
-      expect(chip, findsOneWidget);
-    }
+  testWidgets(
+    'C3-R4 R2: rail exposes the complete canonical order with trailing controls',
+    (tester) async {
+      await pumpApp(tester, seedContacts: true);
+      final rail = find.byKey(const Key('contacts-quick-filter-strip'));
+      final expected = <ContactFilterCategory>[
+        ContactFilterCategory.groups,
+        ContactFilterCategory.favorites,
+        ContactFilterCategory.availability,
+        ContactFilterCategory.phone,
+        ContactFilterCategory.email,
+        ContactFilterCategory.address,
+        ContactFilterCategory.socialProfile,
+        ContactFilterCategory.eventHistory,
+        ContactFilterCategory.withEventsToday,
+        ContactFilterCategory.withFutureEvents,
+        ContactFilterCategory.withoutFutureEvents,
+        ContactFilterCategory.source,
+        ContactFilterCategory.archived,
+      ];
+      expect(quickFilterCategories, expected);
+      expect(find.byKey(const Key('contacts-quick-filter-tags')), findsNothing);
+      // Exercise the leading Groups selector before the order sweep moves the
+      // virtualized horizontal viewport to the trailing controls.
+      final groups = find.byKey(const Key('contacts-quick-filter-groups'));
+      expect(groups, findsOneWidget);
+      await tester.tap(groups);
+      await tester.pumpAndSettle();
+      final tile = tester.widget<CheckboxListTile>(
+        find.widgetWithText(CheckboxListTile, 'Family'),
+      );
+      expect(tile.controlAffinity, ListTileControlAffinity.trailing);
+      await tester.tap(find.text('Family').last);
+      await tester.pumpAndSettle();
+      expect(find.text('Filtered'), findsOneWidget);
 
-    final groups = find.byKey(const Key('contacts-quick-filter-groups'));
-    await tester.dragUntilVisible(groups, rail, const Offset(180, 0));
-    await tester.tap(groups);
-    await tester.pumpAndSettle();
-    final tile = tester.widget<CheckboxListTile>(
-      find.widgetWithText(CheckboxListTile, 'Family'),
-    );
-    expect(tile.controlAffinity, ListTileControlAffinity.trailing);
-    await tester.tap(find.text('Family').last);
-    await tester.pumpAndSettle();
-    expect(find.text('Filtered'), findsOneWidget);
-  });
+      for (final category in expected) {
+        final chip = find.byKey(Key('contacts-quick-filter-${category.name}'));
+        await tester.dragUntilVisible(chip, rail, const Offset(-180, 0));
+        expect(chip, findsOneWidget);
+      }
+    },
+  );
 
-  testWidgets('C3-R4 R2: zero Displayed Fields is valid structural Contacts content', (
-    tester,
-  ) async {
-    await pumpApp(tester, seedContacts: true);
-    await tester.tap(
-      find.byKey(const Key('contacts-quick-filter-displayedFields')),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.descendant(
-        of: find.byKey(const Key('displayed-fields-sheet')),
-        matching: find.byType(TriStateMasterCheckbox),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('None'), findsOneWidget);
-    expect(find.text('Select at least one displayed field.'), findsNothing);
-    await tester.tapAt(const Offset(8, 100));
-    await tester.pumpAndSettle();
-    expect(find.text('Marilyn Gomez'), findsOneWidget);
-    expect(find.byType(ContactGroupIdentityDot), findsWidgets);
-  });
+  testWidgets(
+    'C3-R4 R2: zero Displayed Fields is valid structural Contacts content',
+    (tester) async {
+      await pumpApp(tester, seedContacts: true);
+      await tester.tap(
+        find.byKey(const Key('contacts-quick-filter-displayedFields')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(const Key('displayed-fields-sheet')),
+          matching: find.byType(TriStateMasterCheckbox),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('None'), findsOneWidget);
+      expect(find.text('Select at least one displayed field.'), findsNothing);
+      await tester.tapAt(const Offset(8, 100));
+      await tester.pumpAndSettle();
+      expect(find.text('Marilyn Gomez'), findsOneWidget);
+      expect(find.byType(ContactGroupIdentityDot), findsWidgets);
+    },
+  );
 
   testWidgets('C3: full Filter category rows expand inline', (tester) async {
     await pumpApp(tester);
@@ -355,7 +368,7 @@ void main() {
     await tester.scrollUntilVisible(
       find.byKey(const Key('filter-category-main-eventHistory')),
       260,
-      scrollable: find.byType(Scrollable),
+      scrollable: find.byType(Scrollable).first,
     );
     await tester.tap(
       find.byKey(const Key('filter-category-main-eventHistory')),
@@ -415,13 +428,29 @@ void main() {
     }
   });
 
-  testWidgets('C3-R4: default Status rows suppress ordinary favorite chrome', (
+  testWidgets('C4: default Status rows replace a favorite dot with a star', (
     tester,
   ) async {
     await pumpApp(tester, seedContacts: true);
     expect(find.text('Marilyn Gomez'), findsOneWidget);
     expect(find.text('Family'), findsNothing);
-    expect(find.byIcon(Icons.star_rounded), findsNothing);
+    final marilynRow = find.byKey(
+      const Key('contact-row-11111111-1111-4111-8111-111111111111'),
+    );
+    expect(
+      find.descendant(
+        of: marilynRow,
+        matching: find.byIcon(Icons.star_rounded),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: marilynRow,
+        matching: find.byType(ContactGroupIdentityDot),
+      ),
+      findsNothing,
+    );
     expect(find.byIcon(Icons.star_border), findsNothing);
   });
 
@@ -482,100 +511,226 @@ void main() {
     expect(find.text('Archived Person'), findsNothing);
   });
 
-  testWidgets('Pass B2: aggregate Status renders ordered flat Smart sections and Status rows', (tester) async {
-    final app = await pumpApp(tester, seedContacts: true);
-    final calendar = DriftCalendarEventRepository(
-      database: app.database,
-      clock: FixedClock(DateTime.utc(2026, 7, 27, 12)),
-      timeZones: IanaCalendarEventTimeZones(displayTimeZoneId: 'Asia/Manila'),
-    );
-    final groups = await app.contacts.readGroups(app.profileId);
-    final family = groups.singleWhere((group) => group.name == 'Family');
-    const ids = <String>[
-      '44444444-4444-4444-8444-444444444444',
-      '55555555-5555-4555-8555-555555555555',
-      '66666666-6666-4666-8666-666666666666',
-    ];
-    for (final id in ids) {
-      await app.contacts.createContact(profileId: app.profileId, draft: ContactDraft(id: id, firstName: id.substring(0, 1), lastName: 'Status', displayName: 'Status $id', preferredContactMethod: ContactPreferredMethod.message, isFavorite: false));
-      await app.contacts.setContactGroups(profileId: app.profileId, contactId: id, groupIds: <String>[family.id], primaryGroupId: family.id);
-    }
-    var serial = 700;
-    Future<void> interaction(String contactId, int daysAgo) async {
-      final value = DateTime.utc(2026, 7, 27).subtract(Duration(days: daysAgo));
-      final eventId = '00000000-0000-4000-8000-${serial.toString().padLeft(12, '0')}';
-      serial++;
-      await calendar.saveEvent(profileId: app.profileId, draft: CalendarEventDraft(id: eventId, title: 'Status interaction', timing: CalendarEventTiming.timed, startDate: PlannerDate(year: value.year, month: value.month, day: value.day), startMinute: 600, endMinute: 660, timeZoneId: 'Asia/Manila', requiresReport: false, recurrence: const CalendarRecurrenceRule(frequency: CalendarRecurrenceFrequency.none)));
-      final originalDate = PlannerDate(year: value.year, month: value.month, day: value.day);
-      await app.database.into(app.database.eventOccurrenceParticipants).insert(
-        EventOccurrenceParticipantsCompanion.insert(
-          id: 'snapshot-$serial', profileId: app.profileId, eventId: eventId,
-          occurrenceId: CalendarEventOccurrenceIdentity.forDate(eventId: eventId, originalDate: originalDate),
-          originalDate: originalDate.toString(), contactId: contactId,
-          displayNameSnapshot: contactId, createdAtUtc: DateTime.utc(2026, 7, 27),
-        ),
+  testWidgets(
+    'Pass B2: aggregate Status renders ordered flat Smart sections and Status rows',
+    (tester) async {
+      final app = await pumpApp(tester, seedContacts: true);
+      final calendar = DriftCalendarEventRepository(
+        database: app.database,
+        clock: FixedClock(DateTime.utc(2026, 7, 27, 12)),
+        timeZones: IanaCalendarEventTimeZones(displayTimeZoneId: 'Asia/Manila'),
       );
-    }
-    const marilyn = '11111111-1111-4111-8111-111111111111';
-    await interaction(marilyn, 120); await interaction(marilyn, 20);
-    await interaction(ids[0], 25); await interaction(ids[0], 18); await interaction(ids[0], 10); await interaction(ids[0], 2);
-    await interaction(ids[1], 70); await interaction(ids[1], 40); await interaction(ids[1], 20);
-    await interaction(ids[2], 150); await interaction(ids[2], 100); await interaction(ids[2], 60);
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('current-filter-row')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('standard-filter-status')));
-    await tester.pumpAndSettle();
+      final groups = await app.contacts.readGroups(app.profileId);
+      final family = groups.singleWhere((group) => group.name == 'Family');
+      const ids = <String>[
+        '44444444-4444-4444-8444-444444444444',
+        '55555555-5555-4555-8555-555555555555',
+        '66666666-6666-4666-8666-666666666666',
+      ];
+      for (final id in ids) {
+        await app.contacts.createContact(
+          profileId: app.profileId,
+          draft: ContactDraft(
+            id: id,
+            firstName: id.substring(0, 1),
+            lastName: 'Status',
+            displayName: 'Status $id',
+            preferredContactMethod: ContactPreferredMethod.message,
+            isFavorite: false,
+          ),
+        );
+        await app.contacts.setContactGroups(
+          profileId: app.profileId,
+          contactId: id,
+          groupIds: <String>[family.id],
+          primaryGroupId: family.id,
+        );
+      }
+      var serial = 700;
+      Future<void> interaction(String contactId, int daysAgo) async {
+        final value = DateTime.utc(
+          2026,
+          7,
+          27,
+        ).subtract(Duration(days: daysAgo));
+        final eventId =
+            '00000000-0000-4000-8000-${serial.toString().padLeft(12, '0')}';
+        serial++;
+        await calendar.saveEvent(
+          profileId: app.profileId,
+          draft: CalendarEventDraft(
+            id: eventId,
+            title: 'Status interaction',
+            timing: CalendarEventTiming.timed,
+            startDate: PlannerDate(
+              year: value.year,
+              month: value.month,
+              day: value.day,
+            ),
+            startMinute: 600,
+            endMinute: 660,
+            timeZoneId: 'Asia/Manila',
+            requiresReport: false,
+            recurrence: const CalendarRecurrenceRule(
+              frequency: CalendarRecurrenceFrequency.none,
+            ),
+          ),
+        );
+        final originalDate = PlannerDate(
+          year: value.year,
+          month: value.month,
+          day: value.day,
+        );
+        await app.database
+            .into(app.database.eventOccurrenceParticipants)
+            .insert(
+              EventOccurrenceParticipantsCompanion.insert(
+                id: 'snapshot-$serial',
+                profileId: app.profileId,
+                eventId: eventId,
+                occurrenceId: CalendarEventOccurrenceIdentity.forDate(
+                  eventId: eventId,
+                  originalDate: originalDate,
+                ),
+                originalDate: originalDate.toString(),
+                contactId: contactId,
+                displayNameSnapshot: contactId,
+                createdAtUtc: DateTime.utc(2026, 7, 27),
+              ),
+            );
+      }
 
-    final labels = <String>['Recently Reconnected', 'Frequent Connection', 'Regular Connection', 'Reconnect Soon'];
-    for (final label in labels) { expect(find.text(label), findsOneWidget); }
-    final positions = labels.map((label) => tester.getTopLeft(find.text(label)).dy).toList();
-    for (var index = 1; index < positions.length; index++) { expect(positions[index], greaterThan(positions[index - 1])); }
-    expect(find.text('Interacted Today'), findsNothing);
-    final first = find.byKey(const Key('contacts-status-section-recentlyReconnected'));
-    final second = find.byKey(const Key('contacts-status-section-frequentConnection'));
-    expect(find.descendant(of: first, matching: find.byType(FullWidthSectionDivider)), findsNothing);
-    expect(find.descendant(of: first, matching: find.byType(Divider)), findsOneWidget);
-    expect(find.descendant(of: second, matching: find.byType(FullWidthSectionDivider)), findsOneWidget);
-    expect(find.descendant(of: second, matching: find.byType(Divider)), findsOneWidget);
-    final marilynRow = find.byKey(const Key('contact-row-$marilyn'));
-    expect(find.descendant(of: marilynRow, matching: find.byType(ContactGroupDot)), findsOneWidget);
-    expect(find.descendant(of: marilynRow, matching: find.byIcon(Icons.star_rounded)), findsNothing);
-    expect(find.descendant(of: marilynRow, matching: find.byType(ContactAvatar)), findsNothing);
-    expect(find.descendant(of: marilynRow, matching: find.textContaining('Last interaction:')), findsOneWidget);
-    final contactsList = find.byKey(const Key('contacts-list'));
-    expect(
-      contactsList,
-      findsOneWidget,
-      reason: 'Aggregate Status must render inside the canonical Contacts list.',
-    );
-    final contactsScrollable = find.descendant(
-      of: contactsList,
-      matching: find.byType(Scrollable),
-    );
-    expect(
-      contactsScrollable,
-      findsOneWidget,
-      reason: 'The canonical Contacts list must own exactly one Scrollable.',
-    );
-    await tester.scrollUntilVisible(
-      find.text('Not Interacted Yet'),
-      280,
-      scrollable: contactsScrollable,
-    );
-    expect(find.text('Not Interacted Yet'), findsOneWidget);
-    expect(find.text('No recorded interaction yet'), findsOneWidget);
-    for (var index = 0; index < 6; index++) {
-      await tester.drag(contactsScrollable, const Offset(0, 360));
-      await tester.pump();
-    }
-    expect(marilynRow, findsOneWidget);
-    await tester.tap(marilynRow);
-    await tester.pumpAndSettle();
-    expect(find.byKey(const Key('contact-detail-fab')), findsOneWidget);
-  });
+      const marilyn = '11111111-1111-4111-8111-111111111111';
+      await interaction(marilyn, 120);
+      await interaction(marilyn, 20);
+      await interaction(ids[0], 25);
+      await interaction(ids[0], 18);
+      await interaction(ids[0], 10);
+      await interaction(ids[0], 2);
+      await interaction(ids[1], 70);
+      await interaction(ids[1], 40);
+      await interaction(ids[1], 20);
+      await interaction(ids[2], 150);
+      await interaction(ids[2], 100);
+      await interaction(ids[2], 60);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('current-filter-row')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('standard-filter-status')));
+      await tester.pumpAndSettle();
 
-  testWidgets('Pass B2: aggregate Status hides zero-match Smart sections', (tester) async {
+      final labels = <String>[
+        'Recently Reconnected',
+        'Frequent Connection',
+        'Regular Connection',
+        'Reconnect Soon',
+      ];
+      for (final label in labels) {
+        expect(find.text(label), findsOneWidget);
+      }
+      final positions = labels
+          .map((label) => tester.getTopLeft(find.text(label)).dy)
+          .toList();
+      for (var index = 1; index < positions.length; index++) {
+        expect(positions[index], greaterThan(positions[index - 1]));
+      }
+      expect(find.text('Interacted Today'), findsNothing);
+      final first = find.byKey(
+        const Key('contacts-status-section-recentlyReconnected'),
+      );
+      final second = find.byKey(
+        const Key('contacts-status-section-frequentConnection'),
+      );
+      expect(
+        find.descendant(
+          of: first,
+          matching: find.byType(FullWidthSectionDivider),
+        ),
+        findsNothing,
+      );
+      expect(
+        find.descendant(of: first, matching: find.byType(Divider)),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: second,
+          matching: find.byType(FullWidthSectionDivider),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: second, matching: find.byType(Divider)),
+        findsOneWidget,
+      );
+      final marilynRow = find.byKey(const Key('contact-row-$marilyn'));
+      expect(
+        find.descendant(of: marilynRow, matching: find.byType(ContactGroupDot)),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: marilynRow,
+          matching: find.byIcon(Icons.star_rounded),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: marilynRow,
+          matching: find.byType(ContactGroupIdentityDot),
+        ),
+        findsNothing,
+      );
+      expect(
+        find.descendant(of: marilynRow, matching: find.byType(ContactAvatar)),
+        findsNothing,
+      );
+      expect(
+        find.descendant(
+          of: marilynRow,
+          matching: find.textContaining('Last interaction:'),
+        ),
+        findsOneWidget,
+      );
+      final contactsList = find.byKey(const Key('contacts-list'));
+      expect(
+        contactsList,
+        findsOneWidget,
+        reason:
+            'Aggregate Status must render inside the canonical Contacts list.',
+      );
+      final contactsScrollable = find.descendant(
+        of: contactsList,
+        matching: find.byType(Scrollable),
+      );
+      expect(
+        contactsScrollable,
+        findsOneWidget,
+        reason: 'The canonical Contacts list must own exactly one Scrollable.',
+      );
+      await tester.scrollUntilVisible(
+        find.text('Not Interacted Yet'),
+        280,
+        scrollable: contactsScrollable,
+      );
+      expect(find.text('Not Interacted Yet'), findsOneWidget);
+      expect(find.text('No recorded interaction yet'), findsOneWidget);
+      for (var index = 0; index < 6; index++) {
+        await tester.drag(contactsScrollable, const Offset(0, 360));
+        await tester.pump();
+      }
+      expect(marilynRow, findsOneWidget);
+      await tester.tap(marilynRow);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('contact-detail-fab')), findsNothing);
+      expect(find.byKey(const Key('main-bottom-navigation')), findsOneWidget);
+    },
+  );
+
+  testWidgets('Pass B2: aggregate Status hides zero-match Smart sections', (
+    tester,
+  ) async {
     final app = await pumpApp(tester, seedContacts: true);
     final calendar = DriftCalendarEventRepository(
       database: app.database,
@@ -628,21 +783,23 @@ void main() {
           ),
         ),
       );
-      await app.database.into(app.database.eventOccurrenceParticipants).insert(
-        EventOccurrenceParticipantsCompanion.insert(
-          id: 'zero-match-snapshot-$serial',
-          profileId: app.profileId,
-          eventId: eventId,
-          occurrenceId: CalendarEventOccurrenceIdentity.forDate(
-            eventId: eventId,
-            originalDate: date,
-          ),
-          originalDate: date.toString(),
-          contactId: ids.first,
-          displayNameSnapshot: 'Zero match frequent',
-          createdAtUtc: DateTime.utc(2026, 7, 27),
-        ),
-      );
+      await app.database
+          .into(app.database.eventOccurrenceParticipants)
+          .insert(
+            EventOccurrenceParticipantsCompanion.insert(
+              id: 'zero-match-snapshot-$serial',
+              profileId: app.profileId,
+              eventId: eventId,
+              occurrenceId: CalendarEventOccurrenceIdentity.forDate(
+                eventId: eventId,
+                originalDate: date,
+              ),
+              originalDate: date.toString(),
+              contactId: ids.first,
+              displayNameSnapshot: 'Zero match frequent',
+              createdAtUtc: DateTime.utc(2026, 7, 27),
+            ),
+          );
     }
 
     for (final daysAgo in <int>[25, 18, 10, 2]) {

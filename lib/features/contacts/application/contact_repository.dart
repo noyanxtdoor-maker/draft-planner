@@ -23,6 +23,27 @@ abstract interface class ContactRepository {
     required ContactDraft draft,
   });
 
+  /// Narrow C5 section save. It changes only the identity and method facts
+  /// owned by Contact Information, never hidden Tags, Groups, availability,
+  /// notes, address, map coordinate, or favorite state.
+  Future<Contact> updateContactIdentityAndMethods({
+    required String profileId,
+    required String contactId,
+    required String firstName,
+    required String lastName,
+    required String displayName,
+    required ContactPreferredMethod preferredContactMethod,
+    required List<ContactMethodDraft> methods,
+  });
+
+  /// Narrow C5 section save for the text address. Coordinates remain owned by
+  /// MapCoordinateRepository and are deliberately not inferred or rewritten.
+  Future<Contact> updateContactAddress({
+    required String profileId,
+    required String contactId,
+    String? addressText,
+  });
+
   Future<ContactDetail> readContactDetail({
     required String profileId,
     required String contactId,
@@ -102,7 +123,9 @@ abstract interface class ContactRepository {
     required int colorValue,
   });
 
-  Future<void> archiveGroup({
+  /// Permanently deletes a user-managed group and its Contact memberships.
+  /// Contacts themselves are retained without that group.
+  Future<void> hardDeleteGroup({
     required String profileId,
     required String groupId,
   });

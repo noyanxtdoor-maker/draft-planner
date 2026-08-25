@@ -45,11 +45,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final contactsTab = find.descendant(
-      of: find.byType(NavigationBar),
-      matching: find.text('Contacts'),
-    );
-    await tester.tap(contactsTab);
+    await tester.tap(find.byKey(const Key('nav-contacts')));
     await tester.pumpAndSettle();
     // Nothing created yet: the change stream is already being listened to.
     expect(find.text('Marilyn Gomez'), findsNothing);

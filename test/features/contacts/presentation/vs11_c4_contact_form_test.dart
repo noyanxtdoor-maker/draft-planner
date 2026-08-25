@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rmplanner/core/diagnostics/sanitized_diagnostics.dart';
 import 'package:rmplanner/core/ids/identifier_source.dart';
@@ -214,18 +215,13 @@ void main() {
         themePrimary,
       );
       expect(
-        tester
-            .widget<Icon>(
-              find.descendant(
-                of: find.byKey(const Key('add-phone-row')),
-                matching: find.byIcon(Icons.phone_outlined),
-              ),
-            )
-            .size,
-        20,
+        find.descendant(
+          of: find.byKey(const Key('add-phone-row')),
+          matching: find.byType(SvgPicture),
+        ),
+        findsOneWidget,
       );
       for (final icon in <IconData>[
-        Icons.phone_outlined,
         Icons.mail_outline,
         Icons.alternate_email,
       ]) {
@@ -312,7 +308,7 @@ void main() {
       expect(find.byKey(const Key('contact-favorite-toggle')), findsOneWidget);
       expect(tester.widget<Text>(find.text('Favorite')).style?.fontSize, 14);
       expect(find.text('Preferred contact method'), findsOneWidget);
-      expect(find.byKey(const Key('contact-tags-field')), findsOneWidget);
+      expect(find.byKey(const Key('contact-tags-field')), findsNothing);
       expect(find.byKey(const Key('add-availability-row')), findsOneWidget);
       expect(find.byKey(const Key('add-notes-row')), findsOneWidget);
       for (final key in <Key>[
@@ -392,7 +388,6 @@ void main() {
         'Skype',
         'KakaoTalk',
         'Instagram',
-        'HelloTalk',
         'X',
         'Other',
         'Other',

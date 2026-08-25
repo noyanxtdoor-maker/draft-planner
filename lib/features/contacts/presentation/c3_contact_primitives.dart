@@ -4,6 +4,8 @@ import 'package:rmplanner/app/theme/app_theme.dart';
 import 'package:rmplanner/features/contacts/domain/contact.dart';
 import 'package:rmplanner/features/planner/presentation/widgets/planner_top_bar_icons.dart';
 
+const double kContactGroupIdentitySlotSize = 40;
+
 final class ContactGroupIdentityDot extends StatelessWidget {
   const ContactGroupIdentityDot({required this.colorValue, super.key});
 
@@ -15,8 +17,8 @@ final class ContactGroupIdentityDot extends StatelessWidget {
         ? const Color(0xFF9CA0A6)
         : Color(colorValue.value);
     return SizedBox(
-      width: 40,
-      height: 40,
+      width: kContactGroupIdentitySlotSize,
+      height: kContactGroupIdentitySlotSize,
       child: Center(
         child: Container(
           width: 18,

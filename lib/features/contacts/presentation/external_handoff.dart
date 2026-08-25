@@ -29,6 +29,36 @@ abstract final class ExternalHandoff {
     return 'mailto:${rawValue.trim()}';
   }
 
+  /// A WhatsApp destination is truthful only when the stored value contains
+  /// an explicit international prefix. Local/national numbers must never have
+  /// a country code invented for them.
+  static String? whatsappDigits(String rawValue) {
+    final trimmed = rawValue.trim();
+    if (trimmed.startsWith('+')) {
+      final digits = trimmed.replaceAll(RegExp(r'[^0-9]'), '');
+      return digits.isEmpty ? null : digits;
+    }
+    final compact = trimmed.replaceAll(RegExp(r'[^0-9]'), '');
+    if (compact.startsWith('00') && compact.length > 2) {
+      return compact.substring(2);
+    }
+    return null;
+  }
+
+  /// Recognizes, but never persists or rewrites, the one owner-approved local
+  /// form eligible for an explicit WhatsApp conversion confirmation.
+  static String? philippineLocalWhatsAppDigits(String rawValue) {
+    final digits = rawValue.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.length != 11 || !digits.startsWith('09')) {
+      return null;
+    }
+    return '63${digits.substring(1)}';
+  }
+
+  static String displayInternationalDigits(String digits) =>
+      '+${digits.substring(0, 2)} ${digits.substring(2, 5)} '
+      '${digits.substring(5, 8)} ${digits.substring(8)}';
+
   static Future<bool> launchSms(String rawValue) async {
     return launchUrl(
       Uri.parse(_smsUri(rawValue)),
@@ -49,6 +79,19 @@ abstract final class ExternalHandoff {
       mode: LaunchMode.externalApplication,
     );
   }
+
+  static Future<bool> launchWhatsApp(String rawValue) async {
+    final digits = whatsappDigits(rawValue);
+    if (digits == null) {
+      return false;
+    }
+    return launchWhatsAppDigits(digits);
+  }
+
+  static Future<bool> launchWhatsAppDigits(String digits) => launchUrl(
+    Uri.parse('https://wa.me/$digits'),
+    mode: LaunchMode.externalApplication,
+  );
 
   /// Mass SMS: one message per selected recipient.
   static Future<bool> launchMassSms(List<String> rawValues) async {

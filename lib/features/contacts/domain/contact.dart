@@ -120,7 +120,6 @@ abstract final class ContactDisplayedFieldCodec {
 
   static const List<ContactDisplayedField> defaults = <ContactDisplayedField>[
     ContactDisplayedField.currentGroup,
-    ContactDisplayedField.tags,
     ContactDisplayedField.nextEvent,
     ContactDisplayedField.lastEvent,
     ContactDisplayedField.lastHappenedEvent,
@@ -324,6 +323,8 @@ final class ContactMethod {
     required this.normalizedValue,
     this.label,
     this.isPrimary = false,
+    this.receivesTexts,
+    this.hasWhatsApp,
   });
 
   final String id;
@@ -333,6 +334,11 @@ final class ContactMethod {
   final String rawValue;
   final String normalizedValue;
   final bool isPrimary;
+
+  /// Phone-only capability facts. Null is retained for legacy data whose
+  /// capability was never recorded; callers must treat it as unavailable.
+  final bool? receivesTexts;
+  final bool? hasWhatsApp;
 }
 
 final class ContactMethodDraft {
@@ -342,6 +348,8 @@ final class ContactMethodDraft {
     this.id,
     this.label,
     this.isPrimary = false,
+    this.receivesTexts = false,
+    this.hasWhatsApp = false,
   });
 
   /// The stable ContactMethods row ID when editing an existing method.  A
@@ -351,6 +359,8 @@ final class ContactMethodDraft {
   final String value;
   final String? label;
   final bool isPrimary;
+  final bool? receivesTexts;
+  final bool? hasWhatsApp;
 }
 
 final class ContactGroup {
@@ -733,6 +743,12 @@ final class ContactFilterCriteria {
 
   String encode() => jsonEncode(toJson());
 
+  /// Tags remain decodable for legacy data but are neutral in active UX.
+  ContactFilterCriteria withoutRetiredTags() => copyWith(
+    tagIds: const <String>[],
+    tagSelectionMode: ContactFilterSelectionMode.all,
+  );
+
   static ContactFilterCriteria decode(String value) {
     try {
       return ContactFilterCriteria.fromJson(
@@ -825,7 +841,9 @@ final class SavedContactFilterDocument {
       return SavedContactFilterDocument(
         criteria: ContactFilterCriteria.fromJson(decoded),
         description: decoded['description'] as String? ?? '',
-        displayedFields: fields,
+        displayedFields: fields
+            .where((field) => field != ContactDisplayedField.tags)
+            .toList(growable: false),
       );
     } on Object {
       return const SavedContactFilterDocument(
@@ -1159,6 +1177,8 @@ final class ContactDraft {
             // edit. New labels are chosen from the C4 presentation list.
             label: method.label,
             isPrimary: method.isPrimary,
+            receivesTexts: method.receivesTexts,
+            hasWhatsApp: method.hasWhatsApp,
           );
   }
 

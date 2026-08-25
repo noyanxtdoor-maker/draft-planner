@@ -54,6 +54,7 @@ void main() {
     String? phone,
     String? email,
     String? note,
+    List<String> tagNames = const <String>[],
   }) {
     return ContactDraft(
       id: id,
@@ -69,6 +70,7 @@ void main() {
           ContactMethodDraft(type: ContactMethodType.email, value: email),
       ],
       initialNoteText: note,
+      tagNames: tagNames,
     );
   }
 
@@ -119,6 +121,32 @@ void main() {
     expect(restored.id, 'contact-marilyn');
     expect(restored.lifecycleState, ContactLifecycleState.active);
     expect(restored.isFavorite, isTrue);
+  });
+
+  test('duplicate candidates include exact and conservative contained names',
+      () async {
+    final (database, contacts, _, profileId) = await arrange();
+    addTearDown(database.close);
+    for (final entry in <(String, String)>[
+      ('exact-a', 'Aa Papa Gomez'),
+      ('exact-b', 'Aa, Papa   Gomez'),
+      ('contained', 'Papa Gomez'),
+      ('surname-only', 'Gomez'),
+    ]) {
+      await contacts.createContact(
+        profileId: profileId,
+        draft: draftFor(id: entry.$1, first: entry.$2, last: ''),
+      );
+    }
+    final candidates = await contacts.readDuplicateCandidates(profileId);
+    bool hasPair(String first, String second) => candidates.any(
+      (group) => group.map((contact) => contact.id).toSet().containsAll(
+        <String>[first, second],
+      ),
+    );
+    expect(hasPair('exact-a', 'exact-b'), isTrue);
+    expect(hasPair('exact-a', 'contained'), isTrue);
+    expect(hasPair('exact-a', 'surname-only'), isFalse);
   });
 
   test(
@@ -506,16 +534,12 @@ void main() {
         name: 'Family weekend updated',
         criteria: ContactFilterCriteria(groupIds: <String>['family']),
         description: 'Updated description',
-        displayedFields: <ContactDisplayedField>[
-          ContactDisplayedField.tags,
-          ContactDisplayedField.address,
-        ],
+        displayedFields: <ContactDisplayedField>[ContactDisplayedField.address],
       ),
     );
     expect(updated.name, 'Family weekend updated');
     expect(updated.description, 'Updated description');
     expect(updated.displayedFields, <ContactDisplayedField>[
-      ContactDisplayedField.tags,
       ContactDisplayedField.address,
     ]);
 
@@ -682,68 +706,79 @@ void main() {
     },
   );
 
-  test('search matches names, phone, email, groups, and tags', () async {
-    final (database, contacts, _, profileId) = await arrange();
-    addTearDown(database.close);
+  test(
+    'search matches visible fields but excludes dormant Tag names',
+    () async {
+      final (database, contacts, _, profileId) = await arrange();
+      addTearDown(database.close);
 
-    final group = await contacts.createGroup(
-      profileId: profileId,
-      name: 'Work',
-      colorValue: 0xFF2196F3,
-    );
-    await contacts.createContact(
-      profileId: profileId,
-      draft: draftFor(
-        id: 'c-1',
-        first: 'Ashley',
-        last: 'Gomez',
-        phone: '+1 555 0300',
-      ),
-    );
-    await contacts.setContactGroups(
-      profileId: profileId,
-      contactId: 'c-1',
-      groupIds: <String>[group.id],
-      primaryGroupId: group.id,
-    );
-    await contacts.createContact(
-      profileId: profileId,
-      draft: draftFor(
-        id: 'c-2',
-        first: 'Simon',
-        last: 'Rufino',
-        email: 'simon@example.com',
-      ),
-    );
+      final group = await contacts.createGroup(
+        profileId: profileId,
+        name: 'Work',
+        colorValue: 0xFF2196F3,
+      );
+      await contacts.createContact(
+        profileId: profileId,
+        draft: draftFor(
+          id: 'c-1',
+          first: 'Ashley',
+          last: 'Gomez',
+          phone: '+1 555 0300',
+          tagNames: const <String>['Dormant-only label'],
+        ),
+      );
+      await contacts.setContactGroups(
+        profileId: profileId,
+        contactId: 'c-1',
+        groupIds: <String>[group.id],
+        primaryGroupId: group.id,
+      );
+      await contacts.createContact(
+        profileId: profileId,
+        draft: draftFor(
+          id: 'c-2',
+          first: 'Simon',
+          last: 'Rufino',
+          email: 'simon@example.com',
+        ),
+      );
 
-    final byName = await contacts.searchContacts(
-      profileId: profileId,
-      query: 'ash',
-      today: today,
-    );
-    expect(byName.map((s) => s.contact.id), contains('c-1'));
+      final byName = await contacts.searchContacts(
+        profileId: profileId,
+        query: 'ash',
+        today: today,
+      );
+      expect(byName.map((s) => s.contact.id), contains('c-1'));
 
-    final byPhone = await contacts.searchContacts(
-      profileId: profileId,
-      query: '0300',
-      today: today,
-    );
-    expect(byPhone.map((s) => s.contact.id), contains('c-1'));
+      final byPhone = await contacts.searchContacts(
+        profileId: profileId,
+        query: '0300',
+        today: today,
+      );
+      expect(byPhone.map((s) => s.contact.id), contains('c-1'));
 
-    final byEmail = await contacts.searchContacts(
-      profileId: profileId,
-      query: 'simon@example',
-      today: today,
-    );
-    expect(byEmail.map((s) => s.contact.id), contains('c-2'));
+      final byEmail = await contacts.searchContacts(
+        profileId: profileId,
+        query: 'simon@example',
+        today: today,
+      );
+      expect(byEmail.map((s) => s.contact.id), contains('c-2'));
 
-    final byGroup = await contacts.searchContacts(
-      profileId: profileId,
-      query: 'work',
-      today: today,
-    );
-    expect(byGroup.map((s) => s.contact.id), contains('c-1'));
-  });
+      final byGroup = await contacts.searchContacts(
+        profileId: profileId,
+        query: 'work',
+        today: today,
+      );
+      expect(byGroup.map((s) => s.contact.id), contains('c-1'));
+
+      final byDormantTag = await contacts.searchContacts(
+        profileId: profileId,
+        query: 'dormant-only',
+        today: today,
+      );
+      expect(byDormantTag, isEmpty);
+    },
+  );
 
   test(
     'phone filter distinguishes No Phone, typed labels, and Other fallback',
@@ -1078,7 +1113,12 @@ void main() {
         ContactDisplayedField.createdDate,
       ]),
     );
-    expect(ContactDisplayedFieldCodec.defaults, ContactDisplayedField.values);
+    expect(
+      ContactDisplayedFieldCodec.defaults,
+      ContactDisplayedField.values
+          .where((field) => field != ContactDisplayedField.tags)
+          .toList(growable: false),
+    );
   });
 
   test(
@@ -1494,6 +1534,8 @@ void main() {
     'saved filter codec round-trips the new presence/type criteria and decodes legacy JSON',
     () {
       const criteria = ContactFilterCriteria(
+        tagIds: <String>['legacy-tag-id'],
+        tagSelectionMode: ContactFilterSelectionMode.some,
         phoneLabels: <String>[
           ContactPhoneFilterKeys.noPhone,
           ContactPhoneFilterKeys.mobile,
@@ -1510,6 +1552,8 @@ void main() {
       expect(decoded.addressLabels, <String>['recorded']);
       expect(decoded.socialLabels, <String>['whatsapp']);
       expect(decoded.withFutureEvents, isTrue);
+      expect(decoded.tagIds, <String>['legacy-tag-id']);
+      expect(decoded.tagSelectionMode, ContactFilterSelectionMode.some);
 
       // Legacy JSON without the new keys decodes to neutral (empty) lists.
       final legacy = ContactFilterCriteria.decode(
@@ -1536,8 +1580,12 @@ void main() {
       final docDecoded = SavedContactFilterDocument.decode(document.encode());
       expect(docDecoded.criteria.phoneLabels, <String>['noPhone', 'mobile']);
       expect(docDecoded.criteria.socialLabels, <String>['whatsapp']);
+      expect(docDecoded.criteria.tagIds, <String>['legacy-tag-id']);
+      expect(
+        docDecoded.criteria.tagSelectionMode,
+        ContactFilterSelectionMode.some,
+      );
       expect(docDecoded.displayedFields, <ContactDisplayedField>[
-        ContactDisplayedField.tags,
         ContactDisplayedField.lastInteraction,
         ContactDisplayedField.lastViewed,
         ContactDisplayedField.createdDate,
@@ -1546,6 +1594,12 @@ void main() {
       expect(
         docDecoded.description,
         'filter with phone + email + address + social',
+      );
+      final normalizedActiveCriteria = docDecoded.criteria.withoutRetiredTags();
+      expect(normalizedActiveCriteria.tagIds, isEmpty);
+      expect(
+        normalizedActiveCriteria.tagSelectionMode,
+        ContactFilterSelectionMode.all,
       );
     },
   );

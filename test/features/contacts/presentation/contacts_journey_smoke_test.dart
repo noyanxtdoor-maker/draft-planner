@@ -4,6 +4,7 @@ import 'package:rmplanner/core/diagnostics/sanitized_diagnostics.dart';
 import 'package:rmplanner/core/platform/app_environment.dart';
 import 'package:rmplanner/features/contacts/data/drift_contact_repository.dart';
 import 'package:rmplanner/features/contacts/domain/contact.dart';
+import 'package:rmplanner/features/contacts/presentation/c3_contact_primitives.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 
 import '../../../support/test_dependencies.dart';
@@ -75,6 +76,25 @@ void main() {
 
       expect(find.text('Marilyn Gomez'), findsOneWidget);
       expect(find.byKey(const Key('contacts-list')), findsOneWidget);
+      final contactRow = find.byKey(
+        const Key('contact-row-11111111-1111-4111-8111-111111111111'),
+      );
+      expect(
+        find.descendant(
+          of: contactRow,
+          matching: find.byIcon(Icons.star_rounded),
+        ),
+        findsOneWidget,
+        reason: 'a favorite replaces its identity dot with one star marker',
+      );
+      expect(
+        find.descendant(
+          of: contactRow,
+          matching: find.byType(ContactGroupIdentityDot),
+        ),
+        findsNothing,
+        reason: 'a favorite must not render an additional group dot',
+      );
 
       // The row opens the Contact Profile (two tabs, no Progress).
       await tester.tap(find.text('Marilyn Gomez'));
@@ -82,12 +102,23 @@ void main() {
       expect(find.byKey(const Key('profile-tab')), findsOneWidget);
       expect(find.byKey(const Key('timeline-tab')), findsOneWidget);
       expect(find.byKey(const Key('contact-profile-tab')), findsOneWidget);
-      expect(find.text('Contact Information'), findsOneWidget);
+      expect(find.text('CONTACT INFORMATION'), findsOneWidget);
+      expect(find.byKey(const Key('main-bottom-navigation')), findsOneWidget);
+      expect(find.byKey(const Key('contact-detail-favorite')), findsOneWidget);
+      expect(find.byKey(const Key('contact-detail-fab')), findsNothing);
 
       // Timeline tab shows the canonical Record Created entry.
       await tester.tap(find.byKey(const Key('timeline-tab')));
       await tester.pumpAndSettle();
       expect(find.text('Record Created'), findsOneWidget);
+
+      // The shell-owned detail route pops back to the existing Contacts list
+      // rather than leaving the shell or manufacturing a second nav stack.
+      final handled = await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(handled, isTrue);
+      expect(find.byKey(const Key('contacts-list')), findsOneWidget);
+      expect(find.byKey(const Key('main-bottom-navigation')), findsOneWidget);
 
       // Dispose the tree and flush drift's zero-duration stream-cancel
       // timers so the binding has no pending timers at teardown.

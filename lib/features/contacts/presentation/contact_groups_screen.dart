@@ -6,9 +6,19 @@ import 'package:rmplanner/features/contacts/application/contact_providers.dart';
 import 'package:rmplanner/features/contacts/domain/contact.dart';
 import 'package:rmplanner/features/planner/domain/recommended_event_colors.dart';
 
-/// Group manager: create, rename, recolor, and archive Groups.  Colors come
-/// from the shared Next Transfer Recommended palette so Contact identity
-/// belongs to the same faded tonal family as the Planner.
+const List<String> _suggestedGroupNames = <String>[
+  'Family',
+  'Friends',
+  'Work',
+  'School',
+  'Clients',
+  'Team',
+  'Other',
+];
+
+/// Group manager for user-owned Groups. Every saved Group can be renamed,
+/// recolored, or permanently deleted. Suggested names are optional shortcuts,
+/// never protected records or an automatically recreated catalog.
 final class ContactGroupsScreen extends ConsumerStatefulWidget {
   const ContactGroupsScreen({super.key});
 
@@ -23,7 +33,7 @@ final class _ContactGroupsScreenState
   Widget build(BuildContext context) {
     final groupsAsync = ref.watch(contactGroupsProvider);
     return Scaffold(
-      appBar: InternalAppBar(title: const Text('Groups')),
+      appBar: InternalAppBar(title: const Text('Manage Groups')),
       body: groupsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, stack) =>
@@ -31,29 +41,69 @@ final class _ContactGroupsScreenState
         data: (groups) {
           final active = groups.where((g) => !g.isArchived).toList();
           final archived = groups.where((g) => g.isArchived).toList();
+          final existingNames = groups
+              .map((group) => group.name.trim().toLowerCase())
+              .toSet();
+          final suggestions = _suggestedGroupNames
+              .where((name) => !existingNames.contains(name.toLowerCase()))
+              .toList(growable: false);
           return ListView(
             key: const Key('contact-groups-list'),
             padding: InternalScreen.pagePadding,
             children: <Widget>[
               for (final group in active)
-                _GroupRow(group: group, onTap: () => _editGroup(group)),
+                _GroupRow(
+                  group: group,
+                  onEdit: () => _editGroup(group),
+                  onDelete: () => _confirmHardDelete(group),
+                ),
               if (active.isEmpty)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 32),
                   child: Text(
-                    'No groups yet. Create one to give your contacts a shared color.',
+                    'No groups yet. Create one or choose a suggestion to give '
+                    'your contacts a shared color.',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: AppTheme.secondaryTextOf(context),
-                    ),
+                    style: TextStyle(color: AppTheme.secondaryTextOf(context)),
                   ),
                 ),
+              if (suggestions.isNotEmpty) ...<Widget>[
+                const SizedBox(height: 8),
+                const Text(
+                  'Suggested groups',
+                  style: InternalScreen.sectionHeading,
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: <Widget>[
+                    for (var index = 0; index < suggestions.length; index += 1)
+                      ActionChip(
+                        key: Key(
+                          'suggested-group-${suggestions[index].toLowerCase()}',
+                        ),
+                        label: Text(suggestions[index]),
+                        onPressed: () =>
+                            _createSuggestedGroup(suggestions[index], index),
+                      ),
+                  ],
+                ),
+              ],
               if (archived.isNotEmpty) ...<Widget>[
                 const SizedBox(height: 24),
-                const Text('Archived', style: InternalScreen.sectionHeading),
+                const Text(
+                  'Previously archived',
+                  style: InternalScreen.sectionHeading,
+                ),
                 const SizedBox(height: 4),
                 for (final group in archived)
-                  _GroupRow(group: group, onTap: () => _editGroup(group)),
+                  _GroupRow(
+                    group: group,
+                    onEdit: () => _editGroup(group),
+                    onDelete: () => _confirmHardDelete(group),
+                    isLegacyArchived: true,
+                  ),
               ],
             ],
           );
@@ -79,12 +129,6 @@ final class _ContactGroupsScreenState
       builder: (sheetContext) => _GroupEditor(group: group),
     );
     if (result == null || !mounted) {
-      return;
-    }
-    if (result is _GroupEditorArchive) {
-      if (group != null) {
-        await _archive(group);
-      }
       return;
     }
     final save = result as _GroupEditorSave;
@@ -114,23 +158,46 @@ final class _ContactGroupsScreenState
     }
   }
 
-  Future<void> _archive(ContactGroup group) async {
+  Future<void> _createSuggestedGroup(String name, int index) async {
+    final color = RecommendedEventColorPalette
+        .colors[index % RecommendedEventColorPalette.colors.length]
+        .argb;
+    final repository = ref.read(contactRepositoryProvider);
+    final profileId = ref.read(contactProfileIdProvider);
+    try {
+      await repository.createGroup(
+        profileId: profileId,
+        name: name,
+        colorValue: color,
+      );
+    } on ContactValidationException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.message)));
+      }
+    }
+  }
+
+  Future<void> _confirmHardDelete(ContactGroup group) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Archive group?'),
+        key: Key('group-delete-dialog-${group.id}'),
+        title: const Text('Delete group permanently?'),
         content: Text(
-          '${group.name} stays on existing Contacts, but is hidden from '
-          'new assignments and is no longer anyone\'s primary group.',
+          '“${group.name}” will be removed from every Contact that uses it. '
+          'Contacts stay in place, but this cannot be undone.',
         ),
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Keep'),
+            child: const Text('Cancel'),
           ),
           FilledButton(
+            key: Key('group-delete-confirm-${group.id}'),
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Archive'),
+            child: const Text('Delete'),
           ),
         ],
       ),
@@ -140,7 +207,15 @@ final class _ContactGroupsScreenState
     }
     final repository = ref.read(contactRepositoryProvider);
     final profileId = ref.read(contactProfileIdProvider);
-    await repository.archiveGroup(profileId: profileId, groupId: group.id);
+    try {
+      await repository.hardDeleteGroup(profileId: profileId, groupId: group.id);
+    } on ContactValidationException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.message)));
+      }
+    }
   }
 }
 
@@ -155,51 +230,77 @@ final class _GroupEditorSave extends _GroupEditorResult {
   final int color;
 }
 
-final class _GroupEditorArchive extends _GroupEditorResult {
-  const _GroupEditorArchive();
-}
-
 final class _GroupRow extends StatelessWidget {
-  const _GroupRow({required this.group, required this.onTap});
+  const _GroupRow({
+    required this.group,
+    required this.onEdit,
+    required this.onDelete,
+    this.isLegacyArchived = false,
+  });
 
   final ContactGroup group;
-  final VoidCallback onTap;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+  final bool isLegacyArchived;
 
   @override
   Widget build(BuildContext context) {
     return Material(
       color: Colors.transparent,
-      child: InkWell(
+      child: Padding(
         key: Key('group-row-${group.id}'),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          child: Row(
-            children: <Widget>[
-              Container(
-                width: 20,
-                height: 20,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Color(group.colorValue),
-                ),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: <Widget>[
+            Container(
+              width: 20,
+              height: 20,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Color(group.colorValue),
               ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Text(
-                  group.name,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    group.name,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
-                ),
+                  if (isLegacyArchived)
+                    Text(
+                      'Previously archived',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.secondaryTextOf(context),
+                      ),
+                    ),
+                ],
               ),
-              Icon(
-                Icons.chevron_right,
-                color: AppTheme.secondaryTextOf(context),
+            ),
+            Tooltip(
+              message: 'Edit ${group.name}',
+              child: IconButton(
+                key: Key('group-edit-${group.id}'),
+                onPressed: onEdit,
+                icon: const Icon(Icons.edit_outlined),
               ),
-            ],
-          ),
+            ),
+            Tooltip(
+              message: 'Delete ${group.name} permanently',
+              child: IconButton(
+                key: Key('group-delete-${group.id}'),
+                onPressed: onDelete,
+                color: Theme.of(context).colorScheme.error,
+                icon: const Icon(Icons.delete_outline),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -312,20 +413,6 @@ final class _GroupEditorState extends State<_GroupEditor> {
               },
               child: const Text('Save'),
             ),
-            if (widget.group != null) ...<Widget>[
-              const SizedBox(height: 4),
-              TextButton(
-                key: const Key('group-archive'),
-                onPressed: () =>
-                    Navigator.of(context).pop(const _GroupEditorArchive()),
-                child: Text(
-                  'Archive group',
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                ),
-              ),
-            ],
           ],
         ),
       ),
