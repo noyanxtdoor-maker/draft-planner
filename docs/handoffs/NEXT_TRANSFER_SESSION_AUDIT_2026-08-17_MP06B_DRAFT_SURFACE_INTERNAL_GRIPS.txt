@@ -1,0 +1,223 @@
+NEXT TRANSFER — SESSION AUDIT
+MP-06B DRAFT SURFACE + INTERNAL GRIP CONTRAST
+DATE: 2026-08-17
+MODE: MICRO CORRECTIVE RUN · NO COMMIT · NO PUSH · NO STAGING
+STATUS: STOP FOR OWNER PHYSICAL REVIEW
+
+================================================================================
+0. SUMMARY
+================================================================================
+Owner correction (HIGHEST AUTHORITY 2026-08-17) rejected two MP-06 visual
+rules: (A) the draft surface was hardcoded to AppTheme.rose in every
+appearance, and (B) the visible draft grips straddled the block edge. This
+run restored the draft surface to the APP THEME FAMILY (Blue -> blue-family
+fill, Rose -> rose-family fill, Light and Dark) using existing semantic
+tokens (colorScheme.primaryContainer), and moved the visible 14 dp grips
+FULLY INSIDE the filled draft block (START upper-right, END bottom-left),
+reusing the shared saved-event Corner Tab Grip painter. Grip color stays
+colorScheme.primary; fill/grip contrast is guaranteed in all four states.
+Saved Events are untouched.
+
+================================================================================
+1. MANDATORY PRE-EDIT BACKUP
+================================================================================
+Backup folder: C:\Users\sherl\Documents\Next Transfer-Backups\
+2026-08-17_0855_MP06B_MICRO\
+- backup timestamp: 2026-08-17 08:55
+- HEAD/upstream: 109417052acf94b02b2fa0e16d6785d0bb70e8ed (in sync)
+- dirty tree: 93 tracked-modified + 110 untracked, index EMPTY
+  (staged_index.patch = 0 bytes, EMPTY_INDEX_CONFIRMED in BASELINE_IDENTITY)
+- git bundle --all: created; bundle verify PASSED (exit 0)
+- tracked_worktree.patch (binary): 1,423,723 bytes
+- untracked_files_manifest.txt: 110 entries
+- untracked_source_snapshot.zip: 34,181,120 bytes
+- source_worktree_snapshot.zip: 278,804,480 bytes
+- SHA256_MANIFEST.txt: sha256sum -c ALL OK (regenerated after
+  BASELINE_IDENTITY append)
+Restore procedure: bundle restore + tracked_worktree.patch + staged_index.patch
++ untracked_source_snapshot.zip into a fresh checkout; restore-check not
+performed over the active repo (per contract, no destructive restore).
+Backup left intact after session.
+
+================================================================================
+2. RESTORE-FIRST COMPARISON
+================================================================================
+Compared the pre-MP06 polish planner_screen.dart from backup
+2026-08-16_2119_MP06_GRIP_POLISH\source_worktree_snapshot.zip against the
+current tree:
+
+PRE-MP06 (accepted by owner before the polish):
+- draft fill = colorScheme.primary (theme family: Blue/Rose by appearance)
+- draft text = onPrimary (maroon in Rose Dark)
+- grips FULLY INSIDE (START cap top = draftStraddle(22) flush at block top;
+  END cap top = draftStraddle - visibleCapSize(8) flush at block bottom)
+
+MP-06 FINAL POLISH (rejected):
+- draft fill = hardcoded AppTheme.rose in EVERY appearance
+- grips straddled the block edge by 7 dp (cap top = block.top - 7 / bottom + 7)
+
+RESTORE + OWNER ADDENDUM:
+- Theme-family surface restored (per restore-first rule) but upgraded per the
+  new contrast contract: fill = colorScheme.primaryContainer (softer
+  same-family container), grip = colorScheme.primary (stronger same-family),
+  text = colorScheme.onPrimaryContainer. Pre-MP06 fill == primary would make
+  a primary-colored grip invisible (the exact reason the polish straddled);
+  the owner's correction explicitly requires grip/fill contrast.
+- Grip placement restored to FULLY INSIDE (pre-MP06 geometry).
+
+================================================================================
+3. ROOT CAUSE
+================================================================================
+A. Draft surface (planner_screen.dart ~5762-5777): provisional fill forced to
+   AppTheme.rose regardless of appearance. Blue appearance rendered a PINK
+   draft (owner-rejected).
+B. Draft grip placement (planner_screen.dart ~3186-3202): draftCapStraddle
+   positioned each 14 dp cap half-outside the block (START top = block.top-7,
+   END bottom = block.bottom+7) so it stayed visible on the same-tone pink
+   fill (owner-rejected).
+Grip COLOR source (colorScheme.primary) was already correct and retained.
+
+Resolved tokens (measured via probe, not guessed):
+  Light Blue  fill=#D3E3F4  grip=#175A8F  text=#123A5C
+  Light Rose  fill=#F9B7C7  grip=#A62C49  text=#6E1E33
+  Dark Blue   fill=#123A5C  grip=#9FC8F0  text=#D3E3F4
+  Dark Rose   fill=#703346  grip=#F9B7C7  text=#FFD9E1
+All grip/fill pairs contrast >= 3.0 (measured in-test; actual ratios ~4-7).
+
+================================================================================
+4. RED -> GREEN
+================================================================================
+RED (pre-fix): new MP06B 4x2 matrix test failed on the current code with the
+exact owner complaint: START cap top expected flush with block top (334.0)
+but actual 327.0 (7 dp above - straddling). Blue/dark cells also failed on
+fill != primaryContainer.
+
+GREEN (post-fix):
+- MP06B matrix 8/8 (4 appearances x 2 Event Types)
+- MP-06 theme grip color 8/8
+- MP-06 draft grips contract 3/3
+- Delta 4 creation session 4/4
+- Full Planner suite 710/710
+- Full Flutter suite 1158/1158
+- dart analyze --fatal-infos lib test: No issues found
+- git diff --check: clean
+
+================================================================================
+5. EXACT FILES CHANGED (this run)
+================================================================================
+Production (1 file):
+- lib/features/planner/presentation/planner_screen.dart
+  + _TimelineEventBlock.build: provisional resolver
+    accent=colorScheme.primary, fill=colorScheme.primaryContainer,
+    textColorOverride=colorScheme.onPrimaryContainer (removed hardcoded
+    AppTheme.rose + 0xFF3A0610)
+  + _DirectEndpointHandle.build: caps restored FULLY INSIDE
+    (START top=draftStraddle, END top=draftStraddle-visibleCapSize;
+    removed draftCapStraddle 7 dp straddle)
+
+Tests (4 files, all pin the NEW owner contract):
+- test/features/planner/presentation/mp06b_draft_surface_internal_grips_test.dart  (NEW, 8 tests)
+- test/features/planner/presentation/mp06_theme_grip_color_test.dart  (updated)
+- test/features/planner/presentation/mp06_draft_grips_contract_test.dart  (updated)
+- test/features/planner/presentation/planner_delta4_creation_session_test.dart  (updated)
+
+Evidence:
+- docs/handoffs/_screenshots/mp06b_draft_surface_internal_grips/
+  01_light_rose_temple_visit.png
+  02_light_rose_study_or_plan.png
+
+This-run probe (deleted): test/app/theme/_mp06b_rose_dark_probe_test.dart
+
+================================================================================
+6. NO-TOUCH LEDGER (unchanged, verified by full-suite preservation)
+================================================================================
+R1 GoalIcon compensation, MP-04 preview parity, R3 one-hour overview packing,
+R5 Pathways removal, Maps V1/v28/MapLibre, lane solver/zoom/pager, recurrence,
+status/Actual ledger, CT-03, Home/Contacts, app icon, saved-Event surface,
+grip color, and grip geometry, 44 dp invisible hit targets.
+
+================================================================================
+7. BUILD + SAFE INSTALL
+================================================================================
+Build: flutter build apk --debug (JDK 21 toolchain)
+- APK: build\app\outputs\flutter-apk\app-debug.apk
+- Size: 239,440,152 bytes
+- SHA-256: c2d844947381baf8118ad0d9f8ea725aedea36d24d735d2c026e6d61d244943b
+
+Install: adb install -r (wireless adb, paired Infinix X6731) -> Success
+- no uninstall, no pm clear, no data deletion
+
+Data preservation (post-install pull):
+- schema user_version: 28 (v28 -> v28)
+- PRAGMA quick_check: ok
+- planner_tasks 3, goals 16, contacts 5, calendar_events 227,
+  weekly_plans 11, local_profiles 1
+- coordinates: 0 non-null latitude in contacts + calendar_events (v28 cols
+  present, empty - Maps V1 contract intact)
+- appearance_preferences: (primary, dark, ..., blue) at session start;
+  NOTE: changed to (light, rose) during on-device evidence capture (see 8)
+
+================================================================================
+8. DEVICE PHYSICAL MATRIX
+================================================================================
+Captured (pixel-verified):
+- Light + Rose + Temple Visit: filled draft rgb(249,183,199) = #F9B7C7
+  (rose primaryContainer). START grip 1036 px strong-rose at block
+  upper-right corner INSIDE (y957-998, right edge flush x1043); END grip
+  683 px at block bottom-left INSIDE (y1295-1335, left edge flush x213);
+  ZERO grip pixels above block top or below block bottom (no straddle).
+- Light + Rose + Study or Plan: fill identical #F9B7C7; START/END corner
+  grip pixels present (516/518 px). Event Type does not change draft
+  surface or grip family.
+
+Not captured on-device (widget-matrix covered, pending owner physical):
+- Light + Blue, Dark + Blue, Dark + Rose. The MP06B widget matrix asserts
+  exact fill (primaryContainer), grip (primary), inside geometry, and
+  >= 3:1 contrast for all four states x two Event Types, so the code-level
+  contract is proven; owner physical screenshots for these three states
+  remain the acceptance gate.
+
+Device note: the appearance on the owner's phone is currently Light + Rose
+(it was Dark + Blue at session start; the theme changed during automated
+evidence capture). This is a settings value, not app data. Owner can restore
+Dark + Blue via Settings -> Appearance, or the next session can restore it.
+
+Also note: the device's adb-injected taps/drags are unreliable on this
+Transsion device (known from prior sessions); draft creation and one theme
+state were captured successfully; remaining states are better captured by
+the owner directly or with the owner driving.
+
+================================================================================
+9. OWNER CHECKLIST (physical review)
+================================================================================
+1. Light + Blue: filled BLUE-family draft, clearly visible stronger BLUE
+   internal grips (upper-right START, bottom-left END), fully inside.
+2. Dark + Blue: filled dark/muted BLUE draft, brighter light-BLUE internal
+   grips.
+3. Light + Rose: filled soft ROSE draft, stronger ROSE internal grips
+   (evidence provided in 01/02).
+4. Dark + Rose: filled dark/muted ROSE draft, brighter light-ROSE internal
+   grips.
+5. Change Event Type on a draft: draft surface and grip family do NOT change.
+6. Draft stays a solid FILLED provisional block; time-only text.
+7. Saved Events look unchanged (surface, grips, colors).
+8. START/END drag and body move still work (widget suites cover semantics;
+   on-device drag injection is unreliable - physical check recommended).
+9. Sheet drag does not resize.
+
+================================================================================
+10. UNRESOLVED ITEMS
+================================================================================
+- Device screenshots for Light+Blue / Dark+Blue / Dark+Rose pending owner
+  physical capture (widget matrix proves code-level contract).
+- On-device grip drag semantics rely on widget suites (input injection
+  unreliable on this device); owner physical drag check recommended.
+- Owner phone appearance currently Light+Rose (changed during evidence
+  capture); restore via Settings -> Appearance if Dark+Blue is preferred.
+
+================================================================================
+11. GIT / STOP
+================================================================================
+NO COMMIT. NO PUSH. NOTHING STAGED.
+STOP FOR OWNER PHYSICAL REVIEW.
+Do NOT run the checkpoint pack yet.

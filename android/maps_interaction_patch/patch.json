@@ -1,0 +1,104 @@
+{
+  "package": "google_maps_flutter_android",
+  "version": "2.19.13",
+  "files": [
+    {
+      "name": "GoogleMapController.java",
+      "sha256": "b91cf0821edd369d52641920dedccf23dc4999707bfb5cb074ad7f3b6c425f30",
+      "replacements": [
+        {
+          "before": "  private MarkerManager markerManager;",
+          "after": "  private NtMapInteraction ntInteraction;\n  private MarkerManager markerManager;",
+          "count": 1
+        },
+        {
+          "before": "this.mapView = new MapView(context, options);",
+          "after": "this.mapView = new NtPrecisionMapView(context, options);",
+          "count": 2
+        },
+        {
+          "before": "    clusterManagersController.init(googleMap, markerManager);",
+          "after": "    clusterManagersController.init(googleMap, markerManager);\n    ntInteraction = new NtMapInteraction(id, context, binaryMessenger, googleMap,\n        markersController::ntIsCurrent, clusterManagersController::ntRecluster);\n    markersController.ntInteraction = ntInteraction;\n    clusterManagersController.ntInteraction = ntInteraction;\n    if (mapView instanceof NtPrecisionMapView precise) precise.interaction = ntInteraction;\n    clusterManagersController.ntSelectedMarker = () -> markersController.ntBuilder(ntInteraction.selectedOwnerId);",
+          "count": 1
+        },
+        {
+          "before": "    disposed = true;",
+          "after": "    disposed = true;\n    if (ntInteraction != null) ntInteraction.dispose();",
+          "count": 1
+        },
+        {
+          "before": "    markersController.addMarkers(toAdd);",
+          "after": "    if (ntInteraction != null) ntInteraction.diffArrived();\n    markersController.addMarkers(toAdd);",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "name": "MarkersController.java",
+      "sha256": "7671d972bd3b0cd2d095de3c5b6dc79fce1f5a56fc9c6aea26971351851674e4",
+      "replacements": [
+        {
+          "before": "  void setCollection(MarkerManager.Collection markerCollection) {",
+          "after": "  MarkerBuilder ntBuilder(String id) { return markerIdToMarkerBuilder.get(id); }\n  NtMapInteraction ntInteraction;\n  boolean ntIsCurrent(MarkerBuilder builder) {\n    return markerIdToMarkerBuilder.get(builder.markerId()) == builder;\n  }\n  void setCollection(MarkerManager.Collection markerCollection) {",
+          "count": 1
+        },
+        {
+          "before": "    for (PlatformMarker markerToAdd : markersToAdd) {",
+          "after": "    for (PlatformMarker markerToAdd : markersToAdd) {\n      if (ntInteraction != null) ntInteraction.remember(markerToAdd);",
+          "count": 1
+        },
+        {
+          "before": "    for (PlatformMarker markerToChange : markersToChange) {",
+          "after": "    for (PlatformMarker markerToChange : markersToChange) {\n      if (ntInteraction != null) ntInteraction.remember(markerToChange);",
+          "count": 1
+        },
+        {
+          "before": "    for (String markerId : markerIdsToRemove) {",
+          "after": "    for (String markerId : markerIdsToRemove) {\n      if (ntInteraction != null) ntInteraction.forget(markerId);",
+          "count": 2
+        },
+        {
+          "before": "    googleMapsMarkerIdToDartMarkerId.put(marker.getId(), markerId);",
+          "after": "    googleMapsMarkerIdToDartMarkerId.put(marker.getId(), markerId);\n    if (ntInteraction != null) ntInteraction.record(markerId, marker, markerIdToMarkerBuilder.get(markerId));",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "name": "ClusterManagersController.java",
+      "sha256": "2095e339c12b64fe7a1c9f11b7b2b0e3e073085e58522dc779ca66c0cece82ad",
+      "replacements": [
+        {
+          "before": "  private final @NonNull Context context;",
+          "after": "  NtMapInteraction ntInteraction;\n  java.util.function.Supplier<MarkerBuilder> ntSelectedMarker;\n  void ntRecluster() {\n    ntInferRemainder();\n    for (ClusterManager<MarkerBuilder> manager : clusterManagerIdToManager.values()) manager.cluster();\n  }\n  private void ntInferRemainder() {\n    if (ntInteraction == null || !ntInteraction.inferRemainder) return;\n    java.util.Set<String> remainder = new java.util.HashSet<>();\n    MarkerBuilder selected = ntSelectedMarker == null ? null : ntSelectedMarker.get();\n    ClusterManager<MarkerBuilder> manager = clusterManagerIdToManager.get(ntInteraction.selectedManagerId);\n    if (selected != null && manager != null) {\n      // Read-only hypothetical membership using the same pinned algorithm and\n      // distance. Never add the selected record to the live manager. Exact\n      // coordinate targets already implement their remainder in Dart.\n      java.util.Collection<MarkerBuilder> items = manager.getAlgorithm().getItems();\n      boolean coLocated = items.stream().anyMatch(item -> item != selected && item.getPosition().equals(selected.getPosition()));\n      if (!coLocated) {\n        com.google.maps.android.clustering.algo.NonHierarchicalDistanceBasedAlgorithm<MarkerBuilder> query =\n            new com.google.maps.android.clustering.algo.NonHierarchicalDistanceBasedAlgorithm<>();\n        query.setMaxDistanceBetweenClusteredItems(manager.getAlgorithm().getMaxDistanceBetweenClusteredItems());\n        query.addItems(items); query.addItem(selected);\n        for (Cluster<MarkerBuilder> cluster : query.getClusters(googleMap.getCameraPosition().zoom)) {\n          if (cluster.getSize() >= 4 && cluster.getItems().contains(selected)) {\n            for (MarkerBuilder item : cluster.getItems()) if (item != selected) remainder.add(item.markerId());\n            break;\n          }\n        }\n      }\n    }\n    ntInteraction.inferredRemainder(remainder);\n  }\n  private final @NonNull Context context;",
+          "count": 1
+        },
+        {
+          "before": "      clusterManager.addItems(items);",
+          "after": "      if (ntInteraction != null) ntInteraction.membershipChanged(clusterManagerId);\n      clusterManager.addItems(items);\n      ntInferRemainder();",
+          "count": 1
+        },
+        {
+          "before": "      clusterManager.removeItems(items);",
+          "after": "      if (ntInteraction != null) ntInteraction.membershipChanged(clusterManagerId);\n      clusterManager.removeItems(items);\n      ntInferRemainder();",
+          "count": 1
+        },
+        {
+          "before": "    // Return false to allow the default behavior of the cluster click event to occur.\n    return false;",
+          "after": "    // NT owns grouped preview; consume the SDK default camera action.\n    return true;",
+          "count": 1
+        },
+        {
+          "before": "    @Override\n    protected void onBeforeClusterItemRendered(\n        @NonNull T item, @NonNull MarkerOptions markerOptions) {",
+          "after": "    @Override\n    protected boolean shouldRenderAsCluster(@NonNull Cluster<T> cluster) {\n      NtMapInteraction nt = clusterManagersController.ntInteraction;\n      return super.shouldRenderAsCluster(cluster) || (nt != null && nt.remainder(cluster));\n    }\n\n    @Override public void onClustersChanged(Set<? extends Cluster<T>> clusters) {\n      NtMapInteraction nt = clusterManagersController.ntInteraction;\n      if (nt != null && !clusters.isEmpty()) {\n        Cluster<T> first = clusters.iterator().next();\n        if (!first.getItems().isEmpty()) nt.clustersChanged(first.getItems().iterator().next().clusterManagerId(), clusters);\n      }\n      super.onClustersChanged(clusters);\n    }\n\n    private android.graphics.Bitmap ntBitmap(Cluster<T> cluster) {\n      return clusterManagersController.ntInteraction.countBitmap(\n          getClusterText(getBucket(cluster)), getColor(getBucket(cluster)), getClusterTextAppearance(cluster.getSize()));\n    }\n\n    @Override protected com.google.android.gms.maps.model.BitmapDescriptor getDescriptorForCluster(@NonNull Cluster<T> cluster) {\n      if (clusterManagersController.ntInteraction == null) return super.getDescriptorForCluster(cluster);\n      return com.google.android.gms.maps.model.BitmapDescriptorFactory.fromBitmap(ntBitmap(cluster));\n    }\n\n    @Override protected void onClusterRendered(@NonNull Cluster<T> cluster, @NonNull Marker marker) {\n      super.onClusterRendered(cluster, marker);\n      NtMapInteraction nt = clusterManagersController.ntInteraction;\n      if (nt != null && !cluster.getItems().isEmpty()) nt.cluster(\n          cluster.getItems().iterator().next().clusterManagerId(), cluster, marker, ntBitmap(cluster));\n    }\n\n    @Override protected void onClusterUpdated(@NonNull Cluster<T> cluster, @NonNull Marker marker) {\n      super.onClusterUpdated(cluster, marker);\n      onClusterRendered(cluster, marker);\n    }\n\n    @Override\n    protected void onBeforeClusterItemRendered(\n        @NonNull T item, @NonNull MarkerOptions markerOptions) {",
+          "count": 1
+        },
+        {
+          "before": "  public void onCameraIdle() {",
+          "after": "  public void onCameraIdle() {\n    ntInferRemainder();",
+          "count": 1
+        }
+      ]
+    }
+  ]
+}

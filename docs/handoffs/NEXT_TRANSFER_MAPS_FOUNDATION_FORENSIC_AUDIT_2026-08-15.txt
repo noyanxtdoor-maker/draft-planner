@@ -1,0 +1,297 @@
+NEXT TRANSFER — MAPS FOUNDATION FORENSIC AUDIT
+READ-ONLY · FROM CLEAN CHECKPOINT 1094170
+DATE: 2026-08-15
+
+================================================================================
+1. NEW NX CHECKPOINT SHA / CLEAN PROOF
+================================================================================
+- repo: C:\Users\sherl\Documents\Next Transfer-Temp
+- branch: autonomous/stability-ux-pack-a-20260814
+- HEAD == origin == 109417052acf94b02b2fa0e16d6785d0bb70e8ed
+  (NX checkpoint: "feat(ui): finalize light detail and primary navigation")
+- tracked tree CLEAN, index EMPTY, schema v27
+- This audit is READ-ONLY: no production/test/golden/schema/package/
+  API-key/permission edits, no DB writes, no commit, no push.
+- Temporary DB pull was read-only (device copy removed after counts).
+- NO MAPS TAB WAS CREATED (verified: zero 'maps' matches in
+  lib/app/router/route_names.dart and lib/app/router/app_router.dart).
+
+================================================================================
+2. PACKAGE / PLATFORM INVENTORY
+================================================================================
+PACKAGES (pubspec.yaml dependencies):
+- map SDK:                    NONE
+- location packages:          NONE
+- geocoding packages:         NONE
+- map tile/cache packages:    NONE
+- url_launcher 6.3.2          PRESENT (external app handoff infra)
+- permission_handler 12.0.3   PRESENT (generic permission gateway)
+- flutter_contacts ^2.3.1     PRESENT (device contact import)
+- drift / flutter_svg / go_router etc. (unrelated)
+
+PLATFORM (android/app/src/main/AndroidManifest.xml):
+- declared permissions: USE_BIOMETRIC, READ_CONTACTS only
+- INTERNET: declared in debug + profile manifests ONLY (deliberate
+  offline-first release posture — verified with comments). Any release
+  network feature (tiles/search) is a conscious INTERNET decision.
+- map API-key/config placeholders: NONE
+- platform map setup: NONE
+
+================================================================================
+3. DOMAIN / DATABASE LOCATION INVENTORY
+================================================================================
+DOMAIN MODELS:
+- CalendarEventLocationSelection (lib/features/planner/domain/calendar_event
+  _location.dart): placeName / formattedAddress / latitude / longitude /
+  externalPlaceId + a CalendarEventLocationPicker interface — DEFINED but
+  NEVER implemented, NEVER referenced, NEVER persisted (dead/placeholder).
+- Events: locationText (String?, free text) only.
+- Contacts: addressText (String?, free text) + hasAddress filter flag only.
+- No place/location table. No lat/lng/coordinate column anywhere in the
+  database (verified across app_database.dart + live device schema).
+
+DATABASE (live device, schema v27):
+- calendar_events.location_text     Text, nullable, free text
+- contacts.address_text             Text, nullable, free text
+- No lat/lng/coordinate columns.
+
+UI / ROUTES:
+- No Maps screen, no maps route, no hidden route (verified).
+- Event form: 'event-location-field' free-text field (Location/Address).
+- Contact form: free-text address field; Contact detail displays addressText.
+- ExternalHandoff (contacts): SMS / call / email handoff with the
+  "return creates no outcome / no silent inference" contract — ESTABLISHED
+  PATTERN for an M4 navigation handoff (no geo: helper yet).
+- Contact filters already support hasAddress criteria.
+
+TESTS:
+- No maps/location/permission/offline tests exist.
+
+CLASSIFICATION: every discovered location piece is PLACEHOLDER (model +
+picker interface), or MISSING (schema, UI, routes, tests).
+
+================================================================================
+4. DATA REALITY CHECK (2B)
+================================================================================
+1. Can Contacts hold freeform address?      YES (address_text free text).
+   Structured address or lat/lng?           NO.
+2. Can Events hold location text?           YES (location_text free text).
+   lat/lng?                                 NO.
+3. Is location data profile-scoped?         YES (all rows are profile-owned;
+                                            single local profile, guest-first).
+4. Live rows with useful location data:     NO.
+   Privacy-safe counts (device, schema v27):
+     events total 225 · events with location_text 0
+     contacts total 5  · contacts with address_text 0
+5. Markers without a migration?             NO — no coordinates exist anywhere.
+6. Smallest additive contract:              optional per-record coordinates
+                                            (lat/lng on events + contacts,
+                                            OR a shared place table with
+                                            record references) + explicit
+                                            provenance (user-entered vs picked),
+                                            never inferred from address text.
+
+RULE: coordinates are NEVER inferred from address text; existing records are
+never silently geocoded.
+
+================================================================================
+5. M1-M4 CAPABILITY MATRIX (2C)
+================================================================================
+M1 SAVED PLACES MAP (markers for explicit coordinates -> record):
+    NEEDS SCHEMA (no stored coordinates) + NEEDS PROVIDER. Empty-state only
+    today (device has 0 located records).
+M2 PLACE ENTRY / PICKER (user explicitly saves a coordinate/place):
+    NEEDS PACKAGE (no map/SDK for tap-pick or search) + NEEDS SCHEMA.
+    Manual coordinate entry could exist without a map, but the approved UX
+    target is pick/tap/search.
+M3 CURRENT DEVICE LOCATION (optional center-on-me):
+    NEEDS PACKAGE (no geolocator/location) + JIT foreground permission
+    (model already exists: OptionalPermission.foregroundLocation ->
+    Permission.locationWhenInUse in the privacy gateway; manifest declaration
+    + AndroidX location plumbing still needed). OWNER-GATED.
+M4 EXTERNAL NAVIGATION HANDOFF (hand off to an installed navigation app):
+    READY NOW — url_launcher present, ExternalHandoff pattern established,
+    geo:/google.navigation: URIs need no new package or permission. Release
+    INTERNET not required (external app). "Return creates no outcome"
+    contract already established for handoffs.
+
+================================================================================
+6. BASEMAP PROVIDER DECISION (2D) — NO PROVIDER EXISTS; NONE ADDED
+================================================================================
+Options matrix (facts below current to repo knowledge; EXTERNAL FACTS MARKED):
+| Criterion                 | flutter_map / MapLibre (open)      | google_maps_flutter            | Mapbox (native SDK)        |
+| Flutter maturity          | mature, active                     | official Google               | mature                      |
+| Android support           | yes                                | yes                           | yes                         |
+| API-key requirement       | NO (OSM/MapLibre/self tiles)       | YES                           | YES                         |
+| billing/account           | none for OSM tiles; tile-server policy governs | NEED CURRENT OWNER/CHATGPT RESEARCH | NEED CURRENT OWNER/CHATGPT RESEARCH |
+| tile licensing/attribution| OSM attribution required           | Google attribution            | Mapbox attribution          |
+| offline/cache             | cacheable tiles (plugin/impl)      | limited (official policy)     | region downloads            |
+| custom markers/clustering | yes (widget markers)               | yes                           | yes                         |
+| Light/Dark support        | via tile style / filter            | platform-controlled           | style config                |
+| performance               | Flutter-rendered                   | platform view                  | platform view               |
+| privacy/network behavior  | tiles fetched from chosen host     | Google services               | Mapbox services             |
+| maintenance burden        | in-repo, no key management         | key/rotation management       | key/management + billing    |
+| fit with guest-first/     | best fit (no key, no account,      | needs INTERNET in release,    | needs INTERNET, account,    |
+|   offline-first           | offline-friendly)                  | account, key                  | key                         |
+
+No pricing/licensing is asserted from memory: mark NEED CURRENT OWNER/CHATGPT
+RESEARCH for billing/terms before any choice is finalized.
+
+================================================================================
+7. PRIVACY / PERMISSION CONTRACT (2G)
+================================================================================
+Locked (owner + workbook FR-P-004/005/008/015):
+- NO background location. NO continuous tracking/route history.
+- NO silent address geocoding. NO silent uploads.
+- Location permission requested ONLY after the user selects a feature that
+  needs it (JIT foreground; locationWhenInUse).
+- Denial/revocation never blocks core domain workflows.
+Prefer ZERO location permission for normal Maps browsing (markers for stored
+coordinates need no permission). M3 (My Location) is the only future JIT
+foreground permission; manifest + AndroidX plumbing only when approved.
+Permission delta per capability:
+- M1: none. M2: none (user-entered coordinates). M3: locationWhenInUse (JIT,
+  owner-gated). M4: none.
+
+================================================================================
+8. OFFLINE CONTRACT (2H)
+================================================================================
+Separate surfaces:
+- local marker metadata: fully local (DB) — offline by nature.
+- basemap tiles: provider/implementation dependent; open-tile cache keeps
+  browsing usable offline; NO guarantee without an explicit cache strategy.
+- online search/geocoding: DEFERRED from V1 (FR-P-001 typed text needs no
+  geocoding; coordinates are user-provided).
+- external navigation: requires an installed compatible app; failure -> copy
+  fallback (FR-P-013: copyable location fallback when no provider available).
+Truthful states: honest empty state when no saved coordinates exist; explicit
+offline/error state when tiles cannot load; copy fallback when navigation
+cannot launch.
+
+================================================================================
+9. FOURTH-TAB IMPACT (2F)
+================================================================================
+Current interim nav: Home / Planner / Contacts (3-tab, NX-07/08 checkpoint).
+Future owner target: Home / Planner / Contacts / Maps.
+Read-only analysis (NOT implemented):
+- index: Maps = 3; selectedIndex logic already indexes Home/Planner/Contacts;
+  a fourth branch is a mechanical addition.
+- route/deep link: new RoutePaths.maps + GoRoute under the shell.
+- back policy: direct-entered /maps child -> Home root (existing pattern).
+- state restoration: shell keeps the tab stack; Maps as a shell child behaves
+  like Planner/Contacts.
+- semantics/accessibility: NavigationDestination label 'Maps' + icon.
+- Light/Dark: follows the theme-aware surface pattern from NX-04.
+- drawer interaction: unchanged (Maps may or may not also appear in the
+  drawer — owner choice).
+WORKBOOK CONFLICT (must surface): FR-P-002 (V1 blocker) says "Map
+functionality shall remain contextual and shall not be added to permanent
+bottom navigation." The owner's current direction (4-tab, Maps primary)
+DIRECTLY CONFLICTS with FR-P-002. Per the owner lock, current owner direction
+overrides older baseline IA — but this must be an explicit OWNER PRODUCT
+DECISION (see 11/12).
+
+================================================================================
+10. MINIMUM REAL MAPS V1 (2E)
+================================================================================
+Target outcome:
+"User opens Maps and sees locally saved Contact/Event locations that already
+have explicit coordinates; taps a marker to open the related record; can hand
+off to an external navigation app; honest empty state when no saved
+coordinates exist."
+POSSIBLE NOW? NO. Two prerequisites are missing:
+  (a) additive optional-coordinate data contract (currently zero coordinates
+      can be stored — no schema), and
+  (b) a basemap provider decision (no provider/package exists).
+Smallest prerequisite pack (the exact next implementation boundary):
+  1. Additive schema: optional lat/lng (+ optional place snapshot) on the
+     relevant domain records, profile-scoped, user-entered provenance; no
+     migration of existing rows, no geocoding.
+  2. M4 external navigation handoff (geo: URL + copy fallback) — implementable
+     immediately with existing deps.
+  3. Then, after the provider decision, the basemap screen + markers.
+FR-P-001 (typed location text without permission) is ALREADY satisfied by the
+existing free-text fields — no work needed there.
+
+================================================================================
+11. DECISION MATRIX (2J)
+================================================================================
+DECISION | CURRENT REPO FACT | OPTIONS | RECOMMENDED DEFAULT | OWNER DECISION REQUIRED? | BLOCKS?
+1. map provider/SDK | none | flutter_map/MapLibre; google_maps; mapbox | open tile stack (no key, offline-first) | YES | YES (basemap)
+2. marker sources | no coords stored | Contacts / Events / both | both, when coordinates exist | YES | PARTIAL (schema first)
+3. saved-coordinate creation | free text only | manual entry / map pick / search | pick + manual, geocoding deferred | YES | YES (M2)
+4. geocoding in V1 | no geocoder | none / reverse / forward | NONE in V1 | NO (lock says no silent geocoding) | NO
+5. My Location in V1 | model exists, no package | include JIT / exclude | EXCLUDE V1 (JIT later, owner-gated) | YES | NO
+6. external navigation handoff | url_launcher + pattern | include / exclude | INCLUDE (ready now) | NO | NO
+7. offline expectation | offline-first release, no INTERNET | tiles cache vs online-only | cacheable tiles, honest error state | YES | PARTIAL
+8. v28 migration required | v27, no coord columns | v28 optional columns vs shared place table | v28 additive optional columns (or place table if Saved Places in V1.1) | YES (scope shape) | YES
+9. FR-P-002 vs owner 4-tab IA | workbook V1 blocker conflicts with owner lock | 4-tab primary vs contextual entry | owner direction wins (4-tab), record override | YES | YES (nav shape)
+
+================================================================================
+12. EXACTLY ONE NEXT MAPS PACK (2K)
+================================================================================
+VERDICT: C. OWNER MAP PROVIDER DECISION FIRST
+(With the immediate follow-on being B. LOCATION DATA FOUNDATION FIRST —
+see recommended sequence below. A full Maps implementation is NOT ready now:
+no provider, no coordinate schema, and a workbook/owner IA conflict.)
+
+WHY: every basemap capability (M1/M2/M3) is gated by (a) the provider/SDK
+choice (package, key, INTERNET permission, offline) and (b) the coordinate
+data contract. Both are owner decisions. The single most consequential gate
+is the PROVIDER decision because it determines package/config/permission/
+offline/privacy impact for everything after.
+
+RECOMMENDED SEQUENCE (owner decides, then implement):
+Step 1 (owner decision set — smallest possible):
+  a. provider/SDK: open tile stack (flutter_map/MapLibre) vs google vs mapbox
+     (external pricing/licensing = NEED CURRENT OWNER/CHATGPT RESEARCH).
+  b. 4-tab Maps primary vs contextual (explicit override of FR-P-002).
+  c. coordinate scope: Events + Contacts optional lat/lng (v28 additive) vs
+     shared Saved-Places table (pulls in V1.1 FR-P-006/014).
+  d. My Location in V1: exclude (recommended) / include JIT.
+Step 2 (implementation, once a-b-c decided):
+  - additive optional-coordinate schema (v28, no migration of existing rows),
+    user-entered provenance, no geocoding
+  - M4 external navigation handoff + copy fallback (existing deps)
+  - Maps screen (provider per decision) with markers -> record + honest
+    empty state; contextual deep-link; theme-aware Light/Dark; offline/error
+    states per the offline contract
+EXPECTED PRODUCTION FILES (predicted): domain models + drift table/migration
+(events/contacts optional coordinate columns or place table), a maps screen
++ route, a location picker entry, external navigation helper, manifest/
+permission plumbing only if M3 approved, pubspec provider package.
+EXPECTED TESTS: schema/migration tests, coordinate round-trip, marker ->
+record navigation, empty/offline states, permission-denial non-blocking,
+external-handoff no-outcome contract, 4th-tab nav/back/deep-link tests.
+SAFE INSTALL: v28 -> v28 install -r only, no clear data; verify counts +
+appearance preserved; honest empty Maps state first (device has 0 located
+records).
+OWNER CHECKLIST: provider chosen; 4-tab or contextual confirmed; coordinate
+scope chosen; My Location V1 excluded/included; geocoding deferred; offline
+expectation set; INTERNET release decision made if provider needs it.
+NO-TOUCH: NX implementation, MP cleanup, Home Life Goals, Goal Icons, MP-18,
+Contact flicker, Pathways implementation, schema during THIS audit, Ads
+workstream.
+
+================================================================================
+13. OWNER DECISIONS REQUIRED (SUMMARY)
+================================================================================
+1. Map provider/SDK (open tile stack recommended default).
+2. FR-P-002 override: Maps as 4th primary tab vs contextual-only.
+3. Coordinate data contract shape: optional columns (v28) vs Saved-Places
+   table (V1.1 scope).
+4. My Location in V1: exclude (recommended) or JIT include.
+5. Offline/tile-cache expectation + release INTERNET decision.
+6. Saved Places (FR-P-006/014) in V1.1 — defer or fold into V1.
+
+================================================================================
+14. VERDICT
+================================================================================
+OWNER MAP PROVIDER DECISION FIRST
+- No fake Maps tab was created (owner lock honored).
+- M4 external navigation handoff is ready now with existing dependencies.
+- FR-P-001 (typed location text, no permission) already satisfied.
+- Minimum real Maps V1 is NOT possible today: it needs the provider decision
+  + the additive coordinate data contract first.
+- Next run after the owner decision: LOCATION DATA FOUNDATION FIRST (additive
+  optional-coordinate schema + M4 handoff), then the Maps screen.

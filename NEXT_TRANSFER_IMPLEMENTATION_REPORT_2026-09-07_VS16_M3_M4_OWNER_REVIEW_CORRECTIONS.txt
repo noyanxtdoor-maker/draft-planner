@@ -1,0 +1,287 @@
+======================================================================
+NEXT TRANSFER — VS16 M3/M4 OWNER-REVIEW CORRECTION IMPLEMENTATION REPORT
+Date: 2026-09-07
+Repository: C:\Users\sherl\Downloads\NT_C7_IMPLEMENTATION_20260825_235900
+Authorized device: Infinix X6731 (ADB TLS serial 10620253B3004617)
+======================================================================
+
+1. STARTING STATE
+----------------------------------------------------------------------
+- Branch: checkpoint/phase-b-accepted-20260829
+- HEAD: 76ee168 checkpoint(maps): accept VS-15 M7 complete
+- Status: standing dirty checkout preserved untouched as authoritative
+  product truth (owner-directed; pre-existing modifications in contacts,
+  maps, theme, router, database and other files were NOT staged,
+  reverted, or committed by this pass).
+- Staged paths at start: 0 — Staged paths at end: 0
+- Prior APK: SHA-256 9aab52c3928b15a6606efae2d954bdf2e31cc4dd8dc13f8c4210403790570a7c
+- M5: NOT STARTED
+
+2. OWNER PHYSICAL-REVIEW FINDINGS ADDRESSED (APPROVED SCOPE)
+----------------------------------------------------------------------
+1) Generic white-square notification small icon  -> replaced with the
+   owner-approved hand + planner/notebook monochrome glyph.
+2) Event Show Details notification missing title/description ->
+   root-caused and fixed (see §5).
+3) Notification OPEN felt like a separate deep-linked preview and could
+   sit under the system status bar -> Planner-first routing through the
+   SAME shared preview presenters with correct system insets (§6–7).
+4) Per-item Reminder row showed only "Use default" -> now shows the
+   actual inherited value dynamically, e.g. "Default (10 min before)" (§8).
+Preserved unchanged (owner-confirmed working): Task detailed
+notification content, Custom whole-minute reminders (6/27), Snooze
+10-minute implementation, inexact Android scheduling (no exact-alarm
+permission added), Quiet Hours, recovery, launcher badge, privacy.
+
+3. GATE 1 — APPROVED SVG → ANDROID VECTOR DRAWABLE
+----------------------------------------------------------------------
+- Approved source: 06cfded9-7c0a-46c4-a9bf-ae4678fdaf1e.svg
+  (hand + planner/notebook logo).
+- Normalization tool: .correction_tools/normalize_svg.dart (agent-owned
+  scratch; bakes translate transforms, rescales/recenters to a 108×108
+  viewport on the ink bounding box, emits ONE closed multi-subpath).
+- Exact drawable/resource path:
+  android/app/src/main/res/drawable/ic_nt_notification.xml
+- Properties verified: single <path>, single opaque fill #FFFFFFFF,
+  monochrome white-on-transparent, NO background square baked, no
+  raster, no stretch; 8 closed subpaths; ink contained in viewport and
+  centered; recognizable at status-bar size.
+- Gateway reference: lib/core/notifications/
+  flutter_local_notifications_gateway.dart line 38:
+  AndroidInitializationSettings('@drawable/ic_nt_notification')
+- Merged APK resource check: res/drawable/ic_nt_notification.xml
+  present in built APK (16,196 bytes).
+- No full-color launcher resource is used as the small icon.
+
+4. TESTS FOR GATE 1
+- vs16_m3_m4_correction_test.dart G1:
+  VectorDrawable exists as a monochrome single-fill vector — PASS
+  gateway initializes the small icon from the dedicated drawable — PASS
+
+5. GATE 2 — EVENT DETAILED-CONTENT ROOT CAUSE AND FIX
+----------------------------------------------------------------------
+ROOT CAUSE (investigated, not duplicated):
+  reconcileOccurrence (lib/features/planner/application/
+  calendar_event_providers.dart) passed occurrence.title — the RAW
+  stored title — into the notification request. Owner Events created
+  from an Event Type only ("Study or Plan") legitimately store an EMPTY
+  title; the Planner UI falls back to the Event-Type label via the
+  canonical display-title resolver, but the notification path did not.
+  Result: Show Details notifications rendered only the From–To range.
+FIX:
+  The Event renderer now resolves the title through the same canonical
+  display-title resolver the UI uses (Event title, else Event-Type
+  label). No duplicate rendering logic added; renderer is the single
+  source for both immediate and headless/WorkManager delivery.
+Show Details Event target now:
+  Title:  <Event title, else Event-Type label>
+  Body:   <From time>–<To time>
+          <description if non-empty>   (empty description -> no blank line)
+Unchanged laws: Generic hides private content; Privacy Lock forces
+effective Generic without overwriting the saved preference; durable
+work stays sanitized (no private rendered text persisted); stable work
+key / platform identity preserved; content refresh updates the SAME
+logical notification (no duplicate); Task Show Details remains
+  Title: <Task title> / Body: Due <time> + description if non-empty
+  (no fabricated Task From–To range).
+
+6. GATE 3 — PLANNER-FIRST OPEN ROUTING (SHARED PRESENTERS)
+----------------------------------------------------------------------
+- New seam: lib/app/notification_open_presentation.dart
+  * showNotificationEventPreview(...) presents CalendarEventDetailScreen
+    with sheetPresentation:true — the same SharedPlannerPreviewSheet
+    presenter used by normal Planner Event taps (showCalendarEventDetailSheet).
+  * showNotificationTaskPreview(...) presents TaskPreviewSheet — the
+    same shared presenter used by normal Planner Task taps (showTaskPreview).
+- lib/app/next_transfer_app.dart: notification OPEN responses now land
+  on the Planner tab inside MainShell (so shell chrome and
+  status/navigation insets match a normal Planner visit), resolve the
+  exact canonical occurrence/Task ID, then present the shared preview
+  over the root navigator key owned by the existing GoRouter (no second
+  navigator key introduced).
+- Preserved: canonical Event occurrence identity, canonical Task ID,
+  StartupReady delay, route guards, Privacy Lock/onboarding protection,
+  cold/warm/process-death routing, OPEN/SNOOZE separation, duplicate-
+  response dedupe, safe deleted/obsolete handling.
+
+7. GATE 4 — SHARED PREVIEW PRESENTER / SYSTEM-INSET CORRECTION
+----------------------------------------------------------------------
+- ONE geometry for BOTH entry paths (notification OPEN and normal
+  Planner tap): showDialog(useSafeArea: true) + Dialog.fullscreen +
+  bottom-aligned FractionallySizedBox(heightFactor 0.92) +
+  ConstrainedBox(maxWidth: kPlannerPreviewSheetMaxWidth) — mirroring
+  the canonical show* functions exactly.
+- useSafeArea:true means the sheet respects status-bar and navigation-
+  bar insets: no status-bar overlap, no hidden drag handle/title/
+  actions, rounded corners and sheet height preserved, underlying
+  Planner context visible. No notification-specific SafeArea hacks.
+
+8. GATE 5 — DYNAMIC INHERITED REMINDER WORDING
+----------------------------------------------------------------------
+- lib/features/planner/presentation/task_form_screen.dart and
+  lib/features/planner/presentation/calendar_event_form_screen.dart:
+  the per-item Reminder row now displays the ACTUAL inherited default
+  for that source category, e.g. "Default (10 min before)";
+  "Default (Off)" only when inheritance semantically means no
+  reminder. Per-item overrides still hydrate/display exactly (Off,
+  Custom whole-minute values). No duplicate global-default storage:
+  Event default remains PlannerPreferences.defaultReminderMinutes;
+  Task default remains the existing Notification preference owner;
+  ReminderPolicy inheritance remains the storage law; reopening an
+  item shows the effective value without mutating the saved policy;
+  no Event Type reminder precedence.
+
+9. GATE 6 — TESTS / REGRESSION / ANALYZER (RESULTS)
+----------------------------------------------------------------------
+Focused new correction tests
+  test/features/notifications/vs16_m3_m4_correction_test.dart (new):
+    G1 icon drawable + gateway reference (2) — PASS
+    G2 display-title fallback, From–To body + non-empty description
+       append, stable reminder identity on refresh (3) — PASS
+    G5 dynamic task-default wording + Off/Custom hydration +
+       Privacy-Lock-forces-Generic (3) — PASS
+  test/features/notifications/application/vs16_final_source_contract_test.dart
+  (updated): policy/identity/source-truth contract (4) — PASS
+Affected regression (full run in 3 chunks, all green):
+  test/features/notifications ................. 106 PASS
+  test/features/planner/data + planner/domain . 243 PASS
+  test/core/database + privacy + settings ..... 106 PASS
+  TOTAL: 455 tests PASS, 0 failures (covers M3/M4 Snooze, Quiet Hours,
+  recovery, badge, privacy, timing targets, migrations v38/v39,
+  reminder picker Custom 6/27 lifecycle safety).
+flutter analyze --no-pub --fatal-infos lib test:
+  "No issues found!" (ran in 20.3s)
+git diff --check: clean.
+Manifest scan: NO SCHEDULE_EXACT_ALARM / USE_EXACT_ALARM /
+FOREGROUND_SERVICE / ACCESS_BACKGROUND_LOCATION — unchanged.
+Schema: v39 unchanged (app_database.dart schemaVersion => 39).
+Dependencies: no new dependencies; no dependency changes.
+
+10. APK / DEVICE GATE
+----------------------------------------------------------------------
+Built ONE fresh debug APK:
+- Path: build/app/outputs/flutter-apk/app-debug.apk
+- Timestamp: 2026-09-07 13:17:03 +0800
+- Bytes: 238,291,189
+- SHA-256: 18cf4c34f053bd8d87df6ae67ba37ab5b6c206356bdae35f443624d3fb92e23b
+- Package/version: com.nexttransfer.rmplanner / versionName 0.1.0 /
+  versionCode 1 (aapt2-verified)
+Build-environment repairs this pass (TEMP TOOLCHAIN ONLY — repo and
+owner data untouched):
+- JAVA_HOME pointed at JDK 17; Gradle needs 21 for maplibre_gl →
+  used the toolchain's bundled jdk-21.0.12+8 for this build only.
+- The temp NDK 28.2.13676358 install was found partially pruned
+  (37/1000+ sysroot headers; missing clang builtins → "stdarg.h not
+  found"). Re-downloaded the official NDK r28c Windows zip
+  (android-ndk-r28c-windows.zip, 748,118,221 bytes, SHA1
+  086bba43ff2f5eb0e387b15c8278bb4e0d89ba1d — verified) and installed
+  it at next-transfer-toolchain/android-sdk/ndk/28.2.13676358. The
+  damaged copy was renamed *.corrupt. These are %TEMP% toolchain
+  repairs, not repository changes.
+DEVICE INSTALL + SMOKE: NOT PERFORMED — device link down for the
+whole post-build window. mDNS still advertises
+adb-10620253B3004617-2m7ZVB (192.168.1.50, _adb-tls-connect._tcp) but
+TLS connect was refused across ~35 attempts over ~12 minutes
+(screen-off/Wi-Fi power-saving pattern seen earlier today; the device
+re-accepts once its screen wakes). NO uninstall, NO pm clear, NO wipe,
+NO downgrade were attempted; the installed APK
+(9aab52c3…0570a7c) and all owner data remain untouched.
+Device smoke checklist to run when the link returns (install -r only):
+  adb -s adb-10620253B3004617-2m7ZVB._adb-tls-connect._tcp install -r
+    build\app\outputs\flutter-apk\app-debug.apk
+  1) status-bar small icon shows hand/notebook glyph (not white square)
+  2) expanded Event notification: title + From–To + description
+  3) Task notification unchanged-correct
+  4) OPEN Event -> Planner active, exact occurrence, shared preview,
+     no status-bar overlap
+  5) OPEN Task -> Planner active, shared Task preview, no overlap
+  6) inherited Reminder row shows "Default (<actual default>)"
+  7) Snooze still works (no navigation, 10-minute target)
+  8) no crashes/red errors
+
+11. INTEGRITY / RESTRICTION COMPLIANCE
+----------------------------------------------------------------------
+- Staged paths: 0        - Commit: NONE   - Tag: NONE   - Push: NONE
+- No reset/clean/stash/restore/discard performed.
+- No app uninstall / pm clear / data wipe / downgrade; no other device.
+- Owner-created Events/Tasks/preferences untouched; no owner settings
+  changed in this pass (review-preference restoration was completed in
+  the prior session and re-verified there).
+- M5: NOT STARTED.
+- Agent scratch folders in repo (untracked): .correction_tools/ (SVG
+  normalizer), plus pre-existing .owner_review/ from the review session.
+
+12. FINAL CLASSIFICATION
+----------------------------------------------------------------------
+VS16 M3/M4 OWNER-REVIEW CORRECTION ENGINEERING COMPLETE
+(6/6 engineering gates green: icon, content fix, routing, insets,
+wording, regression/analyzer/diff-check; fresh APK built and resource-
+verified)
+DEVICE SMOKE: PENDING DEVICE LINK (device unreachable; nothing
+installed or altered on device this pass)
+OWNER RE-REVIEW: PENDING
+
+13. DEVICE-GATE RESUMPTION ATTEMPT — 2026-09-07
+----------------------------------------------------------------------
+- Current local correction APK re-verified without rebuilding:
+  build/app/outputs/flutter-apk/app-debug.apk
+  bytes: 238,291,189
+  SHA-256: 18cf4c34f053bd8d87df6ae67ba37ab5b6c206356bdae35f443624d3fb92e23b
+  Result: exact match with the authoritative verified artifact.
+- Authorized device discovery: mDNS advertised only
+  adb-10620253B3004617-2m7ZVB._adb-tls-connect._tcp at
+  192.168.1.50:33651 (Infinix X6731 expected identity).
+- Connection attempts: `adb connect 192.168.1.50:33651` and the
+  authenticated mDNS service-name retry both returned `failed to connect`.
+  `adb devices -l` remained empty; no authorized serial became available.
+- CONSEQUENCE: pre-install package metadata, `adb install -r`, installed
+  APK equality, launch, owner-data continuity, physical icon/content/open/
+  SafeArea/reminder-wording/Snooze checks, logcat scan, and agent-test-record
+  cleanup were not performed. No test Event or Task was created.
+- DATA PRESERVATION: no uninstall, pm clear, wipe, downgrade, pairing,
+  rebuild, or device-side app/data mutation was attempted.
+- Staged paths: 0. Commit: NONE. Tag: NONE. Push: NONE. M5: NOT STARTED.
+
+RESUMPTION CLASSIFICATION:
+VS16 M3/M4 OWNER-REVIEW CORRECTION ENGINEERING COMPLETE — DEVICE GATE
+BLOCKED BY UNREACHABLE AUTHORIZED INFINIX TLS ADB TRANSPORT; OWNER RE-REVIEW
+PENDING.
+
+14. DEVICE-GATE CONTINUATION — AUTHORIZED WIRELESS DEBUGGING RESTORED
+----------------------------------------------------------------------
+- Authorized pair endpoint supplied by owner connected successfully. Active
+  ADB serial: adb-10620253B3004617-2m7ZVB._adb-tls-connect._tcp
+  product/model: X6731-GL / Infinix_X6731.
+- DATA-PRESERVING UPDATE INSTALL: `adb -s <authorized-serial> install -r`
+  of the verified correction APK returned `Success`.
+- Pre/post package continuity:
+  versionName/versionCode: 0.1.0 / 1 -> 0.1.0 / 1
+  firstInstallTime: 2026-07-27 15:42:22 -> unchanged
+  dataDir: /data/user/0/com.nexttransfer.rmplanner -> unchanged
+  ceDataInode: 1509267 -> unchanged
+  lastUpdateTime: 2026-09-07 10:09:50 -> 2026-09-07 13:56:28.
+- Installed/local APK identity: PASS. Pulled base.apk was 238,291,189 bytes
+  with SHA-256 18cf4c34f053bd8d87df6ae67ba37ab5b6c206356bdae35f443624d3fb92e23b,
+  exactly matching the verified local APK.
+- Launch: PASS. MainActivity launched, PID 5208 was present, and Android
+  reported com.nexttransfer.rmplanner/.MainActivity as the focused app. A
+  physical screenshot showed the expected Home surface after update.
+- Scoped post-launch log read: no Flutter exception, AndroidRuntime/FATAL,
+  notification-plugin, route/presenter, or notification-drawable failure
+  attributable to the app. Two process lines reported `Invalid resource ID`
+  without a stack trace; recorded as diagnostic observations, not a crash.
+- NOT YET EXECUTED IN THIS RESUMPTION: creation of agent-owned test records,
+  live Event/Task notification delivery and compact/expanded icon inspection,
+  Generic/Privacy content check, Event/Task OPEN and shared-preview SafeArea
+  comparison, inherited Reminder-form wording, Snooze, and cleanup. No agent
+  Event or Task was created, so no source data cleanup is required.
+- Staged paths: 0. Commit: NONE. Tag: NONE. Push: NONE. M5: NOT STARTED.
+
+CURRENT DEVICE-GATE STATUS:
+UPDATE-INSTALL, DATA CONTINUITY, INSTALLED-APK EQUALITY, COLD/WARM LAUNCH,
+AND SCOPED CRASH SCAN PASS. LIVE REMINDER/ICON/OPEN/SAFEAREA/WORDING/SNOOZE
+SUB-GATES REMAIN PENDING; OWNER RE-REVIEW PENDING.
+
+======================================================================
+END OF REPORT
+======================================================================

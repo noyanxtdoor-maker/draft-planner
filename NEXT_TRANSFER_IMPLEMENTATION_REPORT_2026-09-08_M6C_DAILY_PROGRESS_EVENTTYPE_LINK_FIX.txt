@@ -1,0 +1,37 @@
+NEXT TRANSFER — M6C DAILY PROGRESS + GOAL-LINKED EVENT TYPE FIX
+Date: 2026-09-08
+
+ROOT CAUSES
+- M6B correctly froze initialized weekly membership, but an explicit new Goal
+  action did not add its Goal ID to the initialized current-week snapshot.
+- Goal slots retain stable Event Type keys; their labels could therefore retain
+  a stale legacy title after creating or renaming a dedicated Goal.
+
+CORRECTIONS
+- Explicit Goal creation writes one idempotent membership row only to the
+  resolved current WeeklyPlan. Past and initialized future weeks remain frozen.
+- A dedicated (single-owner) Goal-linked Event Type mirrors the Goal title on
+  create/rename. Shared types remain untouched; no Event Type record or
+  historical Event relationship is deleted or rebound.
+
+CERTIFICATION
+- Focused Goal + weekly planning suite: PASS (37 tests).
+- Analyzer: No issues found.
+- git diff --check: PASS.
+- APK: build/app/outputs/flutter-apk/app-debug.apk
+- Bytes: 238424296
+- SHA-256: 728EFC1334F52770EEFF047FF7225AE115165DAD9F21BB93891DD1F16AA87329
+- adb install -r: Success.
+- Data continuity: firstInstallTime=2026-07-27 15:42:22;
+  dataDir=/data/user/0/com.nexttransfer.rmplanner; ceDataInode=1509267.
+- Installed/local APK hash equality: PASS.
+- Cold launch: PASS (live PID observed).
+- Bounded non-mutating Home/Goal Planning smoke: app UI hierarchy available
+  after launch; no owner Goal/Event data modified.
+- staged paths = 0
+- commit = NONE
+- tag = NONE
+- push = NONE
+- M7 = NOT STARTED
+
+M6C DAILY PROGRESS + GOAL-LINKED EVENT TYPE CORRECTION ENGINEERING COMPLETE — OWNER PHYSICAL REVIEW PENDING

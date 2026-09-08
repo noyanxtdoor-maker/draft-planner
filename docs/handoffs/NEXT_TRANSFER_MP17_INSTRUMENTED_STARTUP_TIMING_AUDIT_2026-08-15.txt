@@ -1,0 +1,312 @@
+NEXT TRANSFER — MP-17 INSTRUMENTED STARTUP TIMING FORENSIC AUDIT
+DATE: 2026-08-15
+MODE: TEMPORARY DEBUG INSTRUMENTATION ALLOWED · NO PRODUCT IMPLEMENTATION
+BASELINE: MP-18 checkpoint aa03417c269d0493bb5aab85ad58b5d091da83e9
+
+================================================================================
+1. BASELINE / CLEAN PROOF (start)
+================================================================================
+- branch autonomous/stability-ux-pack-a-20260814; HEAD == origin == aa03417
+- tracked tree CLEAN, index EMPTY (git status: 0 tracked modifications;
+  git diff / git diff --cached empty)
+- schema v27
+- device: Infinix X6731 (wireless adb, transport_id:1), same device as the
+  prior MP-17 audit.
+
+================================================================================
+2. TEMPORARY INSTRUMENTATION + PRE/POST HASHES
+================================================================================
+Probes added with the explicit marker MP17_TEMP_TIMING (Stopwatch /
+DateTime.now / debugPrint only; no behavioral branching, no persistence,
+no DB/preference writes, no schema change, no UI change).
+
+Instrumented files (pre-instrumentation sha256 -> post-restoration sha256):
+- lib/main.dart
+  d5e3159ad362f8afec5722d31300fdaab2001f6575ab39a3dfde6541a86770d9 (identical)
+  Probes: P0 entry, P1 ensureInitialized, P2 orientations, P3 AppDatabase,
+  P5 tz_begin/end, P4 repos, P6 readAppearance, P7 readThemeColor,
+  P8 runApp_begin, P9 first-frame post-frame callback.
+- lib/core/database/database_bootstrap.dart
+  727dd041a719bb94dabd45ad059da9cdfa5c810067632990ed5202c82c8cb822 (identical)
+  Probe: P12 quick_check_end (Stopwatch + epoch).
+- lib/features/startup/application/startup_providers.dart
+  27b6dd08b2f07814588d6e299695cacc6e2236a176fd8103ff9d0e052ac69116 (identical)
+  Probes: P10 startup_initialize, P14 startup_ready (epoch).
+- lib/features/planner/data/calendar_event_time_zones.dart
+  375cd4b7fd6fe1f0e8e3ce67bc0e385f0bf5134eb1acd00fcdb4842274bc8f15 (identical)
+  Probes: P5a tz_initialize, P5b tz_channel (Stopwatch).
+- lib/features/startup/presentation/home_screen.dart
+  abe511ab7b23d16451f9b6421887cbfbfa07344bb4a983b8ae9d59c9d8170458 (identical)
+  Probes: P16 home_build (once), P17 home_content_ready (once; fires when
+  goalPlanningProvider first resolves - the actual Life Goals content gate).
+- lib/features/indicators/application/indicator_providers.dart
+  (not in the initial hash list; restored identically - proven by
+  git diff == empty at the end)
+  Probe: P17 home_indicator_ready (removed after finding Home does not watch
+  this provider; content attribution moved to the goalPlanning gate).
+
+Post-restoration: all six files byte-identical to HEAD (git diff empty),
+git status 0 tracked changes, index empty, HEAD/origin unchanged.
+Probes emitted zero lines on the final installed build (logcat grep -c = 0).
+
+================================================================================
+3. DEVICE / BUILD METHODOLOGY
+================================================================================
+- DEBUG: instrumented debug APK, adb install -r (update-in-place; v27 verified
+  pre/post; data 3/16/5/11 and Appearance Light+Blue verified pre/post).
+- PROFILE: flutter build apk --profile (SHA ef4f0a05...) installed with
+  install -r (same signing); v27/data/appearance verified pre/post.
+- Cold = am force-stop + 1.5s settle + am start -W; 8s settle; logcat -d.
+  Warm/resume from the earlier MP-17 audit reused (median 72ms / 8ms).
+- 10 debug cold runs (first batch, Stopwatch-only) + 5 debug cold runs
+  (epoch-timestamped markers) + 5 profile cold runs.
+- Two profile artifacts excluded with a factual reason: profile run 1
+  (WaitTime 1015ms, immediately after install - dexopt/JIT warmup; runs 2-5
+  stable at 648-667ms).
+- Note: debugPrint output can be batch-flushed by the engine, so logcat
+  wall timestamps were NOT used for deltas; the in-process Stopwatch /
+  DateTime.now() values are authoritative.  Cumulative ms are relative to
+  main() entry (P0).
+
+================================================================================
+4. RAW SAMPLES (selected, representative)
+================================================================================
+DEBUG RUN (fast, epoch batch - run 2):
+  P0 0ms; P1 92; P2 212; P3 221; P5a 61; P5b 177; P5_end 463; P4 465;
+  P6 584; P7 587; P8 587; P9 first_frame 1491ms;
+  P10=1786792584793; P12_end 735ms @1786792585536; P14 @1786792585567;
+  P16 @1786792585697; P17 @1786792586771
+DEBUG RUN (slow, earlier batch - run 10):
+  P1 88; P2 316; P3 342; P5a 191; P5b 611; P5_end 1155; P4 1160; P6 1492;
+  P7 1498; P8 1499; P9 first_frame 4811ms; P12 quick_check 2725ms
+PROFILE RUN (run 2):
+  P1 0; P2 99; P3 99; P5a 4; P5b 16; P5_end 120; P4 120; P6 131; P7 132;
+  P8 132; P9 first_frame 142ms; P12 quick_check 11ms @1786792808638;
+  P14 @1786792808644; P16 @1786792808648; P17 @1786792808753
+  WaitTime: 667ms
+
+================================================================================
+5. PHASE MEDIANS
+================================================================================
+PHASE                 | DEBUG fast(n=4) | DEBUG slow(n=10) | PROFILE(n=4)
+P1 ensureInitialized  | ~90ms           | ~90-178ms        | ~1ms
+P2 orientations       | ~110-120ms      | ~180-280ms       | ~95ms
+P3 AppDatabase.defaults kickoff | ~20-30ms | ~25-40ms     | ~5ms
+P5a tz_initialize     | ~60ms           | ~190-230ms       | ~4ms
+P5b tz_channel        | ~160-180ms      | ~530-630ms       | ~16ms
+P5 total              | ~210-230ms      | ~800-1260ms      | ~110-125ms
+P4 repos construction | ~5ms            | ~5ms             | ~1ms
+P6 readAppearance     | ~120-130ms (first-query DB wait) | ~330ms | ~11ms
+P7 readThemeColor     | ~3-7ms          | ~6-8ms           | ~1ms
+P8 -> runApp_begin    | ~590ms          | ~1490ms          | ~130ms
+P8->P9 first frame    | ~900ms          | ~3300ms          | ~12ms
+P9 first frame (cum.) | ~1500ms         | ~4700ms          | ~140ms
+P10->P12 quick_check  | 735-749ms (clean) | 2312-2816ms (main-isolate
+                      |                   | blocked: continuation delayed
+                      |                   | by first-frame render) | 10-15ms
+P12->P14 ready        | ~30ms           | ~25-110ms        | ~6-45ms
+P14->P16 home build   | ~110-130ms      | ~100-300ms       | ~4-34ms
+P16->P17 content ready| ~1050ms (goalPlanning resolve) | n/a (8s window
+                      |                 | missed in slow runs) | ~90-135ms
+TOTAL app-owned P0->P17| ~2.6s           | >5.5s            | ~260ms
+
+WARM / RESUME (debug, prior audit): median 72ms / 8ms - unchanged; the
+instrumented runs did not alter warm behavior.
+
+================================================================================
+6. DEBUG vs PROFILE COMPARISON (the decisive evidence)
+================================================================================
+- First frame: debug ~1500ms (fast) / ~4700ms (slow) vs profile ~140ms.
+- quick_check: debug 735ms clean (10-15ms profile) - the 735ms is itself
+  debug/JIT database overhead, not the query's true cost.
+- Home content ready: debug ~2.6-5.8s vs profile ~260ms.
+- Pre-runApp: debug ~590-1490ms vs profile ~130ms.
+- am start -W WaitTime: debug 2300-2900ms (median ~2860) vs profile 648-667ms.
+CONCLUSION: the perceived MP-17 "cold startup duration" is dominated by the
+DEBUG BUILD MODE + OEM/Helio-class device first-frame rendering.  The app's
+own startup chain (pre-runApp + startup + Home content) is ~260ms in
+profile mode.  Release/profile would be the real answer, not code changes.
+
+================================================================================
+7. HOME-READINESS ATTRIBUTION (post-first-frame)
+================================================================================
+From epoch-correlated runs (debug fast, run 2):
+- first frame ~1491ms (splash visible)
+- StartupReady (P14) ~67ms BEFORE the first frame completes (quick_check
+  finishes first in the fast case; in the slow case it fully overlaps the
+  ~3.3s first-frame render)
+- Home widget build (P16) ~+130ms after StartupReady (router redirect + mount)
+- Life Goals content ready (P17, goalPlanningProvider resolves) ~+1070ms
+  after Home build (debug) / ~+105ms (profile)
+So of the post-first-frame gap (~1.4-2.0s in the prior audit):
+  quick_check + startup reads: ~0 (overlapped)
+  router + Home mount: ~130ms
+  goalPlanning/Home data resolution: ~1050ms (debug) / ~105ms (profile) -
+  this is the MP-02-adjacent remainder, and it too is JIT-dominated.
+
+================================================================================
+8. QUICK_CHECK EARLY-OVERLAP DEPENDENCY ANALYSIS
+================================================================================
+Dependency graph edges (A -> B):
+- AppDatabase.open -> quick_check: HARD (verify needs the open); open is
+  already kicked off pre-runApp and runs in a background isolate.
+- quick_check -> StartupReady/Home gate: HARD CORRECTNESS (integrity-before-
+  Home invariant - preserve).
+- open / quick_check vs timezone init: INDEPENDENT, both async - CAN overlap
+  (already do; timezone runs on the main isolate while drift's executor runs
+  the DB work on a background isolate).
+- open / quick_check vs appearance reads: INDEPENDENT, CAN overlap.
+- quick_check vs first-frame render: INDEPENDENT - CAN overlap (in slow
+  debug runs it already does: the qcSw inflation 2312-2816ms proves the
+  query completed while the main isolate was blocked rendering the frame).
+- timezone init vs runApp: currently serial (main() awaits forDevice before
+  runApp).  Structurally could defer to first calendar query, but consumers
+  (weekly planning repo) take timeZones at construction; lazy wiring needed.
+- appearance/theme reads vs runApp: HARD - the B2 lock requires the correct
+  persisted theme BEFORE the first MaterialApp build (no wrong-theme frame).
+OVERLAP OPPORTUNITY (measured medians):
+- Profile: quick_check = 11ms -> overlap upside ~0.
+- Debug fast: quick_check 735ms; the pre-runApp window has ~800ms of tz work
+  it could hide behind -> up to ~585ms of overlap upside IF it started at
+  DB-open completion instead of first-build.  Home gate preserved.
+- Debug slow: already fully overlapped -> ~0 additional upside.
+Because the shipped mode (profile/release) makes this 11ms, the early-overlap
+change has NO material upside where it matters.  NOT RECOMMENDED.
+
+================================================================================
+9. APPEARANCE-READ ANALYSIS
+================================================================================
+- readAppearance + readThemeColor both do `select(appearancePreferences)
+  .getSingleOrNull()` on the SAME single row (drift_appearance_repository
+  lines 24-31 / 59-66), two sequential awaits.
+- A single repository call returning both columns is trivially possible.
+- Measured saved time: readThemeColor phase = 3-8ms (debug) / ~1ms (profile);
+  the 120-330ms readAppearance phase is the FIRST-QUERY WAIT FOR THE
+  BACKGROUND DB OPEN, not the SELECT itself.
+- Verdict: merging saves ~1-7ms.  NOT MATERIAL.  Include only if a future
+  pack touches this file for another reason (do not force it).
+
+================================================================================
+10. TIMEZONE ANALYSIS
+================================================================================
+- forDevice = initializeTimeZones() (bundled tz-data parse) + one
+  FlutterTimezone.getLocalTimezone() platform-channel call, awaited serially
+  pre-runApp.
+- Measured: profile 4ms init + 16ms channel (110-125ms total);
+  debug 60ms init + 170ms channel (fast) / 190ms + 570ms (slow).
+- Consumers: calendar repositories use IanaCalendarEventTimeZones for
+  recurrence/display math at query time; the weekly-planning repository used
+  by Home takes timeZones at construction.
+- Deferral would require lazy timeZones injection across repository
+  construction; recurrence/timezone correctness must be re-proven.
+- Verdict: NOT SAFE YET without a dedicated lazy-wiring proof; even then the
+  shipped-mode upside is ~110-125ms.  Not recommended as a standalone item.
+
+================================================================================
+11. CANDIDATE MATRIX
+================================================================================
+CANDIDATE                      | MEASURED UPSIDE        | SAFETY INVARIANT
+1. early/concurrent quick_check (Home still gated) | ~0 (profile 11ms;
+   already overlapped in slow debug; up to ~585ms only in fast debug where
+   the shipped mode is moot) | integrity-before-Home PRESERVED |
+   files: database_bootstrap/startup wiring | risk: medium (timing
+   coupling) | owner decision: not required | RECOMMEND? NO
+2. one-row appearance/theme read | ~1-7ms | theme-correct first frame
+   PRESERVED | files: drift_appearance_repository | risk: very low |
+   RECOMMEND? Only if already editing the file; not standalone
+3. timezone lazy/defer | ~110-125ms (profile) | recurrence/timezone math
+   unchanged only with a proven lazy injection | files: main.dart + repo
+   wiring | risk: medium | NOT SAFE YET | RECOMMEND? NO (needs proof first)
+4. post-Home quick_check (owner-gated, prior audit's leading candidate) |
+   DISPROVEN: already overlaps first-frame render; ~0 in profile, ~0 extra
+   in slow debug | would WEAKEN verify-before-Home | RECOMMEND? NO - close
+5. no app change / release-profile build mode | 1500-5800ms -> ~260-670ms
+   cold | all invariants unchanged | risk: none (build-mode only) |
+   RECOMMEND: YES - this is the MP-17 answer
+
+================================================================================
+12. EXACTLY ONE NEXT MP-17 RECOMMENDATION
+================================================================================
+C. MP-17 NOT CURRENTLY WORTH OPTIMIZING.
+
+Evidence: after the profile comparison, the app-owned cold-start chain to
+Life-Goals content is ~260ms (pre-runApp ~130ms + first frame ~12ms +
+startup ~15ms + Home mount ~34ms + goalPlanning ~105ms).  The perceived
+startup duration (debug 1.5-5.8s) is debug-mode + OEM first-frame overhead;
+no bounded app-logic change reaches even 200ms of the shipped-mode path, and
+the 500ms target from the prior audit is only meaningful in the shipped
+build mode.  The prior leading candidate (quick_check deferral) is
+DISPROVEN by this instrumented run.
+
+Recommended owner action (not a code change): validate cold start on a
+PROFILE/RELEASE build (measured here: ~667ms WaitTime, ~260ms to Home
+content).  If the owner still requires DEBUG-mode cold-start improvement,
+the ceiling is low (~150-200ms achievable: timezone lazy + merged appearance
+read) and would need the timezone safety proof first.
+
+================================================================================
+13. PREDICTED FILES / TESTS / PERFORMANCE TARGET (if a pack were ever opened)
+================================================================================
+None required for MP-17 under verdict C.
+If the owner later requires a debug-mode pack, the ONLY bounded items:
+- merged appearance read: drift_appearance_repository.dart (+test) - ~5ms.
+- timezone lazy init: main.dart + repository wiring + recurrence correctness
+  tests - ~110-125ms, requires a dedicated safety proof first.
+Performance target (shipped mode, same device): >=500ms launch-to-content is
+ALREADY MET by the profile build (~260ms) - no code change needed.  Warm/
+resume and integrity gates unchanged.
+
+================================================================================
+14. OWNER DECISIONS
+================================================================================
+1. Accept the profile/release build as the MP-17 answer (recommended), or
+   explicitly require DEBUG-mode cold-start optimization despite the low
+   ceiling (then authorize the timezone-lazy safety proof first).
+2. Confirm MP-06 is the next roadmap item after this MP-17 decision.
+   (Per the session prompt: MP-06 NEXT AFTER MP-17 DECISION.)
+
+================================================================================
+15. FINAL BYTE-CLEAN RESTORATION PROOF
+================================================================================
+- All MP17_TEMP_TIMING probes removed from the six files.
+- sha256 of the five hash-snapshotted files == pre-instrumentation values
+  (listed in section 2); the sixth file byte-identical via git.
+- git status: 0 tracked modifications; git diff empty; git diff --cached
+  empty; HEAD == origin == aa03417 unchanged; index EMPTY.
+- Rebuilt debug APK from the restored tree, reinstalled with install -r;
+  logcat shows ZERO MP17_TEMP_TIMING lines on the installed build.
+- Device post-restoration: v27 -> v27, quick_check ok, 3/16/5/11 unchanged,
+  Appearance Light+Blue preserved.  (The rebuilt APK hash differs from the
+  earlier c0ae89ce build only by Flutter's res_timestamp build metadata;
+  source is byte-identical to HEAD.)
+- Temporary probe artifacts remain outside the tracked repo
+  (C:\Users\sherl\AppData\Local\Temp\mp17\*).
+
+================================================================================
+16. ROADMAP QUEUE
+================================================================================
+- MP-06: NEXT after the MP-17 decision (draft-pink Event grip visual/gesture
+  forensic audit per the MP ledger).
+- MP-04 (device reproduction first), MP-13 (owner visual decision),
+  DF-04 remain open and separate.
+- VS-09/10/12/13/14 + Pathways: deferred (owner roadmap).
+- Navigation/IA + standalone-More removal: future audit-first pack.
+- Schema v27; no migrations touched this session.
+
+================================================================================
+17. VERDICT
+================================================================================
+MP-17 NOT CURRENTLY WORTH OPTIMIZING.
+
+The instrumented run delivered the missing attribution: the app's entire
+startup chain to Life-Goals content is ~260ms in profile mode (first frame
+~140ms, quick_check ~11ms, Home content ~105ms after mount).  The 1.5-5.8s
+debug cold start is build-mode + OEM first-frame overhead, and the prior
+audit's leading quick_check-deferral candidate is disproven (it is already
+fully overlapped or ~11ms).  No code change is recommended; validate on a
+profile/release build.  MP-06 is next after the owner's MP-17 decision.
+
+NO PRODUCT IMPLEMENTATION.  NO MP-06.  NO PATHWAYS.  NO NAVIGATION/IA.
+NO COMMIT.  NO PUSH.  Tracked tree clean at aa03417, index empty.
+
+END OF INSTRUMENTED AUDIT.

@@ -1,0 +1,336 @@
+NEXT TRANSFER — POST-MAPS REGRESSION RECOVERY
+STRICT FORENSIC AUDIT
+DATE: 2026-08-16
+MODE: READ-ONLY FORENSICS COMPLETE -> FAIL-FIRST SURGICAL IMPLEMENTATION AUTHORIZED
+================================================================================
+
+0. AUTHORITY / OVERRIDES
+================================================================================
+This audit is written BEFORE any production/test/golden edit, per the strict
+recovery prompt and the standing universal pre-edit backup contract.
+
+Read order honored:
+- 01_OWNER_EVIDENCE_FORENSIC_AUDIT.txt (V2)
+- 00_R3_ZOOM_OUT_OWNER_OVERRIDE.txt (FINAL for R3 — SUPERSEDES the strict
+  prompt's "painted rect == temporal rect" section for short Events)
+- 00_MANDATORY_PRE_EDIT_BACKUP_CONTRACT.txt
+- REFERENCES/NEXT_TRANSFER_SESSION_AUDIT_2026-08-16_MAPS_V1_PLUS_REGRESSIONS.txt
+- REFERENCES/NEXT_TRANSFER_MAPS_V1_PLUS_REGRESSIONS_FORENSIC_AUDIT_2026-08-16.txt
+- REFERENCES/UNIVERSAL_CODING_SESSION_AUDIT_CONTRACT.txt
+- EVIDENCE: Screenshot_20260816-123951.jpg (Light Planner max zoom),
+  Screenshot_20260816-124015.jpg (Dark Home),
+  draft event grips.mp4 (40.55s, 1080x2400; byte-identical to the general
+  recording per the owner audit)
+
+The owner R3 zoom-out override is FINAL for this run: at zoom-out, 15/30/45-
+minute Events MUST remain readable as ONE-HOUR VISUAL blocks; the previous
+collision-gated fix (neighbor-dependent height) is REJECTED.
+
+================================================================================
+1. CLEAN BASELINE / DIRTY-TREE RECONCILIATION + MANDATORY PRE-EDIT BACKUP
+================================================================================
+VERIFIED START STATE:
+- repo: C:/Users/sherl/Documents/Next Transfer-Temp
+- branch: autonomous/stability-ux-pack-a-20260814
+- HEAD: 109417052acf94b02b2fa0e16d6785d0bb70e8ed
+- origin/autonomous/stability-ux-pack-a-20260814: 109417052acf94b02b2fa0e16d6785d0bb70e8ed (equal)
+- index: EMPTY
+- no merge/rebase/detached HEAD
+
+DIRTY TRACKED SET (19 modified files + 12 Home goldens + tests), reconciled
+against the Maps V1 + regressions session audit — every path is accepted:
+- lib/features/maps/* (8 new untracked files, Maps V1: v28 schema, repo,
+  providers, picker, MapsScreen, external handoff)
+- pubspec.yaml / pubspec.lock (maplibre_gl ^0.26.2)
+- android/app/src/main/AndroidManifest.xml (INTERNET only; NO location
+  permissions)
+- lib/core/database/app_database.dart + .g.dart (v27 -> v28 additive nullable
+  coordinate columns on contacts + calendar_events)
+- lib/app/theme/app_theme.dart (goalIconFallbackBlue)
+- lib/app/router/app_router.dart, route_names.dart, lib/app/shell/main_shell.dart,
+  lib/main.dart (4th Maps tab, deep links)
+- lib/features/contacts/presentation/contact_form_screen.dart +
+  lib/features/planner/presentation/calendar_event_form_screen.dart (map-pin
+  sections)
+- lib/features/startup/presentation/home_screen.dart (R1 fallback color)
+- lib/features/planner/domain/planner_display_geometry.dart (R3 collision gate)
+- 12 Home goldens (R1 fallback-color delta)
+- 5 modified tests (migration/version/NX-nav/planner geometry)
+- 7 new test files (R1 parity, MP-04 live, R3 geometry, Maps x3, NX nav)
+
+MANDATORY PRE-EDIT BACKUP (contract 00) — COMPLETE AND VERIFIED:
+- folder: C:\Users\sherl\Documents\Next Transfer-Backups\2026-08-16_1306_POST_MAPS_RECOVERY
+- BASELINE_IDENTITY.txt (175 lines; branch/HEAD/origin/porcelain/diff stat)
+- next_transfer_repo.bundle (git bundle create --all; git bundle verify PASS)
+- tracked_worktree.patch (527,106 bytes, 31 files, git diff --binary)
+- staged_index.patch (0 bytes — index empty as expected)
+- untracked_files_manifest.txt (215 entries, sha256 + byte sizes)
+- untracked_source_snapshot.zip (38 entries; Maps lib+test, R1/MP-04/R3 tests,
+  docs/handoffs audits)
+- source_worktree_snapshot.zip (556 entries; build caches/scratch excluded)
+- SHA256_MANIFEST.txt — sha256sum -c: ALL OK; both zips testzip OK
+- RESTORE-CHECK PASSED in disposable /tmp/nt_restore_check: bundle clone +
+  tracked patch + untracked snapshot reconstruct the dirty tree; sampled
+  content byte-identical modulo CRLF (git apply line-ending artifact);
+  lib/features/maps/domain/map_coordinate.dart byte-identical
+- backup path is OUTSIDE the active repo; never staged/committed
+
+TOOLCHAIN:
+- Flutter 3.44.7 stable (>= 3.29.0 gate for maplibre_gl 0.26.2: PASS)
+- Dart bundled (3.12.x) (>= 3.7.0 gate: PASS)
+- JDK: system 17 default; JDK 21 (Temurin 21.0.12) at the temp toolchain
+  required by maplibre_gl 0.26.2 Gradle build (checkpoint-risk note, not a
+  build-system restructuring authorization)
+- pubspec.lock maplibre_gl 0.26.2 (direct main)
+
+================================================================================
+2. EVIDENCE REVIEWED
+================================================================================
+- Screenshot_20260816-124015.jpg (Dark Home, 1080x2400) — pixel-sampled
+- draft event grips.mp4 -> 41 frames @1fps extracted; Light Home frames
+  (t=1..29s) and Dark Home frames (t=30..41s) — pixel-sampled
+- Screenshot_20260816-123951.jpg (Light Planner max zoom) — reviewed
+- prior session audits + current dirty source inspected directly
+
+================================================================================
+3. R1 — DARK GOAL ICON VISUAL COLOR PARITY: ROOT CAUSE PROVEN
+================================================================================
+FINDING: The six owner-visible Home goals carry VALID icon IDs (dating /
+elders / jogging / target_arrow / handshake / spiritual_temple — the exact
+IDs used by the Home cards). Valid IDs render raw SVG via GoalIcon:
+single assetPath, colorFilter: null, no dark variant asset, no currentColor,
+no ColorFiltered/Opacity/FadeTransition/RepaintBoundary wrapper anywhere in
+the Home card chain (verified in lib/features/startup/presentation/home_screen.dart
+line 1138-1152 and the compact-card chain 990-1100). The ONLY theme-substituted
+icon color is the null/unknown-iconId fallback (AppTheme.goalIconFallbackBlue,
+already fixed last run and retained). The prior fallback-only fix was
+logically incapable of changing the six visible icons — the owner audit's
+criticism is CORRECT.
+
+DEVICE PIXEL EVIDENCE (owner's own evidence set):
+- Light Home frames: icon stroke core (99,178,204) (77,173,206) (87,177,205) —
+  the raw #5caec9-family teal; 2283 teal pixels sampled, only 6 dark-blended
+  edge pixels.
+- Dark Home screenshot: icon stroke core (87,171,199) (106,178,202) (85,172,200)
+  — statistically the SAME raw teal family; 2022 teal pixels, 213 dark-blended
+  edge pixels (~10% of the population).
+- Gold family present in BOTH (Dark: (220,167,87) ~ #dca757).
+
+CONCLUSION: R1_ROOT_CAUSE_PROVEN — the real valid-icon path is already
+byte-parity correct in code (widget-test proof exists and passes 7/7). The
+owner's perceived "royal/darker blue" in Dark is a COMPOSITING/PERCEPTUAL
+effect: (a) ~10% of icon edge pixels anti-alias toward the near-black Dark
+card canvas (the same art looks heavier at small sizes); (b) simultaneous
+contrast of the same light-teal against near-black vs near-white; (c)
+surrounding Dark-theme primary (periwinkle) context. This is NOT a code color
+substitution.
+
+ACTION (bounded, honest): NO further icon/theme/art code change. Per the owner
+lock: no arbitrary color filter, no dark-only compensation, no global Dark
+primary mutation, no gold change, no plate/halo. Retain the existing fallback
+fix. Strengthen the R1 test with a rendered-crop at the ACTUAL Home card
+surface (Light cardOf vs Dark background canvas) at Home sizes, asserting the
+core (near-opaque) stroke pixels are byte-identical between themes — the
+strongest code-level pin, documenting that only edge-blend pixels differ.
+Owner physical screenshot remains the final authority.
+
+================================================================================
+4. MP-04 — LIVE PREVIEW-DATE ACCENT: ROOT CAUSE = SCREEN-SPACE CLIPPING
+================================================================================
+CLASSIFICATION: MP04_CLIPPED_TRUE_LEFT_EDGE (matches the owner's frame
+evidence exactly).
+
+CODE TRUTH: the accent is painted synchronously with the block — a 3dp
+BorderSide on a DecoratedBox inside the preview Material (normal events,
+planner_interactive_day_pager.dart ~1435) or the striped 3dp SizedBox
+(PlannerBackupStripeBackground, backup events). The widget-tree test
+(mp04_live_transition_border_test.dart) passes because it asserts BorderSide
+presence, not screen-space visibility.
+
+SCREEN-SPACE TRUTH (owner recording, 30fps transition ~31.9-32.1s): during a
+held/partial horizontal pager slide, the incoming day column is translated
+inside a ClipRect (planner_interactive_day_pager.dart lines 926-950). A
+wide/full-lane Event's true left edge remains outside the viewport while its
+body is already visible → the accent (painted at the block's own left edge) is
+clipped offscreen with it. Narrower right-lane Events whose own left edge
+already entered the viewport DO show their accent — consistent with the
+frames. The old test was testing the wrong invariant.
+
+REQUIRED CONTRACT (owner): for ANY visible preview Event fragment, an accent
+must be visible at the fragment's visible left boundary in the SAME frame;
+when the true left edge enters, no double accent / no pop; settled rendering
+unchanged; both swipe directions; backup stripes included.
+
+FIX DESIGN (preview-only, no pager/lane/timing change):
+- New widget PlannerPreviewFragmentAccent (CustomPaint) wrapping the preview
+  event body. Its painter reads canvas.getClipBounds() in local space; when
+  clipLeft > accentWidth (true accent fully clipped) AND a fragment is visible
+  (clipLeft < width), it paints an accent strip at x = clipLeft (solid accent
+  for normal; the approved dark+accent stripe pattern for backup). When
+  clipLeft <= accentWidth the true accent is (partially) visible and nothing
+  extra is painted — no double accent, no pop on settle. Settled state
+  (clipLeft <= 0) paints nothing — zero settled delta.
+- Applied ONLY to _positionedPreviewEvent in planner_interactive_day_pager.dart.
+- canvas.getClipBounds() is available on Flutter 3.44 (added 3.13).
+
+================================================================================
+5. R3 — ZOOM-OUT TEMPORAL OVERLAP: OWNER OVERRIDE GOVERNED
+================================================================================
+PRIOR (REJECTED) IMPLEMENTATION: planner_display_geometry.dart added a
+COLLISION GATE to _withDisplayInterval: the hour-row readability floor engaged
+only when no other Event's logical interval fell inside the enlarged band.
+Result: isolated short Events inflate to one hour; same-hour neighbors collapse
+to exact tiny strips — the owner-rejected neighbor-dependent height
+(Screenshot_20260816-123951.jpg shows 6:30-7:00 isolated large vs 7-8 AM
+collapsed strips).
+
+OWNER LOCK (FINAL): at zoom-out, 15/30/45-minute Events are ALWAYS one-hour
+VISUAL blocks, readable, regardless of neighbors; no Event body may obscure
+another Event's body/title; actual time text stays truthful; true simultaneous
+Events still use lanes; pinch clamp smooth.
+
+RESTORATION + COLLISION-SAFE DESIGN (restore-first per override section 4):
+1. REMOVE the collision gate — short Events (duration <= 45m AND canonical
+   rendered height < 28px threshold) always receive the hour-row display band
+   [startOfHour, startOfHour + 60] (the prior accepted overview rule).
+2. ADD OVERVIEW DISPLAY-LANE PACKING (override section 5 preferred candidate):
+   within each canonical lane (same placement.column), compute connected
+   components of DISPLAY-interval overlap (display bands from displayEvents).
+   For components with >= 2 events: greedy interval-column partition sorted by
+   display start (logical start tiebreak) -> (subColumn i, subCount k). Packed
+   events render via the EXISTING widthFactor/offsetFactor placement path:
+     widthFactor  = 1 / (canonicalColumnCount * k)
+     offsetFactor = (canonicalColumn * k + i) / (canonicalColumnCount * k)
+   (verified against BOTH renderers: planner_screen.dart _horizontalGeometry
+   lines 4843-4866 and PlannerPagerEventHorizontalGeometry lines 298-327 —
+   identical math, so centered + preview parity is preserved).
+   - isolated short Events (single-event component) keep canonical full width
+     -> full-width one-hour card (owner: isolated 15m = one-hour card);
+   - contiguous same-hour shorts (2x30m, 4x15m, 15+30+45m...) -> side-by-side
+     columns, never covering, never shrinking to strips;
+   - long left-lane Event + right-lane short Events: canonical lanes already
+     separate them; only same-lane display collisions pack (right-lane shorts
+     keep their canonical half-lane; same-lane band collisions pack within the
+     lane);
+   - logical lanes, drag/resize math, tap ownership, recurrence, and
+     persistence all keep the CANONICAL intervals (placement.event stays the
+     original item; blocks render original times — verified planner_screen.dart
+     _positionedEvent lines 4700-4712 and pager _positionedPreviewEvent
+     lines 1400-1425).
+3. CONTENT PRIORITY (override section 6): identity/title outranks secondary
+   metadata. PlannerEventBlockContent.showRecurrence threshold raised from
+   12px to >= titleLineHeight (18px) so recurrence/status decorations never
+   outlive the title. At min zoom the floored one-hour block is 20-44px tall
+   -> title + inline time always render; status only at >= 58px (already
+   gated).
+4. ZOOM POLICY UNCHANGED: no min-zoom raise (the floor already yields a
+   readable 20-44px one-hour card at absolute/runtime min). Pinch clamp
+   untouched.
+
+Geometry facts used: absoluteMinimumHourHeight 20; runtime min for a 16h
+window ~44px; readability threshold 28px; 45m max floor duration; hour-row
+band model (existing, prior accepted).
+
+================================================================================
+6. MP-06 — DRAFT GRIP VISIBILITY + THEME-ACCENT COLOR
+================================================================================
+CURRENT: _positionedEndpointHandles (planner_screen.dart ~4879) passes
+handleAccent = PlannerEventColorResolver.accentColor(event...) to BOTH saved
+and provisional grips. For a provisional draft the grip therefore follows the
+draft Event Type accent (raw stored accent in Dark) — it (a) changes with the
+Event Type and (b) can be near-invisible in Dark when a dark Event accent
+straddles the block edge onto the dark canvas. Owner contract: grips tied to
+the APP THEME COLOR (Blue theme -> blue, Rose theme -> rose) regardless of
+Event Type; visible in Light AND Dark; START upper-right / END bottom-left;
+14dp visible cap / 44dp invisible targets; saved Event grips unchanged.
+
+FIX: in _positionedEndpointHandles, provisional grips use
+Theme.of(context).colorScheme.primary (the same theme accent the provisional
+block body already uses); saved Event grips keep the resolver accent. No
+saved-event color change; no geometry change.
+
+================================================================================
+7. R5 — DEFERRED PATHWAYS LEAK ON HOME (FABRICATED CONTENT)
+================================================================================
+CONFIRMED: home_screen.dart renders a hardcoded "Active Pathways" section:
+_SectionHeader('Active Pathways') + _PathwaysCard with static rows
+Employment "3 of 7 milestones" / Education "2 of 6" / Documents "4 of 8", each
+"On Track" + a hardcoded LinearProgressIndicator(value: .45). The view-all
+shows a snackbar ("Pathways are not configured yet."). No domain data backs
+any of it — it is fabricated product truth on Home, directly contradicting the
+owner's defer lock (VS-09/10/12/13/14 deferred; Pathways removed from primary
+nav; Home/Planner/Contacts/Maps focus).
+
+FIX (cleanup/enforcement, NOT feature work): remove the user-facing section
+(header, card, rows, view-all key, _showPathwayMessage). No Pathways
+domain/data/routes exist to delete; no replacement fake content. Life Goals /
+Goal Planning untouched.
+
+================================================================================
+8. MAPS / OTHER PRESERVATION
+================================================================================
+Maps V1 is PRESERVATION ONLY in this run: no Maps V2, no My Location, no
+geocoding, no clustering, no new provider, no permission changes. v28 schema,
+maplibre 0.26.2, 4th Maps tab, picker/repository/routes, INTERNET-only manifest
+all remain byte-stable unless a regression test forces an unrelated edit
+(expected: none).
+
+================================================================================
+9. EXACT PRODUCTION / TEST / GOLDEN BOUNDARY
+================================================================================
+PRODUCTION (expected):
+- NEW lib/features/planner/presentation/widgets/planner_preview_fragment_accent.dart
+  (MP-04 fragment accent painter, solid + backup stripe modes)
+- lib/features/planner/presentation/widgets/planner_interactive_day_pager.dart
+  (MP-04: wrap preview event body; R3: none — packed placements flow through
+  existing widthFactor path)
+- lib/features/planner/domain/planner_display_geometry.dart
+  (R3: remove collision gate; add display-lane packing -> widthFactor/
+  offsetFactor overrides)
+- lib/features/planner/presentation/widgets/planner_event_block_content.dart
+  (R3 content priority: showRecurrence >= titleLineHeight)
+- lib/features/planner/presentation/planner_screen.dart
+  (MP-06: provisional grip = colorScheme.primary)
+- lib/features/startup/presentation/home_screen.dart
+  (R5: remove Active Pathways section + _showPathwayMessage)
+
+TESTS (fail-first):
+- NEW test/features/planner/presentation/mp04_screen_space_fragment_accent_test.dart
+  (pixel test at held partial pager offsets: visible fragment carries accent in
+  same frame; RED before fix)
+- test/features/planner/presentation/r3_zoom_geometry_contract_test.dart
+  (REWRITE to owner override: one-hour display bands, display-lane packing,
+  no covering, truthful times, content priority)
+- test/features/planner/domain/planner_display_geometry_test.dart
+  (update R3 assertions if they pin the rejected gate)
+- test/features/planner/presentation/mp06_draft_grips_contract_test.dart
+  (extend: 4 theme-state x 2 Event-Type grip-color matrix)
+- test/features/goals/presentation/r1_goal_icon_theme_parity_test.dart
+  (extend: rendered crop at real Home card surface, core-pixel parity)
+- test/features/indicators/presentation/home_indicator_journey_test.dart +
+  test/features/startup/presentation/home_week_start_test.dart
+  (R5: Pathways section ABSENT)
+- Home goldens (home_pack1, 12 masters): regenerate ONLY for the R5 section
+  removal delta (RED-inspect first)
+
+NO-TOUCH (this run): Home Life Goal geometry/sizes, Goal Icon sizes/palette,
+Event Type palette, CT-03, MP-18 Temple line, Contact UI, NX Light/drawer/nav,
+Maps V1, schema v28, manifests beyond INTERNET, recurrence semantics, lane/
+pager architecture, current-time line.
+
+================================================================================
+10. VERDICT
+================================================================================
+All five items are root-caused and bounded with no conflicting owner lock:
+- R1: code already parity-correct; no production icon change (proof + test +
+  owner review); the prior fallback fix is retained
+- MP-04: MP04_CLIPPED_TRUE_LEFT_EDGE; preview-only fragment accent
+- R3: owner-override governed; restore one-hour bands + display-lane packing
+- MP-06: provisional grip -> theme primary
+- R5: remove fabricated Pathways Home section
+- Maps: preservation only
+
+SAFE TO IMPLEMENT FULL COMBINED BOUNDARY.
+
+NO CHECKPOINT. NO COMMIT. NO PUSH. NO NEW FEATURES.
+STOP FOR OWNER PHYSICAL REVIEW AFTER THE RUN.

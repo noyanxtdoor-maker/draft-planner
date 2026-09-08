@@ -1,0 +1,18 @@
+import 'dart:io';
+
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  test('C5 Maps marker subscription is safe outside the build phase', () {
+    final source = File(
+      'lib/features/maps/presentation/maps_screen.dart',
+    ).readAsStringSync();
+    final surface = File(
+      'lib/features/maps/presentation/google_maps_surface.dart',
+    ).readAsStringSync();
+
+    expect(source, contains('ref.watch(mapProjectedMarkersProvider)'));
+    expect(source, isNot(contains('ref.listen(mapMarkersProvider')));
+    expect(surface, contains('ref.listenManual(mapTransientFocusProvider'));
+  });
+}

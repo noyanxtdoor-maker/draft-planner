@@ -1,0 +1,87 @@
+NEXT TRANSFER — PHASE B TASK-SCOPED ACTIVITY HISTORY
+DEVICE UPDATE / EVIDENCE REPORT
+Date: 2026-08-28
+Workspace: C:\Users\sherl\Downloads\NT_C7_IMPLEMENTATION_20260825_235900
+
+STATUS: READY FOR OWNER PHYSICAL REVIEW
+
+1. AUTHORIZED TARGET
+ADB executable: C:\Users\sherl\AppData\Local\Temp\next-transfer-toolchain\android-sdk\platform-tools\adb.exe
+ADB version: 1.0.41 / 37.0.1-15733141
+Authenticated runtime transport: adb-10620253B3004617-2m7ZVB (2)._adb-tls-connect._tcp
+Hardware serial reported by Android: 10620253B3004617
+Manufacturer/model: INFINIX / Infinix X6731
+Android version: 14
+ADB state: device
+
+2. VERIFIED LOCAL ARTIFACT BEFORE DEVICE ACTION
+Path: C:\Users\sherl\Downloads\NT_C7_IMPLEMENTATION_20260825_235900\build\app\outputs\flutter-apk\app-debug.apk
+Package: com.nexttransfer.rmplanner
+Version: versionName 0.1.0, versionCode 1
+Size: 235111289 bytes
+SHA-256: 3BDE19720FDC60BAC9E7393EB060C5E03D182243C08FEE22597D5F404EA8F3D2
+
+3. PRE-INSTALL CONTINUITY
+Existing package was present before update.
+firstInstallTime: 2026-07-27 15:42:22
+dataDir: /data/user/0/com.nexttransfer.rmplanner
+ceDataInode: 1509267
+Representative private owner files observed without reading contents:
+- files/mbgl-offline.db (34680832 bytes)
+- shared_prefs/MapboxSharedPreferences.xml
+The app's current Drift database was also present as app_flutter/next_transfer.sqlite (1335296 bytes). It was not copied, queried, altered, or replaced.
+Pre-install capture: build\phase-b-task-scoped-activity-history-20260828\device-evidence\pre-install-continuity.txt
+
+4. INSTALL
+Command: adb -s <authenticated Infinix transport> install -r <verified Downloads APK>
+Result: Success
+Only adb install -r was used. No uninstall, clear, reset, downgrade, or data-wipe command was used.
+Install output: build\phase-b-task-scoped-activity-history-20260828\device-evidence\adb-install-r.txt
+
+5. POST-INSTALL CONTINUITY
+Package remains com.nexttransfer.rmplanner, versionName 0.1.0 / versionCode 1.
+firstInstallTime: 2026-07-27 15:42:22 (unchanged)
+dataDir: /data/user/0/com.nexttransfer.rmplanner (unchanged)
+ceDataInode: 1509267 (unchanged)
+lastUpdateTime advanced to 2026-08-28 17:45:03, as expected for an in-place update.
+Representative private owner files remain present:
+- files/mbgl-offline.db (same 34680832 bytes)
+- shared_prefs/MapboxSharedPreferences.xml
+Post-install capture: build\phase-b-task-scoped-activity-history-20260828\device-evidence\post-install-continuity.txt
+
+6. INSTALLED APK EQUALITY
+Installed Android base path after update:
+/data/app/~~q0IBkoXzNmML7KD47EX1Ag==/com.nexttransfer.rmplanner-F49h-PMnZ6vNsqa1hldtcA==/base.apk
+Pulled installed file: build\phase-b-task-scoped-activity-history-20260828\device-evidence\installed-base.apk
+Local size: 235111289 bytes
+Installed size: 235111289 bytes
+Local SHA-256: 3BDE19720FDC60BAC9E7393EB060C5E03D182243C08FEE22597D5F404EA8F3D2
+Installed SHA-256: 3BDE19720FDC60BAC9E7393EB060C5E03D182243C08FEE22597D5F404EA8F3D2
+Result: exact byte-size and SHA-256 equality PASS.
+Machine-readable comparison: build\phase-b-task-scoped-activity-history-20260828\device-evidence\local-installed-apk-equality.json
+
+7. LAUNCH / SCREEN EVIDENCE
+A force-stop followed by am start -W com.nexttransfer.rmplanner/.MainActivity returned Status: ok and completed in 5708 ms. The first delayed screenshot found an unrelated already-active game foregrounded, despite the successful launch command. A second foreground retry returned Status: ok and confirmed topResumedActivity and mCurrentFocus as com.nexttransfer.rmplanner/.MainActivity.
+Planner screenshot / hierarchy:
+- build\phase-b-task-scoped-activity-history-20260828\device-evidence\foreground-launch-attempt.png
+- build\phase-b-task-scoped-activity-history-20260828\device-evidence\foreground-launch-attempt.xml
+Launch record: build\phase-b-task-scoped-activity-history-20260828\device-evidence\cold-launch.txt and foreground-launch-attempt.txt
+
+8. TASK PREVIEW EVIDENCE AND LIMITATION
+Existing Task Preview navigation was exercised without submitting, editing, clearing, or creating any Task/report. The inspected owner Tasks crevtg, ghgfvgt, and sample task each reported Current Status: Unreported and had no canonical report history; their Preview correctly omitted Activity History and the rejected generic/global control was absent.
+
+The captured sample-task Preview is a valid on-device empty-history contract observation:
+- build\phase-b-task-scoped-activity-history-20260828\device-evidence\sample-task-preview.png
+- build\phase-b-task-scoped-activity-history-20260828\device-evidence\sample-task-preview.xml
+
+No populated Task-scoped Activity History panel could be truthfully captured from the existing owner Tasks without creating or changing an owner report. That action was intentionally not taken. Positive populated-history rendering remains supported by the completed routed automated regression (2/2) and the green focused/broad gates, but is not claimed as an owner-data device observation in this report.
+
+9. OWNER PHYSICAL REVIEW
+Please verify on the live Infinix, using a Task that already has a factual status/report history or after an owner-directed reporting scenario:
+- Activity History appears only for that Task after factual Task content;
+- every row belongs only to the current Task's stable canonical source;
+- no generic/global Activity History button or route appears;
+- correction/clear facts remain truthful;
+- Current Status, Task identity, zoom/overflow, collision, drag/no-resize, recurrence, and reporting behavior remain accepted.
+
+OWNER ACCEPTANCE IS NOT IMPLIED BY THIS REPORT. Engineering update/install, data-continuity, installed-APK equality, and launch proof are complete. Stop here for owner physical review.

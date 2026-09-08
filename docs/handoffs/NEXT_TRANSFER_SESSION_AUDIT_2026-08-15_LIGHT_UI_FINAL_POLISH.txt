@@ -1,0 +1,458 @@
+NEXT_TRANSFER_SESSION_AUDIT_2026-08-15_LIGHT_UI_FINAL_POLISH.txt
+
+================================================================================
+1. SESSION IDENTITY
+================================================================================
+- date/time: 2026-08-15 (local +0800)
+- implementor/model: Freebuff coding agent (Buffy)
+- repo/worktree: C:\Users\sherl\Documents\Next Transfer-Temp
+- branch: autonomous/stability-ux-pack-a-20260814
+- starting HEAD: a6141d7e2a7798ff822150381d5c3b3981d0530d
+- ending HEAD:   a6141d7e2a7798ff822150381d5c3b3981d0530d (unchanged)
+- commit/push: NONE (implementation session; index remains empty)
+- baseline rule: this tree was EXPECTED DIRTY (accepted GI-01/GI-02/CT-03
+  implementation).  No reset/clean/stash/checkout-over/destructive Git op ran.
+
+================================================================================
+2. OWNER-AUTHORIZED SCOPE
+================================================================================
+Pack: 02_LIGHT_UI_FINAL_POLISH_CONTINUATION_PROMPT.txt
+A. Goal Icon halo removal + Temple optical normalization
+B. Home Light hierarchy + Today's Goal layout
+C. Light gray-surface cleanup + Blue/Rose theme-leak sweep
+D. Contact transition/flicker fix
+E. Full recording re-review + deferred findings ledger
+
+Owner locks read: 01_OWNER_LOCKS_LIGHT_UI_FINAL_POLISH.txt
+References read: GI-01/GI-02/CT-03 session audit (reconciled against), B3.3
+  checkpoint audit, universal audit contract, evidence note + recording.
+
+NO-TOUCH honored: schema/migrations v1-v27; B3.2 direct-Goal contribution
+engine; task_contact_links; TF-01 Task Event-Type removal; CT-03 accepted
+current-time contract; GI-02 exact 2x requested sizes; Event recurrence /
+direct Goal / People freeze; Planner zoom/pinch/scroll/swipe/lane/drag/resize/
+event geometry; current-time anchor position/line geometry/minute Y; Goal Icon
+SVG assets (assets/icons/goals/** untouched); Goal registry IDs/categories/
+aliases/labels; MP-14; Event Type identity colors; warning/error/status colors;
+Ads workstream; unrelated refactors/format sweeps.
+
+================================================================================
+3. PRE-EXISTING DIRTY STATE (INHERITED, NOT THIS SESSION)
+================================================================================
+The pack README documented 71 tracked files dirty (19 non-golden + 52 golden)
+from the accepted GI-01/GI-02/CT-03 implementation at start.  Verified intact:
+- CT-03 label contract 15px / 62dp / 4dp (planner_interactive_day_pager.dart)
+- GI-02 exact sizes: weekly 64, home compact 72, home wide 80, choice row 72,
+  archive 56, picker 96, event sheet 48, event card 52, task card 48, task
+  sheet 48
+- v27 schema, no staged files, no merge/rebase/detached HEAD, origin == HEAD
+
+Inherited untracked artifacts (inventoried, NOT attributed to this session,
+NOT staged, NOT deleted):
+- .accept/, .agents/, .audit_scratch/, .audit_scratch2/, .b2cp3_scratch/,
+  .b31_evidence/, .todo.md, Website/, b31_evidence/
+- docs/handoffs/* (prior completion docs + _screenshots)
+- tool/*.py and *.ps1 (prior session tooling)
+
+Files tracked-modified BEFORE this session (inherited; verified present in the
+GI/CT audits): planner_screen.dart, planner_interactive_day_pager.dart,
+weekly_planning_screen.dart, goal_icon.dart (GI-01 halo), goal_icon_choice_row
+.dart, goal_icon_picker_screen.dart, goal_archive_screen.dart,
+calendar_event_form_screen.dart, task_form_screen.dart, home_screen.dart
+(GI-02 sizes), b3_1_goal_family_theme_contract_test.dart, b3_2_task_form_
+contract_test.dart, calendar_event_indicator_link_test.dart,
+planner_current_time_indicator_test.dart, planner_interactive_day_pager_
+current_time_test.dart, home_week_start_test.dart,
+weekly_planning_establishment_test.dart, and the 41 goal-icon golden masters.
+
+================================================================================
+4. EXACT FILES CHANGED THIS SESSION
+================================================================================
+Files marked INHERITED+NEW were already dirty from the GI pack; this session
+layered the polish change on top.  Files marked NEW were untouched before.
+
+--- A. Goal Icon halo removal + Temple optical scale -------------------------
+FILE: lib/features/goals/presentation/widgets/goal_icon.dart
+OWNER ITEM: A (GI-01 supersede)
+EXACT CHANGE: removed the 1.06x #181A1E halo silhouette layer entirely
+  (light mode now renders the raw two-tone foreground SVG, colorFilter null,
+  no plate/decoration); added a per-definition opticalScale mechanism
+  (default 1.0) implemented as paint size*scale + inverse transform so the
+  outer box stays exactly the caller size while art inside enlarges; pinned
+  Temple Visit (spiritual_temple) to 1.15 after measured 2.1% ink density vs
+  3-7% peers at the same requested size.
+WHY REQUIRED: owner lock A removed the halo; Temple optical correction is the
+  audited smallest fix for the recording-visible thin-stroke read.
+RELATED TEST: goal_icon_widget_test.dart (no-halo + optical pins)
+UNRELATED IMPACT: Dark raw-SVG behavior preserved (Temple dark goldens shift
+  only by anti-alias from the 1.15 crop).
+INHERITED OR NEW: INHERITED+NEW
+
+FILE: test/features/goals/presentation/goal_icon_widget_test.dart
+OWNER ITEM: A
+EXACT CHANGE: light renderer must have exactly one foreground SVG, no plate/
+  halo/duplicate silhouette; colorFilter null; opticalScale pins (default 1.0,
+  temple 1.15, asserted via the X-scale matrix entry).
+INHERITED OR NEW: INHERITED+NEW
+
+FILE: test/features/settings/presentation/light_walkthrough_test.dart
+OWNER ITEM: A
+EXACT CHANGE: walkthrough golden expectations updated from the halo contract
+  to raw-art expectations (two spots).
+INHERITED OR NEW: NEW
+
+GOLDENS (A): 41 goal-icon masters regenerated under the corrected renderer:
+  28 Light (halo->raw), 9 context (halo-removal + AA), 4 dark Temple
+  (1.15x optical crop, AA-only).  Delta proof (golden_proof_a.py): every
+  Light master delta = halo-dark pixels removed (deltas -443..-1968 per
+  master), zero new teal, AA-only gold/other shifts; zero dark-master hue
+  change.
+
+--- B. Home Light hierarchy + Today's Goal -----------------------------------
+FILE: lib/features/startup/presentation/home_screen.dart
+OWNER ITEM: B (+ C light card surface)
+EXACT CHANGE: Light Goal cards now use AppTheme.cardOf (near-white semantic
+  surface) instead of transparent-over-gray-canvas; wide card is a two-region
+  column (row1: 80dp icon + full-width title/progress; row2: compact fixed
+  112dp Today's Goal block + right-aligned quick controls); compact cards
+  stack 72dp art above a full-width two-line centered title (fixes
+  "Ministerin g Visit" mid-word wrap and the title-eaten-by-Today-block at
+  360dp); skeleton cards mirror the new heights (148 wide, 143 compact).
+WHY REQUIRED: pack B acceptance - readable long titles, no overlap, Today
+  block cannot grow into the title, + action stable, 360dp safe.
+RELATED TEST: home_light_polish_test.dart; home_indicator_journey_test.dart;
+  home_phase_a_polish_test.dart
+UNRELATED IMPACT: Goal Planning pill + Active Pathways move below the fold on
+  short viewports (see DF-03); temple card center no longer reaches "Set
+  Schedule" (see DF-04).
+INHERITED OR NEW: INHERITED+NEW
+
+FILE: test/features/startup/presentation/home_light_polish_test.dart (NEW)
+OWNER ITEM: B
+EXACT CHANGE: 6 contract tests - Light card fill + outline, Today block
+  112dp bounds/controls, title readability (no mid-word wrap at 393 and 360),
+  wide card two-region layout, Dark symmetry (themeMode), textScale.
+
+FILE: test/features/indicators/presentation/home_indicator_journey_test.dart
+OWNER ITEM: B (legacy pins superseded by authorized growth)
+EXACT CHANGE: 60->148 card heights; quick control 195->112 and controls
+  40x24->28x24; VS-08 scrolls to Active Pathways before asserting then back
+  to Goal Planning; temple tap now targets the keyed home-temple-schedule
+  button (create-gate contract preserved); width matrix height 60->148; A3
+  scrolls to the separator then drags the list back to the top for hittable
+  quick controls.
+INHERITED OR NEW: NEW
+
+FILE: test/features/startup/presentation/home_phase_a_polish_test.dart
+OWNER ITEM: B
+EXACT CHANGE: legacy pins of the old single-row wide card updated to the
+  locked two-region structure.
+INHERITED OR NEW: NEW
+
+FILE: test/features/startup/presentation/goldens/home_pack1_golden_test.dart
+OWNER ITEM: B
+EXACT CHANGE: separator golden now scrolls the harness to the separator
+  (taller cards pushed it outside the lazy ListView initial window; the
+  separator pixels themselves are unchanged).
+INHERITED OR NEW: NEW
+
+GOLDENS (B): 20 Home masters regenerated (16 pack1 + 4 skeleton).  15 of the
+  pack1 files were already dirty from GI-02 and proved pixel-identical to the
+  pre-B backup (re-written only); the changed delta is confined to the
+  authorized card/today-block geometry.  Hue-family proof
+  (home_golden_proof_b.py): residual 0.05% "new" pixels are anti-aliased
+  darker rose/gold tints of existing families + dark-theme neutrals; no
+  foreign hue.
+
+--- C. Light gray-surface cleanup + Blue/Rose theme-leak sweep ----------------
+FILE: lib/features/planner/presentation/calendar_event_form_screen.dart
+OWNER ITEM: C
+EXACT CHANGE: Life Goal linked/unlinked containers use semantic surface
+  (AppTheme.cardOf) instead of surfaceContainerHighest in Light; Life Goal
+  placeholder/fallback icon resolves Theme.of(context).colorScheme.primary
+  instead of default AppTheme.rose (the recording-visible Rose-in-Blue leak).
+INHERITED OR NEW: INHERITED+NEW
+
+FILE: lib/features/planner/presentation/task_form_screen.dart
+OWNER ITEM: C
+EXACT CHANGE: Life Goal container surface treatment mirrors the event form
+  (semantic surface; task placeholder was already onSurfaceVariant - kept).
+INHERITED OR NEW: INHERITED+NEW
+
+FILE: lib/features/goals/presentation/widgets/goal_icon_choice_row.dart
+OWNER ITEM: C
+EXACT CHANGE: choice row surface to semantic surface; fallback icon color to
+  scheme.primary.
+INHERITED OR NEW: INHERITED+NEW
+
+FILE: lib/features/goals/presentation/goal_archive_screen.dart
+OWNER ITEM: C
+EXACT CHANGE: generic archive/restore action icons resolve to
+  scheme.primary (theme-owned generic actions; Goal Icon artwork untouched).
+INHERITED OR NEW: INHERITED+NEW
+
+FILE: lib/features/goals/presentation/goal_icon_picker_screen.dart
+OWNER ITEM: C
+EXACT CHANGE: fallback/selection icons use scheme.primary; unselected tiles
+  keep transparent base (no gray slab).
+INHERITED OR NEW: INHERITED+NEW
+
+FILE: test/features/planner/presentation/light_ui_c_contract_test.dart (NEW)
+OWNER ITEM: C
+EXACT CHANGE: 5 contract tests on the real forms - event-form Life Goal
+  placeholder icon == scheme.primary in Blue and Rose x Light and Dark; task
+  form Life Goal section surface == semantic surface; archive action icon ==
+  scheme.primary; Goal Icon artwork identity hue preserved (not recolored by
+  the theme fix).
+
+--- D. Contact transition/flicker fix -----------------------------------------
+FILE: lib/features/contacts/data/drift_contact_repository.dart
+OWNER ITEM: D
+EXACT CHANGE: readTimeline() freeze writes now run in ONE transaction (drift
+  emits one coalesced table update instead of one per occurrence) AND each
+  freeze participant write is guarded by an existence check (SELECT-before-
+  INSERT).  Root cause: the read ran inside a provider watching
+  eventOccurrenceParticipants updates, so every mid-read freeze write
+  re-triggered the read - a ~5Hz loading<->data flicker cascade with
+  unbounded row growth (fresh UUID per write).  Both changes make the
+  follow-up read a pure no-op.
+INHERITED OR NEW: NEW
+
+FILE: lib/features/contacts/presentation/contact_detail_screen.dart
+OWNER ITEM: D
+EXACT CHANGE: the detail build retains the last valid ContactDetail while a
+  refresh is in flight (detailAsync.value); the loading/error scaffolds now
+  only render when there is nothing to show (first open / genuine failure),
+  so the blank "Contact" + spinner flash is gone.
+INHERITED OR NEW: NEW
+
+FILE: test/features/contacts/presentation/contact_detail_flicker_test.dart (NEW)
+OWNER ITEM: D
+EXACT CHANGE: seeds a contact with a past linked event, opens the detail,
+  asserts content is retained through refresh emissions (no blank frame) and
+  freeze-row count does not balloon.
+
+================================================================================
+5. IMPLEMENTED BEHAVIOR CONTRACTS
+================================================================================
+A: Light Goal Icon = raw two-tone SVG, no plate/halo, colorFilter null, outer
+   box exact caller size; Temple Visit enlarged internally 1.15x (optical),
+   Dark = raw SVG unchanged.  GI-02 call-site sizes untouched.
+B: Home Light cards = near-white semantic surface + outline; Today's Goal =
+   fixed 112dp block on its own row; + action stable; titles maxLines 1-2 with
+   word-boundary wrapping; Dark behavior preserved.
+C: Blue mode shows no Rose generic UI on the modified surfaces; generic
+   theme-owned actions/selection/tint resolve through colorScheme.primary in
+   both Blue and Rose; independent identity colors (Goal Icon artwork, Event
+   Type, status) untouched.
+D: Contact detail never flashes populated -> blank -> populated; refresh
+   retains last content; freeze writes idempotent + coalesced.
+
+================================================================================
+6. VISUAL / GESTURE CLAIMS
+================================================================================
+What the code intends vs what tests prove:
+- Tests PROVE: renderer structure (no halo/plate, one SVG, colorFilter null,
+  optical scale matrix), Light/Dark/Blue/Rose color resolution on the real
+  forms, 112dp Today block bounds, no mid-word wrap at 393/360, no RenderFlex
+  overflow on Home, contact content retained through refresh, freeze row
+  stability, CT-03/GI-02 contracts unchanged.
+- Tests DO NOT prove (owner-only physical): subjective "cleaner Light
+  hierarchy", actual on-device contrast comfort, the recording flicker being
+  gone on hardware, 2x icon aesthetic, Temple optical improvement perception.
+NONE of these visual items is called PASS.  Physical owner review required.
+
+================================================================================
+7. DATABASE / MIGRATION CHANGES
+================================================================================
+NONE.  Schema v27 -> v27.  No migration, no generated code, no backfill.
+Existing Tasks/Goals/Contacts/peopleJson/contributions/ledger/preferences are
+untouched by code paths in this pack (only renderer/UI behavior changed).
+
+================================================================================
+8. TEST / BUILD RESULTS
+================================================================================
+- B suite (home_light_polish_test): 6/6 GREEN
+- C suite (light_ui_c_contract_test): 5/5 GREEN (after removing a leftover
+  sqlite3.dll lock that made runs appear to hang)
+- D test (contact_detail_flicker_test): 1/1 GREEN
+- Goal Icon renderer suite: 19/19 GREEN (RED first: no-halo contract + 1.15
+  pin; a paint-size scaling identity bug was found and corrected)
+- Goal Icon golden suite: GREEN (79/79 verify; masters regenerated)
+- Home golden suite: GREEN (24/24; separator harness scroll fix)
+- home_indicator_journey_test: 6/6 GREEN (legacy geometry pins updated;
+  temple tap redirected to the keyed schedule button after the layout change)
+- FULL Flutter suite: 1069/1069 PASS
+- dart analyze --fatal-infos lib test: 0 issues
+- git diff --check: clean
+- debug APK build: SUCCESS (build\app\outputs\flutter-apk\app-debug.apk)
+- FAILURES encountered: 4 legacy journey pins (fixed); one goal-edit Row
+  overflow traced to a test-font TextButton artifact only reachable after the
+  layout moved the tap target (fixed by targeting the keyed affordance);
+  transient sqlite3.dll lock (cleared).
+
+================================================================================
+9. TEMPORARY TOOLING
+================================================================================
+- probe debugPrints (WT-TRACE / PROBE / A3-PROBE): added for diagnosis,
+  REMOVED from home_screen.dart and home_indicator_journey_test.dart.
+- scratch probe tests: test/features/indicators/presentation/
+  edit_overflow_probe_test.dart, test/features/startup/presentation/
+  home_overflow_probe_test.dart, home_geometry_probe_test.dart - REMOVED.
+- git worktree at HEAD ($TEMP/head-wt): created to prove HEAD-test behavior,
+  REMOVED after diagnosis.
+- $TEMP/lpolish/: recording frames + evidence_table.md + golden_proof_a.py +
+  home_golden_proof_b.py + backups - retained in temp for reviewer evidence.
+- .audit_scratch/light_polish_view + .audit_scratch2/: untracked preview
+  scratch from this workstream - left in place, never staged.
+- Note: PROBE-ENSURE/PROBE-EX debugPrints in weekly_planning_establishment_
+  test.dart are PRE-EXISTING at HEAD (not this session; left untouched).
+
+================================================================================
+10. KNOWN FAIL / PARTIAL / BLOCKED / UNVERIFIED
+================================================================================
+- COMPLETED AFTER INITIAL REPORT: safe adb install -r (owner reconnected the
+  phone via wireless debugging).  Results below in section 10b.
+- PARTIAL: device screenshots captured for Home Light (B), Goal Edit +
+  2x choice row (C/GI-02), Choose Icon picker 96dp/3-columns (GI-02), and the
+  Planner grid.  NOT captured: event-form Life Goal section, task form Life
+  Goal section, Link-to-Life-Goal sheet, Dark-mode icons - on-device
+  coordinate navigation was unreliable (two stray taps opened a different
+  installed app, which was left untouched and immediately exited).  The
+  event-form Life Goal placeholder contract is instead proven by the
+  light_ui_c_contract_test suite in all 4 Rose/Blue x Light/Dark combos.
+- UNVERIFIED (owner-only): visual comfort/contrast, Dark-mode sanity,
+  Contact nav on hardware (D fix automated-tested only), 2x aesthetic.
+- PARTIAL (E): pre-fix recording review complete; fresh post-fix recording
+  NOT captured (navigation instability on the shared device; owner is best
+  placed to re-record).
+- FAIL: none outstanding.  All automated gates green.
+
+--------------------------------------------------------------------------------
+10b. SAFE INSTALL + DATA PRESERVATION (owner reconnected the phone)
+--------------------------------------------------------------------------------
+- adb device: wireless debugging (adb-tls-connect), package
+  com.nexttransfer.rmplanner (versionName 0.1.0, versionCode 1).
+- APK: build\app\outputs\flutter-apk\app-debug.apk
+  SHA-256 1b39bdd13bddb23154efebc098cf509b5603025e4b12298e383352b2e8154257
+- PRE-INSTALL (app_flutter/next_transfer.sqlite, pulled read-only):
+  user_version 27; integrity ok; planner_tasks 3; contacts 5;
+  task_contact_links 0; task_goal_contributions 0; goals 16;
+  appearance_preferences = primary|light|1786772947|blue.
+- INSTALL: `adb install -r` -> Success (update-in-place; NEVER uninstall /
+  clear data).
+- RELAUNCH: app started normally (PID observed), Home rendered.
+- POST-INSTALL (pulled again): user_version 27 (unchanged); integrity ok;
+  planner_tasks 3; contacts 5; task_contact_links 0; contributions 0;
+  goals 16; appearance light+blue (unchanged).  Byte-level task/goal/contact
+  counts identical pre vs post.
+- POST-NAVIGATION re-check after the evidence walkthrough: identical counts
+  and appearance again - no data was modified by the session's taps.
+- EVIDENCE SCREENSHOTS (implementor evidence only, NOT owner pass):
+  $TEMP\lpolish\device\shots\
+  01_home_light.png / 01b_home_top.png / 12_home_final.png  Home Light +
+    Blue: white semantic cards, 2x raw two-tone Goal Icon art (blue/orange,
+    no plate, no halo), stacked compact cards with full labels, Today's Goal
+    compact block, monthly Temple card with August Goal aside.
+  02_goal_edit.png  Goal Edit: Save/Edit Event Type/Change in scheme primary
+    (BLUE, no Rose); 2x 72dp choice-row icon; Event Type identity color
+    preserved.
+  03_icon_picker.png  Choose Icon: 96dp art, 3 columns, transparent tiles
+    with 1px outline, blue 2px selection border + check badge.
+  10_planner.png  Planner day grid (context).
+  05_fab_menu.png / 06-09, 11  navigation-attempt frames (some show another
+    installed app opened by stray taps; it was left untouched).
+
+================================================================================
+11. PHYSICAL REVIEW ITEMS FOR OWNER (shortest)
+================================================================================
+1. Home Light: cards are white/near-white (no gray slab), Today's Goal is a
+   compact 112dp block on its own row, long titles wrap at word boundaries,
+   no overlap at 360dp.  (Device screenshot 01/12 supports this; owner
+   confirms feel.)
+2. Temple Visit icon reads larger vs peers in Light; Goal Icons have NO
+   dark plate/rectangle and NO halo in Light; Dark shows raw art (Dark not
+   device-captured - switch theme and check).
+3. Choose Icon picker: 96dp art, no gray tile slabs, 3 columns intact
+   (screenshot 03).
+4. Blue theme: no Rose/red generic UI on Goal/Event/Task Life Goal surfaces;
+   Rose mode symmetric (event-form surface proven by contract tests; owner
+   spot-check on device).
+5. Link-to-Life-Goal sheet + Event/Task Life Goal cards: clean Light surface
+   (not device-captured - open the event/task form and check).
+6. Contact detail: no white-flash/blank oscillation when opening a contact
+   with history (automated-test-proven; owner confirms on hardware).
+7. Dark mode Goal Icons sanity (raw, no halo).
+
+================================================================================
+12. IMPLEMENTOR ASSUMPTIONS
+================================================================================
+- "2x everywhere" (GI-02) was already implemented and accepted; this pack
+  only removed the halo (A) and did NOT re-size call sites.
+- Home card growth to 148dp was the authorized minimum; the below-fold
+  consequence (DF-03) is flagged, not silently redesigned.
+- The temple card center-tap behavior at HEAD was incidental hit-test luck;
+  the keyed "Set Schedule" button is treated as the real affordance (DF-04).
+- The recording end-frame darkness is OS-level, not app-level (no crash
+  evidence in the capture).
+
+================================================================================
+13. RISKS / REGRESSION WATCHLIST
+================================================================================
+- Home: any future rework of card heights must keep 360dp/no-wrap/112dp
+  contracts; watch home_light_polish_test + home goldens.
+- Goal Icon: opticalScale is per-definition; future icons added to the
+  registry default to 1.0 and must not inherit Temple's pin; golden harness
+  sizes must not be doubled (dedicated test sizes).
+- Contact: the freeze transaction + existence check must not mask genuine
+  participant writes elsewhere; watch contact_detail_flicker_test.
+- Theme: the semantic-primary fix touched generic action icons in archive/
+  picker/choice-row; identity colors (artwork) are proven untouched but
+  should be visually re-checked by the owner.
+- Golden masters: 20 Home + 41 Goal Icon masters updated; any unrelated
+  golden delta in future packs is a STOP condition.
+
+================================================================================
+14. FINAL CHANGE-SCOPE AUDIT
+================================================================================
+- No unauthorized module touched.
+- No unrelated redesign (Home structure changed only as authorized by B).
+- No destructive Git operation (no reset/clean/stash/rebase/force).
+- No commit, no push; index empty; tracked tree = expected dirty state.
+- No accidental temporary files inside tracked scope (probes removed;
+  inherited untracked artifacts inventoried, not staged).
+- No hidden preview scaffolding retained in tracked scope.
+- assets/icons/goals/** and schema v1-v27 untouched; v27 -> v27.
+
+================================================================================
+15. REVIEWER COMPARISON SECTION
+================================================================================
+IMPLEMENTOR EXPECTS:
+- Home Light: white cards, 112dp Today block, no mid-word wraps, no overlap.
+- Goal Icons: raw two-tone art with no plate/halo; Temple reads optically
+  larger; Dark unchanged.
+- Blue mode has no Rose generic UI on Goal/Event/Task surfaces.
+- Contact detail opens without a white-flash oscillation.
+- Automated suite 1069/1069, analyzer 0, APK builds.
+- The only blocked gate is the physical device install + screenshots.
+
+OWNER SHOULD VERIFY (physical, on device):
+- the 7 items in section 11, plus the deferred-ledger decisions DF-03 (small-
+  phone Home scroll) and DF-04 (temple schedule tap target).
+
+IF OWNER REPORT CONFLICTS WITH THIS FILE:
+The owner's observed physical behavior is the source of truth.  The next
+reviewer must compare both perspectives and create only a surgical correction
+plan for the conflicting items.
+
+================================================================================
+INSTALL GATE STATUS
+================================================================================
+Safe install COMPLETED after the owner reconnected the phone:
+- adb install -r: Success
+- schema v27 -> v27, integrity ok
+- Appearance/Theme preserved (light + blue)
+- Tasks 3 / Contacts 5 / Goals 16 preserved, links/contributions unchanged
+- process launches normally
+
+NO COMMIT / NO PUSH / B3.3-adjacent work not started.

@@ -1,0 +1,35 @@
+NEXT TRANSFER — M6 OWNER-REVIEW GOAL / WEEKLY / EVENT-TYPE CORRECTIONS
+Date: 2026-09-08
+
+AUDIT MATRIX
+Automatic completion | M6 used an explicit UI command | canonical Goal progress projection/read seam with armed threshold state | v43 additive completion_armed | Goal lifecycle regression
+Completed Goal visibility | active-only query and cleared active slot | live query includes completed and keeps canonical slot | no | Goal/weekly regression pack
+Weekly review UI | reviewDue rendered a manual button | weekly planning presentation | no | weekly planning journey pack
+Weekly membership | current Goal projection is resolved dynamically for historical weeks | existing weekly plans contain period/review truth but no immutable Goal membership snapshot | not implemented in this focused pass | owner follow-up required before additive historical snapshot model
+Event Type picker | new-event picker used only Event Type visibility | Goal-linked stable-key eligibility projection | no | analyzer and focused planner compilation
+Notification title privacy | titles were family-specific in each source | detailed emoji titles plus neutral generic title/body | no | notification source regression coverage
+
+CORRECTIONS
+- Goal completion is now targetReached-capable, generation-deduplicated, and retains an armed-below-target state across reopen.
+- Manual Complete Goal UI and weekly review completion UI were removed.
+- Completed Goals remain live, addressable, and editable; archive and deletion remain distinct.
+- New-event Event Type selection hides Goal-linked types when no active Goal references them without deleting historical Event Types.
+- Detailed titles use the approved category emoji; generic/privacy-concealed rendering uses "🔔 Next Transfer" and neutral body copy.
+
+CERTIFICATION
+- Narrowed Goal/weekly/migration pack: PASS (54 tests).
+- Analyzer: No issues found.
+- Drift generation: completed.
+- git diff --check: PASS.
+- Fresh APK installed with adb install -r.
+- Local/installed APK SHA-256: B6020DE80261454FA05169B1132275A17CEA3B1471F0EC6FB3EEAB336A0B0924.
+- Data continuity: firstInstallTime and dataDir retained; ceDataInode=1509267.
+- Launch: PASS.
+- staged paths = 0
+- commit = NONE
+- tag = NONE
+- push = NONE
+- M7 = NOT STARTED
+
+LIMITATION
+Immutable historical weekly Goal membership requires a new canonical per-week snapshot/assignment model. The audit proved the current product dynamically resolves historical weeks from current Goals, so no truthful minimal schema could be safely inferred without a separate concrete snapshot contract. No historical owner data was rewritten.

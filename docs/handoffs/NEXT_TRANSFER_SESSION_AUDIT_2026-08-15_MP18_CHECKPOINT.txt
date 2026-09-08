@@ -1,0 +1,87 @@
+NEXT TRANSFER — MP-18 CHECKPOINT SESSION AUDIT
+DATE: 2026-08-15
+PHASE: MP-18 CHECKPOINT (owner approved) -> THEN MP-17 read-only audit
+
+================================================================================
+1. BASELINE (pre-checkpoint)
+================================================================================
+- repo:          C:\Users\sherl\Documents\Next Transfer-Temp
+- branch:        autonomous/stability-ux-pack-a-20260814
+- HEAD:          333bc48f664b399e1d5f8007f80612de3246093f
+- origin HEAD:   333bc48f664b399e1d5f8007f80612de3246093f (equal)
+- index:         EMPTY
+- tracked tree:  DIRTY with the approved MP-18 set only
+- schema:        v27 (unchanged, presentation/provider-only change)
+
+Reconciled dirty set (exactly the MP-18 files from the implementation audit):
+- lib/features/indicators/application/indicator_providers.dart        (M, +123)
+- lib/features/startup/presentation/home_screen.dart                  (M, +53)
+- test/support/test_dependencies.dart                                 (M)
+- test/features/settings/presentation/appearance_activation_test.dart (M)
+- test/features/indicators/presentation/mp18_temple_line_stability_test.dart (NEW, +375)
+No unexplained tracked path.  Untracked artifacts (scratch/evidence/screenshots)
+inventoried separately and NOT staged.
+
+================================================================================
+2. CHECKPOINT GATES (re-run fresh; actual counts)
+================================================================================
+1. MP-18 focused suite (mp18_temple_line_stability_test.dart) ..... PASS
+2. Home journey (home_indicator_journey_test.dart) ................ PASS
+3. Home structure/light-polish (home_light_polish_test.dart,
+   home_week_start_test.dart) ..................................... PASS
+4. DF-04 Temple schedule affordance (keyed home-temple-schedule) .. PASS
+5. Contact flicker (contact_detail_flicker_test.dart) ............. PASS
+6. Goal Icon + Home-size preservation (goal_icon_widget_test.dart,
+   home_light_polish_test.dart) ................................... PASS
+7. CT-03 (planner_current_time_indicator_test.dart,
+   planner_interactive_day_pager_current_time_test.dart) .......... PASS
+8. B3.2 / TF-01 (b3_2_task_form_contract_test.dart) ............... PASS
+   Focused batch total: 77/77 PASS
+9. Full Flutter suite ............................................ 1076/1076 PASS
+10. dart analyze --fatal-infos lib test .......................... 0 issues
+11. git diff --check ............................................. CLEAN
+12. Debug APK build .............................................. BUILT
+    SHA-256 c0ae89ce8a6109d1ecd4242034aa2982497c7c590489bc66dc8c4fb8ff8ab163
+    (byte-identical to the MP-18 implementation-session build)
+
+================================================================================
+3. COMMIT / PUSH
+================================================================================
+- ONE commit: aa03417c269d0493bb5aab85ad58b5d091da83e9
+  "fix(home): stabilize Temple visit secondary state"
+  parent 333bc48f664b399e1d5f8007f80612de3246093f
+- 5 files committed (4 modified + 1 new test), 550 insertions / 32 deletions
+- Normal push only: 333bc48..aa03417 -> origin/autonomous/stability-ux-pack-a-20260814
+- Post-push verification:
+    HEAD  == aa03417c269d0493bb5aab85ad58b5d091da83e9
+    origin== aa03417c269d0493bb5aab85ad58b5d091da83e9  (equal)
+    tracked tree: CLEAN (no tracked modifications)
+    index: EMPTY
+- No scratch/evidence/untracked artifacts staged or committed.
+
+================================================================================
+4. SCHEMA / DATA
+================================================================================
+- v27 -> v27.  No migration, no table, no preference touched.
+- (Device install + data-preservation evidence for this same binary is
+  recorded in NEXT_TRANSFER_SESSION_AUDIT_2026-08-15_MP18_TEMPLE_LINE_STABILITY.txt
+  section 8: v27 -> v27, quick_check ok, 3/16/5/11 counts identical,
+  Light+Blue appearance preserved, on-device "Next Visit: Aug 16" + stable
+  pull-to-refresh burst captured.)
+
+================================================================================
+5. OWNER DISPOSITION (verbatim)
+================================================================================
+"OWNER APPROVED MP-18 TEMPLE VISIT SECONDARY-LINE STABILITY FOR CHECKPOINT.
+MP-17 STARTUP DURATION IS THE NEXT READ-ONLY FORENSIC AUDIT. NO STARTUP
+OPTIMIZATION IS AUTHORIZED IN THIS RUN."
+
+================================================================================
+6. NEXT
+================================================================================
+Phase 2 of this run: MP-17 STARTUP PERFORMANCE FORENSIC AUDIT (read-only)
+from clean checkpoint aa03417.  Output:
+NEXT_TRANSFER_MP17_STARTUP_PERFORMANCE_FORENSIC_AUDIT_2026-08-15.txt
+NO startup implementation.  NO navigation/IA work.  NO Pathways work.
+
+END OF CHECKPOINT AUDIT.

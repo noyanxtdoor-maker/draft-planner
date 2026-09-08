@@ -1,0 +1,215 @@
+NEXT TRANSFER — MP-06B MICRO FORENSIC AUDIT
+DATE: 2026-08-17
+MODE: READ-ONLY AUDIT · NO PRODUCTION EDITS PERFORMED BY THIS AUDIT
+
+================================================================================
+0. PURPOSE / ROADMAP GATE
+================================================================================
+Owner correction (2026-08-17, HIGHEST AUTHORITY) rejects two MP-06 visual
+rules from the previous polish pack:
+  A. draft surface forced to AppTheme.rose in EVERY appearance
+  B. visible draft grips straddling the block edge (7 dp outside)
+
+New locked contract:
+  A. draft surface follows the APP THEME FAMILY (Blue -> blue fill, Rose ->
+     rose/pink fill; Light/Dark may differ in tone)
+  B. visible grips are FULLY INSIDE the filled draft block (START upper-right,
+     END bottom-left), reusing the saved-event Corner Tab Grip visual language
+  C. grip color follows the app theme family WITH CONTRAST (fill and grip must
+     not be the same tone); prefer existing semantic tokens
+  D. saved Events are NO-TOUCH
+
+================================================================================
+1. DIRTY BASELINE + BACKUP PROOF
+================================================================================
+Repo:        C:\Users\sherl\Documents\Next Transfer-Temp
+Branch:      autonomous/stability-ux-pack-a-20260814
+HEAD:        109417052acf94b02b2fa0e16d6785d0bb70e8ed
+Upstream:    origin/autonomous/stability-ux-pack-a-20260814 (in sync, +0 -0)
+Index:       EMPTY (staged_index.patch = 0 bytes, EMPTY_INDEX_CONFIRMED)
+Tracked mod: 93 files (uncommitted Maps + stabilization tree)
+Untracked:   110 files
+
+Fresh pre-edit backup (verified):
+  C:\Users\sherl\Documents\Next Transfer-Backups\2026-08-17_0855_MP06B_MICRO\
+  - BASELINE_IDENTITY.txt            (branch/HEAD/origin/status/index)
+  - next_transfer_repo.bundle        (git bundle --all; verify PASSED)
+  - tracked_worktree.patch           (binary diff, 1,423,723 bytes)
+  - staged_index.patch               (empty; index empty)
+  - untracked_files_manifest.txt     (110 entries)
+  - untracked_source_snapshot.zip    (34,181,120 bytes)
+  - source_worktree_snapshot.zip     (278,804,480 bytes)
+  - SHA256_MANIFEST.txt              (sha256sum -c ALL OK)
+
+Single-writer advisory lock file: C:\Users\sherl\Documents\Next Transfer-Backups\
+MP06_GRIP_POLISH.lock exists (previous session); no concurrent writer observed.
+
+================================================================================
+2. CURRENT CODE FACTS (verified at HEAD dirty tree)
+================================================================================
+A. DRAFT SURFACE (lib/features/planner/presentation/planner_screen.dart
+   ~lines 5762-5777, inside _TimelineEventBlock.build):
+     final accent = provisional ? AppTheme.rose : resolvedAccent;
+     final fill = provisional ? AppTheme.rose : resolvedFill;
+     final textColorOverride = provisional ? const Color(0xFF3A0610) : null;
+   -> CONFIRMED: provisional fill hardcoded to AppTheme.rose (#F9B7C7) in
+      every appearance. Blue appearance renders a PINK draft (owner-rejected).
+
+B. DRAFT GRIP PLACEMENT (planner_screen.dart ~lines 3171-3202,
+   _DirectEndpointHandle.build):
+     const double draftStraddle = 44 / 2;            // 22
+     const double draftCapStraddle = visibleCapSize / 2; // 7
+     top: isStart
+         ? (provisional ? draftStraddle - draftCapStraddle : 0)
+         : provisional ? draftStraddle - draftCapStraddle : null,
+     bottom: isEnd && !provisional ? 0 : null,
+     left: isEnd ? 0 : null,
+     right: isStart ? 0 : null,
+   -> CONFIRMED: visible 14 dp caps straddle the block edge by 7 dp (START
+      cap top = block.top - 7; END cap bottom = block.bottom + 7). Owner
+      requires caps FULLY INSIDE.
+
+C. DRAFT GRIP COLOR (planner_screen.dart ~lines 4882-4893):
+     final handleAccent = provisional
+         ? Theme.of(context).colorScheme.primary
+         : PlannerEventColorResolver.accentColor(...);
+   -> CONFIRMED: draft grip already derives from colorScheme.primary (theme
+      family). This part of the old contract is retained.
+
+D. SAVED GRIP PAINTER:
+     _SavedEndpointCornerTabPainter (planner_screen.dart ~line 3245) is the
+     ONE shared visual source used by BOTH saved and draft grips.
+   -> CONFIRMED: reuse is already in place; no second grip implementation.
+
+E. HANDLE Z-ORDER: endpoint handles are the LAST Stack children in the day
+   strip (planner_screen.dart ~lines 4696-4702), so the grip cap always
+   paints ABOVE the block fill. Invisible 44 dp targets keep the straddling
+   draft placement (top: placement.top - 22) - allowed to extend beyond the
+   block per the new contract; only the visible cap must be inside.
+
+================================================================================
+3. RESTORE-FIRST COMPARISON (pre-MP06 backup)
+================================================================================
+Backup inspected: C:\Users\sherl\Documents\Next Transfer-Backups\
+2026-08-16_2119_MP06_GRIP_POLISH\source_worktree_snapshot.zip ->
+planner_screen.dart (pre-polish, 2026-08-16 16:02).
+
+Pre-MP06 draft resolver (lines ~5749-5773):
+  final colorScheme = Theme.of(context).colorScheme;
+  final isRoseDark =
+      Theme.of(context).brightness == Brightness.dark &&
+      colorScheme.primary == AppTheme.rose;
+  final accent = provisional ? colorScheme.primary : resolvedAccent;
+  final fill = provisional ? colorScheme.primary : resolvedFill;
+  final textColorOverride = provisional
+      ? (isRoseDark ? const Color(0xFF3A0610) : colorScheme.onPrimary)
+      : null;
+
+Pre-MP06 grip placement (lines ~3196-3204):
+  top: isStart
+      ? (provisional ? draftStraddle : 0)
+      : provisional ? draftStraddle - visibleCapSize : null,
+  bottom: isEnd && !provisional ? 0 : null,
+  left: isEnd ? 0 : null,
+  right: isStart ? 0 : null,
+  -> caps FULLY INSIDE: START cap top = 22 (block.top flush, extends down);
+     END cap top = 22 - 14 = 8 (block.bottom flush, extends up).
+
+FINDING:
+- Pre-MP06 the draft surface ALREADY followed the theme family
+  (colorScheme.primary = Blue or Rose by appearance). The previous polish
+  run regressed that to hardcoded AppTheme.rose. Owner's restore-first rule
+  is satisfied: theme-family draft surface was the accepted pre-polish
+  behavior.
+- Pre-MP06 grips were FULLY INSIDE the block (the accepted geometry). The
+  polish moved them to straddle. Owner wants the inside geometry restored.
+- Pre-MP06 fill == primary would make a primary-colored grip invisible
+  (same tone). The new owner contract explicitly requires grip/fill
+  CONTRAST, so the correct model is fill = primaryContainer (softer
+  same-family container token) + grip = primary (stronger token) - both
+  existing semantic tokens, no new hex values.
+
+================================================================================
+4. RESOLVED THEME TOKENS (measured, not guessed)
+================================================================================
+Probe test (test/app/theme/_mp06b_rose_dark_probe_test.dart) measured the
+actual colorScheme at each appearance:
+
+  Light Blue  primary=#175A8F  primaryContainer=#D3E3F4  onPrimaryContainer=#123A5C
+  Light Rose  primary=#A62C49  primaryContainer=#F9B7C7  onPrimaryContainer=#6E1E33
+  Dark Blue   primary=#9FC8F0  primaryContainer=#123A5C  onPrimaryContainer=#D3E3F4
+  Dark Rose   primary=#F9B7C7  primaryContainer=#703346  onPrimaryContainer=#FFD9E1
+
+Proposed resolver (uses ONLY existing semantic tokens):
+  draft accent (left border + grip) = colorScheme.primary
+  draft fill                        = colorScheme.primaryContainer
+  draft time text                   = colorScheme.onPrimaryContainer
+
+Contrast (grip vs fill) is unambiguous in all four states:
+  Light Blue:  #175A8F on #D3E3F4   -> strong navy on soft blue
+  Light Rose:  #A62C49 on #F9B7C7   -> strong rose on soft pink
+  Dark Blue:   #9FC8F0 on #123A5C   -> bright light blue on dark muted blue
+  Dark Rose:   #F9B7C7 on #703346   -> bright rose on dark maroon
+Event Type never enters the draft color path (existing code already routes
+provisional colors solely from the theme).
+
+================================================================================
+5. EXACT PRODUCTION FILES PERMITTED TO CHANGE
+================================================================================
+1. lib/features/planner/presentation/planner_screen.dart
+   - _TimelineEventBlock.build: provisional accent/fill/textColorOverride
+     resolver (lines ~5762-5777).
+   - _DirectEndpointHandle.build: restore fully-inside cap placement
+     (lines ~3171-3202); keep visibleCapSize 14, invisible 44 dp targets,
+     shared _SavedEndpointCornerTabPainter, gesture wiring.
+
+================================================================================
+6. EXACT TESTS/GOLDENS PERMITTED
+================================================================================
+Update (pin new contract; these currently pin the rejected rules):
+- test/features/planner/presentation/mp06_theme_grip_color_test.dart
+  (fill == primaryContainer; caps inside)
+- test/features/planner/presentation/mp06_draft_grips_contract_test.dart
+  (fill == primaryContainer; caps inside)
+- test/features/planner/presentation/planner_delta4_creation_session_test.dart
+  (fill == primaryContainer; caps inside)
+
+New fail-first matrix (4 appearances x 2 Event Types):
+- test/features/planner/presentation/mp06b_draft_surface_internal_grips_test.dart
+  (fill family, grip family, grip/fill contrast, caps fully inside, START
+  upper-right / END bottom-left, Event Type invariance, filled + time-only
+  preserved, saved-event untouched)
+
+Delete throwaway probe:
+- test/app/theme/_mp06b_rose_dark_probe_test.dart
+
+================================================================================
+7. NO-TOUCH LEDGER
+================================================================================
+NO CHANGES to:
+- R1 GoalIcon compensation
+- MP-04 / preview parity
+- R3 one-hour overview display-lane packing
+- R5 Home Pathways removal
+- Maps V1 / v28 / MapLibre
+- lane solver / zoom policy / pager architecture
+- recurrence / status / Actual ledger
+- CT-03
+- Home / Contacts
+- app icon
+- saved-Event surface, grip color, or grip geometry
+- AppTheme palette / colorScheme (no new hex in theme)
+- 44 dp invisible hit target geometry
+
+================================================================================
+8. VERDICT
+================================================================================
+SAFE TO IMPLEMENT MICRO FIX
+
+Root cause is confined to:
+(1) the provisional draft color resolver in _TimelineEventBlock.build and
+(2) the provisional cap placement in _DirectEndpointHandle.build,
+both in planner_screen.dart. Restore-first comparison completed; the
+theme-family surface was the accepted pre-polish behavior; the new contrast
+requirement is satisfied with existing semantic tokens (primaryContainer /
+primary / onPrimaryContainer). No broadening of scope detected.

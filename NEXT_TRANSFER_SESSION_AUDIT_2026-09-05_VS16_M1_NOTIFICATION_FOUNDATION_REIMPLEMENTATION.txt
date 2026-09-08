@@ -1,0 +1,678 @@
+NEXT TRANSFER
+VS16-M1 — NOTIFICATION FOUNDATION REIMPLEMENTATION — FINAL SESSION AUDIT
+Prepared: 2026-09-05
+Classification: M1 ENGINEERING COMPLETE — PHYSICAL REVIEW / ACCEPTANCE PENDING
+
+======================================================================
+0. EXECUTIVE SUMMARY
+======================================================================
+
+VS16-M1 Notification Foundation reimplementation is ENGINEERING COMPLETE.
+
+- schema v37 -> v38 (additive, three locked foundation tables)
+- normal Drift generator certified idempotent for v38 ("wrote 0 outputs")
+- NotificationGateway / BackgroundWorkGateway / payload / response /
+  privacy / permission / quiet-hours / platform-ID allocator / Settings
+  screen all implemented and tested
+- focused suites green (15/15, 9/9, 25/25, 13/13, 64/64, 17/17, 247/247)
+- Maps 280/280; Contacts 194/194
+- full Flutter suite final confirmation: 1652 PASSED / 16 FAILED, where
+  the 16 are EXACTLY the documented pre-M1 inherited failure set
+- full analyzer clean (--fatal-infos); git diff --check clean
+- privacy/payload review clean; no-delivery proof clean
+- one fresh debug APK built and recorded
+- data-preserving install completed on the authorized owner device
+  (Infinix X6731, serial 10620253B3004617): SUCCESS, launch clean,
+  crash scan clean
+- staged = 0, commit = NONE, tag = NONE, push = NONE
+- owner physical review = PENDING
+
+The session resumed from an interrupted continuation at the remaining
+broader-regression checkpoint, per the controlling reimplementation
+authority. All certified predecessor work was verified live and reused;
+nothing was restarted or reverted.
+
+======================================================================
+1. SESSION IDENTITY
+======================================================================
+
+Model: Buffy (Codebuff/Freebuff coding agent)
+Date: 2026-09-05 (resumed ~15:04, completed ~17:00 local)
+Repository: C:\Users\sherl\Downloads\NT_C7_IMPLEMENTATION_20260825_235900
+Branch: checkpoint/phase-b-accepted-20260829
+Starting HEAD: 76ee168cc6f723c8e2efec7737405d30ff6c44f5
+Ending HEAD: 76ee168cc6f723c8e2efec7737405d30ff6c44f5 (unchanged)
+HEAD subject: checkpoint(maps): accept VS-15 M7 complete
+Locked toolchain used:
+- Flutter 3.44.7 at C:\Users\sherl\AppData\Local\Temp\next-transfer-toolchain\flutter-3.44.7
+  (engine 7076f47b1d1a3a0edfd8837b17dc15be6abab661)
+- Dart 3.12.2 / DevTools 2.57.0 (bundled)
+- JDK for build: Temurin 21.0.12+8 (C:\Users\sherl\AppData\Local\Temp\next-transfer-toolchain\jdk-21.0.12+8)
+- Android SDK: C:\Users\sherl\AppData\Local\Temp\next-transfer-toolchain\android-sdk
+No commit, no tag, no push, no staging at any point.
+
+======================================================================
+2. STARTING PROVENANCE (CERTIFIED PREDECESSOR STATE)
+======================================================================
+
+Before M1 (certified by M1A2):
+- 116 status entries: 115 inherited owner-state + 1 certified M1A2
+  normalized lib/core/database/app_database.g.dart
+- staged = 0; branch/HEAD as above; schema v37
+- M1A2 v37 g.dart SHA-256:
+  77FE1FFFE7627D7AE8C7A16716ED2B428E234B40924008E7FD293EC701BC0F4F
+- healthy sdk.sum SHA-256:
+  D5D60AECF95C91BB11B757820717401854EA9A56F24509E41E9F6EDD1CD3917C
+- pre-M1 rollback pack (validated):
+  C:\Users\sherl\AppData\Local\Temp\VS16_M1_PREREIMPL_20260905_131253
+  (contains 116-entry status-short.txt, SHA256 manifest, key hashes,
+  fail-first logs, generation logs, regression logs, working-tree mirror)
+
+Live restamp at resume confirmed:
+- branch/HEAD exactly as expected
+- staged = 0; working tree dirty as expected (no reset performed)
+- schema v38 present in live app_database.dart (schemaVersion => 38)
+- flutter_local_notifications 22.3.0 + workmanager 0.10.9 present
+  (direct main deps in pubspec.yaml and pubspec.lock)
+- all M1 source files present (no recreation needed)
+- newest source mtime 14:57:18 < session start 15:04:34 =>
+  no post-interruption user/agent drift
+- surgical test-helper merge intact in test/support/test_dependencies.dart
+  (M1 imports, FakeNotificationGateway, FakeBackgroundWorkGateway,
+  M1 provider overrides)
+- Settings test integration intact in
+  test/features/settings/presentation/settings_home_test.dart
+  (settings-notifications route assertion, scroll to Background Status)
+- app-level response-controller ownership intact in lib/main.dart
+  (main constructs NotificationResponseController, injects into
+  FlutterLocalNotificationsGateway, overrides provider)
+
+======================================================================
+3. OWNER SCOPE (M1 FOUNDATION ITEMS)
+======================================================================
+
+Implemented (matching the authority's 20-item M1 outcome):
+1. Notifications Settings route /more/settings/notifications + screen
+2. Profile-scoped notification_preferences
+3. Contextual Android notification permission flow (no startup request)
+4. Reuse of PrivacyPreferences.notificationPreviewMode
+5. Privacy Lock effective-Generic integration (no saved-pref overwrite)
+6. Quiet Hours preferences + pure overnight domain logic
+7. NotificationGateway (plugin-free contract; flutter_local_notifications 22.3.0 adapter)
+8. BackgroundWorkGateway (plugin-free contract; workmanager 0.10.9 adapter)
+9. Durable reminder_policies model (series sentinel, inherit/off/offset)
+10. Durable background_work_requests model (sanitized)
+11. Collision-safe persisted Android notification-ID allocation
+12. Typed/versioned/ID-only payload codec (version 1)
+13. Notification-response cold/warm capture foundation
+14. Android manifest + plugin receiver foundation; desugaring 2.1.4
+15. WorkManager adapter foundation with NO M1 production jobs
+16. schema v38; 17. additive migration; 18. rollback-tested behavior
+19. truthful Settings/Background Status language
+20. deterministic tests
+
+Explicit exclusions honored (no implementation exists):
+- real Event/Task delivery; Goal/Contact/Planning notifications
+- exact alarms; foreground service; background location
+- official-content periodic work; M2
+
+======================================================================
+4. DEPENDENCIES
+======================================================================
+
+Direct additions (already present at resume; verified, not re-added):
+- flutter_local_notifications: 22.3.0 (pubspec.yaml line 32)
+- workmanager: 0.10.9 (pubspec.yaml line 33)
+- pubspec.lock resolves both as "direct main" at exact versions
+
+Desugaring:
+- coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+- isCoreLibraryDesugaringEnabled = true (android/app/build.gradle.kts)
+
+No unrelated dependency churn. No pub add run this session.
+
+Android files touched by M1 (all minimal, per authority):
+- android/app/src/main/AndroidManifest.xml:
+  + POST_NOTIFICATIONS, + RECEIVE_BOOT_COMPLETED,
+  + plugin-owned receivers (ScheduledNotificationReceiver,
+    ScheduledNotificationBootReceiver, ActionBroadcastReceiver,
+    exported=false)
+  NO SCHEDULE_EXACT_ALARM / USE_EXACT_ALARM, NO foreground-service
+  permissions, NO background location
+- android/app/build.gradle.kts: desugaring block only
+
+======================================================================
+5. DATABASE: v37 -> v38
+======================================================================
+
+File: lib/core/database/app_database.dart (surgical edit)
+- schemaVersion: 37 -> 38 (line ~1329: _schemaVersionOverride ?? 38)
+
+Exactly three new tables (columns per locked authority):
+
+5.1 notification_preferences (@DataClassName NotificationPreferenceRow)
+- profileId TEXT PK, FK -> local_profiles, onDelete RESTRICT
+- eventRemindersEnabled BOOL DEFAULT false
+- taskRemindersEnabled BOOL DEFAULT false
+- defaultTaskReminderMinutes INT NULL
+- quietHoursEnabled BOOL DEFAULT false
+- quietStartMinute INT NULL
+- quietEndMinute INT NULL
+- updatedAtUtc DATETIME NOT NULL
+- NO preview field, NO Event-default field, NO Goal/Contact/Planning
+  fields, NO fake system-permission boolean
+
+5.2 reminder_policies (@DataClassName ReminderPolicyRow)
+- id TEXT PK
+- profileId TEXT FK -> local_profiles, RESTRICT
+- sourceKind / sourceId / occurrenceId TEXT NOT NULL
+- purpose TEXT DEFAULT 'standard'
+- contactId TEXT NULL (dormant)
+- mode TEXT (inherit|off|offset)
+- offsetMinutes INT NULL
+- createdAtUtc / updatedAtUtc DATETIME NOT NULL
+- UNIQUE index reminder_policy_source_unique on
+  (profileId, sourceKind, sourceId, occurrenceId)
+  (`series` sentinel used for source-level occurrence identity)
+
+5.3 background_work_requests (@DataClassName BackgroundWorkRequestRow)
+- stableKey TEXT PK
+- profileId TEXT NULL (nullable only for proven device-global work), FK RESTRICT
+- category / ownerKind TEXT NOT NULL; ownerId/occurrenceId/sourceRevision NULL
+- scheduledForUtc NULL; state TEXT NOT NULL
+- platformNotificationId INT NULL, UNIQUE-when-present via
+  background_work_platform_notification_unique
+- attemptCount INT DEFAULT 0; snoozeCount INT DEFAULT 0
+- lastAttemptAtUtc / nextEligibleAtUtc / completedAtUtc / lastFailureCategory NULL
+- createdAtUtc / updatedAtUtc NOT NULL
+- NO title/body/notes/reflections/report/coordinates/contact/document/
+  secret columns
+
+Migration (additive, transactional):
+- onUpgrade from < 38 && to >= 38:
+  createTable(notificationPreferences, reminderPolicies, backgroundWorkRequests)
+  inside existing transaction wrapper
+- narrow test-only injection hook
+  _injectNotificationFoundationMigrationFailure -> StateError
+  (existing rollback architecture rolls back coherently; covered by tests)
+- onCreate mirrors via "if (schemaVersion >= 38) createTable(...)"
+- no seeded rows of any kind; no existing-row rewrite; no destructive step
+
+======================================================================
+6. GENERATOR (NORMAL DRIFT/BUILD_RUNNER)
+======================================================================
+
+Performed by the prior Codex continuation (evidence in rollback pack):
+- v38_generation_run1.log: normal `dart run build_runner build -v`
+  succeeded, zero resolver failures; auxiliary Drift metadata written
+  legitimately because new source files appeared after first schema gen
+- v38_generation_run2.log: second consecutive run with no source change
+  => zero resolver warnings, zero cast failures, "wrote 0 outputs"
+=> normal v38 generator certified IDEMPOTENT
+- NO hand edit of app_database.g.dart at any point
+- This session: no source/schema change occurred after certification
+  (mtime proof, section 2), so per authority the generator was NOT
+  re-run merely for repetition
+- Post-M1 live hashes:
+  app_database.dart   82C0F3379625DE7619AB4FC51CD3E31D0C09CF8C3400FF317DF2152B2FE0BFC8
+  app_database.g.dart 0295972E26156B34971B62BD48B5A029EA643E9F617AD7A3D6A64827A1F3C1A0
+  pubspec.yaml        E77AE645CDC20EC42DF47C5E11DF74A9D09EE3F9ABCAD93EFA50323B359A8668
+  (all three are M1 task-owned deltas over the certified v37 baselines
+  listed in the pack KEY_HASHES.txt)
+
+======================================================================
+7. FOUNDATION IMPLEMENTATION (EXACT M1 SOURCE FILES)
+======================================================================
+
+New production files (untracked, M1 task-owned):
+- lib/core/notifications/notification_gateway.dart
+    plugin-free NotificationGateway contract (initialize/schedule/
+    cancel/pending/takeInitialResponse/responses stream/channel init)
+- lib/core/notifications/flutter_local_notifications_gateway.dart
+    flutter_local_notifications 22.3.0 adapter; REMINDERS + PLANNING
+    channels only; ordinary/inexact scheduling compatible (no exact alarm)
+- lib/core/notifications/notification_payload.dart
+    NotificationPayloadCodec v1; typed sourceKind/action enums; strict
+    allowlist decode (rejects unknown keys, wrong version, malformed
+    JSON, missing identity); identity regex ^[A-Za-z0-9_.:-]{1,256}$
+- lib/core/notifications/notification_preview_policy.dart
+    effective preview: Privacy Lock active => Generic; else saved pref;
+    never overwrites saved preference
+- lib/core/notifications/notification_response_controller.dart
+    app-level cold/warm response seam; holds intent until readiness;
+    dismisses malformed/unsupported payload safely
+- lib/core/background/background_work_gateway.dart
+    plugin-free BackgroundWorkGateway contract + BackgroundWorkSpec
+- lib/core/background/background_work_request.dart
+    sanitized domain model + validation (safe tokens, sanitized failure
+    category, non-negative counters, positive platform ID)
+- lib/core/background/workmanager_background_work_gateway.dart
+    workmanager 0.10.9 adapter; dispatcher is fail-closed:
+    `Workmanager().executeTask((_, _) async { return false; })`
+    "M1 registers no domain job. Unknown work must fail closed."
+    initialize/enqueueUnique/cancelUnique/inspect only
+- lib/features/notifications/domain/notification_preferences.dart
+    locked defaults; quiet-hours overnight interpretation; 0..1439
+    minute validation; task default non-negative validation
+- lib/features/notifications/domain/reminder_policy.dart
+    inherit => offsetMinutes null; off => null; offset => non-null and
+    non-negative; occurrence identity nonblank; `series` sentinel
+- lib/features/notifications/application/notification_foundation_repository.dart
+    application contract: preferences load/save, policy upsert/delete,
+    work-request upsert/state, platform-ID allocate/retrieve
+- lib/features/notifications/application/notification_providers.dart
+    test-overridable Riverseed-style providers; NotificationPlatformFoundation
+    availability flag; contextual requestPermission() (only caller:
+    Notifications Settings screen); never at startup
+- lib/features/notifications/data/drift_notification_foundation_repository.dart
+    Drift implementation incl. collision-safe persisted platform-ID
+    allocator backed by background_work_requests (survives restart;
+    forced-collision test coverage)
+- lib/features/settings/presentation/notifications_settings_screen.dart
+    System notifications (factual Android status, Enable, Open settings),
+    Calendar Events (Event reminders + existing defaultReminderMinutes),
+    Tasks (reminders + default), Privacy (existing pref), Quiet Hours,
+    Background Status (truthful foundation-only copy)
+- lib/app/router/route_names.dart + lib/app/router/app_router.dart
+    canonical route /more/settings/notifications
+- lib/features/settings/presentation/settings_screen.dart
+    authorized Notifications row
+- lib/features/privacy/data/permission_handler_gateway.dart
+    notification request/recheck seam via existing permission_handler
+- lib/features/privacy/application/privacy_services.dart
+    privacy/permission provider wiring for the seam
+- lib/main.dart
+    constructs response controller + gateways; safe optional init
+    (failure => diagnostics.record(...), startup continues); provider
+    overrides; NO startup permission request
+
+Modified existing (M1 task-owned deltas):
+- lib/core/database/app_database.dart (v38 + three tables + migration)
+- lib/core/database/app_database.g.dart (normal generator output ONLY)
+- pubspec.yaml / pubspec.lock (two approved direct deps)
+- android manifest/build.gradle.kts (see section 4)
+- router files, settings screen, privacy seam files (above)
+
+Test files (M1 task-owned):
+- test/core/database/v38_notification_foundation_migration_test.dart (new)
+- test/features/notifications/** (new: domain, data repository,
+  application controller tests)
+- test/support/test_dependencies.dart (surgical merge: M1 imports,
+  FakeNotificationGateway, FakeBackgroundWorkGateway, provider overrides)
+- test/features/settings/presentation/settings_home_test.dart
+  (authorized Notifications-route assertions + scroll to Background Status)
+- test/core/database/migration_rollback_test.dart
+  (v38 additive/rollback coverage added; existing contracts preserved)
+- test/features/privacy/data/drift_privacy_repository_test.dart
+  (schema-contract bump to v38 only)
+- Maps regression tests (4 files): "current schema is v37" -> v38 only
+  (saved_place_boundary_v36, saved_place_migration,
+   maps_preferences_repository, vs15_m3_saved_places_contract)
+- test/features/planner/domain/locked_default_dark_surface_test.dart
+  (fresh-DB settles at current schema 35 -> 38; intentional step pins
+   for v25/v26/v28/v36 elsewhere were NOT touched)
+- test/features/planner/presentation/planner_experience_refinement_test.dart
+  + planner_correction_pack_test.dart (viewport scroll fixes, section 9)
+- test/features/settings/presentation/settings_home_test.dart (see above)
+
+======================================================================
+8. TEST RESULTS (COMPLETE RECORD)
+======================================================================
+
+Prior sessions (evidence logs in rollback pack):
+- fail-first: fail_first_domain.log, fail_first_controller.log,
+  fail_first_tests.log (installed BEFORE implementation; failed for the
+  intended missing seams)
+- focused M1 + Settings: 15/15 PASSED
+  (focused_m1_settings_green.log)
+- direct migration/privacy/Settings regression rerun: 26/26 PASSED
+- Maps: 280/280 PASSED (maps_regression_v38_r2.log; four stale
+  "current schema is v37" expectations updated to v38 contract only)
+- first normal v38 generation + idempotence (section 6)
+- static M1 analysis: clean (targeted_m1_analyzer*.log)
+
+This session (GLM continuation):
+- database/migration group: 25/25 PASSED
+  (test/core/database incl. v37->v38, fresh v38, injected rollback,
+   no seeds, existing domain data preserved)
+- privacy group: 13/13 PASSED (test/features/privacy)
+- settings group: 64/64 PASSED (test/features/settings)
+- router group: 17/17 PASSED (test/app/router)
+- planner domain+data+event-type latency: 247/247 PASSED after one
+  stale fresh-DB schema expectation corrected 35 -> 38
+- startup non-golden + notifications: 22/22 and 9/9 PASSED
+  (startup_journey/composition green; no startup permission request)
+- contacts: 194/194 PASSED
+- goals+indicators: 184/186 PASSED; both failures pre-existing
+  (goal_icon_registry hash mismatch vs committed asset;
+   goal_edit_event_type_transition StateError from owner color-
+   uniqueness rule) — documented 2026-09-02, untouched
+- FULL Flutter suite run 1 (before viewport fixes): 1648/20
+  - 16 = documented pre-M1 set (13 home_pack1 goldens + 3 others)
+  - 4 M1-caused: planner_experience_refinement VS08-OWNER (1) +
+    planner_correction_pack (3, one real + two binding-assertion
+    cascades) — see section 9
+- FULL Flutter suite run 2 (final confirmation): 1652 PASSED / 16 FAILED
+  the 16 failures are EXACTLY:
+  * test/features/startup/presentation/goldens/home_pack1_golden_test.dart
+    x13 (goldens 01..12, 20; master images dated at C7 checkout
+    2026-08-25; the 5 owner-refreshed goldens 13/14/16/17/19 PASS)
+  * test/core/security/screen_capture_policy_test.dart x1
+  * test/features/goals/domain/goal_icon_registry_test.dart x1
+  * test/features/goals/presentation/goal_edit_event_type_transition_test.dart x1
+  Documented verbatim as pre-existing in
+  NEXT_TRANSFER_SESSION_AUDIT_2026-09-02_VS15_M3_PASS4.txt:
+  "1456 PASS, 16 FAIL — the same 16 KNOWN PRE-EXISTING, UNRELATED
+  failures reproduce exactly (screen_capture_policy 1, goal_icon_registry
+  1, goal_edit_event_type_transition 1, home_pack1_golden 13)".
+  Per authority: not repaired, not hidden, assertions not weakened.
+- No long-running widget harness was left obscured: all previously
+  failing surfaces were isolated and rerun individually.
+
+======================================================================
+9. REGRESSION CORRECTIONS MADE THIS SESSION (DIRECT CONTRACTS ONLY)
+======================================================================
+
+1) test/features/planner/domain/locked_default_dark_surface_test.dart
+   - fresh-DB user_version expectation 35 -> 38 (same stale
+     "current schema" class already corrected by predecessor); test's
+     own comment says a fresh DB settles at the CURRENT schema.
+   - Intentional migration-step pins (v25/v26/v28/v36 under
+     schemaVersionOverride) in appearance/theme/maps tests were left
+     untouched (all pass).
+
+2) test/features/planner/presentation/planner_experience_refinement_test.dart
+   VS08-OWNER test: after tapping into Settings it expected
+   settings-planner-calendar visible at fixed 411x731; the authorized
+   Notifications row pushed it below the fold (finder found 0 widgets).
+   Added tester.scrollUntilVisible(...) before the expect (same pattern
+   as settings_home_test). Full failure cause captured from suite log:
+   "Found 0 widgets with key [<'settings-planner-calendar'>]".
+
+3) test/features/planner/presentation/planner_correction_pack_test.dart
+   canonical color pipeline test: tap on settings-colors (below the new
+   row) failed with "could not find any matching widgets"; added
+   scrollUntilVisible before the tap. The other two failures in this
+   file were binding `inTest` assertion cascades from the aborted first
+   test and cleared with the root fix (file now 6/6 green).
+
+All three are direct layout consequences of the authorized Settings
+row change; underlying behavioral assertions preserved.
+
+======================================================================
+10. STATIC GATES
+======================================================================
+
+- Targeted analyzer on M1-owned areas:
+  dart analyze lib/core/notifications lib/core/background
+    lib/features/notifications
+    lib/features/settings/presentation/notifications_settings_screen.dart
+    test/features/notifications
+    test/core/database/v38_notification_foundation_migration_test.dart
+    test/support/test_dependencies.dart
+  => "No issues found!"
+- Full analyzer:
+  flutter analyze --no-pub --fatal-infos lib test
+  => "No issues found! (ran in 24.9s)"
+- git diff --check => exit 0 (no whitespace/conflict-marker errors)
+- Task-only formatting: dart format --set-exit-if-changed on the three
+  files edited this session => "0 changed" (no mass formatting of
+  inherited dirty files was performed)
+
+======================================================================
+11. PRIVACY / PAYLOAD REVIEW (EXPLICIT)
+======================================================================
+
+Verified by direct inspection of live implementation:
+- background_work_requests table (drift definition) contains ONLY:
+  stable key/identity/category/owner metadata, state, platform
+  notification ID, attempt/snooze counters, retry timestamps, sanitized
+  failure category. NO columns exist for notification title, body,
+  notes, reflections, report text, coordinates, raw contact data,
+  documents, or secrets.
+- BackgroundWorkRequest.validate() enforces safe-token identity and a
+  sanitized ^[a-z0-9_]{1,64}$ failure category; rejects negative
+  counters and non-positive platform IDs.
+- NotificationPayloadCodec: encode emits ONLY
+  {version, profileId, sourceKind, sourceId, occurrenceId?, action};
+  decode rejects unknown keys (strict allowlist), wrong version,
+  malformed JSON, missing/invalid identity; never fabricates a source.
+- Payload identity charset restricted to [A-Za-z0-9_.:-]{1,256};
+  no free text; nothing private can be embedded in payload or in the
+  Android integer notification ID (allocator derives numeric IDs via
+  collision probing, never from content hashes of private data).
+- Settings screen displays factual status only; no private content
+  rendered from durable work rows.
+
+======================================================================
+12. NO-DELIVERY PROOF (M1 REMAINS FOUNDATION-ONLY)
+======================================================================
+
+Verified by inspection + tests:
+- Enabling Event reminders stores the preference only; NO gateway
+  .schedule( call exists anywhere in production code
+  (repo-wide grep: zero production callers).
+- Enabling Task reminders likewise schedules nothing.
+- No zonedSchedule caller exists outside the gateway implementation
+  itself (which M1 never invokes for real reminders).
+- WorkManager: the only registrations possible are via
+  enqueueUnique; zero production callers. No periodic work anywhere
+  (no registerPeriodicTask). Dispatcher is fail-closed:
+    nextTransferBackgroundDispatcher -> executeTask -> return false
+  "M1 registers no domain job. Unknown work must fail closed."
+- No content-polling worker; no fake 24-hour worker.
+- AndroidManifest.xml: NO SCHEDULE_EXACT_ALARM / USE_EXACT_ALARM;
+  no foreground-service permissions; no FGS <service>; no
+  ACCESS_BACKGROUND_LOCATION; no geofence. Only POST_NOTIFICATIONS +
+  RECEIVE_BOOT_COMPLETED + plugin receivers (exported=false).
+- Runtime proof in tests: notification_settings_controller_test and
+  app startup tests confirm no permission request and no scheduling
+  at startup.
+
+======================================================================
+13. APK (ONE FRESH DEBUG BUILD)
+======================================================================
+
+First build attempt FAILED (allowed single diagnostic rebuild):
+- Cause 1: locked M1 toolchain engine cache was missing host artifacts
+  (windows-x64 vm_isolate_snapshot.bin etc.) and Android debug engine
+  dirs — the toolchain had been pruned for generator/test use.
+- Repair: flutter precache --android then flutter precache --all-platforms
+  using the SAME locked SDK (no version change; engine stamp unchanged
+  7076f47b1d...). Not a dependency or source mutation.
+- Cause 2 (after repair): Gradle picked a non-21 JDK ->
+  maplibre_gl "invalid source release: 21".
+- Repair: JAVA_HOME set to the locked Temurin 21.0.12+8 (the JDK used
+  by all prior accepted builds).
+
+Successful build (the one recorded build):
+- Command: flutter build apk --debug --no-pub
+  (with JAVA_HOME=C:\Users\sherl\AppData\Local\Temp\next-transfer-toolchain\jdk-21.0.12+8,
+  Flutter from C:\Users\sherl\AppData\Local\Temp\next-transfer-toolchain\flutter-3.44.7)
+- Path: C:\Users\sherl\Downloads\NT_C7_IMPLEMENTATION_20260825_235900\build\app\outputs\flutter-apk\app-debug.apk
+- Timestamp: 2026-09-05 16:58:38
+- Byte size: 238,248,010
+- SHA-256: f340869fc2124992f0c9ccd25179ae12e6fbb33fbecd9cc12dd314006d222161
+- Package identity: com.nexttransfer.rmplanner
+  versionCode=1 versionName=0.1.0 (pubspec 0.1.0+1)
+  minSdk 24 / targetSdk 36 / compileSdk 36
+- No repeated builds after success.
+
+======================================================================
+14. DEVICE INSTALL (COMPLETED)
+======================================================================
+
+Connection evidence:
+- adb initially reported no devices after the session restart.
+- Windows PnP showed the USB-attached phone (Redmi 13C) with an
+  "ADB Interface" device in non-started (driver-not-bound) state;
+  USB serial adb never listed that phone.
+- mDNS discovery showed adb-10620253B3004617 advertising
+  _adb-tls-connect._tcp at 192.168.1.50:42241 (previously paired);
+  `adb connect 192.168.1.50:42241` => connected, state `device`.
+- Device identity: product:X6731-GL model:Infinix_X6731
+  device:Infinix-X6731, transport_id:2
+  Android 14 (SDK 34), brand Infinix.
+- Authorization provenance: serial 10620253B3004617 and model X6731
+  are cited throughout prior accepted session reports (49 and 56+
+  citations respectively) as THE owner device; no other device was
+  ever used. => authorized owner device confirmed.
+
+Pre-install package evidence:
+- com.nexttransfer.rmplanner present: firstInstallTime 2026-07-27
+  15:42:22, lastUpdateTime 2026-09-04 16:54:51, versionCode=1,
+  versionName=0.1.0, minSdk=24 targetSdk=36.
+- Same versionCode/versionName => data-preserving replace authorized
+  via `adb install -r` only. NO uninstall / pm clear / wipe / downgrade.
+
+Install:
+- Command: adb -s 192.168.1.50:42241 install -r
+  "C:\Users\sherl\Downloads\NT_C7_IMPLEMENTATION_20260825_235900\
+  build\app\outputs\flutter-apk\app-debug.apk"
+- Result: "Performing Streamed Install" => "Success"
+- APK SHA-256 verified before install:
+  f340869fc2124992f0c9ccd25179ae12e6fbb33fbecd9cc12dd314006d222161
+
+Post-install package evidence:
+- versionCode=1, versionName=0.1.0, minSdk=24, targetSdk=36
+- lastUpdateTime 2026-09-05 17:50:45
+- firstInstallTime 2026-07-27 15:42:22 (PRESERVED — data kept)
+
+Launch result:
+- monkey -p com.nexttransfer.rmplanner -c
+  android.intent.category.LAUNCHER 1 => "Events injected: 1"
+- App process running: pid 26903
+- topResumedActivity = com.nexttransfer.rmplanner/.MainActivity
+
+Basic crash scan (immediately after launch):
+- logcat -d -t 500: zero "FATAL EXCEPTION", zero AndroidRuntime
+  crashes, zero ANR, zero "Force finishing" for the package.
+- crash buffer tail: only unrelated MTK modem entries dated 09-04
+  20:23 (before this install). No app crash entries.
+- App process remained alive and resumed after the scan.
+
+NOTE: the USB-attached Redmi 13C never bound ADB (driver not started);
+the install used the owner's historically-authorized Infinix X6731 via
+wireless debugging. If the owner intended the Redmi for physical
+review instead, repeat the same data-preserving procedure on it once
+its ADB driver/USB-debugging authorization is available.
+
+======================================================================
+15. OWNER PHYSICAL REVIEW
+======================================================================
+
+STATUS: PENDING (owner has not reported PASS).
+
+Shortest checklist (from authority section 39):
+1. Settings -> Notifications opens correctly
+2. System notifications shows factual Android state
+3. NO permission prompt at app startup
+4. Explicit Enable prompts contextually where Android allows
+5. Event reminders default Off
+6. Task reminders default Off
+7. Event default row uses existing PlannerPreferences.defaultReminderMinutes
+8. Task default can remain Off/null
+9. Preview shows Generic / Show details and tracks Privacy setting
+10. Quiet Hours default Off; Start/End enabled only when On
+11. Background Status is truthful (foundation only, no delivery claim)
+12. No surprise Event/Task notification fires
+13. App still works with notification permission denied
+
+======================================================================
+16. GIT PROVENANCE CLASSIFICATION (NO UNRESOLVED D)
+======================================================================
+
+Diff of current 138-entry status vs the certified 116-entry pre-M1
+baseline (pack status-short.txt): 22 added entries, 0 removed.
+Every added entry maps to an authorized M1 purpose.
+
+A. INHERITED OWNER STATE (116 entries) — untouched by M1:
+   all entries present in the pack baseline (contacts/planner/theme/
+   goals/indicators/maps test surfaces, owner goldens, owner untracked
+   reports/screens). Never broad-restored; never formatted.
+
+B. M1A2 CERTIFIED PREDECESSOR STATE:
+   lib/core/database/app_database.g.dart — v37 normalized baseline was
+   the generator input; M1 changed it ONLY through the normal v38
+   generation; no hand edit. (It now carries the M1 v38 content and is
+   simultaneously classified C for the delta; provenance of the baseline
+   is preserved here per authority section 34.)
+
+C. M1 TASK-OWNED STATE (the 22 added entries + in-place edits to
+   already-listed task files):
+   - android/app/build.gradle.kts (M) — desugaring
+   - android/app/src/main/AndroidManifest.xml (M) — notification foundation
+   - lib/core/database/app_database.dart (M) — v38 + 3 tables + migration
+   - lib/core/database/app_database.g.dart (M) — normal v38 generator output
+   - lib/features/privacy/application/privacy_services.dart (M) — seam wiring
+   - lib/features/privacy/data/permission_handler_gateway.dart (M) — request seam
+   - lib/main.dart (M) — composition/ownership
+   - lib/app/router/app_router.dart, route_names.dart (M) — route
+   - lib/features/settings/presentation/settings_screen.dart (M) — row
+   - pubspec.yaml, pubspec.lock (M) — two approved deps
+   - test/support/test_dependencies.dart (M) — surgical merge
+   - test/features/settings/presentation/settings_home_test.dart (M)
+   - test/core/database/migration_rollback_test.dart (M)
+   - test/features/privacy/data/drift_privacy_repository_test.dart (M)
+   - 4 Maps regression test files (M) — schema-contract v38 only
+   - test/features/planner/domain/locked_default_dark_surface_test.dart (M)
+   - test/features/planner/presentation/
+       planner_experience_refinement_test.dart (M),
+       planner_correction_pack_test.dart (M)
+   - UNTRACKED new: lib/core/background/, lib/core/notifications/,
+     lib/features/notifications/,
+     lib/features/settings/presentation/notifications_settings_screen.dart,
+     test/core/database/v38_notification_foundation_migration_test.dart,
+     test/features/notifications/
+D. AMBIGUOUS: NONE. (Planner test files above were already owner-dirty;
+   this session's hunks are limited to the documented scroll fixes and
+   are separable in the working diff.)
+
+Git discipline honored: no reset/clean/stash/broad-restore/checkout;
+no git add; staged = 0 (verified at start and end); commit = NONE;
+tag = NONE; push = NONE.
+
+======================================================================
+17. FAIL / PARTIAL / BLOCKED / UNVERIFIED ITEMS
+======================================================================
+
+FAIL: none attributable to M1.
+
+PARTIAL:
+- Full Flutter suite is 1652/16 rather than fully green: the 16 are the
+  documented pre-M1 inherited set (section 8); owner explicitly kept
+  them untouched in prior sessions. Per authority they are classified,
+  not repaired.
+
+BLOCKED:
+- (resolved this session) Device install was blocked by a missing USB
+  ADB binding; completed via the owner's previously-paired wireless
+  debugging endpoint on the authorized Infinix X6731.
+- Owner physical review: PENDING by definition until owner reports PASS.
+
+UNVERIFIED:
+- On-device notification permission flow behavior (requires physical
+  device; engineering-level tests cover the seam).
+- Nothing else. All authority gates have live evidence as listed.
+
+ENVIRONMENT NOTES (transparency):
+- Two transient Windows file locks on build\native_assets\windows\
+  sqlite3.dll occurred (orphaned flutter_tester processes from a timed-
+  out long harness); they were cleared by killing the orphaned test
+  processes; no repo state was affected.
+- The locked toolchain's pruned engine cache was repaired via its own
+  precache (same SDK/stamp) before the single successful APK build.
+- The initial full-suite background run wedge (weekly_planning journey)
+  was resolved by the final confirmation run completing normally.
+
+======================================================================
+18. FINAL STATE
+======================================================================
+
+Classification: M1 ENGINEERING COMPLETE — PHYSICAL REVIEW / ACCEPTANCE
+PENDING.
+
+Do NOT start M2 (Calendar Event Reminder Engine + Recurrence) — it
+requires separate owner authority after M1 physical PASS.
+
+END OF AUDIT

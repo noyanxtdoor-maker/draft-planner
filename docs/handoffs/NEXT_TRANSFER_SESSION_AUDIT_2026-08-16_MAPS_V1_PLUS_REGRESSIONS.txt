@@ -1,0 +1,255 @@
+NEXT TRANSFER — SESSION AUDIT
+MAPS V1 + OWNER REGRESSION REOPEN (R1 / MP-04 / R3 / MP-06)
+DATE: 2026-08-16
+MODE: AUDIT-FIRST · FAIL-FIRST · SURGICAL · NO COMMIT · NO PUSH
+
+================================================================================
+1. BASELINE / HEAD
+================================================================================
+Starting HEAD == origin == 109417052acf94b02b2fa0e16d6785d0bb70e8ed
+(NX checkpoint, clean). Ending HEAD unchanged: 1094170… (NO COMMIT / NO PUSH /
+index EMPTY — per owner lock, STOP for physical review).
+
+Tracked dirty set (reconciled against the combined forensic audit):
+PRODUCTION (13)
+- android/app/src/main/AndroidManifest.xml        (INTERNET only)
+- lib/app/router/app_router.dart                  (Maps + picker routes)
+- lib/app/router/route_names.dart                 (RouteNames/Paths maps, mapPicker)
+- lib/app/shell/main_shell.dart                   (4th tab + index 3 + back policy)
+- lib/app/theme/app_theme.dart                    (R1 goalIconFallbackBlue)
+- lib/core/database/app_database.dart             (v28 coordinate columns)
+- lib/core/database/app_database.g.dart           (regenerated)
+- lib/features/contacts/presentation/contact_form_screen.dart (pin section)
+- lib/features/planner/domain/planner_display_geometry.dart   (R3 fix)
+- lib/features/planner/presentation/calendar_event_form_screen.dart (pin section)
+- lib/features/startup/presentation/home_screen.dart           (R1 fallback)
+- lib/main.dart                                   (repo override)
+- pubspec.yaml / pubspec.lock                     (maplibre_gl ^0.26.2)
+
+NEW SOURCE (untracked lib/features/maps/)
+- domain/map_coordinate.dart
+- application/map_coordinate_repository.dart
+- application/map_providers.dart
+- data/drift_map_coordinate_repository.dart
+- presentation/map_pin_section.dart
+- presentation/map_location_picker_screen.dart
+- presentation/maps_screen.dart
+- presentation/map_external_navigation.dart
+
+TESTS MODIFIED (5)
+- test/core/database/migration_rollback_test.dart        (v13/v16 final = 28)
+- test/features/planner/domain/locked_default_dark_surface_test.dart (v28)
+- test/features/planner/domain/planner_display_geometry_test.dart    (R3 invariant)
+- test/features/privacy/data/drift_privacy_repository_test.dart      (v28)
+- test/features/shell/nx_nav_ia_contract_test.dart       (4-tab contract)
+
+GOLDENS MODIFIED (12 Home pack1 masters — see section 4)
+
+TESTS NEW (7 files)
+- test/features/maps/maps_v1_contract_test.dart        (7)
+- test/features/maps/maps_screen_widget_test.dart      (3)
+- test/features/maps/maps_platform_contract_test.dart  (4)
+- test/features/goals/presentation/r1_goal_icon_theme_parity_test.dart (7)
+- test/features/planner/presentation/mp04_live_transition_border_test.dart (1)
+- test/features/planner/presentation/r3_zoom_geometry_contract_test.dart (5)
+  (mp04_date_swipe_border_regression_test.dart was previously added and kept)
+
+================================================================================
+2. FORENSIC AUDIT
+================================================================================
+NEXT_TRANSFER_MAPS_V1_PLUS_REGRESSIONS_FORENSIC_AUDIT_2026-08-16.txt
+(docs/handoffs copy) — verdict: SAFE TO IMPLEMENT FULL COMBINED BOUNDARY.
+
+R1 GOAL ICON LIGHT/DARK PARITY — root cause PROVEN:
+- GoalIcon renderer: colorFilter null, single assetPath, no dark variant,
+  no ColorFiltered wrapper, opticalScale untouched. SVGs literal blue/gold.
+- The ONLY theme-substituted icon color on Home is the null/unknown-iconId
+  FALLBACK: Home passed Theme.colorScheme.primary into GoalIcon
+  (Light navy 0xFF175A8F vs Dark periwinkle 0xFF9FC8F0; rose-scheme goldens
+  showed rose primary). Device DB: all 6 owner-displayed goals have valid
+  icon IDs (SVG path), so the visible real icons are raw-art identical in
+  both themes; the fallback was the sole theme-coupled paint.
+- FIX: fixed raw-art-family constant AppTheme.goalIconFallbackBlue
+  (0xFF5CAEC9, the literal raw SVG blue family) used by the Home fallback in
+  EVERY theme. No SVG edits, no palette redesign, no halo/plate.
+
+MP-04 LIVE PREVIEW-DATE BORDER — NOT REPRODUCED AT THE RENDER LAYER:
+- Both renderers apply the left accent border synchronously in the SAME
+  frame the block paints: centered _TimelineEventBlock decoration and
+  pager _positionedPreviewEvent Border(left: …). No deferred/post-settle
+  border path exists.
+- Frame evidence from the owner's OWN recording: preview columns carry the
+  rose accent strips; strip-scan of the supplied frames found no borderless
+  moment. The prior permanent regression test only asserted the centered
+  blocks; the new mp04_live_transition_border_test drives the ACTUAL pager
+  partial-hold transition and asserts preview-column borders synchronously.
+  GREEN on current code — border invariant pinned, ZERO production change.
+
+R3 ZOOM-OUT TEMPORAL SPILL — root cause PROVEN (geometry layer):
+- planner_display_geometry.dart _withDisplayInterval (Delta 4.2R R10
+  "overview mode" / R2-06) enlarged short Events (< 28px, < 45min) to their
+  whole hour row REGARDLESS of same-lane same-hour neighbors — two
+  contiguous short events in one lane both painted the full hour, the later
+  covering the earlier (owner's "Personal Study covered" symptom).
+- FIX: the readability floor is now collision-gated — a short Event keeps
+  its exact temporal rect when enlarging would intrude into a neighboring
+  non-overlapping Event in the same lane. Painted rect == temporal rect;
+  content clips inside; invisible hit target may still extend. No fake
+  duration extension.
+- Existing geometry tests that pinned the OLD spill behavior were updated to
+  the locked invariant; isolated short events (no collision) still enlarge.
+
+MP-06 DRAFT GRIPS — CURRENT BUILD PASS:
+- _DirectEndpointHandle implements the locked contract (14dp integrated
+  corner caps, 44dp invisible targets, START upper-right / END bottom-left,
+  accent-colored, provisional-only). Verified wired in planner_screen.dart
+  for the provisional draft; saved-Event handles untouched. Preservation
+  tests green; ZERO MP-06 production change.
+
+================================================================================
+3. MAPS V1 IMPLEMENTATION
+================================================================================
+TOOLCHAIN: Flutter 3.44.7 / Dart 3.12.2 (>= 3.29 / >= 3.7 gate PASSED).
+maplibre_gl ^0.26.2 resolved (lockfile); plugin requires Java 21 for its
+Android compile — Temurin JDK 21 added to the temp toolchain
+(no repo change); debug APK builds green with it.
+
+SCHEMA v27 -> v28 (additive, idempotent, guarded, NO backfill):
+- contacts: latitude REAL NULL, longitude REAL NULL, coordinate_source TEXT NULL
+- calendar_events: same three columns
+- onUpgrade `from < 28 && to >= 28` step with _columnExists guards;
+  drift generated code regenerated (app_database.g.dart).
+
+DOMAIN: MapCoordinate (validated pair, -90..90 / -180..180, both-or-null via
+tryParse; sourceMapPick provenance). REPOSITORY: additive
+MapCoordinateRepository + DriftMapCoordinateRepository writing ONLY the
+coordinate columns (free text untouched), profile-scoped, watchChanges over
+both tables. PROVIDERS: mapCoordinateRepositoryProvider (no-op default;
+overridden in main.dart — forms degrade gracefully when Maps absent),
+mapProfileIdProvider, mapMarkersProvider StreamProvider.
+
+UI:
+- MapLocationPickerScreen: opens on the SAVED coordinate or a neutral world
+  view (never inferred location); tap -> candidate marker; Confirm pops the
+  coordinate, Cancel pops null (no write); Clear removes only the pin.
+- MapPinSection (reusable): Set on map / Edit map pin / Clear, present in
+  Contact form and Event create/edit/reschedule form; persistence happens
+  ONLY after the record save succeeds (create-mode pins never write to a
+  non-existent row).
+- MapsScreen (4th tab): markers ONLY for records with explicit coordinates;
+  marker tap -> linked Contact detail or Event detail route; truthful empty
+  state ("No saved map pins yet"); explicit offline/error overlay with
+  Try again (never a crash, never a fake placeholder).
+- External navigation: geo: URI handoff to the installed navigation app;
+  records NOTHING on return (no Activity/Actual/outcome); copy fallback.
+- Navigation: exactly Home / Planner / Contacts / Maps; /maps root route +
+  /maps/picker child; root back policy preserves pack-2 behavior; drawer
+  untouched. Pathways and More stay absent.
+
+MANIFEST: main (release) manifest adds ONLY android.permission.INTERNET.
+NO ACCESS_FINE_LOCATION / ACCESS_COARSE_LOCATION / ACCESS_BACKGROUND_LOCATION
+anywhere. No new permissions, no API key, no map provider SDK beyond
+maplibre_gl (OpenFreeMap Liberty style).
+
+================================================================================
+4. GOLDEN DELTA REVIEW (RED first, then masters updated)
+================================================================================
+12 Home pack1 masters updated. Verified by pixel diff old-vs-new:
+- The delta is the R1 fallback-icon color change in the Home goal cards
+  (dominant old color 249,183,199 = rose theme-primary fallback ->
+  new 92,174,201 = raw-art fallback blue) — the direct, unavoidable pixel
+  consequence of the R1 root-cause fix.
+- 01/08/09/11/12 (full Home) identical diff footprint; 02 one goal card;
+  05/07 one icon; 06 card row; 13/19 dialog rows.
+- No Home geometry, no Goal Icon size, no gold paint, no Planner geometry,
+  no inset change in any delta.
+Goldens now pass (20/20). home_skeleton_goldens and all other golden suites
+unaffected.
+
+================================================================================
+5. RED -> GREEN EVIDENCE (fail-first)
+================================================================================
+- R3: r3_zoom_geometry_contract_test RED on current code before the fix
+  (5 failures: 15-min events painted 44px instead of 11px — full-hour
+  inflation) -> GREEN after collision-gated floor. All geometry suites green.
+- R1: parity test RED conceptually (fallback substituted by theme) -> GREEN
+  7/7 after Home/app_theme fix; pixel proof in goldens.
+- MP-04 live-transition test added first, GREEN on current code
+  (border synchronous -> NOT REPRODUCED, no production fix).
+- MP-06: preservation tests green; no RED fabricated.
+- Maps tests written after the audit boundary and run against the
+  implementation (deterministic contracts, RED impossible by construction
+  for the pure-additive data layer; the nav-tab test was the pin).
+
+================================================================================
+6. FULL GATES (actual counts)
+================================================================================
+- Maps V1 data/repo/migration contract ................ 7/7
+- Maps screen widget (empty/markers/error) ............ 3/3
+- Maps platform/manifest contract .................... 4/4
+- NX nav/IA (4-tab + Maps tab + drawer/back) ......... 5/5
+- R1 Goal Icon parity ............................... 7/7
+- MP-04 live transition + old regression ............. 2/2
+- R3 zoom geometry + display-geometry suite .......... 17/17
+- Migration/schema suites (v13/v16/v28/privacy) ...... 31/31
+- Form suites (journey/indicator/repeat/MP-06/Delta4/NX-06) 23/23
+- FULL Flutter suite ................................ 1121/1121 PASSED
+- dart analyze --fatal-infos lib test ............... 0 issues
+- git diff --check .................................. clean
+- Debug APK ......................................... built
+  (maplibre_gl compile under JDK 21; SHA-256 9a5de734…)
+
+================================================================================
+7. SAFE INSTALL / DATA PRESERVATION (device, on-device verified)
+================================================================================
+PRE (v27 build, pulled read-only, exec-out binary-safe):
+- user_version 27 · PRAGMA quick_check ok
+- planner_tasks 3 · goals 16 · contacts 5 · calendar_events 225 · weekly_plans 11
+- appearance_preferences: dark + blue (themeColor 'blue')
+- addressText/locationText non-empty: 0 / 0 (matches Maps foundation audit)
+- coordinate columns absent on v27
+
+INSTALL: adb install -r ONLY (no uninstall, no clear data).
+
+POST (v28 build relaunched, same pull):
+- user_version 28 (migrated in place) · PRAGMA quick_check ok
+- planner_tasks 3 · goals 16 · contacts 5 · calendar_events 225 · weekly_plans 11
+  (IDENTICAL — every row preserved)
+- appearance dark + blue preserved
+- coordinate columns added, ALL NULL (no backfill)
+- addressText/locationText counts unchanged (0 / 0)
+
+On-device UI screenshots: BLOCKED — the device is credential-locked and
+dozes on wake (same constraint as MP-04 and the NX run); screencap yields a
+black frame. Deterministic contract tests + the on-device migration proof are
+the recorded evidence; owner physical review remains final authority.
+
+================================================================================
+8. OWNER PHYSICAL CHECKLIST
+================================================================================
+[ ] 4 tabs: Home / Planner / Contacts / Maps (no More, no Pathways)
+[ ] Maps opens a real OpenFreeMap map (network needed); no pin -> honest empty state
+[ ] Create a disposable Contact or Event -> Set on map -> tap map -> Confirm -> marker appears
+[ ] Marker opens the linked record
+[ ] External navigation action (or copy fallback)
+[ ] Clear pin preserves address/location text
+[ ] Dark Maps shell correct
+[ ] Airplane mode -> explicit error, Try again, no crash
+[ ] No location permission prompt anywhere
+[ ] R1: same Home goal icons Light vs Dark — blue/gold identical
+[ ] MP-04: slow partial swipe — Event body + left accent appear together
+[ ] R3: min-zoom dense morning — no Event covers its neighbor; lanes still solve true conflicts
+[ ] MP-06: create draft — pink TIME ONLY, two integrated grips, drags sync form
+[ ] Existing data intact (tasks/goals/contacts/events/weekly plans), appearance preserved
+
+KNOWN UNVERIFIED CLAIMS (owner to confirm):
+- Real MapLibre map tiles / marker rendering / symbol tap on device
+  (platform view cannot run in widget tests).
+- The no-flash border behavior at settle on a real device (render-layer
+  evidence only).
+- Java-21 toolchain is a temp-dir install (not a repo change).
+
+DEFERRED LEDGER: unchanged (DF-03 RESOLVED, DF-04 OPEN, others unchanged).
+ROADMAP: after owner acceptance -> next pack audit (Maps V2 candidates:
+My Location JIT, coordinate entry UX, marker clustering; or revised
+navigation follow-ups). NO COMMIT / NO PUSH — STOP FOR OWNER PHYSICAL REVIEW.

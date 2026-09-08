@@ -1,0 +1,52 @@
+NEXT TRANSFER — VS16 M5 PLANNING REMINDERS IMPLEMENTATION REPORT
+Date: 2026-09-08
+
+Repository: C:\Users\sherl\Downloads\NT_C7_IMPLEMENTATION_20260825_235900
+Toolchain: Flutter 3.44.7; bundled JDK 21; Android SDK 36
+Device authority: Infinix X6731 / 10620253B3004617
+
+Starting provenance
+- Continued from the authoritative inherited dirty tree at 76ee168cc6f723c8e2efec7737405d30ff6c44f5.
+- No reset, clean, stash, restore, staging, commit, tag, or push was performed.
+- Existing unrelated modifications remain untouched.
+
+Source-truth audit
+- WeeklyPlans already contained reviewCompletedAtUtc and reviewed/historical state values, but the WeeklyPlanningRepository had no canonical completion command and the Weekly Planning screen had no completion action.
+- M5 added the minimum foreground-only, idempotent WeeklyReviewCompletionSource.completeReview seam. It writes state=reviewed, reviewCompletedAtUtc, and updatedAtUtc without creating another completion model. Background recovery never writes completion.
+- CalendarEventOccurrence.isAwaitingReport remains the sole report eligibility law. Event recurrence and report overlays remain in the existing Calendar Event repository.
+
+M5 implementation
+- Added default-OFF weeklyReviewRemindersEnabled and awaitingReportRemindersEnabled preferences, effective master/permission gates, and the Notifications Settings PLANNING section with exactly the two requested toggles.
+- Advanced schema v40 to v41 with additive notification_preferences columns only; Drift output was regenerated with build_runner.
+- Added shared-reconciler planning source kinds and ID-only stable keys:
+  planning:weekly-review:<profileId>:<weeklyPlanId>
+  planning:awaiting-report:<profileId>:<occurrenceId>
+- Weekly Review is scheduled for 09:00 profile-local on the day after the inclusive period end. Awaiting Report uses canonical occurrence eligibility: timed=end+15 minutes; all-day=09:00 profile-local next calendar day.
+- Both categories use the existing durable work, stable platform-ID, Quiet Hours, privacy-rendering, cancellation, recovery, and no-churn paths. No second scheduler was added.
+- Generic/Detailed copy follows the authority. Durable work and payloads contain identifiers only. Body taps route to the exact Weekly Planning period or canonical Event detail; no Open or Snooze action buttons were added.
+- Source changes reconcile through the existing coalesced ReconcileReminders path; Weekly completion also triggers reconciliation.
+
+Verification
+- Focused M5 + affected regression pack: PASS (planning_reminder_contract_test, reminder_reconciler_test, drift_weekly_planning_repository_test).
+- flutter analyze --no-pub --fatal-infos lib test: PASS — No issues found.
+- git diff --check: PASS.
+- Safety scan found no exact-alarm, foreground-service, or background-location permission additions. A pre-existing Maps comment contains the word geofence; it is not M5 code.
+
+Fresh APK
+- Path: build\app\outputs\flutter-apk\app-debug.apk
+- Size: 238,342,868 bytes
+- SHA-256: 491A6587DE2F2A445D8483C38B6026A8DE057898B8C51FF307D05B9D9F0AAC70
+
+Install / smoke status
+- The authorized Infinix reconnected under its current wireless ADB serial, adb-10620253B3004617-2m7ZVB._adb-tls-connect._tcp, with model identity Infinix X6731.
+- Data-preserving install command: adb -s <wireless-serial> install -r app-debug.apk. Result: Success.
+- Package continuity before and after: versionName=0.1.0, versionCode=1; firstInstallTime remained 2026-07-27 15:42:22; dataDir remained /data/user/0/com.nexttransfer.rmplanner. No uninstall, pm clear, wipe, or downgrade occurred.
+- App launch: PASS via monkey package launch.
+- Bounded UI hierarchy capture after launch contained the app root only, with no exposed semantic controls. Therefore Settings toggle visibility/interaction and notification action-row visual inspection remain OWNER PHYSICAL REVIEW PENDING; no owner records were edited to force natural Weekly Review or Awaiting Report candidates.
+
+Git/publication
+- staged paths = 0
+- commit = NONE
+- tag = NONE
+- push = NONE
+- M6 = NOT STARTED

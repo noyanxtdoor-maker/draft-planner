@@ -1,0 +1,1673 @@
+import 'package:drift/drift.dart';
+import 'package:rmplanner/core/database/app_database.dart';
+import 'package:rmplanner/core/time/app_clock.dart';
+import 'package:rmplanner/features/planner/application/calendar_event_repository.dart';
+import 'package:rmplanner/features/planner/data/calendar_event_time_zones.dart';
+import 'package:rmplanner/features/planner/domain/calendar_event.dart';
+import 'package:rmplanner/features/planner/domain/event_type.dart';
+import 'package:rmplanner/features/planner/domain/planner_date.dart';
+import 'package:rmplanner/features/planner/domain/planner_day.dart';
+import 'package:uuid/uuid.dart';
+
+abstract interface class CalendarEventWriteGuard {
+  Future<void> beforeCommit();
+}
+
+final class AllowCalendarEventWrites implements CalendarEventWriteGuard {
+  const AllowCalendarEventWrites();
+
+  @override
+  Future<void> beforeCommit() async {}
+}
+
+final class _ActivityTypeSnapshot {
+  const _ActivityTypeSnapshot({this.stableKey, this.label, this.colorValue});
+
+  final String? stableKey;
+  final String? label;
+  final int? colorValue;
+}
+
+final class DriftCalendarEventRepository
+    implements
+        CalendarEventRepository,
+        CalendarEventRangeSource,
+        CalendarEventOccurrenceIdLookup {
+  const DriftCalendarEventRepository({
+    required this.database,
+    required this.clock,
+    required this.timeZones,
+    this.reportSource = const EmptyCalendarEventReportSource(),
+    this.taskContextSource = const EmptyCalendarEventTaskContextSource(),
+    this.linkContextTransfer = const EmptyCalendarEventLinkContextTransfer(),
+    this.duplicateContextTransfer =
+        const EmptyCalendarEventDuplicateContextTransfer(),
+    this.writeGuard = const AllowCalendarEventWrites(),
+  });
+
+  final AppDatabase database;
+  final AppClock clock;
+  final IanaCalendarEventTimeZones timeZones;
+  final CalendarEventReportSource reportSource;
+  final CalendarEventTaskContextSource taskContextSource;
+  final CalendarEventLinkContextTransfer linkContextTransfer;
+  final CalendarEventDuplicateContextTransfer duplicateContextTransfer;
+  final CalendarEventWriteGuard writeGuard;
+
+  @override
+  String get displayTimeZoneId => timeZones.displayTimeZoneId;
+
+  @override
+  bool isValidTimeZone(String timeZoneId) => timeZones.isValid(timeZoneId);
+
+  @override
+  Future<List<PlannerCalendarItem>> readDay({
+    required String profileId,
+    required PlannerDate date,
+  }) => readRange(profileId: profileId, startDate: date, endDate: date);
+
+  @override
+  Future<List<PlannerCalendarItem>> readRange({
+    required String profileId,
+    required PlannerDate startDate,
+    required PlannerDate endDate,
+  }) async {
+    if (endDate.compareTo(startDate) < 0) {
+      throw ArgumentError.value(
+        endDate,
+        'endDate',
+        'must not precede startDate',
+      );
+    }
+    final rows =
+        await (database.select(database.calendarEvents)
+              ..where((table) => table.profileId.equals(profileId))
+              ..orderBy(<OrderingTerm Function(CalendarEvents)>[
+                (table) => OrderingTerm.asc(table.createdAtUtc),
+              ]))
+            .get();
+    // S1A: the per-row reads below (reports, exceptions, Task links) are
+    // hoisted into bounded set-based batches for production Drift sources.
+    // Each per-Event lookup then becomes a map access with identical
+    // semantics; non-batch-capable test doubles keep the legacy per-Event
+    // read path untouched.
+    final reportBatchSource = reportSource is CalendarEventReportBatchSource
+        ? reportSource as CalendarEventReportBatchSource
+        : null;
+    final reportsByEvent = reportBatchSource == null
+        ? null
+        : await reportBatchSource.readSeriesReportsForEvents(
+            rows.map((row) => row.id),
+          );
+    final exceptionsByEvent = await _latestExceptionsForEvents(
+      rows.map((row) => row.id),
+    );
+    final taskContextBatchSource =
+        taskContextSource is CalendarEventTaskContextBatchSource
+        ? taskContextSource as CalendarEventTaskContextBatchSource
+        : null;
+    final taskContextSnapshot = taskContextBatchSource == null
+        ? null
+        : await taskContextBatchSource.readTaskContextSnapshot(
+            rows.map((row) => row.id),
+          );
+    final itemsById = <String, PlannerCalendarItem>{};
+    for (final row in rows) {
+      final reports = reportsByEvent == null
+          ? await reportSource.readSeriesReports(row.id)
+          : reportsByEvent[row.id] ?? const <CalendarEventReportSnapshot>[];
+      final reportById = <String, CalendarEventReportSnapshot>{
+        for (final report in reports) report.occurrenceId: report,
+      };
+      final exceptions =
+          exceptionsByEvent[row.id] ??
+          const <String, CalendarEventExceptionRow>{};
+      final candidateStart = row.timing == CalendarEventTiming.allDay.name
+          ? startDate
+          : startDate.addDays(-1);
+      final candidateEnd = row.timing == CalendarEventTiming.allDay.name
+          ? endDate
+          : endDate.addDays(1);
+      final included = <String>{};
+      for (
+        var originalDate = candidateStart;
+        originalDate.compareTo(candidateEnd) <= 0;
+        originalDate = originalDate.addDays(1)
+      ) {
+        final occurrence = await _buildOccurrence(
+          row: row,
+          originalDate: originalDate,
+          exception:
+              exceptions[CalendarEventOccurrenceIdentity.forDate(
+                eventId: row.id,
+                originalDate: originalDate,
+              )],
+          reportById: reportById,
+          taskContextSnapshot: taskContextSnapshot,
+        );
+        if (occurrence == null ||
+            (!_insideRange(occurrence.displayDate, startDate, endDate) &&
+                !(occurrence.isChange &&
+                    _insideRange(
+                      occurrence.originalDate,
+                      startDate,
+                      endDate,
+                    )))) {
+          continue;
+        }
+        included.add(occurrence.id);
+        itemsById[occurrence.id] = _toPlannerItem(occurrence);
+      }
+      for (final exception in exceptions.values) {
+        if (included.contains(exception.occurrenceId)) {
+          continue;
+        }
+        final originalDate = PlannerDate.parse(exception.originalDate);
+        final effectiveDate = PlannerDate.parse(exception.effectiveDate);
+        if (!_insideRange(originalDate, startDate, endDate) &&
+            !_insideRange(effectiveDate, startDate, endDate)) {
+          continue;
+        }
+        final occurrence = await _buildOccurrence(
+          row: row,
+          originalDate: originalDate,
+          exception: exception,
+          reportById: reportById,
+          taskContextSnapshot: taskContextSnapshot,
+        );
+        // Planner Polish Delta 2: an occurrence-scoped MOVE writes an
+        // exception whose effective date differs from its original date.
+        // Such an occurrence belongs only on its effective (new) day, so it
+        // must never leak onto the original date's collection.
+        if (occurrence != null &&
+            _insideRange(occurrence.displayDate, startDate, endDate)) {
+          itemsById[occurrence.id] = _toPlannerItem(occurrence);
+        }
+      }
+    }
+    final items = itemsById.values.toList(growable: false);
+    items.sort((left, right) {
+      final byDate = left.date.compareTo(right.date);
+      if (byDate != 0) return byDate;
+      final leftTime = left.startLocal;
+      final rightTime = right.startLocal;
+      if (leftTime == null && rightTime != null) {
+        return -1;
+      }
+      if (leftTime != null && rightTime == null) {
+        return 1;
+      }
+      return (leftTime?.compareTo(rightTime!) ?? 0);
+    });
+    return items;
+  }
+
+  static bool _insideRange(
+    PlannerDate value,
+    PlannerDate startDate,
+    PlannerDate endDate,
+  ) => value.compareTo(startDate) >= 0 && value.compareTo(endDate) <= 0;
+
+  @override
+  Future<CalendarEventDraft?> readEventDraft({
+    required String profileId,
+    required String eventId,
+  }) async {
+    final row = await _readRow(profileId: profileId, eventId: eventId);
+    return row == null ? null : _draftFromRow(row);
+  }
+
+  @override
+  Future<CalendarEventOccurrence?> readOccurrence({
+    required String profileId,
+    required String eventId,
+    required PlannerDate originalDate,
+  }) async {
+    final row = await _readRow(profileId: profileId, eventId: eventId);
+    if (row == null) {
+      return null;
+    }
+    final occurrenceId = CalendarEventOccurrenceIdentity.forDate(
+      eventId: eventId,
+      originalDate: originalDate,
+    );
+    final reports = await reportSource.readSeriesReports(eventId);
+    return _buildOccurrence(
+      row: row,
+      originalDate: originalDate,
+      exception: (await _latestExceptions(eventId))[occurrenceId],
+      reportById: <String, CalendarEventReportSnapshot>{
+        for (final report in reports) report.occurrenceId: report,
+      },
+    );
+  }
+
+  @override
+  Future<CalendarEventOccurrence?> readOccurrenceById({
+    required String profileId,
+    required String eventId,
+    required String occurrenceId,
+  }) async {
+    final row = await _readRow(profileId: profileId, eventId: eventId);
+    if (row == null) return null;
+    final reports = await reportSource.readSeriesReports(eventId);
+    final reportById = <String, CalendarEventReportSnapshot>{
+      for (final report in reports) report.occurrenceId: report,
+    };
+    final exceptions = await _latestExceptions(eventId);
+    final exception = exceptions[occurrenceId];
+    if (exception != null) {
+      return _buildOccurrence(
+        row: row,
+        originalDate: PlannerDate.parse(exception.originalDate),
+        exception: exception,
+        reportById: reportById,
+      );
+    }
+    final start = PlannerDate.parse(row.startDate);
+    // M2's scheduled occurrence horizon is 90 days; routing resolves the
+    // same bounded canonical projection rather than reversing UUIDv5 IDs.
+    final today = PlannerDate.fromDateTime(clock.nowUtc().toLocal());
+    final first = start.compareTo(today) < 0 ? today : start;
+    final rule = _ruleFromRow(row);
+    for (var offset = 0; offset <= 90; offset++) {
+      final date = first.addDays(offset);
+      if (rule.occurrenceIndexOn(startDate: start, targetDate: date) == null) {
+        continue;
+      }
+      if (CalendarEventOccurrenceIdentity.forDate(
+            eventId: eventId,
+            originalDate: date,
+          ) !=
+          occurrenceId) {
+        continue;
+      }
+      return _buildOccurrence(
+        row: row,
+        originalDate: date,
+        exception: null,
+        reportById: reportById,
+      );
+    }
+    return null;
+  }
+
+  @override
+  Future<CalendarEventDraft> saveEvent({
+    required String profileId,
+    required CalendarEventDraft draft,
+  }) async {
+    final normalized = _validateDraft(draft);
+    await database.transaction(() async {
+      final existing = await _readRow(
+        profileId: profileId,
+        eventId: normalized.id,
+      );
+      await _writeEvent(
+        profileId: profileId,
+        eventId: normalized.id,
+        draft: normalized,
+        existing: existing,
+      );
+      await writeGuard.beforeCommit();
+    });
+    return normalized;
+  }
+
+  @override
+  Future<CalendarEventMutationOutcome> editEvent({
+    required String profileId,
+    required String eventId,
+    required PlannerDate originalDate,
+    required CalendarEventEditScope scope,
+    required CalendarEventDraft draft,
+    required String operationId,
+  }) async {
+    _validateOperationId(operationId);
+    final normalized = _validateDraft(draft);
+    final reports = await reportSource.readSeriesReports(eventId);
+    // Intentionally do NOT call `_ensureOccurrenceIsEditable`
+    // here: a resize gesture changes only `endMinute` and the
+    // resulting occurrence exception stores status =
+    // `scheduled`. `_buildOccurrence` re-applies the existing
+    // report's status on top of a scheduled exception, so the
+    // report remains semantically intact and the resize
+    // coexists with the report row. The immutability check is
+    // still enforced for the structural cancellation and
+    // reschedule flows that follow below.
+    return database.transaction(() async {
+      if (await _operationExists(operationId)) {
+        return CalendarEventMutationOutcome.unchanged;
+      }
+      final row = await _requireRow(profileId: profileId, eventId: eventId);
+      final current = await _requireOccurrence(
+        row: row,
+        originalDate: originalDate,
+        reports: reports,
+      );
+      final sourceRule = _ruleFromRow(row);
+      // Clearing Repeat is always a series-level mutation, even if the edit
+      // flow was entered through "This event only". An exception row has no
+      // recurrence columns and therefore cannot truthfully stop a series.
+      final resolvedScope =
+          sourceRule.isRecurring && !normalized.recurrence.isRecurring
+          ? CalendarEventEditScope.series
+          : scope;
+      if (resolvedScope != CalendarEventEditScope.occurrence) {
+        await _preserveReports(
+          profileId: profileId,
+          row: row,
+          reports: reports,
+          operationId: operationId,
+        );
+      }
+      switch (resolvedScope) {
+        case CalendarEventEditScope.occurrence:
+          if (!_ruleFromRow(row).isRecurring) {
+            // Owner fix: editing a NON-recurring Event (the detail Edit
+            // screen and the timeline move/resize gestures all use
+            // occurrence scope for it) must write the master row, not an
+            // exception.  The exception table has no recurrence columns, so
+            // an edit that turns the Event into a repeating Event could
+            // never persist, and a Backup state set through edit landed only
+            // on the exception while the master stayed normal — a later
+            // move/resize drafts from the master row and silently reverted
+            // it.  A non-recurring Event has exactly one occurrence, so
+            // occurrence scope and series scope address the same record;
+            // the master row is the canonical owner of its date, schedule,
+            // recurrence, and Backup identity. This also lets an atomic
+            // cross-date timeline move retain the Event's stable identity.
+            await _writeEvent(
+              profileId: profileId,
+              eventId: eventId,
+              draft: normalized.copyWith(id: eventId),
+              existing: row,
+            );
+            // A scheduled field-override exception written by an earlier
+            // build no longer represents user intent now that the master row
+            // carries the full edited state, and it would otherwise keep
+            // masking the fresh master values.  Only scheduled
+            // (field-override) exceptions are removed; cancelled/rescheduled
+            // lifecycle rows stay untouched.
+            await _clearFieldOverrideExceptions(
+              eventId: eventId,
+              occurrenceId: current.id,
+            );
+          } else {
+            await _insertException(
+              profileId: profileId,
+              eventId: eventId,
+              originalDate: originalDate,
+              occurrenceId: current.id,
+              draft: normalized.copyWith(
+                id: eventId,
+                startDate: originalDate,
+                recurrence: const CalendarRecurrenceRule(),
+              ),
+              status: current.status,
+              operationId: operationId,
+            );
+          }
+        case CalendarEventEditScope.thisAndFuture:
+          if (originalDate == PlannerDate.parse(row.startDate)) {
+            await _writeEvent(
+              profileId: profileId,
+              eventId: eventId,
+              draft: normalized.copyWith(id: eventId),
+              existing: row,
+            );
+          } else {
+            if (normalized.id == eventId) {
+              throw const CalendarEventValidationException(
+                'This-and-future edits require a new stable series identity.',
+              );
+            }
+            await _truncateBefore(row, originalDate);
+            await _writeEvent(
+              profileId: profileId,
+              eventId: normalized.id,
+              draft: _draftForSplit(
+                source: row,
+                targetDate: originalDate,
+                replacement: normalized,
+              ),
+              parentEventId: eventId,
+            );
+          }
+        case CalendarEventEditScope.series:
+          await _writeEvent(
+            profileId: profileId,
+            eventId: eventId,
+            draft: normalized.copyWith(id: eventId),
+            existing: row,
+          );
+          if (sourceRule.isRecurring && !normalized.recurrence.isRecurring) {
+            await _removeUnreportedExceptions(
+              eventId: eventId,
+              reports: reports,
+            );
+          } else if (sourceRule.isRecurring &&
+              row.startMinute != null &&
+              normalized.startMinute != null) {
+            // Delta 4.1 recurrence rebase: an "All events" move is a pure
+            // translation of the whole series.  The master row above already
+            // moved by the movement delta; every surviving time-based
+            // occurrence override belonging to this series must move by the
+            // SAME delta so each exception keeps its relative offset instead
+            // of being left behind at its old absolute override time.  Only
+            // scheduled (field-override) timed exceptions carrying persisted
+            // times are rebased — cancelled/rescheduled lifecycle rows
+            // (excluded or detached occurrences) and overrides with no time
+            // component are never shifted.
+            final deltaMinutes = normalized.startMinute! - row.startMinute!;
+            if (deltaMinutes != 0) {
+              await _rebaseSeriesTimeOverrides(
+                eventId: eventId,
+                deltaMinutes: deltaMinutes,
+              );
+            }
+          }
+      }
+      await _insertOperation(
+        operationId: operationId,
+        profileId: profileId,
+        eventId: eventId,
+        occurrenceId: current.id,
+        command: 'edit:${resolvedScope.name}',
+      );
+      await writeGuard.beforeCommit();
+      return CalendarEventMutationOutcome.changed;
+    });
+  }
+
+  @override
+  Future<CalendarEventMutationOutcome> cancelEvent({
+    required String profileId,
+    required String eventId,
+    required PlannerDate originalDate,
+    required CalendarEventEditScope scope,
+    required String operationId,
+  }) async {
+    _validateOperationId(operationId);
+    final reports = await reportSource.readSeriesReports(eventId);
+    return database.transaction(() async {
+      if (await _operationExists(operationId)) {
+        return CalendarEventMutationOutcome.unchanged;
+      }
+      final row = await _requireRow(profileId: profileId, eventId: eventId);
+      final current = await _requireOccurrence(
+        row: row,
+        originalDate: originalDate,
+        reports: reports,
+      );
+      if (scope != CalendarEventEditScope.occurrence) {
+        await _preserveReports(
+          profileId: profileId,
+          row: row,
+          reports: reports,
+          operationId: operationId,
+        );
+      }
+      switch (scope) {
+        case CalendarEventEditScope.occurrence:
+          await _insertExceptionFromOccurrence(
+            profileId: profileId,
+            occurrence: current,
+            status: CalendarEventStatus.cancelled,
+            operationId: operationId,
+          );
+        case CalendarEventEditScope.thisAndFuture:
+          if (originalDate == PlannerDate.parse(row.startDate)) {
+            await _setSeriesStatus(
+              row: row,
+              status: CalendarEventStatus.cancelled,
+            );
+          } else {
+            await _truncateBefore(row, originalDate);
+            await _insertExceptionFromOccurrence(
+              profileId: profileId,
+              occurrence: current,
+              status: CalendarEventStatus.cancelled,
+              operationId: operationId,
+            );
+          }
+        case CalendarEventEditScope.series:
+          await _setSeriesStatus(
+            row: row,
+            status: CalendarEventStatus.cancelled,
+          );
+      }
+      await _insertOperation(
+        operationId: operationId,
+        profileId: profileId,
+        eventId: eventId,
+        occurrenceId: current.id,
+        command: 'cancel:${scope.name}',
+      );
+      await writeGuard.beforeCommit();
+      return CalendarEventMutationOutcome.changed;
+    });
+  }
+
+  @override
+  Future<CalendarEventMutationOutcome> rescheduleEvent({
+    required String profileId,
+    required String eventId,
+    required PlannerDate originalDate,
+    required CalendarEventEditScope scope,
+    required CalendarEventDraft replacement,
+    required String operationId,
+  }) async {
+    _validateOperationId(operationId);
+    final normalized = _validateDraft(replacement);
+    if (normalized.id == eventId) {
+      throw const CalendarEventValidationException(
+        'Rescheduling requires a new stable replacement identity.',
+      );
+    }
+    final reports = await reportSource.readSeriesReports(eventId);
+    _ensureOccurrenceIsEditable(
+      eventId: eventId,
+      originalDate: originalDate,
+      reports: reports,
+    );
+    return database.transaction(() async {
+      if (await _operationExists(operationId)) {
+        return CalendarEventMutationOutcome.unchanged;
+      }
+      final row = await _requireRow(profileId: profileId, eventId: eventId);
+      final current = await _requireOccurrence(
+        row: row,
+        originalDate: originalDate,
+        reports: reports,
+      );
+      // Planner Polish Delta 2: moving a repeating occurrence with "This
+      // event only" must keep it attached to the original series as an
+      // occurrence override — never as an unrelated standalone Event.  When
+      // the source series is recurring, an occurrence-scoped reschedule
+      // writes an exception row under the SAME series event id carrying the
+      // new effective date and times, so the occurrence keeps its series
+      // lineage, its deterministic occurrence id, and its repeat icon;
+      // future and past occurrences are untouched and no replacement Event
+      // row is created.  Non-recurring Events keep the replacement contract
+      // (there is no series identity to preserve for a single Event).
+      final sourceRule = _ruleFromRow(row);
+      if (scope == CalendarEventEditScope.occurrence &&
+          sourceRule.isRecurring) {
+        await _insertException(
+          profileId: profileId,
+          eventId: eventId,
+          originalDate: originalDate,
+          occurrenceId: current.id,
+          draft: normalized.copyWith(
+            id: eventId,
+            startDate: normalized.startDate,
+            recurrence: const CalendarRecurrenceRule(),
+          ),
+          status: current.status,
+          operationId: operationId,
+        );
+        await _insertOperation(
+          operationId: operationId,
+          profileId: profileId,
+          eventId: eventId,
+          occurrenceId: current.id,
+          command: 'reschedule:occurrence',
+        );
+        await writeGuard.beforeCommit();
+        return CalendarEventMutationOutcome.changed;
+      }
+      if (scope != CalendarEventEditScope.occurrence) {
+        await _preserveReports(
+          profileId: profileId,
+          row: row,
+          reports: reports,
+          operationId: operationId,
+        );
+      }
+      final replacementDraft = scope == CalendarEventEditScope.occurrence
+          ? normalized.copyWith(recurrence: const CalendarRecurrenceRule())
+          : normalized;
+      await _writeEvent(
+        profileId: profileId,
+        eventId: replacementDraft.id,
+        draft: replacementDraft,
+        parentEventId: eventId,
+      );
+      switch (scope) {
+        case CalendarEventEditScope.occurrence:
+          await _insertExceptionFromOccurrence(
+            profileId: profileId,
+            occurrence: current,
+            status: CalendarEventStatus.rescheduled,
+            operationId: operationId,
+            replacementEventId: replacementDraft.id,
+          );
+        case CalendarEventEditScope.thisAndFuture:
+          if (originalDate == PlannerDate.parse(row.startDate)) {
+            await _setSeriesStatus(
+              row: row,
+              status: CalendarEventStatus.rescheduled,
+              replacementEventId: replacementDraft.id,
+            );
+          } else {
+            await _truncateBefore(row, originalDate);
+            await _insertExceptionFromOccurrence(
+              profileId: profileId,
+              occurrence: current,
+              status: CalendarEventStatus.rescheduled,
+              operationId: operationId,
+              replacementEventId: replacementDraft.id,
+            );
+          }
+        case CalendarEventEditScope.series:
+          await _setSeriesStatus(
+            row: row,
+            status: CalendarEventStatus.rescheduled,
+            replacementEventId: replacementDraft.id,
+          );
+      }
+      await linkContextTransfer.transferOnReschedule(
+        profileId: profileId,
+        sourceEventId: eventId,
+        sourceOccurrenceId: current.id,
+        sourceOriginalDate: originalDate,
+        scope: scope,
+        replacementEventId: replacementDraft.id,
+        replacementOriginalDate: replacementDraft.startDate,
+        operationId: operationId,
+      );
+      await _insertOperation(
+        operationId: operationId,
+        profileId: profileId,
+        eventId: eventId,
+        occurrenceId: current.id,
+        command: 'reschedule:${scope.name}',
+      );
+      await writeGuard.beforeCommit();
+      return CalendarEventMutationOutcome.changed;
+    });
+  }
+
+  @override
+  Future<CalendarEventMutationOutcome> duplicateEvent({
+    required String profileId,
+    required String eventId,
+    required PlannerDate originalDate,
+    required String duplicateId,
+    required String operationId,
+  }) async {
+    _validateOperationId(operationId);
+    if (!Uuid.isValidUUID(fromString: duplicateId) || duplicateId == eventId) {
+      throw const CalendarEventValidationException(
+        'Duplicate Calendar Events require a new stable UUID identifier.',
+      );
+    }
+    final reports = await reportSource.readSeriesReports(eventId);
+    return database.transaction(() async {
+      if (await _operationExists(operationId)) {
+        return CalendarEventMutationOutcome.unchanged;
+      }
+      final row = await _requireRow(profileId: profileId, eventId: eventId);
+      final current = await _requireOccurrence(
+        row: row,
+        originalDate: originalDate,
+        reports: reports,
+      );
+      final timed = current.timing == CalendarEventTiming.timed;
+      final draft = _validateDraft(
+        CalendarEventDraft(
+          id: duplicateId,
+          title: '${current.displayTitle} (Copy)',
+          notes: current.notes,
+          timing: current.timing,
+          startDate: current.displayDate,
+          startMinute: timed && current.startUtc != null
+              ? _originMinute(current.startUtc!, current.timeZoneId!)
+              : null,
+          endMinute: timed && current.startUtc != null && current.endUtc != null
+              ? _originEndMinute(
+                  current.startUtc!,
+                  current.endUtc!,
+                  current.timeZoneId!,
+                )
+              : null,
+          timeZoneId: current.timeZoneId,
+          locationText: current.locationText,
+          requiresReport: current.requiresReport,
+          activityTypeId: current.activityTypeId,
+          activityTypeMappingVersion: current.activityTypeMappingVersion,
+          activityTypeStableKeySnapshot: current.activityTypeStableKey,
+          activityTypeLabelSnapshot: current.activityTypeLabel,
+          activityTypeColorValueSnapshot: current.activityTypeColorValue,
+          // A duplicate is a new scheduled record. It must not inherit a
+          // scheduled indicator contribution rule or any factual outcome.
+          contributionRuleKey: null,
+          isBackupAppointment: current.isBackupAppointment,
+          backupForEventId: current.backupForEventId,
+          backupRelationshipProvenance: current.backupRelationshipProvenance,
+        ),
+      );
+      await _writeEvent(
+        profileId: profileId,
+        eventId: duplicateId,
+        draft: draft,
+        existing: null,
+        parentEventId: eventId,
+      );
+      await (database.update(
+        database.calendarEvents,
+      )..where((table) => table.id.equals(duplicateId))).write(
+        CalendarEventsCompanion(
+          latitude: Value<double?>(row.latitude),
+          longitude: Value<double?>(row.longitude),
+          coordinateSource: Value<String?>(row.coordinateSource),
+        ),
+      );
+      await duplicateContextTransfer.copyPeopleOnDuplicate(
+        profileId: profileId,
+        sourceEventId: eventId,
+        sourceOccurrenceId: current.id,
+        duplicateEventId: duplicateId,
+      );
+      await _insertOperation(
+        operationId: operationId,
+        profileId: profileId,
+        eventId: eventId,
+        occurrenceId: current.id,
+        command: 'duplicate',
+      );
+      await writeGuard.beforeCommit();
+      return CalendarEventMutationOutcome.changed;
+    });
+  }
+
+  CalendarEventDraft _validateDraft(CalendarEventDraft draft) {
+    final normalized = draft.normalized();
+    final zone = normalized.timeZoneId;
+    if (zone != null && !timeZones.isValid(zone)) {
+      throw CalendarEventValidationException('Unknown IANA time zone: $zone');
+    }
+    return normalized;
+  }
+
+  void _validateOperationId(String operationId) {
+    if (!Uuid.isValidUUID(fromString: operationId)) {
+      throw const CalendarEventValidationException(
+        'Calendar Event operations require stable UUID identifiers.',
+      );
+    }
+  }
+
+  Future<CalendarEventRow?> _readRow({
+    required String profileId,
+    required String eventId,
+  }) {
+    return (database.select(database.calendarEvents)
+          ..where(
+            (table) =>
+                table.id.equals(eventId) & table.profileId.equals(profileId),
+          )
+          ..limit(1))
+        .getSingleOrNull();
+  }
+
+  Future<CalendarEventRow> _requireRow({
+    required String profileId,
+    required String eventId,
+  }) async {
+    final row = await _readRow(profileId: profileId, eventId: eventId);
+    if (row == null) {
+      throw StateError('Calendar Event not found');
+    }
+    return row;
+  }
+
+  Future<void> _writeEvent({
+    required String profileId,
+    required String eventId,
+    required CalendarEventDraft draft,
+    CalendarEventRow? existing,
+    String? parentEventId,
+  }) async {
+    final activityTypeSnapshot = await _resolveActivityTypeSnapshot(
+      profileId: profileId,
+      draft: draft,
+      existing: existing,
+    );
+    // Life Goal invariant (domain rule): a linked Event is always Report
+    // Required.  Normalize here so direct repository callers can never
+    // persist goalId != null with requiresReport == false.  Planner Polish
+    // Delta 2 adds the Contact Event rule: the Contact Event Type always
+    // requires a report, independent of Life Goal linkage.  The resolved
+    // activity-type snapshot is the canonical stable-key source (a draft may
+    // carry only an activityTypeId).
+    final effectiveRequiresReport =
+        draft.goalId != null ||
+            activityTypeSnapshot?.stableKey == SystemEventTypeKeys.contact
+        ? true
+        : draft.requiresReport;
+    final now = clock.nowUtc();
+    final values = CalendarEventsCompanion(
+      title: Value<String>(draft.title),
+      notes: Value<String?>(draft.notes),
+      timing: Value<String>(draft.timing.name),
+      startDate: Value<String>(draft.startDate.iso8601),
+      startMinute: Value<int?>(draft.startMinute),
+      endMinute: Value<int?>(draft.endMinute),
+      timeZoneId: Value<String?>(draft.timeZoneId),
+      locationText: Value<String?>(draft.locationText),
+      requiresReport: Value<bool>(effectiveRequiresReport),
+      activityTypeId: Value<String?>(draft.activityTypeId),
+      activityTypeMappingVersion: Value<int?>(draft.activityTypeMappingVersion),
+      activityTypeStableKeySnapshot: Value<String?>(
+        activityTypeSnapshot?.stableKey,
+      ),
+      activityTypeLabelSnapshot: Value<String?>(activityTypeSnapshot?.label),
+      activityTypeColorValueSnapshot: Value<int?>(
+        activityTypeSnapshot?.colorValue,
+      ),
+      contributionRuleKey: Value<String?>(draft.contributionRuleKey),
+      goalId: Value<String?>(draft.goalId),
+      isBackupAppointment: Value<bool>(draft.isBackupAppointment),
+      backupForEventId: Value<String?>(draft.backupForEventId),
+      backupRelationshipProvenance: Value<String?>(
+        draft.backupRelationshipProvenance,
+      ),
+      recurrenceFrequency: Value<String>(draft.recurrence.frequency.name),
+      recurrenceEndMode: Value<String>(draft.recurrence.endMode.name),
+      recurrenceEndDate: Value<String?>(draft.recurrence.endDate?.iso8601),
+      recurrenceCount: Value<int?>(draft.recurrence.occurrenceCount),
+      recurrencePatternJson: Value<String?>(
+        calendarRecurrencePatternToJson(draft.recurrence.pattern),
+      ),
+      status: Value<String>(draft.status.name),
+      parentEventId: Value<String?>(parentEventId ?? existing?.parentEventId),
+      replacementEventId: const Value<String?>(null),
+      updatedAtUtc: Value<DateTime>(now),
+    );
+    if (existing == null) {
+      await database
+          .into(database.calendarEvents)
+          .insert(
+            CalendarEventsCompanion.insert(
+              id: eventId,
+              profileId: profileId,
+              title: draft.title,
+              notes: Value<String?>(draft.notes),
+              timing: draft.timing.name,
+              startDate: draft.startDate.iso8601,
+              startMinute: Value<int?>(draft.startMinute),
+              endMinute: Value<int?>(draft.endMinute),
+              timeZoneId: Value<String?>(draft.timeZoneId),
+              locationText: Value<String?>(draft.locationText),
+              requiresReport: Value<bool>(effectiveRequiresReport),
+              activityTypeId: Value<String?>(draft.activityTypeId),
+              activityTypeMappingVersion: Value<int?>(
+                draft.activityTypeMappingVersion,
+              ),
+              activityTypeStableKeySnapshot: Value<String?>(
+                activityTypeSnapshot?.stableKey,
+              ),
+              activityTypeLabelSnapshot: Value<String?>(
+                activityTypeSnapshot?.label,
+              ),
+              activityTypeColorValueSnapshot: Value<int?>(
+                activityTypeSnapshot?.colorValue,
+              ),
+              contributionRuleKey: Value<String?>(draft.contributionRuleKey),
+              goalId: Value<String?>(draft.goalId),
+              isBackupAppointment: Value<bool>(draft.isBackupAppointment),
+              backupForEventId: Value<String?>(draft.backupForEventId),
+              backupRelationshipProvenance: Value<String?>(
+                draft.backupRelationshipProvenance,
+              ),
+              recurrenceFrequency: Value<String>(
+                draft.recurrence.frequency.name,
+              ),
+              recurrenceEndMode: Value<String>(draft.recurrence.endMode.name),
+              recurrenceEndDate: Value<String?>(
+                draft.recurrence.endDate?.iso8601,
+              ),
+              recurrenceCount: Value<int?>(draft.recurrence.occurrenceCount),
+              recurrencePatternJson: Value<String?>(
+                calendarRecurrencePatternToJson(draft.recurrence.pattern),
+              ),
+              status: Value<String>(draft.status.name),
+              parentEventId: Value<String?>(parentEventId),
+              createdAtUtc: now,
+              updatedAtUtc: now,
+            ),
+          );
+    } else {
+      await (database.update(
+        database.calendarEvents,
+      )..where((table) => table.id.equals(eventId))).write(values);
+    }
+  }
+
+  CalendarEventDraft _draftFromRow(CalendarEventRow row) {
+    return CalendarEventDraft(
+      id: row.id,
+      title: row.title,
+      notes: row.notes,
+      timing: CalendarEventTiming.values.byName(row.timing),
+      startDate: PlannerDate.parse(row.startDate),
+      status: CalendarEventStatus.values.byName(row.status),
+      startMinute: row.startMinute,
+      endMinute: row.endMinute,
+      timeZoneId: row.timeZoneId,
+      locationText: row.locationText,
+      requiresReport: row.requiresReport,
+      activityTypeId: row.activityTypeId,
+      activityTypeMappingVersion: row.activityTypeMappingVersion,
+      activityTypeStableKeySnapshot: row.activityTypeStableKeySnapshot,
+      activityTypeLabelSnapshot: row.activityTypeLabelSnapshot,
+      activityTypeColorValueSnapshot: row.activityTypeColorValueSnapshot,
+      contributionRuleKey: row.contributionRuleKey,
+      goalId: row.goalId,
+      isBackupAppointment: row.isBackupAppointment,
+      backupForEventId: row.backupForEventId,
+      backupRelationshipProvenance: row.backupRelationshipProvenance,
+      recurrence: _ruleFromRow(row),
+    );
+  }
+
+  CalendarRecurrenceRule _ruleFromRow(CalendarEventRow row) {
+    return calendarRecurrenceRuleFromStorage(
+      frequencyName: row.recurrenceFrequency,
+      endModeName: row.recurrenceEndMode,
+      endDateIso: row.recurrenceEndDate,
+      occurrenceCount: row.recurrenceCount,
+      patternJson: row.recurrencePatternJson,
+    );
+  }
+
+  Future<Map<String, CalendarEventExceptionRow>> _latestExceptions(
+    String eventId,
+  ) async {
+    final rows =
+        await (database.select(database.calendarEventExceptions)
+              ..where((table) => table.eventId.equals(eventId))
+              ..orderBy(<OrderingTerm Function(CalendarEventExceptions)>[
+                (table) => OrderingTerm.asc(table.createdAtUtc),
+              ]))
+            .get();
+    return <String, CalendarEventExceptionRow>{
+      for (final row in rows) row.occurrenceId: row,
+    };
+  }
+
+  /// Batch equivalent of [_latestExceptions] for a set of Event IDs.
+  ///
+  /// Fetches the exact same exception population the per-Event method would
+  /// fetch (no date filtering — that is a later, recurrence-safe phase) and
+  /// reproduces the same latest-wins rule: rows ordered by createdAtUtc
+  /// ascending, with the last row per occurrenceId winning.  Returns
+  /// Event ID -> (occurrenceId -> latest exception row).
+  Future<Map<String, Map<String, CalendarEventExceptionRow>>>
+  _latestExceptionsForEvents(Iterable<String> eventIds) async {
+    final ids = eventIds.toSet().toList();
+    if (ids.isEmpty) {
+      return const <String, Map<String, CalendarEventExceptionRow>>{};
+    }
+    final grouped = <String, Map<String, CalendarEventExceptionRow>>{};
+    for (final chunk in _chunks(ids, _batchChunkSize)) {
+      final rows =
+          await (database.select(database.calendarEventExceptions)
+                ..where((table) => table.eventId.isIn(chunk))
+                ..orderBy(<OrderingTerm Function(CalendarEventExceptions)>[
+                  (table) => OrderingTerm.asc(table.eventId),
+                  (table) => OrderingTerm.asc(table.createdAtUtc),
+                ]))
+              .get();
+      for (final row in rows) {
+        final byOccurrence = grouped.putIfAbsent(
+          row.eventId,
+          () => <String, CalendarEventExceptionRow>{},
+        );
+        byOccurrence[row.occurrenceId] = row;
+      }
+    }
+    return grouped;
+  }
+
+  static const int _batchChunkSize = 500;
+
+  static Iterable<List<String>> _chunks(List<String> values, int size) sync* {
+    for (var start = 0; start < values.length; start += size) {
+      final end = start + size < values.length ? start + size : values.length;
+      yield values.sublist(start, end);
+    }
+  }
+
+  Future<ActivityTypeRow?> _readActivityType(
+    String profileId,
+    String activityTypeId,
+  ) {
+    return (database.select(database.activityTypes)
+          ..where(
+            (table) =>
+                table.profileId.equals(profileId) &
+                table.id.equals(activityTypeId),
+          )
+          ..limit(1))
+        .getSingleOrNull();
+  }
+
+  Future<CalendarEventOccurrence?> _buildOccurrence({
+    required CalendarEventRow row,
+    required PlannerDate originalDate,
+    required CalendarEventExceptionRow? exception,
+    required Map<String, CalendarEventReportSnapshot> reportById,
+    CalendarEventTaskContextSnapshot? taskContextSnapshot,
+  }) async {
+    final rule = _ruleFromRow(row);
+    final occurrenceId = CalendarEventOccurrenceIdentity.forDate(
+      eventId: row.id,
+      originalDate: originalDate,
+    );
+    if (rule.occurrenceIndexOn(
+              startDate: PlannerDate.parse(row.startDate),
+              targetDate: originalDate,
+            ) ==
+            null &&
+        exception == null) {
+      return null;
+    }
+    final effectiveDate = exception == null
+        ? originalDate
+        : PlannerDate.parse(exception.effectiveDate);
+    final timing = CalendarEventTiming.values.byName(
+      exception?.timing ?? row.timing,
+    );
+    final zoneId = exception?.timeZoneId ?? row.timeZoneId;
+    final startMinute = exception?.startMinute ?? row.startMinute;
+    final endMinute = exception?.endMinute ?? row.endMinute;
+    DateTime? startUtc;
+    DateTime? endUtc;
+    DateTime? startDisplay;
+    DateTime? endDisplay;
+    PlannerDate displayDate = effectiveDate;
+    if (timing == CalendarEventTiming.timed) {
+      startUtc = timeZones.wallTimeToUtc(
+        date: effectiveDate,
+        minuteOfDay: startMinute!,
+        timeZoneId: zoneId!,
+      );
+      endUtc = timeZones.wallTimeToUtc(
+        date: effectiveDate,
+        minuteOfDay: endMinute!,
+        timeZoneId: zoneId,
+      );
+      startDisplay = timeZones.utcToDisplayWall(startUtc);
+      endDisplay = timeZones.utcToDisplayWall(endUtc);
+      displayDate = PlannerDate.fromDateTime(startDisplay);
+    }
+    final masterStatus = CalendarEventStatus.values.byName(row.status);
+    final occurrenceStoredStatus = CalendarEventStatus.values.byName(
+      exception?.status ?? row.status,
+    );
+    final isStructurallyCancelled =
+        masterStatus == CalendarEventStatus.cancelled ||
+        occurrenceStoredStatus == CalendarEventStatus.cancelled;
+    var status = occurrenceStoredStatus;
+    final report = reportById[occurrenceId];
+    if (!isStructurallyCancelled &&
+        status == CalendarEventStatus.scheduled &&
+        report != null) {
+      status = report.status;
+    }
+    final activityTypeId = exception?.activityTypeId ?? row.activityTypeId;
+    final activityTypeStableKeySnapshot =
+        exception?.activityTypeStableKeySnapshot ??
+        row.activityTypeStableKeySnapshot;
+    final activityTypeLabelSnapshot =
+        exception?.activityTypeLabelSnapshot ?? row.activityTypeLabelSnapshot;
+    final activityTypeColorValueSnapshot =
+        exception?.activityTypeColorValueSnapshot ??
+        row.activityTypeColorValueSnapshot;
+    final activityType =
+        activityTypeId == null ||
+            (activityTypeStableKeySnapshot != null &&
+                activityTypeLabelSnapshot != null &&
+                activityTypeColorValueSnapshot != null)
+        ? null
+        : await _readActivityType(row.profileId, activityTypeId);
+    final activityTypeStableKey =
+        activityTypeStableKeySnapshot ?? activityType?.stableKey;
+    final activityTypeLabel = activityTypeLabelSnapshot ?? activityType?.label;
+    final activityTypeColorValue =
+        activityTypeColorValueSnapshot ?? activityType?.colorValue;
+    return CalendarEventOccurrence(
+      id: occurrenceId,
+      eventId: row.id,
+      profileId: row.profileId,
+      title: exception?.title ?? row.title,
+      notes: exception == null ? row.notes : exception.notes,
+      timing: timing,
+      originalDate: originalDate,
+      displayDate: displayDate,
+      startUtc: startUtc,
+      endUtc: endUtc,
+      startDisplay: startDisplay,
+      endDisplay: endDisplay,
+      timeZoneId: zoneId,
+      displayTimeZoneId: timing == CalendarEventTiming.timed
+          ? timeZones.displayTimeZoneId
+          : null,
+      locationText: exception == null
+          ? row.locationText
+          : exception.locationText,
+      status: status,
+      requiresReport: exception?.requiresReport ?? row.requiresReport,
+      activityTypeId: activityTypeId,
+      activityTypeMappingVersion:
+          exception?.activityTypeMappingVersion ??
+          row.activityTypeMappingVersion,
+      activityTypeStableKey: activityTypeStableKey,
+      activityTypeLabel: activityTypeLabel,
+      activityTypeColorValue: activityTypeColorValue,
+      contributionRuleKey: exception == null
+          ? row.contributionRuleKey
+          : exception.contributionRuleKey,
+      isBackupAppointment:
+          exception?.isBackupAppointment ?? row.isBackupAppointment,
+      backupForEventId: exception == null
+          ? row.backupForEventId
+          : exception.backupForEventId,
+      backupRelationshipProvenance: exception == null
+          ? row.backupRelationshipProvenance
+          : exception.backupRelationshipProvenance,
+      recurrence: rule,
+      replacementEventId:
+          exception?.replacementEventId ?? row.replacementEventId,
+      linkedTaskIds: taskContextSnapshot == null
+          ? await taskContextSource.readLinkedTaskIds(
+              eventId: row.id,
+              occurrenceId: occurrenceId,
+            )
+          : taskContextSnapshot.linkedTaskIds(
+              eventId: row.id,
+              occurrenceId: occurrenceId,
+            ),
+      isStructurallyCancelled: isStructurallyCancelled,
+      reportedStatus: report?.status,
+      createdAtUtc: exception?.createdAtUtc ?? row.createdAtUtc,
+      updatedAtUtc: exception?.createdAtUtc ?? row.updatedAtUtc,
+    );
+  }
+
+  PlannerCalendarItem _toPlannerItem(CalendarEventOccurrence occurrence) {
+    return PlannerCalendarItem(
+      id: occurrence.id,
+      eventId: occurrence.eventId,
+      title: occurrence.title,
+      date: occurrence.displayDate,
+      originalDate: occurrence.originalDate,
+      timing: occurrence.timing == CalendarEventTiming.allDay
+          ? PlannerEventTiming.allDay
+          : PlannerEventTiming.timed,
+      state: switch (occurrence.status) {
+        CalendarEventStatus.scheduled => PlannerEventState.scheduled,
+        CalendarEventStatus.completedHappened =>
+          PlannerEventState.completedHappened,
+        CalendarEventStatus.partiallyCompleted =>
+          PlannerEventState.partiallyCompleted,
+        CalendarEventStatus.didNotHappen => PlannerEventState.didNotHappen,
+        CalendarEventStatus.cancelled => PlannerEventState.cancelled,
+        CalendarEventStatus.rescheduled => PlannerEventState.rescheduled,
+      },
+      requiresReport: occurrence.requiresReport,
+      hasOutcomeReport:
+          occurrence.status == CalendarEventStatus.completedHappened ||
+          occurrence.status == CalendarEventStatus.partiallyCompleted ||
+          occurrence.status == CalendarEventStatus.didNotHappen,
+      startLocal: occurrence.startDisplay,
+      endLocal: occurrence.endDisplay,
+      startUtc: occurrence.startUtc,
+      endUtc: occurrence.endUtc,
+      locationText: occurrence.locationText,
+      isRecurring: occurrence.isRecurring,
+      replacementId: occurrence.replacementEventId,
+      linkedTaskIds: occurrence.linkedTaskIds,
+      timeZoneId: occurrence.timeZoneId,
+      displayTimeZoneId: occurrence.displayTimeZoneId,
+      activityTypeId: occurrence.activityTypeId,
+      activityTypeLabel: occurrence.activityTypeLabel,
+      activityTypeColorValue: occurrence.activityTypeColorValue,
+      isBackupAppointment: occurrence.isBackupAppointment,
+      backupForEventId: occurrence.backupForEventId,
+    );
+  }
+
+  Future<CalendarEventOccurrence> _requireOccurrence({
+    required CalendarEventRow row,
+    required PlannerDate originalDate,
+    required List<CalendarEventReportSnapshot> reports,
+  }) async {
+    final id = CalendarEventOccurrenceIdentity.forDate(
+      eventId: row.id,
+      originalDate: originalDate,
+    );
+    final occurrence = await _buildOccurrence(
+      row: row,
+      originalDate: originalDate,
+      exception: (await _latestExceptions(row.id))[id],
+      reportById: <String, CalendarEventReportSnapshot>{
+        for (final report in reports) report.occurrenceId: report,
+      },
+    );
+    if (occurrence == null) {
+      throw StateError('Calendar Event occurrence not found');
+    }
+    return occurrence;
+  }
+
+  void _ensureOccurrenceIsEditable({
+    required String eventId,
+    required PlannerDate originalDate,
+    required List<CalendarEventReportSnapshot> reports,
+  }) {
+    final id = CalendarEventOccurrenceIdentity.forDate(
+      eventId: eventId,
+      originalDate: originalDate,
+    );
+    if (reports.any((report) => report.occurrenceId == id)) {
+      throw const CalendarEventValidationException(
+        'Reported historical occurrences are immutable.',
+      );
+    }
+  }
+
+  Future<void> _preserveReports({
+    required String profileId,
+    required CalendarEventRow row,
+    required List<CalendarEventReportSnapshot> reports,
+    required String operationId,
+  }) async {
+    final existing = await _latestExceptions(row.id);
+    for (final report in reports) {
+      if (existing.containsKey(report.occurrenceId)) {
+        continue;
+      }
+      final occurrence = await _buildOccurrence(
+        row: row,
+        originalDate: report.originalDate,
+        exception: null,
+        reportById: <String, CalendarEventReportSnapshot>{
+          report.occurrenceId: report,
+        },
+      );
+      if (occurrence == null) {
+        continue;
+      }
+      await _insertExceptionFromOccurrence(
+        profileId: profileId,
+        occurrence: occurrence,
+        status: report.status,
+        operationId: '$operationId:${report.occurrenceId}',
+      );
+    }
+  }
+
+  Future<void> _insertExceptionFromOccurrence({
+    required String profileId,
+    required CalendarEventOccurrence occurrence,
+    required CalendarEventStatus status,
+    required String operationId,
+    String? replacementEventId,
+  }) {
+    return _insertException(
+      profileId: profileId,
+      eventId: occurrence.eventId,
+      originalDate: occurrence.originalDate,
+      occurrenceId: occurrence.id,
+      draft: CalendarEventDraft(
+        id: occurrence.eventId,
+        title: occurrence.title,
+        notes: occurrence.notes,
+        timing: occurrence.timing,
+        startDate: occurrence.originalDate,
+        startMinute: occurrence.startUtc == null
+            ? null
+            : _originMinute(occurrence.startUtc!, occurrence.timeZoneId!),
+        endMinute: occurrence.startUtc == null || occurrence.endUtc == null
+            ? null
+            : _originEndMinute(
+                occurrence.startUtc!,
+                occurrence.endUtc!,
+                occurrence.timeZoneId!,
+              ),
+        timeZoneId: occurrence.timeZoneId,
+        locationText: occurrence.locationText,
+        requiresReport: occurrence.requiresReport,
+        activityTypeId: occurrence.activityTypeId,
+        activityTypeMappingVersion: occurrence.activityTypeMappingVersion,
+        activityTypeStableKeySnapshot: occurrence.activityTypeStableKey,
+        activityTypeLabelSnapshot: occurrence.activityTypeLabel,
+        activityTypeColorValueSnapshot: occurrence.activityTypeColorValue,
+        contributionRuleKey: occurrence.contributionRuleKey,
+        isBackupAppointment: occurrence.isBackupAppointment,
+        backupForEventId: occurrence.backupForEventId,
+        backupRelationshipProvenance: occurrence.backupRelationshipProvenance,
+      ),
+      status: status,
+      operationId: operationId,
+      replacementEventId: replacementEventId,
+    );
+  }
+
+  Future<void> _insertException({
+    required String profileId,
+    required String eventId,
+    required PlannerDate originalDate,
+    required String occurrenceId,
+    required CalendarEventDraft draft,
+    required CalendarEventStatus status,
+    required String operationId,
+    String? replacementEventId,
+  }) async {
+    final existing = await _readRow(profileId: profileId, eventId: eventId);
+    final activityTypeSnapshot = await _resolveActivityTypeSnapshot(
+      profileId: profileId,
+      draft: draft,
+      existing: existing,
+    );
+    // Life Goal invariant (domain rule): a linked Event is always Report
+    // Required.  Normalize here so occurrence persistence can never write
+    // goalId != null with requiresReport == false.  Planner Polish Delta 2:
+    // the Contact Event Type always requires a report even without a Goal.
+    final effectiveRequiresReport =
+        draft.goalId != null ||
+            activityTypeSnapshot?.stableKey == SystemEventTypeKeys.contact
+        ? true
+        : draft.requiresReport;
+    await database
+        .into(database.calendarEventExceptions)
+        .insert(
+          CalendarEventExceptionsCompanion.insert(
+            id: CalendarEventExceptionIdentity.forOperation(
+              operationId: operationId,
+              occurrenceId: occurrenceId,
+            ),
+            profileId: profileId,
+            eventId: eventId,
+            occurrenceId: occurrenceId,
+            originalDate: originalDate.iso8601,
+            effectiveDate: draft.startDate.iso8601,
+            title: draft.title,
+            notes: Value<String?>(draft.notes),
+            timing: draft.timing.name,
+            startMinute: Value<int?>(draft.startMinute),
+            endMinute: Value<int?>(draft.endMinute),
+            timeZoneId: Value<String?>(draft.timeZoneId),
+            locationText: Value<String?>(draft.locationText),
+            requiresReport: Value<bool>(effectiveRequiresReport),
+            activityTypeId: Value<String?>(draft.activityTypeId),
+            activityTypeMappingVersion: Value<int?>(
+              draft.activityTypeMappingVersion,
+            ),
+            activityTypeStableKeySnapshot: Value<String?>(
+              activityTypeSnapshot?.stableKey,
+            ),
+            activityTypeLabelSnapshot: Value<String?>(
+              activityTypeSnapshot?.label,
+            ),
+            activityTypeColorValueSnapshot: Value<int?>(
+              activityTypeSnapshot?.colorValue,
+            ),
+            contributionRuleKey: Value<String?>(draft.contributionRuleKey),
+            goalId: Value<String?>(draft.goalId),
+            isBackupAppointment: Value<bool>(draft.isBackupAppointment),
+            backupForEventId: Value<String?>(draft.backupForEventId),
+            backupRelationshipProvenance: Value<String?>(
+              draft.backupRelationshipProvenance,
+            ),
+            status: status.name,
+            replacementEventId: Value<String?>(replacementEventId),
+            createdAtUtc: clock.nowUtc(),
+          ),
+        );
+  }
+
+  Future<_ActivityTypeSnapshot?> _resolveActivityTypeSnapshot({
+    required String profileId,
+    required CalendarEventDraft draft,
+    required CalendarEventRow? existing,
+  }) async {
+    final activityTypeId = draft.activityTypeId;
+    if (activityTypeId == null) {
+      return null;
+    }
+    final sameType =
+        existing != null && existing.activityTypeId == activityTypeId;
+    final canUseDraftSnapshot = existing == null || sameType;
+    final stableKey = canUseDraftSnapshot
+        ? draft.activityTypeStableKeySnapshot ??
+              (sameType ? existing.activityTypeStableKeySnapshot : null)
+        : null;
+    final label = canUseDraftSnapshot
+        ? draft.activityTypeLabelSnapshot ??
+              (sameType ? existing.activityTypeLabelSnapshot : null)
+        : null;
+    final colorValue = canUseDraftSnapshot
+        ? draft.activityTypeColorValueSnapshot ??
+              (sameType ? existing.activityTypeColorValueSnapshot : null)
+        : null;
+    final current = stableKey == null || label == null || colorValue == null
+        ? await _readActivityType(profileId, activityTypeId)
+        : null;
+    return _ActivityTypeSnapshot(
+      stableKey: stableKey ?? current?.stableKey,
+      label: label ?? current?.label,
+      colorValue: colorValue ?? current?.colorValue,
+    );
+  }
+
+  Future<bool> _operationExists(String operationId) async {
+    return (await (database.select(database.calendarEventOperations)
+              ..where((table) => table.operationId.equals(operationId))
+              ..limit(1))
+            .getSingleOrNull()) !=
+        null;
+  }
+
+  Future<void> _insertOperation({
+    required String operationId,
+    required String profileId,
+    required String eventId,
+    required String occurrenceId,
+    required String command,
+  }) async {
+    await database
+        .into(database.calendarEventOperations)
+        .insert(
+          CalendarEventOperationsCompanion.insert(
+            operationId: operationId,
+            profileId: profileId,
+            eventId: eventId,
+            occurrenceId: Value<String?>(occurrenceId),
+            command: command,
+            createdAtUtc: clock.nowUtc(),
+          ),
+        );
+  }
+
+  /// Removes scheduled (field-override) exceptions for one occurrence.  Used
+  /// when a NON-recurring Event edit rewrites the master row: the master now
+  /// owns the full edited state, so a stale override (for example old times
+  /// from a pre-fix build) must not keep masking the master values.  Lifecycle
+  /// exceptions (cancelled / rescheduled) are intentionally preserved.
+  Future<void> _clearFieldOverrideExceptions({
+    required String eventId,
+    required String occurrenceId,
+  }) async {
+    await (database.delete(database.calendarEventExceptions)..where(
+          (table) =>
+              table.eventId.equals(eventId) &
+              table.occurrenceId.equals(occurrenceId) &
+              table.status.equals(CalendarEventStatus.scheduled.name),
+        ))
+        .go();
+  }
+
+  /// Once a series becomes a single non-repeating Event, only exceptions
+  /// that preserve submitted historical occurrence truth may remain. Future
+  /// or otherwise unreported overrides would continue to project phantom
+  /// occurrences because exception identity intentionally bypasses rule
+  /// expansion.
+  Future<void> _removeUnreportedExceptions({
+    required String eventId,
+    required List<CalendarEventReportSnapshot> reports,
+  }) async {
+    final reportedOccurrenceIds = reports
+        .map((report) => report.occurrenceId)
+        .toSet();
+    final deletion = database.delete(database.calendarEventExceptions)
+      ..where((table) {
+        final eventMatches = table.eventId.equals(eventId);
+        if (reportedOccurrenceIds.isEmpty) {
+          return eventMatches;
+        }
+        return eventMatches & table.occurrenceId.isNotIn(reportedOccurrenceIds);
+      });
+    await deletion.go();
+  }
+
+  /// Delta 4.1 recurrence rebase: translates every surviving time-based
+  /// occurrence override of a series by [deltaMinutes] while preserving each
+  /// override's duration and its relative offset from the series baseline.
+  ///
+  /// Only `scheduled` (field-override) exceptions with `timed` timing and
+  /// persisted start/end minutes are rebased.  Lifecycle rows (cancelled
+  /// exclusions, rescheduled/detached occurrences) stay untouched, and
+  /// overrides belonging to other series are never selected (the query is
+  /// scoped by this series' event id).  The new start is clamped inside the
+  /// civil day with the full duration preserved, so an extreme delta cannot
+  /// produce an invalid end-before-start or an over-24h span.
+  Future<void> _rebaseSeriesTimeOverrides({
+    required String eventId,
+    required int deltaMinutes,
+  }) async {
+    final exceptions = await (database.select(
+      database.calendarEventExceptions,
+    )..where((table) => table.eventId.equals(eventId))).get();
+    for (final exception in exceptions) {
+      if (exception.timing != CalendarEventTiming.timed.name ||
+          exception.status != CalendarEventStatus.scheduled.name) {
+        continue;
+      }
+      final start = exception.startMinute;
+      final end = exception.endMinute;
+      if (start == null || end == null) {
+        continue;
+      }
+      final duration = end - start;
+      final nextStart = (start + deltaMinutes).clamp(0, 1440 - duration);
+      final nextEnd = nextStart + duration;
+      await (database.update(
+        database.calendarEventExceptions,
+      )..where((table) => table.id.equals(exception.id))).write(
+        CalendarEventExceptionsCompanion(
+          startMinute: Value<int>(nextStart),
+          endMinute: Value<int>(nextEnd),
+        ),
+      );
+    }
+  }
+
+  Future<void> _truncateBefore(
+    CalendarEventRow row,
+    PlannerDate originalDate,
+  ) async {
+    await (database.update(
+      database.calendarEvents,
+    )..where((table) => table.id.equals(row.id))).write(
+      CalendarEventsCompanion(
+        recurrenceEndMode: const Value<String>('onDate'),
+        recurrenceEndDate: Value<String>(originalDate.addDays(-1).iso8601),
+        recurrenceCount: const Value<int?>(null),
+        updatedAtUtc: Value<DateTime>(clock.nowUtc()),
+      ),
+    );
+  }
+
+  Future<void> _setSeriesStatus({
+    required CalendarEventRow row,
+    required CalendarEventStatus status,
+    String? replacementEventId,
+  }) async {
+    await (database.update(
+      database.calendarEvents,
+    )..where((table) => table.id.equals(row.id))).write(
+      CalendarEventsCompanion(
+        status: Value<String>(status.name),
+        replacementEventId: Value<String?>(replacementEventId),
+        updatedAtUtc: Value<DateTime>(clock.nowUtc()),
+      ),
+    );
+  }
+
+  CalendarEventDraft _draftForSplit({
+    required CalendarEventRow source,
+    required PlannerDate targetDate,
+    required CalendarEventDraft replacement,
+  }) {
+    var rule = replacement.recurrence;
+    final sourceRule = _ruleFromRow(source);
+    if (_sameRule(rule, sourceRule) &&
+        sourceRule.endMode == CalendarRecurrenceEndMode.afterCount) {
+      final index = sourceRule.occurrenceIndexOn(
+        startDate: PlannerDate.parse(source.startDate),
+        targetDate: targetDate,
+      )!;
+      rule = CalendarRecurrenceRule(
+        frequency: rule.frequency,
+        endMode: CalendarRecurrenceEndMode.afterCount,
+        occurrenceCount: sourceRule.occurrenceCount! - index,
+        pattern: rule.pattern,
+      );
+    }
+    return replacement.copyWith(startDate: targetDate, recurrence: rule);
+  }
+
+  bool _sameRule(CalendarRecurrenceRule left, CalendarRecurrenceRule right) {
+    return left.frequency == right.frequency &&
+        left.endMode == right.endMode &&
+        left.endDate == right.endDate &&
+        left.occurrenceCount == right.occurrenceCount &&
+        left.pattern == right.pattern;
+  }
+
+  int _originMinute(DateTime instant, String timeZoneId) {
+    final wall = timeZones.utcToWall(value: instant, timeZoneId: timeZoneId);
+    return wall.hour * 60 + wall.minute;
+  }
+
+  /// Normalized origin-zone END minute (1..1440) for a timed Event.
+  ///
+  /// A 24:00 local end normalizes to 00:00 of the next civil day; without
+  /// the normalization the snapshot/duplicate path would persist `endMinute
+  /// == 0`, which is before any start and would be rejected by validation —
+  /// the final-hour 11 PM-12 AM edit/move failure.  A valid timed Event
+  /// always ends after it starts, so an end wall-clock of exactly 00:00 with
+  /// positive duration can only be the final 24:00 boundary (including a
+  /// full-day Event from 00:00 to 24:00); a zero-duration end at 00:00 is
+  /// invalid and stays minute 0.
+  int _originEndMinute(
+    DateTime startInstant,
+    DateTime endInstant,
+    String timeZoneId,
+  ) {
+    final endWall = timeZones.utcToWall(
+      value: endInstant,
+      timeZoneId: timeZoneId,
+    );
+    final endMinute = endWall.hour * 60 + endWall.minute;
+    if (endMinute == 0 && endInstant.isAfter(startInstant)) {
+      return 1440;
+    }
+    return endMinute;
+  }
+}

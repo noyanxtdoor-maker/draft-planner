@@ -1,0 +1,233 @@
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:rmplanner/app/router/route_names.dart';
+import 'package:rmplanner/app/theme/app_theme.dart';
+import 'package:rmplanner/features/maps/domain/map_coordinate.dart';
+import 'package:rmplanner/features/maps/presentation/map_external_navigation.dart';
+import 'package:rmplanner/features/maps/presentation/map_location_picker_screen.dart';
+
+/// Maps V1 pin control used by the Contact and Event forms.
+///
+/// This widget is purely presentational: it opens the picker, reports
+/// changes through [onChanged], and never writes to the database itself.
+/// The owning form persists the pin AFTER the record save succeeds, so a
+/// create-mode pin is never written to a row that does not exist yet.
+final class MapPinSection extends StatelessWidget {
+  const MapPinSection({
+    super.key,
+    required this.displayName,
+    required this.coordinate,
+    required this.onChanged,
+    this.contactFormStyle = false,
+  });
+
+  /// The record's display name, used as the picker marker label.
+  final String displayName;
+
+  /// Current persisted (or pending) pin; null means no pin.
+  final MapCoordinate? coordinate;
+
+  /// Called with the newly picked coordinate, or null after Clear.
+  final ValueChanged<MapCoordinate?> onChanged;
+
+  /// The Contact C4 form has a deliberately compact Map presentation.  Event
+  /// forms retain the established Maps V1 control unchanged.
+  final bool contactFormStyle;
+
+  Future<void> _openPicker(BuildContext context) async {
+    final result = await context.push<MapCoordinate>(
+      RoutePaths.mapPicker,
+      extra: MapPickerArgs(
+        displayName: displayName,
+        initialCoordinate: coordinate,
+      ),
+    );
+    if (result != null) {
+      onChanged(result);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final current = coordinate;
+    if (contactFormStyle) {
+      return _buildContactMap(context, theme, current);
+    }
+    return Semantics(
+      container: true,
+      label: current == null ? 'No map pin set' : 'Map pin set',
+      child: Container(
+        key: const Key('map-pin-section'),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: AppTheme.outlineOf(context)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                Icon(
+                  Icons.location_on_outlined,
+                  size: 18,
+                  color: theme.colorScheme.primary,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    current == null
+                        ? 'Map pin'
+                        : 'Map pin: ${current.description}',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: <Widget>[
+                if (current == null)
+                  FilledButton.tonalIcon(
+                    key: const Key('map-pin-set'),
+                    onPressed: () => _openPicker(context),
+                    icon: const Icon(Icons.add_location_alt_outlined, size: 18),
+                    label: const Text('Set on map'),
+                  )
+                else ...<Widget>[
+                  FilledButton.tonalIcon(
+                    key: const Key('map-pin-edit'),
+                    onPressed: () => _openPicker(context),
+                    icon: const Icon(
+                      Icons.edit_location_alt_outlined,
+                      size: 18,
+                    ),
+                    label: const Text('Edit pin'),
+                  ),
+                  const SizedBox(width: 8),
+                  TextButton.icon(
+                    key: const Key('map-pin-clear'),
+                    onPressed: () => onChanged(null),
+                    icon: const Icon(Icons.delete_outline, size: 18),
+                    label: const Text('Clear'),
+                  ),
+                  const SizedBox(width: 8),
+                  TextButton.icon(
+                    key: const Key('map-pin-navigate'),
+                    onPressed: () => MapExternalNavigation.launchWithFallback(
+                      context,
+                      current,
+                      label: displayName,
+                    ),
+                    icon: const Icon(Icons.navigation_outlined, size: 18),
+                    label: const Text('Navigate'),
+                  ),
+                ],
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContactMap(
+    BuildContext context,
+    ThemeData theme,
+    MapCoordinate? current,
+  ) {
+    return Semantics(
+      container: true,
+      label: current == null ? 'Map not set' : 'Map saved',
+      child: Container(
+        key: const Key('contact-map-section'),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: AppTheme.outlineOf(context)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            if (current == null)
+              FilledButton.tonalIcon(
+                key: const Key('contact-map-set'),
+                onPressed: () => _openPicker(context),
+                icon: const Icon(Icons.add_location_alt_outlined, size: 16),
+                label: const Text(
+                  'Set Map Location',
+                  style: TextStyle(fontSize: 14),
+                ),
+              )
+            else ...<Widget>[
+              InkWell(
+                key: const Key('contact-map-coordinate-card'),
+                onTap: () => _openPicker(context),
+                borderRadius: BorderRadius.circular(8),
+                child: ContactLocationPreview(coordinate: current),
+              ),
+              const SizedBox(height: 4),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  key: const Key('contact-map-clear'),
+                  onPressed: () => onChanged(null),
+                  icon: const Icon(Icons.delete_outline, size: 16),
+                  label: const Text(
+                    'Clear Map',
+                    style: TextStyle(fontSize: 13),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Read-only compact visual preview for a selected Contact coordinate.
+final class ContactLocationPreview extends StatelessWidget {
+  const ContactLocationPreview({required this.coordinate, super.key});
+  final MapCoordinate coordinate;
+
+  @override
+  Widget build(BuildContext context) => ClipRRect(
+    borderRadius: BorderRadius.circular(8),
+    child: SizedBox(
+      height: 112,
+      child: Stack(
+        fit: StackFit.expand,
+        children: <Widget>[
+          IgnorePointer(
+            child: GoogleMap(
+              initialCameraPosition: CameraPosition(
+                target: LatLng(coordinate.latitude, coordinate.longitude),
+                zoom: 14,
+              ),
+              markers: <Marker>{
+                Marker(
+                  markerId: const MarkerId('location-preview'),
+                  position: LatLng(coordinate.latitude, coordinate.longitude),
+                ),
+              },
+              liteModeEnabled: true,
+              mapToolbarEnabled: false,
+              myLocationButtonEnabled: false,
+              zoomControlsEnabled: false,
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}

@@ -1,0 +1,112 @@
+PHASE B MIXED-CORRECTION — DEVICE-EVIDENCE REPORT
+Date: 2026-08-28 (Asia/Singapore)
+Status: ENGINEERING VALIDATION COMPLETE; OWNER PHYSICAL REVIEW REQUIRED
+
+Scope preserved
+---------------
+This continuation preserved the approved Phase B mixed correction and owner
+state. No uninstall, clear-data operation, stage, commit, push, reset, clean,
+or stash was performed.
+
+The two requested stale test expectations were corrected only:
+1. Task Preview no longer expects the unbounded Activity History button.
+2. The 15-minute Event regression explicitly uses the normal 60 px/hour zoom
+   and asserts the truthful 15.0 px painted height. Its separate transparent
+   interaction layer remains 24.0 px, preserving touch usability without
+   changing visual geometry.
+
+Source and test validation
+--------------------------
+- Focused Planner regressions:
+  flutter test --no-pub planner_journey_test.dart planner_issue5_6_test.dart
+  Result: 22 tests passed; final footer: "All tests passed!"
+- Authoritative broad gate, fresh captured process:
+  flutter test --no-pub test/features/planner test/features/contacts
+  test/features/maps test/core/database/migration_rollback_test.dart
+  test/core/database/calendar_recurrence_pattern_migration_test.dart
+  --reporter compact --timeout 90s
+  Result: 932 tests passed; final footer: "All tests passed!"
+  Captured log:
+  build/phase-b-mixed-gate-evidence/planner-contacts-maps-migration-authoritative.out.txt
+- Direct Dart static analysis (`dart analyze --fatal-infos lib test`) completed
+  with no diagnostics.
+- `git diff --check` completed cleanly. Existing dirty-tree files were left
+  intact; line-ending warnings were informational only.
+
+Authorized artifact identity
+----------------------------
+Downloads workspace only:
+C:\Users\sherl\Downloads\NT_C7_IMPLEMENTATION_20260825_235900
+
+Artifact:
+C:\Users\sherl\Downloads\NT_C7_IMPLEMENTATION_20260825_235900\build\app\outputs\flutter-apk\app-debug.apk
+Timestamp: 2026-08-28T10:26:07.0815590+08:00
+Size: 235111623 bytes
+SHA-256: 44A4BBBCCC44D832B2C5DFB8DBCA2214EC41600886A5614502475548818E6E05
+Package: com.nexttransfer.rmplanner
+Version: 1 (0.1.0)
+Launch activity: com.nexttransfer.rmplanner.MainActivity
+Label: Next Transfer
+
+USB device and continuity proof
+-------------------------------
+Authorized USB ADB serial:
+10620253B3004617
+Device observed online:
+Infinix_X6731 (product X6731-GL; transport_id 3)
+
+Pre-install package state:
+- Installed package: com.nexttransfer.rmplanner
+- Existing base path:
+  /data/app/~~4JoZQFmeR-ctt_PnZxQJFw==/com.nexttransfer.rmplanner-cj94lTJ-gwRStJ7fds_JOw==/base.apk
+- firstInstallTime: 2026-07-27 15:42:22
+- lastUpdateTime: 2026-08-28 09:04:34
+- dataDir: /data/user/0/com.nexttransfer.rmplanner
+
+Installation performed:
+adb -s 10620253B3004617 install -r <verified Downloads APK>
+Result: Success
+No uninstall or data clear was used.
+
+Post-install package state:
+- Installed base path:
+  /data/app/~~gPylbCxh0R9tc9Az_i9HFQ==/com.nexttransfer.rmplanner-86Oy32-Z2QOcFpdSG4CQ2Q==/base.apk
+- firstInstallTime: 2026-07-27 15:42:22 (unchanged)
+- lastUpdateTime: 2026-08-28 11:08:37 (advanced for update)
+- dataDir: /data/user/0/com.nexttransfer.rmplanner (unchanged)
+
+Installed APK equality proof
+----------------------------
+The post-install base.apk was pulled to:
+build/phase-b-mixed-gate-evidence/installed-base.apk
+
+Local artifact size: 235111623 bytes
+Installed base.apk size: 235111623 bytes
+Local artifact SHA-256:
+44A4BBBCCC44D832B2C5DFB8DBCA2214EC41600886A5614502475548818E6E05
+Installed base.apk SHA-256:
+44A4BBBCCC44D832B2C5DFB8DBCA2214EC41600886A5614502475548818E6E05
+Result: exact byte-size and SHA-256 equality confirmed.
+
+Cold-launch and screenshot evidence
+-----------------------------------
+- The app process was force-stopped, then launched with Android monkey.
+- Android focused activity after launch:
+  com.nexttransfer.rmplanner/.MainActivity
+- Captured screenshot:
+  build/phase-b-mixed-gate-evidence/phase-b-mixed-correction-cold-launch.png
+- Screenshot size: 145954 bytes
+- Screenshot SHA-256:
+  3C8E3C85698B5B68E3428062B6B9B7F9F4D1FD9CD16FCE018AE2CB4389B8204F
+- Visual observation: the preserved owner Home screen rendered after the cold
+  launch, including existing Life Goals content. This is smoke evidence only;
+  it is not an owner visual acceptance of the Phase B correction.
+
+Owner physical-review boundary
+------------------------------
+Engineering gates, package equality, continuity proof, installation, and
+cold-launch evidence are complete. The final required action is owner physical
+review of the installed app, particularly Planner Task Day visual parity, the
+truthful 15-minute Event at normal zoom, and Task Preview presentation. STOPPED
+here; no further implementation or device mutation is authorized by this
+report.

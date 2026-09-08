@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="512" height="512" viewBox="0 0 512 512"
+     fill="none">
+  <!-- Next Transfer — Finance / Money — Pie Chart
+       Approved concept recreation.
+       Transparent background. -->
+  <g stroke="#5BB0CD" stroke-width="14"
+     stroke-linecap="round" stroke-linejoin="round">
+    <!-- Large blue sector -->
+    <path d="M252 115
+             A145 145 0 1 0 355 363
+             L252 260
+             Z"/>
+    <!-- Small lower-right blue sector -->
+    <path d="M252 260
+             L397 260
+             A145 145 0 0 1 355 363
+             Z"/>
+  </g>
+
+  <!-- Detached gold upper-right sector -->
+  <path d="M274 113
+           A125 125 0 0 1 399 238
+           L274 238
+           Z"
+        stroke="#DFA54A"
+        stroke-width="14"
+        stroke-linecap="round"
+        stroke-linejoin="round"/>
+</svg>

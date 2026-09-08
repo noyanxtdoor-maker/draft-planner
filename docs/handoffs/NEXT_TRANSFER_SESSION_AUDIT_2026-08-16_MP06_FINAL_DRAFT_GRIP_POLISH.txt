@@ -1,0 +1,192 @@
+NEXT TRANSFER — SESSION AUDIT
+MP-06 FINAL DRAFT GRIP POLISH
+DATE: 2026-08-16 (device work completed 2026-08-17 06:5x +0800)
+MODE: AUDIT-FIRST / FAIL-FIRST / SURGICAL IMPLEMENTATION + SAFE INSTALL + DEVICE EVIDENCE
+STATUS: READY FOR OWNER PHYSICAL REVIEW · NO COMMIT · NO PUSH · NO STAGING
+
+================================================================================
+1. MANDATORY PRE-EDIT BACKUP
+================================================================================
+Folder: C:\Users\sherl\Documents\Next Transfer-Backups\2026-08-16_2119_MP06_GRIP_POLISH\
+Lock:   C:\Users\sherl\Documents\Next Transfer-Backups\MP06_GRIP_POLISH.lock
+
+Artifacts (all present, SHA-256 recorded in SHA256_MANIFEST.txt):
+- BASELINE_IDENTITY.txt
+- next_transfer_repo.bundle        (18.3 MB; `git bundle verify` PASS — "records a complete history")
+- tracked_worktree.patch           (1.4 MB, --binary)
+- staged_index.patch               (empty — index was EMPTY at backup)
+- untracked_files_manifest.txt
+- untracked_source_snapshot.zip    (11.4 MB — includes all untracked Maps source/tests)
+- source_worktree_snapshot.zip     (39.6 MB — tracked+untracked source, caches excluded)
+
+Baseline identity:
+- repo:      C:\Users\sherl\Documents\Next Transfer-Temp
+- branch:    autonomous/stability-ux-pack-a-20260814
+- HEAD:      109417052acf94b02b2fa0e16d6785d0bb70e8ed
+- origin:    109417052acf94b02b2fa0e16d6785d0bb70e8ed
+- index:     EMPTY
+- dirty tree: Maps V1 + post-Maps regression recovery + R1/preview parity + R3 + MP-04 + R5 (uncommitted)
+
+The full dirty Maps V1 + regression tree is reconstructable from the backup
+(bundle + tracked patch + untracked snapshot all verified).
+
+================================================================================
+2. FORENSIC ROOT CAUSE (MP-06)
+================================================================================
+Owner complaint (pre-polish):
+- Draft resize grips were not sufficiently visible/consistent with the saved
+  Event grip language; earlier draft grip was a floating circle; Dark-mode
+  visibility and color semantics were inconsistent.
+
+Code paths audited:
+- Draft block renderer: _TimelineEventBlock (provisional) — Delta 4.1 "strong
+  pink" fill, TIME-ONLY content, dark maroon time text.
+- Draft handles: _DirectEndpointHandle + _SavedEndpointCornerTabPainter.
+- Saved handles: same _SavedEndpointCornerTabPainter with Event accent.
+
+Exact causes found:
+1. The prior intermediate fix made the draft FILL theme-primary
+   (accent = fill = Theme primary). That silently turned the approved pink
+   provisional draft into a blue/rose block under Blue/Rose themes, and made
+   same-theme colored caps invisible against the fill (owner saw "no grips").
+2. Draft grips were not using the saved-event corner-tab visual language and
+   were not reliably visible on a filled block.
+
+================================================================================
+3. SURGICAL IMPLEMENTATION (exact delta)
+================================================================================
+lib/features/planner/presentation/planner_screen.dart
+- Draft surface restored to the approved provisional pink in EVERY appearance:
+    accent = provisional ? AppTheme.rose : resolvedAccent
+    fill   = provisional ? AppTheme.rose : resolvedFill
+    textColorOverride = provisional ? Color(0xFF3A0610) : null
+  (theme color drives GRIPS only, never the fill; saved Events unchanged)
+- Handle color source:
+    handleAccent = provisional
+        ? Theme.of(context).colorScheme.primary   // Blue->blue, Rose->rose, Light+Dark
+        : PlannerEventColorResolver.accentColor(...) // saved Events keep Event accent
+- _DirectEndpointHandle now places the 14 dp saved-event Corner Tab Grip so it
+  STADDLES the block edge (START cap 7 dp above the upper-right corner, END cap
+  7 dp below the bottom-left corner), inside the unchanged 44 dp invisible hit
+  target. One shared grip painter for draft + saved (single visual source).
+- Class-level doc comment updated to describe the final straddle geometry.
+
+No changes to: lane solver, pager, zoom policy, CT-03, saved-event handles,
+recurrence/status/Actual semantics, Maps, R1, MP-04, R3, R5.
+
+================================================================================
+4. FAIL-FIRST / RED -> GREEN EVIDENCE
+================================================================================
+RED captured first on the live contract: the provisional grip painted the
+Event-Type accent (teal) instead of the selected app Theme Color (rose) —
+mp06_theme_grip_color_test.dart failed before the fix.
+
+GREEN after the fix (actual counts only):
+- MP-06 theme matrix (Appearance x 2 Event Types) : 8/8
+- MP-06 draft grip contract suite                   : 7/7
+- Delta 4.1/4.2 draft/editor batch                  : 23/23
+- Full Planner suite                                : 702/702
+- Goals / Maps / Contacts suites                    : 195/195
+- Startup / Settings / Privacy / Weekly Planning /
+  Indicators / Core database suites                 : 253/253
+- FULL Flutter suite                                : 1150/1150
+- dart analyze --fatal-infos lib test               : CLEAN
+- git diff --check                                  : CLEAN
+
+Files changed in this MP-06 session (within the existing dirty tree):
+- lib/features/planner/presentation/planner_screen.dart          (M)
+- test/features/planner/presentation/mp06_draft_grips_contract_test.dart (M)
+- test/features/planner/presentation/planner_delta4_creation_session_test.dart (M)
+- test/features/planner/presentation/mp06_theme_grip_color_test.dart (untracked, new)
+
+================================================================================
+5. BUILD + SAFE INSTALL
+================================================================================
+APK:      build/app/outputs/flutter-apk/app-debug.apk
+Size:     239,440,217 bytes
+SHA-256:  4dfe5885f53396e2b290f724e746d556744ded3c76d0d7c0c7bd6f4ec8d741ca
+JDK:      Temurin JDK 21 toolchain (maplibre_gl 0.26.2 requirement) via
+          C:\Users\sherl\AppData\Local\Temp\next-transfer-toolchain
+
+Install:  adb install -r ONLY (no uninstall, no pm clear, no app-data deletion)
+Result:   SUCCESS — installed over the existing v28 data.
+
+================================================================================
+6. DATA PRESERVATION (post-install verification)
+================================================================================
+DB:       app_flutter/next_transfer.sqlite
+- PRAGMA user_version : 28 (v28 preserved)
+- PRAGMA quick_check  : ok
+- Row counts: planner_tasks=3, goals=16, contacts=5, calendar_events=227,
+  weekly_plans=11
+- Coordinates: 0 non-null latitude/longitude in calendar_events AND contacts
+  (v28 coordinate columns present and empty)
+- Appearance preference: restored to Light + Blue (owner's starting state;
+  DB recorded appearance_preferences = ('primary','light',...,'blue'))
+- NO events were created/persisted during evidence capture — every test draft
+  was discarded through the normal UI (Close), verified via DB: max
+  created_at_utc unchanged, no new rows on 2026-08-17 beyond the pre-existing
+  8:00-8:30 Backup Appointment.
+- No location permission prompt appeared at any point.
+
+================================================================================
+7. DEVICE EVIDENCE (all four theme states)
+================================================================================
+Folder: docs/handoffs/_screenshots/mp06_final_grip_polish/
+01_Light_Blue_pink_type_draft.png      — pink fill + NAVY caps both corners
+02_Light_Blue_blue_type_draft.png      — pink fill + NAVY caps (2nd Event Type)
+                                        -> grip color INVARIANT across Event Type
+03_Dark_Blue_pink_type_draft.png       — pink fill + light-blue caps
+                                        (START y666-707 x1002-1043, END y735-776 x204-245)
+04_Dark_Rose_temple_type_draft.png     — pink fill + ROSE caps (240,176,192)
+                                        (START y1143-1169 x1002-1043, END y1227-1253 x204-245)
+05_Light_Rose_exercise_type_draft.png  — pink fill + ROSE caps (162,45,73 / 169,50,78)
+
+Pixel-verified on device:
+- Draft block stays FILLED provisional pink (249,183,199) in every appearance.
+- Exactly two visible 14 dp corner caps: START upper-right, END bottom-left,
+  both STRADDLING the block edge (visible on the filled draft).
+- Cap color == selected app Theme Color in all four states (navy/blue under
+  Blue, rose under Rose; Light and Dark), independent of Event Type.
+- Body-move drag verified working on device (draft moved and previewed).
+
+================================================================================
+8. OWNER CHECKLIST (physical review)
+================================================================================
+[ ] Light + Blue: draft pink, upper-right START + bottom-left END caps navy
+[ ] Light + Rose: caps rose
+[ ] Dark  + Blue: caps blue, visible in Dark
+[ ] Dark  + Rose: caps rose, visible in Dark
+[ ] Two Event Types: cap color does NOT change with Event Type
+[ ] Saved Event grip rendering unchanged
+[ ] START drag changes START only / END drag changes END only
+[ ] Sheet drag does not resize
+[ ] Draft time-only, filled/provisional, invisible hit targets preserved
+
+================================================================================
+9. UNRESOLVED / KNOWN FINDINGS (no owner-PASS claim)
+================================================================================
+1. DEVICE DRAG INJECTION: adb-injected vertical drags on the END/START handles
+   were unreliable on this Transsion device (injected swipe/motionevent
+   sequences did not reliably reach the Flutter drag recognizers; the
+   notification-shade swipe worked, so input injection itself works — the
+   failure was app-arena/timing specific). The body move DID work on device.
+   Handle-drag semantics (START->START only, END->END only, sheet drag no
+   resize) are locked by the widget suites listed in section 4, but the owner
+   should perform the physical START/END drag check.
+2. MERGED-MANIFEST LOCATION PERMISSIONS (pre-existing, NOT this session):
+   the installed app's MERGED manifest carries android.permission.
+   ACCESS_COARSE_LOCATION / ACCESS_FINE_LOCATION inherited from the
+   maplibre_gl library manifest (granted=false; the app never requests them;
+   Maps V1 has no My Location feature; no prompt ever appears). The app's
+   OWN source manifests are clean and the Maps platform-contract test locks
+   that. Fix (for a future authorized Maps-boundary session): add
+   tools:node="remove" for the two location permissions in the main manifest.
+3. JDK 21 toolchain is required for the Android build (maplibre_gl 0.26.2);
+   reproducibility note recorded for checkpoint planning.
+
+================================================================================
+10. GIT / STOP
+================================================================================
+NO COMMIT. NO PUSH. NO STAGING.
+STOP FOR OWNER PHYSICAL REVIEW. NO NEW FEATURE WORK.

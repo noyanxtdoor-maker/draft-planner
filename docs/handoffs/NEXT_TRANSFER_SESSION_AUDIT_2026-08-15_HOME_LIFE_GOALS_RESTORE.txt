@@ -1,0 +1,194 @@
+NEXT_TRANSFER_SESSION_AUDIT_2026-08-15_HOME_LIFE_GOALS_RESTORE.txt
+
+================================================================================
+1. SESSION IDENTITY
+================================================================================
+- date/time: 2026-08-15 (local +0800)
+- implementor/model: Freebuff coding agent (Buffy)
+- repo/worktree: C:\Users\sherl\Documents\Next Transfer-Temp
+- branch: autonomous/stability-ux-pack-a-20260814
+- starting HEAD: a6141d7e2a7798ff822150381d5c3b3981d0530d
+- ending HEAD:   a6141d7e2a7798ff822150381d5c3b3981d0530d (unchanged)
+- commit/push: NONE (continuation implementation session; index empty, NO
+  stage, NO commit, NO push)
+- baseline rule: tree was EXPECTED DIRTY (accepted Light UI Final Polish +
+  GI-01/GI-02/CT-03 implementation).  No reset/clean/stash/checkout-over/
+  destructive Git op ran.
+
+================================================================================
+2. DIRTY BASELINE RECONCILIATION (HR-01 gate 1)
+================================================================================
+Reconciled the inherited tracked diff against the Light UI Final Polish audit
+before any edit.  All accepted work verified intact:
+- Goal Icon raw/no-halo Light renderer + per-definition opticalScale (Temple
+  Visit 1.15) in goal_icon.dart
+- GI-02 exact non-Home call-site sizes (weekly 64, choice row 72, archive 56,
+  picker 96, event sheet 48, event card 52, task card 48, task sheet 48)
+- CT-03 current-time 15px / 62dp / 4dp on both live planner paths
+- Blue/Rose semantic cleanup (event form, task form, choice row, archive,
+  picker) and Light gray-surface cleanup
+- Contact detail flicker fix (idempotent freeze + single transaction +
+  content retention)
+- schema v27; index empty; no merge/rebase/detached HEAD; origin == HEAD
+
+STOP conditions all clear: no unexplained tracked modification, no staged
+files, no divergence.
+
+Inherited untracked artifacts inventoried (NOT staged, NOT attributed to this
+session): .accept/, .agents/, .audit_scratch/, .audit_scratch2/, .b2cp3_scratch/,
+.b31_evidence/, .todo.md, Website/, b31_evidence/, docs/handoffs/* prior docs
++ _screenshots.  This session's scratch probe tests were created and REMOVED
+before the final gates.
+
+================================================================================
+3. HR-01 EXACT FILES
+================================================================================
+Production:
+- lib/features/startup/presentation/home_screen.dart (Home Life Goals restore;
+  also the daily-target button semantics boundary fix)
+
+Tests (updated to the approved compact contract):
+- test/features/startup/presentation/home_light_polish_test.dart  (B2, B4, B5)
+- test/features/startup/presentation/home_week_start_test.dart    (HR-01 icon pins)
+- test/features/indicators/presentation/home_indicator_journey_test.dart
+  (76dp card heights, temple+month half-width pair, quick-control <=48,
+   semantics labels)
+
+Goldens (regenerated; authorized Home geometry delta only):
+- test/features/startup/presentation/goldens/goldens/home_pack1/*.png (20)
+- test/features/startup/presentation/goldens/goldens/home_skeleton/*.png
+
+No other production file was touched by this session.  All other tracked
+modifications in the tree are inherited accepted work.
+
+================================================================================
+4. FINAL HOME CARD STRUCTURES (approved reference: approve home light.png)
+================================================================================
+1. Daily Goal wide card — ONE full-width 76dp card, single horizontal row:
+   [GoalIcon 40] [title maxLines 1 + ellipsis, ratio in accent] [Today's Goal
+   block 112dp: label + neutral on-surface value] [+ / minus quick controls].
+   Today's Goal is NEVER below the title; the + action is its own touch
+   target; the block never grows into the title region.
+2. Weekly compact cards — two-column grid, 76dp half-width horizontal pairs:
+   [GoalIcon 36] [title maxLines 1 + ellipsis + value].  No icon-above-text
+   stack; long titles ellipsize cleanly (approved "Work with Mission..."
+   treatment).
+3. Bottom row — 76dp half-width pair: [Temple Visit card: icon 40 + title +
+   "Set Schedule" / "Next Visit"] next to [August Goal card: label + ratio].
+4. Skeleton mirrors the compact rows (wide + 3 pairs + Goal Planning pill).
+
+HOME-ONLY ICON EXCEPTION (owner-authorized HR-01): compact 36dp, wide/monthly
+40dp.  All non-Home GI-02 call sites keep their exact 2x sizes (verified by
+the unchanged GI-02 suites).
+
+Final heights/widths (pinned in tests): daily/compact/temple cards 76dp;
+compact pair width 173.5 at 393; Today block 112dp and <=48dp tall; no
+overflow at 360/393/411; 360dp and textScale evidence in home_light_polish B6
+and the journey width matrix.
+
+SEMANTICS: the daily-target minus/plus buttons now use Semantics(container:
+true) — each button is its own announceable target.  Root cause of the label
+loss: the enclosing Card wraps content in a container boundary, so the old
+non-boundary button Semantics merged its label into the card node and the
+card's own label ("Today's Goal") won the merge; bySemanticsLabel could no
+longer find "Increase/Decrease daily target" after the HR-01 restructure.
+This is both the test fix and the correct a11y behavior (screen readers
+announce each quick control).
+
+================================================================================
+5. RED -> GREEN EVIDENCE
+================================================================================
+RED (before the fix, against the new compact layout): 10 failures — 6 Home
+polish/phase_a pins (B2 title-above, B4 two-line, B5 80/72 icons, A2/A3/A5,
+A8 quick-control height), 3 journey/geometry pins (148dp heights), 1
+week_start GI-02 2x pin, plus the semantics finder failures (bySemanticsLabel
+could not find the daily-target labels).
+
+GREEN after: all of the above updated to the HR-01 contract; full Home surface
+green (home_light_polish 6, home_phase_a 7, home_week_start, home_indicator_
+journey, home_light_ui contract suite).  The semantics fix is covered by B3 and
+A6 (both directions, zero-state and post-tap).
+
+GOLDENS: 18 of 20 pack1 masters + skeleton masters ran RED with the compact
+geometry; inspected 01_default_canonical_home before updating — diff rows
+134-801 are the authorized density shift (same content, compact cards pulling
+Goal Planning/Active Pathways up).  Regenerated ONLY the Home masters; no Dark
+masters, no Goal Icon goldens, no unrelated masters touched by this session.
+
+================================================================================
+6. FULL GATES
+================================================================================
+- HR-01 focused Home tests: 29/29 PASS
+- Goal Icon widget + registry (17) + d1 golden suite (79): PASS
+- CT-03 current-time suites: PASS
+- B3.2 direct-Goal + TF-01 Task-form contracts: PASS (unchanged)
+- Blue/Rose theme contract suite (light_ui_c): PASS
+- Contact flicker test: PASS
+- Full Flutter suite: 1069/1069 PASS
+- dart analyze --fatal-infos lib test: 0 issues
+- git diff --check: clean (LF/CRLF notices only, no whitespace errors)
+- Debug APK: built; SHA-256 98d87f3c522587a6d48d90fcfe4b21af7731a26222c5eca144b9a6d0735a3dd2
+
+================================================================================
+7. SAFE INSTALL / DATA PRESERVATION
+================================================================================
+- Device: wireless debugging (adb-tls-connect), com.nexttransfer.rmplanner
+- Pre-install (read-only pull, binary-safe exec-out): user_version 27,
+  integrity ok, 3 planner_tasks, 5 contacts, 16 goals, appearance = Light +
+  Blue (appearance_preferences primary row)
+- adb install -r app-debug.apk: Success (update-in-place only; no uninstall,
+  no clear data)
+- Relaunch via monkey launcher; app started normally
+- Post-install: user_version 27 -> 27 (no migration), integrity ok, counts
+  identical (3/5/16), appearance Light + Blue preserved
+- Device evidence: %TEMP%\hr01\device\hr01_home_light.png (1080x2400).
+  Pixel analysis confirms compact card bands (~222px ~= 76dp at 2.75 dpr,
+  not the old ~407px/148dp).  Widget/golden tests carry the structural proof.
+  Implementor evidence only — NOT owner physical PASS.
+
+================================================================================
+8. DF-03 DISPOSITION
+================================================================================
+DF-03 (Goal Planning / Active Pathways below the fold) -> RESOLVED BY HR-01.
+Before/after recorded in the deferred ledger (docs/handoffs/
+NEXT_TRANSFER_DEFERRED_FINDINGS_2026-08-15_LIGHT_UI_FINAL_POLISH.txt and the
+owner-facing SESSION_AUDIT copy).  DF-01/02/04/05/06 left untouched.
+
+================================================================================
+9. NO-TOUCH COMPLIANCE
+================================================================================
+- schema/migrations v1-v27: untouched (v27 -> v27)
+- B3.2 direct Goal contribution engine: untouched
+- task_contact_links: untouched
+- TF-01 Task Event-Type removal: untouched
+- CT-03 current-time contract (15/62/4): untouched
+- GI-02 exact non-Home call-site sizes: untouched (only the Home override)
+- assets/icons/goals/**, Goal registry IDs/aliases/categories: untouched
+- Event recurrence / Event direct Goal / Event People freeze: untouched
+- Planner zoom/pinch/scroll/swipe/lane/drag/resize/event geometry: untouched
+- Goal Icon SVG assets / MP-14 / R1 / R3: untouched
+- Ads workstream, unrelated Home/Pathways/Settings design: untouched
+
+================================================================================
+10. OWNER PHYSICAL CHECKLIST (shortest)
+================================================================================
+1. Home Life Goals vs approve home light.png: ONE wide daily card (icon |
+   title | Today's Goal | +), compact half-width pairs, temple + August Goal
+   bottom pair — all compact, Goal Planning on-screen without scrolling.
+2. Long goal titles ("Ministering Visit"): single-line ellipsis, no mid-word
+   wrap, no overlap at 360dp.
+3. Today's Goal block: compact, + does not jump when minus appears.
+4. Home icons 36/40; Choose Icon picker still 96dp / 3 columns; Dark Home
+   cards transparent.
+5. TalkBack/semantics: minus/plus announce individually ("Increase/Decrease
+   daily target").
+6. Data: v27, Light + Blue preserved, existing goals/tasks/contacts intact.
+
+================================================================================
+11. STOP / GIT STATE
+================================================================================
+NO COMMIT / NO PUSH / index empty.  Stopped for owner physical review.
+Next session (after owner approval) should checkpoint the ENTIRE accepted
+dirty implementation in exactly one commit, push normally, then run the next
+read-only forensic audit.
+================================================================================

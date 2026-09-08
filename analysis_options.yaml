@@ -1,0 +1,22 @@
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  exclude:
+    - build/**
+  errors:
+    dead_code: error
+    invalid_use_of_visible_for_testing_member: error
+    missing_required_param: error
+    unused_element: error
+    unused_import: error
+    unused_local_variable: error
+
+linter:
+  rules:
+    always_declare_return_types: true
+    avoid_dynamic_calls: true
+    avoid_print: true
+    directives_ordering: true
+    discarded_futures: true
+    prefer_final_locals: true
+    unawaited_futures: true

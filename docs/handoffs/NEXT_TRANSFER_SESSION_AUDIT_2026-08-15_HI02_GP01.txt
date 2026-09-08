@@ -1,0 +1,140 @@
+NEXT TRANSFER — SESSION AUDIT
+HI-02 HOME ICON VISUAL SIZE + GP-01 CHOOSE ICON LIGHT SURFACE
+DATE: 2026-08-15
+IMPLEMENTOR: FREEBUFF CODING AGENT
+MODE: AUDIT-FIRST · FAIL-FIRST · SURGICAL · OWNER-LOCKED
+
+================================================================================
+1. AUTHORITY / INPUTS
+================================================================================
+- NEXT_TRANSFER_HI02_GP01_AUDIT_FIRST_SURGICAL_IMPLEMENT_PROMPT_2026-08-15.txt
+- 01_OWNER_LOCKS_HI02_GP01.txt
+- REFERENCES/NEXT_TRANSFER_HOME_ICON_SIZE_FORENSIC_AUDIT_2026-08-15.txt
+- REFERENCES/NEXT_TRANSFER_SESSION_AUDIT_2026-08-15_HR02_CHECKPOINT.txt
+
+Owner physical findings: Home icons STILL too small (previous proof was
+requested-box only); Choose Icon Light still shows gray tile backgrounds;
+HR-02 Home structure accepted and frozen.
+
+================================================================================
+2. DIRTY BASELINE RECONCILIATION
+================================================================================
+- branch autonomous/stability-ux-pack-a-20260814
+- starting HEAD 720c14c8ae63d53e9a50daa312f45b8dbd9d2280 == origin
+- index EMPTY; tracked tree DIRTY with exactly 17 HI-01 files (home_screen
+  54/50 + 2 tests + 14 goldens) — reconciled against the HI-01 session audit;
+  no unexplained modification.
+- Audit probes (painted + layout) created, run, REMOVED before the audit
+  proof; the final diff contains no probe files.
+
+================================================================================
+3. FORENSIC AUDIT (read-only, written BEFORE implementation)
+================================================================================
+File: NEXT_TRANSFER_HI02_GP01_FORENSIC_AUDIT_2026-08-15.txt
+- A1 painted-bounds matrix: rasterized 6 representative SVGs through the real
+  flutter_svg pipeline; painted fracW 0.49-0.74 (icons carry large transparent
+  viewBox padding). Painted art at 60/64 is +20% / +18-19% over 50/54; Home
+  painted ratio vs the 96dp picker rises 52% -> 62%.
+- A2 layout matrix: measured on the real render at 360/393/411 x textScale
+  1.0/1.3. 64/60 keeps cards at exactly 76dp, insets byte-identical
+  (152x56 / 134.3x46), Goal Planning Y unchanged (472.0), zero overflow.
+- A3 picker surface: transparent tiles over the gray canvas read as a slab;
+  recommended Light tile base = colorScheme.surface (AppTheme.cardOf), Dark
+  stays transparent.
+- Verdict: SAFE TO IMPLEMENT, NO OWNER DECISION REQUIRED.
+
+================================================================================
+4. FAIL-FIRST TESTS (RED before production)
+================================================================================
+RED captured (4): B5 (64/60 pins), B7 (Temple 64 pin), week_start (60/64),
+new GP-01 picker Light-surface test. All other Home/picker tests stayed green
+against the pre-change tree.
+
+================================================================================
+5. PRODUCTION CHANGES (exact)
+================================================================================
+lib/features/startup/presentation/home_screen.dart:
+- daily top card iconSize 54 -> 64
+- weekly compact cards 50 -> 60 (x2)
+- Temple monthly card 54 -> 64
+- No spacing, structure, inset, or height change (76dp preserved).
+
+lib/features/goals/presentation/goal_icon_picker_screen.dart (_IconTile):
+- tile Card color: Light -> AppTheme.cardOf(context) (near-white semantic
+  surface, same as Home cards); Dark -> Colors.transparent (unchanged GI-01
+  raw-art contract).
+- 96dp art, 3 columns, category chips, selection border/check unchanged.
+
+Tests:
+- test/features/startup/presentation/home_light_polish_test.dart (B5 + B7)
+- test/features/startup/presentation/home_week_start_test.dart (icon pin)
+- test/features/goals/presentation/goal_icon_widget_test.dart (+GP-01 test:
+  Light tile == colorScheme.surface, != transparent, != surfaceContainerHighest;
+  selected primary 2px border + check; 96dp; 3 cols; Dark transparent)
+
+Goldens (14 Home Light masters, icon-size delta only; renderer/D1 goldens
+zero delta):
+01, 02, 03, 05, 06, 07, 08, 09, 10, 11, 12, 13, 19, 20.
+
+================================================================================
+6. GREEN GATES (actual counts)
+================================================================================
+1. HI-02 focused Home + picker suites: 50/50 PASS (incl. new GP-01)
+2. Preservation batch (D1 goldens, registry, B3.2 direct-Goal, CT-02/03,
+   Blue/Rose contracts, TF-01, Contact flicker): 134/134 PASS
+3. Full Flutter suite: 1071/1071 PASS (0 failures)
+4. dart analyze --fatal-infos lib test: "No issues found!" (0 issues)
+5. git diff --check: clean (exit 0)
+6. Debug APK build: success, SHA-256
+   b6e5f9fa7cc32de33ee5cee67334f6ad928b9fd1ce8fe34ed5e8df389d964954
+
+================================================================================
+7. SAFE INSTALL / DATA PRESERVATION (actual evidence)
+================================================================================
+Pre-install: user_version 27, integrity ok, planner_tasks 3 / contacts 5 /
+goals 16, appearance Light + Blue.
+adb install -r (update-in-place ONLY): Success. Relaunch: normal.
+Post-install: 27 -> 27, integrity ok, counts identical, Light + Blue preserved.
+Device evidence (implementor only):
+- %TEMP%\hi02\shots\home_light.png + top_card_hi02.png crop
+- Top-card icon art pixel count (region 380-780 x 0-330): HI-01 build 2368 ->
+  HI-02 build 2939 (+24% visible art on device), gray Today inset present.
+- Choose Icon device capture: NOT captured (deep navigation risk of stray taps
+  on the shared device, as in prior sessions); the GP-01 picker surface is
+  proven by the widget test in Light and Dark on the real picker screen.
+- Home Dark device capture: not captured (would require mutating the
+  Appearance preference; Dark tile/Home behavior is covered by existing tests
+  and unchanged code paths).
+
+================================================================================
+8. DEFERRED LEDGER
+================================================================================
+NEXT_TRANSFER_DEFERRED_FINDINGS_2026-08-15_LIGHT_UI_FINAL_POLISH.txt
+- DF-03: stays RESOLVED (by HR-01; untouched).
+- DF-04: stays OPEN (Temple full-width restructure preserved the keyed
+  home-temple-schedule affordance; not factually resolved by HI-02).
+- DF-01/02/05/06: unchanged.
+HI-02/GP-01 revealed no new unrelated issue; nothing appended.
+
+================================================================================
+9. OWNER PHYSICAL CHECKLIST (shortest)
+================================================================================
+1. Home: icons visibly larger than the HI-01 build (top/Temple 64, middle 60)
+   — the painted artwork itself is bigger (+20%), same compact 76dp cards,
+   same gray Today's/August insets, no overlap, Goal Planning same position.
+2. Choose Icon Light: white/near-white tiles (no gray slab), subtle boundary,
+   selected tile keeps the Blue/Rose primary border + check.
+3. Choose Icon Dark: unchanged (raw art, transparent tiles); 96dp / 3 columns
+   everywhere.
+4. No plate/halo; Blue stays Blue; long titles still single-line ellipsis.
+5. Data: v27, Light + Blue, goals/tasks/contacts intact after relaunch.
+
+================================================================================
+10. GIT / STOP STATE
+================================================================================
+- NO COMMIT. NO PUSH. NOTHING STAGED (index empty).
+- Tree: 20 tracked files dirty (2 production + 3 tests + 14 goldens + the
+  inherited HI-01 home_screen/test/golden deltas merged in the same files).
+- Stopped for owner physical review. After approval, the next session should
+  checkpoint the ENTIRE accepted dirty implementation in exactly one commit +
+  normal push, then run the next read-only forensic audit.

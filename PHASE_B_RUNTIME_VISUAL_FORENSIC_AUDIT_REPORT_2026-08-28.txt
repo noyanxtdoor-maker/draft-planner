@@ -1,0 +1,634 @@
+NEXT TRANSFER
+PHASE B — TASK PARITY RUNTIME / VISUAL FORENSIC AUDIT REPORT
+2026-08-28
+STATUS: COMPLETE READ-ONLY FORENSIC REPORT — NO IMPLEMENTATION PERFORMED
+
+===============================================================================
+AUDIT SCOPE, AUTHORITY, AND METHOD
+===============================================================================
+
+Authority read completely:
+- NEXT_TRANSFER_PHASE_B_RUNTIME_VISUAL_FORENSIC_AUDIT_AUTHORITY_2026-08-28.txt
+- authority/NEXT_TRANSFER_PHASE_B_RUNTIME_VISUAL_FORENSIC_AUDIT_AUTHORITY_2026-08-28.txt
+- reference/OWNER_PHYSICAL_EVIDENCE_SUMMARY.txt
+- SHA256_MANIFEST.txt
+- SHORT_CODEX_PROMPT.txt
+
+The three authority-pack text-entry SHA-256 values match the embedded manifest.
+The owner-evidence archive was inspected as supplied:
+- Screen_Recording_20260828_091154.mp4 (76,576,276 bytes; SHA-256
+  b701ff0995643264ee28ae613184f8bce0e992ada47c7a655a297c94d09b4db6)
+- Screenshot_20260828-091522.jpg (205,861 bytes; SHA-256
+  f3c0e487affab81198fe4a573c7e422dced9a618f365b9dfa7db54abdf3fa4fe)
+
+Audited source workspace only:
+  C:\Users\sherl\Downloads\NT_C7_IMPLEMENTATION_20260825_235900
+
+The source workspace is an inherited detached, dirty worktree (HEAD
+e01c905aed44213b3e5e825ebb1305f5cdef7173). Its pre-existing changed and
+untracked files are owner state. This audit made no source/test/database/APK
+changes and no Git mutation. The separate current checkout under Documents was
+not used as implementation authority.
+
+No test, analyzer, build, device connection, install, formatter, stage,
+commit, push, reset, clean, stash, restore, or checkout operation was run.
+The authority's previously accepted engineering/device gates are reported as
+owner-provided historical evidence, not re-certified by this audit.
+
+===============================================================================
+A. EXECUTIVE FINDING
+===============================================================================
+
+Phase B did implement and wire the Task mechanical projection: a real timed
+Task becomes a 15-minute presentation-only planner item, enters the shared
+logical collision allocator, receives canonical Task color/status, navigates
+to Task detail, supports only non-recurring drag, has no resize path, and has
+a direct canonical reporting control. It did NOT replace the owner-visible
+Task presentation with the Event-family presentation. After shared geometry,
+production explicitly dispatches each Task to the separate `_TimelineTaskBlock`
+renderer; the timed-Task tap explicitly routes to the separate
+`TaskDetailScreen`. Consequently the owner is correctly seeing a legacy-style
+single-row Task card and a separate compact Task detail screen, despite green
+mechanical tests. Independently, the shared display projection has a 28 px
+short-item threshold that turns a 15-minute item into a full-hour visual card
+whenever hourHeight is below 112 px/hour. At 60 px/hour, a 15-minute item
+becomes a 60-minute-looking card while a 30-minute item remains proportional.
+That is exactly the owner-observed intermediate-zoom symptom, and it affects
+all short `PlannerCalendarItem` paths that use `PlannerDisplayGeometry`, not
+only Tasks.
+
+Owner evidence corroboration:
+- The supplied screenshot has no visible right-edge RenderFlex overflow in the
+  narrow collision area. The earlier RIGHT OVERFLOWED BY 34 PIXELS failure is
+  accepted as fixed and is not reopened.
+- The same screenshot/recording frames show a green 3:00–3:15 Contact block
+  spanning approximately the 3:00–4:00 visual hour while the nearby 1:30–2:00
+  Budget Review block remains roughly half an hour. This is consistent with
+  the source's height-triggered overview rule, not with a Task-duration write.
+
+===============================================================================
+B. RUNTIME TASK RENDER MAP
+===============================================================================
+
+1. Saved timed, non-recurring Task
+
+  Planner provider/day projection
+    -> `_PlannerScreenState._visibleTimelineTasks` (planner_screen.dart
+       1677-1700; incomplete Tasks with dueMinute)
+    -> `_TimedEventTimeline.tasks` (1450-1521, 3774-3905)
+    -> `_taskFootprints` creates `task-footprint:<taskId>` with the frozen,
+       presentation-only 15-minute end (4077-4107)
+    -> `PlannerDisplayGeometry.resolve` for shared vertical geometry and
+       `PlannerTimelineLayout.arrange` for logical collision lanes
+       (4337-4352; planner_display_geometry.dart 113-258)
+    -> `_positionedTimelineTask` (5122-5171)
+    -> `_TimelineTaskBlock` (5969-6112).
+
+  Runtime widget: separate Task renderer, not `_TimelineEventBlock` and not
+  `PlannerEventBlockContentView`. A non-recurring Task receives a long-press
+  move callback only when quick edit is enabled (5131-5135; 6028-6034). It
+  has no resize callbacks or endpoint handles.
+
+2. Saved timed recurring Task projection
+
+  `PlannerTask.projectsOn` maps canonical recurrence arithmetic to the
+  requested date (planner_task.dart 162-182), then follows the exact saved
+  Task path above. `_positionedTimelineTask` computes `dragEnabled` only for
+  `PlannerTaskRecurrence.none` (5131-5135); `_TimelineTaskBlock` presents the
+  explicit recurring non-movable hint (6018-6020). It remains the separate
+  Task renderer.
+
+3. Eligible completed timed Task
+
+  `_visibleTimelineTasks` includes `day.completedTasks` only when the completed
+  Tasks filter is enabled (1685-1700). It then follows the same footprint,
+  geometry, and `_TimelineTaskBlock` path. Completed status is a visibility
+  decision, not a different visual component.
+
+4. Task draft/provisional block
+
+  `launchTaskCreation` starts `plannerTaskCreationDraftProvider`
+  (task_creation.dart 33-79). The parent passes both a synthetic
+  `task-draft:<id>` planner item (planner_screen.dart 1453-1460,
+  3255-3279) and the Task draft value to `_TimedEventTimeline`. The timeline
+  resolves its placement then calls `_positionedTimelineTaskDraft`
+  (5173-5227). That function builds a synthetic `PlannerTask` and instantiates
+  the SAME `_TimelineTaskBlock` as a saved Task (5201-5225).
+
+  Saved and draft Tasks therefore share one Task-only primitive. They do not
+  share the Event family's block primitive. Draft parity is parity with the
+  legacy Task renderer, not parity with an Event-family Task design.
+
+5. Narrow collision Task
+
+  Task footprints are passed into the same layout input list as Events
+  (4343-4352). `PlannerTimelineLayout.orderedByLanePriority` sorts Task
+  presentation IDs before Events (planner_timeline_layout.dart 449-472), and
+  `arrange` assigns collision columns from those logical intervals
+  (211-324). The resulting width enters `_TimelineTaskBlock` through
+  `_positionedTimelineTask` (5122-5169).
+
+  `_TimelineTaskBlock` has a Task-specific narrow-width policy: under 120 px
+  it removes the time; under 56 px it renders only the status badge; otherwise
+  it renders title/status/time in a one-row LayoutBuilder (6040-6105). This
+  prevents overflow, but it is not the Event block density policy.
+
+6. Mixed Task/Event collision Task
+
+  The same shared list and allocator are used. For a real logical overlap,
+  Task IDs are left-prioritized by `orderedByLanePriority`, and later Events
+  are constrained right of an overlapping Task by `arrange`
+  (planner_timeline_layout.dart 251-284, especially 268-274). The Task itself
+  is then painted by `_TimelineTaskBlock`; the Event is painted separately by
+  `_TimelineEventBlock`. Thus collision placement is shared; visual shell and
+  content are not.
+
+Tap route
+
+  `_TimelineTaskBlock.onTap`
+    -> `_handleEventTap(footprint)` (5154)
+    -> detects `task-footprint:` and resolves the real PlannerTask
+       (4142-4152)
+    -> parent `onTaskTap` uses `context.push('${RoutePaths.tasks}/${task.id}')`
+       (1518-1520)
+    -> GoRouter `RouteNames.taskDetail` creates `TaskDetailScreen(taskId: ...)`
+       (app_router.dart 342-358).
+
+There is no production Task tap route to `CalendarEventDetailScreen`, and a
+scoped source search found no alternate Task preview/detail shell. The direct
+Task form route is separate: `TaskDetailScreen._edit` pushes
+`TaskFormScreen.edit` (task_detail_screen.dart 160-168).
+
+===============================================================================
+C. TASK PREVIEW ROUTE FINDING
+===============================================================================
+
+Actual routed widget: `TaskDetailScreen`, not an Event-family detail shell.
+
+`TaskDetailScreen` uses `InternalAppBar`, a separately composed padded
+Task-detail layout, a 24 px headline, `_TaskDetailSection`, and `_DetailRow`
+(task_detail_screen.dart 38-158, 254-296). Its actual sections are:
+- Current Status: present when requiresReport; direct choice chips for
+  Unreported, Did Not Attempt, Missed, and Completed (81-113).
+- Due: present as a single detail row (114-119).
+- Repeat: present as a single detail row (120-123).
+- Notes/Description: present only when Task notes exist (124-125).
+- Contacts: present only as the generic text `No Contacts` or
+  `Contacts linked` (126-131).
+- Life Goal: present only as the generic `Life Goal linked` label when goalId
+  exists (132-136).
+- Map: absent. That is appropriate unless a Task has legitimate independent
+  map ownership; no such Task map surface is wired here.
+- Activity History: present only as a generic button that pushes the unscoped
+  activity-history path without a task ID/filter argument (143-150).
+
+Task Current Status is correctly owned by Preview, not Edit. It reads the
+canonical Task source and submitted history (181-194), then calls
+`clearTaskStatus` or `submitTaskStatus` directly (211-241). The provider says
+explicitly that this is a direct Task-preview action and Task Edit does not own
+a duplicate reporting surface (outcome_reporting_providers.dart 216-220).
+
+Event comparison: `CalendarEventDetailScreen` is a different, richer
+composition. It uses a ListView with `_EventStatusControlRow`, `_DetailField`,
+structured Date/Time/Repeats/Event Type fields, map and contact subcomponents,
+and an Activity History ListTile (calendar_event_detail_screen.dart 207-392).
+It has its own app-bar action/state behavior (395 onward). `TaskDetailScreen`
+does not reuse this shell, its field components, its status-row composition,
+or its map/contact components. That is the exact code reason the owner sees a
+visually different legacy Task preview. No implemented Event-family Task
+preview shell was found that is merely unwired; the required shared shell was
+not created.
+
+Tests do exercise direct status operations, but the audited Task timeline test
+does not tap a real timed Task through the production route and compare the
+routed Task detail to Event detail. Therefore the relevant owner-visible route
+and presentation parity were never demonstrated.
+
+===============================================================================
+D. PHASE B CURRENT-VS-TARGET TRUTH TABLE
+===============================================================================
+
+Classification key follows the authority exactly. “PARTIAL” includes a
+mechanism that is active but does not meet the requested owner-visible target.
+
+  #  Requirement                                      Classification
+  1  Task 15-minute logical footprint                 IMPLEMENTED + RUNTIME ACTIVE
+     `_taskDisplayFootprintMinutes = 15`; no persisted duration.
+  2  Task-left collision priority                      IMPLEMENTED + RUNTIME ACTIVE
+     Task presentation IDs sort ahead of Events.
+  3  Deterministic multiple-Task ordering              IMPLEMENTED + RUNTIME ACTIVE
+     Canonical start/end/ID tie-break after Task priority.
+  4  Canonical Task color                              IMPLEMENTED + RUNTIME ACTIVE
+     Task stable key/default color is injected in footprint creation.
+  5  Event-family Task block shell                     MISSING
+     `_TimelineTaskBlock` is a distinct Material/row renderer.
+  6  Responsive narrow Task content policy             PARTIAL
+     Width-safe Task-specific policy exists, but it is not the Event-family
+     density/content policy required for target parity.
+  7  Factual Task status symbol                        IMPLEMENTED + RUNTIME ACTIVE
+     `task.reportedOutcome` maps to PlannerReportStatusKind at 6012-6017.
+  8  Non-recurring Task drag                           IMPLEMENTED + RUNTIME ACTIVE
+     Enabled only for recurrence none.
+  9  Recurring Task non-drag                           IMPLEMENTED + RUNTIME ACTIVE
+     Explicit recurrence guard and hint.
+ 10  Task no-resize                                    IMPLEMENTED + RUNTIME ACTIVE
+     Task block receives no resize/endpoint path.
+ 11  Task Preview Event-family shell                   MISSING
+     Production route constructs `TaskDetailScreen`.
+ 12  Task Preview direct Current Status                IMPLEMENTED + RUNTIME ACTIVE
+     Direct Preview controls call canonical Task reporting.
+ 13  Quick canonical Task reporting                    IMPLEMENTED + RUNTIME ACTIVE
+     Uses Task outcome source/repository transaction.
+ 14  Clear-to-Unreported correction                    IMPLEMENTED + RUNTIME ACTIVE
+     `clearTaskStatus` supersedes the effective report; lifecycle is retained.
+ 15  Task Activity History refresh                     PARTIAL
+     Preview reloads after status mutation, but navigation provides no Task
+     identity/filter to the generic Activity History route.
+ 16  Task Edit without duplicate Current Status        IMPLEMENTED + RUNTIME ACTIVE
+     Status is Preview-owned; TaskForm is fact-editing.
+ 17  Task draft visual parity                          PARTIAL
+     Saved/draft share `_TimelineTaskBlock`, but both miss Event-family parity.
+ 18  Draft form <-> timeline sync                      IMPLEMENTED + RUNTIME ACTIVE
+     Dedicated draft provider supplies the moving canvas projection.
+ 19  Set Due Date off clears draft                     IMPLEMENTED + RUNTIME ACTIVE
+     Covered by Task form/draft contract; no independent persisted duration.
+ 20  Task filter/completed behavior                    IMPLEMENTED + RUNTIME ACTIVE
+     `_visibleTimelineTasks` gates Tasks/completed Tasks by filters.
+ 21  Mixed Task/Event collision                        IMPLEMENTED + RUNTIME ACTIVE
+     Shared layout with Task-left logical precedence.
+ 22  Direct synchronized zoom                          IMPLEMENTED + RUNTIME ACTIVE
+     Pinch updates hourHeight directly into the one resolver.
+ 23  15-minute intermediate-zoom visual behavior       PARTIAL — INCORRECT
+     28 px floor promotes 15m to one-hour display too early.
+ 24  Far-zoom one-hour-readable minimum                IMPLEMENTED + RUNTIME ACTIVE
+     compactHourHeight <= 44 and floor rule make short items readable.
+ 25  Event behavior preserved                          PARTIAL
+     General Event mechanics remain shared, but Event 15m has the same
+     erroneous premature floor shown by owner evidence.
+ 26  Accepted 34 px overflow correction preserved      IMPLEMENTED + RUNTIME ACTIVE
+     Owner evidence shows no recurrence. Do not modify/revert it later.
+
+===============================================================================
+E. 15-MINUTE ZOOM / MINIMUM-HEIGHT FORENSICS
+===============================================================================
+
+Exact geometry chain:
+
+  canonical start/end minutes
+    -> `_taskFootprints` / real Event constructs PlannerCalendarItem
+    -> `PlannerDisplayGeometry.resolve` (planner_display_geometry.dart 113)
+    -> `_withDisplayInterval` (442-490)
+    -> canonicalHeight = durationMinutes * (hourHeight / 60) (464-466)
+    -> overviewByHeight = canonicalHeight < 28 (467-468)
+    -> overviewByZoom = hourHeight <= 44 (469)
+    -> if duration <= 45 and either condition is true, substitute the
+       item’s start-hour to start-hour+60 DISPLAY interval (470-474)
+    -> `PlannerTimelineGeometry.event` converts this substituted display
+       interval into final top/height (194-200).
+
+Logical lane assignment remains correct because it uses the pre-floor logical
+list (131-143, 168-171). Display-lane packing then prevents enlarged bands from
+painting over each other (301-440). The defect is neither logical duration nor
+collision placement. It is the early display-interval substitution.
+
+Important stale/contradictory documentation evidence:
+`PlannerTimelineGeometry` describes exact duration geometry and no minimum
+inflation (planner_timeline_layout.dart 119-127), but `PlannerDisplayGeometry`
+later replaces qualifying short intervals with a 60-minute display interval.
+Tests confirm the latter is the active runtime behavior.
+
+Measured representative table (logical Flutter dp; no source change made)
+
+  High/full inspection state: hourHeight = 120 px/hour
+  pixels/minute = 2.0; the 28 px height threshold is not crossed.
+
+  duration    raw height    floor active?    final height    visual minutes
+  15 min      30 px         no               30 px           15 min
+  30 min      60 px         no               60 px           30 min
+  60 min      120 px        no               120 px          60 min
+
+  Owner-failing intermediate band: hourHeight = 60 px/hour
+  pixels/minute = 1.0. This is the source-defined normal preset and is
+  approximately the middle state between compact 44 and expanded 88.
+
+  duration    raw height    floor active?    final height    visual minutes
+  15 min      15 px         yes (< 28)        60 px           60 min
+  30 min      30 px         no (>= 28)        30 px           30 min
+  60 min      60 px         no (> 45 min)     60 px           60 min
+
+  Far zoom-out / intended readable overview: hourHeight = 44 px/hour
+  pixels/minute = 0.7333. `overviewByZoom` is true and the 28 px test also
+  triggers for 15m/30m.
+
+  duration    raw height    floor active?    final height    visual minutes
+  15 min      11 px         yes               44 px           60 min
+  30 min      22 px         yes               44 px           60 min
+  60 min      44 px         no (> 45 min)     44 px           60 min
+
+Exact failure thresholds:
+- 15 min becomes a one-hour display card whenever hourHeight < 112 because
+  15 * hourHeight / 60 < 28. Thus it is floored at both 60 and 88 presets,
+  and does not become proportional until 112 px/hour or greater.
+- 30 min becomes a one-hour display card only below hourHeight 56, except
+  compact mode at <=44 also forces overview.
+- 60 min is outside the <=45-minute eligibility rule and remains factual.
+
+The comparison above is precisely the reported physical signature: at a state
+where hourHeight is in [56, 112), 15m looks one hour while 30m still looks 30m.
+There is no separate `<=15` special case, 48/50/60 dp Task minimum, or legacy
+50-minute persisted Task duration in the audited production paths. The source
+does contain the distinct invisible Event touch target of 24 dp
+(planner_screen.dart 3908-3913), but Tasks are placed at `placement.height`
+without that visible/touch wrapper (5122-5169); it is not this visual defect.
+
+Affected paths:
+- Event 15/30/45-minute blocks: yes, shared `_withDisplayInterval`.
+- Task 15-minute saved footprint: yes, it is in the shared resolver input.
+- Task draft: yes, its synthetic 15-minute item is in the shared resolver.
+- Event drafts: yes, when qualifying short PlannerCalendarItems.
+- 60-minute items: no one-hour inflation because their final visual height is
+  already one hour and they are outside the short-item condition.
+
+===============================================================================
+F. EVENT VS TASK COMPONENT COMPARISON
+===============================================================================
+
+Planner Day block
+
+  Concern             Event production path                 Task production path
+  ------------------  ------------------------------------  ----------------------------
+  Shell               `_TimelineEventBlock`                 `_TimelineTaskBlock`
+  Content             `PlannerEventBlockContentView`        one-row LayoutBuilder
+  Density policy      shared height tiers/title/time rules   width-only thresholds
+  Height/radius       live placement height/density policy   radius derived from literal 48
+  Color               Event resolver + Event content view    Task stable-key resolver
+  Accent/content      Event-family presentation composition  no Event content view reuse
+  Status              Event report/status rules              canonical Task report outcome
+  Width tiers         event density/content rules            <56 icon only; <120 hide time
+  Drag/resize         Event supports its own manipulation    non-recurring drag; no resize
+  Collision           shared logical lanes/display packing   shared logical lanes/display packing
+
+The Task card has enough safe, domain-neutral values to reuse Event-family
+visual primitives in a later approved change: resolver-derived color/fill,
+corner/border policy, responsive content descriptor, title/time/status layout,
+and display geometry. The following must remain Task-specific: source identity,
+15-minute presentation-only footprint, canonical Task status source, drag
+eligibility, no resize, recurrence rules, contacts/goals/reporting ownership,
+and no Task-to-Event conversion.
+
+Preview/detail
+
+  Concern             Event detail                           Task detail
+  ------------------  -------------------------------------  ----------------------------
+  Route/widget        `CalendarEventDetailScreen`            `TaskDetailScreen`
+  Shell               richer ListView/detail-field structure separate padded Task screen
+  App bar/actions     event status/edit/overflow behavior    edit/manage-links actions
+  Status              `_EventStatusControlRow`               Task choice-chip section
+  Detail fields       structured Date/Time/Repeats/type      generic icon/label rows
+  Contacts/map        dedicated Event components              generic contacts text/no map
+  Activity history    descriptive ListTile                    generic unscoped TextButton
+
+No shared Event-family Task preview component exists in the audited source.
+
+===============================================================================
+G. TEST GAP ANALYSIS — WHY GREEN GATES DID NOT PROVE OWNER PARITY
+===============================================================================
+
+  Requirement                         Existing test/evidence
+  ----------------------------------  -----------------------------------------
+  15m proportional at intermediate    planner_display_geometry_test.dart
+  What it really proves               It asserts the opposite current law:
+                                      15m is intentionally floored at normal
+                                      60 and expanded 88, while 30m stays exact.
+  Missing assertion                   15m/30m/60m across the [56,112) band
+                                      must preserve 15/30/60 visual minutes.
+
+  Far-zoom readable floor             r3_zoom_geometry_contract_test.dart
+  What it really proves               At 44 px/hour, 15/30/45m occupy an hour
+                                      and are display-packed without overlap.
+  Missing assertion                   The floor must not engage before the
+                                      approved far-zoom threshold; specifically
+                                      test 60/75%-like intermediate points.
+
+  Timed Task is visible/interactive   planner_task_day_visibility_owner_fail_test.dart
+  What it really proves               Widget key/title/status existence,
+                                      filtering, no resize handles, draft sync,
+                                      collision no-overflow, recurrence, and
+                                      status/domain persistence.
+  Missing assertion                   Rendered Task shell equals the approved
+                                      Event-family shell; compare actual size,
+                                      border/accent/padding/title/time/status
+                                      hierarchy at wide and narrow widths.
+
+  Mixed collision                     same owner-fail test (narrow/mixed cases)
+  What it really proves               Task status badges survive narrow lanes
+                                      and no RenderFlex exception is emitted.
+  Missing assertion                   Left Task/Event geometry plus exact
+                                      owner-facing visual hierarchy and the
+                                      accepted overflow correction at device
+                                      width, not merely `takeException()==null`.
+
+  Task detail/Preview parity          planner_journey_test.dart and reporting
+                                      journeys contain Task flows/status work.
+  What it really proves               Form/list/state navigation and canonical
+                                      reporting behavior, not a real timed-task
+                                      tap through the production Day route then
+                                      comparison with Event detail composition.
+  Missing assertion                   Tap `planner-task-block-<id>` in Day,
+                                      assert route/widget, all required Task
+                                      sections, and the approved Event-family
+                                      visual shell/spacing/typography.
+
+  Event-family reuse                  no Task block golden found; existing
+                                      planner golden directory is Event-focused.
+  What it really proves               Event rendering remains recognizable.
+  Missing assertion                   Task/Event pair goldens at same time,
+                                      color, width, status, and zoom density.
+
+The suite could therefore legitimately be green while failing the owner's
+visual target: it tests the currently coded rule, checks mechanics and widget
+presence, and treats no-overflow as success. It neither verifies the intended
+intermediate product law nor proves that production Task widgets use the
+approved Event-family presentation/preview route.
+
+===============================================================================
+H. EXACT FILES, FUNCTIONS, AND CONSTANTS INVOLVED
+===============================================================================
+
+- lib/features/planner/presentation/planner_screen.dart
+  - `_PlannerScreenState._visibleTimelineTasks`, 1677-1700
+  - `onTaskTap` production push, 1513-1520
+  - `_provisionalTaskPlannerItem`, 3255-3279
+  - `_TimedEventTimelineState._taskDisplayFootprintMinutes = 15`, 3915-3920
+  - `_taskFootprints`, 4077-4107
+  - `_handleEventTap` Task branch, 4142-4152
+  - `PlannerDisplayGeometry.resolve` invocation, 4337-4352
+  - Task paint dispatch, 4934-4953
+  - `_positionedTimelineTask`, 5122-5171
+  - `_positionedTimelineTaskDraft`, 5173-5227
+  - `_TimelineTaskBlock`, 5969-6112
+
+- lib/features/planner/domain/planner_display_geometry.dart
+  - `kPlannerMaxZoomReadabilityDurationMinutes = 45`, 9-14
+  - `kPlannerReadableEventHeightThreshold = 28`, 16-40
+  - `PlannerDisplayGeometry.resolve`, 113-258
+  - `_withDisplayInterval`, 442-490: exact premature-floor rule
+  - `_resolveDisplayLanePacking`, 301-440: display-only collision packing
+
+- lib/features/planner/domain/planner_timeline_layout.dart
+  - `PlannerTimelineGeometry.pixelsPerMinute`, 88-108
+  - `PlannerTimelineLayout.arrange`, 211-324
+  - `orderedByLanePriority`, 449-472: Task-left priority
+  - `_compareCanonicalInterval`, 491-507: deterministic tie-break
+
+- lib/features/planner/domain/planner_view.dart
+  - `PlannerZoomPolicy.compactHourHeight = 44`, normal = 60, expanded = 88,
+    65-83
+  - runtime viewport clamp, 98-149
+
+- lib/features/planner/presentation/task_detail_screen.dart
+  - production preview widget and separate section composition, 12-158
+  - separate Task Edit push, 160-168
+  - canonical status read/update, 181-241
+
+- lib/features/planner/presentation/calendar_event_detail_screen.dart
+  - Event-family production detail composition, 207-392
+
+- lib/app/router/app_router.dart
+  - Task detail route constructs `TaskDetailScreen`, 342-358
+
+- lib/features/planner/application/outcome_reporting_providers.dart
+  - Task Preview reporting contract, 216-220
+  - clear-to-Unreported behavior, 294-297 onward
+
+- lib/features/planner/data/drift_outcome_reporting_repository.dart
+  - canonical `OutcomeSourceType.task` lookup, 143-163 and 833-842
+
+- test/features/planner/domain/planner_display_geometry_test.dart
+  - current suite encodes the premature 15m floor at 60/88, especially 49-154
+
+- test/features/planner/presentation/r3_zoom_geometry_contract_test.dart
+  - validates intended far-zoom 44 px/hour overview, 110 onward
+
+- test/features/planner/presentation/planner_task_day_visibility_owner_fail_test.dart
+  - verifies Task mechanics/widget existence/no overflow, but not visual parity
+    or routed Preview comparison.
+
+===============================================================================
+I. RECOMMENDED CORRECTION SCOPE — READ-ONLY RECOMMENDATION
+===============================================================================
+
+Classification: 3. MIXED APPROACH.
+
+It is not a one-line Task-only correction. The 15-minute error is a shared
+display-geometry product-law error and should be corrected once, with Event,
+Task-footprint, and draft coverage. The owner-visible Task parity failure is a
+bounded presentation-layer completion: Task currently intentionally uses a
+separate renderer and separate preview composition. A safe later pass should
+reuse or introduce narrowly shared Event-family visual primitives while
+retaining Task-specific domain/interactions. Do not convert Tasks into Events,
+persist a duration, alter schema/migrations, or change reporting/collision
+semantics.
+
+Smallest safe approach:
+1. Correct only the display-floor activation law in
+   `PlannerDisplayGeometry._withDisplayInterval`, based on an explicit
+   far-zoom threshold/curve that leaves the [56,112) intermediate band
+   proportional for 15m and 30m.
+2. Replace the Task-only block's visual internals with a constrained
+   Event-family presentation primitive while preserving `_TimelineTaskBlock`
+   as the Task interaction/domain wrapper.
+3. Recompose `TaskDetailScreen` from shared detail-surface primitives (not
+   from Event domain objects), retaining Task-specific fields/status actions.
+
+===============================================================================
+J. PROPOSED IMPLEMENTATION SEQUENCE — FUTURE ONLY
+===============================================================================
+
+1. Obtain a new direct implementation authorization. Preserve this report and
+   capture a task-owned pre-edit baseline in the actual implementation tree.
+2. Add failing geometry tests first for 15/30/60 at high, at a representative
+   intermediate state in [56,112), and at intended far zoom. Add both Event
+   and Task-footprint/draft inputs.
+3. Change only the shared floor activation criterion to match that accepted
+   law. Retain logical interval, lane ordering, display collision packing, and
+   direct synchronized pinch behavior.
+4. Add a narrow reusable visual primitive/descriptor for Task data; preserve
+   Task's separate gesture and semantic ownership. Do not route a Task through
+   Event reporting or Event resize.
+5. Apply the same visual language to saved Task and Task draft through their
+   existing common Task wrapper. Validate narrow and mixed collision widths.
+6. Recompose Task Preview using presentation primitives shared with Event
+   detail where neutral, while keeping canonical Task data, Current Status,
+   Contacts/Goal semantics, and legitimate map absence.
+7. Add the routed Day-task-tap detail test and focused visual/golden coverage.
+8. Only after focused tests/analyzer pass, perform a separately authorized
+   fresh APK/device proof. Preserve data with the mandated update procedure
+   and stop at owner physical review.
+
+===============================================================================
+K. REGRESSION TESTS REQUIRED IN THE LATER IMPLEMENTATION PASS
+===============================================================================
+
+- Geometry: Event 15/30/60 at hourHeight 120, 88, 60, 56, 44, and the actual
+  viewport-derived far minimum. Assert raw/final visual minutes and strict
+  boundary behavior at 112 and 56.
+- Shared-input geometry: repeat the same relevant checks for a Task footprint
+  and Task draft. Assert canonical stored/logical minutes remain unchanged.
+- Visual Task/Event parity: paired widget or golden tests for shell, border,
+  radius, fill/accent, padding, title, time, factual status, and narrow tiers.
+- Mixed collision: Task remains leftmost, all Task lanes precede Events,
+  no permanent empty Task lane, no overflow, and no visual overlap due to the
+  readability display projection.
+- Interaction: non-recurring Task drag still updates only due date/minute;
+  recurring Task cannot drag; no Task resize handles/actions exist.
+- Route: tap a real timed Task block in Planner Day; prove it opens the actual
+  Task preview and compare required structure/visual primitives to Event detail.
+- Status/history: each direct Task status updates canonical source/history;
+  clearing supersedes effective status without deleting history or changing
+  Task lifecycle; activity-history navigation is explicitly task-scoped if
+  that remains the intended contract.
+- Overflow: use the owner-sized narrow collision configuration and prove the
+  accepted right-edge overflow correction remains absent.
+- Draft: changing title/time/date, disabling due date, saving/cancelling, and
+  reopening must keep form/canvas sync and never create a persisted duration.
+
+===============================================================================
+L. EXPLICIT PRESERVE LIST FOR ANY FUTURE PASS
+===============================================================================
+
+- Accepted RIGHT OVERFLOWED BY 34 PIXELS correction; owner evidence says fixed.
+- Presentation-only 15-minute Task logical footprint; no Task duration write.
+- Task-left collision priority, deterministic multiple-Task ordering, and no
+  permanent empty Task lane.
+- Canonical `planner_task` Task color and factual status symbol from canonical
+  `OutcomeSourceType.task` reporting.
+- Task Preview direct status ownership; status must not move to Task Edit.
+- Clear-to-Unreported supersession/history semantics.
+- Non-recurring Task drag; recurring Task non-drag; Task no-resize.
+- Canonical Task recurrence, contacts, Life Goal links, and reporting ownership.
+- No Task-to-Event conversion; no schema/migration work.
+- Event direct synchronized zoom geometry and no rejected floating/catch-up
+  animation.
+- Existing Event behavior except the documented shared premature-floor defect.
+
+===============================================================================
+M. BLOCKERS / OWNER DECISIONS
+===============================================================================
+
+No routine design question is needed to explain the present failure: the
+authority already defines the required intermediate and far-zoom behavior, and
+the source identifies the premature-floor condition exactly.
+
+The only authority required before any correction is a new explicit owner
+implementation authorization after review of this report. That future approval
+should confirm the exact approved Event-family visual target for the Task block
+and Task Preview if a reference asset/specification is to govern pixel-level
+parity. This audit does not authorize any implementation.
+
+===============================================================================
+STOP
+===============================================================================
+
+Audit complete. No implementation, test run, build, install, or Git mutation
+was performed after these findings.

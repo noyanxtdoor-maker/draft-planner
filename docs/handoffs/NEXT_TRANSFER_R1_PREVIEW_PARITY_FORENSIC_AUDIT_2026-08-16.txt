@@ -1,0 +1,249 @@
+NEXT TRANSFER — R1 + PREVIEW/SETTLED PARITY FORENSIC AUDIT
+DATE: 2026-08-16
+MODE: READ-ONLY FORENSICS · NO REPO EDITS PERFORMED BY THIS AUDIT
+
+================================================================================
+0. BASELINE / BACKUP PROOF
+================================================================================
+Repo:           C:\Users\sherl\Documents\Next Transfer-Temp
+Branch:         autonomous/stability-ux-pack-a-20260814
+HEAD:           109417052acf94b02b2fa0e16d6785d0bb70e8ed
+Origin:         109417052acf94b02b2fa0e16d6785d0bb70e8ed
+Index:          EMPTY (verified)
+Dirty tree:     uncommitted Maps V1 + regression-recovery implementation
+                (46 modified tracked + 101 untracked; reconciled to the
+                accepted recovery tree in prior sessions)
+Device:         Infinix X6731 attached, status `device` (USB debugging OK)
+
+MANDATORY PRE-EDIT BACKUP (created before this audit):
+Folder:         C:\Users\sherl\Documents\Next Transfer-Backups\
+                2026-08-16_19xx_R1_PREVIEW_PARITY\
+Artifacts:
+  BASELINE_IDENTITY.txt        (branch/HEAD/origin/status/diff-stat/versions)
+  next_transfer_repo.bundle    (git bundle --all, verified: 39 refs, OK)
+  tracked_worktree.patch       (binary-capable unstaged diff)
+  staged_index.patch           (recorded EMPTY)
+  untracked_files_manifest.txt (full untracked manifest + hashes/sizes)
+  untracked_source_snapshot.zip
+  source_worktree_snapshot.zip
+  SHA256_MANIFEST.txt          (hash of every artifact, verified)
+Single-writer lock: written outside the repo for the session duration.
+
+================================================================================
+1. EVIDENCE REVIEWED
+================================================================================
+Owner evidence (handoff zip):
+- HOME_LIGHT_OWNER.jpg  (921x2048)   — Light Home, six Goal Icon cards
+- HOME_DARK_OWNER.jpg   (921x2048)   — Dark Home, same cards
+- PLANNER_SWIPE_OWNER.mp4 (22.16 s)  — Planner recording
+- SWIPE_1.75S / 2.00S / 2.50S / 3.05S.png (1080x2400) — stills
+- SWIPE_17.75S / 18.75S / 19.25S.png (1080x2400) — stills
+- SWIPE_REVERSE_20FPS_CONTACT.jpg — contact sheet
+
+Lossless device captures from the prior recovery run (same build, zero code
+change since):
+- docs/handoffs/_screenshots/recovery_rerun/01_home_light.png (1080x2400)
+- docs/handoffs/_screenshots/recovery_rerun/23_home_dark.png  (1080x2400)
+
+Code inspected (read-only):
+- lib/features/goals/presentation/widgets/goal_icon.dart
+- all 43 assets/icons/goals/*.svg (fill/stroke palette scan)
+- lib/features/planner/presentation/widgets/planner_interactive_day_pager.dart
+  (_PagerPreviewColumn, _previewFragmentAccentStrips, _hourLabel)
+- lib/features/planner/presentation/planner_screen.dart
+  (_TimedEventTimeline, _TimelineEventBlock, hour-label rendering)
+- lib/features/planner/presentation/widgets/planner_event_block_layout_policy.dart
+- lib/app/theme/app_theme.dart (onFillTextOf)
+
+================================================================================
+2. R1 — DARK GOAL ICON VISUAL PARITY: ROOT CAUSE (MEASURED)
+================================================================================
+SVG ASSET FACTS
+- Every goal icon is a FLAT two-tone SVG: one cyan family fill+stroke
+  (#45abce..#65b7d4, e.g. dating #4dafcf = rgb(77,175,207)) plus one gold
+  family fill+stroke (#dfa34a..#e4ad5c).
+- No dark variant files. No fill-opacity/stroke-opacity. No masks/filters/
+  groups. No currentColor. GoalIcon renders with colorFilter: null and
+  opticalScale only for spiritual_temple (1.15x). Light and Dark both load
+  the SAME single assetPath.
+
+LOSSLESS DEVICE PIXEL MEASUREMENT (1080x2400 PNG, identical coordinates)
+Icon-art core pixels are BYTE-IDENTICAL in Light and Dark:
+  (77,175,207) x1546  |  (100,180,205) x1738  |  (91,174,202) x1268  |
+  (86,173,205) x737   (exact counts equal in both themes)
+Edge/AA pixels DIVERGE by background:
+  Light-only edges (blend toward near-white card): (212,217,223) x1074,
+    (163,209,225) x362, (168,212,226) x318, (116,192,217) x314
+  Dark-only edges (blend toward dark card 13,14,16): (62,137,163) x314,
+    (73,136,159) x255, (79,141,161) x208, (69,135,161) x75
+Cyan-family on-screen mean (icon region, incl. AA):
+  Light (127.2, 191.8, 213.9)  vs  Dark (86.5, 170.7, 198.8)
+  -> measured Dark deficit vs Light: g -21, b -15 (lossless); the owner's
+     JPEG dominants show the same direction (Light ~(149,198,213),
+     Dark ~(97,168,190)/(88,156,175)).
+
+OWNER JPEG READING
+Same conclusion: the same raw teal stroke composites against a near-white
+card in Light (light edges, airy look) and against a near-black card in Dark
+(dark edges, deeper/royal look). The periwinkle (161,200,233) population in
+Dark is the card's ratio TEXT (adaptive theme-primary UI), not icon art —
+confirmed by coordinate separation (text x-band vs icon x-band).
+
+ROOT CAUSE (PROVEN)
+R1_ROOT_CAUSE = DARK-SURFACE COMPOSITING / ANTIALIASING + SIMULTANEOUS
+CONTRAST. Raw art is identical (byte-exact core, single asset path, no
+colorFilter, no palette substitution). The owner's perception of
+"deeper/royal/more saturated" in Dark is caused by dark edge blends and the
+contrast of the same hue on a black surface. This is EXACTLY the case the
+owner prompt pre-authorizes a "GoalIcon-only Dark-mode cyan compensation
+layer/ColorMapper" for.
+
+PER-ICON TABLE (representative, lossless device crops)
+ICON                  | LIGHT SCREEN CYAN  | DARK SCREEN CYAN   | EDGE BEHAVIOR
+Find Date (calendar)  | core (92,174,201)  | core (92,174,201)  | L: light edge
+                      | mean (127,192,214) | mean (86,171,199)  | D: dark edge
+Work w/ Missionaries  | core (89,174,202)  | core (89,174,202)  | same pattern
+Exercise (jogging)    | core (89,179,207)  | core (89,179,207)  | same pattern
+Upskill (target)      | core (89,174,202)  | core (89,174,202)  | same pattern
+Ministering (handshake)| core (77,175,207) | core (77,175,207)  | same pattern
+Temple Visit (1.15x)  | core (92,174,201)  | core (92,174,201)  | same pattern
+GOLD                  | identical families in both themes, unchanged
+ROOT CAUSE            | dark-surface AA compositing + simultaneous contrast
+PROPOSED COMPENSATION | GoalIcon-only Dark cyan remap, +dR=20 +dG=28 +dB=34
+
+COMPENSATION DERIVATION
+Measured Dark-on-screen deficit vs Light (lossless): g -21, b -15; owner
+JPEG dominants up to -30/-23. Chosen first-pass delta dG=+28, dB=+34, dR=+20
+(approx 60-70% of the measured deficit, keeping hue within the accepted
+light-blue family, avoiding pastel over-lightening). Applied ONLY to cyan-
+family fills/strokes (b>=150, g>=130, r<=140, b>r+20, g>r+30). Gold (r>200)
+is untouched by construction. This is a FIRST-PASS value; final acceptance
+is the owner's physical Light-vs-Dark comparison on device, per prompt.
+
+NOT CHANGED (locked):
+- global Dark colorScheme.primary (nav/buttons/CT-03 ratio text stay)
+- gold palette
+- icon sizes / opticalScale / temple scale
+- no plate/halo
+- Light mode render (unchanged, byte-identical)
+- fallback icon color (theme-independent constant AppTheme.goalIconFallbackBlue)
+
+================================================================================
+3. PREVIEW -> SETTLED VISUAL PARITY: ROOT CAUSE (CODE + FRAME)
+================================================================================
+CODE-LEVEL RENDERER COMPARISON (read-only)
+Shared projection (identical inputs and math):
+- PlannerDisplayGeometry.resolve: same events/settings/hourHeight/
+  viewportHeight/configuredHours (preview omits drag-preview minutes, which
+  are a settled-page interactive-only input and do not apply offscreen)
+- PlannerPagerEventHorizontalGeometry.resolve with the SAME constants
+- PlannerEventColorResolver accent/surface (same source)
+- PlannerEventBlockContent.forHeight: same thresholds; `interactive` flag
+  differs but showResizeHandle() returns false unconditionally -> NO
+  visible handle delta
+- Block decoration identical: Material(surface), RoundedRectangleBorder
+  (same effectiveRadiusFor + squareTop/Bottom), left accent BorderSide
+  (eventAccentWidth), backup stripe background, same content rows
+- Grid: civil-day 0..24, same label positions (top = index*hourHeight + 2),
+  same _hourLabel formatting, same divider color (outlineOf), same
+  current-time indicator constants (PlannerCurrentTimeHorizontalGeometry)
+- viewportHeight: _dayViewportHeight() == _safeViewportHeight() (same
+  scroll-position read)
+
+CONFIRMED SETTLE-TIME DELTAS (the complete list)
+1. HOUR-LABEL OPACITY — the ONE shared-surface visual delta:
+     preview:  AppTheme.onFillTextOf(context, 0xB3 / 0xFF)   (=0.702)
+     settled:  AppTheme.onFillTextOf(context, 0.54)
+   -> in Light both are onSurface translucencies 0.70 vs 0.54; in Dark they
+      resolve to white70 (0xB3FFFFFF) vs white54 (0x8AFFFFFF). The preview
+      labels are visibly STRONGER than the settled labels; at commit the
+      labels change opacity. This matches the owner's "preview version then
+      changes into the actual settled date" perception.
+2. FRAGMENT-ACCENT OVERLAY (MP-04): preview-only strips painted at the
+   viewport's left edge during a rightward partial reveal. Handoff verified
+   continuous by code: strip is removed exactly when the block's true left
+   accent enters (blockLeftInViewport >= -accentWidth) with no frame in
+   which both strip and true accent overlap (condition strictly
+   blockLeftInViewport < -accentWidth). No double-accent, no pop at settle.
+3. INTERACTIVITY (allowed per locked contract): preview is IgnorePointer /
+   no InkWell; settled activates tap/drag/resize affordances at commit. No
+   visual weight difference (ink splash is transient interaction feedback).
+
+FRAME EVIDENCE
+- Owner stills are static (not mid-transition); the 22.16 s recording is
+  mostly navigation. Frames f_094-f_121 (10 fps) sampled; largest
+  consecutive-frame deltas are theme/navigation changes, not held partial
+  swipes with blocks in view. No frame-level contradiction to the code
+  finding; the recording cannot alone prove a settle-time geometry reflow.
+- Time-ruler/grid travels WITH paged content (section 5 of the prompt).
+  Audited: the ruler is part of each page column; making it fixed is NOT
+  the minimum root-cause fix and would touch the timeline scaffold/zoom/
+  gesture surface. Per the prompt default, architecture is UNCHANGED.
+
+ROOT CAUSE (PROVEN, bounded)
+PREVIEW/SETTLED_DELTA = hour-label opacity (0.70 vs 0.54) ONLY, in the
+shared surface; all event geometry/content/decoration already identical.
+The fragment-accent overlay is continuous by construction and stays.
+
+================================================================================
+4. EXACT PRODUCTION FILES PERMITTED TO CHANGE
+================================================================================
+1. lib/features/goals/presentation/widgets/goal_icon.dart
+   - add dark-mode-only cyan-family SVG remap (string loader + cache),
+     applied ONLY when Theme brightness == dark and iconId is valid.
+   - Light path byte-identical; gold untouched; colorFilter stays null;
+     opticalScale/size/semantics unchanged.
+2. lib/features/planner/presentation/widgets/planner_interactive_day_pager.dart
+   - line ~1458: preview hour-label opacity 0xB3/0xFF -> 0.54 (match settled).
+
+No other production file. No schema/package/manifest change. No Maps change.
+No R3/MP-06/R5 change.
+
+================================================================================
+5. EXACT TESTS / GOLDENS
+================================================================================
+1. REWRITE test/features/goals/presentation/r1_goal_icon_theme_parity_test.dart
+   - new perceptual contract: same six valid icons, Light crop is target;
+     Dark crop's cyan-family g/b means must be within tolerance of Light's;
+     gold pixel sets identical; fallback theme-independence retained.
+   - RED on current code (Dark g/b means fall well below Light's).
+2. NEW test/features/planner/presentation/preview_settled_render_parity_test.dart
+   - full-app harness (MP-04 pattern); at rest, compare real preview-column
+     hour-label style color vs real settled timeline hour-label style color
+     for the same hour indices; assert equal.
+   - RED on current code (0.70 vs 0.54), GREEN after the one-line fix.
+3. Existing suites re-run unchanged:
+   - mp04_screen_space_fragment_accent_test.dart (3), mp04_date_swipe_border
+   - r3_zoom_geometry_contract_test.dart, planner display geometry domain tests
+   - mp06_theme_grip_color_test.dart (8), d3_gap_fill, pager/swipe suites
+   - goal icon widget/registry/goldens, Home goldens (R5 regenerated earlier)
+   - Maps V1 + shell/nav, startup/Home/MP-18, contact flicker, B3.2/TF-01,
+     recurrence, lane/overlap/resize/move, CT-03
+
+No golden regeneration expected (R1 light render unchanged; Dark icons are
+not covered by committed goldens; preview labels not in goldens).
+
+================================================================================
+6. NO-TOUCH LEDGER
+================================================================================
+- R3 one-hour overview cards + display-lane packing (untouched)
+- MP-06 theme-color draft grips (untouched)
+- R5 Pathways removal (untouched)
+- Maps V1 / v28 / 4th tab / maplibre stack (untouched)
+- Home Life Goal geometry/sizes, Temple opticalScale, MP-18 line (untouched)
+- global Dark colorScheme.primary, gold palette, ratio text (untouched)
+- Event colors/palette, recurrence/status semantics, ledger truth (untouched)
+- lane solver, pager architecture, timing, gestures, zoom policy (untouched)
+- time-ruler scaffold (audited, NOT restructured)
+- no commit / no push / no staging; STOP for owner physical review
+
+================================================================================
+7. VERDICT
+================================================================================
+SAFE TO IMPLEMENT BOUNDED FIX
+
+Bounded deltas:
+  R1: GoalIcon-only dark cyan-family compensation (one widget file).
+  Preview/settled: one-line hour-label opacity parity (one pager file).
+Both root causes are measured/proven; both fixes are contained to the exact
+proven paths and leave every preservation lock untouched.

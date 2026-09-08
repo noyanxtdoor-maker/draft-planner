@@ -1,0 +1,162 @@
+NEXT TRANSFER — HI-02 + GP-01 FORENSIC AUDIT (READ-ONLY)
+DATE: 2026-08-15
+IMPLEMENTOR: FREEBUFF CODING AGENT
+STATUS: SAFE TO IMPLEMENT, NO OWNER DECISION REQUIRED
+
+================================================================================
+1. BASELINE RECONCILIATION
+================================================================================
+- branch autonomous/stability-ux-pack-a-20260814
+- HEAD 720c14c8ae63d53e9a50daa312f45b8dbd9d2280 == origin HEAD
+- index EMPTY
+- tracked tree DIRTY: exactly 17 modified files, all attributable to the
+  accepted HI-01 implementation (home_screen.dart 54/50 icons + 2 test files
+  + 14 Home goldens). No unexplained tracked modification.
+- Home sizes confirmed: top/Temple 54, middle 50 (grep of home_screen.dart).
+- HR-02 special-row structure intact (one full-width daily card + gray Today
+  inset; 2x2 compact middle; one full-width Temple card + gray August inset).
+- Choose Icon still 96dp / 3 columns (goal_icon_picker_screen.dart, tile
+  extent 104-112, crossAxisCount 3, GoalIcon size 96).
+- Audit probes were disposable, created and REMOVED; no probe file remains in
+  the diff (painted probe + layout probe both deleted before this file).
+
+================================================================================
+2. A1 — HOME PAINTED-BOUNDS MATRIX (measured, not inferred)
+================================================================================
+Method: rasterized each representative SVG through the real flutter_svg 2.2.0
+pipeline (SvgAssetLoader -> vg.loadPicture -> ui.Picture.toImage at the 1095
+viewBox) and measured the alpha>0 bounding box. "effFrac" applies the Temple
+optical scale 1.15 (rendered art lands 1.15x larger, centered, viewBox padding
+cropped). Disposable test, removed.
+
+ICON (Goal)            | REQ BOX | PAINTED bbox (viewBox) | fracW | fracH | optical | effW | effH
+calendar_date (Find Date)  1095   (295,282)-(828,791) 534x510  0.488  0.466   1.0    0.488  0.466
+jogging (Exercise)         1095   (231,204)-(862,829) 632x626  0.577  0.572   1.0    0.577  0.572
+church (Ministering Visit) 1095   (210,156)-(884,910) 675x755  0.616  0.689   1.0    0.616  0.689
+elders (Work w/ Mission.)  1095   (156,261)-(928,814) 773x554  0.706  0.506   1.0    0.706  0.506
+sisters (alt)              1095   (139,278)-(953,777) 815x500  0.744  0.457   1.0    0.744  0.457
+spiritual_temple (Temple)  1095   (242,157)-(852,851) 611x695  0.558  0.635  1.15  0.642  0.730
+
+Finding: every Goal SVG has large transparent viewBox padding (painted fracW
+0.49-0.74, fracH 0.46-0.69). The requested box overstates visible art by
+~30-50%. No SVG edit is authorized; the renderer correction exists only for
+Temple (1.15).
+
+Visible painted art (dp) at each requested size:
+ICON              | effW  | @50 | @54 | @58 | @60 | @62 | @64 | @96 (picker)
+calendar_date     0.488   24.4  26.4  28.3  29.3  30.3  31.2  46.9
+jogging           0.577   28.9  31.2  33.5  34.6  35.8  36.9  55.4
+church            0.616   30.8  33.3  35.7  37.0  38.2  39.4  59.2
+elders            0.706   35.3  38.1  40.9  42.4  43.8  45.2  67.8
+spiritual_temple  0.642   32.1  34.7  37.2  38.5  39.8  41.1  61.6
+
+HOME vs PICKER painted ratio (effW @ Home size / effW @ 96):
+- HI-01 (50/54):  jogging 28.9/55.4 = 52%; church 30.8/59.2 = 52%
+- HI-02 (60/64):  jogging 34.6/55.4 = 62%; church 37.0/59.2 = 62%
+A 50->60 middle icon grows PAINTED art +20%; 54->64 top/Temple grows +18-19%.
+This is a genuine visible-art increase, not just a larger invisible box.
+
+================================================================================
+3. A2 — HOME LAYOUT CANDIDATE MATRIX (measured on the real render)
+================================================================================
+Method: disposable layout probe pumped the real Home (Light) at 360/393/411 x
+textScale 1.0/1.3 and measured rendered boxes. Baseline (current 54/50) then a
+temporary constants patch to each candidate (patch reverted after capture; tree
+restored byte-identical).
+
+BASELINE (54/50):
+w=360 dailyTitle=82.0 middleTitle=79.0 templeTitle=99.8 | insets 152x56 /
+134.3x46 | cards 76.0 | planningY 472.0 | overflow none
+w=393 dailyTitle=115.0 middleTitle=95.5 templeTitle=132.8
+w=411 dailyTitle=133.0 middleTitle=104.5 templeTitle=150.8
+
+CANDIDATE 60/64 (measured):
+w=360 dailyTitle=72.0 middleTitle=69.0 templeTitle=89.8 | insets 152x56 /
+134.3x46 | cards 76.0 | planningY 472.0 | overflow none
+w=393 dailyTitle=105.0 middleTitle=85.5 templeTitle=122.8
+w=411 dailyTitle=123.0 middleTitle=94.5 templeTitle=140.8
+
+Proven:
+- No RenderFlex overflow at 360/393/411 x textScale 1.0/1.3 at 60/64.
+- Card height stays exactly 76.0 (top 64 + card padding 12 = 76; no growth).
+- Today inset (152x56) and August inset (134.3x46) byte-identical.
+- Goal Planning Y unchanged (472.0) — density invariant (card heights fixed).
+- Title regions shrink by exactly the icon delta (10dp middle, 10dp top).
+  Longest realistic titles: "Job Applications" ~100px, "Scripture Study"
+  ~90px, "Ministering Visit" ~100px at 13px Roboto. At 393 (dominant phone
+  width) the daily title region 105dp keeps "Job Applications" fully
+  readable; middle 85.5dp keeps every middle title fully readable except a
+  hair of ellipsis on the very longest (~100px) at scale 1.0 — the same
+  single-line-ellipsis treatment the approved reference mockup shows, with
+  maxLines:1 + ellipsis already the pinned contract (no mid-word wrap).
+- 58/62 was also safe (title +4dp) but yields only +16% painted art vs +20%
+  at 60/64; per the selection rule ("prefer the visually larger painted
+  result"), the pair is 60/64.
+
+Temple: opticalScale stays 1.15 (renderer metadata untouched; the caller size
+increase is the only change). No per-definition correction needed for any
+other icon — the audit found no new outlier beyond the known Temple case.
+
+SELECTION: MIDDLE 60 / TOP+TEMPLE 64. Card height 76 preserved, insets
+unchanged, density unchanged, no overflow at 360/393/411 x 1.0/1.3.
+
+================================================================================
+4. A3 — CHOOSE ICON LIGHT SURFACE AUDIT
+================================================================================
+Owner: goal_icon_picker_screen.dart, _IconTile (lines ~275-355).
+- Grid: SliverGridDelegateWithFixedCrossAxisCount(3 cols, spacing 6/10,
+  tile extent 104-112). GoalIcon size 96 (GI-02, unchanged).
+- Current Light tile: Card(color: Colors.transparent) + 1px border
+  (AppTheme.cardBorderOf = colorScheme.outlineVariant; selected: primary 2px
+  + primary check badge top-right). No elevation, no slab in code.
+- Why it still READS as gray slabs on device: the picker Scaffold body uses
+  the app canvas background (Light roseLightCanvas #F1EFEA / blueLightCanvas
+  #EEF0F2) and the app bar pins AppTheme.surfaceOf (Light navSurface
+  #F4F2EE/#F2F4F6). Transparent tiles over that warm-gray canvas make the
+  entire grid read as one gray panel — the same canvas tone the owner calls
+  "gray tile backgrounds".
+- Recommended Light base (GP-01): unselected tile fill = colorScheme.surface
+  (AppTheme.cardOf — the near-white card surface Rose #FAF8F5 / Blue
+  #F8F9FB, the SAME surface the Home cards use), keeping the 1px
+  outlineVariant boundary; selected = same near-white base + 2px primary
+  border + primary check. This yields white tiles on the gray canvas —
+  matching the Home's white-card-on-canvas hierarchy the owner approved.
+- Dark: keep the current transparent tile (raw art on the dark canvas; the
+  GI-01 no-plate contract) — do not flatten Dark into a transparent grid
+  with no boundary: keep the existing cardBorderOf border in Dark.
+- 96dp art, 3 columns, category chips, selection semantics unchanged.
+
+================================================================================
+5. EXPECTED FILES / TESTS / GOLDENS
+================================================================================
+Production:
+- lib/features/startup/presentation/home_screen.dart (4 icon constants ->
+  64/60/60/64)
+- lib/features/goals/presentation/goal_icon_picker_screen.dart (_IconTile
+  Light fill: transparent -> AppTheme.cardOf; Dark stays transparent)
+
+Tests (updated first, RED):
+- test/features/startup/presentation/home_light_polish_test.dart (B5 + B7
+  pins 54/50 -> 64/60; add painted-bounds/rendered-size assertions where the
+  harness can assert GoalIcon.size)
+- test/features/startup/presentation/home_week_start_test.dart (50/54 ->
+  60/64 pin)
+- test/features/goals/presentation/goal_icon_picker_screen tests: Light tile
+  base != transparent/gray slab (== colorScheme.surface), selected border
+  primary, Dark transparent preserved, 96dp/3-col unchanged.
+
+Goldens:
+- Home: the 14 HI-01 Light masters shift again (icon-size delta only).
+- Picker: only if a picker golden exists and renders the Light tile base.
+- No Goal Icon renderer/Dark golden changes.
+
+================================================================================
+6. VERDICT
+================================================================================
+SAFE TO IMPLEMENT, NO OWNER DECISION REQUIRED.
+- HI-02 pair: middle 60, top/Temple 64 (painted art +20%/+18-19%, 76dp
+  preserved, insets and density unchanged, no overflow).
+- GP-01: Light picker tile base = AppTheme.cardOf (near-white) with existing
+  outlineVariant boundary; selected keeps primary 2px + check; Dark
+  transparent preserved.
+- No schema, no SVG, no registry, no renderer metadata change.

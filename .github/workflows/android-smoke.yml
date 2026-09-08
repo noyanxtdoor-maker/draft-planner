@@ -1,0 +1,105 @@
+name: Android API smoke matrix
+
+on:
+  schedule:
+    - cron: "23 3 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  android-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - api-level: 24
+            flow: startup
+            command: flutter test integration_test/startup_smoke_test.dart
+          - api-level: 24
+            flow: privacy
+            command: flutter test integration_test/privacy_smoke_test.dart
+          - api-level: 24
+            flow: planner
+            command: flutter test integration_test/planner_smoke_test.dart
+          - api-level: 24
+            flow: calendar-event
+            command: flutter test integration_test/calendar_event_smoke_test.dart
+          - api-level: 24
+            flow: task-event-link
+            command: flutter test integration_test/task_event_link_smoke_test.dart
+          - api-level: 24
+            flow: outcome-report
+            command: flutter test integration_test/outcome_reporting_smoke_test.dart
+          - api-level: 24
+            flow: home-indicators
+            command: flutter test integration_test/home_indicator_smoke_test.dart
+          - api-level: 24
+            flow: weekly-planning
+            command: flutter test integration_test/weekly_planning_smoke_test.dart
+          - api-level: 24
+            flow: process-persistence
+            command: flutter test --no-uninstall integration_test/process_seed_test.dart && adb shell am force-stop com.nexttransfer.rmplanner && flutter test integration_test/process_resume_test.dart
+          - api-level: 36
+            flow: startup
+            command: flutter test integration_test/startup_smoke_test.dart
+          - api-level: 36
+            flow: privacy
+            command: flutter test integration_test/privacy_smoke_test.dart
+          - api-level: 36
+            flow: planner
+            command: flutter test integration_test/planner_smoke_test.dart
+          - api-level: 36
+            flow: calendar-event
+            command: flutter test integration_test/calendar_event_smoke_test.dart
+          - api-level: 36
+            flow: task-event-link
+            command: flutter test integration_test/task_event_link_smoke_test.dart
+          - api-level: 36
+            flow: outcome-report
+            command: flutter test integration_test/outcome_reporting_smoke_test.dart
+          - api-level: 36
+            flow: home-indicators
+            command: flutter test integration_test/home_indicator_smoke_test.dart
+          - api-level: 36
+            flow: weekly-planning
+            command: flutter test integration_test/weekly_planning_smoke_test.dart
+          - api-level: 36
+            flow: process-persistence
+            command: flutter test --no-uninstall integration_test/process_seed_test.dart && adb shell am force-stop com.nexttransfer.rmplanner && flutter test integration_test/process_resume_test.dart
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.44.7
+          cache: true
+
+      - name: Resolve locked dependencies
+        run: flutter pub get
+
+      - name: Run ${{ matrix.flow }} smoke flow
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api-level }}
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          script: ${{ matrix.command }}

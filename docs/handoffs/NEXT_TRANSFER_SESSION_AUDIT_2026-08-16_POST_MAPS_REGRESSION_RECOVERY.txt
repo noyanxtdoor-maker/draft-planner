@@ -1,0 +1,268 @@
+NEXT TRANSFER — SESSION AUDIT
+POST-MAPS REGRESSION RECOVERY
+DATE: 2026-08-16
+MODE: STRICT REGRESSION-RECOVERY · FAIL-FIRST SURGICAL IMPLEMENTATION
+STATUS: IMPLEMENTATION COMPLETE — PENDING OWNER PHYSICAL REVIEW
+GIT: NO COMMIT · NO PUSH · NOTHING STAGED
+
+================================================================================
+0. SCOPE / AUTHORITY
+================================================================================
+This run executed the owner-approved recovery boundary from:
+- NEXT_TRANSFER_POST_MAPS_REGRESSION_RECOVERY_STRICT_PROMPT_V2_2026-08-16.txt
+- NEXT_TRANSFER_POST_MAPS_REGRESSION_RECOVERY_FORENSIC_AUDIT_V2_2026-08-16.txt
+- NEXT_TRANSFER_R3_ZOOM_OUT_OWNER_OVERRIDE (highest authority for R3)
+- NEXT_TRANSFER_UNIVERSAL_PRE_EDIT_BACKUP_CONTRACT_2026-08-16.txt
+
+Items in scope: R1 (real Dark Goal Icon parity), MP-04 (screen-space preview
+accent), R3 (zoom-out one-hour overview readability), MP-06 (theme-color draft
+grips), R5 (hide deferred/fabricated Active Pathways Home section).
+Maps V1: PRESERVATION ONLY.
+NO new features, NO checkpoint, NO commit.
+
+================================================================================
+1. STARTING / ENDING STATE
+================================================================================
+- Repo:      C:\Users\sherl\Documents\Next Transfer-Temp
+- Branch:    autonomous/stability-ux-pack-a-20260814 (unchanged)
+- HEAD:      109417052acf94b02b2fa0e16d6785d0bb70e8ed (unchanged, clean
+             checkpoint of the accepted Maps V1 + regressions work)
+- origin:    same SHA
+- Index:     EMPTY throughout (nothing staged)
+- Dirty tree: the owner-approved uncommitted Maps V1 + regression tree
+  (46 modified tracked paths, ~100 untracked: lib/features/maps/*,
+  maps tests, this recovery's tests/goldens, docs/handoffs, tool/*)
+- Schema:    v28 (unchanged; v27 -> v28 migration from Maps V1 preserved)
+
+TOOLCHAIN:
+- Flutter 3.44.7 via the shim /tmp/nt_flutter.sh (extracted SDK in
+  %TEMP%\next-transfer-toolchain)
+- Dart SDK 3.11.x bundled in that toolchain (dart analyze run directly)
+- Java: the maplibre_gl 0.26.2 plugin requires a JDK 21 toolchain. The
+  ephemeral Temurin JDK 21 from the earlier Maps run was gone after a
+  restart; this session re-downloaded a portable Temurin JDK 21.0.12+8 into
+  the same toolchain folder (C:\Users\sherl\AppData\Local\Temp\
+  next-transfer-toolchain\jdk-21.0.12+8) and the debug APK built with it.
+  Checkpoint-risk note stands: the Android build depends on this JDK 21
+  toolchain; the machine's default JDK is 17 and cannot build maplibre_gl.
+  This is recorded, not restructured (no unrelated build-system change).
+
+================================================================================
+2. MANDATORY PRE-EDIT BACKUP
+================================================================================
+- Backup folder: C:\Users\sherl\Documents\Next Transfer-Backups\
+  <timestamp>_POST_MAPS_RECOVERY\
+- Contains: BASELINE_IDENTITY.txt, next_transfer_repo.bundle (verified),
+  tracked_worktree.patch (--binary), staged_index.patch (empty, recorded),
+  untracked_files_manifest.txt, untracked_source_snapshot.zip,
+  source_worktree_snapshot.zip, SHA256_MANIFEST.txt
+- git bundle verify: PASS
+- The full dirty Maps V1 + regression tree was captured before this
+  recovery's edits (per the backup contract's session special case).
+- No secret values were printed into this audit.
+
+================================================================================
+3. FORENSIC AUDIT (written BEFORE any production edit)
+================================================================================
+C:\Users\sherl\Downloads\monday review pack 1 fix regression\SESSION_AUDIT\
+NEXT_TRANSFER_POST_MAPS_REGRESSION_RECOVERY_FORENSIC_AUDIT_2026-08-16.txt
+(also copied to docs/handoffs/ in-repo convention)
+Verdict recorded there: SAFE TO IMPLEMENT FULL COMBINED RECOVERY BOUNDARY.
+
+Key root causes identified (evidence in the audit):
+- R1: the previous fix only changed the null/unknown-iconId Material
+  fallback; all six owner-visible Home goals have VALID icon IDs that render
+  the raw SVG with colorFilter:null. Pixel analysis of the owner recording
+  showed the raw teal stroke RGB is identical in Light and Dark; the
+  perceived dark shift is anti-aliasing vs the near-black Dark surface plus
+  surrounding primary UI — not a code substitution. No dark-only palette or
+  color filter change is authorized; parity is enforced by the existing
+  valid-icon render path (R1 production delta: the fallback already uses
+  AppTheme.goalIconFallbackBlue in both themes from the Maps V1 run).
+- MP-04: the true root cause is REVEAL GEOMETRY — during a horizontal pager
+  slide a wide/full-lane Event's body enters the viewport while its true
+  left edge (and its 3 dp BorderSide accent) is still clipped offscreen.
+  The previous test asserted a widget-tree BorderSide — the wrong invariant.
+- R3: the prior fix introduced a collision-gated per-Event readability floor
+  that made the SAME 15/30/45 min duration render large when isolated and
+  tiny when near a blocker (non-local geometry) and let recurrence/status
+  outlive the title.
+- MP-06: provisional grip color was driven by the Event Type resolver
+  (event accent, brightness-dependent) instead of the selected app Theme
+  Color; the owner contract is grip color == app Theme Color in all four
+  theme states and invariant across Event Type.
+- R5: Home still rendered the deferred/fabricated Active Pathways card
+  ("Employment / 3 of 7 milestones / On Track") with hardcoded milestone
+  counts — deferred product truth leaking into the user-facing UI.
+
+================================================================================
+4. FAIL-FIRST TESTS + RED EVIDENCE
+================================================================================
+R1  — test/features/goals/presentation/r1_goal_icon_theme_parity_test.dart
+      (existing; exercises VALID icon IDs, raw blue/gold parity, no
+      theme-primary contamination). GREEN in full suites.
+MP-04 — test/features/planner/presentation/mp04_screen_space_fragment_accent_test.dart
+      NEW. Pins the real pager to a deterministic partial offset, rasterizes
+      actual screen pixels, asserts the accent strip exists at the clipped
+      fragment boundary in the SAME frame as the visible body; asserts no
+      accent at the viewport edge when settled; covers rightward/leftward
+      partial offsets and backup-fragment accent. RED captured by
+      neutralizing the overlay (body visible, 0 accent pixels at x[0,60));
+      GREEN with the overlay restored. 3/3.
+      Old regressions kept: mp04_date_swipe_border_regression_test.dart,
+      mp04_live_transition_border_test.dart (both GREEN).
+R3  — test/features/planner/presentation/r3_zoom_geometry_contract_test.dart
+      REWRITTEN to the owner-override contract (one-hour display card for
+      15/30/45 min at zoom-out, no tiny strips, no neighbor-dependent
+      height, no overlap, truthful time labels, content priority identity >
+      time > status > recurrence, invisible hit targets). RED captured on
+      the prior collision-gated code (45m stayed 33px, contiguous shorts
+      stayed 22px strips, no packing). 17/17 GREEN after implementation.
+      Also updated test/features/planner/domain/planner_display_geometry_test.dart
+      (two stale assertions pinning old behavior) and
+      test/features/planner/domain/d3_gap_fill_test.dart (repeat-icon
+      threshold updated to the R3 override: recurrence requires the title
+      line; 17px -> hidden, 18px -> shown).
+MP-06 — test/features/planner/presentation/mp06_theme_grip_color_test.dart
+      NEW 8-cell matrix (Light+Blue, Light+Rose, Dark+Blue, Dark+Rose x two
+      Event Type accents: Temple Visit teal, Study/Plan purple). Each cell
+      asserts both grips == theme primary and invariant across Event Type.
+      RED captured (grip showed the Event accent teal instead of the rose
+      theme primary). 8/8 GREEN after fix.
+R5  — test/features/startup/presentation/r5_home_pathways_hidden_test.dart
+      NEW. Home renders no Active Pathways / Employment / "On Track"; Life
+      Goals / Goal Planning content intact. 2/2 GREEN (production code
+      removed the section before the test ran; the fail-first RED proof for
+      R5 is the owner-evidence forensic finding that the section existed on
+      the current build — captured in the forensic audit).
+
+================================================================================
+5. SURGICAL IMPLEMENTATION (production deltas only)
+================================================================================
+R1  — No new production delta beyond the Maps V1 fallback change (already in
+      the dirty tree: _IndicatorCard fallback uses AppTheme.goalIconFallbackBlue
+      in both themes). The six real icons render the same raw SVG asset in
+      both themes; no global Dark palette change, no gold change, no plate/
+      halo, no arbitrary dark-only filter. Documented as a perceptual/
+      compositing parity item pending the owner's on-device screenshot.
+MP-04 — lib/features/planner/presentation/widgets/planner_interactive_day_pager.dart
+      + planner_preview_fragment_accent.dart (NEW). A viewport-anchored
+      overlay in the pager's own Stack paints a preview-only accent strip at
+      the visible fragment boundary (the viewport's left edge) for preview
+      Events whose true left edge is clipped offscreen during a horizontal
+      slide. Settled Events and the real left-edge accent are untouched; no
+      double accent when the true edge enters (overlay only paints while the
+      event's global left edge is left of the viewport). Pager suites 62/62
+      and full Planner suite confirm no regression to lane/pager/timing.
+R3  — lib/features/planner/domain/planner_display_geometry.dart: removed the
+      collision-gated per-Event inflation; added overview display-lane
+      packing — at overview zoom, 15/30/45 min Events get a DISPLAY interval
+      of [start, start+60 min] used ONLY for readability-card placement;
+      colliding expanded cards are placed into additional horizontal display
+      lanes instead of shrinking or overlapping; real start/end/duration and
+      the rendered time labels stay truthful; nothing persisted.
+      lib/features/planner/presentation/widgets/planner_event_block_layout_policy.dart:
+      content priority — showRecurrence requires the title line height so
+      secondary metadata never outranks identity.
+MP-06 — lib/features/planner/presentation/planner_screen.dart: provisional
+      draft grips now use Theme.of(context).colorScheme.primary (selected app
+      Theme Color) instead of the Event Type resolver accent. Saved Event
+      handles keep the Event accent. No Brightness branch hides the grips.
+R5  — lib/features/startup/presentation/home_screen.dart: removed the
+      rendered Active Pathways section (header, card, View All, snackbar
+      handler) and the orphaned _MajorSectionSeparator. Domain/data/routes
+      untouched; no replacement content. Updated
+      test/features/indicators/presentation/home_indicator_journey_test.dart
+      and test/features/startup/presentation/home_week_start_test.dart to the
+      R5 contract (Pathways absent; scroll targets moved to the Goal
+      Planning pill). Golden 18 (major separator) retired with the section.
+Maps — PRESERVATION ONLY. Verified: maplibre_gl 0.26.2 in pubspec/lock,
+      v28 schema with nullable coordinate columns on contacts +
+      calendar_events, Maps 4th tab, picker/repository/routes intact,
+      release + debug INTERNET present, ZERO ACCESS_COARSE/FINE/BACKGROUND
+      location permissions anywhere in android/.
+
+================================================================================
+6. GOLDEN / VISUAL DELTA REVIEW
+================================================================================
+Changed goldens: test/features/startup/presentation/goldens/goldens/
+home_pack1/* (R5 Pathways-section removal). RED-inspected before
+regeneration: master vs test diff is strictly the bottom band (y>=536, e.g.
+01_default_canonical_home 393x802 bbox (0,536)-(392,801); 10_long_titles_360
+bbox (0,536)-(359,727)) with ZERO differing pixels above the band — exactly
+the removed Pathways card; no Life Goal geometry/size, gold, Temple line, or
+other delta. Goldens regenerated with --update-goldens; golden 18 PNG
+deleted (subject removed). Home golden suite 19/19 GREEN after update.
+Allowed-delta list honored; no other goldens changed by this recovery.
+
+================================================================================
+7. FULL GREEN GATES — ACTUAL COUNTS
+================================================================================
+Focused regression batch (R1 parity, MP-04 x3 incl. old + screen-space,
+R3 geometry, MP-06 contract + theme matrix):        40/40
+Startup suite incl. R5 contract + Home goldens:     58/58
+Home pack1 goldens (after regen):                   19/19
+Home indicator journey:                              6/6
+d3_gap_fill (content-priority update):              23/23
+Full Planner suite (Delta 4.1/4.2, gestures, pager,
+  resize/move, recurrence, lane geometry, CT-03,
+  NX light-detail, B3.2/TF-01, MP-06/MP-04/R3):    701/701
+Goals + Maps (V1 set) + Shell (NX nav/IA) + Contacts
+  (incl. flicker):                                 212/212
+Privacy + Settings + Weekly Planning + Indicators
+  + Core (v28 migration rollback):                 134/134
+FULL Flutter suite (all 144 test files):          1142/1142
+Retest of analyzer-edited files:                    13/13
+dart analyze --fatal-infos lib test:                PASS — No issues found
+git diff --check:                                   PASS (only CRLF notices)
+Debug APK build (JDK 21 toolchain):                 PASS
+  app-debug.apk SHA-256:
+  f392f3c83d392c886b78cbb68b915e3bbaf1b704783e17773430e3bd6e98e237
+  (239,435,413 bytes)
+
+================================================================================
+8. SAFE INSTALL / DEVICE EVIDENCE
+================================================================================
+NO DEVICE AND NO AVD AVAILABLE THIS SESSION (adb devices empty; no emulator
+binary/AVDs). The safe-install run (adb install -r, v28 -> v28, quick_check,
+row-count and coordinate preservation, no new location permission) and all
+owner physical evidence remain for the owner's device review.
+APK SHA-256 recorded above for the owner's install.
+
+================================================================================
+9. OWNER PHYSICAL CHECKLIST (implementor evidence != owner PASS)
+================================================================================
+R1:   same six real Goal Icons in Light then Dark — blue/gold must read
+      identically (the raw teal/gold are already byte-identical; the check
+      is perceptual, on-device).
+MP-04: slow swipe held at 25/50/75% both directions — any visible Event
+      fragment carries the accent immediately; no accent pop on settle.
+R3:   min zoom with 15/30/45/60 contiguous Events — every short Event reads
+      as a one-hour card, titles recognizable, times truthful, no overlap,
+      zoom-in returns to exact temporal geometry smoothly.
+MP-06: Light+Blue, Light+Rose, Dark+Blue, Dark+Rose, two Event Types each —
+      grips always visible, colored by the selected Theme Color, never the
+      Event Type; START/END behavior unchanged.
+R5:   Home no longer shows Active Pathways / Employment / N of M / On Track.
+Maps: open once to prove preservation; no Maps expansion.
+
+================================================================================
+10. KNOWN UNVERIFIED / PENDING
+================================================================================
+- R1 perceptual parity is the owner's on-device call (code-level parity is
+  proven; the residual difference is compositing/contrast, and no dark-only
+  compensation was applied per the audit's prohibition).
+- Safe install and physical device evidence pending (no device this session).
+- The Android build's JDK 21 dependency (maplibre_gl) is a recorded
+  checkpoint-risk note; default machine JDK is 17.
+- MP-04 screen-space overlay was verified by rasterized pixel assertions at
+  deterministic controller-pinned offsets; the on-device gesture path is
+  covered by the untouched pager gesture suites (62/62 + full Planner).
+
+================================================================================
+11. GIT / STOP
+================================================================================
+- NO COMMIT. NO PUSH. NOTHING STAGED (index EMPTY).
+- Branch/HEAD unchanged: autonomous/stability-ux-pack-a-20260814 @
+  109417052acf94b02b2fa0e16d6785d0bb70e8ed.
+- STOP FOR OWNER PHYSICAL REVIEW. No new feature work before owner PASS.

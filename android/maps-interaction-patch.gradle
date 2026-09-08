@@ -1,0 +1,52 @@
+// NT M3.2 Pass 2: substitute only three hash-pinned Java sources at compile
+// time. Pub cache is read-only input; no package upgrade or broad plugin fork.
+import groovy.json.JsonSlurper
+import java.security.MessageDigest
+import org.gradle.api.tasks.compile.JavaCompile
+
+def patchRoot = new File(rootProject.projectDir, 'maps_interaction_patch')
+gradle.projectsEvaluated {
+    def plugin = rootProject.findProject(':google_maps_flutter_android')
+    if (plugin == null) throw new GradleException('Pinned Google Maps Android plugin missing')
+    def spec = new JsonSlurper().parse(new File(patchRoot, 'patch.json'))
+    def nativeRoot = new File(plugin.projectDir, 'src/main/java/io/flutter/plugins/googlemaps')
+    def output = new File(plugin.layout.buildDirectory.get().asFile, 'generated/nt_maps_patch')
+    def prepare = plugin.tasks.register('prepareNtMapsInteractionPatch') {
+        inputs.file(new File(patchRoot, 'patch.json'))
+        spec.files.each { item -> inputs.file(new File(nativeRoot, item.name)) }
+        outputs.dir(output)
+        doLast {
+            spec.files.each { item ->
+                def input = new File(nativeRoot, item.name)
+                def bytes = input.bytes
+                def sha = MessageDigest.getInstance('SHA-256').digest(bytes).encodeHex().toString()
+                if (sha != item.sha256) throw new GradleException("NT patch upstream hash mismatch: ${item.name}")
+                def text = new String(bytes, 'UTF-8').replace('\r\n', '\n')
+                item.replacements.each { replacement ->
+                    if (text.count(replacement.before) != replacement.count) {
+                        throw new GradleException("NT patch anchor mismatch: ${item.name}")
+                    }
+                    text = text.replace(replacement.before, replacement.after)
+                }
+                def target = new File(output, 'io/flutter/plugins/googlemaps/' + item.name)
+                target.parentFile.mkdirs()
+                target.setText(text, 'UTF-8')
+            }
+        }
+    }
+    plugin.tasks.withType(JavaCompile).configureEach { compile ->
+        if (!compile.name.toLowerCase().contains('unittest')) {
+            dependsOn(prepare)
+            inputs.file(new File(patchRoot, 'patch.json'))
+            // AGP finishes collecting the generated Kotlin/Java sources before
+            // execution. Preserve every other source exactly as provided.
+            doFirst {
+                def names = spec.files.collect { it.name } as Set
+                def originals = source.files.findAll { !(it.parentFile == nativeRoot && names.contains(it.name)) }
+                setSource(plugin.files(originals, plugin.fileTree(output), plugin.fileTree(new File(patchRoot, 'java'))))
+            }
+            inputs.files(plugin.fileTree(new File(patchRoot, 'java')))
+        }
+    }
+    plugin.extensions.getByName('android').sourceSets.getByName('test').java.srcDir(new File(patchRoot, 'test'))
+}

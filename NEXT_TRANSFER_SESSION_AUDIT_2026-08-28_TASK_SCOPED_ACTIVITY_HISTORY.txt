@@ -1,0 +1,73 @@
+NEXT TRANSFER SESSION AUDIT — PHASE B TASK-SCOPED ACTIVITY HISTORY
+
+1. SESSION IDENTITY
+Date: 2026-08-28
+Implementor: Codex / GPT-5
+Authoritative workspace: C:\Users\sherl\Downloads\NT_C7_IMPLEMENTATION_20260825_235900
+Baseline HEAD: e01c905aed44213b3e5e825ebb1305f5cdef7173 (detached HEAD)
+Git actions: no stage, commit, push, reset, clean, stash, restore, or relocation.
+
+2. AUTHORITY AND STOP BOUNDARY
+Implemented only the attached Phase B Task-Scoped Activity History authority under the standing rulebook. The later owner steer keeps a temporary device stop boundary: no ADB discovery, phone read, launch, install, pull, screenshot, or other device action was performed.
+
+3. INHERITED STATE AND PROVENANCE
+The workspace was already materially dirty. In particular, task_detail_screen.dart already contained accepted Task Preview / Phase B work before this task. A pre-mutation provenance capture is retained at build\phase-b-task-scoped-activity-history-20260828\provenance:
+- all-refs-pre-mutation.bundle SHA-256 F21BE3489EDE35920D42D8EB0A45C3C0EAAB57D4E678042F00AB5D08298E4C63
+- working-before.patch SHA-256 EF3D4B219559571BEF143C428061F560EB90B0C48F776C8FA0DE82596949AD23
+- staged-before.patch SHA-256 E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855
+No claim is made that the full current task_detail_screen.dart diff is task-owned.
+
+4. TASK-OWNED IMPLEMENTATION
+Modified only the bounded reporting/history path in lib\features\planner\presentation\task_detail_screen.dart:
+- resolves the current Task through OutcomeReportingController.readTaskSource(taskId);
+- uses only the canonical stable source.slotKey to filter canonical OutcomeReport history;
+- orders the scoped history newest first by canonical updatedAtUtc, with report id as a deterministic tie breaker;
+- renders an inline trailing Activity History section only when scoped history exists;
+- keeps Current Status based on the same canonical scoped snapshot;
+- preserves correction linkage/reason and clear-to-Unreported facts;
+- contains no generic/global history control, route, navigation, schema, migration, repository, domain, recurrence, drag/resize, collision, overflow, or zoom-law change.
+
+Added task-owned test file:
+test\features\planner\presentation\task_scoped_activity_history_test.dart
+The routed production Preview tests establish strict Task A isolation from Task B, Event, and manual/global reports; correction/clear facts; absence of the rejected generic button; and omission of the section for a Task with no report history.
+
+5. CONTRACT / VISUAL STATUS
+The Activity History section is a compact inline Task Preview section after factual Task content. It is data-scoped by canonical slotKey, not by title, date, display text, or a global report list. No owner physical observation has occurred in this session; visual/device acceptance is UNVERIFIED and intentionally deferred.
+
+6. VALIDATION RESULTS
+Fail-first: the new routed test initially failed because Activity History was absent, then passed after the bounded implementation.
+Focused task suite:
+flutter test --no-pub test\features\planner\presentation\task_scoped_activity_history_test.dart --reporter compact
+Result: 00:05 +2: All tests passed!
+
+Focused Planner preservation suite (Task, Event, Day, Preview, zoom, overflow, and reporting contracts):
+Result: 00:42 +55: All tests passed!
+Log: build\phase-b-task-scoped-activity-history-20260828\focused-planner-preservation-final.out.txt
+
+Authoritative broad Planner / Contacts / Maps / migration closure:
+flutter test --no-pub --concurrency=1 test\features\planner test\features\contacts test\features\maps test\core\database\migration_rollback_test.dart --reporter compact
+Result: 06:59 +938: All tests passed!
+Log: build\phase-b-task-scoped-activity-history-20260828\planner-contacts-maps-migration-authoritative-final.out.txt
+
+Analyzer:
+dart analyze --fatal-infos lib test
+Result: No issues found.
+
+Hygiene:
+git diff --check exited 0 with no whitespace errors. No paths are staged. The existing large dirty tree remains preserved; only the scoped addition above and its new test are claimed for this task.
+
+7. FRESH LOCAL APK
+APK path: C:\Users\sherl\Downloads\NT_C7_IMPLEMENTATION_20260825_235900\build\app\outputs\flutter-apk\app-debug.apk
+Built timestamp: 2026-08-28T17:24:49.2887196+08:00
+Size: 235111289 bytes
+SHA-256: 3BDE19720FDC60BAC9E7393EB060C5E03D182243C08FEE22597D5F404EA8F3D2
+Package: com.nexttransfer.rmplanner
+Version: versionCode 1, versionName 0.1.0
+Local verification record: build\phase-b-task-scoped-activity-history-20260828\local-apk-verification.json
+
+8. DEVICE / OWNER REVIEW
+No phone or ADB action was performed, by explicit temporary owner boundary. Consequently, installation continuity, installed base.apk equality, cold-launch evidence, screenshots, and owner physical acceptance are all UNVERIFIED.
+
+IMPLEMENTOR EXPECTS: Task Preview shows Current Status unchanged and, only when this Task has canonical outcome reports, a compact factual Activity History after factual content. It shows no unfiltered global history.
+OWNER SHOULD VERIFY: after explicit device authorization, confirm Task A displays only Task A history, an empty Task has no history section, corrections/clear wording remains factual, and all frozen Phase B Task/Event zoom, overflow, drag, collision, recurrence, reporting, and Preview mechanics remain intact.
+IF OWNER REPORTS A CONFLICT: capture the exact Task, timestamp, report/status sequence, navigation path, and visible screen recording before changing code; do not broaden the source identity rule or reintroduce a global history surface.

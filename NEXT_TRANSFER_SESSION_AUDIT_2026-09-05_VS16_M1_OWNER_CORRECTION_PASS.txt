@@ -1,0 +1,103 @@
+NEXT TRANSFER
+VS16-M1 OWNER CORRECTION PASS — SESSION AUDIT
+Prepared: 2026-09-05
+Classification: ENGINEERING GREEN — DATA-PRESERVING INSTALL COMPLETE; OWNER REVIEW PENDING
+
+1. IDENTITY AND PROVENANCE
+
+Repository: C:\Users\sherl\Downloads\NT_C7_IMPLEMENTATION_20260825_235900
+Branch: checkpoint/phase-b-accepted-20260829
+Starting and ending HEAD: 76ee168cc6f723c8e2efec7737405d30ff6c44f5
+Initial staged paths: 0. No commit, tag, or push was made.
+The inherited dirty worktree was preserved. A correction-specific rollback pack
+was created before mutation at:
+C:\Users\sherl\AppData\Local\Temp\VS16_M1_OWNER_CORRECTION_PREEDIT_20260905
+
+2. OWNER CORRECTIONS IMPLEMENTED
+
+- System notifications now has a visible app-owned master toggle. The durable
+  model is: app master AND factual Android permission AND saved category choice
+  equals effective category state. Android permission is never persisted or
+  faked. Master Off retains Event/Task category choices but renders them
+  ineffective; restoring the master and Android permission restores them.
+- Android permission is requested directly from the master-On action with no
+  intermediate Next Transfer confirmation dialog. Notifications Settings also
+  reloads on app resume so Android Settings changes are re-read.
+- Quiet Hours On activates Start and End without launching a clock. Defaults
+  are 22:00 / 07:00 only when unset; turning it off retains values.
+- Manual Event and Task time selection snaps to five-minute increments only.
+  Planner geometry and the 15-minute minimum duration law are unchanged.
+- The existing Event PlannerPreferences default and existing Task notification
+  preference owner retain reminder lead persistence. The shared settings sheet
+  now has a centered drag handle, heading, divider, presets, Custom..., and
+  Off. Custom accepts a whole, non-negative value from 0 through 10080 minutes.
+- M1 retains its no-delivery law: no Event/Task scheduler, WorkManager reminder
+  job, exact alarm, foreground service, location work, or M2 work was added.
+
+3. DATABASE
+
+Schema: v38 -> v39.
+One additive column was added to notification_preferences:
+system_notifications_enabled BOOLEAN NOT NULL DEFAULT false.
+This field is solely the app-level master preference. Migration handles true
+v38 tables with addColumn and does not duplicate the column when an older
+database reaches v38 and v39 in one upgrade. No row is backfilled enabled.
+Generated app_database.g.dart was produced only by normal build_runner.
+The second consecutive generation completed with: wrote 0 outputs.
+
+4. EXACT CORRECTION-PASS PATHS
+
+lib/core/database/app_database.dart
+lib/core/database/app_database.g.dart
+lib/features/notifications/domain/notification_preferences.dart
+lib/features/notifications/application/notification_providers.dart
+lib/features/notifications/data/drift_notification_foundation_repository.dart
+lib/features/settings/presentation/notifications_settings_screen.dart
+lib/features/planner/presentation/calendar_event_form_screen.dart
+lib/features/planner/presentation/task_form_screen.dart
+test/features/notifications/notification_foundation_domain_test.dart
+test/features/notifications/data/drift_notification_foundation_repository_test.dart
+test/core/database/v38_notification_foundation_migration_test.dart
+test/core/database/migration_rollback_test.dart
+test/features/maps/maps_preferences_repository_test.dart
+test/features/maps/vs15_m3_saved_places_contract_test.dart
+test/features/planner/domain/locked_default_dark_surface_test.dart
+
+5. ENGINEERING EVIDENCE
+
+Focused Flutter validation: 60 passed, 0 failed. It covered notifications,
+v37/v38/v39 migration and rollback, Settings, planner domain, and Maps
+regression paths.
+flutter analyze --no-pub --fatal-infos lib test: No issues found.
+git diff --check: passed before build.
+Normal Drift generator second run: wrote 0 outputs.
+
+6. APK AND DEVICE
+
+Fresh debug APK:
+build\app\outputs\flutter-apk\app-debug.apk
+UTC timestamp: 2026-09-05T14:44:29.4037763Z
+Bytes: 238219332
+SHA-256: 355EF444A433FFC0A04EC976E216146DCA02025BDF2BD0DBFDF5DA8BC829B5C5
+
+Authorized device: Infinix X6731 / 10620253B3004617.
+Live Android TLS transport used:
+adb-10620253B3004617-2m7ZVB._adb-tls-connect._tcp
+Data-preserving install command: adb -s <live transport> install -r <APK>.
+Result: Success.
+Pre-install continuity: firstInstallTime=2026-07-27 15:42:22,
+dataDir=/data/user/0/com.nexttransfer.rmplanner, ceDataInode=1509267.
+Post-install continuity: same firstInstallTime, dataDir, and ceDataInode;
+lastUpdateTime=2026-09-05 22:47:34.
+Cold launch: successful via launcher intent. MainActivity was visible and
+top-resumed; app PID=10660.
+PID-scoped log scan: no FATAL EXCEPTION, AndroidRuntime, or Flutter unhandled
+exception. Device graphics allocation and Transsion optional-class warnings
+were observed, but the app stayed running and foregrounded.
+No uninstall, pm clear, wipe, downgrade, or other destructive device mutation
+occurred. Owner physical review remains pending.
+
+7. STOP BOUNDARY
+
+M2 was not started. Real Event/Task notification delivery remains absent.
+Staged: 0. Commit: none. Tag: none. Push: none.

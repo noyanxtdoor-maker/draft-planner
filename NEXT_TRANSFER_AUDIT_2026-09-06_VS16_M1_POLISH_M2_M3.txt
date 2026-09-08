@@ -1,0 +1,62 @@
+NEXT TRANSFER — VS16 M1/M2/M3 TECHNICAL AUDIT
+Prepared: 2026-09-06
+
+STATE
+Authoritative repository: C:\Users\sherl\Downloads\NT_C7_IMPLEMENTATION_20260825_235900
+Branch: checkpoint/phase-b-accepted-20260829
+HEAD: 76ee168cc6f723c8e2efec7737405d30ff6c44f5
+Index: no staged paths. Working tree: 142 existing/current entries; product
+truth is the dirty worktree and no owner state was reset or cleaned.
+
+M1 BASELINE
+Schema is v39: M1's v38 foundation tables plus additive app-owned
+notification_preferences.system_notifications_enabled. Event global default
+remains PlannerPreferences.defaultReminderMinutes; Task default remains
+NotificationPreferences.defaultTaskReminderMinutes. Android permission is not
+persisted. Custom reminder uses _CustomReminderDialog State ownership: one
+TextEditingController, created once and disposed once by dialog State.
+
+FOUNDATION SEAMS
+NotificationGateway.schedule/cancel/pending is the only platform scheduling
+contract. FlutterLocalNotificationsGateway uses zonedSchedule in UTC with
+inexactAllowWhileIdle. NotificationPayloadCodec is typed, versioned and ID-only.
+NotificationResponseController owns cold/warm capture. NotificationFoundation-
+Repository owns ReminderPolicy persistence, sanitized BackgroundWorkRequest
+persistence, and durable platform-ID allocation. No additional table is needed
+for M2/M3.
+
+EVENT SEAMS
+CalendarEventRepository owns canonical saveEvent/editEvent/cancelEvent/
+rescheduleEvent. CalendarEventController wraps those post-persistence writes
+and is the authorized reconciliation entry seam. Recurrence/exception/
+reschedule identity is CalendarEventOccurrence and CalendarEventOccurrence-
+Identity.forDate. Existing IANA conversion is in calendar_event_time_zones.dart.
+All-day Events lack an explicit canonical reminder time and must not be given
+invented M2 notifications. Existing data layer already represents cancelled and
+rescheduled occurrence lifecycle state.
+
+TASK SEAMS
+PlannerRepository.saveTask and PlannerController are canonical Task writes.
+PlannerTask carries profile ID, dueDate, dueMinute, recurrence and status.
+Timed Task eligibility requires dueDate + dueMinute + incomplete state. Date-
+only Task has no dueMinute and must have no invented timed notification.
+
+M1 COPY AUDIT
+Settings landing: all destination subtitles are redundant and removable;
+Start-of-week is retained as a trailing dynamic value. Notifications was already
+compacted. Screenshots identify further bounded targets: Appearance option
+descriptions, Privacy/Data generic prose except its factual privacy disclaimer,
+Permissions purpose paragraphs, and Planner/Calendar helper/footer copy.
+Keep validation/errors, destructive warnings, real dynamic state, legal/security
+facts, the one factual privacy disclaimer, and actual onboarding/content.
+
+M4 EXCLUSIONS
+No Snooze, Quiet Hours delivery suppression/reconciliation, boot/package/time/
+timezone recovery orchestration, exact alarms, foreground service, background
+location, geofencing, content polling, or M5+ notification purposes.
+
+LIKELY IMPLEMENTATION SURFACE
+New M2/M3 reminder reconciliation application service plus provider; existing
+notification providers/controllers; Event/Task forms for concise policy rows;
+canonical source-controller reconciliation hooks; response routing; focused
+notifications/data/presentation tests. No schema/dependency change expected.

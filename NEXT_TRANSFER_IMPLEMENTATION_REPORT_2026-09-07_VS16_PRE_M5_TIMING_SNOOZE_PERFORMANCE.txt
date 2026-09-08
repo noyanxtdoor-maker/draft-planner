@@ -1,0 +1,537 @@
+NEXT TRANSFER — VS16 PRE-M5 TIMING / SNOOZE / GLOBAL DEFAULT /
+PERFORMANCE AUDIT AND CORRECTION REPORT
+Date: 2026-09-07
+Status: IN PROGRESS — NOT A COMPLETION OR OWNER-REVIEW SIGN-OFF
+
+======================================================================
+1. AUTHORITY, SCOPE, AND SAFETY BOUNDARY
+======================================================================
+Authoritative checkout:
+  C:\Users\sherl\Downloads\NT_C7_IMPLEMENTATION_20260825_235900
+
+Scope authorized for this pre-M5 pass:
+  1) diagnose normal-reminder latency and Snooze re-fire failure;
+  2) correct only proven timing/Snooze causes;
+  3) verify global Custom Event and Task default reminder support;
+  4) measure and correct proven navigation/request-storm causes;
+  5) run regression, build a new APK, device-smoke it, and report results.
+
+Boundaries retained:
+  - No reset, clean, stash, broad restore/discard, stage, commit, tag, or push.
+  - No uninstall, pm clear, data wipe, downgrade, or alternate device.
+  - No exact-alarm permission, foreground service, background location, or
+    geofencing is authorized.
+  - M5 is NOT STARTED.
+  - Factual owner Event/Task records were not modified and no temporary test
+    Event or Task was created in this audit attempt.
+
+======================================================================
+2. STARTING PROVENANCE RESTAMP
+======================================================================
+Branch:
+  checkpoint/phase-b-accepted-20260829
+HEAD:
+  76ee168cc6f723c8e2efec7737405d30ff6c44f5
+Working-tree status count at restamp:
+  167 paths reported by `git status --short`.
+
+Interpretation:
+  The inherited dirty tree is authoritative product truth. The count is not
+  treated as an agent-owned change list, and no inherited change was removed,
+  staged, or overwritten.
+
+======================================================================
+3. OWNER-REVIEW BASELINE FROM THE CURRENT AUTHORITY
+======================================================================
+Previously reported PASS items:
+  - notification small icon / SVG identity
+  - Event detailed content
+  - Task detailed content
+  - Event and Task OPEN routing
+  - shared Planner preview and SafeArea behavior
+  - inherited Reminder wording
+  - Generic / Show Details / Privacy Lock behavior
+  - custom per-item reminder timing
+  - launcher badge
+  - initial Snooze action does not navigate
+
+Items requiring this audit:
+  - Snooze did not visibly re-fire after its fixed ten-minute target.
+  - Normal reminders were observed about 30–45 seconds late.
+  - Owner observed whole-app navigation/opening jank and loading delay.
+  - Owner requested Custom... support for global Event and Task defaults.
+
+======================================================================
+4. GATE A — TIMING / SNOOZE FORENSIC FINDINGS
+======================================================================
+Measured source-path evidence:
+
+Normal reminder scheduling path before correction:
+  FlutterLocalNotificationsGateway.schedule(request)
+    -> cancel current plugin notification by platform ID
+    -> WorkmanagerBackgroundWorkGateway.enqueueUnique(...)
+    -> Workmanager.registerOneOffTask(... initialDelay: target-now)
+    -> headless reminder runtime / ReminderReconciler
+    -> FlutterLocalNotificationsGateway.showCanonicalReminder(...)
+    -> plugin.show(...).
+
+Source evidence:
+  lib/core/notifications/flutter_local_notifications_gateway.dart scheduled
+  every normal reminder through a WorkManager one-off task with `initialDelay`.
+  It did not call a platform local-notification scheduler.
+
+Snooze path before correction:
+  notification Snooze action
+    -> nextTransferReminderAction
+    -> enqueueReminderSnooze unique WorkManager task
+    -> runReminderRuntime
+    -> ReminderReconciler computes accepted action + ten minutes
+    -> same WorkManager one-off delivery path above.
+
+Proven root cause:
+  WorkManager one-off work is opportunistic. It is appropriate for durable
+  recovery/reconciliation but is not a precise delivery clock. Routing normal
+  reminders and Snooze re-fire through its `initialDelay` is an app-controlled
+  design that permits the reported 30–45-second device-side jitter.
+
+Not yet measured on a new corrected APK:
+  - exact controlled source target, stable key, scheduledForUtc,
+    nextEligibleAtUtc, platform ID, and source revision;
+  - WorkManager database/runtime timestamps and result for a controlled item;
+  - Android NotificationManager post timestamp and visible-arrival delta;
+  - Snooze action timestamp, calculated +10-minute target, generation check,
+    source eligibility at target, and channel alert behavior.
+
+Therefore, this report distinguishes the source-proven latency cause from a
+not-yet-completed physical before/after timing measurement.
+
+======================================================================
+5. GATE B — BOUNDED DELIVERY-CLOCK CORRECTION
+======================================================================
+Changed file only:
+  lib/core/notifications/flutter_local_notifications_gateway.dart
+
+Correction:
+  - `schedule(LocalNotificationRequest)` now cancels any legacy WorkManager
+    task with the existing stable platform-ID delivery tag.
+  - It then calls flutter_local_notifications `zonedSchedule` using the exact
+    existing request UTC instant converted to `TZDateTime` in UTC.
+  - Scheduling mode is `AndroidScheduleMode.inexactAllowWhileIdle`.
+  - The notification uses the existing platform ID, channel, title/body,
+    encoded typed response payload, OPEN action, and Snooze action.
+  - `showCanonicalReminder` and scheduled reminders now share one
+    `_detailsFor(request)` builder, preventing channel/action drift.
+
+Preserved:
+  - canonical Event/Task source truth;
+  - durable sanitized BackgroundWorkRequest records;
+  - stable logical identity and platform notification ID;
+  - Snooze generation and source-relevance checks in ReminderReconciler;
+  - Quiet Hours, Privacy Lock, Generic/Show Details, recurrence, recovery,
+    source invalidation, and no-duplicate laws;
+  - WorkManager as the recovery/reconciliation mechanism.
+
+Explicitly not introduced:
+  - SCHEDULE_EXACT_ALARM / USE_EXACT_ALARM;
+  - foreground service;
+  - background location/geofencing;
+  - dependency additions;
+  - fake immediate delivery for missed/past reminders.
+
+Expected effect:
+  Android's local-notification alarm machinery, rather than WorkManager's
+  opportunistic worker execution, owns the normal target and accepted Snooze
+  target. Remaining Android inexact-alarm/OEM jitter must be measured on the
+  corrected APK and reported honestly rather than assumed away.
+
+======================================================================
+6. GATE C — GLOBAL CUSTOM DEFAULTS AUDIT
+======================================================================
+Finding:
+  Custom global default support was already present in the authoritative dirty
+  source before this audit; no duplicate implementation was added.
+
+Verified implementation seam:
+  lib/features/settings/presentation/notifications_settings_screen.dart
+
+Existing behavior observed in source:
+  - Both Event and Task default rows call the shared `_chooseLead` selector.
+  - The selector contains presets and a `Custom...` path.
+  - Custom values use a state-owned controller, prefill the current value,
+    accept arbitrary whole minutes, and validate up to 10,080 minutes.
+  - Event writes only PlannerPreferences.defaultReminderMinutes.
+  - Task writes only NotificationPreferences.defaultTaskReminderMinutes.
+  - Settings values hydrate through `_leadLabel`, including Custom values.
+
+Inheritance law to validate in regression/device smoke:
+  A global default change must reconcile only inherited policies. Explicit
+  numeric overrides, Custom overrides, and Off overrides must remain unchanged.
+
+======================================================================
+7. GATE D/E — PERFORMANCE / REQUEST-STORM STATUS
+======================================================================
+Required measurement matrix:
+  cold launch; Home->Planner; Planner->Contacts; Contacts->Maps; Maps->Home;
+  Event preview open/close; Task preview open/close; Event save; Task save;
+  debug and profile observation with repository/provider/reconciliation counts
+  and frame/jank evidence.
+
+Current source observation needing measurement, not yet classified as a bug:
+  next_transfer_app.dart invokes `_recoverReminders()` after StartupReady and
+  on app resume; it calls `reconcileRemindersProvider`. The source also
+  schedules date-boundary handling and preserves same-day provider values.
+  Tab navigation alone was not proven to call this path in the audit run.
+
+No performance/request/provider code change was made because no controlled
+count or frame evidence yet proves a storm, invalidation loop, duplicate
+subscription, or UI-isolate database cause. This is intentional: speculative
+performance changes are prohibited by the authority.
+
+======================================================================
+8. REGRESSION / BUILD / DEVICE SMOKE STATUS
+======================================================================
+Formatter:
+  PASS — the one changed gateway file was formatted with the bundled Dart SDK.
+
+Focused notification suite:
+  Started with the documented bundled Flutter 3.44.7 SDK. The historical
+  run_flutter.bat helper was absent in the current environment, so it was not
+  used. Test loading and execution began; no final pass/fail result is claimed
+  in this report.
+
+Not completed yet:
+  - focused timing/Snooze/global-default regressions with final result;
+  - required full affected regression, analyzer, and `git diff --check`;
+  - manifest/schema/dependency/durable-work final scans;
+  - fresh APK build/hash/package metadata;
+  - data-preserving `adb install -r` of the corrected APK;
+  - controlled Event and Task target-vs-post timing measurements;
+  - controlled Snooze +10-minute visible re-fire and alert proof;
+  - global Custom 6/17 inherited-vs-explicit device checks;
+  - profile/debug navigation measurement;
+  - deletion of agent-owned test records (none were created);
+  - final owner-data continuity proof for this correction APK.
+
+Prior device-install evidence is not reused as proof for this new source
+mutation. A new APK and new installation proof are mandatory before closure.
+
+======================================================================
+9. CURRENT INTEGRITY / CLASSIFICATION
+======================================================================
+Current classification:
+  VS16 PRE-M5 TIMING/SNOOZE/PERFORMANCE CORRECTION — IN PROGRESS.
+  A source-proven timing cause has a bounded correction, but engineering and
+  device gates remain incomplete. OWNER RE-REVIEW PENDING.
+
+Publication state:
+  staged paths: not intentionally modified by this audit
+  commit: NONE
+  tag: NONE
+  push: NONE
+  M5: NOT STARTED
+
+======================================================================
+END OF REPORT
+======================================================================
+
+======================================================================
+16. DRIFT CACHE REPAIR / V40 CONFIGURABLE SNOOZE CERTIFICATION
+======================================================================
+Root cause of the build_runner failure:
+  repo-local .dart_tool/build/asset_graph.json retained stale package asset
+  state including flutter|README.md. This caused build_runner to attempt an
+  invalid external-package deletion before generation.
+
+Safe repair performed:
+  - preserved (renamed, not deleted) only .dart_tool/build to
+    .dart_tool/build.cache-v40-backup-20260907-1759;
+  - ran Flutter pub get with the documented Flutter 3.44.7 toolchain;
+  - used build_runner's generated-state clean/rebuild path;
+  - regenerated app_database.g.dart from schema source, without hand edits.
+
+Generated-output validation:
+  app_database.g.dart now contains snooze_duration_minutes and complete
+  snoozeDurationMinutes data-class/companion/filter/order mapping.
+  Affected database/notification analyzer: No issues found.
+
+Configurable Snooze Duration implementation:
+  - schema v40 additive notification_preferences.snooze_duration_minutes;
+  - default 10; validation 1..10080;
+  - profile-scoped and shared by Event/Task Snooze;
+  - action-time ReminderReconciler reads duration and persists its absolute
+    result; existing persisted Snooze targets are not recomputed;
+  - Settings -> Notifications now has one Snooze duration row with approved
+    1/2/5/10/15/30/60 min presets plus Custom, using the safe state-owned
+    dialog controller and a minimum of 1.
+
+Focused certification:
+  flutter test test/features/notifications plus Notifications Settings test
+  -> 107 passed, 0 failed.
+
+Next required gates remain: v40 migration-specific tests, fresh APK/install,
+set live duration to 1 minute, current canonical Snooze persistence trace,
+one-minute visible re-fire, timing/performance audit, cleanup, and final
+classification. M5 NOT STARTED.
+
+======================================================================
+END OF REPORT
+======================================================================
+
+======================================================================
+15. CONFIGURABLE SNOOZE DURATION — IMPLEMENTATION IN PROGRESS
+======================================================================
+Owner-approved product law replaces fixed ten-minute Snooze:
+  NotificationPreferences now has the additive source declaration
+  `snoozeDurationMinutes`, default 10, valid range 1..10080.
+  The action-time ReminderReconciler target now uses the canonical preference
+  and persists the resulting absolute timestamp; later preference changes do
+  not recompute an already-snoozed durable target.
+
+Schema source was advanced to v40 with an additive migration for the one
+profile-scoped notification_preferences column. Domain and Drift repository
+mapping were updated. No duplicate Event/Task storage was introduced.
+
+Generated-code status:
+  Standard build_runner regeneration was attempted. It failed before output
+  generation with an environment cache error:
+  InvalidOutputException: flutter|README.md
+  Tried to delete from package not in the build. Packages in the build are:
+  rmplanner.
+  No app_database.g.dart file was hand-edited. The migration cannot be built,
+  tested, installed, or live-tested until the corrupted build-runner cache is
+  safely isolated/rebuilt.
+
+M5 remains NOT STARTED.
+
+======================================================================
+END OF REPORT
+======================================================================
+
+======================================================================
+14. CURRENT CANONICAL SNOOZE REPRODUCTION
+======================================================================
+Created through the live canonical Next Transfer Task form (not a database-copy
+helper):
+  source ID: 85adbdf9-9620-4adb-ba1b-1f52391768b0
+  title: NT pREM5 SNOOZE TASK DELETE ME
+  source kind/state: timed incomplete Task
+  due: 2026-09-07 18:00 local
+  reminder form display at save: Default (10 min before)
+
+Pre-post durable snapshot:
+  stable key: reminder:task:357caa4f-5383-4cb0-947e-69dc3ef06936:
+    task:85adbdf9-9620-4adb-ba1b-1f52391768b0:2026-09-07:base
+  state: scheduled
+  scheduledForUtc: 1788774600 (17:50 local target)
+  platform notification ID: 1904606284
+  snooze_count: 0
+  nextEligibleAtUtc: null
+
+At 17:47:43 local, Android notification listing did not yet contain the
+controlled platform ID; this is expected before its 17:50 target. The source
+is current, canonical, active, and unambiguous for the required real Snooze
+action trace. No owner source was modified.
+
+======================================================================
+END OF REPORT
+======================================================================
+
+======================================================================
+13. OWNER-CONFIRMED SNOOZE FAILURE — FORENSIC SNAPSHOT
+======================================================================
+Owner physical result is preserved as a defect:
+  original reminder posts; real Snooze action does not navigate; no visible
+  re-fire occurs after ten minutes. This is not accepted as ordinary jitter.
+
+Read-only recovered-device evidence:
+  - reminders channel is enabled at importance DEFAULT (3), has the system
+    notification sound and vibration enabled; it is not a silent channel.
+  - durable PREM5 rows observed after the failed history had snooze_count=0
+    and nextEligibleAtUtc=null; no Snooze target was persisted.
+  - WorkManager database contains an `nt.reminder.snooze` BackgroundWorker
+    record with valid typed identity payload fields, run_attempt_count=3 and
+    terminal SUCCEEDED state. Thus the Android action/background callback and
+    WorkManager handoff did occur; an absent platform alarm is not the first
+    failing step.
+  - The durable transition did not occur, so the first confirmed missing state
+    is between `runReminderRuntime(snooze: ...)` and ReminderReconciler's
+    persisted Snooze transition.
+
+Important limitation preserved:
+  the completed historical Snooze worker references an earlier Event identity,
+  not a currently visible PREM5 notification. It cannot by itself prove which
+  source-relevance branch rejected the owner's latest action. No production
+  source change is made from that ambiguous historical identity.
+
+Next forensic requirement remains a currently visible agent-owned reminder
+with pre/post durable state captured around a real Snooze action. M5 remains
+NOT STARTED.
+
+======================================================================
+END OF REPORT
+======================================================================
+
+======================================================================
+12. SNOOZE-FAILURE FORENSIC CONTINUATION — INTERRUPTED DEVICE LINK
+======================================================================
+New owner physical evidence is recorded as a real defect:
+  an original reminder posted; the REAL Snooze action was tapped; it did not
+  navigate; and no visible re-fire occurred after the fixed ten-minute period.
+  This is NOT classified as acceptable inexact-alarm jitter.
+
+Forensic procedure began with read-only evidence collection. Before any app,
+source, reminder, policy, notification-setting, or test-data mutation, the
+authorized ADB transport disconnected. The existing GLM reader failed at its
+first device-database pull with:
+  device 'adb-10620253B3004617-2m7ZVB._adb-tls-connect._tcp' not found.
+
+Safe recovery attempted:
+  - queried ADB mDNS services;
+  - retried the already-authorized authenticated TLS service name.
+Result:
+  no mDNS service was advertised and the known service name could not resolve.
+
+No force-stop, retime, reconcile, delete, cleanup, preference mutation,
+notification action, source change, install, clear, wipe, downgrade, staging,
+commit, tag, push, or M5 action occurred in this Snooze-forensic continuation.
+
+Continuation requirement:
+  restore the authorized Infinix wireless-debugging runtime service (wake the
+  phone and ensure its Wi-Fi/wireless-debugging transport is active). Once it
+  reappears, resume with the read-only failed-Snooze snapshot before changing
+  any PREM5 record or notification state.
+
+Classification remains:
+  VS16 PRE-M5 TIMING/SNOOZE/PERFORMANCE CORRECTION — IN PROGRESS.
+  SNOOZE RE-FIRE NOT OWNER-ACCEPTED. M5 NOT STARTED.
+
+======================================================================
+END OF REPORT
+======================================================================
+
+======================================================================
+11. POST-PENDING-FIX CERTIFICATION / FRESH-APK IDENTITY
+======================================================================
+Focused notification regression after BOTH gateway corrections:
+  flutter test test/features/notifications --reporter compact
+  Result: 106 passed, 0 failed.
+
+Targeted and full requested analyzer invocation:
+  flutter analyze --no-pub --fatal-infos lib/core/notifications
+    lib/features/notifications -> No issues found.
+  flutter analyze --no-pub --fatal-infos lib test -> No issues found.
+
+Whitespace:
+  git diff --check: clean (Git emitted inherited CRLF conversion warnings only;
+  no diff-check error was emitted).
+
+Fresh two-fix debug APK:
+  path: build/app/outputs/flutter-apk/app-debug.apk
+  bytes: 238,284,600
+  SHA-256: fe3672b2237efc46e867693fc15be622636dfaa81b0f94a2d17a9ca74ccbbcb6
+  package/version: com.nexttransfer.rmplanner / 0.1.0 (versionCode 1)
+
+Authorized Infinix data-preserving update:
+  adb install -r result: Success
+  firstInstallTime: 2026-07-27 15:42:22 (unchanged)
+  dataDir: /data/user/0/com.nexttransfer.rmplanner (unchanged)
+  lastUpdateTime after install: 2026-09-07 15:46:29
+  installed base.apk bytes: 238,284,600
+  installed base.apk SHA-256:
+    fe3672b2237efc46e867693fc15be622636dfaa81b0f94a2d17a9ca74ccbbcb6
+  installed/local equality: PASS.
+
+Initial performance measurement, debug cold launch:
+  adb shell am start -W
+  TotalTime: 5616 ms; WaitTime: 5621 ms; LaunchState: COLD.
+  gfxinfo snapshot: one sampled janky frame (100% of that one-frame sample),
+  90th/95th/99th CPU percentile 1900 ms and GPU percentile 3 ms.
+  This is insufficient to diagnose a request/provider storm or justify a
+  performance source change; profile-mode/action-sequence evidence remains
+  required.
+
+Controlled retime attempt status:
+  Only agent-owned PREM5 rows were changed by GLM's existing helper. Their
+  source dates/minutes updated, but the durable rows did not reconcile through
+  the app's startup path after a 33-second settle. This direct database-copy
+  helper is therefore NOT valid evidence for a post-fix timing sample unless a
+  canonical source-save/reconcile path is also invoked. No timing delta or
+  Snooze conclusion is claimed from that attempt.
+
+Remaining gates:
+  canonical controlled Event/Task target-post samples; true +10-minute Snooze
+  re-fire; Custom-default inheritance/reopen proof; profile/action-sequence
+  performance audit; full affected regression; agent-record/work cleanup; and
+  final classification. M5 remains NOT STARTED.
+
+======================================================================
+END OF REPORT
+======================================================================
+
+======================================================================
+10. GLM TAKEOVER — LIVE PREM5 EVIDENCE FROZEN BEFORE MUTATION
+======================================================================
+Takeover time from the authorized Infinix (read-only helper):
+  2026-09-07 15:40:41 +0800
+
+No app force-stop, reconcile, retime, policy mutation, source mutation, or
+test-data cleanup occurred before this snapshot.
+
+Agent-owned source state:
+  Event A
+    source id: 255112d6-cad4-549b-bc8e-c7957e58ab74
+    title: NT PREM5 TIMING EVENT A — DELETE ME
+    local start: 2026-09-07 minute 935 (15:35)
+    durable state: cancelledObsolete
+    prior durable target: 2026-09-07 07:30:00Z (15:30 +0800)
+    platform ID: 1290638294
+    classification: expected obsolete replacement after GLM retime; not a
+    failed live-delivery conclusion.
+
+  Task T
+    source id: 985f8a42-8fd9-5436-81a1-ed69cdd921ca
+    title: NT PREM5 TIMING TASK T — DELETE ME
+    local due: 2026-09-07 minute 941 (15:41)
+    durable state: scheduled
+    stable key: reminder:task:357caa4f-5383-4cb0-947e-69dc3ef06936:
+      task:985f8a42-8fd9-5436-81a1-ed69cdd921ca:2026-09-07:base
+    scheduledForUtc: 2026-09-07 07:31:00Z (15:31 +0800)
+    platform ID: 1174475451
+    snooze count: 0; next eligible: null
+    source revision includes explicit task offset 10 and detailed rendering.
+
+  Event B
+    source id: 783a1523-9193-5be9-8ae1-20da9bbdb254
+    title: NT PREM5 TIMING EVENT B — DELETE ME
+    local start: 2026-09-08 minute 540 (09:00)
+    durable state: scheduled
+    scheduledForUtc: 2026-09-08 00:45:00Z (08:45 +0800)
+    platform ID: 1273523452
+    snooze count: 0; next eligible: null.
+
+Current preference eligibility:
+  master=enabled; Event=enabled; Task=enabled; Task global default=10;
+  Quiet Hours=enabled; Event global default=null. This snapshot does not
+  establish whether Quiet Hours applied at the already-past Task target.
+
+Physical/platform evidence frozen:
+  - NotificationManager contains a Next Transfer reminder-channel notification
+    record and the owner-provided approximately-15:32 screenshot showed Task T
+    with `Due 3:41 PM`, description, OPEN and SNOOZE. Thus Task T DID post.
+  - AlarmManager history lists ScheduledNotificationReceiver wakeups for
+    com.nexttransfer.rmplanner. Existing history alone does not associate an
+    individual cancellation/reschedule with a PREM5 platform ID.
+  - The only future PREM5 source remaining is Event B at 08:45 +0800 next day.
+
+Additional agent-tooling artifacts observed but intentionally preserved:
+  .owner_review/prem5_timing_setup.dart
+  .owner_review/prem5_timing_read.dart
+  .owner_review/prem5_timing_retime.dart
+  .owner_review/prem5_policy_offset.dart
+  app-private nt_copy.sqlite and nt_copy2.sqlite.
+  These are not owner-domain records and are not deleted until provenance and
+  post-forensics cleanup can be completed.
+
+======================================================================
+END OF REPORT
+======================================================================

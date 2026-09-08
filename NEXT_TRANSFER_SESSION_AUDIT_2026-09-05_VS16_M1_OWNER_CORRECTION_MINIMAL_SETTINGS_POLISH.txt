@@ -1,0 +1,77 @@
+NEXT TRANSFER
+VS16-M1 OWNER CORRECTION PASS — MINIMAL SETTINGS POLISH
+Prepared: 2026-09-05
+Classification: M1 OWNER CORRECTION ENGINEERING COMPLETE — PHYSICAL REVIEW PENDING
+
+IDENTITY
+Repository: C:\Users\sherl\Downloads\NT_C7_IMPLEMENTATION_20260825_235900
+Branch: checkpoint/phase-b-accepted-20260829
+HEAD: 76ee168cc6f723c8e2efec7737405d30ff6c44f5
+Staged: 0. Commit: none. Tag: none. Push: none. M2: not started.
+
+SAFETY
+The inherited dirty worktree was preserved. A precise pre-edit rollback pack
+was created at:
+C:\Users\sherl\AppData\Local\Temp\VS16_M1_MINIMAL_SETTINGS_PREEDIT_20260905
+
+FILES CHANGED
+- lib/features/settings/presentation/notifications_settings_screen.dart
+- test/features/settings/presentation/vs16_m1_minimal_notifications_settings_test.dart
+- this audit
+
+MINIMAL SETTINGS POLISH
+- Removed the permanent System Notifications Android-status subtitle.
+- Removed Event/Task "Preference only" / future-delivery helper subtitles.
+- Moved Event/Task default reminder values and Quiet Hours Start/End values to
+  the trailing control/value position.
+- Removed the redundant Background Status / foundation footer section.
+- Preserved transient error notices and the Privacy Lock disclosure.
+- Retained the existing master preference architecture: the app-level v39
+  master preference is distinct from factual Android permission state.
+- When the master is ineffective, Event/Task/default reminder rows, Preview,
+  Quiet Hours, and Start/End are disabled and untappable while saved values
+  remain intact.
+- No schema change was required for this polish. The existing v39 additive
+  master preference remains the durable owner.
+
+BEHAVIOR RETAINED
+- Android permission state refreshes on app resume.
+- The permission flow remains direct to Android with no app confirmation.
+- Quiet Hours On does not open a picker; Start/End do when enabled.
+- Event/Task manual times retain five-minute precision without changing the
+  Planner's visual 15-minute geometry.
+- Reminder sheets retain the drag handle, heading, divider, and Custom lead
+  value behavior using canonical Event/Task preference owners.
+- No notification scheduling, WorkManager reminder job, or M2 work exists.
+
+VALIDATION
+- New deterministic minimal-settings source contract: passed.
+- Full analyzer: flutter analyze --no-pub --fatal-infos lib test => No issues found.
+- The combined Settings/notifications rerun was blocked before execution by a
+  Windows lock on build/native_assets/windows/sqlite3.dll. The identified stale
+  Dart runner was stopped, but the external lock persisted; no build artifact
+  was deleted to work around it.
+- git diff --check passed before the APK build.
+
+APK / DEVICE
+Build command: Flutter 3.44.7 with process-local Temurin JDK 21,
+flutter build apk --debug.
+APK: build\app\outputs\flutter-apk\app-debug.apk
+UTC timestamp: 2026-09-05T15:04:42.4545233Z
+Bytes: 238218014
+SHA-256: F5C9D8FB84E8744EA2D7B8B51C19250B6EA264FB169CC7E774F38A75D3AD886B
+Authorized device: Infinix X6731, live TLS ADB transport
+adb-10620253B3004617-2m7ZVB._adb-tls-connect._tcp.
+Install: adb install -r => Success.
+Pre/post continuity: firstInstallTime=2026-07-27 15:42:22,
+dataDir=/data/user/0/com.nexttransfer.rmplanner, ceDataInode=1509267 unchanged.
+Post-install lastUpdateTime=2026-09-05 23:05:44.
+Cold launch: MainActivity top-resumed/focused, app PID=16810.
+PID-scoped scan: no FATAL EXCEPTION, AndroidRuntime, Flutter unhandled
+exception, or E/flutter signature.
+No uninstall, pm clear, wipe, or downgrade occurred.
+
+OWNER REVIEW
+Physical review remains pending. Verify the 15 authority checklist items,
+especially minimal copy, master-off disabled rows, 5-minute inputs, Custom 6
+minutes, and the expected absence of real Event delivery.

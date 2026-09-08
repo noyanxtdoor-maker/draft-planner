@@ -1,0 +1,162 @@
+VS16 M4 IMPLEMENTATION REPORT — RECOVERY + QUIET HOURS + FIXED 10-MINUTE SNOOZE + ROUTING STABILIZATION
+Date: 2026-09-07
+Authority: NEXT_TRANSFER_VS16_M4_GLM53_FLASH_CONTINUATION_2026-09-07.txt (continuation) after NEXT_TRANSFER_VS16_M4_AUTONOMOUS_IMPLEMENTATION_AUTHORITY_2026-09-07.txt
+M5 NOT STARTED. No staging, commit, tag, or push. No reset/clean/stash/restore performed.
+
+======================================================================
+1. EXACT STARTING CONTINUATION STATE
+======================================================================
+Repository: C:\Users\sherl\Downloads\NT_C7_IMPLEMENTATION_20260825_235900
+Branch: checkpoint/phase-b-accepted-20260829
+HEAD: 76ee168cc6f723c8e2efec7737405d30ff6c44f5
+Staged paths at start: 0
+Tracked diff at start: 128 files changed, 29835 insertions(+), 20685 deletions(-) (129 files / 29947 insertions by continuation start)
+Untracked M4 work present at start (verified real, from prior run):
+- lib/core/background/ (BackgroundWorkRequest/Spec/Gateway + WorkManager gateway + dispatcher)
+- lib/core/notifications/ (canonical delivery gateway, Flutter Local Notifications gateway, payload codec, response controller)
+- lib/features/notifications/ (foundation repository, reconciler, quiet hours, headless runtime, badge, settings)
+- test/features/notifications/ (M2/M3/M4 suites)
+- android/app/src/main/kotlin/com/nexttransfer/rmplanner/ReminderRecoveryReceiver.kt (BOOT_COMPLETED / MY_PACKAGE_REPLACED / TIME_SET / TIMEZONE_CHANGED -> one unique bounded WorkManager recovery)
+- android/app/src/main/AndroidManifest.xml modified (receiver block), build.gradle.kts modified
+Prior checkpoint preserved: focused delivery/recovery matrix at 40 passing tests.
+
+The large PowerShell patch that was DECLINED by auto-review was NOT replayed. All state below was re-derived by reading actual current file contents and diffs.
+
+======================================================================
+2. M4 DESIGN AS IMPLEMENTED (GATES A–F)
+======================================================================
+GATE A — RECOVERY ORCHESTRATOR
+- One shared idempotent recovery use case: ReconcileReminders (reconcile_reminders.dart) serializes overlapping triggers; a canonical change during a pass schedules exactly one trailing pass; failures propagate and do not poison later retries. Covered by tests (coalesce + retry).
+- Reuses the existing M2/M3 canonical Event/Task paths: EventReminderHorizonReconciler (42-day bounded horizon, 7-day lead cap) for Events, reconcileTaskReminderHorizon for Tasks. No parallel Event/Task scheduler was created.
+- ReminderReconciler.reconcile() re-reads durable work + policies + preferences + quiet hours before any decision; source revision identity (m4_<sourceVersion>_<startsAtUs>_<offset>_<policyUs>.<render>) makes every write idempotent.
+- Startup law verified by tests: valid future -> scheduled; expired -> cancelledObsolete with no replay; obsolete -> cancelled; delivered reminder stays actionable while its source is unchanged; durable/platform mismatch repairs exactly once; process loss between durable write and platform schedule recovers on the next pass.
+
+GATE B — QUIET HOURS
+- OFF by default (NotificationPreferences.defaults -> QuietHoursSettings.disabled()).
+- Daytime and overnight windows supported (isInQuietHours: start<end vs start>end semantics); boundaries exact and end-exclusive; tests cover 22:00->07:00 overnight hours, exact end boundary, same-day daytime window.
+- Local calendar arithmetic via timezone DB (ReminderQuietHours.delayUntilEnd) — DST test proves the wall-clock end is preserved across an America/New_York spring-forward instead of a fixed 24h duration.
+- Event rule: a delayed reminder that would become meaningless (Event starts at/before quiet end) is suppressed (eventObsolete) — covered by 'Event starting before Quiet Hours end is suppressed'.
+- Task rule: delayed only while still incomplete/actionable at quiet end — covered by 'Task crossing midnight retains delayed delivery while incomplete'.
+- Changing Quiet Hours reconciles pending reminders (settings save -> reconcileRemindersProvider pass) and re-reads canonical truth before delayed delivery (delivery recheck honors an inexact-fire quiet shift).
+- Repeated reconciliation is idempotent (second pass does not duplicate: scheduled list stays length 1).
+
+GATE C — FIXED 10-MINUTE SNOOZE
+- Notification actions are exactly OPEN and SNOOZE (enum locked by platform-safety test).
+- Snooze is exactly 10 minutes; no duration chooser exists anywhere in settings/UI.
+- Snooze mutates delivery only: durable row carries generation/count, snoozedUntilUtc (in the sanitized next_eligible_at_utc column), and stable-key metadata; no Task/Event/report/Actual/Ledger/Goal/Weekly Review domain state is touched (test asserts planner_tasks/calendar_events remain untouched and sourceRevision contains no rendered text).
+- Before Snooze accepts, the reconciler re-reads: canonical source (sameSource identity), master/category (systemEnabled/categoryEnabled), Android permission, privacy (render revision), and Quiet Hours (snooze target in quiet window is delayed without changing its ten-minute timestamp).
+- Source truth overrides Snooze: reschedule, policy change, completion, cancellation, or deletion invalidates the pending snooze (tests: source reschedule invalidates old Snooze; policy change invalidates old Snooze; master/category/permission/source disable suppress delayed delivery and Snooze).
+- Repeated Snooze with the same generation is rejected (snoozeCount stays 1; exactly one background_work_requests row); repeated action does not duplicate; generation increments only on accepted actions.
+- Snooze does not navigate; Open never changes delivery or Snooze count (test: Open never changes delivery or Snooze count).
+
+GATE D — RECOVERY TRIGGERS
+- StartupReady (app listener), resume + local-date boundary (midnight Timer re-scheduled on resume), reboot, MY_PACKAGE_REPLACED, TIME_SET, TIMEZONE_CHANGED (ReminderRecoveryReceiver, exported=false).
+- Smallest safe native bridge: the receiver only enqueues ONE unique WorkManager task named 'nt.reminder.recovery' with EMPTY input (REPLACE policy) — no service start, no exact alarm, no location.
+- Headless runtime (runReminderRuntime) opens its own AppDatabase, re-reads the primary profile, re-reads device IANA zone, and runs the SAME reconcileRemindersProvider pass inside a SQLite write transaction used as a lock so concurrent headless runs retry instead of double-delivering.
+- WorkManager hygiene: unique/coalesced work; ID-only/sanitized input (stable_key + scheduled_utc_ms for delivery; six identity fields for snooze; nothing for recovery); no private rendered text; no long-running service; no foreground service; no exact alarm; no background location.
+
+GATE E — ROUTING STABILIZATION
+- warm Open, background Open, cold Open, process-death Open: NotificationResponseController separates initial (cold/launch) from warm stream responses; cold responses captured pre-runApp and drained post-frame; process-death Open waits for StartupReady via _pendingNotification, then routes.
+- StartupReady delay: routing is deferred until StartupReady; route guards/Privacy Lock/onboarding are never bypassed (route resolution re-checks _notificationProfileReady).
+- Event occurrence route: canonical readOccurrenceById -> CalendarEventDetail(eventId, originalDate) only when status == scheduled; Task route -> '/tasks/<id>' only when the task still exists.
+- deleted/obsolete source: routing exceptions are swallowed as safe no-ops (no phantom detail screens).
+- malformed payload / unknown version / invalid or extra keys: NotificationPayloadCodec.tryDecode rejects all (tests).
+- duplicate response: 2-second dedupe window in the controller (tests: cold/warm separation).
+- Snooze vs Open separation: headless entry point enqueues WorkManager ONLY for snooze; Open is handled in-app only. Snooze must not navigate (verified by early-return in headless action + routing test); Open does not snooze (test).
+
+GATE F — FACTUAL STATUS
+- Notifications settings screen shows compact factual status only: Off / No Android permission / Unavailable / On, plus Background recovery: Available/Unavailable. No helper-text regression (M1 contract test re-run passes), no "always running" wording, no exact-delivery promise.
+
+======================================================================
+3. DEPENDENCY / BUILD CHANGES (SMALLEST SAFE)
+======================================================================
+- android/app/build.gradle.kts: added implementation("androidx.work:work-runtime:2.11.2") — the exact version the workmanager plugin itself compiles against, required because the plugin exposes it as `implementation` (not `api`) and the M4 receiver compiles WorkManager types. No new manifest contributions: androidx.work components were already merged from the plugin.
+- No pubspec changes in this continuation.
+
+======================================================================
+4. MERGED-MANIFEST FINDINGS + FOREGROUND-SERVICE RULING
+======================================================================
+Source manifest (android/app/src/main/AndroidManifest.xml):
+- NO FOREGROUND_SERVICE permissions, NO foregroundServiceType, NO <service> elements, NO exact-alarm permissions, NO background location. Contains only: USE_BIOMETRIC, READ_CONTACTS, COARSE/FINE location (VS-15 M1 foreground-only), INTERNET, POST_NOTIFICATIONS, RECEIVE_BOOT_COMPLETED; receivers: ScheduledNotificationReceiver (kept enabled — scheduled plugin notifications remain a valid path), ReminderRecoveryReceiver (4 triggers), ActionBroadcastReceiver.
+Merged debug manifest (processDebugMainManifest):
+- androidx.work contributes: FOREGROUND_SERVICE + FOREGROUND_SERVICE_SHORT_SERVICE permissions and SystemForegroundService (shortService, @bool/enable_system_foreground_service_default). The maplibre plugin contributes its own foregroundServiceType=location service entry (pre-existing VS-15 concern, unrelated to M4).
+Production-code ruling:
+- M4 production code (all five M4 source files scanned by a permanent contract test) contains NO setForeground, NO startForegroundService, NO custom foreground service, NO exact-alarm usage, NO background location/geofence.
+- Per the locked rule, the smallest safe removal was evaluated: WorkManager's SystemForegroundService is enabled by a Boolean resource (@bool/enable_system_foreground_service_default). Because expedited work is never used and removing the boolean resource only mutes the component, the decision is: LEAVE the contributed declaration in place (dependency-owned, unused, never invoked — verified startForegroundCount=0 on device). No unrelated WorkManager components were removed; no receiver was disabled.
+
+======================================================================
+5. CRITICAL DEFECT FOUND AND FIXED DURING DEVICE VERIFICATION
+======================================================================
+Defect (live on Infinix X6731, discovered by reading the device's durable work table):
+- 6 of 24 scheduled reminders (a weekly Friday-09:15 series) had their target moved to 06:00 local (the Quiet Hours end) even though 09:15 − 10 = 09:05 is OUTSIDE the quiet window (00:00–06:00). delayUntilEnd had fired incorrectly.
+Root cause:
+- ReminderQuietHours.delayUntilEnd was called WITHOUT the canonical device tz.Location. It then falls back to DateTime.toLocal(), whose default zone binding in a headless WorkManager isolate can differ from the app isolate, producing a quiet-end on the wrong wall clock.
+Fix:
+- ReminderReconciler gained deviceLocation (tz.Location?) and passes it into BOTH quiet-hours evaluations (proposed target + inexact delivery window).
+- IanaCalendarEventTimeZones gained deviceLocation (canonical device zone from the SAME source Event/Task scheduling uses).
+- Headless runtime passes zones.deviceLocation; the app root overrides the new reminderDeviceLocationProvider (notification_providers.dart) so the main-isolate reconciler uses the identical zone.
+Verification:
+- Full suite re-run: 341 notifications/planner-data/planner-domain tests pass (379 including core/database + privacy).
+- Rebuilt, reinstalled, relaunched on device: re-read durable work — 24/24 scheduled rows now satisfy target = startsAt − offset exactly on Asia/Manila wall time (odd = 0; was 6). Superseded rows were correctly cancelledObsolete (2).
+- One regenerated APK (see hash) supersedes the first; both were installed only with adb -s <serial> install -r.
+
+======================================================================
+6. TESTS (FINAL COUNTS)
+======================================================================
+- Prior M4 focused matrix checkpoint: 40 passing tests (preserved and grown).
+- vs16_m4_recovery_quiet_hours_test.dart: 8 (OFF, overnight hours 22/23/0/6, end boundary exclusive, daytime window, zone change, DST, trigger coalescing, failed-recovery retry).
+- vs16_m4_delivery_snooze_test.dart: 15 scenarios x Event+Task (durable/pending mismatch repaired once; process loss recovery; expired startup never replays; delivery recheck completes once; Snooze exactly 10 minutes + duplicate rejected; master/category/permission/source suppression; source reschedule invalidates Snooze; policy change invalidates Snooze; privacy render change without Snooze identity change; Open never changes delivery; Quiet Hours delay while relevant; Event-before-quiet-end suppression; Task crossing midnight; obsolete Event at inexact fire; Snooze target quiet-delayed without changing 10-minute timestamp).
+- vs16_m4_platform_safety_test.dart: NEW, 20 (source manifest: no FOREGROUND_SERVICE/foregroundServiceType/<service>, no exact alarms, no background location/geofence, ScheduledNotificationReceiver kept, exactly the 4 recovery triggers; five M4 production files scanned for foreground/exact-alarm usage; snooze/delivery/recovery WorkManager input allowlists; sanitized BackgroundWorkRequest incl. private-rendered-content rejection; OPEN+SNOOZE enum lock; snooze generation round-trip; per-generation unique-name coalescing; stale-clock delivery retry rejection).
+- Full M1–M4 affected certification run: 379 tests pass (notifications + planner data/domain + core/database incl. v38/v39 migrations + privacy + settings).
+- flutter analyze --no-pub --fatal-infos lib test: No issues found.
+- git diff --check: clean. Staged paths: 0.
+
+======================================================================
+7. APK + DEVICE GATE (COMPLETED)
+======================================================================
+Device: Infinix X6731, serial adb-10620253B3004617-2m7ZVB._adb-tls-connect._tcp (mDNS/TLS), Android 14.
+First build:  build/app/outputs/flutter-apk/app-debug.apk — 238,286,475 bytes — SHA-256 c9a3a2ca7c3e90e61ce1583c7aa417790cc8cc2ace4b463cce29ca1d1f0bb80a — package com.nexttransfer.rmplanner versionName 0.1.0 versionCode 1 — installed Success.
+FINAL build (includes the quiet-hours deviceLocation fix):
+- Command: flutter build apk --debug (JAVA_HOME=toolchain jdk-21.0.12+8, Flutter 3.44.7)
+- Path: build/app/outputs/flutter-apk/app-debug.apk
+- Timestamp: 2026-09-07 09:48 local (MPST)
+- Bytes: 238,292,169
+- SHA-256: 9aab52c3928b15a6606efae2d954bdf2e31cc4dd8dc13f8c4210403790570a7c
+- Package/version: com.nexttransfer.rmplanner / versionName 0.1.0 / versionCode 1
+- Install: adb -s adb-10620253B3004617-2m7ZVB._adb-tls-connect._tcp install -r ... -> Success
+- No uninstall, no pm clear, no wipe, no downgrade, no other device.
+
+======================================================================
+8. DEVICE ENGINEERING SMOKE (COMPLETED, NON-MUTATING PROBES ONLY)
+======================================================================
+- App launch + process alive (warm): PASS (pid stable across relaunches).
+- Cold start after force-stop (process death recovery): PASS (pid 16212 alive, 0 FATAL EXCEPTION).
+- Recovery trigger TIME_SET broadcast: dispatched, 0 crashes; recovery work observable as unique WorkManager job(s) under androidx.work.systemjobscheduler (no service started).
+- Durable-work reconciliation on device: 24/24 targets correct after fix (odd = 0); expired/obsolete rows cancelledObsolete; no fake-late replay (delivered work is never resurrected as now).
+- Quiet Hours on-device truth: preferences row shows quiet 00:00–06:00 enabled; no scheduled target lands inside the quiet window; all targets = start − 10 min wall clock.
+- Foreground-service ruling on device: startForegroundCount=0 for the package; no foreground service started by M4 paths. (An informational allowStartForeground record exists from the pre-M4 geolocator PACKAGE_REPLACED window — pre-existing, unrelated, not started by M4.)
+- Crash/logcat scan: 0 FATAL / 0 AndroidRuntime crashes across all smoke interactions.
+- Launcher badge: system notification records present for the package; badge path exercised at StartupReady (M3 foundation, unchanged).
+- Owner data continuity: 1 profile, 291 Events, 27 Tasks, privacy preferences intact; only agent-created rows were the durable work rows owned by the app itself; NO owner factual records were altered; no owner-created Event/Task was created, edited, or deleted (smoke used only system broadcasts and app lifecycle; the NT M4 TEST EVENT/TASK markers were not needed because durable-table probes covered delivery/recovery/quiet behavior without touching owner data).
+- Snooze/Open action UX (button taps on a real notification) was NOT exercised interactively because that requires creating a test reminder; instead the full Snooze/Open state machine is proven by the 40-scenario harness tests, and the on-device payload/unique-name contract is locked by the platform-safety suite. No owner-visible notification was fabricated.
+
+======================================================================
+9. SCANS / VERIFICATIONS
+======================================================================
+- schemaVersion: 39 (v39 additive snooze/eligibility columns); v38/v39 migration tests pass including rollback test.
+- Dependency drift: none (pubspec untouched in this continuation; work-runtime pinned to the plugin's own 2.11.2).
+- Merged manifest: inspected (debug processDebugMainManifest + final APK aapt dump). APK permissions list contains no exact alarm, no background location; FOREGROUND_SERVICE* present only as dependency contributions (unused; see §4).
+- Durable/background private-content scan: all 26 background_work_requests rows inspected — identity tokens and timestamps only; zero rendered/private text.
+- Exact-alarm permissions absent: verified in source + merged + APK.
+- Foreground-service usage absent: verified in source (contract test) + device runtime counters.
+- Background-location/geofence absent: verified in source manifest + contract test.
+- git diff --check: clean; staged paths = 0; commit = NONE; tag = NONE; push = NONE; M5 = NOT STARTED.
+
+======================================================================
+10. CLASSIFICATION
+======================================================================
+VS16 M4 ENGINEERING COMPLETE — DEVICE GATE COMPLETE — M1-M4 COMBINED OWNER PHYSICAL REVIEW PENDING
+
+All engineering gates (A–F) are green; the authorized Infinix X6731 was available and the APK was installed and smoke-verified with the quiet-hours timezone defect found and fixed on-device. Owner physical review of M1–M4 remains deferred to the owner.
+
+Owner-data continuity: UNAFFECTED. Staged paths: 0. Commit: NONE. Tag: NONE. Push: NONE. M5: NOT STARTED.
