@@ -36,7 +36,11 @@ final class GoalIcon extends StatelessWidget {
     required this.iconId,
     this.size = 32,
     this.semanticLabel,
-    this.color = AppTheme.rose,
+    // Step 8 (R01): the default null/unknown-ID fallback color is the Goal
+    // artwork-family blue, not Rose — every production Goal surface now
+    // renders the same fallback. Definitions always render raw SVG art with
+    // a null colorFilter, so this only colors the fallback glyph.
+    this.color = AppTheme.goalIconFallbackBlue,
     this.fallbackIcon,
     super.key,
   });

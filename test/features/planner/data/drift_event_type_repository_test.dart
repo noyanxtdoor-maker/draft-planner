@@ -33,7 +33,10 @@ void main() {
     () async {
       final types = await repository.readEventTypes(profileId: profileId);
 
-      expect(types, hasLength(19));
+      // Education (contract F): 19 canonical/legacy system rows plus the
+      // additive Education seed = 20. Every other mapping/label assertion
+      // below is unchanged.
+      expect(types, hasLength(20));
       expect(
         types.map((type) => type.stableKey).toSet(),
         containsAll(<String>[

@@ -344,14 +344,21 @@ final class _AnimatedActionPill extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: <Widget>[
-                    Icon(action.icon, color: Colors.black, size: 24),
+                    Icon(
+                      action.icon,
+                      // Step 10: foreground on the primary-filled pill is
+                      // onPrimary, never hardcoded black.
+                      color: Theme.of(context).colorScheme.onPrimary,
+                      size: 24,
+                    ),
                     const SizedBox(width: 12),
                     Text(
                       action.label,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.black,
+                      style: TextStyle(
+                        // Step 10: matching onPrimary foreground.
+                        color: Theme.of(context).colorScheme.onPrimary,
                         fontSize: 18,
                         fontWeight: FontWeight.w600,
                       ),

@@ -7,8 +7,10 @@ import 'package:rmplanner/core/ids/identifier_source.dart';
 import 'package:rmplanner/core/time/app_clock.dart';
 import 'package:rmplanner/core/time/week_period.dart';
 import 'package:rmplanner/features/goals/application/goal_repository.dart';
+import 'package:rmplanner/features/goals/data/live_goal_event_type_bindings.dart';
 import 'package:rmplanner/features/goals/domain/canonical_goal_slots.dart';
 import 'package:rmplanner/features/goals/domain/goal.dart';
+import 'package:rmplanner/features/goals/domain/goal_event_type_policy.dart';
 import 'package:rmplanner/features/indicators/domain/life_indicator.dart';
 import 'package:rmplanner/features/planner/domain/calendar_event.dart';
 import 'package:rmplanner/features/planner/domain/outcome_reporting.dart';
@@ -587,6 +589,15 @@ final class DriftGoalRepository implements GoalRepository {
               ]))
             .get();
     return rows.map(_mapGoal).toList(growable: false);
+  }
+
+  /// Additive read-only delegation (contract D.4): no GoalBootstrap.ensure,
+  /// no readPlanning materialization, and no lifecycle writes of any kind.
+  @override
+  Future<Map<int, LiveGoalEventTypeBinding>> readLiveEventTypeBindings(
+    String profileId,
+  ) {
+    return readLiveGoalEventTypeBindings(database, profileId);
   }
 
   @override

@@ -57,9 +57,10 @@ final class GoalIconChoiceRow extends StatelessWidget {
                 size: 72,
                 semanticLabel: definition?.semanticsLabel ?? 'No icon selected',
                 fallbackIcon: fallbackIcon,
-                // POLISH-05: the 'No icon selected' fallback follows the
-                // active Theme Color, not the Rose default.
-                color: Theme.of(context).colorScheme.primary,
+                // Step 8 (R01): the 'No icon selected' fallback uses the Goal
+                // artwork-family blue (#5CAEC9) consistently with Planning,
+                // Home, and the archive.
+                color: AppTheme.goalIconFallbackBlue,
               ),
               const SizedBox(width: 12),
               Expanded(

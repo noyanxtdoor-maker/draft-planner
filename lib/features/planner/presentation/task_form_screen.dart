@@ -719,8 +719,9 @@ final class _TaskFormScreenState extends ConsumerState<TaskFormScreen>
                     // GI-02: exactly 2x (24 -> 48).
                     size: 48,
                     semanticLabel: linkedGoal.title,
-                    // POLISH-05: fallback follows the active Theme Color.
-                    color: colorScheme.primary,
+                    // Step 8 (R01): fallback follows the Goal artwork-family
+                    // blue (#5CAEC9).
+                    color: AppTheme.goalIconFallbackBlue,
                   )
                 else
                   Icon(
@@ -851,9 +852,9 @@ final class _TaskFormScreenState extends ConsumerState<TaskFormScreen>
                             // GI-02: exactly 2x (24 -> 48).
                             size: 48,
                             semanticLabel: goal.title,
-                            // POLISH-05: fallback follows the active Theme
-                            // Color.
-                            color: Theme.of(context).colorScheme.primary,
+                            // Step 8 (R01): fallback uses the Goal
+                            // artwork-family blue (#5CAEC9).
+                            color: AppTheme.goalIconFallbackBlue,
                           ),
                           title: Text(
                             goal.title,

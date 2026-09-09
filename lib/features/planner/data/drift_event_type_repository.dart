@@ -2,6 +2,8 @@ import 'package:drift/drift.dart';
 import 'package:rmplanner/core/colors/vs11_color_system.dart';
 import 'package:rmplanner/core/database/app_database.dart';
 import 'package:rmplanner/core/time/app_clock.dart';
+import 'package:rmplanner/features/goals/data/live_goal_event_type_bindings.dart';
+import 'package:rmplanner/features/goals/domain/canonical_goal_slots.dart';
 import 'package:rmplanner/features/planner/application/event_type_repository.dart';
 import 'package:rmplanner/features/planner/domain/event_color_math.dart';
 import 'package:rmplanner/features/planner/domain/event_color_preferences.dart';
@@ -9,6 +11,19 @@ import 'package:rmplanner/features/planner/domain/event_type.dart';
 import 'package:rmplanner/features/planner/domain/planner_settings.dart';
 import 'package:rmplanner/features/planner/domain/planner_view.dart';
 import 'package:rmplanner/features/planner/domain/recommended_event_colors.dart';
+
+/// Sanitized Education backfill failure (identity conflict or accent
+/// collision). Carries no row data and is safe to surface; the surrounding
+/// `_ensureSystemTypes` transaction rolls back so no partial seed lands and
+/// no conflicting row is renamed, merged, deleted, or regenerated.
+final class EducationBackfillException implements Exception {
+  const EducationBackfillException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => 'EducationBackfillException: $message';
+}
 
 final class DriftEventTypeRepository implements EventTypeRepository {
   const DriftEventTypeRepository({required this.database, required this.clock});
@@ -345,6 +360,32 @@ final class DriftEventTypeRepository implements EventTypeRepository {
       );
       if (type == null || type.isArchived) {
         throw StateError('Default Event Type must be active.');
+      }
+      // Contract E: a NEW deliberate default that points at a canonical
+      // slot type must have a live eligible Goal occupant. An ALREADY-STORED
+      // default (unchanged from the persisted row) is retained even when its
+      // slot has since become hidden — changing unrelated settings must not
+      // fail. No Goal bootstrap, no passive preference mutation.
+      final stored = await (database.select(
+        database.plannerPreferences,
+      )..where((table) => table.profileId.equals(profileId))).getSingleOrNull();
+      final storedDefaultTypeId = stored?.defaultActivityTypeId;
+      if (defaultTypeId != storedDefaultTypeId) {
+        final bindings = await readLiveGoalEventTypeBindings(
+          database,
+          profileId,
+        );
+        final slot = CanonicalGoalSlot.tryByEventTypeKey(type.stableKey);
+        final canonicalOk =
+            slot == null ||
+            (type.isSystem &&
+                slot.eventTypeId == type.id &&
+                bindings.containsKey(slot.slotIndex));
+        if (!canonicalOk) {
+          throw StateError(
+            'That Event Type is not currently available as a default.',
+          );
+        }
       }
     }
     final preferenceRow = await (database.select(
@@ -740,6 +781,7 @@ final class DriftEventTypeRepository implements EventTypeRepository {
 
   Future<void> _ensureSystemTypes(String profileId) async {
     await database.transaction(() async {
+      await _ensureEducationType(profileId);
       await _insertSystemTypes(profileId);
       await _repairExactCrossedBudgetAndMinisteringLabels(profileId);
       await _migrateUntouchedMinisteringVisitLabel(profileId);
@@ -932,6 +974,119 @@ final class DriftEventTypeRepository implements EventTypeRepository {
     );
     if (duplicate) {
       throw StateError('Active Event Type names must be unique.');
+    }
+  }
+
+  /// F. Education v46 backfill: the narrow additive identity preflight.
+  ///
+  /// Runs inside the `_ensureSystemTypes` transaction BEFORE generic seed
+  /// insertion. Cases:
+  /// - No Education identity row exists (neither the proposed global ID nor
+  ///   the profile/'education' stable key): the P24 accent collision check
+  ///   runs once before first insertion, then `_insertSystemTypes`
+  ///   insertOrIgnore inserts exactly ONE Education row.
+  /// - Exact system identity (same global ID AND profile/'education' key):
+  ///   every stored field is preserved verbatim — explicit label, color,
+  ///   archive state, and timestamps are never rewritten on later opens.
+  /// - Any other identity collision (same key different ID, global ID owned
+  ///   by another profile or key, non-system impostor, invalid icon key):
+  ///   a sanitized error aborts the transaction.
+  /// A custom row merely labeled "Education" is NOT the system row and is
+  /// never merged; duplicate display labels are reported without guessing
+  /// identity.
+  Future<void> _ensureEducationType(String profileId) async {
+    final byId = await (database.select(database.activityTypes)..where(
+          (table) => table.id.equals(SystemEventTypeIds.education),
+        )).get();
+    final byKey =
+        await (database.select(database.activityTypes)..where(
+              (table) =>
+                  table.profileId.equals(profileId) &
+                  table.stableKey.equals(SystemEventTypeKeys.education),
+            )).get();
+    if (byId.isEmpty && byKey.isEmpty) {
+      await _assertEducationAccentAvailable(profileId);
+      return;
+    }
+    for (final row in byId) {
+      if (row.profileId != profileId) {
+        throw const EducationBackfillException(
+          'Education Event Type ID belongs to another profile.',
+        );
+      }
+      if (row.stableKey != SystemEventTypeKeys.education || !row.isSystem) {
+        throw const EducationBackfillException(
+          'Education Event Type ID identity mismatch.',
+        );
+      }
+    }
+    for (final row in byKey) {
+      if (row.id != SystemEventTypeIds.education) {
+        throw const EducationBackfillException(
+          'education stable key belongs to another Event Type ID.',
+        );
+      }
+      if (!row.isSystem) {
+        throw const EducationBackfillException(
+          'education stable key is owned by a non-system row.',
+        );
+      }
+    }
+    final exactRows = <ActivityTypeRow>{...byId, ...byKey};
+    for (final row in exactRows) {
+      try {
+        EventTypeIcon.values.byName(row.iconKey);
+      } on ArgumentError {
+        throw const EducationBackfillException(
+          'Education Event Type row has an unknown icon key.',
+        );
+      }
+    }
+  }
+
+  /// Before FIRST Education insertion only: no active Event Type may already
+  /// use the locked P24 accent. Accents are compared directly from rows, the
+  /// saved preference document, and the pure default resolver — never by
+  /// re-entering readEventTypes (which would recurse into seeding).
+  Future<void> _assertEducationAccentAvailable(String profileId) async {
+    final rows =
+        await (database.select(database.activityTypes)..where(
+              (table) =>
+                  table.profileId.equals(profileId) &
+                  table.isArchived.equals(false),
+            )).get();
+    final preferenceRow = await (database.select(
+      database.plannerPreferences,
+    )..where((table) => table.profileId.equals(profileId))).getSingleOrNull();
+    final preferences = EventColorPreferenceCodec.decodeDocument(
+      preferenceRow?.eventColorPreferencesJson,
+    ).events;
+    final educationAccent = PlannerEventColorDefaults.education.accentArgb;
+    for (final row in rows) {
+      final effective =
+          preferences[row.stableKey] ??
+          PlannerEventColorDefaults.forEventType(
+            EventType(
+              id: row.id,
+              stableKey: row.stableKey,
+              label: row.label,
+              icon: EventTypeIcon.values.byName(row.iconKey),
+              colorValue: row.colorValue,
+              isSystem: row.isSystem,
+              isArchived: row.isArchived,
+              reportRequiredDefault: row.reportRequiredDefault,
+              defaultDurationMinutes: row.defaultDurationMinutes,
+              defaultReminderMinutes: row.defaultReminderMinutes,
+              position: row.position,
+              mappingVersion: row.mappingVersion,
+              indicatorKeys: const <String>{},
+            ),
+          );
+      if (effective.accentArgb == educationAccent) {
+        throw const EducationBackfillException(
+          'An existing active Event Type already uses the Education accent.',
+        );
+      }
     }
   }
 
@@ -1205,6 +1360,18 @@ const _systemSeeds = <_SystemEventTypeSeed>[
     icon: EventTypeIcon.personal,
     colorValue: 0xFFFFA726,
     position: 17,
+  ),
+  // F. Education: ordinary system seed, stored position 19 (existing
+  // positions are NEVER renumbered). No indicator mapping, reportRequired
+  // false, 60-minute default, no reminder. Approved creation order — not
+  // this stored position — governs canonical picker order.
+  _SystemEventTypeSeed(
+    id: SystemEventTypeIds.education,
+    key: SystemEventTypeKeys.education,
+    label: 'Education',
+    icon: EventTypeIcon.scripture,
+    colorValue: Vs11ColorSystem.p24DeepBlue,
+    position: 19,
   ),
 ];
 

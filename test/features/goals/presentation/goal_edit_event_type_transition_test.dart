@@ -89,13 +89,16 @@ void main() {
         GoalEditScreen(goalId: goal.id, initialGoal: goal),
       );
       expect(find.text('Edit Goal'), findsOneWidget);
+      // Contract G: the preview shows the stored Goal title as the alias
+      // (the raw canonical label is never renamed in activity_types).
       expect(
         find.descendant(
           of: find.byKey(const Key('goal-assigned-event-type')),
-          matching: find.text(assignedType.label),
+          matching: find.text(goal.title),
         ),
         findsOneWidget,
       );
+      expect(assignedType.label, isNot(goal.title));
 
       const draftTitle = 'Unsaved Job Search Draft';
       final titleField = find.byKey(const Key('goal-title'));
@@ -149,48 +152,26 @@ void main() {
         findsOneWidget,
       );
 
-      final editEventType = find.byKey(const Key('goal-edit-event-type'));
-      await tester.ensureVisible(editEventType);
-      await tester.pump();
-      final openEventType = tester.widget<TextButton>(editEventType).onPressed;
+      // Contract G/T15: the nested Edit Event Type control is removed. The
+      // Assigned Event Type card shows the Goal-title ALIAS (the draft title
+      // wins over the canonical raw label); no shared Event Type write may
+      // occur and Cancel leaves the stored Goal untouched.
       expect(
-        openEventType,
-        isNotNull,
-        reason: 'The confirmed assigned Event Type must remain editable.',
+        find.byKey(const Key('goal-edit-event-type')),
+        findsNothing,
+        reason: 'The nested editor was removed by the Goal alias contract.',
       );
-      // Invoke the real button callback directly: A4 measures the nested route
-      // handoff and duplicate read, not this already-covered button hit target.
-      openEventType!();
-      await tester.pumpAndSettle();
-
       expect(
-        tester.takeException(),
-        isNull,
-        reason: 'Opening the nested Event Type route must not throw.',
-      );
-      expect(find.byType(EventTypeFormScreen), findsOneWidget);
-      expect(find.text('Edit Event Type'), findsOneWidget);
-      expect(gated.readEventTypeCalls, 0);
-      expect(
-        find.byKey(const Key('custom-event-type-label')),
+        find.descendant(
+          of: find.byKey(const Key('goal-assigned-event-type')),
+          matching: find.text(draftTitle),
+        ),
         findsOneWidget,
-        reason:
-            'Goal Edit already owns the confirmed Event Type; the destination '
-            'must not wait for the deliberately gated duplicate row read.',
+        reason: 'the preview shows the unsaved Goal title as the alias',
       );
-      expect(find.byType(CircularProgressIndicator), findsNothing);
-      expect(
-        tester
-            .widget<TextFormField>(
-              find.byKey(const Key('custom-event-type-label')),
-            )
-            .controller!
-            .text,
-        assignedType.label,
-      );
+      expect(gated.readEventTypeCalls, 0);
+      expect(find.byType(EventTypeFormScreen), findsNothing);
 
-      await tester.binding.handlePopRoute();
-      await tester.pumpAndSettle();
       expect(find.text('Edit Goal'), findsOneWidget);
       expect(
         tester.widget<TextFormField>(titleField).controller!.text,
@@ -229,7 +210,7 @@ void main() {
         id: 'a4-id-only-custom',
         label: 'A4 ID-only Custom',
         icon: EventTypeIcon.calendar,
-        colorValue: 0xFF868A8D,
+        colorValue: 0xFF010204,
         reportRequiredDefault: false,
         defaultDurationMinutes: 60,
         indicatorKeys: <String>{},

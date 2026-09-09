@@ -5,7 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rmplanner/app/router/route_names.dart';
 import 'package:rmplanner/app/theme/internal_screen.dart';
+import 'package:rmplanner/features/planner/application/event_type_creation_providers.dart';
 import 'package:rmplanner/features/planner/application/event_type_providers.dart';
+import 'package:rmplanner/features/planner/domain/event_type_creation_choice.dart';
 import 'package:rmplanner/features/planner/domain/planner_settings.dart';
 import 'package:rmplanner/features/planner/domain/planner_view.dart';
 
@@ -17,13 +19,28 @@ final class PlannerSettingsScreen extends ConsumerWidget {
     final state = ref.watch(eventTypeControllerProvider);
     final controller = ref.read(eventTypeControllerProvider.notifier);
     final settings = state.settings;
-    final visibleDefaultEventTypeId = state.eventTypes
-        .where(
-          (type) =>
-              type.isCreationVisible && type.id == settings.defaultEventTypeId,
-        )
-        .firstOrNull
-        ?.id;
+    // Contract E: ONLY the Default Event Type list/value resolution uses the
+    // live creation choices. Every other setting/reminder control is
+    // untouched. A hidden saved default renders the existing null/Other
+    // fallback; there is no passive preference mutation. While eligibility
+    // is unresolved (loading/error) the dropdown collapses to the neutral
+    // Other item with selection disabled — never a stale all-types list.
+    final choicesAsync = ref.watch(eventTypeCreationChoicesProvider);
+    final choicesReady = choicesAsync.hasValue && !choicesAsync.isLoading;
+    final eligibleChoices = choicesAsync.maybeWhen(
+      data: (value) => value,
+      orElse: () => const <EventTypeCreationChoice>[],
+    );
+    final visibleDefaultEventTypeId = choicesReady
+        ? eligibleChoices
+              .where(
+                (choice) =>
+                    choice.type.id == settings.defaultEventTypeId,
+              )
+              .firstOrNull
+              ?.type
+              .id
+        : null;
     return Scaffold(
       appBar: InternalAppBar(title: const Text('Planner and Calendar')),
       body: SafeArea(
@@ -69,20 +86,24 @@ final class PlannerSettingsScreen extends ConsumerWidget {
                           const DropdownMenuItem<String?>(
                             child: Text('Other / ask each time'),
                           ),
-                          for (final type in state.eventTypes.where(
-                            (type) => type.isCreationVisible,
-                          ))
+                          for (final choice in (choicesReady
+                              ? EventTypeCreationChoice.orderedForDropdown(
+                                  eligibleChoices,
+                                )
+                              : const <EventTypeCreationChoice>[]))
                             DropdownMenuItem<String?>(
-                              value: type.id,
-                              child: Text(type.label),
+                              value: choice.type.id,
+                              child: Text(choice.displayLabel),
                             ),
                         ],
-                        onChanged: (value) => controller.saveSettings(
-                          settings.copyWith(
-                            defaultEventTypeId: value,
-                            clearDefaultEventType: value == null,
-                          ),
-                        ),
+                        onChanged: choicesReady
+                            ? (value) => controller.saveSettings(
+                                settings.copyWith(
+                                  defaultEventTypeId: value,
+                                  clearDefaultEventType: value == null,
+                                ),
+                              )
+                            : null,
                       ),
                       const SizedBox(height: 12),
                       _DefaultDurationSetting(

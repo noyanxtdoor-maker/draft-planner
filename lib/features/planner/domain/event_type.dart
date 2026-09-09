@@ -98,6 +98,7 @@ abstract final class SystemEventTypeKeys {
   static const String finding = 'finding';
   static const String meeting = 'meeting';
   static const String studyOrPlan = 'study_or_plan';
+  static const String education = 'education';
   static const String service = 'service';
   static const String templeVisit = 'temple_visit';
   static const String scriptureStudy = 'scripture_study';
@@ -131,6 +132,7 @@ abstract final class SystemEventTypeKeys {
     contact,
     meeting,
     studyOrPlan,
+    education,
     service,
     work,
     travel,
@@ -150,6 +152,11 @@ abstract final class SystemEventTypeIds {
   static const String finding = 'f2d8c4c6-b155-5eaf-b466-3f57cd8c32f3';
   static const String meeting = 'f3e9d5d7-c266-5fb0-c577-4068de9d4304';
   static const String studyOrPlan = 'f4fad6e8-d377-50c1-d688-5179efae5415';
+
+  /// Deterministic proposed registry constant (UUIDv5 URL namespace,
+  /// 'https://nexttransfer.app/event-types/education'). Existing IDs are
+  /// fixed constants; never recalculate or regenerate them at runtime.
+  static const String education = '0010a93e-6bbf-52e8-97d8-79b527cfef30';
   static const String service = 'f5abd7f9-e488-51d2-e799-628af0fb6526';
   static const String templeVisit = '7bc431df-5342-58b1-afd2-637b51cc7a31';
   static const String scriptureStudy = '87c117aa-3e02-5c44-9bc0-0cf15939c5c2';

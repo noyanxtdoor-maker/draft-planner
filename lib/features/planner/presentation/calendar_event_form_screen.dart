@@ -25,6 +25,7 @@ import 'package:rmplanner/features/notifications/domain/reminder_policy.dart';
 import 'package:rmplanner/features/notifications/presentation/reminder_time_picker.dart';
 import 'package:rmplanner/features/planner/application/calendar_event_creation_draft_provider.dart';
 import 'package:rmplanner/features/planner/application/calendar_event_providers.dart';
+import 'package:rmplanner/features/planner/application/event_type_creation_providers.dart';
 import 'package:rmplanner/features/planner/application/event_type_providers.dart';
 import 'package:rmplanner/features/planner/application/outcome_reporting_providers.dart';
 import 'package:rmplanner/features/planner/application/outcome_reporting_repository.dart';
@@ -33,6 +34,7 @@ import 'package:rmplanner/features/planner/application/task_event_link_providers
 import 'package:rmplanner/features/planner/data/calendar_event_time_zones.dart';
 import 'package:rmplanner/features/planner/domain/calendar_event.dart';
 import 'package:rmplanner/features/planner/domain/event_type.dart';
+import 'package:rmplanner/features/planner/domain/event_type_creation_choice.dart';
 import 'package:rmplanner/features/planner/domain/outcome_reporting.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 import 'package:rmplanner/features/planner/domain/task_event_link.dart';
@@ -234,6 +236,10 @@ final class _CalendarEventFormScreenState
   int? _reminderOffsetMinutes;
   String? _loadedEventTypeStableKey;
   String? _loadedEventTypeLabel;
+  // Raw type ID loaded with an existing Event (edit/reschedule). Used to
+  // distinguish "same-type preservation" (no new-selection gate) from an
+  // explicit type change (must pass current eligibility) per contract E.
+  String? _loadedTypeId;
   bool _isBackupAppointment = false;
   String? _backupForEventId;
   String? _backupRelationshipProvenance;
@@ -379,6 +385,40 @@ final class _CalendarEventFormScreenState
     CalendarEventDraft? existingDraft;
     EventType? selected;
     var preferTypeDuration = false;
+    // Contract E: current creation eligibility, resolved once here. Create
+    // mode resolves EVERY initial source (object, ID, indicator, default)
+    // through it, including objects passed before an archive. Edit mode
+    // keeps the raw existing type (the raw list may omit hidden/retired
+    // types) and its occurrence snapshot; only a NEW selection is gated.
+    List<EventTypeCreationChoice> eligibleChoices = const <
+        EventTypeCreationChoice>[];
+    var eligibilityReady = false;
+    if (widget.mode == CalendarEventFormMode.create) {
+      try {
+        final rawState = ref.read(eventTypeControllerProvider);
+        if (!rawState.isLoading && rawState.message == null) {
+          eligibleChoices = await ref.read(
+            eventTypeCreationChoicesProvider.future,
+          );
+          eligibilityReady = true;
+        }
+      } on Object {
+        // Fail closed below: unknown eligibility means no stale selection.
+        eligibilityReady = false;
+      }
+    }
+    EventType? eligibleTypeById(String? id) {
+      if (id == null) {
+        return null;
+      }
+      for (final choice in eligibleChoices) {
+        if (choice.type.id == id) {
+          return choice.type;
+        }
+      }
+      return null;
+    }
+
     if (widget.mode != CalendarEventFormMode.create) {
       existingDraft = await ref
           .read(calendarEventControllerProvider.notifier)
@@ -389,29 +429,40 @@ final class _CalendarEventFormScreenState
             .where((type) => type.id == eventTypeId)
             .firstOrNull;
       }
-    } else if (widget.initialEventType != null) {
+    } else if (widget.initialEventType != null && eligibilityReady) {
       preferTypeDuration = true;
-      selected = widget.initialEventType;
-    } else if (widget.initialEventTypeId != null) {
+      selected = eligibleTypeById(widget.initialEventType!.id);
+    } else if (widget.initialEventTypeId != null && eligibilityReady) {
       preferTypeDuration = true;
-      selected = eventTypeState.eventTypes
-          .where((type) => type.id == widget.initialEventTypeId)
-          .firstOrNull;
-    } else if (widget.initialIndicatorKey != null) {
+      selected = eligibleTypeById(widget.initialEventTypeId);
+    } else if (widget.initialIndicatorKey != null && eligibilityReady) {
       preferTypeDuration = true;
-      selected = await controller.exactTypeForIndicator(
-        widget.initialIndicatorKey!,
+      selected = eligibleTypeById(
+        (await controller.exactTypeForIndicator(widget.initialIndicatorKey!))
+            ?.id,
       );
-    } else if (eventTypeState.settings.defaultEventTypeId != null) {
-      selected = eventTypeState.eventTypes
-          .where(
-            (type) => type.id == eventTypeState.settings.defaultEventTypeId,
-          )
-          .firstOrNull;
+    } else if (eventTypeState.settings.defaultEventTypeId != null &&
+        eligibilityReady) {
+      selected = eligibleTypeById(eventTypeState.settings.defaultEventTypeId);
     }
-    selected ??= eventTypeState.eventTypes
-        .where((type) => type.stableKey == SystemEventTypeKeys.other)
-        .firstOrNull;
+    // Eligible Other fallback (contract E), without any preference write.
+    // When eligibility never resolved, fall back to raw Other so the form
+    // stays usable without advertising an unvalidated slot type.
+    selected ??= eligibilityReady
+        ? eligibleChoices
+              .where(
+                (choice) =>
+                    choice.type.stableKey == SystemEventTypeKeys.other,
+              )
+              .firstOrNull
+              ?.type
+        : eventTypeState.eventTypes
+              .where(
+                (type) =>
+                    type.stableKey == SystemEventTypeKeys.other &&
+                    type.isCreationVisible,
+              )
+              .firstOrNull;
     final existingRule = ScheduledPotentialRule.tryParse(
       existingDraft?.contributionRuleKey,
     );
@@ -613,6 +664,32 @@ final class _CalendarEventFormScreenState
     }
   }
 
+  /// Contract E display label: a NEW selection renders the current
+  /// Goal-title alias through the live creation choices; an existing edit
+  /// keeps its loaded occurrence/master snapshot label until the user
+  /// explicitly changes the type. Resolver unavailability falls back to the
+  /// raw label — display only, identity stays on the raw type.
+  String _formTypeDisplayLabel() {
+    final selected = _selectedEventType;
+    if (selected == null) {
+      return 'Not selected';
+    }
+    if (widget.mode == CalendarEventFormMode.create ||
+        selected.id != _loadedTypeId) {
+      final choices = ref
+          .read(eventTypeCreationChoicesProvider)
+          .value;
+      if (choices != null) {
+        for (final choice in choices) {
+          if (choice.type.id == selected.id) {
+            return choice.displayLabel;
+          }
+        }
+      }
+    }
+    return selected.label;
+  }
+
   Widget _buildEventTypeField() {
     return Material(
       key: const Key('event-type-field'),
@@ -633,7 +710,7 @@ final class _CalendarEventFormScreenState
               ),
             ),
             child: Text(
-              _selectedEventType?.label ?? 'Not selected',
+              _formTypeDisplayLabel(),
               key: const Key('selected-event-type-label'),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -851,6 +928,7 @@ final class _CalendarEventFormScreenState
         draft.activityTypeStableKeySnapshot;
     _loadedEventTypeLabel =
         occurrence?.activityTypeLabel ?? draft.activityTypeLabelSnapshot;
+    _loadedTypeId = draft.activityTypeId;
     // Owner fix: prefill Backup from the effective occurrence (which merges
     // occurrence-scoped overrides) so a Backup set via "This event only" —
     // or by an earlier edit — still shows ON when the form is reopened.
@@ -1785,9 +1863,9 @@ final class _CalendarEventFormScreenState
                               // GI-02: exactly 2x (24 -> 48).
                               size: 48,
                               semanticLabel: goal.title,
-                              // POLISH-05: fallback icon follows the active
-                              // Theme Color (no Rose in Blue mode).
-                              color: colorScheme.primary,
+                              // Step 8 (R01): fallback uses the Goal
+                              // artwork-family blue (#5CAEC9).
+                              color: AppTheme.goalIconFallbackBlue,
                             ),
                             title: Text(
                               goal.title,
@@ -1938,10 +2016,9 @@ final class _CalendarEventFormScreenState
                       size: 52,
                       semanticLabel: linkedGoal?.title,
                       fallbackIcon: Icons.track_changes_outlined,
-                      // POLISH-05: the unlinked placeholder icon resolves
-                      // through the active Theme Color — it rendered Rose in
-                      // Blue mode before.
-                      color: Theme.of(context).colorScheme.primary,
+                      // Step 8 (R01): the linked-Goal fallback uses the Goal
+                      // artwork-family blue (#5CAEC9).
+                      color: AppTheme.goalIconFallbackBlue,
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -2129,6 +2206,67 @@ final class _CalendarEventFormScreenState
     ).encode();
   }
 
+  /// Contract E save guard: a NEW selection (create, or an explicit type
+  /// change in edit mode) is re-resolved through current eligibility BEFORE
+  /// any write. The transactional repository rechecks inside its own
+  /// transaction too, so a Goal archived/reoccupied between this check and
+  /// the write is still rejected there. A stale source falls back to the
+  /// eligible Other type without touching the user's saved default or typed
+  /// title; the user's input is preserved.
+  Future<bool> _validateSelectionBeforeWrite() async {
+    final selected = _selectedEventType;
+    if (selected == null) {
+      return true;
+    }
+    try {
+      final choice = await findCreationChoiceById(ref, selected.id);
+      if (choice == null) {
+        await _fallbackToEligibleOther();
+        return false;
+      }
+      return true;
+    } on Object {
+      await _fallbackToEligibleOther();
+      return false;
+    }
+  }
+
+  /// Falls back to the eligible Other type for the type field only. No
+  /// preference write and no user text is touched.
+  Future<void> _fallbackToEligibleOther() async {
+    EventType? other;
+    try {
+      final choice = await findCreationChoiceById(
+        ref,
+        SystemEventTypeIds.other,
+      );
+      other = choice?.type;
+    } on Object {
+      other = null;
+    }
+    other ??= ref
+        .read(eventTypeControllerProvider)
+        .eventTypes
+        .where(
+          (type) =>
+              type.stableKey == SystemEventTypeKeys.other &&
+              type.isCreationVisible,
+        )
+        .firstOrNull;
+    if (other != null && mounted) {
+      setState(() => _selectedEventType = other);
+    }
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'This Event Type is no longer available. Choose another Event Type.',
+          ),
+        ),
+      );
+    }
+  }
+
   Future<void> _save() async {
     ref.read(calendarEventControllerProvider.notifier).clearMessage();
     ref.read(taskEventLinkControllerProvider.notifier).clearMessage();
@@ -2148,6 +2286,21 @@ final class _CalendarEventFormScreenState
           content: Text('End time must be at least 15 minutes after start.'),
         ),
       );
+      return;
+    }
+    // Contract E: new-selection validation BEFORE any state mutation. Edit
+    // keeps the loaded type when its raw ID is unchanged; an explicit change
+    // in edit mode is a new selection and must pass the gate. Reschedule
+    // keeps its loaded type (preservation path is not a new selection).
+    final isNewSelection =
+        widget.mode == CalendarEventFormMode.create ||
+        (widget.mode == CalendarEventFormMode.edit &&
+            (_loadedTypeId == null ||
+                _selectedEventType?.id != _loadedTypeId));
+    if (isNewSelection && !await _validateSelectionBeforeWrite()) {
+      if (mounted) {
+        setState(() => _saving = false);
+      }
       return;
     }
     final selectedType = _selectedEventType;

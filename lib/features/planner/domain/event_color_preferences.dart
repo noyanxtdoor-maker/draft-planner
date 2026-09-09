@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:rmplanner/core/colors/vs11_color_system.dart';
 import 'package:rmplanner/features/planner/domain/event_type.dart';
 
 /// The four built-in Contact Groups whose colors are shared by Contacts and
@@ -268,6 +269,15 @@ abstract final class PlannerEventColorDefaults {
     accentArgb: 0xFFA272C8,
     surfaceArgb: 0xFF47444B,
   );
+
+  /// Education reuses the locked Recommended Color P24 (Faded Periwinkle)
+  /// accent with its locked dark surface partner. Deliberately absent from
+  /// `_labelDefaults`: a custom row merely named "Education" must keep the
+  /// accepted fallback behavior, never adopt the system default.
+  static const EventColorPreference education = EventColorPreference(
+    accentArgb: Vs11ColorSystem.p24DeepBlue,
+    surfaceArgb: 0xFF3F434F,
+  );
   static const EventColorPreference scriptureStudy = EventColorPreference(
     accentArgb: 0xFFDE9EDA,
     surfaceArgb: 0xFF4C464A,
@@ -381,6 +391,7 @@ abstract final class PlannerEventColorDefaults {
         SystemEventTypeKeys.contact: contact,
         SystemEventTypeKeys.meeting: meeting,
         SystemEventTypeKeys.studyOrPlan: studyOrPlan,
+        SystemEventTypeKeys.education: education,
         SystemEventTypeKeys.templeVisit: lockedTempleVisit,
         SystemEventTypeKeys.travel: travel,
         SystemEventTypeKeys.meal: meal,

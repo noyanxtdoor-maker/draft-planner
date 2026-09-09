@@ -71,9 +71,9 @@ final class _GoalIconPickerScreenState extends State<GoalIconPickerScreen> {
       widget.args.goalTitle,
     );
     final textScale = MediaQuery.textScalerOf(context).scale(1);
-    // GI-02: goal art doubles to 96dp; tile extent grows just enough
-    // (96 art + 4+4 padding), spacing tightens to keep 3 columns.
-    final tileHeight = textScale >= 1.25 ? 112.0 : 104.0;
+    // Step 9 density: art 64dp, row 72 (80 at textScale >= 1.25);
+    // columns are width-responsive in _IconGrid (4/3/2/1 at 306/228/150).
+    final tileHeight = textScale >= 1.25 ? 80.0 : 72.0;
     final filteredIcons = _activeCategory == null
         ? allIcons
         : allIcons
@@ -247,22 +247,37 @@ final class _IconGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: icons.length,
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        crossAxisSpacing: 6,
-        mainAxisSpacing: 10,
-        mainAxisExtent: tileHeight,
-      ),
-      itemBuilder: (context, index) {
-        final definition = icons[index];
-        return _IconTile(
-          definition: definition,
-          selected: definition.id == selectedId,
-          onTap: () => onSelected(definition.id),
+    // Step 9 density: width-responsive columns. The inner width is the
+    // incoming constraint (page padding already applied upstream); each
+    // breakpoint preserves a >=72dp cell width.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final innerWidth = constraints.maxWidth;
+        final crossAxisCount = innerWidth >= 306
+            ? 4
+            : innerWidth >= 228
+            ? 3
+            : innerWidth >= 150
+            ? 2
+            : 1;
+        return GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: icons.length,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount,
+            crossAxisSpacing: 6,
+            mainAxisSpacing: 10,
+            mainAxisExtent: tileHeight,
+          ),
+          itemBuilder: (context, index) {
+            final definition = icons[index];
+            return _IconTile(
+              definition: definition,
+              selected: definition.id == selectedId,
+              onTap: () => onSelected(definition.id),
+            );
+          },
         );
       },
     );
@@ -321,12 +336,12 @@ final class _IconTile extends StatelessWidget {
                   child: ExcludeSemantics(
                     child: GoalIcon(
                       iconId: definition.id,
-                      // GI-02: exactly 2x (48 -> 96).
-                      size: 96,
-                      // POLISH-05: generic fallback follows the active Theme
-                      // Color (definitions always render SVG art, so this only
-                      // colors the null/unknown-ID fallback).
-                      color: Theme.of(context).colorScheme.primary,
+                      // Step 9 density: 96 -> 64 (the Planning size).
+                      size: 64,
+                      // Step 8 (R01): the null/unknown-ID fallback uses the
+                      // Goal artwork-family blue (definitions always render
+                      // SVG art, so this only colors the fallback glyph).
+                      color: AppTheme.goalIconFallbackBlue,
                     ),
                   ),
                 ),

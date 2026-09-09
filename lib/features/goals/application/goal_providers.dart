@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rmplanner/features/goals/application/goal_repository.dart';
 import 'package:rmplanner/features/goals/domain/goal.dart';
+import 'package:rmplanner/features/goals/domain/goal_event_type_policy.dart';
 import 'package:rmplanner/features/planner/application/planner_providers.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 import 'package:rmplanner/features/settings/application/start_of_week_providers.dart';
@@ -66,4 +67,17 @@ final goalCapacityProvider = FutureProvider<GoalCapacity>((ref) {
   final profileId = ref.read(goalProfileIdProvider);
   ref.watch(goalChangesProvider(profileId));
   return ref.read(goalRepositoryProvider).readCapacity(profileId);
+});
+
+/// Additive read-only live slot occupancy for Event Type creation
+/// eligibility (contract D.5). Watches the monotonic goalChangesProvider so
+/// create/rename/archive/delete/restore refresh choices; no polling, no
+/// bootstrap, no global cache. Loading and error propagate as AsyncValue —
+/// callers must never fall back to an all-six map.
+final liveGoalEventTypeBindingsProvider = FutureProvider.family<
+  Map<int, LiveGoalEventTypeBinding>,
+  String
+>((ref, profileId) {
+  ref.watch(goalChangesProvider(profileId));
+  return ref.read(goalRepositoryProvider).readLiveEventTypeBindings(profileId);
 });

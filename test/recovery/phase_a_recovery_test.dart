@@ -8,7 +8,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rmplanner/core/database/app_database.dart';
 import 'package:rmplanner/core/diagnostics/sanitized_diagnostics.dart';
+import 'package:rmplanner/core/ids/identifier_source.dart';
 import 'package:rmplanner/core/platform/app_environment.dart';
+import 'package:rmplanner/features/goals/application/goal_providers.dart';
+import 'package:rmplanner/features/goals/data/drift_goal_repository.dart';
 import 'package:rmplanner/features/notifications/application/notification_privacy_refresh_provider.dart';
 import 'package:rmplanner/features/notifications/application/notification_providers.dart';
 import 'package:rmplanner/features/notifications/application/planning_reminder_reconciler.dart';
@@ -301,6 +304,13 @@ void main() {
             eventTypeRepositoryProvider.overrideWithValue(repo),
             startupRepositoryProvider.overrideWithValue(startup),
             diagnosticsProvider.overrideWithValue(SanitizedDiagnostics()),
+            goalRepositoryProvider.overrideWithValue(
+              DriftGoalRepository(
+                database: database,
+                clock: FixedClock(DateTime.utc(2026, 9, 9, 2)),
+                identifiers: const UuidIdentifierSource(),
+              ),
+            ),
           ],
           child: MaterialApp(
             home: Consumer(

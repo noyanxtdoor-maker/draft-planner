@@ -1,4 +1,5 @@
 import 'package:rmplanner/features/goals/domain/goal.dart';
+import 'package:rmplanner/features/goals/domain/goal_event_type_policy.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 
 abstract interface class GoalRepository {
@@ -94,6 +95,13 @@ abstract interface class GoalRepository {
     required String profileId,
     required Map<String, Object?> backup,
   });
+
+  /// Additive read-only live slot occupancy (contract D.3): the raw-active
+  /// canonical slot occupants eligible to alias their Event Type for NEW
+  /// Event selections. Zero writes and zero bootstrap side effects.
+  Future<Map<int, LiveGoalEventTypeBinding>> readLiveEventTypeBindings(
+    String profileId,
+  );
 
   Future<GoalPlanningSnapshot> readPlanning({
     required String profileId,

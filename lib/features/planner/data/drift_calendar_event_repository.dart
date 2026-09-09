@@ -1,6 +1,9 @@
 import 'package:drift/drift.dart';
 import 'package:rmplanner/core/database/app_database.dart';
 import 'package:rmplanner/core/time/app_clock.dart';
+import 'package:rmplanner/features/goals/data/live_goal_event_type_bindings.dart';
+import 'package:rmplanner/features/goals/domain/canonical_goal_slots.dart';
+import 'package:rmplanner/features/goals/domain/goal_event_type_policy.dart';
 import 'package:rmplanner/features/planner/application/calendar_event_repository.dart';
 import 'package:rmplanner/features/planner/data/calendar_event_time_zones.dart';
 import 'package:rmplanner/features/planner/domain/calendar_event.dart';
@@ -12,6 +15,12 @@ import 'package:uuid/uuid.dart';
 abstract interface class CalendarEventWriteGuard {
   Future<void> beforeCommit();
 }
+
+/// Contract E explicit write context (private seam). New-selection writes
+/// (new Event, duplicate, deliberate type change) validate eligibility and
+/// capture the live Goal-title alias; preservation writes (same-type edits,
+/// reschedule, cancel, report preservation) never gate and never re-alias.
+enum _CalendarEventSelectionContext { newSelection, preservation }
 
 final class AllowCalendarEventWrites implements CalendarEventWriteGuard {
   const AllowCalendarEventWrites();
@@ -303,11 +312,27 @@ final class DriftCalendarEventRepository
         profileId: profileId,
         eventId: normalized.id,
       );
+      // Contract E/F: a NEW Event may not select a canonical slot Event
+      // Type whose slot has no live Goal occupant. The eligibility read and
+      // the alias snapshot are captured once, atomically, inside the same
+      // transaction that writes the row.
+      final bindings = await readLiveGoalEventTypeBindings(
+        database,
+        profileId,
+      );
+      await _validateSelectionEligibility(
+        profileId: profileId,
+        bindings: bindings,
+        draft: normalized,
+        originalTypeId: existing?.activityTypeId,
+      );
       await _writeEvent(
         profileId: profileId,
         eventId: normalized.id,
         draft: normalized,
         existing: existing,
+        selectionContext: _CalendarEventSelectionContext.newSelection,
+        liveBindings: bindings,
       );
       await writeGuard.beforeCommit();
     });
@@ -345,6 +370,29 @@ final class DriftCalendarEventRepository
         originalDate: originalDate,
         reports: reports,
       );
+      // Contract E/F: explicit current-occurrence-vs-draft type resolution
+      // at the editEvent boundary. The occurrence's stored type (exception
+      // snapshot -> master snapshot -> raw master row, exactly the read
+      // chain) is the reference; a differing draft type is a deliberate
+      // change and must point at a live-occupied canonical slot. Same-type
+      // writes are preservations and never gate, including a recurring
+      // occurrence override carrying the same canonical type as its master.
+      final typeChanged =
+          normalized.activityTypeId != current.activityTypeId;
+      final bindings = typeChanged
+          ? await readLiveGoalEventTypeBindings(database, profileId)
+          : null;
+      if (typeChanged && bindings != null) {
+        await _validateSelectionEligibility(
+          profileId: profileId,
+          bindings: bindings,
+          draft: normalized,
+          originalTypeId: current.activityTypeId,
+        );
+      }
+      final selectionContext = typeChanged
+          ? _CalendarEventSelectionContext.newSelection
+          : _CalendarEventSelectionContext.preservation;
       final sourceRule = _ruleFromRow(row);
       // Clearing Repeat is always a series-level mutation, even if the edit
       // flow was entered through "This event only". An exception row has no
@@ -382,6 +430,8 @@ final class DriftCalendarEventRepository
               eventId: eventId,
               draft: normalized.copyWith(id: eventId),
               existing: row,
+              selectionContext: selectionContext,
+              liveBindings: bindings,
             );
             // A scheduled field-override exception written by an earlier
             // build no longer represents user intent now that the master row
@@ -406,6 +456,8 @@ final class DriftCalendarEventRepository
               ),
               status: current.status,
               operationId: operationId,
+              selectionContext: selectionContext,
+              liveBindings: bindings,
             );
           }
         case CalendarEventEditScope.thisAndFuture:
@@ -415,6 +467,8 @@ final class DriftCalendarEventRepository
               eventId: eventId,
               draft: normalized.copyWith(id: eventId),
               existing: row,
+              selectionContext: selectionContext,
+              liveBindings: bindings,
             );
           } else {
             if (normalized.id == eventId) {
@@ -432,6 +486,8 @@ final class DriftCalendarEventRepository
                 replacement: normalized,
               ),
               parentEventId: eventId,
+              selectionContext: selectionContext,
+              liveBindings: bindings,
             );
           }
         case CalendarEventEditScope.series:
@@ -440,6 +496,8 @@ final class DriftCalendarEventRepository
             eventId: eventId,
             draft: normalized.copyWith(id: eventId),
             existing: row,
+            selectionContext: selectionContext,
+            liveBindings: bindings,
           );
           if (sourceRule.isRecurring && !normalized.recurrence.isRecurring) {
             await _removeUnreportedExceptions(
@@ -715,6 +773,28 @@ final class DriftCalendarEventRepository
         reports: reports,
       );
       final timed = current.timing == CalendarEventTiming.timed;
+      // Contract E/F: a duplicate is a NEW selection. Its type must pass
+      // the same live-occupancy gate as any new Event, and its snapshot is
+      // freshly captured (current live alias), never inherited stale.
+      final bindings = await readLiveGoalEventTypeBindings(
+        database,
+        profileId,
+      );
+      await _validateSelectionEligibility(
+        profileId: profileId,
+        bindings: bindings,
+        draft: CalendarEventDraft(
+          id: duplicateId,
+          title: '',
+          timing: current.timing,
+          startDate: current.displayDate,
+          activityTypeId: current.activityTypeId,
+          recurrence: const CalendarRecurrenceRule(),
+          requiresReport: current.requiresReport,
+          isBackupAppointment: current.isBackupAppointment,
+        ),
+        originalTypeId: null,
+      );
       final draft = _validateDraft(
         CalendarEventDraft(
           id: duplicateId,
@@ -754,6 +834,8 @@ final class DriftCalendarEventRepository
         draft: draft,
         existing: null,
         parentEventId: eventId,
+        selectionContext: _CalendarEventSelectionContext.newSelection,
+        liveBindings: bindings,
       );
       await (database.update(
         database.calendarEvents,
@@ -829,11 +911,16 @@ final class DriftCalendarEventRepository
     required CalendarEventDraft draft,
     CalendarEventRow? existing,
     String? parentEventId,
+    _CalendarEventSelectionContext selectionContext =
+        _CalendarEventSelectionContext.preservation,
+    Map<int, LiveGoalEventTypeBinding>? liveBindings,
   }) async {
     final activityTypeSnapshot = await _resolveActivityTypeSnapshot(
       profileId: profileId,
       draft: draft,
       existing: existing,
+      selectionContext: selectionContext,
+      liveBindings: liveBindings,
     );
     // Life Goal invariant (domain rule): a linked Event is always Report
     // Required.  Normalize here so direct repository callers can never
@@ -1367,12 +1454,17 @@ final class DriftCalendarEventRepository
     required CalendarEventStatus status,
     required String operationId,
     String? replacementEventId,
+    _CalendarEventSelectionContext selectionContext =
+        _CalendarEventSelectionContext.preservation,
+    Map<int, LiveGoalEventTypeBinding>? liveBindings,
   }) async {
     final existing = await _readRow(profileId: profileId, eventId: eventId);
     final activityTypeSnapshot = await _resolveActivityTypeSnapshot(
       profileId: profileId,
       draft: draft,
       existing: existing,
+      selectionContext: selectionContext,
+      liveBindings: liveBindings,
     );
     // Life Goal invariant (domain rule): a linked Event is always Report
     // Required.  Normalize here so occurrence persistence can never write
@@ -1431,10 +1523,45 @@ final class DriftCalendarEventRepository
         );
   }
 
+  /// Contract E/F: new-selection eligibility guard. Enforced ONLY when the
+  /// write would make the Event carry a canonical slot Event Type that its
+  /// reference row does not already carry (new Event, duplicate, or a
+  /// deliberate type change resolved at the editEvent boundary). Every such
+  /// selection requires the slot to have exactly one live raw-active Goal
+  /// occupant with exact canonical identity (system ID AND stable key AND
+  /// mapping); hidden slot types fail closed. Corrupt bindings fail closed
+  /// through the same map (occupant duplicates simply produce no binding).
+  Future<void> _validateSelectionEligibility({
+    required String profileId,
+    required Map<int, LiveGoalEventTypeBinding> bindings,
+    required CalendarEventDraft draft,
+    required String? originalTypeId,
+  }) async {
+    final activityTypeId = draft.activityTypeId;
+    if (activityTypeId == null || activityTypeId == originalTypeId) {
+      return;
+    }
+    final typeRow = await _readActivityType(profileId, activityTypeId);
+    if (typeRow == null) {
+      return;
+    }
+    final slot = CanonicalGoalSlot.tryByEventTypeKey(typeRow.stableKey);
+    if (slot == null || slot.eventTypeId != activityTypeId) {
+      return;
+    }
+    if (!bindings.containsKey(slot.slotIndex)) {
+      throw const CalendarEventValidationException(
+        'That Event Type is not currently available for new Events.',
+      );
+    }
+  }
+
   Future<_ActivityTypeSnapshot?> _resolveActivityTypeSnapshot({
     required String profileId,
     required CalendarEventDraft draft,
     required CalendarEventRow? existing,
+    required _CalendarEventSelectionContext selectionContext,
+    Map<int, LiveGoalEventTypeBinding>? liveBindings,
   }) async {
     final activityTypeId = draft.activityTypeId;
     if (activityTypeId == null) {
@@ -1458,10 +1585,31 @@ final class DriftCalendarEventRepository
     final current = stableKey == null || label == null || colorValue == null
         ? await _readActivityType(profileId, activityTypeId)
         : null;
+    final resolvedStableKey = stableKey ?? current?.stableKey;
+    final resolvedColor = colorValue ?? current?.colorValue;
+    var resolvedLabel = label ?? current?.label;
+    // Contract E alias capture: ONLY a new-selection write (new Event,
+    // duplicate, deliberate type change) may persist the live Goal-title
+    // alias for a canonical slot type, and the live binding ALWAYS wins over
+    // any caller-supplied or stale label. Preservation writes (same-type
+    // edits, reschedule, cancel, report preservation) keep every stored
+    // snapshot EXACTLY as-is — a Goal rename never rewrites historical
+    // snapshots, and the raw label fallback stays untouched. The canonical
+    // raw label in activity_types is never modified by any write here.
+    if (selectionContext == _CalendarEventSelectionContext.newSelection &&
+        liveBindings != null) {
+      final slot = CanonicalGoalSlot.tryByEventTypeKey(resolvedStableKey);
+      if (slot != null && slot.eventTypeId == activityTypeId) {
+        final bindingTitle = liveBindings[slot.slotIndex]?.title;
+        if (bindingTitle != null) {
+          resolvedLabel = bindingTitle;
+        }
+      }
+    }
     return _ActivityTypeSnapshot(
-      stableKey: stableKey ?? current?.stableKey,
-      label: label ?? current?.label,
-      colorValue: colorValue ?? current?.colorValue,
+      stableKey: resolvedStableKey,
+      label: resolvedLabel,
+      colorValue: resolvedColor,
     );
   }
 

@@ -478,9 +478,9 @@ final class _ArchivedGoalRow extends StatelessWidget {
           size: 56,
           semanticLabel: '${goal.title} goal icon',
           fallbackIcon: goalIconFallbackForRole(goal.role),
-          // POLISH-05: fallback icon follows the active Theme Color (generic
-          // theme-owned action, not Goal Icon identity).
-          color: Theme.of(context).colorScheme.primary,
+          // Step 8 (R01): fallback uses the Goal artwork-family blue
+          // (#5CAEC9), matching Planning/Home/choice-row consistency.
+          color: AppTheme.goalIconFallbackBlue,
         ),
       ),
     );

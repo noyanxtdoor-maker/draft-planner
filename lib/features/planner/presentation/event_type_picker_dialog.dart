@@ -3,9 +3,12 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rmplanner/app/theme/app_theme.dart';
+import 'package:rmplanner/features/goals/domain/goal_event_type_policy.dart';
+import 'package:rmplanner/features/planner/application/event_type_creation_providers.dart';
 import 'package:rmplanner/features/planner/application/event_type_providers.dart';
 import 'package:rmplanner/features/planner/domain/event_color_preferences.dart';
 import 'package:rmplanner/features/planner/domain/event_type.dart';
+import 'package:rmplanner/features/planner/domain/event_type_creation_choice.dart';
 import 'package:rmplanner/features/planner/presentation/widgets/anchored_top_bar_popup.dart';
 import 'package:rmplanner/features/planner/presentation/widgets/planner_event_color_resolver.dart';
 
@@ -14,9 +17,14 @@ sealed class EventTypePickerSelection {
 }
 
 final class EventTypePickerEvent extends EventTypePickerSelection {
-  const EventTypePickerEvent(this.eventType);
+  const EventTypePickerEvent(this.eventType, {this.binding});
 
   final EventType eventType;
+
+  /// Live Goal alias at selection time, when the chosen canonical type had
+  /// an eligible occupant. Additive: existing constructions without this
+  /// argument are unchanged and [eventType] stays the raw type.
+  final LiveGoalEventTypeBinding? binding;
 }
 
 final class EventTypePickerTask extends EventTypePickerSelection {
@@ -54,43 +62,57 @@ Future<EventTypePickerSelection?> showEventTypePicker({
     ).showSnackBar(SnackBar(content: Text(state.message!)));
     return null;
   }
-  final types = _orderedPickerTypes(
-    state.eventTypes,
-    recommendedId,
-    allowedStableKeys: allowedStableKeys,
-  );
   return showDialog<EventTypePickerSelection>(
     context: context,
     barrierDismissible: true,
     barrierColor: Colors.black.withValues(alpha: 0.18),
     useSafeArea: false,
     builder: (dialogContext) {
-      return LayoutBuilder(
-        builder: (context, constraints) {
-          final media = MediaQuery.of(context);
-          final topOffset = media.padding.top + kToolbarHeight + 13;
-          // Delta 4.2D restores the last known-good Next Transfer selector
-          // width. Filtering and selection semantics remain unchanged.
-          final cardWidth = math.min(347.0, constraints.maxWidth - 32);
-          final cardHeight = math.max(
-            1.0,
-            math.min(672.0, constraints.maxHeight - topOffset - 16),
-          );
-          return Align(
-            alignment: Alignment.topCenter,
-            child: Padding(
-              padding: EdgeInsets.only(top: topOffset),
-              child: SizedBox(
-                width: cardWidth,
-                height: cardHeight,
-                child: _EventTypePickerSheet(
-                  eventTypes: types,
+      // Consumer inside the dialog: the open sheet rebuilds when the raw
+      // controller or the live bindings change (archive/reoccupation while
+      // open), per contract C/E.
+      return Consumer(
+        builder: (context, ref, _) {
+          final choicesAsync = ref.watch(eventTypeCreationChoicesProvider);
+          return LayoutBuilder(
+            builder: (context, constraints) {
+              final media = MediaQuery.of(context);
+              final topOffset = media.padding.top + kToolbarHeight + 13;
+              // Delta 4.2D restores the last known-good Next Transfer selector
+              // width. Filtering and selection semantics remain unchanged.
+              final cardWidth = math.min(347.0, constraints.maxWidth - 32);
+              final cardHeight = math.max(
+                1.0,
+                math.min(672.0, constraints.maxHeight - topOffset - 16),
+              );
+              final ordered = choicesAsync.maybeWhen(
+                data: (choices) => EventTypeCreationChoice.orderedForPicker(
+                  choices,
                   recommendedEventTypeId: recommendedId,
-                  eventColorsByTypeId: state.resolvedEventColorsByTypeId,
-                  includeTask: includeTask,
+                  allowedStableKeys: allowedStableKeys,
                 ),
-              ),
-            ),
+                orElse: () => const <EventTypeCreationChoice>[],
+              );
+              return Align(
+                alignment: Alignment.topCenter,
+                child: Padding(
+                  padding: EdgeInsets.only(top: topOffset),
+                  child: SizedBox(
+                    width: cardWidth,
+                    height: cardHeight,
+                    child: _EventTypePickerSheet(
+                      choices: ordered,
+                      choicesReady: choicesAsync.hasValue,
+                      recommendedEventTypeId: recommendedId,
+                      eventColorsByTypeId: ref
+                          .read(eventTypeControllerProvider)
+                          .resolvedEventColorsByTypeId,
+                      includeTask: includeTask,
+                    ),
+                  ),
+                ),
+              );
+            },
           );
         },
       );
@@ -140,11 +162,6 @@ Future<EventType?> showEventTypeDropdown({
   if (!context.mounted) {
     return null;
   }
-  final types = _orderedPickerTypes(
-    state.eventTypes,
-    recommendedId,
-    targetOrder: false,
-  );
   EventType? selected;
   await showAnchoredTopBarPopup(
     context: context,
@@ -153,109 +170,81 @@ Future<EventType?> showEventTypeDropdown({
     maxHeight: 336,
     topGap: 5,
     borderRadius: 5,
-    builder: (popupContext) => SingleChildScrollView(
-      key: const Key('event-type-dropdown-scroll'),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          for (final type in types)
-            SizedBox(
-              height: 48,
-              child: InkWell(
-                key: Key('event-type-dropdown-option-${type.stableKey}'),
-                onTap: () {
-                  selected = type;
-                  anchoredTopBarPopupController.dismiss();
-                },
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                    children: <Widget>[
-                      Expanded(
-                        child: Text(
-                          type.label,
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: type.id == selectedEventTypeId
-                                ? FontWeight.w600
-                                : FontWeight.w400,
+    builder: (popupContext) => Consumer(
+      builder: (context, ref, _) {
+        final current = ref.watch(eventTypeCreationChoicesProvider);
+        final choices = current.maybeWhen(
+          data: (value) => EventTypeCreationChoice.orderedForDropdown(value),
+          // Never keep the previous eligible list active while a fresh
+          // profile/Goal binding projection is loading or has failed. This
+          // closes the archive/reoccupation tap race; the popup stays open
+          // and repopulates only after current eligibility resolves.
+          orElse: () => const <EventTypeCreationChoice>[],
+        );
+        final ready = current.hasValue;
+        return SingleChildScrollView(
+          key: const Key('event-type-dropdown-scroll'),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              for (final choice in choices)
+                SizedBox(
+                  height: 48,
+                  child: InkWell(
+                    key: Key(
+                      'event-type-dropdown-option-${choice.type.stableKey}',
+                    ),
+                    onTap: ready
+                        ? () {
+                            selected = choice.type;
+                            anchoredTopBarPopupController.dismiss();
+                          }
+                        : null,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Row(
+                        children: <Widget>[
+                          Expanded(
+                            child: Text(
+                              choice.displayLabel,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight:
+                                    choice.type.id == selectedEventTypeId
+                                    ? FontWeight.w600
+                                    : FontWeight.w400,
+                              ),
+                            ),
                           ),
-                        ),
+                          if (choice.type.id == selectedEventTypeId)
+                            const Icon(Icons.check, size: 20),
+                        ],
                       ),
-                      if (type.id == selectedEventTypeId)
-                        const Icon(Icons.check, size: 20),
-                    ],
+                    ),
                   ),
                 ),
-              ),
-            ),
-        ],
-      ),
+            ],
+          ),
+        );
+      },
     ),
   );
   return selected;
 }
 
-List<EventType> _orderedPickerTypes(
-  List<EventType> types,
-  String? recommendedId, {
-  bool targetOrder = true,
-  Set<String>? allowedStableKeys,
-}) {
-  final mappedOrder = <String, int>{
-    for (
-      var index = 0;
-      index < SystemEventTypeKeys.approvedCreationOrder.length;
-      index += 1
-    )
-      SystemEventTypeKeys.approvedCreationOrder[index]: index,
-  };
-  final ordered =
-      types
-          .where(
-            (type) =>
-                type.isCreationVisible &&
-                (allowedStableKeys == null ||
-                    allowedStableKeys.contains(type.stableKey)),
-          )
-          .toList()
-        ..sort((left, right) {
-          if (targetOrder &&
-              left.id == recommendedId &&
-              right.id != recommendedId) {
-            return -1;
-          }
-          if (targetOrder &&
-              right.id == recommendedId &&
-              left.id != recommendedId) {
-            return 1;
-          }
-          final leftMapped = mappedOrder[left.stableKey];
-          final rightMapped = mappedOrder[right.stableKey];
-          if (leftMapped != null || rightMapped != null) {
-            if (leftMapped == null) {
-              return 1;
-            }
-            if (rightMapped == null) {
-              return -1;
-            }
-            return leftMapped.compareTo(rightMapped);
-          }
-          final position = left.position.compareTo(right.position);
-          return position == 0 ? left.label.compareTo(right.label) : position;
-        });
-  return ordered;
-}
-
 final class _EventTypePickerSheet extends StatelessWidget {
   const _EventTypePickerSheet({
-    required this.eventTypes,
+    required this.choices,
+    required this.choicesReady,
     required this.recommendedEventTypeId,
     required this.eventColorsByTypeId,
     required this.includeTask,
   });
 
-  final List<EventType> eventTypes;
+  final List<EventTypeCreationChoice> choices;
+  final bool choicesReady;
   final String? recommendedEventTypeId;
   final Map<String, EventColorPreference> eventColorsByTypeId;
   final bool includeTask;
@@ -292,7 +281,7 @@ final class _EventTypePickerSheet extends StatelessWidget {
           Expanded(
             child: SingleChildScrollView(
               key: const Key('event-type-picker-scroll'),
-              child: eventTypes.isEmpty
+              child: choices.isEmpty
                   ? Padding(
                       padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
                       child: Text(
@@ -303,8 +292,8 @@ final class _EventTypePickerSheet extends StatelessWidget {
                   : Column(
                       key: const Key('event-type-picker-list'),
                       children: <Widget>[
-                        for (final type in eventTypes)
-                          _buildEventTypeRow(context, type),
+                        for (final choice in choices)
+                          _buildEventTypeRow(context, choice),
                         if (includeTask) _buildTaskRow(context),
                       ],
                     ),
@@ -338,15 +327,26 @@ final class _EventTypePickerSheet extends StatelessWidget {
     );
   }
 
-  Widget _buildEventTypeRow(BuildContext context, EventType type) {
+  Widget _buildEventTypeRow(
+    BuildContext context,
+    EventTypeCreationChoice choice,
+  ) {
+    final type = choice.type;
     final recommended = type.id == recommendedEventTypeId;
     return Semantics(
       button: true,
-      label: '${type.label} Event Type${recommended ? ', Recommended' : ''}',
+      label:
+          '${choice.displayLabel} Event Type${recommended ? ', Recommended' : ''}',
       child: InkWell(
         key: Key('event-type-option-${type.stableKey}'),
         overlayColor: const WidgetStatePropertyAll(Colors.transparent),
-        onTap: () => Navigator.of(context).pop(EventTypePickerEvent(type)),
+        // Current eligibility tap guard (contract C): rows only exist for
+        // eligible types, and a tap is rejected when inputs are not ready.
+        onTap: choicesReady
+            ? () => Navigator.of(
+                context,
+              ).pop(EventTypePickerEvent(type, binding: choice.binding))
+            : null,
         child: SizedBox(
           height: 44,
           child: Padding(
@@ -368,7 +368,12 @@ final class _EventTypePickerSheet extends StatelessWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    type.label,
+                    // Goal-title alias for live slots; raw label otherwise.
+                    // Long aliases wrap to one line with ellipsis inside the
+                    // existing 44dp row; full text stays in Semantics above.
+                    choice.displayLabel,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: AppTheme.onFillTextOf(context, 1.0),
                       fontSize: 17,
@@ -400,7 +405,9 @@ final class _EventTypePickerSheet extends StatelessWidget {
       child: InkWell(
         key: const Key('event-type-option-task'),
         overlayColor: const WidgetStatePropertyAll(Colors.transparent),
-        onTap: () => Navigator.of(context).pop(const EventTypePickerTask()),
+        onTap: choicesReady
+            ? () => Navigator.of(context).pop(const EventTypePickerTask())
+            : null,
         child: SizedBox(
           height: 44,
           child: Padding(

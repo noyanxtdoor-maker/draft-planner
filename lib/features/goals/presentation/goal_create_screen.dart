@@ -17,7 +17,6 @@ import 'package:rmplanner/features/indicators/domain/life_indicator.dart';
 import 'package:rmplanner/features/planner/application/event_type_providers.dart';
 import 'package:rmplanner/features/planner/domain/event_color_preferences.dart';
 import 'package:rmplanner/features/planner/domain/event_type.dart';
-import 'package:rmplanner/features/planner/presentation/event_type_form_screen.dart';
 
 final class GoalCreateScreen extends ConsumerStatefulWidget {
   const GoalCreateScreen({super.key});
@@ -245,6 +244,12 @@ final class _GoalCreateScreenState extends ConsumerState<GoalCreateScreen> {
         ? null
         : eventTypeState.eventColors[type.stableKey] ??
               PlannerEventColorDefaults.forEventType(type);
+    // Contract G (R02): the preview label follows the Goal Name draft
+    // (presentation alias). The canonical Event Type row is never renamed
+    // and the alias is only captured on NEW Event snapshots.
+    final aliasLabel = _nameController.text.trim().isEmpty
+        ? type?.label ?? 'Loading…'
+        : _nameController.text.trim();
     return Card(
       key: const Key('goal-create-assigned-event-type'),
       child: Padding(
@@ -268,16 +273,9 @@ final class _GoalCreateScreenState extends ConsumerState<GoalCreateScreen> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    type?.label ?? 'Loading…',
+                    aliasLabel,
                     style: AppTypography.cardTitle,
                   ),
-                ),
-                TextButton(
-                  key: const Key('goal-create-edit-event-type'),
-                  onPressed: type == null
-                      ? null
-                      : () => unawaited(_editAssignedEventType(type.id)),
-                  child: const Text('Edit Event Type'),
                 ),
               ],
             ),
@@ -291,26 +289,6 @@ final class _GoalCreateScreenState extends ConsumerState<GoalCreateScreen> {
         ),
       ),
     );
-  }
-
-  Future<void> _editAssignedEventType(String eventTypeId) async {
-    // A plain Navigator push keeps this screen's draft (role, name, icon,
-    // targets, and predicted slot) alive while Edit Event Type is open.
-    await Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
-        builder: (_) => EventTypeFormScreen.edit(
-          eventTypeId: eventTypeId,
-          fixedAssignmentLabel: _nameController.text.trim().isEmpty
-              ? 'this Goal'
-              : _nameController.text.trim(),
-        ),
-      ),
-    );
-    if (mounted) {
-      // The Event Type controller reloads on save, so the assignment preview
-      // (name/color) refreshes here without touching the Goal draft.
-      setState(() {});
-    }
   }
 
   Future<void> _save() async {

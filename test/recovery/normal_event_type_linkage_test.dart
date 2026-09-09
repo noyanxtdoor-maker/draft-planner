@@ -8,12 +8,14 @@ import 'package:rmplanner/core/database/app_database.dart';
 import 'package:rmplanner/core/diagnostics/sanitized_diagnostics.dart';
 import 'package:rmplanner/core/ids/identifier_source.dart';
 import 'package:rmplanner/core/platform/app_environment.dart';
+import 'package:rmplanner/features/goals/application/goal_providers.dart';
 import 'package:rmplanner/features/goals/data/drift_goal_repository.dart';
 import 'package:rmplanner/features/goals/domain/canonical_goal_slots.dart';
 import 'package:rmplanner/features/goals/domain/goal.dart';
 import 'package:rmplanner/features/indicators/domain/life_indicator.dart';
 import 'package:rmplanner/features/planner/application/event_type_providers.dart';
 import 'package:rmplanner/features/planner/data/drift_event_type_repository.dart';
+import 'package:rmplanner/features/planner/domain/event_type.dart';
 import 'package:rmplanner/features/planner/presentation/event_type_picker_dialog.dart';
 import 'package:rmplanner/features/startup/application/startup_providers.dart';
 
@@ -66,6 +68,33 @@ void main() {
     'repaired v46 exact IDs resolve normal colors and picker hides retired duplicates without rewriting history',
     (tester) async {
       final db = await copiedDatabase();
+      final goals = DriftGoalRepository(
+        database: db,
+        clock: clock,
+        identifiers: const UuidIdentifierSource(),
+      );
+      final types = DriftEventTypeRepository(database: db, clock: clock);
+      // Contract line 151: prove the Education singleton backfill SEPARATELY
+      // before the no-row-change baseline. The sealed copy starts without
+      // Education; one configuration read inserts EXACTLY one Education row
+      // (deterministic ID, system key) and nothing else changes.
+      final activityRowsBeforeBackfill = await db
+          .select(db.activityTypes)
+          .get();
+      await types.readEventTypes(profileId: profileId);
+      final activityRowsAfterBackfill = await db
+          .select(db.activityTypes)
+          .get();
+      expect(
+        activityRowsAfterBackfill,
+        hasLength(activityRowsBeforeBackfill.length + 1),
+      );
+      final educationRows = activityRowsAfterBackfill
+          .where((row) => row.stableKey == SystemEventTypeKeys.education)
+          .toList();
+      expect(educationRows, hasLength(1));
+      expect(educationRows.single.id, SystemEventTypeIds.education);
+      expect(educationRows.single.isSystem, isTrue);
       final before = await rows(db);
       final startup = buildTestRepository(database: db);
       final privacy = TestPrivacyDependencies(database: db);
@@ -81,12 +110,6 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('main-bottom-navigation')), findsOneWidget);
-      final goals = DriftGoalRepository(
-        database: db,
-        clock: clock,
-        identifiers: const UuidIdentifierSource(),
-      );
-      final types = DriftEventTypeRepository(database: db, clock: clock);
       for (var i = 0; i < 2; i++) {
         final goal = (await goals.readGoal(
           profileId: profileId,
@@ -120,6 +143,7 @@ void main() {
             eventTypeRepositoryProvider.overrideWithValue(types),
             startupRepositoryProvider.overrideWithValue(startup),
             diagnosticsProvider.overrideWithValue(SanitizedDiagnostics()),
+            goalRepositoryProvider.overrideWithValue(goals),
           ],
           child: MaterialApp(
             home: Consumer(
@@ -165,9 +189,9 @@ void main() {
         );
         expect((icon.decoration! as BoxDecoration).color, Color(entry.value));
       }
-      expect(find.text('Sample 1'), findsOneWidget);
+      expect(find.text('Sample1'), findsOneWidget);
       expect(find.text('sample2'), findsOneWidget);
-      expect(find.text('Sample1'), findsNothing);
+      expect(find.text('Sample 1'), findsNothing);
       await tester.tap(find.byKey(const Key('event-type-picker-cancel')));
       await tester.pumpAndSettle();
       await tester.pumpWidget(const SizedBox.shrink());

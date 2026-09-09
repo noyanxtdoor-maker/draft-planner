@@ -9,6 +9,7 @@ import 'package:rmplanner/core/diagnostics/sanitized_diagnostics.dart';
 import 'package:rmplanner/features/goals/application/goal_providers.dart';
 import 'package:rmplanner/features/goals/application/goal_repository.dart';
 import 'package:rmplanner/features/goals/domain/goal.dart';
+import 'package:rmplanner/features/goals/domain/goal_event_type_policy.dart';
 import 'package:rmplanner/features/goals/presentation/widgets/goal_icon.dart';
 import 'package:rmplanner/features/indicators/domain/life_indicator.dart';
 import 'package:rmplanner/features/planner/application/planner_providers.dart';
@@ -273,6 +274,41 @@ final class _ControlledGoalRepository implements GoalRepository {
     required PlannerDate today,
     int startDay = DateTime.monday,
   }) async => null;
+
+  /// Additive fake implementation (contract P): derives raw candidates from
+  /// the snapshot's canonical slots (daily.goal, each weekly.goal,
+  /// monthly.goal — there is NO snapshot.goals) and applies the exact
+  /// production domain validator. Model-only fake: raw completed-status
+  /// behavior belongs to real DB fixture tests.
+  @override
+  Future<Map<int, LiveGoalEventTypeBinding>> readLiveEventTypeBindings(
+    String profileId,
+  ) {
+    final candidates = <LiveGoalCandidateRow>[
+      ...[
+        ?snapshot.daily?.goal,
+        ...snapshot.weekly.map((progress) => progress.goal),
+        ?snapshot.monthly?.goal,
+      ].map(
+        (goal) => LiveGoalCandidateRow(
+          id: goal.id,
+          profileId: goal.profileId,
+          status: goal.isActive ? 'active' : goal.status.name,
+          role: goal.role.storageName,
+          activeSlotIndex: goal.activeSlotIndex,
+          assignedEventTypeStableKey: goal.assignedEventTypeStableKey,
+          indicatorKey: goal.indicatorKey,
+          title: goal.title,
+        ),
+      ),
+    ];
+    return Future<Map<int, LiveGoalEventTypeBinding>>.value(
+      GoalEventTypePolicy.bindingsForCandidates(
+        candidates: candidates,
+        profileId: profileId,
+      ),
+    );
+  }
 }
 
 final class _FixedStartOfWeekRepository implements StartOfWeekRepository {

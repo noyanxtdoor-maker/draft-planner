@@ -315,7 +315,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('Choose Icon tiles are compact icon-only (no labels, 96dp icon, '
+  testWidgets('Choose Icon tiles are compact icon-only (no labels, 64dp icon, '
       'selected badge)', (tester) async {
     tester.view.physicalSize = const Size(393, 874);
     tester.view.devicePixelRatio = 1;
@@ -342,9 +342,9 @@ void main() {
       matching: find.byKey(const Key('goal-icon-tile-learning_open_book')),
     );
     expect(tile, findsOneWidget);
-    // GI-02 (supersedes Stage-1.2): tile height 104dp, icon 96dp,
+    // Astra density contract: tile height 72dp, icon 64dp,
     // no displayName/category text.
-    expect(tester.getSize(tile).height, 104);
+    expect(tester.getSize(tile).height, 72);
     expect(
       find.descendant(of: tile, matching: find.byType(GoalIcon)),
       findsOneWidget,
@@ -355,8 +355,8 @@ void main() {
             find.descendant(of: tile, matching: find.byType(GoalIcon)),
           )
           .size,
-      96,
-      reason: 'GI-02 supersedes Stage-1.2: picker icon is exactly 96dp',
+      64,
+      reason: 'Astra chooser art is exactly 64dp',
     );
     expect(
       find.descendant(of: tile, matching: find.byType(Text)),
@@ -528,7 +528,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('Choose Icon tiles grow to 84dp at large text scale', (
+  testWidgets('Choose Icon tiles grow to 80dp at large text scale', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(393, 874);
@@ -564,14 +564,14 @@ void main() {
             ),
           )
           .height,
-      112,
+      80,
     );
     expect(tester.takeException(), isNull);
   });
 
   testWidgets(
     'GP-01: Choose Icon Light tiles use the near-white semantic surface (no '
-    'gray slab); Dark stays transparent; 96dp + 3 columns unchanged',
+    'gray slab); Dark stays transparent; 64dp + responsive columns',
     (tester) async {
       tester.view.physicalSize = const Size(393, 874);
       tester.view.devicePixelRatio = 1;
@@ -624,16 +624,15 @@ void main() {
         ),
         reason: 'GP-01: unselected Light tile must not be a gray slab',
       );
-      // 96dp art unchanged.
+      // Astra density: 64dp art and four columns at this width.
       final icon = tester.widget<GoalIcon>(
         find.descendant(of: tile, matching: find.byType(GoalIcon)),
       );
-      expect(icon.size, 96);
-      // 3 columns unchanged.
+      expect(icon.size, 64);
       final grid = tester.widget<GridView>(find.byType(GridView).first);
       final delegate =
           grid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount;
-      expect(delegate.crossAxisCount, 3);
+      expect(delegate.crossAxisCount, 4);
 
       // Selected tile: same near-white base + 2px primary border.
       await tester.tap(tile);
@@ -1090,7 +1089,7 @@ void main() {
   // site passes its exact doubled size explicitly.
   group('GI-02 exact 2x Goal Icon call sites', () {
     testWidgets(
-      'Choose Icon picker: exact 96dp art, 3 columns, no scale-down, '
+      'Choose Icon picker: exact 64dp art, responsive columns, no scale-down, '
       'no clipping',
       (tester) async {
         final router = _router();
@@ -1118,13 +1117,13 @@ void main() {
             grid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount;
         expect(
           delegate.crossAxisCount,
-          3,
-          reason: 'GI-02 picker must keep exactly 3 columns',
+          4,
+          reason: 'Astra picker uses four columns at the standard width',
         );
         expect(
           delegate.mainAxisExtent,
-          greaterThanOrEqualTo(104),
-          reason: 'GI-02 picker tile must fit 96dp art + padding',
+          72,
+          reason: 'Astra picker tile keeps a 72dp tap target',
         );
 
         final goalIcon = find
@@ -1132,13 +1131,13 @@ void main() {
             .first;
         expect(
           tester.widget<GoalIcon>(goalIcon).size,
-          96,
-          reason: 'picker art must be exactly 96dp (2x of 48)',
+          64,
+          reason: 'picker art must be exactly 64dp',
         );
         expect(
           tester.getSize(goalIcon),
-          const Size(96, 96),
-          reason: 'picker art must RENDER at exactly 96dp — no FittedBox/'
+          const Size(64, 64),
+          reason: 'picker art must RENDER at exactly 64dp — no FittedBox/'
               'constraint scale-down, no clipping',
         );
         final tileRect = tester.getRect(
@@ -1156,7 +1155,7 @@ void main() {
           tileRect.contains(iconRect.topLeft) &&
               tileRect.contains(iconRect.bottomRight),
           isTrue,
-          reason: '96dp art must stay inside its tile (no clipping)',
+          reason: '64dp art must stay inside its tile (no clipping)',
         );
         expect(tester.takeException(), isNull);
       },
