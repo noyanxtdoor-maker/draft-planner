@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:rmplanner/core/database/app_database.dart';
 import 'package:rmplanner/core/ids/identifier_source.dart';
 import 'package:rmplanner/features/goals/data/drift_goal_repository.dart';
+import 'package:rmplanner/features/goals/domain/canonical_goal_slots.dart';
 import 'package:rmplanner/features/goals/domain/goal.dart';
 import 'package:rmplanner/features/indicators/data/drift_indicator_repository.dart';
 import 'package:rmplanner/features/indicators/domain/life_indicator.dart';
@@ -172,9 +173,11 @@ void main() {
         if (reloaded.monthly != null) reloaded.monthly!.goal.title,
       ];
       expect(projectedTitles, isNot(contains('Invalid Unslotted Goal')));
+      // Pre-M6 law: readActiveGoals returns every active row; canonical
+      // slot filtering belongs to planning/capacity/slot allocation.
       expect(
         (await repository.readActiveGoals(profileId)).map((goal) => goal.title),
-        isNot(contains('Invalid Unslotted Goal')),
+        contains('Invalid Unslotted Goal'),
       );
 
       final occupiedWeekly = reloaded.weekly.first.goal;
@@ -838,8 +841,13 @@ void main() {
         operationId: 'delete-replacement',
       );
       expect(replacement.activeSlotIndex, 3);
-      expect(replacement.assignedEventTypeStableKey, 'goal:${replacement.id}');
-      expect(replacement.indicatorKey, 'goal:${replacement.id}');
+      // Pre-M6 law: create/save assign the canonical slot Event Type and
+      // indicator; retired per-Goal goal: keys are never generated again.
+      expect(
+        replacement.assignedEventTypeStableKey,
+        CanonicalGoalSlot.bySlot(3).eventTypeStableKey,
+      );
+      expect(replacement.indicatorKey, CanonicalGoalSlot.bySlot(3).indicatorKey);
       expect(replacement.title, 'Replacement Exercise');
       expect(replacement.iconId, equals(null));
 

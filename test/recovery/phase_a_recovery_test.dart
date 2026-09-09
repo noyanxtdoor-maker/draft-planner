@@ -242,7 +242,7 @@ void main() {
   );
 
   testWidgets(
-    'pre-M6 picker keeps Goal-linked types before Task and uses assigned colors',
+    'normal custom picker types remain before Task and use assigned colors',
     (tester) async {
       final database = openMemoryDatabase();
       addTearDown(database.close);
@@ -279,11 +279,6 @@ void main() {
             defaultDurationMinutes: 30,
             indicatorKeys: const {},
           ),
-        );
-        // Represent persisted M6-owned Event Types without any eligible Goal owner.
-        await database.customStatement(
-          'UPDATE activity_types SET stable_key = ? WHERE id = ?',
-          ['goal:recovery-fixture-$i', type.id],
         );
         final saved = (await repo.readEventType(
           profileId: profile.id,

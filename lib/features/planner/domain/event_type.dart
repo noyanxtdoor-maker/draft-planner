@@ -59,6 +59,9 @@ final class EventType {
   /// Legacy system rows remain in storage for existing events and history.
   bool get isCreationVisible =>
       !isArchived &&
+      // Retired M6 per-Goal types remain readable for historical Events, but
+      // cannot be selected for new work under the canonical slot model.
+      !stableKey.startsWith('goal:') &&
       (!isSystem ||
           SystemEventTypeKeys.approvedCreationKeys.contains(stableKey));
 
