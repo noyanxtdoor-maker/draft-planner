@@ -253,7 +253,6 @@ final class DriftWeeklyPlanningRepository
   }
 
   Future<WeeklyPlan> _mapPlan(WeeklyPlanRow row) async {
-    await _ensureGoalMembershipSnapshot(row);
     final period = WeeklyPeriod(
       start: PlannerDate.parse(row.periodStartDate),
       end: PlannerDate.parse(row.periodEndDate),
@@ -288,57 +287,10 @@ final class DriftWeeklyPlanningRepository
     );
   }
 
-  /// First materialization freezes the legacy/current resolved set once.  It
-  /// intentionally has no update path: current Goal lifecycle changes must
-  /// never rewrite past or already-initialized future weeks.
-  Future<void> _ensureGoalMembershipSnapshot(WeeklyPlanRow plan) async {
-    final existing =
-        await (database.select(database.weeklyPlanGoalMemberships)
-              ..where((table) => table.weeklyPlanId.equals(plan.id))
-              ..limit(1))
-            .getSingleOrNull();
-    if (existing != null) return;
-    await database.transaction(() async {
-      final again =
-          await (database.select(database.weeklyPlanGoalMemberships)
-                ..where((table) => table.weeklyPlanId.equals(plan.id))
-                ..limit(1))
-              .getSingleOrNull();
-      if (again != null) return;
-      final goals =
-          await (database.select(database.goals)
-                ..where(
-                  (table) =>
-                      table.profileId.equals(plan.profileId) &
-                      table.deletedAtUtc.isNull() &
-                      table.activeSlotIndex.isNotNull() &
-                      (table.status.equals('active') |
-                          table.status.equals('paused') |
-                          table.status.equals('completed')),
-                )
-                ..orderBy(<OrderingTerm Function(Goals)>[
-                  (table) => OrderingTerm.asc(table.activeSlotIndex),
-                ]))
-              .get();
-      final now = clock.nowUtc();
-      for (var index = 0; index < goals.length; index += 1) {
-        final goal = goals[index];
-        await database
-            .into(database.weeklyPlanGoalMemberships)
-            .insert(
-              WeeklyPlanGoalMembershipsCompanion.insert(
-                id: identifiers.nextUuid(),
-                profileId: plan.profileId,
-                weeklyPlanId: plan.id,
-                goalId: goal.id,
-                slotOrder: goal.activeSlotIndex ?? index,
-                createdAtUtc: now,
-              ),
-              mode: InsertMode.insertOrIgnore,
-            );
-      }
-    });
-  }
+  // M6 forward-rollback (Phase A): the M6B weekly_plan_goal_memberships
+  // first-materialization snapshot writer was removed. The v46 table remains
+  // defined/dormant for owner-DB compatibility; no new membership rows are
+  // written and weekly rendering is restored to the pre-M6 dynamic view.
 
   WeeklyPlanState _stateFromName(String value) {
     return WeeklyPlanState.values.firstWhere(

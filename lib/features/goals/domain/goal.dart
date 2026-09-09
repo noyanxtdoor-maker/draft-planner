@@ -39,61 +39,9 @@ extension GoalRolePresentation on GoalRole {
   };
 }
 
-/// `deleted` is deliberately an internal tombstone.  It is not a user-facing
-/// lifecycle alternative to the four canonical states below.
-enum GoalStatus { active, paused, completed, archived, deleted }
+enum GoalStatus { active, archived, deleted }
 
-enum GoalCompletionMethod { userConfirmation, targetReached }
-
-enum GoalActivityAction {
-  created,
-  renamed,
-  paused,
-  resumed,
-  completed,
-  reopened,
-  archived,
-  restored,
-  deleted,
-}
-
-enum GoalAchievementType { goalCompleted }
-
-/// Deliberately not implemented: the current domain has no truthful,
-/// canonical cohort from which an "all goals completed" event could be
-/// derived. Individual Goal completion receipts remain fully canonical.
-const String combinedAllGoalsEventDeferredReason =
-    'COMBINED ALL-GOALS EVENT DEFERRED — NO CANONICAL COHORT';
-
-final class GoalAchievement {
-  const GoalAchievement({
-    required this.id,
-    required this.profileId,
-    required this.goalId,
-    required this.type,
-    required this.completionGeneration,
-    required this.occurredAtUtc,
-    required this.createdAtUtc,
-    required this.sourceOperationId,
-    required this.systemNotificationEligible,
-    required this.inAppCelebrationEligible,
-    this.systemNotificationDeliveredAtUtc,
-    this.inAppCelebrationConsumedAtUtc,
-  });
-
-  final String id;
-  final String profileId;
-  final String goalId;
-  final GoalAchievementType type;
-  final int completionGeneration;
-  final DateTime occurredAtUtc;
-  final DateTime createdAtUtc;
-  final String sourceOperationId;
-  final bool systemNotificationEligible;
-  final bool inAppCelebrationEligible;
-  final DateTime? systemNotificationDeliveredAtUtc;
-  final DateTime? inAppCelebrationConsumedAtUtc;
-}
+enum GoalActivityAction { created, renamed, archived, restored, deleted }
 
 final class Goal {
   const Goal({
@@ -110,10 +58,6 @@ final class Goal {
     required this.updatedAtUtc,
     required this.archivedAtUtc,
     required this.deletedAtUtc,
-    this.completedAtUtc,
-    this.completionMethod,
-    this.completionGeneration = 0,
-    this.completionArmed = true,
   });
 
   final String id;
@@ -129,14 +73,8 @@ final class Goal {
   final DateTime updatedAtUtc;
   final DateTime? archivedAtUtc;
   final DateTime? deletedAtUtc;
-  final DateTime? completedAtUtc;
-  final GoalCompletionMethod? completionMethod;
-  final int completionGeneration;
-  final bool completionArmed;
 
   bool get isActive => status == GoalStatus.active;
-  bool get isPaused => status == GoalStatus.paused;
-  bool get isCompleted => status == GoalStatus.completed;
 
   bool get isDeleted => status == GoalStatus.deleted;
 }

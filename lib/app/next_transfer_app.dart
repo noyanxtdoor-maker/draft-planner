@@ -9,7 +9,6 @@ import 'package:rmplanner/app/router/route_names.dart';
 import 'package:rmplanner/app/theme/app_theme.dart';
 import 'package:rmplanner/core/notifications/notification_payload.dart';
 import 'package:rmplanner/core/platform/app_environment.dart';
-import 'package:rmplanner/features/goals/application/goal_achievement_delivery.dart';
 import 'package:rmplanner/features/goals/application/goal_providers.dart';
 import 'package:rmplanner/features/indicators/application/indicator_providers.dart';
 import 'package:rmplanner/features/notifications/application/launcher_badge_providers.dart';
@@ -23,7 +22,6 @@ import 'package:rmplanner/features/planner/domain/calendar_event.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 import 'package:rmplanner/features/privacy/application/privacy_providers.dart';
 import 'package:rmplanner/features/privacy/application/privacy_services.dart';
-import 'package:rmplanner/features/privacy/domain/permission_summary.dart';
 import 'package:rmplanner/features/settings/application/appearance_providers.dart';
 import 'package:rmplanner/features/settings/application/appearance_repository.dart';
 import 'package:rmplanner/features/settings/application/start_of_week_providers.dart';
@@ -52,7 +50,6 @@ final class _NextTransferAppState extends ConsumerState<NextTransferApp>
   String? _badgedProfileId;
   NotificationResponseIntent? _pendingNotification;
   Timer? _reminderDateTimer;
-  bool _recoveringGoalAchievements = false;
 
   @override
   void initState() {
@@ -68,7 +65,6 @@ final class _NextTransferAppState extends ConsumerState<NextTransferApp>
       (_, next) {
         if (next is StartupReady) {
           unawaited(_recoverReminders());
-          unawaited(_recoverGoalAchievements());
           final pending = _pendingNotification;
           _pendingNotification = null;
           if (pending != null) unawaited(_routeNotification(pending));
@@ -108,55 +104,6 @@ final class _NextTransferAppState extends ConsumerState<NextTransferApp>
       await ref.read(reconcileRemindersProvider)();
     } on Object {
       // A later lifecycle/source/preference trigger retries canonical recovery.
-    }
-  }
-
-  Future<void> _recoverGoalAchievements() async {
-    if (_recoveringGoalAchievements ||
-        !mounted ||
-        ref.read(startupControllerProvider) is! StartupReady) {
-      return;
-    }
-    _recoveringGoalAchievements = true;
-    try {
-      final profileId = ref.read(goalProfileIdProvider);
-      final goals = ref.read(goalRepositoryProvider);
-      final lifecycle = ref.read(goalLifecycleRepositoryProvider);
-      final permission = await ref
-          .read(permissionGatewayProvider)
-          .status(OptionalPermission.notifications);
-      await GoalAchievementDelivery(
-        goals: goals,
-        lifecycle: lifecycle,
-        foundation: ref.read(notificationFoundationRepositoryProvider),
-        gateway: ref.read(notificationGatewayProvider),
-        permission: permission,
-        privacy: await ref.read(privacyRepositoryProvider).readSettings(),
-      ).deliverUndelivered(profileId: profileId);
-      final celebration = await lifecycle.claimNextGoalCelebration(profileId);
-      if (celebration != null && mounted) {
-        final navigator = appRootNavigatorKey.currentState;
-        if (navigator != null && navigator.mounted) {
-          await showDialog<void>(
-            context: navigator.context,
-            builder: (context) => AlertDialog(
-              key: const Key('goal-completion-celebration'),
-              title: const Text('Goal completed'),
-              content: const Text('Congratulations on completing this goal.'),
-              actions: <Widget>[
-                FilledButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Done'),
-                ),
-              ],
-            ),
-          );
-        }
-      }
-    } on Object {
-      // The receipt remains unconsumed for a later startup/recovery pass.
-    } finally {
-      _recoveringGoalAchievements = false;
     }
   }
 
@@ -297,15 +244,6 @@ final class _NextTransferAppState extends ConsumerState<NextTransferApp>
           originalDate: occurrence.originalDate,
           initialHeading: occurrence.displayTitle,
         );
-      case NotificationSourceKind.goalAchievement:
-        final goal = await ref
-            .read(goalRepositoryProvider)
-            .readGoal(profileId: intent.profileId, goalId: intent.sourceId);
-        if (goal != null &&
-            !goal.isDeleted &&
-            _notificationProfileReady(intent.profileId)) {
-          router.go(RoutePaths.goalEdit(goal.id));
-        }
       default:
         return;
     }

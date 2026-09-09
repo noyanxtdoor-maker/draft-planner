@@ -184,32 +184,6 @@ final class _NotificationsSettingsScreenState
                     ],
                   ),
                   const SizedBox(height: 18),
-                  const _SectionLabel('GOALS'),
-                  _Card(
-                    children: <Widget>[
-                      SwitchListTile(
-                        key: const Key('notifications-goal-completion'),
-                        title: const Text('Goal completion notifications'),
-                        value: preferences
-                            .effectiveGoalCompletionNotificationsEnabled(
-                              androidPermissionGranted:
-                                  state.permission ==
-                                  OperatingSystemPermissionState.granted,
-                            ),
-                        onChanged: systemEnabled
-                            ? controller.setGoalCompletionNotificationsEnabled
-                            : null,
-                      ),
-                      const Divider(height: 1),
-                      SwitchListTile(
-                        key: const Key('notifications-goal-celebrations'),
-                        title: const Text('In-app completion celebration'),
-                        value: preferences.inAppGoalCelebrationsEnabled,
-                        onChanged: controller.setInAppGoalCelebrationsEnabled,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 18),
                   const _SectionLabel('PLANNING'),
                   _Card(
                     children: <Widget>[

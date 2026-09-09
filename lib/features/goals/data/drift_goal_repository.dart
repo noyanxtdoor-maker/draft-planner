@@ -76,18 +76,22 @@ final class GoalBootstrap {
     };
     final existingActivityOperationIds = <String>{
       for (final row
-          in await (database.select(database.goalActivities)..where(
-                (table) =>
-                    table.profileId.equals(profileId) &
-                    table.operationId.isIn(canonicalOperationIds),
-              ))
+          in await (database.select(database.goalActivities)
+                ..where(
+                  (table) =>
+                      table.profileId.equals(profileId) &
+                      table.operationId.isIn(canonicalOperationIds),
+                ))
               .get())
         row.operationId,
     };
     final existingOutboxOperationIds = <String>{
-      for (final row in await (database.select(
-        database.goalOutboxOperations,
-      )..where((table) => table.operationId.isIn(canonicalOperationIds))).get())
+      for (final row
+          in await (database.select(database.goalOutboxOperations)
+                ..where(
+                  (table) => table.operationId.isIn(canonicalOperationIds),
+                ))
+              .get())
         row.operationId,
     };
     for (final slot in CanonicalGoalSlot.all) {
@@ -152,6 +156,8 @@ final class GoalBootstrap {
           (goal.assignedEventTypeStableKey != slot.eventTypeStableKey ||
               goal.indicatorKey != slot.indicatorKey ||
               goal.role != slot.role.storageName ||
+              (goal.status == GoalStatus.active.name &&
+                  goal.activeSlotIndex != slot.slotIndex) ||
               goal.title != migratedTitle)) {
         await (database.update(database.goals)..where(
               (table) =>
@@ -164,6 +170,9 @@ final class GoalBootstrap {
                   slot.eventTypeStableKey,
                 ),
                 role: Value<String>(slot.role.storageName),
+                activeSlotIndex: goal.status == GoalStatus.active.name
+                    ? Value<int?>(slot.slotIndex)
+                    : const Value<int?>(null),
                 title: Value<String>(migratedTitle),
                 updatedAtUtc: Value<DateTime>(now),
               ),
@@ -298,16 +307,13 @@ Future<bool> _reconcileLegacyBudgetMinisteringCross(
   // is the only evidence read on a fresh/canonical profile: its creation
   // titles differ (Budget Review for goal:4), so the check short-circuits
   // before any further read.
-  final createdActivities =
-      await (database.select(database.goalActivities)..where(
-            (table) =>
-                table.profileId.equals(profileId) &
-                table.operationId.isIn(<String>[
-                  '$g4Id:created',
-                  '$g5Id:created',
-                ]),
-          ))
-          .get();
+  final createdActivities = await (database.select(
+    database.goalActivities,
+  )..where(
+    (table) =>
+        table.profileId.equals(profileId) &
+        table.operationId.isIn(<String>['$g4Id:created', '$g5Id:created']),
+  )).get();
   String? createdValue(String goalId) {
     for (final row in createdActivities) {
       if (row.operationId == '$goalId:created' &&
@@ -323,14 +329,12 @@ Future<bool> _reconcileLegacyBudgetMinisteringCross(
 
   // Matching deterministic v17 created-outbox identity (entity IDs, slots,
   // titles, and payload goalId).
-  final createdOutbox =
-      await (database.select(database.goalOutboxOperations)..where(
-            (table) => table.operationId.isIn(<String>[
-              '$g4Id:created',
-              '$g5Id:created',
-            ]),
-          ))
-          .get();
+  final createdOutbox = await (database.select(
+    database.goalOutboxOperations,
+  )..where(
+    (table) =>
+        table.operationId.isIn(<String>['$g4Id:created', '$g5Id:created']),
+  )).get();
   bool outboxMatches(String goalId, int slot, String title) {
     for (final row in createdOutbox) {
       if (row.operationId != '$goalId:created' ||
@@ -357,18 +361,19 @@ Future<bool> _reconcileLegacyBudgetMinisteringCross(
   if (!outboxMatches(g5Id, 5, 'Budget Review')) return false;
 
   // Canonical Event Type identities must be exact and unmodified.
-  final systemTypes =
-      await (database.select(database.activityTypes)..where(
-            (table) => table.id.isIn(<String>[
-              budgetEventTypeId,
-              ministeringEventTypeId,
-            ]),
-          ))
-          .get();
+  final systemTypes = await (database.select(
+    database.activityTypes,
+  )..where(
+    (table) => table.id.isIn(<String>[
+      budgetEventTypeId,
+      ministeringEventTypeId,
+    ]),
+  )).get();
   var budgetTypeExact = false;
   var ministeringTypeExact = false;
   for (final row in systemTypes) {
-    if (row.id == budgetEventTypeId && row.stableKey == budgetKey) {
+    if (row.id == budgetEventTypeId &&
+        row.stableKey == budgetKey) {
       budgetTypeExact = true;
     } else if (row.id == ministeringEventTypeId &&
         row.stableKey == ministeringKey) {
@@ -378,14 +383,14 @@ Future<bool> _reconcileLegacyBudgetMinisteringCross(
   if (!budgetTypeExact || !ministeringTypeExact) return false;
 
   // Their version-1 indicator mapping rows must be exact.
-  final systemMappings =
-      await (database.select(database.activityTypeIndicatorMappings)..where(
-            (table) => table.activityTypeId.isIn(<String>[
-              budgetEventTypeId,
-              ministeringEventTypeId,
-            ]),
-          ))
-          .get();
+  final systemMappings = await (database.select(
+    database.activityTypeIndicatorMappings,
+  )..where(
+    (table) => table.activityTypeId.isIn(<String>[
+      budgetEventTypeId,
+      ministeringEventTypeId,
+    ]),
+  )).get();
   var budgetMappingExact = false;
   var ministeringMappingExact = false;
   for (final row in systemMappings) {
@@ -405,13 +410,13 @@ Future<bool> _reconcileLegacyBudgetMinisteringCross(
   // both slots are cleared to NULL first so the unique
   // (profile_id, active_slot_index) index cannot collide during the swap.
   return database.transaction(() async {
-    final current =
-        await (database.select(database.goals)..where(
-              (table) =>
-                  table.profileId.equals(profileId) &
-                  (table.id.equals(g4Id) | table.id.equals(g5Id)),
-            ))
-            .get();
+    final current = await (database.select(
+      database.goals,
+    )..where(
+      (table) =>
+          table.profileId.equals(profileId) &
+          (table.id.equals(g4Id) | table.id.equals(g5Id)),
+    )).get();
     final currentG4 = current.where((row) => row.id == g4Id).firstOrNull;
     final currentG5 = current.where((row) => row.id == g5Id).firstOrNull;
     if (currentG4 == null || currentG5 == null) return false;
@@ -433,44 +438,39 @@ Future<bool> _reconcileLegacyBudgetMinisteringCross(
     }
 
     await (database.update(database.goals)..where(
-          (table) =>
-              table.profileId.equals(profileId) &
-              (table.id.equals(g4Id) | table.id.equals(g5Id)),
-        ))
-        .write(const GoalsCompanion(activeSlotIndex: Value<int?>(null)));
+      (table) =>
+          table.profileId.equals(profileId) &
+          (table.id.equals(g4Id) | table.id.equals(g5Id)),
+    )).write(
+      const GoalsCompanion(activeSlotIndex: Value<int?>(null)),
+    );
     // G5 (Budget Review identity) -> Budget slot 4.
     await (database.update(database.goals)..where(
-          (table) => table.profileId.equals(profileId) & table.id.equals(g5Id),
-        ))
-        .write(
-          GoalsCompanion(
-            activeSlotIndex: const Value<int?>(4),
-            indicatorKey: Value<String?>(budgetIndicator),
-            assignedEventTypeStableKey: Value<String?>(budgetKey),
-            updatedAtUtc: Value<DateTime>(nowUtc),
-          ),
-        );
+      (table) => table.profileId.equals(profileId) & table.id.equals(g5Id),
+    )).write(
+      GoalsCompanion(
+        activeSlotIndex: const Value<int?>(4),
+        indicatorKey: Value<String?>(budgetIndicator),
+        assignedEventTypeStableKey: Value<String?>(budgetKey),
+        updatedAtUtc: Value<DateTime>(nowUtc),
+      ),
+    );
     // G4 (Ministering Visit identity) -> slot 5.
     await (database.update(database.goals)..where(
-          (table) => table.profileId.equals(profileId) & table.id.equals(g4Id),
-        ))
-        .write(
-          GoalsCompanion(
-            activeSlotIndex: const Value<int?>(5),
-            indicatorKey: Value<String?>(ministeringIndicator),
-            assignedEventTypeStableKey: Value<String?>(ministeringKey),
-            updatedAtUtc: Value<DateTime>(nowUtc),
-          ),
-        );
+      (table) => table.profileId.equals(profileId) & table.id.equals(g4Id),
+    )).write(
+      GoalsCompanion(
+        activeSlotIndex: const Value<int?>(5),
+        indicatorKey: Value<String?>(ministeringIndicator),
+        assignedEventTypeStableKey: Value<String?>(ministeringKey),
+        updatedAtUtc: Value<DateTime>(nowUtc),
+      ),
+    );
     return true;
   });
 }
 
-final class DriftGoalRepository
-    implements
-        GoalRepository,
-        GoalLifecycleRepository,
-        GoalEventTypeEligibilitySource {
+final class DriftGoalRepository implements GoalRepository {
   const DriftGoalRepository({
     required this.database,
     required this.clock,
@@ -494,7 +494,6 @@ final class DriftGoalRepository
             database.goals,
             database.goalActivities,
             database.goalOutboxOperations,
-            database.goalAchievementEvents,
             database.indicatorGoalRevisions,
             database.weeklyIndicatorTargetRevisions,
             database.activityLedgerEntries,
@@ -513,7 +512,6 @@ final class DriftGoalRepository
 
   @override
   Future<void> ensureCanonicalGoals(String profileId) async {
-    await _repairDuplicateWeeklyMemberships(profileId);
     await GoalBootstrap.ensure(database, profileId, nowUtc: clock.nowUtc());
     final mappings = await _goalMappings(profileId);
     final keys = mappings.keys.toList(growable: false);
@@ -524,22 +522,23 @@ final class DriftGoalRepository
     if (keys.isNotEmpty) {
       indicatorNullKeys.addAll(
         (await (database.select(database.indicatorGoalRevisions)..where(
-                  (table) =>
-                      table.profileId.equals(profileId) &
-                      table.indicatorKey.isIn(keys) &
-                      table.goalId.isNull(),
-                ))
+              (table) =>
+                  table.profileId.equals(profileId) &
+                  table.indicatorKey.isIn(keys) &
+                  table.goalId.isNull(),
+            ))
                 .get())
             .map((row) => row.indicatorKey),
       );
       weeklyNullKeys.addAll(
-        (await (database.select(database.weeklyIndicatorTargetRevisions)..where(
-                  (table) =>
-                      table.profileId.equals(profileId) &
-                      table.indicatorKey.isIn(keys) &
-                      table.goalId.isNull(),
-                ))
-                .get())
+        (await (database.select(database.weeklyIndicatorTargetRevisions)
+              ..where(
+                (table) =>
+                    table.profileId.equals(profileId) &
+                    table.indicatorKey.isIn(keys) &
+                    table.goalId.isNull(),
+              ))
+              .get())
             .map((row) => row.indicatorKey),
       );
     }
@@ -573,75 +572,21 @@ final class DriftGoalRepository
     }
   }
 
-  /// M6E repairs only mechanically duplicate relationship rows produced by the
-  /// former current-week convergence loop. Goal rows and all historical Goal,
-  /// Event, activity, and achievement identities remain untouched.
-  Future<void> _repairDuplicateWeeklyMemberships(String profileId) async {
-    await database.transaction(() async {
-      final rows =
-          await (database.select(database.weeklyPlanGoalMemberships)
-                ..where((table) => table.profileId.equals(profileId))
-                ..orderBy(<OrderingTerm Function(WeeklyPlanGoalMemberships)>[
-                  (table) => OrderingTerm.asc(table.createdAtUtc),
-                  (table) => OrderingTerm.asc(table.id),
-                ]))
-              .get();
-      final retained = <String>{};
-      for (final row in rows) {
-        final key = '${row.weeklyPlanId}:${row.goalId}';
-        if (retained.add(key)) continue;
-        await (database.delete(
-          database.weeklyPlanGoalMemberships,
-        )..where((table) => table.id.equals(row.id))).go();
-      }
-      const archiveIds = <String>{
-        '357caa4f-5383-4cb0-947e-69dc3ef06936:goal:4',
-        '341d11cb-bbcf-43e1-97c2-cbe5578468d0',
-        '739d2162-3028-4a37-9006-dd956512e952',
-        'a24b8497-c739-4024-8575-56b34f096de9',
-        'eb29b978-3e9d-405f-881b-219f1353be7f',
-        'd515b718-f9cb-44b4-ab82-fcee3c10ddbe',
-      };
-      final now = clock.nowUtc();
-      await (database.update(database.goals)..where(
-            (table) =>
-                table.profileId.equals(profileId) &
-                table.id.isIn(archiveIds) &
-                table.status.isNotValue(GoalStatus.archived.name),
-          ))
-          .write(
-            GoalsCompanion(
-              status: Value<String>(GoalStatus.archived.name),
-              activeSlotIndex: const Value<int?>(null),
-              archivedAtUtc: Value<DateTime?>(now),
-              updatedAtUtc: Value<DateTime>(now),
-            ),
-          );
-    });
-  }
-
   @override
   Future<List<Goal>> readActiveGoals(String profileId) async {
     await ensureCanonicalGoals(profileId);
-    final rows = await _readCurrentGoalRows(profileId);
+    final rows =
+        await (database.select(database.goals)
+              ..where(
+                (table) =>
+                    table.profileId.equals(profileId) &
+                    table.status.equals(GoalStatus.active.name),
+              )
+              ..orderBy(<OrderingTerm Function(Goals)>[
+                (table) => OrderingTerm.asc(table.activeSlotIndex),
+              ]))
+            .get();
     return rows.map(_mapGoal).toList(growable: false);
-  }
-
-  Future<List<GoalRow>> _readCurrentGoalRows(String profileId) {
-    return (database.select(database.goals)
-          ..where(
-            (table) =>
-                table.profileId.equals(profileId) &
-                table.deletedAtUtc.isNull() &
-                table.activeSlotIndex.isNotNull() &
-                (table.status.equals(GoalStatus.active.name) |
-                    table.status.equals(GoalStatus.paused.name) |
-                    table.status.equals(GoalStatus.completed.name)),
-          )
-          ..orderBy(<OrderingTerm Function(Goals)>[
-            (table) => OrderingTerm.asc(table.activeSlotIndex),
-          ]))
-        .get();
   }
 
   @override
@@ -676,11 +621,7 @@ final class DriftGoalRepository
         await (database.select(database.goals)..where(
               (table) =>
                   table.profileId.equals(profileId) &
-                  table.deletedAtUtc.isNull() &
-                  table.activeSlotIndex.isNotNull() &
-                  (table.status.equals(GoalStatus.active.name) |
-                      table.status.equals(GoalStatus.paused.name) |
-                      table.status.equals(GoalStatus.completed.name)),
+                  table.status.equals(GoalStatus.active.name),
             ))
             .get();
     final counts = <GoalRole, int>{for (final role in GoalRole.values) role: 0};
@@ -724,12 +665,11 @@ final class DriftGoalRepository
       }
       final canonicalSlot = CanonicalGoalSlot.bySlot(slot);
       final now = clock.nowUtc();
-      final goalOwnedKey = 'goal:$goalId';
       final goal = Goal(
         id: goalId,
         profileId: profileId,
-        indicatorKey: goalOwnedKey,
-        assignedEventTypeStableKey: goalOwnedKey,
+        indicatorKey: canonicalSlot.indicatorKey,
+        assignedEventTypeStableKey: canonicalSlot.eventTypeStableKey,
         role: canonicalSlot.role,
         activeSlotIndex: slot,
         title: normalizedTitle,
@@ -741,36 +681,6 @@ final class DriftGoalRepository
         deletedAtUtc: null,
       );
       await database.into(database.goals).insert(_goalCompanion(goal));
-      await database
-          .into(database.activityTypes)
-          .insert(
-            ActivityTypesCompanion.insert(
-              id: goalOwnedKey,
-              profileId: profileId,
-              stableKey: goalOwnedKey,
-              label: normalizedTitle,
-              iconKey: 'calendar',
-              colorValue: 0xFFE91E63,
-              isSystem: false,
-              reportRequiredDefault: const Value<bool>(true),
-              position: 10000 + slot,
-              createdAtUtc: now,
-              updatedAtUtc: now,
-            ),
-          );
-      await database
-          .into(database.activityTypeIndicatorMappings)
-          .insert(
-            ActivityTypeIndicatorMappingsCompanion.insert(
-              id: identifiers.nextUuid(),
-              profileId: profileId,
-              activityTypeId: goalOwnedKey,
-              indicatorKey: goalOwnedKey,
-              createdAtUtc: now,
-            ),
-          );
-      await _includeInCurrentWeek(goal: goal, startDay: startDay);
-      await _syncDedicatedEventTypeLabel(goal);
       await _writeTargets(
         goal: goal,
         targets: targets,
@@ -792,8 +702,8 @@ final class DriftGoalRepository
           'goalId': goalId,
           'role': canonicalSlot.role.storageName,
           'slot': slot,
-          'indicatorKey': goalOwnedKey,
-          'assignedEventTypeStableKey': goalOwnedKey,
+          'indicatorKey': canonicalSlot.indicatorKey,
+          'assignedEventTypeStableKey': canonicalSlot.eventTypeStableKey,
           'title': normalizedTitle,
           'iconId': iconId,
           'targets': _targetsPayload(targets),
@@ -826,13 +736,8 @@ final class DriftGoalRepository
         return prior;
       }
       final row = await _goalRow(profileId, goalId);
-      if (row == null ||
-          (row.status != GoalStatus.active.name &&
-              row.status != GoalStatus.paused.name &&
-              row.status != GoalStatus.completed.name)) {
-        throw const GoalValidationException(
-          'Active, paused, or completed Goal was not found.',
-        );
+      if (row == null || row.status != GoalStatus.active.name) {
+        throw const GoalValidationException('Active Goal was not found.');
       }
       final before = _mapGoal(row);
       final now = clock.nowUtc();
@@ -860,25 +765,6 @@ final class DriftGoalRepository
             .write(
               LifeIndicatorDefinitionsCompanion(label: Value(normalizedTitle)),
             );
-      }
-      if (titleChanged) {
-        await _syncDedicatedEventTypeLabel(
-          Goal(
-            id: before.id,
-            profileId: before.profileId,
-            indicatorKey: before.indicatorKey,
-            assignedEventTypeStableKey: before.assignedEventTypeStableKey,
-            role: before.role,
-            activeSlotIndex: before.activeSlotIndex,
-            title: normalizedTitle,
-            iconId: effectiveIconId,
-            status: before.status,
-            createdAtUtc: before.createdAtUtc,
-            updatedAtUtc: now,
-            archivedAtUtc: before.archivedAtUtc,
-            deletedAtUtc: before.deletedAtUtc,
-          ),
-        );
       }
       await _writeTargets(
         goal: before,
@@ -931,136 +817,6 @@ final class DriftGoalRepository
   }
 
   @override
-  Future<Goal> pauseGoal({
-    required String profileId,
-    required String goalId,
-    String? operationId,
-  }) => _setActiveLifecycle(
-    profileId: profileId,
-    goalId: goalId,
-    from: GoalStatus.active,
-    to: GoalStatus.paused,
-    action: GoalActivityAction.paused,
-    operationId: operationId,
-  );
-
-  @override
-  Future<Goal> resumeGoal({
-    required String profileId,
-    required String goalId,
-    String? operationId,
-  }) => _setActiveLifecycle(
-    profileId: profileId,
-    goalId: goalId,
-    from: GoalStatus.paused,
-    to: GoalStatus.active,
-    action: GoalActivityAction.resumed,
-    operationId: operationId,
-  );
-
-  @override
-  Future<Goal> completeGoal({
-    required String profileId,
-    required String goalId,
-    String? operationId,
-    GoalCompletionMethod completionMethod =
-        GoalCompletionMethod.userConfirmation,
-  }) async {
-    await ensureCanonicalGoals(profileId);
-    final effectiveOperationId = operationId ?? identifiers.nextUuid();
-    return database.transaction(() async {
-      final prior = await _goalForOperation(profileId, effectiveOperationId);
-      if (prior != null) return prior;
-      final row = await _goalRow(profileId, goalId);
-      if (row == null ||
-          (row.status != GoalStatus.active.name &&
-              row.status != GoalStatus.paused.name)) {
-        throw const GoalValidationException(
-          'Only an active or paused Goal can be completed.',
-        );
-      }
-      final before = _mapGoal(row);
-      final now = clock.nowUtc();
-      final generation = row.completionGeneration + 1;
-      final preferences =
-          await (database.select(database.notificationPreferences)
-                ..where((table) => table.profileId.equals(profileId))
-                ..limit(1))
-              .getSingleOrNull();
-      await (database.update(database.goals)..where(
-            (table) =>
-                table.profileId.equals(profileId) & table.id.equals(goalId),
-          ))
-          .write(
-            GoalsCompanion(
-              status: Value<String>(GoalStatus.completed.name),
-              completedAtUtc: Value<DateTime?>(now),
-              completionMethod: Value<String>(completionMethod.name),
-              completionGeneration: Value<int>(generation),
-              completionArmed: const Value<bool>(false),
-              updatedAtUtc: Value<DateTime>(now),
-            ),
-          );
-      final completed = _mapGoal((await _goalRow(profileId, goalId))!);
-      await _writeActivity(
-        goal: completed,
-        action: GoalActivityAction.completed,
-        operationId: effectiveOperationId,
-        previousValue: before.status.name,
-        newValue: generation.toString(),
-      );
-      await database
-          .into(database.goalAchievementEvents)
-          .insert(
-            GoalAchievementEventsCompanion.insert(
-              id: _achievementId(goalId, generation),
-              profileId: profileId,
-              goalId: goalId,
-              achievementType: GoalAchievementType.goalCompleted.name,
-              completionGeneration: generation,
-              occurredAtUtc: now,
-              createdAtUtc: now,
-              sourceOperationId: effectiveOperationId,
-              systemNotificationEligible: Value<bool>(
-                preferences?.goalCompletionNotificationsEnabled ?? false,
-              ),
-              inAppCelebrationEligible: Value<bool>(
-                preferences?.inAppGoalCelebrationsEnabled ?? true,
-              ),
-            ),
-          );
-      await _writeOutbox(
-        profileId: profileId,
-        goalId: goalId,
-        operationId: effectiveOperationId,
-        action: GoalActivityAction.completed.name,
-        payload: <String, Object?>{
-          'goalId': goalId,
-          'completionGeneration': generation,
-          'completionMethod': completionMethod.name,
-          'achievementId': _achievementId(goalId, generation),
-        },
-      );
-      return completed;
-    });
-  }
-
-  @override
-  Future<Goal> reopenGoal({
-    required String profileId,
-    required String goalId,
-    String? operationId,
-    int startDay = DateTime.monday,
-  }) => _restoreIntoActive(
-    profileId: profileId,
-    goalId: goalId,
-    expectedStatus: GoalStatus.completed,
-    action: GoalActivityAction.reopened,
-    operationId: operationId,
-    startDay: startDay,
-  );
-
-  @override
   Future<void> deleteGoal({
     required String profileId,
     required String goalId,
@@ -1077,8 +833,6 @@ final class DriftGoalRepository
       if (row == null ||
           row.status == GoalStatus.deleted.name ||
           (row.status != GoalStatus.active.name &&
-              row.status != GoalStatus.paused.name &&
-              row.status != GoalStatus.completed.name &&
               row.status != GoalStatus.archived.name)) {
         throw const GoalValidationException('Goal was not found.');
       }
@@ -1125,24 +879,6 @@ final class DriftGoalRepository
     String? operationId,
     int startDay = DateTime.monday,
   }) async {
-    return _restoreIntoActive(
-      profileId: profileId,
-      goalId: goalId,
-      expectedStatus: GoalStatus.archived,
-      action: GoalActivityAction.restored,
-      operationId: operationId,
-      startDay: startDay,
-    );
-  }
-
-  Future<Goal> _restoreIntoActive({
-    required String profileId,
-    required String goalId,
-    required GoalStatus expectedStatus,
-    required GoalActivityAction action,
-    String? operationId,
-    required int startDay,
-  }) async {
     await ensureCanonicalGoals(profileId);
     final effectiveOperationId = operationId ?? identifiers.nextUuid();
     return database.transaction(() async {
@@ -1151,10 +887,8 @@ final class DriftGoalRepository
         return prior;
       }
       final row = await _goalRow(profileId, goalId);
-      if (row == null || row.status != expectedStatus.name) {
-        throw const GoalValidationException(
-          'Goal lifecycle state was not found.',
-        );
+      if (row == null || row.status != GoalStatus.archived.name) {
+        throw const GoalValidationException('Archived Goal was not found.');
       }
       final goal = _mapGoal(row);
       final canonicalSlot =
@@ -1169,24 +903,24 @@ final class DriftGoalRepository
                     goal.activeSlotIndex!,
                   ).eventTypeStableKey,
                 ));
-      final slot =
-          canonicalSlot?.slotIndex ??
-          await _freeSlotOrNull(profileId, goal.role);
-      if (slot == null) throw GoalCapacityException(goal.role);
+      if (canonicalSlot == null) {
+        throw const GoalValidationException(
+          'Archived Goal is missing its fixed Event Type assignment.',
+        );
+      }
       final occupant =
           await (database.select(database.goals)..where(
                 (table) =>
                     table.profileId.equals(profileId) &
-                    (table.status.equals(GoalStatus.active.name) |
-                        table.status.equals(GoalStatus.paused.name) |
-                        table.status.equals(GoalStatus.completed.name)) &
-                    table.activeSlotIndex.equals(slot) &
+                    table.status.equals(GoalStatus.active.name) &
+                    table.activeSlotIndex.equals(canonicalSlot.slotIndex) &
                     table.id.isNotIn(<String>[goalId]),
               ))
               .getSingleOrNull();
       if (occupant != null) {
-        throw GoalCapacityException(goal.role);
+        throw GoalCapacityException(canonicalSlot.role);
       }
+      final slot = canonicalSlot.slotIndex;
       final now = clock.nowUtc();
       await (database.update(database.goals)..where(
             (table) =>
@@ -1197,9 +931,6 @@ final class DriftGoalRepository
               status: Value<String>(GoalStatus.active.name),
               activeSlotIndex: Value<int?>(slot),
               archivedAtUtc: const Value<DateTime?>(null),
-              completedAtUtc: const Value<DateTime?>(null),
-              completionMethod: const Value<String?>(null),
-              completionArmed: const Value<bool>(false),
               updatedAtUtc: Value<DateTime>(now),
             ),
           );
@@ -1211,7 +942,7 @@ final class DriftGoalRepository
       );
       await _writeActivity(
         goal: restored,
-        action: action,
+        action: GoalActivityAction.restored,
         operationId: effectiveOperationId,
         newValue: slot.toString(),
       );
@@ -1219,7 +950,7 @@ final class DriftGoalRepository
         profileId: profileId,
         goalId: goalId,
         operationId: effectiveOperationId,
-        action: action.name,
+        action: GoalActivityAction.restored.name,
         payload: <String, Object?>{
           'goalId': goalId,
           'slot': slot,
@@ -1228,71 +959,6 @@ final class DriftGoalRepository
       );
       return restored;
     });
-  }
-
-  @override
-  Future<List<GoalAchievement>> readUndeliveredGoalAchievements(
-    String profileId,
-  ) async {
-    final rows =
-        await (database.select(database.goalAchievementEvents)
-              ..where(
-                (table) =>
-                    table.profileId.equals(profileId) &
-                    table.systemNotificationEligible.equals(true) &
-                    table.systemNotificationDeliveredAtUtc.isNull(),
-              )
-              ..orderBy(<OrderingTerm Function(GoalAchievementEvents)>[
-                (table) => OrderingTerm.asc(table.occurredAtUtc),
-              ]))
-            .get();
-    return rows.map(_mapAchievement).toList(growable: false);
-  }
-
-  @override
-  Future<GoalAchievement?> claimNextGoalCelebration(String profileId) {
-    return database.transaction(() async {
-      final row =
-          await (database.select(database.goalAchievementEvents)
-                ..where(
-                  (table) =>
-                      table.profileId.equals(profileId) &
-                      table.inAppCelebrationEligible.equals(true) &
-                      table.inAppCelebrationConsumedAtUtc.isNull(),
-                )
-                ..orderBy(<OrderingTerm Function(GoalAchievementEvents)>[
-                  (table) => OrderingTerm.asc(table.occurredAtUtc),
-                ])
-                ..limit(1))
-              .getSingleOrNull();
-      if (row == null) return null;
-      final now = clock.nowUtc();
-      await (database.update(
-        database.goalAchievementEvents,
-      )..where((table) => table.id.equals(row.id))).write(
-        GoalAchievementEventsCompanion(
-          inAppCelebrationConsumedAtUtc: Value<DateTime?>(now),
-        ),
-      );
-      return _mapAchievement(row);
-    });
-  }
-
-  @override
-  Future<void> markGoalAchievementNotificationDelivered({
-    required String profileId,
-    required String achievementId,
-  }) async {
-    await (database.update(database.goalAchievementEvents)..where(
-          (table) =>
-              table.profileId.equals(profileId) &
-              table.id.equals(achievementId),
-        ))
-        .write(
-          GoalAchievementEventsCompanion(
-            systemNotificationDeliveredAtUtc: Value<DateTime?>(clock.nowUtc()),
-          ),
-        );
   }
 
   @override
@@ -1984,54 +1650,13 @@ final class DriftGoalRepository
     PlannerDate? today,
     int startDay = DateTime.monday,
   }) async {
-    await ensureCanonicalGoals(profileId);
+    final goals =
+        (await readActiveGoals(
+            profileId,
+          )).where(_isCanonicalPlanningGoal).toList(growable: true)
+          ..sort(_compareCanonicalPlanningGoals);
     final resolvedToday = today ?? periodStart;
     final resolvedWeek = resolveWeek(date: periodStart, startDay: startDay);
-    final currentWeek = resolveWeek(
-      date: PlannerDate.fromDateTime(clock.nowUtc().toLocal()),
-      startDay: startDay,
-    );
-    final weeklyPlan =
-        await (database.select(database.weeklyPlans)
-              ..where(
-                (table) =>
-                    table.profileId.equals(profileId) &
-                    table.periodStartDate.equals(resolvedWeek.start.iso8601),
-              )
-              ..limit(1))
-            .getSingleOrNull();
-    final goals = <Goal>[];
-    if (resolvedWeek.start == currentWeek.start) {
-      // M6F: current Home is a projection of the same live slot owners used
-      // by Create Goal capacity. Memberships remain immutable evidence for
-      // historical weeks and are never used to resurrect an archived Goal in
-      // the current week.
-      goals.addAll(
-        (await _readCurrentGoalRows(
-          profileId,
-        )).map(_mapGoal).where(_isCanonicalPlanningGoal),
-      );
-    } else if (weeklyPlan != null) {
-      final memberships =
-          await (database.select(database.weeklyPlanGoalMemberships)
-                ..where((table) => table.weeklyPlanId.equals(weeklyPlan.id))
-                ..orderBy(<OrderingTerm Function(WeeklyPlanGoalMemberships)>[
-                  (table) => OrderingTerm.asc(table.slotOrder),
-                ]))
-              .get();
-      final seenGoalIds = <String>{};
-      for (final membership in memberships) {
-        if (!seenGoalIds.add(membership.goalId)) continue;
-        final row = await _goalRow(profileId, membership.goalId);
-        if (row != null) goals.add(_mapGoal(row));
-      }
-    }
-    if (goals.isEmpty && weeklyPlan == null) {
-      goals.addAll(
-        (await readActiveGoals(profileId)).where(_isCanonicalPlanningGoal),
-      );
-    }
-    goals.sort(_compareCanonicalPlanningGoals);
     final progress = await _readProgressBatch(
       profileId: profileId,
       goals: goals,
@@ -2065,86 +1690,12 @@ final class DriftGoalRepository
     if (goal == null) {
       return null;
     }
-    final progress = await _readProgress(
+    return _readProgress(
       goal: goal,
       today: today,
       periodStart: today,
       startDay: startDay,
     );
-    await _reconcileAutomaticCompletions(<GoalProgress>[progress]);
-    return progress;
-  }
-
-  @override
-  Future<GoalEventTypeEligibility> readEventTypeEligibility(
-    String profileId,
-  ) async {
-    await ensureCanonicalGoals(profileId);
-    final rows =
-        await (database.select(database.goals)..where(
-              (table) =>
-                  table.profileId.equals(profileId) &
-                  table.deletedAtUtc.isNull() &
-                  table.assignedEventTypeStableKey.isNotNull(),
-            ))
-            .get();
-    final goalOwnedTypeRows =
-        await (database.select(database.activityTypes)..where(
-              (table) =>
-                  table.profileId.equals(profileId) &
-                  table.stableKey.like('goal:%'),
-            ))
-            .get();
-    final linked = <String>{
-      for (final row in rows) row.assignedEventTypeStableKey!,
-      for (final row in goalOwnedTypeRows) row.stableKey,
-    };
-    return GoalEventTypeEligibility(
-      goalLinkedStableKeys: linked,
-      eligibleStableKeys: <String>{
-        for (final row in rows)
-          if (row.status == GoalStatus.active.name &&
-              row.activeSlotIndex != null)
-            row.assignedEventTypeStableKey!,
-      },
-    );
-  }
-
-  /// The derived progress projection is the single Goal-owned convergence
-  /// seam for ledger, Event-report, Task-contribution, and manual source
-  /// changes.  It never completes from a rebuild alone: an armed Goal must
-  /// first be observed below a valid target, then cross to at/above it.
-  Future<void> _reconcileAutomaticCompletions(
-    List<GoalProgress> progressItems,
-  ) async {
-    for (final progress in progressItems) {
-      final goal = progress.goal;
-      if (goal.status != GoalStatus.active &&
-          goal.status != GoalStatus.paused) {
-        continue;
-      }
-      final target = progress.primaryTarget.value?.scaledValue;
-      final actual = progress.primaryActual.scaledValue;
-      if (target == null || target <= 0) continue;
-      if (actual < target) {
-        if (!goal.completionArmed) {
-          await (database.update(database.goals)..where(
-                (table) =>
-                    table.profileId.equals(goal.profileId) &
-                    table.id.equals(goal.id),
-              ))
-              .write(const GoalsCompanion(completionArmed: Value<bool>(true)));
-        }
-        continue;
-      }
-      if (!goal.completionArmed) continue;
-      await completeGoal(
-        profileId: goal.profileId,
-        goalId: goal.id,
-        operationId: 'goal-auto:${goal.id}:${goal.completionGeneration + 1}',
-        completionMethod: GoalCompletionMethod.targetReached,
-      );
-    }
   }
 
   Future<GoalProgress> _readProgress({
@@ -2199,11 +1750,12 @@ final class DriftGoalRepository
     final unitByKey = <String, String>{};
     if (keys.isNotEmpty) {
       final definitions =
-          await (database.select(database.lifeIndicatorDefinitions)..where(
-                (table) =>
-                    table.profileId.equals(profileId) &
-                    table.indicatorKey.isIn(keys),
-              ))
+          await (database.select(database.lifeIndicatorDefinitions)
+                ..where(
+                  (table) =>
+                      table.profileId.equals(profileId) &
+                      table.indicatorKey.isIn(keys),
+                ))
               .get();
       unitByKey.addEntries(
         definitions.map((row) => MapEntry(row.indicatorKey, row.unit)),
@@ -2239,14 +1791,15 @@ final class DriftGoalRepository
         <String, Map<String, List<IndicatorGoalRevisionRow>>>{};
     if (goalIds.isNotEmpty) {
       final targetRows =
-          await (database.select(database.indicatorGoalRevisions)..where(
-                (table) =>
-                    table.profileId.equals(profileId) &
-                    (table.goalId.isIn(goalIds) |
-                        table.indicatorKey.isIn(keys)) &
-                    table.periodType.isIn(periodTypes) &
-                    table.periodStartDate.isIn(periodStarts),
-              ))
+          await (database.select(database.indicatorGoalRevisions)
+                ..where(
+                  (table) =>
+                      table.profileId.equals(profileId) &
+                      (table.goalId.isIn(goalIds) |
+                          table.indicatorKey.isIn(keys)) &
+                      table.periodType.isIn(periodTypes) &
+                      table.periodStartDate.isIn(periodStarts),
+                ))
               .get();
       for (final row in targetRows) {
         final periodKey = '${row.periodType}:${row.periodStartDate}';
@@ -2257,7 +1810,10 @@ final class DriftGoalRepository
             () => <String, List<IndicatorGoalRevisionRow>>{},
           );
           byGoal
-              .putIfAbsent(periodKey, () => <IndicatorGoalRevisionRow>[])
+              .putIfAbsent(
+                periodKey,
+                () => <IndicatorGoalRevisionRow>[],
+              )
               .add(row);
         }
         if (row.indicatorKey.isNotEmpty) {
@@ -2266,7 +1822,10 @@ final class DriftGoalRepository
             () => <String, List<IndicatorGoalRevisionRow>>{},
           );
           byKey
-              .putIfAbsent(periodKey, () => <IndicatorGoalRevisionRow>[])
+              .putIfAbsent(
+                periodKey,
+                () => <IndicatorGoalRevisionRow>[],
+              )
               .add(row);
         }
       }
@@ -2375,7 +1934,6 @@ final class DriftGoalRepository
       }) {
         return key == null ? zero() : (actuals[key] ?? zero());
       }
-
       final key = goal.indicatorKey;
       progress.add(
         GoalProgress(
@@ -2414,9 +1972,10 @@ final class DriftGoalRepository
       return const <ActivityLedgerEntryRow>[];
     }
     final reportIds = rows.map((row) => row.sourceReportId).toSet();
-    final reports = await (database.select(
-      database.outcomeReports,
-    )..where((table) => table.id.isIn(reportIds))).get();
+    final reports =
+        await (database.select(database.outcomeReports)
+              ..where((table) => table.id.isIn(reportIds)))
+            .get();
     final reportById = <String, OutcomeReportRow>{
       for (final report in reports) report.id: report,
     };
@@ -2431,12 +1990,13 @@ final class DriftGoalRepository
     final eventsById = <String, CalendarEventRow>{};
     if (eventIds.isNotEmpty) {
       eventsById.addEntries(
-        (await (database.select(database.calendarEvents)..where(
-                  (table) =>
-                      table.id.isIn(eventIds) &
-                      table.profileId.equals(profileId),
-                ))
-                .get())
+        (await (database.select(database.calendarEvents)
+              ..where(
+                (table) =>
+                    table.id.isIn(eventIds) &
+                    table.profileId.equals(profileId),
+              ))
+            .get())
             .map((row) => MapEntry(row.id, row)),
       );
     }
@@ -2467,7 +2027,8 @@ final class DriftGoalRepository
     final active = <ActivityLedgerEntryRow>[];
     for (final row in rows) {
       final report = reportById[row.sourceReportId];
-      if (report == null || report.sourceType != OutcomeSourceType.event.name) {
+      if (report == null ||
+          report.sourceType != OutcomeSourceType.event.name) {
         active.add(row);
         continue;
       }
@@ -2477,7 +2038,8 @@ final class DriftGoalRepository
         continue;
       }
       final event = eventsById[eventId];
-      if (event == null || event.status == CalendarEventStatus.cancelled.name) {
+      if (event == null ||
+          event.status == CalendarEventStatus.cancelled.name) {
         continue;
       }
       final exception = exceptionsByPair['$eventId:$occurrenceId'];
@@ -2692,11 +2254,7 @@ final class DriftGoalRepository
         (await (database.select(database.goals)..where(
                   (table) =>
                       table.profileId.equals(profileId) &
-                      table.deletedAtUtc.isNull() &
-                      table.activeSlotIndex.isNotNull() &
-                      (table.status.equals(GoalStatus.active.name) |
-                          table.status.equals(GoalStatus.paused.name) |
-                          table.status.equals(GoalStatus.completed.name)),
+                      table.status.equals(GoalStatus.active.name),
                 ))
                 .get())
             .where(_isCanonicalActiveRow)
@@ -2725,12 +2283,16 @@ final class DriftGoalRepository
       if (goal.role == GoalRole.dailyWeekly)
         IndicatorGoalPeriod.daily(targetDate): targets.daily,
       if (goal.role == GoalRole.dailyWeekly || goal.role == GoalRole.weekly)
-        IndicatorGoalPeriod.weekly(targetDate, startDay: startDay):
-            targets.weekly,
+        IndicatorGoalPeriod.weekly(
+          targetDate,
+          startDay: startDay,
+        ): targets.weekly,
       if (goal.role ==
           GoalRole.weeklyMonthly) ...<IndicatorGoalPeriod, IndicatorAmount?>{
-        IndicatorGoalPeriod.weekly(targetDate, startDay: startDay):
-            targets.weekly,
+        IndicatorGoalPeriod.weekly(
+          targetDate,
+          startDay: startDay,
+        ): targets.weekly,
         IndicatorGoalPeriod.monthly(targetDate): targets.monthly,
       },
     };
@@ -2857,55 +2419,6 @@ final class DriftGoalRepository
   // caller, so daily/monthly boundaries are stable under fake-clock tests.
   PlannerDate _today() => PlannerDate.fromDateTime(clock.nowUtc().toLocal());
 
-  Future<Goal> _setActiveLifecycle({
-    required String profileId,
-    required String goalId,
-    required GoalStatus from,
-    required GoalStatus to,
-    required GoalActivityAction action,
-    String? operationId,
-  }) async {
-    await ensureCanonicalGoals(profileId);
-    final effectiveOperationId = operationId ?? identifiers.nextUuid();
-    return database.transaction(() async {
-      final prior = await _goalForOperation(profileId, effectiveOperationId);
-      if (prior != null) return prior;
-      final row = await _goalRow(profileId, goalId);
-      if (row == null || row.status != from.name) {
-        throw const GoalValidationException(
-          'Goal lifecycle state was not found.',
-        );
-      }
-      final now = clock.nowUtc();
-      await (database.update(database.goals)..where(
-            (table) =>
-                table.profileId.equals(profileId) & table.id.equals(goalId),
-          ))
-          .write(
-            GoalsCompanion(
-              status: Value<String>(to.name),
-              updatedAtUtc: Value<DateTime>(now),
-            ),
-          );
-      final updated = _mapGoal((await _goalRow(profileId, goalId))!);
-      await _writeActivity(
-        goal: updated,
-        action: action,
-        operationId: effectiveOperationId,
-        previousValue: from.name,
-        newValue: to.name,
-      );
-      await _writeOutbox(
-        profileId: profileId,
-        goalId: goalId,
-        operationId: effectiveOperationId,
-        action: action.name,
-        payload: <String, Object?>{'goalId': goalId, 'status': to.name},
-      );
-      return updated;
-    });
-  }
-
   Future<void> _mutateLifecycle({
     required String profileId,
     required String goalId,
@@ -2919,13 +2432,8 @@ final class DriftGoalRepository
         return;
       }
       final row = await _goalRow(profileId, goalId);
-      if (row == null ||
-          (row.status != GoalStatus.active.name &&
-              row.status != GoalStatus.paused.name &&
-              row.status != GoalStatus.completed.name)) {
-        throw const GoalValidationException(
-          'Active, paused, or completed Goal was not found.',
-        );
+      if (row == null || row.status != GoalStatus.active.name) {
+        throw const GoalValidationException('Active Goal was not found.');
       }
       final goal = _mapGoal(row);
       final now = clock.nowUtc();
@@ -2981,69 +2489,6 @@ final class DriftGoalRepository
             previousValue: Value<String?>(previousValue),
             newValue: Value<String?>(newValue),
             occurredAtUtc: clock.nowUtc(),
-          ),
-        );
-  }
-
-  /// M6B keeps historical plans immutable. A user-created Goal is an explicit
-  /// current-week edit, so only the resolved current plan receives this one
-  /// membership row; past and already-initialized future plans are untouched.
-  Future<void> _includeInCurrentWeek({
-    required Goal goal,
-    required int startDay,
-  }) async {
-    final currentStart = resolveWeek(
-      date: PlannerDate.fromDateTime(clock.nowUtc().toLocal()),
-      startDay: startDay,
-    ).start;
-    final plan =
-        await (database.select(database.weeklyPlans)
-              ..where(
-                (table) =>
-                    table.profileId.equals(goal.profileId) &
-                    table.periodStartDate.equals(currentStart.iso8601),
-              )
-              ..limit(1))
-            .getSingleOrNull();
-    if (plan == null || goal.activeSlotIndex == null) return;
-    await database
-        .into(database.weeklyPlanGoalMemberships)
-        .insert(
-          WeeklyPlanGoalMembershipsCompanion.insert(
-            id: identifiers.nextUuid(),
-            profileId: goal.profileId,
-            weeklyPlanId: plan.id,
-            goalId: goal.id,
-            slotOrder: goal.activeSlotIndex!,
-            createdAtUtc: clock.nowUtc(),
-          ),
-          mode: InsertMode.insertOrIgnore,
-        );
-  }
-
-  /// Only a type referenced by this one live Goal is goal-owned enough to
-  /// mirror its title. Shared types retain their user-facing identity.
-  Future<void> _syncDedicatedEventTypeLabel(Goal goal) async {
-    final key = goal.assignedEventTypeStableKey;
-    if (key == null) return;
-    final owners =
-        await (database.select(database.goals)..where(
-              (table) =>
-                  table.profileId.equals(goal.profileId) &
-                  table.assignedEventTypeStableKey.equals(key) &
-                  table.deletedAtUtc.isNull(),
-            ))
-            .get();
-    if (owners.length != 1) return;
-    await (database.update(database.activityTypes)..where(
-          (table) =>
-              table.profileId.equals(goal.profileId) &
-              table.stableKey.equals(key),
-        ))
-        .write(
-          ActivityTypesCompanion(
-            label: Value<String>(goal.title),
-            updatedAtUtc: Value<DateTime>(clock.nowUtc()),
           ),
         );
   }
@@ -3118,8 +2563,6 @@ final class DriftGoalRepository
       title: row.title,
       iconId: row.iconId,
       status: switch (row.status) {
-        'paused' => GoalStatus.paused,
-        'completed' => GoalStatus.completed,
         'archived' => GoalStatus.archived,
         'deleted' => GoalStatus.deleted,
         _ => GoalStatus.active,
@@ -3128,35 +2571,8 @@ final class DriftGoalRepository
       updatedAtUtc: row.updatedAtUtc.toUtc(),
       archivedAtUtc: row.archivedAtUtc?.toUtc(),
       deletedAtUtc: row.deletedAtUtc?.toUtc(),
-      completedAtUtc: row.completedAtUtc?.toUtc(),
-      completionMethod: row.completionMethod == null
-          ? null
-          : GoalCompletionMethod.values.byName(row.completionMethod!),
-      completionGeneration: row.completionGeneration,
-      completionArmed: row.completionArmed,
     );
   }
-
-  GoalAchievement _mapAchievement(GoalAchievementEventRow row) {
-    return GoalAchievement(
-      id: row.id,
-      profileId: row.profileId,
-      goalId: row.goalId,
-      type: GoalAchievementType.values.byName(row.achievementType),
-      completionGeneration: row.completionGeneration,
-      occurredAtUtc: row.occurredAtUtc.toUtc(),
-      createdAtUtc: row.createdAtUtc.toUtc(),
-      sourceOperationId: row.sourceOperationId,
-      systemNotificationEligible: row.systemNotificationEligible,
-      inAppCelebrationEligible: row.inAppCelebrationEligible,
-      systemNotificationDeliveredAtUtc: row.systemNotificationDeliveredAtUtc
-          ?.toUtc(),
-      inAppCelebrationConsumedAtUtc: row.inAppCelebrationConsumedAtUtc?.toUtc(),
-    );
-  }
-
-  String _achievementId(String goalId, int generation) =>
-      '$goalId:goal-completed:$generation';
 
   GoalActivity _mapActivity(GoalActivityRow row) {
     return GoalActivity(
@@ -3191,10 +2607,6 @@ final class DriftGoalRepository
       updatedAtUtc: goal.updatedAtUtc,
       archivedAtUtc: Value<DateTime?>(goal.archivedAtUtc),
       deletedAtUtc: Value<DateTime?>(goal.deletedAtUtc),
-      completedAtUtc: Value<DateTime?>(goal.completedAtUtc),
-      completionMethod: Value<String?>(goal.completionMethod?.name),
-      completionGeneration: Value<int>(goal.completionGeneration),
-      completionArmed: Value<bool>(goal.completionArmed),
     );
   }
 
@@ -3207,9 +2619,7 @@ final class DriftGoalRepository
 
   bool _isCanonicalActiveRow(GoalRow row) {
     final slot = row.activeSlotIndex;
-    return (row.status == GoalStatus.active.name ||
-            row.status == GoalStatus.paused.name ||
-            row.status == GoalStatus.completed.name) &&
+    return row.status == GoalStatus.active.name &&
         slot != null &&
         _slotSupportsRole(_roleFromName(row.role), slot);
   }
@@ -3221,13 +2631,12 @@ final class DriftGoalRepository
       'monthly': targets.monthly?.scaledValue,
     };
   }
+
 }
 
 bool _isCanonicalPlanningGoal(Goal goal) {
   final slot = goal.activeSlotIndex;
-  return (goal.isActive || goal.isPaused || goal.isCompleted) &&
-      slot != null &&
-      _slotSupportsRole(goal.role, slot);
+  return goal.isActive && slot != null && _slotSupportsRole(goal.role, slot);
 }
 
 int _compareCanonicalPlanningGoals(Goal left, Goal right) {

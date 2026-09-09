@@ -14,7 +14,6 @@ import 'package:rmplanner/features/planner/application/planner_providers.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 import 'package:rmplanner/features/settings/application/start_of_week_providers.dart';
 import 'package:rmplanner/features/weekly_planning/application/weekly_planning_providers.dart';
-import 'package:rmplanner/features/weekly_planning/domain/weekly_plan.dart';
 
 final class WeeklyPlanningScreen extends ConsumerStatefulWidget {
   const WeeklyPlanningScreen({
@@ -107,7 +106,6 @@ final class _WeeklyPlanningScreenState
       });
     }
     final plan = ref.watch(goalPlanningProvider(resolvedStart));
-    final reviewPlan = ref.watch(weeklyPlanForPeriodProvider(resolvedStart));
     final planBody = plan.when(
       // A1: returning from Edit Goal triggers a canonical reload; the last
       // confirmed Goal rows stay visible instead of a whole-body spinner.
@@ -119,7 +117,6 @@ final class _WeeklyPlanningScreenState
       ),
       data: (value) => _GoalPlanBody(
         plan: value,
-        reviewPlan: reviewPlan.asData?.value,
         managementMode: _managementMode,
         onManagementModeChanged: _setManagementMode,
         onWeekSelected: _selectWeek,
@@ -196,14 +193,12 @@ final class _WeeklyPlanningScreenState
 final class _GoalPlanBody extends ConsumerStatefulWidget {
   const _GoalPlanBody({
     required this.plan,
-    required this.reviewPlan,
     required this.managementMode,
     required this.onManagementModeChanged,
     required this.onWeekSelected,
   });
 
   final GoalPlanningSnapshot plan;
-  final WeeklyPlan? reviewPlan;
   final bool managementMode;
   final ValueChanged<bool> onManagementModeChanged;
   final ValueChanged<PlannerDate> onWeekSelected;

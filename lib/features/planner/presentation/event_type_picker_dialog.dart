@@ -3,8 +3,6 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rmplanner/app/theme/app_theme.dart';
-import 'package:rmplanner/features/goals/application/goal_providers.dart';
-import 'package:rmplanner/features/goals/application/goal_repository.dart';
 import 'package:rmplanner/features/planner/application/event_type_providers.dart';
 import 'package:rmplanner/features/planner/domain/event_color_preferences.dart';
 import 'package:rmplanner/features/planner/domain/event_type.dart';
@@ -56,25 +54,10 @@ Future<EventTypePickerSelection?> showEventTypePicker({
     ).showSnackBar(SnackBar(content: Text(state.message!)));
     return null;
   }
-  final goalRepository = ref.read(goalRepositoryProvider);
-  final eligibility = goalRepository is GoalEventTypeEligibilitySource
-      ? await (goalRepository as GoalEventTypeEligibilitySource)
-            .readEventTypeEligibility(ref.read(goalProfileIdProvider))
-      : null;
-  if (!context.mounted) {
-    return null;
-  }
-  final effectiveAllowedKeys = <String>{
-    for (final type in state.eventTypes)
-      if ((allowedStableKeys == null ||
-              allowedStableKeys.contains(type.stableKey)) &&
-          (eligibility?.permitsNewEventType(type.stableKey) ?? true))
-        type.stableKey,
-  };
   final types = _orderedPickerTypes(
     state.eventTypes,
     recommendedId,
-    allowedStableKeys: effectiveAllowedKeys,
+    allowedStableKeys: allowedStableKeys,
   );
   return showDialog<EventTypePickerSelection>(
     context: context,
@@ -157,24 +140,10 @@ Future<EventType?> showEventTypeDropdown({
   if (!context.mounted) {
     return null;
   }
-  final goalRepository = ref.read(goalRepositoryProvider);
-  final eligibility = goalRepository is GoalEventTypeEligibilitySource
-      ? await (goalRepository as GoalEventTypeEligibilitySource)
-            .readEventTypeEligibility(ref.read(goalProfileIdProvider))
-      : null;
-  if (!context.mounted) {
-    return null;
-  }
-  final eligibleKeys = <String>{
-    for (final type in state.eventTypes)
-      if (eligibility?.permitsNewEventType(type.stableKey) ?? true)
-        type.stableKey,
-  };
   final types = _orderedPickerTypes(
     state.eventTypes,
     recommendedId,
     targetOrder: false,
-    allowedStableKeys: eligibleKeys,
   );
   EventType? selected;
   await showAnchoredTopBarPopup(

@@ -461,20 +461,13 @@ final class _CalendarEventFormScreenState
   }
 
   void _applyEventTypeDefaults(EventType type, {int? durationMinutes}) {
-    final goalOwnerId = type.goalOwnerId;
     // Planner Polish Delta 2: the Contact Event Type always requires a
     // Current Status report, independent of Life Goal linkage.
     _requiresReport =
-        type.isLockedWliType ||
-            goalOwnerId != null ||
-            type.stableKey == SystemEventTypeKeys.contact
+        type.isLockedWliType || type.stableKey == SystemEventTypeKeys.contact
         ? true
         : type.reportRequiredDefault;
-    if (goalOwnerId != null) {
-      _selectedGoalId = goalOwnerId;
-      _linkedIndicatorKey = type.exactIndicatorKey ?? type.stableKey;
-      _indicatorLinkTouched = false;
-    } else if (type.isLockedWliType) {
+    if (type.isLockedWliType) {
       _linkedIndicatorKey = type.exactIndicatorKey;
       _indicatorLinkTouched = false;
     }
@@ -492,7 +485,6 @@ final class _CalendarEventFormScreenState
   }
 
   Future<void> _changeEventType() async {
-    final previousWasGoalOwned = _selectedEventType?.isGoalOwnedType == true;
     final selected = await showEventTypeDropdown(
       context: context,
       ref: ref,
@@ -516,9 +508,6 @@ final class _CalendarEventFormScreenState
         .updateEventType(selected);
     setState(() {
       _selectedEventType = selected;
-      if (previousWasGoalOwned && !selected.isGoalOwnedType) {
-        _selectedGoalId = null;
-      }
       _applyEventTypeDefaults(selected);
       if (selected.isLockedWliType) {
         _linkedIndicatorKey = selected.exactIndicatorKey;
@@ -1721,8 +1710,7 @@ final class _CalendarEventFormScreenState
       return;
     }
     final type = _selectedEventType;
-    final fixed =
-        type?.isLockedWliType == true || type?.isGoalOwnedType == true;
+    final fixed = type?.isLockedWliType == true;
     Goal? fixedGoal;
     if (fixed) {
       fixedGoal = goals
@@ -1884,8 +1872,7 @@ final class _CalendarEventFormScreenState
   Widget _buildLifeIndicatorSection() {
     final goals = _availableGoals;
     final type = _selectedEventType;
-    final wliLocked =
-        type?.isLockedWliType == true || type?.isGoalOwnedType == true;
+    final wliLocked = type?.isLockedWliType == true;
     // Resolve the linked Life Indicator by its stable ID.  Active indicators
     // come from the loaded list; a link to an archived indicator is resolved
     // by ID so the archived name/icon still renders on existing Events while

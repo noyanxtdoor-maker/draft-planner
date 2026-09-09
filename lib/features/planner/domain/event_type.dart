@@ -47,14 +47,6 @@ final class EventType {
   String? get exactIndicatorKey =>
       hasExactIndicatorMapping ? indicatorKeys.single : null;
 
-  bool get isGoalOwnedType => stableKey.startsWith('goal:');
-
-  String? get goalOwnerId {
-    if (!isGoalOwnedType) return null;
-    final value = stableKey.substring('goal:'.length);
-    return value.isEmpty ? null : value;
-  }
-
   /// The first six Event Types are the only ones whose WLI relationship and
   /// reporting requirement are system-owned. Their stable IDs and mappings
   /// must remain intact when their display labels are renamed.

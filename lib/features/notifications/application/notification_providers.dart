@@ -362,15 +362,7 @@ final class NotificationSettingsController
     );
   }
 
-  Future<void> setGoalCompletionNotificationsEnabled(bool enabled) async {
-    await savePreferences(
-      state.preferences.copyWith(goalCompletionNotificationsEnabled: enabled),
-    );
-  }
-
-  Future<void> setInAppGoalCelebrationsEnabled(bool enabled) async {
-    await savePreferences(
-      state.preferences.copyWith(inAppGoalCelebrationsEnabled: enabled),
-    );
-  }
+  // M6 forward-rollback (Phase A): Goal completion notification and in-app
+  // celebration preference setters were removed with the M6 Achievements UI;
+  // the underlying v46 preference columns remain dormant in storage.
 }

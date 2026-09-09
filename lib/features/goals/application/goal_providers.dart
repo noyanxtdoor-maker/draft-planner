@@ -11,16 +11,6 @@ final goalRepositoryProvider = Provider<GoalRepository>((ref) {
   throw StateError('GoalRepository must be overridden at the app root');
 });
 
-final goalLifecycleRepositoryProvider = Provider<GoalLifecycleRepository>((
-  ref,
-) {
-  final repository = ref.read(goalRepositoryProvider);
-  if (repository is! GoalLifecycleRepository) {
-    throw StateError('Goal lifecycle requires the canonical Goal repository.');
-  }
-  return repository as GoalLifecycleRepository;
-});
-
 final goalProfileIdProvider = Provider<String>((ref) {
   final startup = ref.read(startupControllerProvider);
   if (startup is! StartupReady) {

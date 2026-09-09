@@ -606,10 +606,6 @@ final class _HistoryRow extends StatelessWidget {
       GoalActivityAction.renamed =>
         'Renamed \u201c${activity.previousValue ?? ''}\u201d to '
             '\u201c${activity.newValue ?? item.goalTitle}\u201d',
-      GoalActivityAction.paused => 'Paused ${item.goalTitle}',
-      GoalActivityAction.resumed => 'Resumed ${item.goalTitle}',
-      GoalActivityAction.completed => 'Completed ${item.goalTitle}',
-      GoalActivityAction.reopened => 'Reopened ${item.goalTitle}',
       GoalActivityAction.archived =>
         'Archived \u201c${activity.newValue ?? item.goalTitle}\u201d',
       GoalActivityAction.restored => 'Restored \u201c${item.goalTitle}\u201d',
@@ -640,10 +636,6 @@ final class _HistoryRow extends StatelessWidget {
 IconData _activityIcon(GoalActivityAction action) => switch (action) {
   GoalActivityAction.created => Icons.add_circle_outline,
   GoalActivityAction.renamed => Icons.edit_outlined,
-  GoalActivityAction.paused => Icons.pause_circle_outline,
-  GoalActivityAction.resumed => Icons.play_circle_outline,
-  GoalActivityAction.completed => Icons.celebration_outlined,
-  GoalActivityAction.reopened => Icons.replay_outlined,
   GoalActivityAction.archived => Icons.archive_outlined,
   GoalActivityAction.restored => Icons.restore,
   GoalActivityAction.deleted => Icons.delete_outline,

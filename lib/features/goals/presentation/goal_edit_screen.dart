@@ -82,9 +82,7 @@ final class _GoalEditScreenState extends ConsumerState<GoalEditScreen> {
       if (!mounted) {
         return;
       }
-      if (goal == null ||
-          goal.isDeleted ||
-          goal.status == GoalStatus.archived) {
+      if (goal == null || !goal.isActive) {
         if (_goal == null) {
           setState(() {
             _loading = false;
@@ -180,117 +178,105 @@ final class _GoalEditScreenState extends ConsumerState<GoalEditScreen> {
       },
       child: Scaffold(
         appBar: InternalAppBar(
-          backgroundColor: AppTheme.surfaceOf(context),
-          surfaceTintColor: Colors.transparent,
-          scrolledUnderElevation: 0,
           leading: IconButton(
             key: const Key('goal-edit-back'),
             tooltip: 'Back',
-            color: Theme.of(context).colorScheme.primary,
             onPressed: _saving ? null : () => unawaited(_handleBackAndPop()),
             icon: const Icon(Icons.arrow_back),
           ),
           title: const Text('Edit Goal'),
           actions: <Widget>[
-            IconButton(
+            TextButton(
               key: const Key('goal-edit-save'),
-              tooltip: 'Save',
-              color: Theme.of(context).colorScheme.primary,
               onPressed: _saving || !_draftIsValid ? null : _save,
-              icon: _saving
+              child: _saving
                   ? const SizedBox.square(
                       dimension: 18,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Icon(Icons.check),
+                  : const Text('Save'),
             ),
             const SizedBox(width: 8),
           ],
         ),
-        body: GestureDetector(
-          key: const Key('goal-edit-blank-space-dismiss'),
-          behavior: HitTestBehavior.translucent,
-          onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-          child: SafeArea(
-            top: false,
-            child: Form(
-              key: _formKey,
-              child: ListView(
-                key: const Key('goal-edit-scroll'),
-                padding: InternalScreen.pagePadding,
-                children: <Widget>[
-                  Text(goal.title, style: InternalScreen.sectionHeading),
-                  const SizedBox(height: 2),
-                  Text(goal.role.title, style: InternalScreen.label),
-                  const SizedBox(height: InternalScreen.sectionGap),
-                  _buildAssignedEventTypeSection(goal),
-                  const SizedBox(height: InternalScreen.sectionGap),
-                  TextFormField(
-                    key: const Key('goal-title'),
-                    controller: _titleController,
-                    style: InternalScreen.body,
-                    decoration: const InputDecoration(
-                      labelText: 'Goal Name',
-                      labelStyle: InternalScreen.fieldLabel,
-                      isDense: true,
-                    ),
-                    validator: (value) => value == null || value.trim().isEmpty
-                        ? 'Enter a Goal name.'
-                        : null,
+        body: SafeArea(
+          child: Form(
+            key: _formKey,
+            child: ListView(
+              padding: InternalScreen.pagePadding,
+              children: <Widget>[
+                Text(
+                  goal.title,
+                  style: AppTypography.pageTitle.copyWith(
+                    fontSize: 24,
+                    height: 30 / 24,
                   ),
-                  const SizedBox(height: InternalScreen.sectionGap),
-                  Text('Icon', style: InternalScreen.sectionHeading),
-                  Divider(color: AppTheme.sectionDividerOf(context)),
-                  const Text(
-                    'Choose an icon that represents your goal.',
-                    style: InternalScreen.label,
-                  ),
-                  const SizedBox(height: InternalScreen.labelToControlGap),
-                  GoalIconChoiceRow(
-                    goalTitle: _titleController.text.trim(),
-                    iconId: _iconId,
-                    fallbackIcon: goalIconFallbackForRole(goal.role),
-                    onTap: _openIconPicker,
-                  ),
-                  const SizedBox(height: InternalScreen.sectionGap),
-                  if (goal.role == GoalRole.dailyWeekly) ...<Widget>[
-                    _EditTarget(
-                      key: const Key('goal-period-daily'),
-                      label: 'Daily Target',
-                      value: _daily,
-                      onChanged: (value) => setState(() => _daily = value),
-                    ),
-                    const SizedBox(height: 12),
-                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(goal.role.title, style: AppTypography.secondary),
+                const SizedBox(height: 16),
+                _buildAssignedEventTypeSection(goal),
+                const SizedBox(height: 16),
+                TextFormField(
+                  key: const Key('goal-title'),
+                  controller: _titleController,
+                  decoration: const InputDecoration(labelText: 'Goal Name'),
+                  validator: (value) => value == null || value.trim().isEmpty
+                      ? 'Enter a Goal name.'
+                      : null,
+                ),
+                const SizedBox(height: 16),
+                Text('Icon', style: AppTypography.cardTitle),
+                const SizedBox(height: 3),
+                const Text(
+                  'Choose an icon that represents your goal.',
+                  style: AppTypography.secondary,
+                ),
+                const SizedBox(height: 8),
+                GoalIconChoiceRow(
+                  goalTitle: _titleController.text.trim(),
+                  iconId: _iconId,
+                  fallbackIcon: goalIconFallbackForRole(goal.role),
+                  onTap: _openIconPicker,
+                ),
+                const SizedBox(height: 16),
+                if (goal.role == GoalRole.dailyWeekly) ...<Widget>[
                   _EditTarget(
-                    key: const Key('goal-period-weekly'),
-                    label: 'Weekly Target',
-                    value: _weekly,
-                    onChanged: (value) => setState(() => _weekly = value),
+                    key: const Key('goal-period-daily'),
+                    label: 'Daily Target',
+                    value: _daily,
+                    onChanged: (value) => setState(() => _daily = value),
                   ),
-                  if (goal.role == GoalRole.weeklyMonthly) ...<Widget>[
-                    const SizedBox(height: 12),
-                    _EditTarget(
-                      key: const Key('goal-period-monthly'),
-                      label: 'Monthly Target',
-                      value: _monthly,
-                      onChanged: (value) => setState(() => _monthly = value),
-                    ),
-                  ],
-                  const SizedBox(height: 18),
-                  _ProgressSummary(progress: _progress),
-                  const SizedBox(height: 18),
-                  _GoalHistoryPreview(
-                    items: _history,
-                    onViewAll: () => _openGoalHistory(goal.id),
-                  ),
-                  const SizedBox(height: 18),
-                  const Text(
-                    'Changes are saved only when you tap Save.',
-                    style: AppTypography.secondary,
+                  const SizedBox(height: 12),
+                ],
+                _EditTarget(
+                  key: const Key('goal-period-weekly'),
+                  label: 'Weekly Target',
+                  value: _weekly,
+                  onChanged: (value) => setState(() => _weekly = value),
+                ),
+                if (goal.role == GoalRole.weeklyMonthly) ...<Widget>[
+                  const SizedBox(height: 12),
+                  _EditTarget(
+                    key: const Key('goal-period-monthly'),
+                    label: 'Monthly Target',
+                    value: _monthly,
+                    onChanged: (value) => setState(() => _monthly = value),
                   ),
                 ],
-              ),
+                const SizedBox(height: 18),
+                _ProgressSummary(progress: _progress),
+                const SizedBox(height: 18),
+                _GoalHistoryPreview(
+                  items: _history,
+                  onViewAll: () => _openGoalHistory(goal.id),
+                ),
+                const SizedBox(height: 18),
+                const Text(
+                  'Changes are saved only when you tap Save.',
+                  style: AppTypography.secondary,
+                ),
+              ],
             ),
           ),
         ),
@@ -583,10 +569,6 @@ final class _GoalHistoryRow extends StatelessWidget {
       GoalActivityAction.renamed =>
         'Renamed “${activity.previousValue ?? ''}” to '
             '“${activity.newValue ?? item.goalTitle}”',
-      GoalActivityAction.paused => 'Paused “${item.goalTitle}”',
-      GoalActivityAction.resumed => 'Resumed “${item.goalTitle}”',
-      GoalActivityAction.completed => 'Completed “${item.goalTitle}”',
-      GoalActivityAction.reopened => 'Reopened “${item.goalTitle}”',
       GoalActivityAction.archived =>
         'Archived “${activity.newValue ?? item.goalTitle}”',
       GoalActivityAction.restored => 'Restored “${item.goalTitle}”',
@@ -618,10 +600,6 @@ final class _GoalHistoryRow extends StatelessWidget {
 IconData _goalActivityIcon(GoalActivityAction action) => switch (action) {
   GoalActivityAction.created => Icons.add_circle_outline,
   GoalActivityAction.renamed => Icons.edit_outlined,
-  GoalActivityAction.paused => Icons.pause_circle_outline,
-  GoalActivityAction.resumed => Icons.play_circle_outline,
-  GoalActivityAction.completed => Icons.celebration_outlined,
-  GoalActivityAction.reopened => Icons.replay_outlined,
   GoalActivityAction.archived => Icons.archive_outlined,
   GoalActivityAction.restored => Icons.restore,
   GoalActivityAction.deleted => Icons.delete_outline,
@@ -658,12 +636,8 @@ final class _EditTarget extends StatelessWidget {
       children: <Widget>[
         Expanded(
           child: InputDecorator(
-            decoration: InputDecoration(
-              labelText: label,
-              labelStyle: InternalScreen.fieldLabel,
-              isDense: true,
-            ),
-            child: Text(value?.toString() ?? '-', style: InternalScreen.body),
+            decoration: InputDecoration(labelText: label),
+            child: Text(value?.toString() ?? '-', style: AppTypography.body),
           ),
         ),
         const SizedBox(width: 8),
