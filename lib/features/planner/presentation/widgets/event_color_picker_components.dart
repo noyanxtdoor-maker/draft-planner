@@ -16,6 +16,7 @@ import 'package:rmplanner/features/settings/presentation/event_color_picker_dial
 /// its Save semantics.
 Future<Color?> showRecommendedEventColorsDialog(
   BuildContext context, {
+  String? title,
   required Color initialColor,
   Iterable<int> peerAccentColors = const <int>[],
 }) {
@@ -24,6 +25,7 @@ Future<Color?> showRecommendedEventColorsDialog(
     barrierDismissible: false,
     builder: (context) =>
         _RecommendedEventColorsDialog(
+          title: title,
           initialColor: initialColor,
           peerAccentColors: peerAccentColors.toList(growable: false),
         ),
@@ -403,10 +405,14 @@ final class _InlineColorAction extends StatelessWidget {
 
 final class _RecommendedEventColorsDialog extends StatefulWidget {
   const _RecommendedEventColorsDialog({
+    this.title,
     required this.initialColor,
     required this.peerAccentColors,
   });
 
+  /// Presentation title (the settings row's display label). Falls back to
+  /// the generic "Recommended Colors" heading when omitted.
+  final String? title;
   final Color initialColor;
   final List<int> peerAccentColors;
 
@@ -454,7 +460,9 @@ final class _RecommendedEventColorsDialogState
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
                     child: Text(
-                      'Next Transfer Recommended Colors',
+                      widget.title == null || widget.title!.trim().isEmpty
+                          ? 'Next Transfer Recommended Colors'
+                          : '${widget.title!.trim()} — Recommended Colors',
                       key: const Key('recommended-event-colors-title'),
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         fontSize: 19,

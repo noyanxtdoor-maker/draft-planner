@@ -9,6 +9,36 @@ import 'package:rmplanner/features/planner/domain/planner_settings.dart';
 import 'package:rmplanner/features/startup/application/startup_providers.dart';
 import 'package:rmplanner/features/startup/domain/startup_state.dart';
 
+/// Dedicated change signal for the profile's presentation document (event
+/// colors, group colors, Goal name overrides). Emits after every committed
+/// full-document write. This is a DATA stream over Planner Preferences
+/// writes only — it introduces no notification refresh side effects.
+final presentationDocumentChangesProvider = StreamProvider.family<
+  void,
+  String
+>((ref, profileId) {
+  return ref
+      .watch(eventTypeRepositoryProvider)
+      .watchPresentationDocument(profileId);
+});
+
+/// Profile-scoped Goal Event Type presentation-name overrides, keyed by the
+/// real Goal UUID (schema 46 Planner Preferences JSON metadata). Reactively
+/// refreshed by the dedicated presentation-document change stream; errors
+/// surface truthfully as AsyncError (callers fail closed, never fall back to
+/// a raw canonical label for a valid live Goal).
+final goalEventTypeNameOverridesProvider = FutureProvider.family<
+  Map<String, GoalEventTypeNameOverride>,
+  String
+>((ref, profileId) {
+  // Watching the change stream keeps this provider reactive: it re-reads
+  // after every committed presentation write (color, group, or override).
+  ref.watch(presentationDocumentChangesProvider(profileId));
+  return ref
+      .watch(eventTypeRepositoryProvider)
+      .readGoalEventTypeNameOverrides(profileId);
+});
+
 final eventTypeRepositoryProvider = Provider<EventTypeRepository>((ref) {
   throw StateError('EventTypeRepository must be overridden at the app root');
 });

@@ -5,9 +5,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rmplanner/app/router/route_names.dart';
 import 'package:rmplanner/app/theme/internal_screen.dart';
+import 'package:rmplanner/features/goals/application/goal_providers.dart';
+import 'package:rmplanner/features/goals/domain/canonical_goal_slots.dart';
+import 'package:rmplanner/features/goals/domain/goal_event_type_policy.dart';
+import 'package:rmplanner/features/goals/presentation/assigned_event_type_draft_screen.dart';
 import 'package:rmplanner/features/planner/application/event_type_providers.dart';
+import 'package:rmplanner/features/planner/domain/event_color_preferences.dart';
 import 'package:rmplanner/features/planner/domain/event_type.dart';
-import 'package:rmplanner/features/planner/domain/planner_date.dart';
+import 'package:rmplanner/features/planner/domain/event_type_presentation.dart';
 import 'package:rmplanner/features/planner/presentation/widgets/planner_event_color_resolver.dart';
 
 final class EventTypesScreen extends ConsumerStatefulWidget {
@@ -34,6 +39,17 @@ final class _EventTypesScreenState extends ConsumerState<EventTypesScreen> {
   Widget build(BuildContext context) {
     final state = ref.watch(eventTypeControllerProvider);
     final controller = ref.read(eventTypeControllerProvider.notifier);
+    // Reactive live presentation labels: watch the profile-scoped overrides
+    // AND the live slot bindings so a committed name change or a Goal
+    // lifecycle change re-projects the list. Loading/error keeps the
+    // prospective labels (display-only fallback; writes always re-validate).
+    final profileId = ref.watch(goalProfileIdProvider);
+    final overrides = ref
+        .watch(goalEventTypeNameOverridesProvider(profileId))
+        .value;
+    final bindings = ref
+        .watch(liveGoalEventTypeBindingsProvider(profileId))
+        .value;
     return Scaffold(
       appBar: InternalAppBar(
         title: const Text('Event Types'),
@@ -71,15 +87,44 @@ final class _EventTypesScreenState extends ConsumerState<EventTypesScreen> {
                   for (final type in state.eventTypes.where(
                     (type) => type.isCreationVisible,
                   ))
-                    _buildTypeCard(context, controller, state, type),
-                  if (state.eventTypes.any((type) => !type.isCreationVisible))
+                    _buildTypeCard(
+                      context,
+                      controller,
+                      state,
+                      type,
+                      bindings,
+                      overrides,
+                    ),
+                  // The six canonical keys NEVER appear under the legacy
+                  // heading: hiding a live slot must not expose its row in a
+                  // different section.
+                  if (state.eventTypes.any(
+                    (type) =>
+                        !type.isCreationVisible &&
+                        CanonicalGoalSlot.tryByEventTypeKey(
+                              type.stableKey,
+                            ) ==
+                            null,
+                  ))
                     const _TypeSectionTitle(
                       title: 'Legacy / historical Event Types',
                     ),
                   for (final type in state.eventTypes.where(
-                    (type) => !type.isCreationVisible,
+                    (type) =>
+                        !type.isCreationVisible &&
+                        CanonicalGoalSlot.tryByEventTypeKey(
+                              type.stableKey,
+                            ) ==
+                            null,
                   ))
-                    _buildTypeCard(context, controller, state, type),
+                    _buildTypeCard(
+                      context,
+                      controller,
+                      state,
+                      type,
+                      bindings,
+                      overrides,
+                    ),
                 ],
               ),
       ),
@@ -131,6 +176,8 @@ final class _EventTypesScreenState extends ConsumerState<EventTypesScreen> {
     EventTypeController controller,
     EventTypeState state,
     EventType type,
+    Map<int, LiveGoalEventTypeBinding>? bindings,
+    Map<String, GoalEventTypeNameOverride>? overrides,
   ) {
     final accent = PlannerEventColorResolver.accentColorForType(
       type,
@@ -143,15 +190,16 @@ final class _EventTypesScreenState extends ConsumerState<EventTypesScreen> {
           backgroundColor: accent.withValues(alpha: 0.2),
           child: Icon(_icon(type.icon), color: accent),
         ),
-        title: Text(type.label),
+        title: Text(_liveTitle(type, bindings, overrides)),
         subtitle: Text(_subtitle(type)),
         trailing: type.isLockedWliType
             ? IconButton(
-                tooltip: 'Edit WLI display names',
-                onPressed: () => context.push(
-                  RoutePaths.indicatorEdit(
-                    type.exactIndicatorKey!,
-                    PlannerDate.fromDateTime(DateTime.now()),
+                tooltip: 'Edit Event Type',
+                onPressed: () => unawaited(
+                  showLiveGoalPresentationEditor(
+                    context,
+                    ref,
+                    eventTypeStableKey: type.stableKey,
                   ),
                 ),
                 icon: const Icon(Icons.edit_outlined),
@@ -177,6 +225,32 @@ final class _EventTypesScreenState extends ConsumerState<EventTypesScreen> {
             : () => context.push('${RoutePaths.eventTypes}/${type.id}/edit'),
       ),
     );
+  }
+
+  /// Settings display label for one row: the live Goal's effective name
+  /// (MANUAL override, else Goal title) when this canonical row currently
+  /// has a valid live occupant; otherwise the pure prospective alias law
+  /// (Study & Planning for the exact untouched Study row) over the raw
+  /// label. Cached provider state is DISPLAY ONLY — every save freshly
+  /// re-resolves and re-validates live occupancy.
+  static String _liveTitle(
+    EventType type,
+    Map<int, LiveGoalEventTypeBinding>? bindings,
+    Map<String, GoalEventTypeNameOverride>? overrides,
+  ) {
+    final slot = CanonicalGoalSlot.tryByEventTypeKey(type.stableKey);
+    if (slot == null || bindings == null) {
+      return EventTypePresentation.prospectiveLabel(type);
+    }
+    final binding = bindings[slot.slotIndex];
+    if (binding == null) {
+      return EventTypePresentation.prospectiveLabel(type);
+    }
+    final stored = overrides?[binding.goalId];
+    if (stored != null && stored.eventTypeStableKey == type.stableKey) {
+      return stored.name;
+    }
+    return binding.title.trim();
   }
 
   static IconData _icon(EventTypeIcon icon) {

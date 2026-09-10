@@ -2,17 +2,22 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:drift/drift.dart';
+import 'package:rmplanner/core/colors/vs11_color_system.dart';
 import 'package:rmplanner/core/database/app_database.dart';
 import 'package:rmplanner/core/ids/identifier_source.dart';
 import 'package:rmplanner/core/time/app_clock.dart';
 import 'package:rmplanner/core/time/week_period.dart';
 import 'package:rmplanner/features/goals/application/goal_repository.dart';
 import 'package:rmplanner/features/goals/data/live_goal_event_type_bindings.dart';
+import 'package:rmplanner/features/goals/domain/assigned_event_type_draft.dart';
 import 'package:rmplanner/features/goals/domain/canonical_goal_slots.dart';
 import 'package:rmplanner/features/goals/domain/goal.dart';
 import 'package:rmplanner/features/goals/domain/goal_event_type_policy.dart';
 import 'package:rmplanner/features/indicators/domain/life_indicator.dart';
+import 'package:rmplanner/features/planner/data/planner_presentation_document_store.dart';
 import 'package:rmplanner/features/planner/domain/calendar_event.dart';
+import 'package:rmplanner/features/planner/domain/event_color_preferences.dart';
+import 'package:rmplanner/features/planner/domain/event_type.dart';
 import 'package:rmplanner/features/planner/domain/outcome_reporting.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 import 'package:rmplanner/features/planner/domain/planner_task.dart';
@@ -653,6 +658,7 @@ final class DriftGoalRepository implements GoalRepository {
     String? iconId,
     String? operationId,
     int? expectedSlotIndex,
+    AssignedEventTypeDraft? assignedEventTypeDraft,
     int startDay = DateTime.monday,
   }) async {
     final normalizedTitle = title.trim();
@@ -720,6 +726,14 @@ final class DriftGoalRepository implements GoalRepository {
           'targets': _targetsPayload(targets),
         },
       );
+      if (assignedEventTypeDraft != null) {
+        await _mergeAssignedEventTypePresentation(
+          profileId: profileId,
+          goalId: goalId,
+          slotIndex: slot,
+          draft: assignedEventTypeDraft,
+        );
+      }
       return goal;
     });
   }
@@ -733,6 +747,7 @@ final class DriftGoalRepository implements GoalRepository {
     String? iconId,
     String? operationId,
     PlannerDate? today,
+    AssignedEventTypeDraft? assignedEventTypeDraft,
     int startDay = DateTime.monday,
   }) async {
     final normalizedTitle = title.trim();
@@ -805,8 +820,276 @@ final class DriftGoalRepository implements GoalRepository {
           'targets': _targetsPayload(targets),
         },
       );
+      if (assignedEventTypeDraft != null) {
+        await _mergeAssignedEventTypePresentation(
+          profileId: profileId,
+          goalId: goalId,
+          slotIndex: before.activeSlotIndex!,
+          draft: assignedEventTypeDraft,
+          goalUpdatedAtBeforeSave: before.updatedAtUtc,
+        );
+      }
       return _mapGoal((await _goalRow(profileId, goalId))!);
     });
+  }
+
+  /// Merges the Assigned Event Type presentation draft (explicit name
+  /// override and/or explicitly changed slot color) into the profile's
+  /// Planner Preferences document INSIDE the enclosing Goal save
+  /// transaction, so Goal rows, targets, activity, outbox, and the
+  /// presentation merge commit or roll back together.
+  ///
+  /// Validation (any failure throws and rolls back the whole save):
+  /// - the draft's expected slot matches the Goal's actual canonical slot;
+  /// - the exact canonical Event Type row exists for this profile with the
+  ///   expected ID and stable key, is system, non-archived, and carries the
+  ///   slot's exact one-indicator mapping;
+  /// - the Goal is the raw-active occupant of that slot with the exact role;
+  /// - Edit: the caller's observed [goalUpdatedAtBeforeSave] and the
+  ///   original edited metadata/color still match current values, otherwise
+  ///   the save is rejected instead of overwriting another editor's change;
+  /// - a changed color applies the existing opaque-RGB accent-uniqueness law
+  ///   against ALL active raw Event Types, including hidden canonical rows.
+  ///
+  /// A draft with no explicit change performs no write and no validation.
+  /// An omitted patch never clears: unedited fields are preserved, including
+  /// an override written concurrently while the form was open.
+  Future<void> _mergeAssignedEventTypePresentation({
+    required String profileId,
+    required String goalId,
+    required int slotIndex,
+    required AssignedEventTypeDraft draft,
+    DateTime? goalUpdatedAtBeforeSave,
+  }) async {
+    if (!draft.hasChanges) {
+      return;
+    }
+    if (draft.expectedSlotIndex != slotIndex) {
+      throw const GoalValidationException(
+        'This Goal or Event Type changed. Review your changes and try again.',
+      );
+    }
+    final canonicalSlot = CanonicalGoalSlot.bySlot(slotIndex);
+    if (draft.expectedStableKey != canonicalSlot.eventTypeStableKey ||
+        draft.expectedEventTypeId != canonicalSlot.eventTypeId) {
+      throw const GoalValidationException(
+        'This Goal or Event Type changed. Review your changes and try again.',
+      );
+    }
+
+    // Exact canonical Event Type row validation: one row, exact ID, exact
+    // profile, exact key, system, non-archived, exact one-indicator mapping.
+    final typeRows =
+        await (database.select(database.activityTypes)..where(
+              (table) =>
+                  table.id.equals(draft.expectedEventTypeId) &
+                  table.profileId.equals(profileId),
+            ))
+            .get();
+    if (typeRows.length != 1) {
+      throw const GoalValidationException(
+        'This Goal or Event Type changed. Review your changes and try again.',
+      );
+    }
+    final typeRow = typeRows.single;
+    if (typeRow.stableKey != draft.expectedStableKey ||
+        !typeRow.isSystem ||
+        typeRow.isArchived) {
+      throw const GoalValidationException(
+        'This Goal or Event Type changed. Review your changes and try again.',
+      );
+    }
+    final mappingRows =
+        await (database.select(database.activityTypeIndicatorMappings)..where(
+              (table) =>
+                  table.activityTypeId.equals(draft.expectedEventTypeId) &
+                  table.profileId.equals(profileId),
+            ))
+            .get();
+    if (mappingRows.length != 1 ||
+        mappingRows.single.indicatorKey != canonicalSlot.indicatorKey) {
+      throw const GoalValidationException(
+        'This Goal or Event Type changed. Review your changes and try again.',
+      );
+    }
+
+    // Live occupancy: the Goal must be the raw-active occupant of this slot
+    // with the exact role. Rejects archive/replacement races at Save.
+    final goalRows =
+        await (database.select(database.goals)..where(
+              (table) =>
+                  table.id.equals(goalId) &
+                  table.profileId.equals(profileId),
+            ))
+            .get();
+    if (goalRows.length != 1 ||
+        goalRows.single.status != GoalStatus.active.name ||
+        goalRows.single.activeSlotIndex != slotIndex ||
+        goalRows.single.role != canonicalSlot.role.storageName) {
+      throw const GoalValidationException(
+        'This Goal or Event Type changed. Review your changes and try again.',
+      );
+    }
+
+    // Edit concurrency guard: reject when the Goal row changed since the
+    // draft was loaded.
+    if (goalUpdatedAtBeforeSave != null &&
+        draft.expectedGoalUpdatedAtUtc != null &&
+        goalUpdatedAtBeforeSave != draft.expectedGoalUpdatedAtUtc) {
+      throw const GoalValidationException(
+        'This Goal or Event Type changed. Review your changes and try again.',
+      );
+    }
+
+    const rejected = GoalValidationException(
+      'This Goal or Event Type changed. Review your changes and try again.',
+    );
+    final store = PlannerPresentationDocumentStore(
+      database: database,
+      clock: clock,
+    );
+    await store.update(profileId, (current) async {
+      final stored = current.document;
+
+      // Metadata concurrency guard: when the user explicitly edited the
+      // name, the stored entry must still equal the caller's observed
+      // original. A concurrent override write is never silently overwritten.
+      if (draft.nameDirty) {
+        final storedEntry = stored.goalEventTypeNames[goalId];
+        final matchesOriginal =
+            draft.originalNameMode == AssignedEventTypeNameMode.auto
+                ? storedEntry == null
+                : storedEntry != null &&
+                    storedEntry.name == draft.originalNameOverride &&
+                    storedEntry.eventTypeStableKey ==
+                        canonicalSlot.eventTypeStableKey;
+        if (!matchesOriginal) {
+          throw rejected;
+        }
+      }
+
+      // Color concurrency guard and uniqueness law. Comparison uses the
+      // EFFECTIVE pair (saved preference, else locked canonical default), so
+      // an untouched default-color slot never fails against its own default.
+      final lockedDefault =
+          PlannerEventColorDefaults
+              .pmgStableKeyDefaults[canonicalSlot.eventTypeStableKey];
+      if (draft.colorDirty && draft.changedColor != null) {
+        final storedColor = stored.events[canonicalSlot.eventTypeStableKey];
+        final effectiveNow =
+            storedColor ??
+            lockedDefault ??
+            PlannerEventColorDefaults.other;
+        if (effectiveNow != draft.originalColor) {
+          throw rejected;
+        }
+        await _assertChangedSlotColorAssignable(
+          profileId: profileId,
+          slotStableKey: canonicalSlot.eventTypeStableKey,
+          proposed: draft.changedColor!,
+        );
+      }
+
+      // Narrow mutation: only explicitly dirty fields change; everything
+      // else (groups, other events, other goals' overrides, concurrent
+      // entries for THIS goal when not name-dirty) is carried forward.
+      var nextNames = stored.goalEventTypeNames;
+      var nextEvents = stored.events;
+      var mutated = false;
+      if (draft.nameDirty) {
+        final trimmedName = draft.currentNameOverride?.trim() ?? '';
+        if (draft.currentNameMode == AssignedEventTypeNameMode.manual &&
+            trimmedName.isNotEmpty) {
+          final entry = GoalEventTypeNameOverride(
+            eventTypeStableKey: canonicalSlot.eventTypeStableKey,
+            name: trimmedName,
+          );
+          if (nextNames[goalId] != entry) {
+            nextNames = <String, GoalEventTypeNameOverride>{
+              ...nextNames,
+              goalId: entry,
+            };
+            mutated = true;
+          }
+        } else if (nextNames.containsKey(goalId)) {
+          nextNames = <String, GoalEventTypeNameOverride>{...nextNames}
+            ..remove(goalId);
+          mutated = true;
+        }
+      }
+      if (draft.colorDirty && draft.changedColor != null) {
+        if (nextEvents[canonicalSlot.eventTypeStableKey] !=
+            draft.changedColor) {
+          nextEvents = <String, EventColorPreference>{
+            ...nextEvents,
+            canonicalSlot.eventTypeStableKey: draft.changedColor!,
+          };
+          mutated = true;
+        }
+      }
+      if (!mutated) {
+        // Nothing effective changed: zero writes.
+        return null;
+      }
+      return PlannerColorPreferencesDocument(
+        events: nextEvents,
+        groups: stored.groups,
+        goalEventTypeNames: nextNames,
+      );
+    });
+  }
+
+  /// The existing opaque-RGB accent-uniqueness law applied to one explicit
+  /// slot color change: no OTHER active raw Event Type may already use the
+  /// proposed accent (hidden canonical rows included); retaining the slot's
+  /// own current color remains legal. Peer accents compare from raw rows and
+  /// the saved preference document — never by re-entering a repository read
+  /// that could re-enter bootstrap.
+  Future<void> _assertChangedSlotColorAssignable({
+    required String profileId,
+    required String slotStableKey,
+    required EventColorPreference proposed,
+  }) async {
+    final peerRows =
+        await (database.select(database.activityTypes)..where(
+              (table) =>
+                  table.profileId.equals(profileId) &
+                  table.isArchived.equals(false),
+            ))
+            .get();
+    final preferences = await PlannerPresentationDocumentStore(
+      database: database,
+      clock: clock,
+    ).read(profileId);
+    for (final row in peerRows) {
+      if (row.stableKey == slotStableKey) {
+        continue;
+      }
+      final effectiveAccent =
+          preferences.events[row.stableKey]?.accentArgb ??
+          PlannerEventColorDefaults.forEventType(
+            EventType(
+              id: row.id,
+              stableKey: row.stableKey,
+              label: row.label,
+              icon: EventTypeIcon.values.byName(row.iconKey),
+              colorValue: row.colorValue,
+              isSystem: row.isSystem,
+              isArchived: row.isArchived,
+              reportRequiredDefault: row.reportRequiredDefault,
+              defaultDurationMinutes: row.defaultDurationMinutes,
+              defaultReminderMinutes: row.defaultReminderMinutes,
+              position: row.position,
+              mappingVersion: row.mappingVersion,
+              indicatorKeys: const <String>{},
+            ),
+          ).accentArgb;
+      if (Vs11ColorSystem.sameOpaqueRgb(effectiveAccent, proposed.accentArgb)) {
+        throw const GoalValidationException(
+          'That color is already used by another active Event Type.',
+        );
+      }
+    }
   }
 
   @override

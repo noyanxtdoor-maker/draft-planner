@@ -5,8 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rmplanner/app/theme/app_theme.dart';
 import 'package:rmplanner/app/theme/internal_screen.dart';
 import 'package:rmplanner/features/goals/application/goal_providers.dart';
+import 'package:rmplanner/features/goals/domain/assigned_event_type_draft.dart';
 import 'package:rmplanner/features/goals/domain/canonical_goal_slots.dart';
 import 'package:rmplanner/features/goals/domain/goal.dart';
+import 'package:rmplanner/features/goals/presentation/assigned_event_type_draft_screen.dart';
 import 'package:rmplanner/features/goals/presentation/goal_archive_screen.dart';
 import 'package:rmplanner/features/goals/presentation/goal_icon_picker_screen.dart';
 import 'package:rmplanner/features/goals/presentation/widgets/goal_icon.dart';
@@ -42,6 +44,16 @@ final class _GoalEditScreenState extends ConsumerState<GoalEditScreen> {
   bool _loading = true;
   bool _saving = false;
   bool _showIconPicker = false;
+
+  /// Parent-owned Assigned Event Type draft. Built once the initial Goal
+  /// load completes (override metadata + effective color); user edits mark
+  /// it dirty; Save commits it atomically with the Goal row.
+  AssignedEventTypeDraft? _assignedDraft;
+
+  /// Guards late initial loads from overwriting user edits: the stored
+  /// override/original color are only bound while the user has not touched
+  /// the draft.
+  bool _assignedDraftTouched = false;
 
   @override
   void initState() {
@@ -96,6 +108,7 @@ final class _GoalEditScreenState extends ConsumerState<GoalEditScreen> {
         _iconId = goal.iconId;
         _loading = false;
       });
+      unawaited(_loadAssignedDraft(goal));
 
       // The Goal identity and manually selected icon are the first-order edit
       // surface. Render them as soon as the Goal row is available instead of
@@ -135,6 +148,74 @@ final class _GoalEditScreenState extends ConsumerState<GoalEditScreen> {
           _error = error.toString();
         });
       }
+    }
+  }
+
+  /// Loads the stored override metadata and effective slot color for the
+  /// Goal's canonical slot, then binds the initial draft. A late load NEVER
+  /// overwrites user edits (dirty guard): if the user already edited the
+  /// draft, only the expectedGoalUpdatedAtUtc identity is refreshed.
+  Future<void> _loadAssignedDraft(Goal goal) async {
+    try {
+      final profileId = ref.read(goalProfileIdProvider);
+      final stableKey = goal.assignedEventTypeStableKey ??
+          CanonicalGoalSlot.tryByIndicatorKey(goal.indicatorKey)
+              ?.eventTypeStableKey;
+      if (stableKey == null) {
+        return;
+      }
+      final overrides = await ref.read(
+        goalEventTypeNameOverridesProvider(profileId).future,
+      );
+      final eventTypeState = ref.read(eventTypeControllerProvider);
+      EventType? type;
+      for (final candidate in eventTypeState.eventTypes) {
+        if (candidate.stableKey == stableKey) {
+          type = candidate;
+          break;
+        }
+      }
+      final slotIndex = goal.activeSlotIndex;
+      if (!mounted || type == null || slotIndex == null) {
+        return;
+      }
+      final stored = overrides[goal.id];
+      final storedMatchesKey =
+          stored != null && stored.eventTypeStableKey == stableKey;
+      final originalColor = eventTypeState.eventColors[stableKey] ??
+          PlannerEventColorDefaults.forEventType(type);
+      final resolvedType = type;
+      setState(() {
+        final existing = _assignedDraft;
+        if (existing == null || !_assignedDraftTouched) {
+          _assignedDraft = AssignedEventTypeDraft(
+            expectedSlotIndex: slotIndex,
+            expectedEventTypeId: resolvedType.id,
+            expectedStableKey: stableKey,
+            originalNameMode: storedMatchesKey
+                ? AssignedEventTypeNameMode.manual
+                : AssignedEventTypeNameMode.auto,
+            originalNameOverride: storedMatchesKey ? stored.name : null,
+            currentNameMode: storedMatchesKey
+                ? AssignedEventTypeNameMode.manual
+                : AssignedEventTypeNameMode.auto,
+            currentNameOverride: storedMatchesKey ? stored.name : null,
+            nameDirty: false,
+            originalColor: originalColor,
+            changedColor: null,
+            colorDirty: false,
+            expectedGoalUpdatedAtUtc: goal.updatedAtUtc,
+          );
+        } else if (existing.expectedGoalUpdatedAtUtc == null) {
+          _assignedDraft = existing.copyWith(
+            expectedGoalUpdatedAtUtc: goal.updatedAtUtc,
+          );
+        }
+      });
+    } on Object {
+      // Draft stays unresolved: the section shows the unavailable state and
+      // Save keeps working without a presentation merge (a plain Goal edit
+      // is never blocked on a metadata read failure).
     }
   }
 
@@ -290,6 +371,7 @@ final class _GoalEditScreenState extends ConsumerState<GoalEditScreen> {
           goal.indicatorKey,
         )?.eventTypeStableKey;
     final eventTypeState = ref.watch(eventTypeControllerProvider);
+    final draft = _assignedDraft;
     EventType? assignedType;
     for (final candidate in eventTypeState.eventTypes) {
       if (candidate.stableKey == stableKey) {
@@ -298,16 +380,16 @@ final class _GoalEditScreenState extends ConsumerState<GoalEditScreen> {
       }
     }
     final type = assignedType;
-    final preference = type == null
-        ? null
-        : eventTypeState.eventColors[type.stableKey] ??
-              PlannerEventColorDefaults.forEventType(type);
-    // Contract G (R02): the preview label follows the unsaved Goal title
-    // draft (presentation alias); with no draft edit it shows the stored
-    // Goal title. The canonical Event Type row is never renamed here.
-    final aliasLabel = _titleController.text.trim().isEmpty
-        ? _goal?.title ?? type?.label ?? 'Not assigned'
-        : _titleController.text.trim();
+    if (stableKey == null || type == null || type.isArchived || draft == null) {
+      return const Card(
+        key: Key('goal-assigned-event-type'),
+        child: Padding(
+          padding: EdgeInsets.all(12),
+          child: Text('Event Type unavailable', style: AppTypography.secondary),
+        ),
+      );
+    }
+    final colorPair = draft.changedColor ?? draft.originalColor;
     return Card(
       key: const Key('goal-assigned-event-type'),
       child: Padding(
@@ -324,16 +406,21 @@ final class _GoalEditScreenState extends ConsumerState<GoalEditScreen> {
               children: <Widget>[
                 CircleAvatar(
                   radius: 12,
-                  backgroundColor: Color(
-                    preference?.accentArgb ?? AppTheme.rose.toARGB32(),
-                  ),
+                  backgroundColor: Color(colorPair.accentArgb),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    aliasLabel,
+                    draft.effectiveName(goalTitle: _titleController.text),
                     style: AppTypography.cardTitle,
                   ),
+                ),
+                TextButton(
+                  key: const Key('goal-edit-event-type'),
+                  onPressed: _saving
+                      ? null
+                      : () => unawaited(_openDraftEditor(draft)),
+                  child: const Text('Edit Event Type'),
                 ),
               ],
             ),
@@ -347,6 +434,25 @@ final class _GoalEditScreenState extends ConsumerState<GoalEditScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _openDraftEditor(AssignedEventTypeDraft draft) async {
+    final result = await Navigator.of(context)
+        .push<AssignedEventTypeDraftResult>(
+      MaterialPageRoute<AssignedEventTypeDraftResult>(
+        builder: (_) => AssignedEventTypeDraftScreen(
+          initialDraft: draft,
+          goalTitle: _titleController.text.trim(),
+        ),
+      ),
+    );
+    if (!mounted || result == null) {
+      return;
+    }
+    setState(() {
+      _assignedDraft = result.applyTo(_assignedDraft!);
+      _assignedDraftTouched = true;
+    });
   }
 
   Future<void> _openGoalHistory(String goalId) async {
@@ -387,6 +493,7 @@ final class _GoalEditScreenState extends ConsumerState<GoalEditScreen> {
             ),
             iconId: _iconId,
             startDay: ref.read(startOfWeekProvider),
+            assignedEventTypeDraft: _assignedDraftTouched ? _assignedDraft : null,
           );
       ref.invalidate(activeGoalsProvider);
       ref.invalidate(goalCapacityProvider);
@@ -448,11 +555,16 @@ final class _GoalEditScreenState extends ConsumerState<GoalEditScreen> {
     if (goal == null) {
       return false;
     }
+    final draft = _assignedDraft;
+    final draftChanged = _assignedDraftTouched &&
+        draft != null &&
+        (draft.nameDirty || draft.colorDirty);
     return goal.title != _titleController.text.trim() ||
         _daily != _progress?.dailyTarget.value?.scaledValue ||
         _weekly != _progress?.weeklyTarget.value?.scaledValue ||
         _monthly != _progress?.monthlyTarget.value?.scaledValue ||
-        _iconId != goal.iconId;
+        _iconId != goal.iconId ||
+        draftChanged;
   }
 
   bool get _draftIsValid =>

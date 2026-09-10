@@ -178,6 +178,28 @@ final class _MemoryEventTypeRepository implements EventTypeRepository {
     return const <String, int>{};
   }
 
+  @override
+  Stream<void> watchPresentationDocument(String profileId) =>
+      const Stream<void>.empty();
+
+  @override
+  Future<Map<String, GoalEventTypeNameOverride>>
+  readGoalEventTypeNameOverrides(String profileId) async =>
+      const <String, GoalEventTypeNameOverride>{};
+
+  @override
+  Future<LiveGoalPresentationResult> saveLiveGoalPresentation({
+    required String profileId,
+    required int expectedSlotIndex,
+    required String expectedGoalId,
+    required String expectedEventTypeId,
+    required String expectedStableKey,
+    required LiveGoalPresentationOriginals originalValues,
+    required LiveGoalPresentationPatch patch,
+  }) {
+    throw UnimplementedError();
+  }
+
   static EventType _withLabel(EventType type, String label) => EventType(
     id: type.id,
     stableKey: type.stableKey,
@@ -265,7 +287,6 @@ _openFixedForm(WidgetTester tester) async {
         builder: (_) => EventTypeFormScreen.edit(
           eventTypeId: type.id,
           initialEventType: type,
-          fixedAssignmentLabel: 'Exercise Goal',
         ),
       ),
     ),

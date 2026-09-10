@@ -1,6 +1,7 @@
 import 'package:rmplanner/features/goals/domain/canonical_goal_slots.dart';
 import 'package:rmplanner/features/goals/domain/goal_event_type_policy.dart';
 import 'package:rmplanner/features/planner/domain/event_type.dart';
+import 'package:rmplanner/features/planner/domain/event_type_presentation.dart';
 
 /// One creation-time choice (contract D.6): the raw [EventType] preserved
 /// untouched plus the optional live Goal binding eligible right now.
@@ -18,8 +19,12 @@ final class EventTypeCreationChoice {
   /// when the slot is empty/ineligible or the type is not canonical.
   final LiveGoalEventTypeBinding? binding;
 
-  /// Goal title when live-bound, otherwise the raw type label verbatim.
-  String get displayLabel => binding?.title ?? type.label;
+  /// Live binding's effective display name (MANUAL override, otherwise the
+  /// trimmed Goal title) when live-bound. Otherwise the raw type label —
+  /// with the pure prospective alias for the exact untouched Study row
+  /// ("Study or Plan" presents as "Study & Planning"). Custom and renamed
+  /// rows keep their raw labels verbatim everywhere.
+  String get displayLabel => binding?.displayLabel ?? EventTypePresentation.prospectiveLabel(type);
 
   /// Canonical slot for this type, or null for non-canonical types.
   CanonicalGoalSlot? get canonicalSlot =>

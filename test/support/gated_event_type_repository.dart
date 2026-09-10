@@ -240,4 +240,32 @@ final class GatedEventTypeRepository implements EventTypeRepository {
   Future<Map<String, int>> restoreContactGroupColorDefaults({
     required String profileId,
   }) => delegate.restoreContactGroupColorDefaults(profileId: profileId);
+
+  @override
+  Stream<void> watchPresentationDocument(String profileId) =>
+      delegate.watchPresentationDocument(profileId);
+
+  @override
+  Future<Map<String, GoalEventTypeNameOverride>>
+  readGoalEventTypeNameOverrides(String profileId) =>
+      delegate.readGoalEventTypeNameOverrides(profileId);
+
+  @override
+  Future<LiveGoalPresentationResult> saveLiveGoalPresentation({
+    required String profileId,
+    required int expectedSlotIndex,
+    required String expectedGoalId,
+    required String expectedEventTypeId,
+    required String expectedStableKey,
+    required LiveGoalPresentationOriginals originalValues,
+    required LiveGoalPresentationPatch patch,
+  }) => delegate.saveLiveGoalPresentation(
+    profileId: profileId,
+    expectedSlotIndex: expectedSlotIndex,
+    expectedGoalId: expectedGoalId,
+    expectedEventTypeId: expectedEventTypeId,
+    expectedStableKey: expectedStableKey,
+    originalValues: originalValues,
+    patch: patch,
+  );
 }

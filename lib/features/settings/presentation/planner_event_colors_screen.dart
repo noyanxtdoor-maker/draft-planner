@@ -6,10 +6,14 @@ import 'package:rmplanner/app/theme/app_theme.dart';
 import 'package:rmplanner/app/theme/internal_screen.dart';
 import 'package:rmplanner/features/contacts/application/contact_providers.dart';
 import 'package:rmplanner/features/contacts/domain/contact.dart' as contacts;
+import 'package:rmplanner/features/goals/application/goal_providers.dart';
+import 'package:rmplanner/features/goals/domain/canonical_goal_slots.dart';
+import 'package:rmplanner/features/goals/domain/goal_event_type_policy.dart';
 import 'package:rmplanner/features/planner/application/event_type_providers.dart';
 import 'package:rmplanner/features/planner/domain/event_color_math.dart';
 import 'package:rmplanner/features/planner/domain/event_color_preferences.dart';
 import 'package:rmplanner/features/planner/domain/event_type.dart';
+import 'package:rmplanner/features/planner/domain/event_type_presentation.dart';
 import 'package:rmplanner/features/planner/presentation/widgets/event_color_picker_components.dart';
 import 'package:rmplanner/features/planner/presentation/widgets/planner_event_block_layout_policy.dart';
 import 'package:rmplanner/features/planner/presentation/widgets/planner_event_color_preview.dart';
@@ -39,6 +43,19 @@ final class _PlannerEventColorsScreenState
     final state = ref.watch(eventTypeControllerProvider);
     final controller = ref.read(eventTypeControllerProvider.notifier);
     final eventTypes = _orderedEventTypes(state.eventTypes);
+    // Live presentation labels (display-only cache; saves re-validate).
+    final profileId = ref.watch(goalProfileIdProvider);
+    final bindings = ref
+        .watch(liveGoalEventTypeBindingsProvider(profileId))
+        .value;
+    final overrides = ref
+        .watch(goalEventTypeNameOverridesProvider(profileId))
+        .value;
+    String labelFor(EventType type) => _displayLabelFor(
+        type,
+        bindings,
+        overrides,
+      );
     return Scaffold(
       appBar: InternalAppBar(title: const Text('Colors')),
       body: SafeArea(
@@ -69,6 +86,7 @@ final class _PlannerEventColorsScreenState
                     _EventColorRow(
                       key: Key('event-color-row-${type.stableKey}'),
                       type: type,
+                      displayLabel: labelFor(type),
                       preference:
                           _liveEventColors[type.stableKey] ??
                           _preferenceFor(state, type),
@@ -77,21 +95,28 @@ final class _PlannerEventColorsScreenState
                         controller,
                         type,
                         EventColorRole.accent,
+                        labelFor(type),
                       ),
                       onSurface: () => _editEventColor(
                         context,
                         controller,
                         type,
                         EventColorRole.surface,
+                        labelFor(type),
                       ),
-                      onRecommendedAccent: () =>
-                          _editRecommendedAccent(context, controller, type),
+                      onRecommendedAccent: () => _editRecommendedAccent(
+                        context,
+                        controller,
+                        type,
+                        labelFor(type),
+                      ),
                     ),
                     const SizedBox(height: 10),
                   ],
                   _EventColorRow(
                     key: const Key('event-color-row-planner_task'),
                     type: _taskColorType,
+                    displayLabel: _taskColorType.label,
                     preference:
                         _liveEventColors[PlannerEventColorResolver
                             .taskStableKey] ??
@@ -103,17 +128,20 @@ final class _PlannerEventColorsScreenState
                       controller,
                       _taskColorType,
                       EventColorRole.accent,
+                      _taskColorType.label,
                     ),
                     onSurface: () => _editEventColor(
                       context,
                       controller,
                       _taskColorType,
                       EventColorRole.surface,
+                      _taskColorType.label,
                     ),
                     onRecommendedAccent: () => _editRecommendedAccent(
                       context,
                       controller,
                       _taskColorType,
+                      _taskColorType.label,
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -193,17 +221,42 @@ final class _PlannerEventColorsScreenState
     return PlannerEventColorResolver.preferenceForType(type, state.eventColors);
   }
 
+  /// Settings display label for one row: the live Goal's effective name
+  /// (MANUAL override, else Goal title) when this canonical row currently
+  /// has a valid live occupant; otherwise the pure prospective alias law.
+  /// Display only — every save freshly re-validates.
+  static String _displayLabelFor(
+    EventType type,
+    Map<int, LiveGoalEventTypeBinding>? bindings,
+    Map<String, GoalEventTypeNameOverride>? overrides,
+  ) {
+    final slot = CanonicalGoalSlot.tryByEventTypeKey(type.stableKey);
+    if (slot == null || bindings == null) {
+      return EventTypePresentation.prospectiveLabel(type);
+    }
+    final binding = bindings[slot.slotIndex];
+    if (binding == null) {
+      return EventTypePresentation.prospectiveLabel(type);
+    }
+    final stored = overrides?[binding.goalId];
+    if (stored != null && stored.eventTypeStableKey == type.stableKey) {
+      return stored.name;
+    }
+    return binding.title.trim();
+  }
+
   Future<void> _editEventColor(
     BuildContext context,
     EventTypeController controller,
     EventType type,
     EventColorRole role,
+    String displayLabel,
   ) async {
     final state = ref.read(eventTypeControllerProvider);
     final current = _preferenceFor(state, type);
     final chosen = await showPlannerEventColorPicker(
       context: context,
-      eventTypeLabel: type.label,
+      eventTypeLabel: displayLabel,
       role: role,
       initialColor: Color(
         role == EventColorRole.accent
@@ -270,11 +323,13 @@ final class _PlannerEventColorsScreenState
     BuildContext context,
     EventTypeController controller,
     EventType type,
+    String displayLabel,
   ) async {
     final state = ref.read(eventTypeControllerProvider);
     final current = _preferenceFor(state, type);
     final chosen = await showRecommendedEventColorsDialog(
       context,
+      title: displayLabel,
       initialColor: Color(current.accentArgb),
       peerAccentColors: <int>[
         for (final peer in state.eventTypes)
@@ -410,6 +465,7 @@ final class _ColorsSectionHeader extends StatelessWidget {
 final class _EventColorRow extends StatelessWidget {
   const _EventColorRow({
     required this.type,
+    required this.displayLabel,
     required this.preference,
     required this.onAccent,
     required this.onSurface,
@@ -418,6 +474,10 @@ final class _EventColorRow extends StatelessWidget {
   });
 
   final EventType type;
+
+  /// Presentation-only label (live Goal alias / Study & Planning). The raw
+  /// type keeps its identity: colors stay keyed by stable key.
+  final String displayLabel;
   final EventColorPreference preference;
   final VoidCallback onAccent;
   final VoidCallback onSurface;
@@ -427,6 +487,7 @@ final class _EventColorRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final controls = _EventColorControls(
       type: type,
+      displayLabel: displayLabel,
       preference: preference,
       onAccent: onAccent,
       onSurface: onSurface,
@@ -434,7 +495,7 @@ final class _EventColorRow extends StatelessWidget {
     );
     return Semantics(
       container: true,
-      label: '${type.label} Event colors',
+      label: '$displayLabel Event colors',
       child: LayoutBuilder(
         builder: (context, constraints) {
           final previewWidth =
@@ -453,6 +514,7 @@ final class _EventColorRow extends StatelessWidget {
                   height: 40,
                   child: PlannerEventColorPreview(
                     eventType: type,
+                    displayLabel: displayLabel,
                     preference: preference,
                   ),
                 ),
@@ -470,6 +532,7 @@ final class _EventColorRow extends StatelessWidget {
 final class _EventColorControls extends StatelessWidget {
   const _EventColorControls({
     required this.type,
+    required this.displayLabel,
     required this.preference,
     required this.onAccent,
     required this.onSurface,
@@ -477,6 +540,7 @@ final class _EventColorControls extends StatelessWidget {
   });
 
   final EventType type;
+  final String displayLabel;
   final EventColorPreference preference;
   final VoidCallback onAccent;
   final VoidCallback onSurface;
@@ -494,14 +558,14 @@ final class _EventColorControls extends StatelessWidget {
           _ColorControl(
             key: Key('event-color-accent-${type.stableKey}'),
             roleLabel: 'accent',
-            typeLabel: type.label,
+            typeLabel: displayLabel,
             color: Color(preference.accentArgb),
             onPressed: onAccent,
           ),
           _ColorControl(
             key: Key('event-color-surface-${type.stableKey}'),
             roleLabel: 'Event background',
-            typeLabel: type.label,
+            typeLabel: displayLabel,
             color: Color(preference.surfaceArgb),
             onPressed: onSurface,
           ),

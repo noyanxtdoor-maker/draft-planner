@@ -10,11 +10,17 @@ final class PlannerEventColorPreview extends StatelessWidget {
   const PlannerEventColorPreview({
     required this.eventType,
     required this.preference,
+    this.displayLabel,
     super.key,
   });
 
   final EventType eventType;
   final EventColorPreference preference;
+
+  /// Presentation label for the settings surface (live Goal alias or Study
+  /// & Planning). Raw [EventType.label] is used when omitted; the widget is
+  /// presentation-only and never renames the raw row.
+  final String? displayLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -28,8 +34,9 @@ final class PlannerEventColorPreview extends StatelessWidget {
       Brightness.dark,
     );
     final timeText = formatPlannerEventRange(600, 660, false);
+    final label = displayLabel ?? eventType.label;
     return Semantics(
-      label: '${eventType.label} Event preview',
+      label: '$label Event preview',
       child: SizedBox(
         height: 40,
         child: Material(
@@ -56,7 +63,7 @@ final class PlannerEventColorPreview extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
                         Text(
-                          eventType.label,
+                          label,
                           style: TextStyle(
                             color: textColor,
                             fontSize: 13,

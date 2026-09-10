@@ -6,8 +6,11 @@ import 'package:rmplanner/features/goals/domain/canonical_goal_slots.dart';
 import 'package:rmplanner/features/goals/domain/goal_event_type_policy.dart';
 import 'package:rmplanner/features/planner/application/calendar_event_repository.dart';
 import 'package:rmplanner/features/planner/data/calendar_event_time_zones.dart';
+import 'package:rmplanner/features/planner/data/planner_presentation_document_store.dart';
 import 'package:rmplanner/features/planner/domain/calendar_event.dart';
+import 'package:rmplanner/features/planner/domain/event_color_preferences.dart';
 import 'package:rmplanner/features/planner/domain/event_type.dart';
+import 'package:rmplanner/features/planner/domain/event_type_presentation.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
 import 'package:rmplanner/features/planner/domain/planner_day.dart';
 import 'package:uuid/uuid.dart';
@@ -1586,24 +1589,78 @@ final class DriftCalendarEventRepository
         ? await _readActivityType(profileId, activityTypeId)
         : null;
     final resolvedStableKey = stableKey ?? current?.stableKey;
-    final resolvedColor = colorValue ?? current?.colorValue;
+    var resolvedColor = colorValue ?? current?.colorValue;
     var resolvedLabel = label ?? current?.label;
-    // Contract E alias capture: ONLY a new-selection write (new Event,
-    // duplicate, deliberate type change) may persist the live Goal-title
-    // alias for a canonical slot type, and the live binding ALWAYS wins over
-    // any caller-supplied or stale label. Preservation writes (same-type
-    // edits, reschedule, cancel, report preservation) keep every stored
-    // snapshot EXACTLY as-is — a Goal rename never rewrites historical
-    // snapshots, and the raw label fallback stays untouched. The canonical
-    // raw label in activity_types is never modified by any write here.
-    if (selectionContext == _CalendarEventSelectionContext.newSelection &&
-        liveBindings != null) {
+    // Contract E alias capture + Prompt-P46 presentation overrides: ONLY a
+    // new-selection write (new Event, duplicate, deliberate type change) may
+    // persist a live presentation alias for a canonical slot type. The live
+    // binding's effective display name (valid MANUAL override for the bound
+    // Goal, otherwise the current Goal title) ALWAYS wins over any
+    // caller-supplied or stale label; overrides come from the same raw
+    // document helper inside this transaction — never from UI provider
+    // aliases. Preservation writes (same-type edits, reschedule, cancel,
+    // report preservation) keep every stored snapshot EXACTLY as-is — a Goal
+    // rename never rewrites historical snapshots, and the raw label fallback
+    // stays untouched. The raw label in activity_types is never modified.
+    if (selectionContext == _CalendarEventSelectionContext.newSelection) {
       final slot = CanonicalGoalSlot.tryByEventTypeKey(resolvedStableKey);
       if (slot != null && slot.eventTypeId == activityTypeId) {
-        final bindingTitle = liveBindings[slot.slotIndex]?.title;
-        if (bindingTitle != null) {
-          resolvedLabel = bindingTitle;
+        final binding = liveBindings?[slot.slotIndex];
+        // Read the current presentation document ONCE, inside this
+        // transaction, for both the live name override and the Education
+        // color rule below.
+        final stored = await PlannerPresentationDocumentStore(
+          database: database,
+          clock: clock,
+        ).read(profileId);
+        if (binding != null) {
+          // Live canonical type: valid manual override wins, else Goal title.
+          final override = stored.goalEventTypeNames[binding.goalId];
+          final validOverride =
+              override != null &&
+                  override.eventTypeStableKey == slot.eventTypeStableKey
+              ? override
+              : null;
+          resolvedLabel = validOverride?.name ?? binding.title;
+        } else {
+          // Non-Goal prospective surface: the exact untouched Study row
+          // presents as Study & Planning in new-selection snapshots.
+          final currentLabel = resolvedLabel ?? current?.label;
+          if (currentLabel != null) {
+            resolvedLabel = EventTypePresentation.prospectiveLabel(
+              EventType(
+                id: activityTypeId,
+                stableKey: resolvedStableKey!,
+                label: currentLabel,
+                icon: EventTypeIcon.calendar,
+                colorValue: resolvedColor ?? 0,
+                isSystem: true,
+                isArchived: false,
+                reportRequiredDefault: false,
+                defaultDurationMinutes: 60,
+                position: 0,
+                mappingVersion: 1,
+                indicatorKeys: const <String>{},
+              ),
+            );
+          }
         }
+        // Prompt-P46 Education: a new-selection snapshot for the exact
+        // canonical Education type resolves the accent from the explicit
+        // saved education preference, or the NEW P22 default — never from
+        // the legacy raw seed still stored in activity_types for an
+        // existing install. The saved/custom user entry is preserved
+        // verbatim; nothing is written back to preferences here.
+        if (slot.eventTypeStableKey == SystemEventTypeKeys.education) {
+          final saved = stored.events[SystemEventTypeKeys.education];
+          resolvedColor =
+              saved?.accentArgb ??
+              PlannerEventColorDefaults.education.accentArgb;
+        }
+      } else if (resolvedStableKey == SystemEventTypeKeys.studyOrPlan) {
+        // Study snapshot capture for a non-canonical-ID row can only be a
+        // data corruption; keep the raw label (no alias) — identity is the
+        // exact canonical pair.
       }
     }
     return _ActivityTypeSnapshot(

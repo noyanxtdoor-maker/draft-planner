@@ -1,6 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rmplanner/features/goals/application/goal_providers.dart';
+import 'package:rmplanner/features/goals/domain/canonical_goal_slots.dart';
+import 'package:rmplanner/features/goals/domain/goal_event_type_policy.dart';
 import 'package:rmplanner/features/planner/application/event_type_providers.dart';
+import 'package:rmplanner/features/planner/domain/event_color_preferences.dart';
 import 'package:rmplanner/features/planner/domain/event_type_creation_choice.dart';
 import 'package:rmplanner/features/startup/application/startup_providers.dart';
 import 'package:rmplanner/features/startup/domain/startup_state.dart';
@@ -21,11 +24,24 @@ final eventTypeCreationChoicesProvider =
         throw StateError('Creation choices require a ready Local Profile');
       }
       final profileId = startup.profile.id;
-      // Watching both inputs keeps an open picker reactive (contract C/E).
+      // Watching all three inputs keeps an open picker reactive (contract
+      // C/E): raw controller state, live slot bindings, and stored name
+      // overrides (enriched into bindings below).
       final rawState = ref.watch(eventTypeControllerProvider);
       final bindings = await ref.watch(
         liveGoalEventTypeBindingsProvider(profileId).future,
       );
+      final overrides = await ref.watch(
+        goalEventTypeNameOverridesProvider(profileId).future,
+      );
+      // Enrich bindings with stored overrides WITHOUT changing eligibility:
+      // a binding with no entry stays AUTO (display name = Goal title).
+      final enrichedBindings = <int, LiveGoalEventTypeBinding>{
+        for (final entry in bindings.entries)
+          entry.key: entry.value.withNameOverride(
+            _overrideRefFor(overrides, entry.value),
+          ),
+      };
       if (rawState.isLoading) {
         throw const _ChoicesLoading();
       }
@@ -34,9 +50,35 @@ final eventTypeCreationChoicesProvider =
       }
       return EventTypeCreationChoice.buildChoices(
         types: rawState.eventTypes,
-        bindings: bindings,
+        bindings: enrichedBindings,
       );
     });
+
+/// Resolves the stored manual override for one live binding, only when its
+/// stable key matches the binding's canonical slot key exactly. An entry for
+/// a different key never leaks into this binding.
+AssignedEventTypeNameOverrideRef? _overrideRefFor(
+  Map<String, GoalEventTypeNameOverride> overrides,
+  LiveGoalEventTypeBinding binding,
+) {
+  final stored = overrides[binding.goalId];
+  if (stored == null) {
+    return null;
+  }
+  final canonicalSlot = CanonicalGoalSlot.tryByEventTypeKey(
+    stored.eventTypeStableKey,
+  );
+  if (canonicalSlot == null ||
+      canonicalSlot.slotIndex != binding.slotIndex ||
+      stored.eventTypeStableKey !=
+          CanonicalGoalSlot.bySlot(binding.slotIndex).eventTypeStableKey) {
+    return null;
+  }
+  return AssignedEventTypeNameOverrideRef(
+    eventTypeStableKey: stored.eventTypeStableKey,
+    name: stored.name,
+  );
+}
 
 /// Internal sentinel distinguishing "inputs still loading" (a retry-able,
 /// transient state) from a hard failure, so pickers can keep the sheet open

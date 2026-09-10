@@ -429,75 +429,12 @@ void main() {
       },
     );
 
-    testWidgets(
-      'fixed Goal-linked Event Type keeps the fixed assignment and saves the '
-      'chosen combined style',
-      (tester) async {
-        final (database, profileId) = await _bootstrap(tester);
-
-        final context = tester.element(find.byType(Scaffold).first);
-        unawaited(
-          Navigator.of(context).push<bool>(
-            MaterialPageRoute<bool>(
-              builder: (_) => const EventTypeFormScreen.edit(
-                eventTypeId: SystemEventTypeIds.templeVisit,
-                fixedAssignmentLabel: 'Temple Visit Goal',
-              ),
-            ),
-          ),
-        );
-        await tester.pumpAndSettle();
-
-        expect(find.text('Edit Event Type'), findsOneWidget);
-        expect(find.text('Fixed Goal Assignment'), findsOneWidget);
-        expect(find.text('This assignment cannot be changed.'), findsOneWidget);
-        expect(find.text('Assigned Goal: Temple Visit Goal'), findsOneWidget);
-        await _scrollFormTo(
-          tester,
-          find.byKey(const Key('recommended-colors-inline')),
-        );
-        expect(find.text('Event Block Color'), findsOneWidget);
-        expect(find.text('Recommended Colors'), findsOneWidget);
-        expect(
-          find.byKey(const Key('recommended-colors-inline')),
-          findsOneWidget,
-        );
-
-        // Unchanged accent previews the locked curated default pair exactly.
-        final preview = _preview(tester);
-        expect(
-          preview.preference.accentArgb,
-          PlannerEventColorDefaults.lockedTempleVisit.accentArgb,
-        );
-        expect(
-          preview.preference.surfaceArgb,
-          PlannerEventColorDefaults.lockedTempleVisit.surfaceArgb,
-        );
-
-        final target = RecommendedEventColorPalette.colors[1]; // Faded Mauve.
-        await _tapRecommendedSwatch(tester, 1);
-        final expectedSurface =
-            PlannerEventBlockColorPolicy.resolvedSurfaceArgb(
-              accentArgb: target.argb,
-              currentAccentArgb:
-                  PlannerEventColorDefaults.lockedTempleVisit.accentArgb,
-              currentSurfaceArgb:
-                  PlannerEventColorDefaults.lockedTempleVisit.surfaceArgb,
-            );
-
-        await _save(tester);
-
-        final row = await database
-            .select(database.plannerPreferences)
-            .getSingleOrNull();
-        final saved = EventColorPreferenceCodec.decode(
-          row?.eventColorPreferencesJson,
-        )[SystemEventTypeKeys.templeVisit];
-        expect(saved?.accentArgb, target.argb);
-        expect(saved?.surfaceArgb, expectedSurface);
-        // The form popped back after saving; the fixed block is gone.
-        expect(find.text('Fixed Goal Assignment'), findsNothing);
-      },
-    );
+    // Prompt-P46: the canonical fixed-assignment immediate-write path in
+    // EventTypeFormScreen was retired. Assigned Event Type name/color
+    // editing now goes through the draft-only AssignedEventTypeDraftScreen
+    // (parent-owned draft, atomic parent save) and the global live wrapper
+    // (EventTypeRepository.saveLiveGoalPresentation) — covered by
+    // assigned_event_type_draft_test.dart and
+    // assigned_event_type_atomic_save_test.dart.
   });
 }

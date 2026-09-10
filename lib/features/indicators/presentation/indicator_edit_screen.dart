@@ -3,6 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rmplanner/app/theme/internal_screen.dart';
+import 'package:rmplanner/features/goals/application/goal_providers.dart';
+import 'package:rmplanner/features/goals/domain/canonical_goal_slots.dart';
+import 'package:rmplanner/features/goals/presentation/assigned_event_type_draft_screen.dart';
 import 'package:rmplanner/features/indicators/application/indicator_providers.dart';
 import 'package:rmplanner/features/indicators/domain/life_indicator.dart';
 import 'package:rmplanner/features/planner/application/event_type_providers.dart';
@@ -28,12 +31,16 @@ final class _IndicatorEditScreenState
     extends ConsumerState<IndicatorEditScreen> {
   final _formKey = GlobalKey<FormState>();
   final _indicatorController = TextEditingController();
-  final _eventTypeController = TextEditingController();
   LifeIndicatorSummary? _indicator;
   EventType? _eventType;
   Object? _error;
   var _loading = true;
   var _saving = false;
+
+  /// Current live presentation label for the linked Event Type (manual
+  /// override, otherwise the Goal title). Null when the slot has no valid
+  /// live Goal occupant — then the field is disabled.
+  String? _linkedDisplayLabel;
 
   @override
   void initState() {
@@ -64,12 +71,12 @@ final class _IndicatorEditScreenState
         return;
       }
       _indicatorController.text = indicator.summary.label;
-      _eventTypeController.text = eventType.label;
       setState(() {
         _indicator = indicator.summary;
         _eventType = eventType;
         _loading = false;
       });
+      unawaited(_loadLinkedLabel(eventType));
     } on Object catch (error) {
       if (mounted) {
         setState(() {
@@ -80,10 +87,37 @@ final class _IndicatorEditScreenState
     }
   }
 
+  /// Resolves the CURRENT live presentation label freshly from repositories:
+  /// manual override for the live Goal, otherwise the Goal title. A raw
+  /// canonical label is never shown for a valid live Goal; a slot without a
+  /// valid live occupant disables the linked-name field.
+  Future<void> _loadLinkedLabel(EventType eventType) async {
+    try {
+      final slot = CanonicalGoalSlot.tryByEventTypeKey(eventType.stableKey);
+      if (slot == null || slot.indicatorKey != widget.indicatorKey) {
+        return;
+      }
+      final profileId = ref.read(goalProfileIdProvider);
+      final bindings = await ref
+          .read(goalRepositoryProvider)
+          .readLiveEventTypeBindings(profileId);
+      final binding = bindings[slot.slotIndex];
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _linkedDisplayLabel = binding?.displayLabel;
+      });
+    } on Object {
+      if (mounted) {
+        setState(() => _linkedDisplayLabel = null);
+      }
+    }
+  }
+
   @override
   void dispose() {
     _indicatorController.dispose();
-    _eventTypeController.dispose();
     super.dispose();
   }
 
@@ -107,6 +141,7 @@ final class _IndicatorEditScreenState
         ),
       );
     }
+    final hasLiveLinkedType = _linkedDisplayLabel != null;
     return Scaffold(
       appBar: InternalAppBar(
         title: const Text('Edit Indicator'),
@@ -144,13 +179,29 @@ final class _IndicatorEditScreenState
                 validator: _requiredLabel,
               ),
               const SizedBox(height: 16),
-              TextFormField(
+              // Bounded UI (chosen): the linked Event Type name is no longer
+              // a free text field saved through the raw rename path. It is a
+              // ListTile showing the current live presentation alias with an
+              // explicit Edit button opening the separate presentation
+              // editor, so the indicator label save and the presentation
+              // save remain explicit and independent.
+              ListTile(
                 key: const Key('event-type-display-name-field'),
-                controller: _eventTypeController,
-                decoration: const InputDecoration(
-                  labelText: 'Linked Event Type name',
+                contentPadding: EdgeInsets.zero,
+                title: Text('Linked Event Type name'),
+                subtitle: Text(
+                  hasLiveLinkedType
+                      ? _linkedDisplayLabel!
+                      : 'No active Goal is linked right now.',
                 ),
-                validator: _requiredLabel,
+                trailing: TextButton(
+                  key: const Key('edit-linked-event-type'),
+                  onPressed: hasLiveLinkedType && !_saving
+                      ? () => unawaited(_openPresentationEditor())
+                      : null,
+                  child: const Text('Edit'),
+                ),
+                enabled: hasLiveLinkedType,
               ),
               const SizedBox(height: 20),
               const ListTile(
@@ -172,12 +223,30 @@ final class _IndicatorEditScreenState
     return value == null || value.trim().isEmpty ? 'Enter a name.' : null;
   }
 
+  Future<void> _openPresentationEditor() async {
+    final type = _eventType;
+    if (type == null) {
+      return;
+    }
+    final committed = await showLiveGoalPresentationEditor(
+      context,
+      ref,
+      eventTypeStableKey: type.stableKey,
+    );
+    if (!mounted) {
+      return;
+    }
+    if (committed) {
+      // Refresh the shown alias from freshly resolved live state.
+      await _loadLinkedLabel(type);
+    }
+  }
+
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) {
       return;
     }
     final indicatorLabel = _indicatorController.text.trim();
-    final eventTypeLabel = _eventTypeController.text.trim();
     setState(() => _saving = true);
     try {
       await ref
@@ -186,9 +255,6 @@ final class _IndicatorEditScreenState
             indicatorKey: widget.indicatorKey,
             label: indicatorLabel,
           );
-      await ref
-          .read(eventTypeControllerProvider.notifier)
-          .renameSystemType(eventTypeId: _eventType!.id, label: eventTypeLabel);
       if (mounted) {
         Navigator.of(context).pop(true);
       }

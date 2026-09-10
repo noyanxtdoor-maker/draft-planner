@@ -1,3 +1,4 @@
+import 'package:rmplanner/features/goals/domain/assigned_event_type_draft.dart';
 import 'package:rmplanner/features/goals/domain/goal.dart';
 import 'package:rmplanner/features/goals/domain/goal_event_type_policy.dart';
 import 'package:rmplanner/features/planner/domain/planner_date.dart';
@@ -31,6 +32,7 @@ abstract interface class GoalRepository {
     String? iconId,
     String? operationId,
     int? expectedSlotIndex,
+    AssignedEventTypeDraft? assignedEventTypeDraft,
     int startDay = DateTime.monday,
   });
 
@@ -42,6 +44,7 @@ abstract interface class GoalRepository {
     String? iconId,
     String? operationId,
     PlannerDate? today,
+    AssignedEventTypeDraft? assignedEventTypeDraft,
     int startDay = DateTime.monday,
   });
 

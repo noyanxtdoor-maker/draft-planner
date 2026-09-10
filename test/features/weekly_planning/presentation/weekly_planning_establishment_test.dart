@@ -8,6 +8,7 @@ import 'package:rmplanner/core/database/app_database.dart';
 import 'package:rmplanner/core/diagnostics/sanitized_diagnostics.dart';
 import 'package:rmplanner/features/goals/application/goal_providers.dart';
 import 'package:rmplanner/features/goals/application/goal_repository.dart';
+import 'package:rmplanner/features/goals/domain/assigned_event_type_draft.dart';
 import 'package:rmplanner/features/goals/domain/goal.dart';
 import 'package:rmplanner/features/goals/domain/goal_event_type_policy.dart';
 import 'package:rmplanner/features/goals/presentation/widgets/goal_icon.dart';
@@ -194,6 +195,7 @@ final class _ControlledGoalRepository implements GoalRepository {
     String? operationId,
     int? expectedSlotIndex,
     int startDay = DateTime.monday,
+    AssignedEventTypeDraft? assignedEventTypeDraft,
   }) {
     throw UnimplementedError();
   }
@@ -208,6 +210,7 @@ final class _ControlledGoalRepository implements GoalRepository {
     String? operationId,
     PlannerDate? today,
     int startDay = DateTime.monday,
+    AssignedEventTypeDraft? assignedEventTypeDraft,
   }) {
     throw UnimplementedError();
   }

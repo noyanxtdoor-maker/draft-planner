@@ -7,9 +7,11 @@ import 'package:rmplanner/app/router/route_names.dart';
 import 'package:rmplanner/app/theme/app_theme.dart';
 import 'package:rmplanner/app/theme/internal_screen.dart';
 import 'package:rmplanner/features/goals/application/goal_providers.dart';
+import 'package:rmplanner/features/goals/domain/assigned_event_type_draft.dart';
 import 'package:rmplanner/features/goals/domain/canonical_goal_slots.dart';
 import 'package:rmplanner/features/goals/domain/goal.dart';
 import 'package:rmplanner/features/goals/domain/goal_icon_registry.dart';
+import 'package:rmplanner/features/goals/presentation/assigned_event_type_draft_screen.dart';
 import 'package:rmplanner/features/goals/presentation/goal_icon_picker_screen.dart';
 import 'package:rmplanner/features/goals/presentation/widgets/goal_icon.dart';
 import 'package:rmplanner/features/goals/presentation/widgets/goal_icon_choice_row.dart';
@@ -40,6 +42,20 @@ final class _GoalCreateScreenState extends ConsumerState<GoalCreateScreen> {
   /// same allocator used by [GoalRepository.createGoal].
   int? _previewSlot;
 
+  /// Parent-owned Assigned Event Type draft (name mode/override + explicit
+  /// color change). Committed only at Save, together with the Goal, in one
+  /// transaction. Rebuilt when the expected slot/type changes; the name
+  /// draft survives slot changes, the slot-specific color preview does not.
+  AssignedEventTypeDraft? _assignedDraft;
+
+  /// Monotonically increasing token so an older role/slot async lookup can
+  /// never overwrite the latest result.
+  int _slotRequestToken = 0;
+
+  /// Name draft carried across a role/slot change (discarded color preview
+  /// only). Null when no draft existed before the change.
+  (AssignedEventTypeNameMode, String?, bool)? _discardedDraftName;
+
   @override
   void initState() {
     super.initState();
@@ -61,6 +77,7 @@ final class _GoalCreateScreenState extends ConsumerState<GoalCreateScreen> {
   }
 
   Future<void> _refreshPreviewSlot() async {
+    final token = ++_slotRequestToken;
     try {
       final slot = await ref
           .read(goalRepositoryProvider)
@@ -68,18 +85,19 @@ final class _GoalCreateScreenState extends ConsumerState<GoalCreateScreen> {
             profileId: ref.read(goalProfileIdProvider),
             role: _role,
           );
-      if (!mounted) {
+      if (!mounted || token != _slotRequestToken) {
         return;
       }
       setState(() {
         _previewSlot = slot;
       });
     } on Object {
-      if (mounted) {
-        setState(() {
-          _previewSlot = null;
-        });
+      if (!mounted || token != _slotRequestToken) {
+        return;
       }
+      setState(() {
+        _previewSlot = null;
+      });
     }
   }
 
@@ -134,7 +152,21 @@ final class _GoalCreateScreenState extends ConsumerState<GoalCreateScreen> {
                     availability: value.availabilityLabel(role),
                     onTap: value.isAvailable(role)
                         ? () {
-                            setState(() => _role = role);
+                            setState(() {
+                              _role = role;
+                              // The draft is slot-specific: switching roles
+                              // discards the old slot's COLOR preview but
+                              // keeps the Goal name and manual name draft.
+                              final previous = _assignedDraft;
+                              _assignedDraft = null;
+                              _discardedDraftName = previous == null
+                                  ? null
+                                  : (
+                                      previous.currentNameMode,
+                                      previous.currentNameOverride,
+                                      previous.nameDirty,
+                                    );
+                            });
                             unawaited(_refreshPreviewSlot());
                           }
                         : null,
@@ -227,11 +259,18 @@ final class _GoalCreateScreenState extends ConsumerState<GoalCreateScreen> {
 
   Widget _buildAssignedEventTypeSection() {
     final slot = _previewSlot;
-    if (slot == null) {
-      return const SizedBox.shrink();
-    }
-    final stableKey = CanonicalGoalSlot.bySlot(slot).eventTypeStableKey;
     final eventTypeState = ref.watch(eventTypeControllerProvider);
+    if (slot == null || eventTypeState.isLoading) {
+      return const Card(
+        key: Key('goal-create-assigned-event-type'),
+        child: Padding(
+          padding: EdgeInsets.all(12),
+          child: Text('Event Type unavailable', style: AppTypography.secondary),
+        ),
+      );
+    }
+    final canonicalSlot = CanonicalGoalSlot.bySlot(slot);
+    final stableKey = canonicalSlot.eventTypeStableKey;
     EventType? assignedType;
     for (final candidate in eventTypeState.eventTypes) {
       if (candidate.stableKey == stableKey) {
@@ -240,16 +279,50 @@ final class _GoalCreateScreenState extends ConsumerState<GoalCreateScreen> {
       }
     }
     final type = assignedType;
-    final preference = type == null
-        ? null
-        : eventTypeState.eventColors[type.stableKey] ??
-              PlannerEventColorDefaults.forEventType(type);
-    // Contract G (R02): the preview label follows the Goal Name draft
-    // (presentation alias). The canonical Event Type row is never renamed
-    // and the alias is only captured on NEW Event snapshots.
-    final aliasLabel = _nameController.text.trim().isEmpty
-        ? type?.label ?? 'Loading…'
-        : _nameController.text.trim();
+    if (type == null || type.isArchived) {
+      return const Card(
+        key: Key('goal-create-assigned-event-type'),
+        child: Padding(
+          padding: EdgeInsets.all(12),
+          child: Text('Event Type unavailable', style: AppTypography.secondary),
+        ),
+      );
+    }
+
+    // Bind or rebuild the draft against THIS expected slot/type. When the
+    // expected slot changed (role switch / allocator move), the slot-specific
+    // color preview is discarded but the Goal name and manual name draft are
+    // retained and rebound to the new expected slot for review.
+    final draft = _draftFor(slot, type);
+
+    // Name: MANUAL override, otherwise the Goal Name draft (AUTO). A raw
+    // canonical label is never a fallback for a valid Goal's prospective
+    // presentation; an unresolved draft never flashes a stale slot label.
+    final title = _nameController.text.trim();
+    if (title.isEmpty) {
+      return Card(
+        key: const Key('goal-create-assigned-event-type'),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              const Text(
+                'Assigned Event Type',
+                style: InternalScreen.sectionHeading,
+              ),
+              const SizedBox(height: 6),
+              const Text('Enter a Goal name', style: AppTypography.secondary),
+              const SizedBox(height: 6),
+              _editEventTypeControl(draft, enabled: false),
+            ],
+          ),
+        ),
+      );
+    }
+    final colorPair = draft.changedColor ??
+        eventTypeState.eventColors[stableKey] ??
+        PlannerEventColorDefaults.forEventType(type);
     return Card(
       key: const Key('goal-create-assigned-event-type'),
       child: Padding(
@@ -266,17 +339,16 @@ final class _GoalCreateScreenState extends ConsumerState<GoalCreateScreen> {
               children: <Widget>[
                 CircleAvatar(
                   radius: 12,
-                  backgroundColor: Color(
-                    preference?.accentArgb ?? AppTheme.rose.toARGB32(),
-                  ),
+                  backgroundColor: Color(colorPair.accentArgb),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    aliasLabel,
+                    draft.effectiveName(goalTitle: title),
                     style: AppTypography.cardTitle,
                   ),
                 ),
+                _editEventTypeControl(draft, enabled: true),
               ],
             ),
             const SizedBox(height: 6),
@@ -289,6 +361,74 @@ final class _GoalCreateScreenState extends ConsumerState<GoalCreateScreen> {
         ),
       ),
     );
+  }
+
+  /// The parent's draft bound to the expected slot/type. Rebinds (keeping
+  /// name state) whenever the expected slot or type identity changes; the
+  /// slot-specific color preview is discarded on such a change.
+  AssignedEventTypeDraft _draftFor(int slot, EventType type) {
+    final existing = _assignedDraft;
+    final canonicalSlot = CanonicalGoalSlot.bySlot(slot);
+    final matches = existing != null &&
+        existing.expectedSlotIndex == slot &&
+        existing.expectedEventTypeId == type.id &&
+        existing.expectedStableKey == canonicalSlot.eventTypeStableKey;
+    if (matches) {
+      return existing;
+    }
+    final carried = _discardedDraftName;
+    _discardedDraftName = null;
+    final eventTypeState = ref.read(eventTypeControllerProvider);
+    final newDraft = AssignedEventTypeDraft(
+      expectedSlotIndex: slot,
+      expectedEventTypeId: type.id,
+      expectedStableKey: canonicalSlot.eventTypeStableKey,
+      // Create always starts AUTO (no stored entry exists for a not-yet-
+      // created Goal); carried name state keeps the user's in-progress work
+      // across a slot change.
+      originalNameMode: AssignedEventTypeNameMode.auto,
+      currentNameMode:
+          carried?.$1 ?? AssignedEventTypeNameMode.auto,
+      currentNameOverride: carried?.$2,
+      nameDirty: carried?.$3 ?? false,
+      originalColor:
+          eventTypeState.eventColors[canonicalSlot.eventTypeStableKey] ??
+              PlannerEventColorDefaults.forEventType(type),
+      changedColor: null,
+      colorDirty: false,
+    );
+    _assignedDraft = newDraft;
+    return newDraft;
+  }
+
+  Widget _editEventTypeControl(
+    AssignedEventTypeDraft draft, {
+    required bool enabled,
+  }) {
+    return TextButton(
+      key: const Key('goal-create-edit-event-type'),
+      onPressed: enabled && !_saving ? () => _openDraftEditor(draft) : null,
+      child: const Text('Edit Event Type'),
+    );
+  }
+
+  Future<void> _openDraftEditor(AssignedEventTypeDraft draft) async {
+    final result = await Navigator.of(context).push<
+        AssignedEventTypeDraftResult>(
+      MaterialPageRoute<AssignedEventTypeDraftResult>(
+        builder: (_) => AssignedEventTypeDraftScreen(
+          initialDraft: draft,
+          goalTitle: _nameController.text.trim(),
+        ),
+      ),
+    );
+    if (!mounted || result == null) {
+      // Cancel/dismissal: the draft is untouched; nothing to discard.
+      return;
+    }
+    setState(() {
+      _assignedDraft = result.applyTo(_assignedDraft!);
+    });
   }
 
   Future<void> _save() async {
@@ -317,10 +457,33 @@ final class _GoalCreateScreenState extends ConsumerState<GoalCreateScreen> {
       return;
     }
     if (previewedSlot == null || resolvedSlot != previewedSlot) {
+      // Slot conflict: discard the old slot-specific color preview only;
+      // the Goal name and manual name draft are retained and rebound to the
+      // refreshed expected slot for review.
+      setState(() {
+        final previous = _assignedDraft;
+        _assignedDraft = null;
+        _discardedDraftName = previous == null
+            ? null
+            : (
+                previous.currentNameMode,
+                previous.currentNameOverride,
+                previous.nameDirty,
+              );
+      });
       await _refreshPreviewSlot();
       _showError(
         'The available Goal slot changed. Review the assigned Event Type '
         'and try again.',
+      );
+      return;
+    }
+    final draft = _assignedDraft;
+    if (draft == null ||
+        draft.expectedSlotIndex != previewedSlot ||
+        !draft.hasValidIdentity) {
+      _showError(
+        'The assigned Event Type is still loading. Try again in a moment.',
       );
       return;
     }
@@ -344,6 +507,7 @@ final class _GoalCreateScreenState extends ConsumerState<GoalCreateScreen> {
             targets: targets,
             iconId: _draftIconId,
             expectedSlotIndex: previewedSlot,
+            assignedEventTypeDraft: draft,
           );
       ref.invalidate(activeGoalsProvider);
       ref.invalidate(goalCapacityProvider);

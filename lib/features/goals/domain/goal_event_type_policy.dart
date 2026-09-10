@@ -1,3 +1,4 @@
+import 'package:rmplanner/features/goals/domain/assigned_event_type_draft.dart';
 import 'package:rmplanner/features/goals/domain/canonical_goal_slots.dart';
 import 'package:rmplanner/features/goals/domain/goal.dart';
 
@@ -14,6 +15,7 @@ final class LiveGoalEventTypeBinding {
     required this.goalId,
     required this.slotIndex,
     required this.title,
+    this.eventTypeNameOverride,
   });
 
   final String profileId;
@@ -21,20 +23,71 @@ final class LiveGoalEventTypeBinding {
   final int slotIndex;
   final String title;
 
+  /// Presentation-name override for this exact Goal, when one is stored.
+  /// Null means AUTO (display name follows the Goal title). The Goal title
+  /// is NEVER overloaded to mean an Event Type override.
+  final AssignedEventTypeNameOverrideRef? eventTypeNameOverride;
+
+  /// Effective prospective display name: MANUAL override, otherwise the
+  /// trimmed Goal title. A raw canonical label is never a fallback.
+  String get displayLabel =>
+      eventTypeNameOverride?.name.trim() ?? title.trim();
+
+  LiveGoalEventTypeBinding withNameOverride(
+    AssignedEventTypeNameOverrideRef? override,
+  ) {
+    return LiveGoalEventTypeBinding(
+      profileId: profileId,
+      goalId: goalId,
+      slotIndex: slotIndex,
+      title: title,
+      eventTypeNameOverride: override,
+    );
+  }
+
   @override
   bool operator ==(Object other) =>
       other is LiveGoalEventTypeBinding &&
       other.profileId == profileId &&
       other.goalId == goalId &&
       other.slotIndex == slotIndex &&
-      other.title == title;
+      other.title == title &&
+      other.eventTypeNameOverride == eventTypeNameOverride;
 
   @override
-  int get hashCode => Object.hash(profileId, goalId, slotIndex, title);
+  int get hashCode => Object.hash(
+    profileId,
+    goalId,
+    slotIndex,
+    title,
+    eventTypeNameOverride,
+  );
 
   @override
   String toString() =>
       'LiveGoalEventTypeBinding(slot: $slotIndex, goal: $goalId, title: $title)';
+}
+
+/// Read-only reference to a stored manual presentation-name override. Kept
+/// separate from [AssignedEventTypeNameMode] so the domain binding stays a
+/// plain data carrier; equals by value for easy provider diffing.
+final class AssignedEventTypeNameOverrideRef {
+  const AssignedEventTypeNameOverrideRef({
+    required this.eventTypeStableKey,
+    required this.name,
+  });
+
+  final String eventTypeStableKey;
+  final String name;
+
+  @override
+  bool operator ==(Object other) =>
+      other is AssignedEventTypeNameOverrideRef &&
+      other.eventTypeStableKey == eventTypeStableKey &&
+      other.name == name;
+
+  @override
+  int get hashCode => Object.hash(eventTypeStableKey, name);
 }
 
 /// Raw, storage-shaped Goal fields offered to the policy.

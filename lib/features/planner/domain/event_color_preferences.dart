@@ -53,14 +53,67 @@ abstract final class ContactGroupDefaults {
   }
 }
 
+/// One Goal-scoped Event Type presentation-name override stored in the
+/// profile's Planner Preferences document (schema 46, additive JSON field).
+///
+/// Identity is the REAL Goal UUID plus the canonical Event Type stable key
+/// that Goal occupies. This is NOT a new Event Type, NOT a `goal:<goalId>`
+/// activity-types row, and never an accounting/ownership record; it is local
+/// profile presentation metadata only.
+final class GoalEventTypeNameOverride {
+  const GoalEventTypeNameOverride({
+    required this.eventTypeStableKey,
+    required this.name,
+  });
+
+  final String eventTypeStableKey;
+  final String name;
+
+  Map<String, Object> toJson() => <String, Object>{
+    'eventTypeStableKey': eventTypeStableKey,
+    'name': name,
+  };
+
+  static GoalEventTypeNameOverride? fromJson(Object? value) {
+    if (value is! Map) {
+      return null;
+    }
+    final key = value['eventTypeStableKey'];
+    final name = value['name'];
+    if (key is! String || key.trim().isEmpty) {
+      return null;
+    }
+    if (name is! String || name.trim().isEmpty) {
+      return null;
+    }
+    return GoalEventTypeNameOverride(eventTypeStableKey: key, name: name.trim());
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is GoalEventTypeNameOverride &&
+      other.eventTypeStableKey == eventTypeStableKey &&
+      other.name == name;
+
+  @override
+  int get hashCode => Object.hash(eventTypeStableKey, name);
+}
+
 final class PlannerColorPreferencesDocument {
   const PlannerColorPreferencesDocument({
     required this.events,
     required this.groups,
+    this.goalEventTypeNames = const <String, GoalEventTypeNameOverride>{},
   });
 
   final Map<String, EventColorPreference> events;
   final Map<String, int> groups;
+
+  /// Presentation-name overrides keyed by the real Goal UUID. A missing
+  /// entry means AUTO (display name follows the Goal title). Invalid raw
+  /// entries are dropped from this validated map but are preserved verbatim
+  /// in storage by the presentation document store on unrelated writes.
+  final Map<String, GoalEventTypeNameOverride> goalEventTypeNames;
 }
 
 /// The two user-editable colors that describe one Planner Event Type.
@@ -130,7 +183,11 @@ abstract final class EventColorPreferenceCodec {
         );
       }
       final hasDocumentShape =
-          decoded.containsKey('events') || decoded.containsKey('groups');
+          decoded.containsKey('events') ||
+          decoded.containsKey('groups') ||
+          // An envelope is recognized even when events/groups are empty so
+          // name-only documents are never misread as legacy flat colors.
+          decoded.containsKey('goalEventTypeNames');
       final eventValue = hasDocumentShape ? decoded['events'] : decoded;
       final groupValue = hasDocumentShape ? decoded['groups'] : null;
       final groups = <String, int>{};
@@ -150,6 +207,9 @@ abstract final class EventColorPreferenceCodec {
       return PlannerColorPreferencesDocument(
         events: _decodeEventMap(eventValue),
         groups: Map<String, int>.unmodifiable(groups),
+        goalEventTypeNames: _decodeGoalEventTypeNames(
+          hasDocumentShape ? decoded['goalEventTypeNames'] : null,
+        ),
       );
     } on FormatException {
       return const PlannerColorPreferencesDocument(
@@ -170,11 +230,14 @@ abstract final class EventColorPreferenceCodec {
   static String encodeDocument({
     required Map<String, EventColorPreference> events,
     required Map<String, int> groups,
+    Map<String, GoalEventTypeNameOverride> goalEventTypeNames =
+        const <String, GoalEventTypeNameOverride>{},
   }) {
-    // Keep the legacy flat document when no Group color has ever been saved.
-    // This is a lossless migration for existing installs and leaves Restore
-    // Event Defaults compatible with the pre-Prompt-B preference shape.
-    if (groups.isEmpty) {
+    // Keep the legacy flat document when no Group color or Goal name
+    // override has ever been saved. This is a lossless migration for
+    // existing installs and leaves Restore Event Defaults compatible with
+    // the pre-Prompt-B preference shape.
+    if (groups.isEmpty && goalEventTypeNames.isEmpty) {
       return encode(events);
     }
     return jsonEncode(<String, Object>{
@@ -183,7 +246,32 @@ abstract final class EventColorPreferenceCodec {
         for (final entry in groups.entries)
           if (entry.key.trim().isNotEmpty) entry.key: entry.value,
       },
+      if (goalEventTypeNames.isNotEmpty)
+        'goalEventTypeNames': <String, Object>{
+          for (final entry in goalEventTypeNames.entries)
+            if (entry.key.trim().isNotEmpty) entry.key: entry.value.toJson(),
+        },
     });
+  }
+
+  static Map<String, GoalEventTypeNameOverride> _decodeGoalEventTypeNames(
+    Object? value,
+  ) {
+    if (value is! Map) {
+      return const <String, GoalEventTypeNameOverride>{};
+    }
+    final result = <String, GoalEventTypeNameOverride>{};
+    for (final entry in value.entries) {
+      final key = entry.key;
+      if (key is! String || key.trim().isEmpty) {
+        continue;
+      }
+      final override = GoalEventTypeNameOverride.fromJson(entry.value);
+      if (override != null) {
+        result[key] = override;
+      }
+    }
+    return Map<String, GoalEventTypeNameOverride>.unmodifiable(result);
   }
 
   static Map<String, EventColorPreference> _decodeEventMap(Object? value) {
@@ -270,13 +358,15 @@ abstract final class PlannerEventColorDefaults {
     surfaceArgb: 0xFF47444B,
   );
 
-  /// Education reuses the locked Recommended Color P24 (Faded Periwinkle)
-  /// accent with its locked dark surface partner. Deliberately absent from
-  /// `_labelDefaults`: a custom row merely named "Education" must keep the
-  /// accepted fallback behavior, never adopt the system default.
+  /// Education uses the locked Recommended Color P22 (Gray Blue) accent with
+  /// its locked dark surface partner, written verbatim above (approved
+  /// Education pair, Prompt-P46). Deliberately absent from `_labelDefaults`:
+  /// a custom row merely named "Education" must keep the accepted fallback
+  /// behavior, never adopt the system default.
   static const EventColorPreference education = EventColorPreference(
-    accentArgb: Vs11ColorSystem.p24DeepBlue,
-    surfaceArgb: 0xFF3F434F,
+    accentArgb: Vs11ColorSystem.p22SteelBlue,
+    // Exact RecommendedEventColorSurfacePartners P22 companion, verbatim.
+    surfaceArgb: 0xFF484F56,
   );
   static const EventColorPreference scriptureStudy = EventColorPreference(
     accentArgb: 0xFFDE9EDA,

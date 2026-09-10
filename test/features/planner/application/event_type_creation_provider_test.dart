@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:rmplanner/core/diagnostics/sanitized_diagnostics.dart';
 import 'package:rmplanner/features/goals/application/goal_providers.dart';
 import 'package:rmplanner/features/goals/application/goal_repository.dart';
+import 'package:rmplanner/features/goals/domain/assigned_event_type_draft.dart';
 import 'package:rmplanner/features/goals/domain/canonical_goal_slots.dart';
 import 'package:rmplanner/features/goals/domain/goal.dart';
 import 'package:rmplanner/features/goals/domain/goal_event_type_policy.dart';
@@ -178,6 +179,28 @@ final class _ControlledEventTypeRepository implements EventTypeRepository {
   Future<Map<String, int>> restoreContactGroupColorDefaults({
     required String profileId,
   }) async => const <String, int>{};
+
+  @override
+  Stream<void> watchPresentationDocument(String profileId) =>
+      const Stream<void>.empty();
+
+  @override
+  Future<Map<String, GoalEventTypeNameOverride>>
+  readGoalEventTypeNameOverrides(String profileId) async =>
+      const <String, GoalEventTypeNameOverride>{};
+
+  @override
+  Future<LiveGoalPresentationResult> saveLiveGoalPresentation({
+    required String profileId,
+    required int expectedSlotIndex,
+    required String expectedGoalId,
+    required String expectedEventTypeId,
+    required String expectedStableKey,
+    required LiveGoalPresentationOriginals originalValues,
+    required LiveGoalPresentationPatch patch,
+  }) {
+    throw UnimplementedError();
+  }
 }
 
 /// Controlled Goal repository: only watchChanges + readLiveEventTypeBindings
@@ -249,6 +272,7 @@ final class _ControlledGoalRepository implements GoalRepository {
     String? operationId,
     int? expectedSlotIndex,
     int startDay = DateTime.monday,
+    AssignedEventTypeDraft? assignedEventTypeDraft,
   }) {
     throw UnimplementedError();
   }
@@ -263,6 +287,7 @@ final class _ControlledGoalRepository implements GoalRepository {
     String? operationId,
     PlannerDate? today,
     int startDay = DateTime.monday,
+    AssignedEventTypeDraft? assignedEventTypeDraft,
   }) {
     throw UnimplementedError();
   }

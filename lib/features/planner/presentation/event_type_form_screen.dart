@@ -13,19 +13,16 @@ import 'package:rmplanner/features/planner/presentation/widgets/planner_event_bl
 final class EventTypeFormScreen extends ConsumerStatefulWidget {
   const EventTypeFormScreen.create({super.key})
     : eventTypeId = null,
-      initialEventType = null,
-      fixedAssignmentLabel = null;
+      initialEventType = null;
 
   const EventTypeFormScreen.edit({
     required this.eventTypeId,
     this.initialEventType,
-    this.fixedAssignmentLabel,
     super.key,
   });
 
   final String? eventTypeId;
   final EventType? initialEventType;
-  final String? fixedAssignmentLabel;
 
   @override
   ConsumerState<EventTypeFormScreen> createState() =>
@@ -55,9 +52,6 @@ final class _EventTypeFormScreenState
   bool _saving = false;
   EventType? _eventType;
 
-  bool get _isFixedGoalAssignment =>
-      widget.eventTypeId != null && widget.fixedAssignmentLabel != null;
-
   @override
   void initState() {
     super.initState();
@@ -70,8 +64,7 @@ final class _EventTypeFormScreenState
         widget.eventTypeId ??
         ref.read(plannerIdentifierSourceProvider).nextUuid();
     final initialEventType = widget.initialEventType;
-    if (initialEventType != null &&
-        (!initialEventType.isSystem || _isFixedGoalAssignment)) {
+    if (initialEventType != null && !initialEventType.isSystem) {
       _initializeDraft(initialEventType);
     } else if (widget.eventTypeId != null) {
       _loading = true;
@@ -99,7 +92,10 @@ final class _EventTypeFormScreenState
     if (!mounted) {
       return;
     }
-    if (type == null || (type.isSystem && !_isFixedGoalAssignment)) {
+    if (type == null || type.isSystem) {
+      // System types (including the six canonical Goal rows) are never
+      // edited through this raw form: live canonical rows route to the
+      // draft-only presentation editor instead.
       Navigator.of(context).pop();
       return;
     }
@@ -117,7 +113,6 @@ final class _EventTypeFormScreenState
 
   @override
   Widget build(BuildContext context) {
-    final fixedAssignmentLabel = widget.fixedAssignmentLabel;
     return Scaffold(
       appBar: InternalAppBar(
         title: Text(
@@ -142,47 +137,18 @@ final class _EventTypeFormScreenState
                           : null,
                     ),
                     const SizedBox(height: 12),
-                    if (_isFixedGoalAssignment &&
-                        fixedAssignmentLabel != null) ...<Widget>[
-                      Text(
-                        'Fixed Goal Assignment',
-                        style: InternalScreen.sectionHeading,
-                      ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'Events of this type contribute toward this Goal. '
-                        'The assignment is fixed.',
-                        style: TextStyle(
-                          fontFamily: 'Roboto',
-                          fontSize: 14,
-                          height: 20 / 14,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      const Text('This assignment cannot be changed.'),
-                      const SizedBox(height: 6),
-                      Text('Assigned Goal: $fixedAssignmentLabel'),
-                      const SizedBox(height: 10),
-                      _buildColorField(),
-                      const SizedBox(height: 10),
-                      const Text(
-                        'Renaming the Event Type affects newly created Events '
-                        'only. Existing Events keep the names they had when '
-                        'created.',
-                      ),
-                    ] else ...<Widget>[
-                      DropdownButtonFormField<EventTypeIcon>(
-                        initialValue: _icon,
-                        decoration: const InputDecoration(labelText: 'Icon'),
-                        items: <DropdownMenuItem<EventTypeIcon>>[
-                          for (final icon in EventTypeIcon.values)
-                            DropdownMenuItem(
-                              value: icon,
-                              child: Text(icon.name),
-                            ),
-                        ],
-                        onChanged: (value) => setState(() => _icon = value!),
-                      ),
+                    DropdownButtonFormField<EventTypeIcon>(
+                      initialValue: _icon,
+                      decoration: const InputDecoration(labelText: 'Icon'),
+                      items: <DropdownMenuItem<EventTypeIcon>>[
+                        for (final icon in EventTypeIcon.values)
+                          DropdownMenuItem(
+                            value: icon,
+                            child: Text(icon.name),
+                          ),
+                      ],
+                      onChanged: (value) => setState(() => _icon = value!),
+                    ),
                       const SizedBox(height: 12),
                       _buildColorField(),
                       const SizedBox(height: 12),
@@ -243,7 +209,6 @@ final class _EventTypeFormScreenState
                             }
                           }),
                         ),
-                    ],
                     const SizedBox(height: 18),
                     FilledButton.icon(
                       key: const Key('save-custom-event-type'),
@@ -307,9 +272,11 @@ final class _EventTypeFormScreenState
     }
     setState(() => _saving = true);
     final controller = ref.read(eventTypeControllerProvider.notifier);
-    final saved = _isFixedGoalAssignment && _eventType != null
-        ? await _saveFixedAssignment(controller)
-        : await _saveCustomType(controller);
+    // The unsafe canonical fixed-assignment writer (immediate renameSystemType
+    // + saveEventColor) is retired: live canonical Goal rows route to the
+    // draft-only presentation editor instead. This form now only creates and
+    // edits CUSTOM types.
+    final saved = await _saveCustomType(controller);
     if (!mounted) {
       return;
     }
@@ -363,31 +330,4 @@ final class _EventTypeFormScreenState
     );
   }
 
-  Future<bool> _saveFixedAssignment(EventTypeController controller) async {
-    final type = _eventType!;
-    final renamed = await controller.renameSystemType(
-      eventTypeId: type.id,
-      label: _labelController.text.trim(),
-    );
-    if (!renamed) {
-      return false;
-    }
-    final current =
-        ref.read(eventTypeControllerProvider).eventColors[type.stableKey] ??
-        PlannerEventColorDefaults.forEventType(type);
-    return controller.saveEventColor(
-      type,
-      EventColorPreference(
-        accentArgb: _colorValue,
-        // The surface derives from the canonical accent whenever the accent
-        // changes, so a stale old-color surface can never linger after an
-        // Edit Event Type Save.
-        surfaceArgb: PlannerEventBlockColorPolicy.resolvedSurfaceArgb(
-          accentArgb: _colorValue,
-          currentAccentArgb: current.accentArgb,
-          currentSurfaceArgb: current.surfaceArgb,
-        ),
-      ),
-    );
-  }
 }
